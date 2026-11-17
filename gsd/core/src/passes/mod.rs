@@ -1,5 +1,6 @@
 //! The passes of `@gsd/core`.
 
+mod citations;
 mod commits;
 mod cross_plan;
 mod decision_coverage;

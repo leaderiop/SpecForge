@@ -383,6 +383,11 @@ fn a_version_and_a_hit_its_decision_states_are_not_e312() {
     );
     p.edit(
         "spec/plans.spec",
+        "in-memory store (D-01)\"",
+        "in-memory store (D-01, D-02)\"",
+    );
+    p.edit(
+        "spec/plans.spec",
         "action \"Write src/tasks.js with add() and list()\"",
         "action \"Tag the v1.0 release in package.json\"",
     );
@@ -393,13 +398,13 @@ fn a_version_and_a_hit_its_decision_states_are_not_e312() {
         "action \"Write src/tasks.js, v1 only, as D-02 settles\"",
     );
     assert_eq!(p.codes(), CLEAN);
-    // Named in the action but not listed, D-02 excuses nothing (and is itself uncovered).
+    // Cited but not listed, D-02 excuses nothing (and is an open gap row).
     p.edit(
         "spec/plans.spec",
         "  decisions      [D-01, D-02]\n",
         "  decisions      [D-01]\n",
     );
-    assert_eq!(p.codes(), ["gsd/E310", "gsd/E312", "gsd/W317"]);
+    assert_eq!(p.codes(), ["gsd/E312", "gsd/W317"]);
 }
 
 /// Plan 01-02 delivers TASK-01 instead of TASK-02: the requirement of phase 01 that no plan cites is the one gap.
@@ -488,15 +493,37 @@ fn an_uncited_context_decision_is_e310() {
 }
 
 #[test]
-fn a_decision_named_only_in_prose_is_e310() {
-    // A task action names `D-02` and repeats its first six words; only a `decisions` entry covers it.
+fn a_paraphrase_is_no_citation_and_the_id_is_one() {
+    // A task action repeats the decision's first six words: no citation.
     let p = with(&phase_1_decision("Completed tasks move to a done list"));
     p.edit(
         "spec/plans.spec",
         "action \"Write src/complete.js with complete(id)\"",
-        "action \"D-02: completed tasks move to a done list: write src/complete.js\"",
+        "action \"Completed tasks move to a done list: write src/complete.js\"",
     );
     assert_eq!(p.codes(), ["gsd/E310", "gsd/W317"]);
+    // The id in the action cites it.
+    p.edit(
+        "spec/plans.spec",
+        "action \"Completed tasks move",
+        "action \"D-02: completed tasks move",
+    );
+    assert_eq!(p.codes(), ["gsd/W317"]);
+}
+
+#[test]
+fn a_listed_decision_cited_nowhere_is_e310() {
+    let p = with(&phase_1_decision("Completed tasks move to a done list"));
+    p.edit(
+        "spec/plans.spec",
+        "  decisions      [D-01]\n",
+        "  decisions      [D-01, D-02]\n",
+    );
+    assert_eq!(p.codes(), ["gsd/E310"]);
+    assert_eq!(
+        message(&p, "gsd/E310"),
+        "decision 'v1.0/01/D-02' is cited by no plan of phase 'v1.0/01'"
+    );
 }
 
 #[test]

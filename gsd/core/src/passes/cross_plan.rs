@@ -1,8 +1,8 @@
 //! The cross-plan pass: the rules that read the plans of a phase together. `gsd/E301` (a phase requirement in no
-//! plan, plan checker D1), `gsd/E310` (a context decision no plan lists in its `decisions`,
-//! `gate-decision-coverage-plan`, which matches the plans' text instead) and
-//! `gsd/I321` (the deterministic half of D3b: a justified coupling). Each judges a phase only once it has a plan:
-//! GSD runs them at `plan:post`, and before that a phase has nothing to cover.
+//! plan, plan checker D1), `gsd/E310` (a context decision no plan cites, `gate-decision-coverage-plan`: upstream's gate
+//! reads the plans' text for the id or a paraphrase, SpecForge for the id alone, read with its path and resolved in
+//! the plan's phase, `passes::citations`) and `gsd/I321` (the deterministic half of D3b: a justified coupling). Each
+//! judges a phase only once it has a plan: GSD runs them at `plan:post`, and before that a phase has nothing to cover.
 //!
 //! Also ports gsd-core bin/lib modules: gate-gap-analysis-plan-post.cjs.
 
@@ -10,9 +10,8 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{
-    children, context_decisions, listed_decisions, name_of, of_kind, rows, targets, written_target,
-};
+use super::citations;
+use super::plans::{children, context_decisions, name_of, of_kind, rows, targets, written_target};
 use crate::scope::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -64,18 +63,19 @@ fn uncovered_requirements(
         .collect()
 }
 
-/// E310: every trackable decision of the phase's context, a `decision` with `origin context`, is listed in the
-/// `decisions` of one of its plans: a typed reference resolved in the plan's phase, so another phase's namesake covers
-/// nothing and a name in prose is no claim. `settled` plays no part; discretion items are not decisions.
+/// E310: every trackable decision of the phase's context, a `decision` with `origin context`, is cited by its id in the
+/// text of one of its plans (`citations::cited_by`): a bare id resolves in the plan's own phase, so another phase's
+/// decision is cited by its path (`01/D-01`) and a paraphrase cites nothing. `settled` plays no part; discretion items
+/// are not decisions.
 fn uncited_decisions(
     input: &PassInput,
     phase: &PassEntity,
     plans: &[&PassEntity],
 ) -> Vec<PassDiagnostic> {
-    let listed = listed_decisions(input, plans.iter().map(|plan| plan.id.as_str()));
+    let cited = citations::cited_by(input, plans.iter().copied());
     context_decisions(input, &phase.id)
         .into_iter()
-        .filter(|decision| !listed.contains(decision.id.as_str()))
+        .filter(|decision| !cited.contains(decision.id.as_str()))
         .map(|decision| {
             PassDiagnostic::new(
                 "E310",
@@ -86,7 +86,8 @@ fn uncited_decisions(
                 ),
             )
             .with_suggestion(format!(
-                "list {} in the decisions of the plan that implements it, or move it to the context's discretion if it should not be tracked",
+                "cite {} by its id in a task or must-have of the plan that implements it (a decision of another phase by its path, such as 01/{}), or move it to the context's discretion if it should not be tracked",
+                name_of(&decision.id),
                 name_of(&decision.id)
             ))
             .with_entity(&decision.id)

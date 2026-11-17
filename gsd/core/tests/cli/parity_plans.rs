@@ -226,8 +226,9 @@ fn gate_cutover_plan_verdicts_reproduce() {
         ]
     );
 
-    // Decision coverage: the uncovered ids are the E310 entities. The project's plans list their decisions in
-    // `decisions` and upstream's cite them in prose; the verdicts' items are equal.
+    // Decision coverage: the uncovered ids are the E310 entities. The project's plans cite their decisions by id in
+    // their prose, as upstream's fixture does (their `decisions` lists are still written and read by no rule); the
+    // verdicts' items are equal.
     let uncovered: Vec<String> = printed("decision-coverage-plan-uncovered")["uncovered"]
         .as_array()
         .expect("uncovered")

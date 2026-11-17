@@ -64,7 +64,8 @@ fn an_unplanned_phase_is_not_judged() {
     assert!(check(&input).is_empty());
 }
 
-/// Phase `v/1` with one plan whose objective and task action are given, and the plan's `decisions` edges.
+/// Phase `v/1` with one plan whose objective and task action are given, and the plan's `decisions` edges (still
+/// declared, read by no rule).
 fn decision_input(text: &str, objective: &str, task_action: &str, listed: &[&str]) -> PassInput {
     PassInput {
         entities: vec![
@@ -103,13 +104,20 @@ fn an_uncited_context_decision_is_e310_on_the_decision() {
 }
 
 #[test]
-fn a_decision_is_covered_only_by_a_decisions_edge() {
+fn a_decision_is_covered_by_its_id_in_a_plans_text() {
     let text = "Log every failed retry to the audit trail, with its cause";
-    // Prose alone, by name or by its first six words, covers nothing.
+    // The id, in the plan's objective or in a task, covers it.
+    for (objective, action) in [("Honour D-03", "Write it"), ("Build it", "See D-03.")] {
+        assert!(
+            check(&decision_input(text, objective, action, &[])).is_empty(),
+            "{objective} / {action}"
+        );
+    }
+    // Its first six words, another id that ends with it, and its name in another case cover nothing.
     for (objective, action) in [
-        ("Honour D-03", "Write it"),
-        ("Build it", "See D-03."),
         ("Build it", "Log every failed retry to the audit trail."),
+        ("Build it", "See D-030 and XD-03"),
+        ("Build it", "See d-03"),
     ] {
         assert_eq!(
             codes_of(&check(&decision_input(text, objective, action, &[]))),
@@ -117,42 +125,50 @@ fn a_decision_is_covered_only_by_a_decisions_edge() {
             "{objective} / {action}"
         );
     }
-    assert!(check(&decision_input(text, "Build it", "Write it", &["v/1/D-03"])).is_empty());
-    // An edge to another decision, or to the project's namesake, covers nothing.
-    for other in ["v/1/D-030", "D-03"] {
-        assert_eq!(
-            codes_of(&check(&decision_input(
-                text,
-                "Build it",
-                "Write it",
-                &[other]
-            ))),
-            [("E310", Some("v/1/D-03"))],
-            "{other}"
-        );
-    }
+    // A `decisions` edge with no citation covers nothing: no rule reads the list.
+    assert_eq!(
+        codes_of(&check(&decision_input(
+            text,
+            "Build it",
+            "Write it",
+            &["v/1/D-03"]
+        ))),
+        [("E310", Some("v/1/D-03"))]
+    );
+    // The project's namesake, cited by its rooted path, covers nothing of the phase.
+    assert_eq!(
+        codes_of(&check(&decision_input(
+            text,
+            "Honour /D-03",
+            "Write it",
+            &[]
+        ))),
+        [("E310", Some("v/1/D-03"))]
+    );
 }
 
-/// A plan of phase 2 that lists phase 1's `D-01` covers nothing of phase 2: its own `D-01` is still uncited.
+/// The roadmap's case: plan 02-01's task writes `01/D-01`. That cites phase 01's decision, so phase 02's own `D-01`
+/// is still uncited, and phase 01's, cited by its own plan, is untouched.
 #[test]
-fn a_citation_of_another_phases_decision_covers_nothing_here() {
+fn phase_two_citing_01_d_01_leaves_its_own_d_01_uncited() {
     let input = PassInput {
         entities: vec![
-            entity("v/1", "phase", &[]),
-            entity("v/1/1-01", "plan", &[("objective", "Honour D-01")]),
+            entity("v1.0/01", "phase", &[]),
+            entity("v1.0/01/01-01", "plan", &[("objective", "Honour D-01")]),
             entity(
-                "v/1/D-01",
+                "v1.0/01/D-01",
                 "decision",
                 &[("origin", "context"), ("text", "ES modules")],
             ),
-            entity("v/2", "phase", &[]),
+            entity("v1.0/02", "phase", &[]),
+            entity("v1.0/02/02-01", "plan", &[("objective", "Store the tasks")]),
             entity(
-                "v/2/2-01",
-                "plan",
-                &[("objective", "Keep phase 1's D-01 (ES modules)")],
+                "v1.0/02/02-01/T1",
+                "task",
+                &[("action", "Keep phase 1's 01/D-01 (ES modules)")],
             ),
             entity(
-                "v/2/D-01",
+                "v1.0/02/D-01",
                 "decision",
                 &[
                     ("origin", "context"),
@@ -160,13 +176,17 @@ fn a_citation_of_another_phases_decision_covers_nothing_here() {
                 ],
             ),
         ],
-        edges: vec![
-            edge("v/1/1-01", "v/1/D-01", "decisions"),
-            edge("v/2/2-01", "v/1/D-01", "decisions"),
-        ],
         ..Default::default()
     };
-    assert_eq!(codes_of(&check(&input)), [("E310", Some("v/2/D-01"))]);
+    assert_eq!(codes_of(&check(&input)), [("E310", Some("v1.0/02/D-01"))]);
+    assert!(
+        check(&input)[0]
+            .suggestion
+            .as_deref()
+            .is_some_and(|s| s.contains("by its path, such as 01/D-01")),
+        "{:?}",
+        check(&input)
+    );
 }
 
 /// Plan `v/1/1-01` of `wave_a` naming its peer `<peer_scope>/1-02` of `wave_b` as the writer spells it from its own
@@ -261,7 +281,7 @@ fn a_coupling_peer_in_another_wave_or_phase_covers_nothing() {
 }
 
 /// Every context decision is counted, as GSD counts it: a decision has no supersession, so one whose text a later
-/// decision names as reversed, or that another decision of the context restates, is still E310 until a plan lists it,
+/// decision names as reversed, or that another decision of the context restates, is still E310 until a plan cites it,
 /// whatever the later decision's origin and whether either is settled.
 #[test]
 fn every_context_decision_is_counted_with_no_supersession() {
@@ -270,7 +290,11 @@ fn every_context_decision_is_counted_with_no_supersession() {
             let input = PassInput {
                 entities: vec![
                     entity("v/1", "phase", &[]),
-                    entity("v/1/1-01", "plan", &[]),
+                    entity(
+                        "v/1/1-01",
+                        "plan",
+                        &[("objective", "Implement D-04 and D-05")],
+                    ),
                     entity(
                         "v/1/D-03",
                         "decision",
@@ -296,10 +320,6 @@ fn every_context_decision_is_counted_with_no_supersession() {
                             ("text", "Supersedes D-03: tasks are kept in SQLite"),
                         ],
                     ),
-                ],
-                edges: vec![
-                    edge("v/1/1-01", "v/1/D-04", "decisions"),
-                    edge("v/1/1-01", "v/1/D-05", "decisions"),
                 ],
                 ..Default::default()
             };
