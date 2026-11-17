@@ -96,8 +96,6 @@ The test being asked now is session state.
 |---|---|---|---|
 | session | → uat_session | R I | parent |
 | expected | str | R | expected behaviour |
-| criterion | int | | the phase success criterion it proves |
-| from_task | → task | | a harvested `<human-check>` |
 | result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by a person through `set_uat_result --by` (a human-attested command, ADR 0301: refused to an agent) |
 | source | enum{human, automated} | H | written by `set_uat_result` (`human` when a re-answer replaces an earlier `source`) or by `record_automated_uat` (`automated`, a pass or an issue, an agent's or CI's call: `set_uat_result --source automated` is refused). A re-answer unsets the members its result does not take |
 | reported | str | | the human's words, verbatim, when `issue` |

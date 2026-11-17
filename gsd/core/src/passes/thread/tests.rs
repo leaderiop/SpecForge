@@ -400,20 +400,6 @@ fn a_requirement_no_plan_names_has_no_task() {
 }
 
 #[test]
-fn a_manual_task_does_not_trace() {
-    let manual = traced("manual", true, &[(TASK, TestStatus::Passed)]);
-    assert_eq!(proof_of(&manual), Proof::NoTask);
-    // It is still a task of the requirement's plans.
-    assert_eq!(
-        requirement_tasks(&manual.0, "R1")
-            .iter()
-            .map(|t| t.id.as_str())
-            .collect::<Vec<_>>(),
-        [TASK]
-    );
-}
-
-#[test]
 fn a_task_without_a_commit_is_no_commit() {
     assert_eq!(
         proof_of(&traced("auto", false, &[(TASK, TestStatus::Passed)])),

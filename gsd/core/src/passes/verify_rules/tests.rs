@@ -71,16 +71,14 @@ fn a_backstop_or_unreported_truth_is_never_contradicted() {
     assert!(e502(&input("explicit", &[], None)).is_empty());
 }
 
-/// A lifted backstop edge carries only `proposed_verification`: with no `verification` it is never contradicted,
-/// exactly as an untiered truth.
+/// A truth with no `verification` names no tier to contradict. A lifted backstop edge is not one: the planner writes
+/// it `verification backstop`, as above.
 #[test]
-fn a_proposed_backstop_is_never_contradicted() {
+fn an_untiered_truth_is_never_contradicted() {
     let failing = report(&[("linked", TestStatus::Failed)], &[]);
-    let mut proposed = input("explicit", &[], Some(failing));
-    let fields = &mut proposed.entities[0].fields;
-    fields.remove("verification");
-    fields.insert("proposed_verification".into(), "backstop".into());
-    assert!(e502(&proposed).is_empty());
+    let mut untiered = input("explicit", &[], Some(failing));
+    untiered.entities[0].fields.remove("verification");
+    assert!(e502(&untiered).is_empty());
 }
 
 #[test]

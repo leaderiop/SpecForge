@@ -62,8 +62,6 @@ pub const UAT_TEST: Kind = Kind::new(
     &[
         rf("session", "uat_session").r().i().doc("parent"),
         str("expected").prose().r().doc("expected behaviour"),
-        int("criterion").doc("the phase success criterion it proves"),
-        rf("from_task", "task").doc("a harvested `<human-check>`"),
         en("result", RESULT)
             .h()
             .doc("written from the person's answer"),

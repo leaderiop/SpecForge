@@ -16,7 +16,7 @@ use std::collections::BTreeSet;
 use specforge_extension_sdk::prelude::*;
 
 use super::commits::Commit;
-use super::plans::{of_kind, text};
+use super::plans::of_kind;
 
 #[cfg(test)]
 pub(crate) mod fixture;
@@ -209,7 +209,7 @@ impl<'a> Thread<'a> {
 /// tests say.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Proof {
-    /// No task of a plan that lists it, `manual` ones aside.
+    /// No task of a plan that lists it.
     NoTask,
     /// Its tasks have no recorded commit.
     NoCommit,
@@ -275,15 +275,12 @@ pub fn requirement_tasks<'a>(input: &'a PassInput, requirement: &str) -> Vec<&'a
         .collect()
 }
 
-/// The requirement's thread state: its non-`manual` tasks (none: `NoTask`), those a recorded commit names (none:
+/// The requirement's thread state: its tasks (none: `NoTask`), those a recorded commit names (none:
 /// `NoCommit`), then, with test facts collected (else `NotRun`), the evidence of each committed task: the facts linked
 /// to it, those linked to the requirement and the proofs of the truths that name the requirement (ADR 0331 D5). One
 /// committed task whose evidence passed makes it `Proven`; else a failed one `Failed`; else `NoTest`.
 pub fn requirement_proof(input: &PassInput, commits: &[Commit], requirement: &str) -> Proof {
-    let tasks: Vec<&PassEntity> = requirement_tasks(input, requirement)
-        .into_iter()
-        .filter(|t| text(t, "type") != Some("manual"))
-        .collect();
+    let tasks = requirement_tasks(input, requirement);
     if tasks.is_empty() {
         return Proof::NoTask;
     }

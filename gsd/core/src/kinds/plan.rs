@@ -79,7 +79,7 @@ pub const PLAN: Kind = Kind::new(
 .scoped_by("phase")
 .complete_when("status", &["complete"]);
 
-const TASK_TYPE: &[&str] = &["auto", "tdd", "tracer", "manual"];
+const TASK_TYPE: &[&str] = &["auto", "tdd", "tracer"];
 const RATING: &[&str] = &["reversible", "costly", "one_way"];
 const REVERSIBILITY: &[Field] = &[
     en("rating", RATING).r(),
@@ -89,7 +89,8 @@ const REVERSIBILITY: &[Field] = &[
 const VERIFY: &[Field] = &[str("automated").r(), str("fails_when").prose()];
 const TASK_STATUS: &[&str] = &["pending", "done"];
 
-/// `<task type="auto|tdd">`, named `T1` within its plan; the order is the name's number.
+/// `<task type="auto|tdd|tracer">`, gsd-core's task types (a `checkpoint:*` task is a `checkpoint`), named `T1` within
+/// its plan; the order is the name's number.
 // `commits` is not a field of the task: it is the inverse of `commit.task` (`commit`, round r38).
 pub const TASK: Kind = Kind::new(
     "task",

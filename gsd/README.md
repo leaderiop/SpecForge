@@ -181,7 +181,7 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). K20a, K20b and K20c are built (protocol 1.14.0), and so is R1 (protocol 1.15.0): the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). One divergence from upstream: a truth's `verification` tier is a person's, so `/gsd-phase --remove` of a phase whose truth holds one is refused `human_only` until the person deletes that line in their editor (upstream deletes regardless; REVIEW-k20a M3). What still waits for kernel work:
+`previous_score` and compares scan states (r39 T13 is built). K20a, K20b and K20c are built (protocol 1.14.0), and so is R1 (protocol 1.15.0): the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). What still waits for kernel work:
 
 - **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
   status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free

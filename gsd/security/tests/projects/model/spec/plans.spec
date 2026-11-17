@@ -32,7 +32,6 @@ truth TR1 "A user can add a task and see it listed" {
   plan         v1.0/01/01-01
   text         "A user can add a task and see it listed"
   verification explicit
-  criterion    1
 }
 
 artifact AR1 "Task store" {

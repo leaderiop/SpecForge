@@ -195,10 +195,6 @@ Not verified:
   (Cursor's agent terminal, Codex's pty exec) is stopped there. What is left is `script(1)` typed by a person on the
   agent's behalf, a script file or a variable that holds the command, and a host with no shell hook (REVIEW-k20a M2,
   REVIEW-k20c-part2 M1).
-- `/gsd-phase --remove` of a phase whose truth holds a `verification` tier is refused `human_only`, for an agent and for
-  a person's run of the command alike: the tier is a person's (`U`, D-K20a-4), so the person deletes that line in their
-  editor and runs the remove again. Upstream deletes the phase regardless (REVIEW-k20a M3). A human-attested remove is
-  not built.
 - W514 fires on every `check`, once per open deviation window that names a proposal, while `workflow.windows_enforce` is
   off; upstream warns once per triggering `refactor evaluate` (also when broken-windows is absent). The text and the
   remediation match. E515 is SpecForge's own (gsd-plus) and has no upstream.

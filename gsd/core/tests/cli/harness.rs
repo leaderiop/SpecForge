@@ -655,6 +655,19 @@ impl Project {
         self.write(relative, &text.replacen(from, to, 1));
     }
 
+    /// Writes `lines` at the end of UAT test `name`'s block in `spec/uat.spec`, before its closing brace.
+    pub fn close_uat_test(&self, name: &str, lines: &str) {
+        let text = self.read("spec/uat.spec");
+        let start = text
+            .find(&format!("uat_test {name} "))
+            .unwrap_or_else(|| panic!("no uat_test {name} in spec/uat.spec:\n{text}"));
+        let end = start + text[start..].find("\n}").expect("the test's closing brace") + 1;
+        self.write(
+            "spec/uat.spec",
+            &format!("{}{lines}{}", &text[..end], &text[end..]),
+        );
+    }
+
     /// `specforge query <entity> --inputs gsd/<code> --format json`: what the judge reads, and the basis to record.
     pub fn inputs(&self, entity: &str, code: &str) -> serde_json::Value {
         let run = self.run(&[

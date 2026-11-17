@@ -11,8 +11,8 @@ fn proved() -> Project {
     let p = project("execute");
     p.edit(
         "spec/plans.spec",
-        "  verification explicit\n  criterion    1\n",
-        &format!("  verification explicit\n  criterion    1\n  proof        [\"{ADDS}\"]\n"),
+        "  verification explicit\n",
+        &format!("  verification explicit\n  proof        [\"{ADDS}\"]\n"),
     );
     p
 }

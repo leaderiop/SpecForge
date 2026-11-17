@@ -961,15 +961,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "UatTestFromTask",
-        "source_kind": "uat_test",
-        "target_kind": "task"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "UatGapTest",
         "source_kind": "uat_gap",
         "target_kind": "uat_test"
@@ -5074,8 +5065,7 @@
             "enum_values": [
               "auto",
               "tdd",
-              "tracer",
-              "manual"
+              "tracer"
             ],
             "field_type": "enum",
             "inverse_of": null,
@@ -5608,7 +5598,7 @@
           },
           {
             "default_value": null,
-            "description": "explicit: a named passing test; backstop: judged",
+            "description": "explicit: a named passing test; backstop: judged, and a verifier abstains on it with no explicit evidence. The planner writes `backstop` for a lifted backstop edge; a person may change the tier",
             "edge": null,
             "enum_values": [
               "explicit",
@@ -5617,32 +5607,6 @@
             "field_type": "enum",
             "inverse_of": null,
             "name": "verification",
-            "required": false,
-            "target_kind": null,
-            "writer": "human"
-          },
-          {
-            "default_value": null,
-            "description": "the tier the planner proposes (backstop for a lifted backstop edge); a person confirms it by setting `verification`, and a verifier abstains on a proposed backstop with no `verification`",
-            "edge": null,
-            "enum_values": [
-              "explicit",
-              "backstop"
-            ],
-            "field_type": "enum",
-            "immutable": true,
-            "inverse_of": null,
-            "name": "proposed_verification",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the phase success criterion it proves",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "name": "criterion",
             "required": false,
             "target_kind": null
           }
@@ -8733,26 +8697,6 @@
             "name": "expected",
             "required": true,
             "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the phase success criterion it proves",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "name": "criterion",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "a harvested `<human-check>`",
-            "edge": "UatTestFromTask",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "from_task",
-            "required": false,
-            "target_kind": "task"
           },
           {
             "default_value": null,

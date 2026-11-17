@@ -156,7 +156,7 @@ fn e303_fires_on_an_auto_task_without_files_or_verify() {
 }
 
 #[test]
-fn e303_is_silent_on_a_manual_task_and_on_any_verify_form() {
+fn e303_is_silent_on_any_verify_form() {
     let mut text_only = task("T2", "auto", true, false);
     text_only
         .fields
@@ -164,7 +164,7 @@ fn e303_is_silent_on_a_manual_task_and_on_any_verify_form() {
     let mut human = task("T3", "auto", true, false);
     human.fields.insert("verify_human".into(), "look".into());
     let found = check(&input(
-        vec![task("T1", "manual", false, false), text_only, human],
+        vec![task("T1", "auto", true, true), text_only, human],
         vec![],
     ));
     assert!(found.is_empty(), "{found:?}");
@@ -174,7 +174,7 @@ fn e303_is_silent_on_a_manual_task_and_on_any_verify_form() {
 fn w304_is_four_tasks_and_e322_is_five_never_both() {
     let tasks = |n: usize| -> Vec<PassEntity> {
         (1..=n)
-            .map(|i| task(&format!("T{i}"), "manual", false, false))
+            .map(|i| task(&format!("T{i}"), "auto", true, true))
             .collect()
     };
     assert!(check(&input(tasks(3), vec![])).is_empty());
@@ -257,10 +257,7 @@ fn one_way(name: &str, settled: bool) -> PassEntity {
     if settled {
         door["settled_by"] = "D-01".into();
     }
-    with_values(
-        task(name, "manual", false, false),
-        &[("reversibility", door)],
-    )
+    with_values(task(name, "auto", true, true), &[("reversibility", door)])
 }
 
 #[test]

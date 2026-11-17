@@ -83,9 +83,10 @@ fn with(more: &str) -> Project {
     p
 }
 
-fn manual(name: &str, plan: &str) -> String {
+/// An `auto` task of `plan` with its files and an automated verify, so no plan-shape rule fires on the task itself.
+fn auto(name: &str, plan: &str) -> String {
     format!(
-        "task {name} \"Manual {name}\" {{\n  plan   {plan}\n  type   manual\n  action \"Do it by hand\"\n  done   \"Done by hand\"\n}}\n\n"
+        "task {name} \"Auto {name}\" {{\n  plan   {plan}\n  type   auto\n  files  [\"src/tasks.js\"]\n  action \"Do it\"\n  verify [\n    {{ automated \"node --test test/tasks.test.js\" fails_when \"a test fails\" }}\n  ]\n  done   \"Done\"\n}}\n\n"
     )
 }
 
@@ -114,13 +115,13 @@ fn each_plan_shape_code_fires_on_its_fixture() {
     // W304: four children, and E322: five. Never both.
     let four = format!(
         "{}{}",
-        manual("T3", "v1.0/01/01-01"),
-        manual("T4", "v1.0/01/01-01")
+        auto("T3", "v1.0/01/01-01"),
+        auto("T4", "v1.0/01/01-01")
     );
     let p = with(&four);
     assert_eq!(p.codes(), ["gsd/W304"]);
     assert!(only(&p, "gsd/W304").contains("plan 'v1.0/01/01-01' has 4 tasks"));
-    let p = with(&format!("{four}{}", manual("T5", "v1.0/01/01-01")));
+    let p = with(&format!("{four}{}", auto("T5", "v1.0/01/01-01")));
     assert_eq!(p.codes(), ["gsd/E322"]);
     assert!(only(&p, "gsd/E322").contains("plan 'v1.0/01/01-01' has 5 tasks"));
 
@@ -182,7 +183,7 @@ fn each_plan_shape_code_fires_on_its_fixture() {
 
     // ... and after a decision checkpoint (`C1` of plan 01-02 is after T1).
     let p = with(
-        "task T2 \"Irreversible\" {\n  plan          v1.0/01/01-02\n  type          manual\n  reversibility { rating one_way why \"deletes the old file\" }\n  action        \"Delete it\"\n  done          \"Deleted\"\n}\n",
+        "task T2 \"Irreversible\" {\n  plan          v1.0/01/01-02\n  type          auto\n  files         [\"src/complete.js\"]\n  reversibility { rating one_way why \"deletes the old file\" }\n  action        \"Delete it\"\n  verify        [{ automated \"node --test test/tasks.test.js\" fails_when \"a test fails\" }]\n  done          \"Deleted\"\n}\n",
     );
     assert_eq!(p.codes(), CLEAN);
 
@@ -217,8 +218,8 @@ fn each_plan_shape_code_fires_on_its_fixture() {
 }
 
 #[test]
-fn a_manual_task_without_files_and_three_children_are_clean() {
-    let p = with(&manual("T3", "v1.0/01/01-01"));
+fn three_children_are_clean() {
+    let p = with(&auto("T3", "v1.0/01/01-01"));
     assert_eq!(p.codes(), CLEAN);
 }
 

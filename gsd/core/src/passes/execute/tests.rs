@@ -187,28 +187,27 @@ fn a_task_of_a_tdd_plan_is_judged() {
     );
 }
 
-fn task_input(plan_status: &str, task_type: &str) -> PassInput {
+fn task_input(plan_status: &str) -> PassInput {
     PassInput {
         entities: vec![
             entity("P", "plan", &[("status", plan_status)]),
-            entity("P/T1", "task", &[("type", task_type)]),
+            entity("P/T1", "task", &[("type", "auto")]),
         ],
         ..Default::default()
     }
 }
 
 #[test]
-fn w407_judges_complete_plans_and_leaves_manual_tasks_alone() {
+fn w407_judges_complete_plans_only() {
     let named = [commit("feat", Some("P/T1"))];
-    assert_eq!(task_commits(&task_input("complete", "auto"), &[]).len(), 1);
+    assert_eq!(task_commits(&task_input("complete"), &[]).len(), 1);
     // The tasks after a halt never ran.
-    assert!(task_commits(&task_input("halted", "auto"), &[]).is_empty());
-    assert!(task_commits(&task_input("executing", "auto"), &[]).is_empty());
-    assert!(task_commits(&task_input("complete", "manual"), &[]).is_empty());
-    assert!(task_commits(&task_input("complete", "auto"), &named).is_empty());
+    assert!(task_commits(&task_input("halted"), &[]).is_empty());
+    assert!(task_commits(&task_input("executing"), &[]).is_empty());
+    assert!(task_commits(&task_input("complete"), &named).is_empty());
     // A commit that names only the plan is not the task's.
     assert_eq!(
-        task_commits(&task_input("complete", "auto"), &[commit("feat", None)]).len(),
+        task_commits(&task_input("complete"), &[commit("feat", None)]).len(),
         1
     );
 }

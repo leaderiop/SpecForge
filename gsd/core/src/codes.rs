@@ -447,7 +447,7 @@ pub static CODES: &[Code] = &[
     code(
         "W407",
         "Task has no commit",
-        "Every task of a complete plan has a recorded commit (a manual task is exempt)",
+        "Every task of a complete plan has a recorded commit",
         "execute",
         Severity::Warning,
         Severity::Warning,

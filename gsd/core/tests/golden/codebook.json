@@ -274,7 +274,7 @@
     {
       "code": "W407",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "Every task of a complete plan has a recorded commit (a manual task is exempt). It is a warning.",
+      "explanation": "Every task of a complete plan has a recorded commit. It is a warning.",
       "title": "Task has no commit"
     },
     {

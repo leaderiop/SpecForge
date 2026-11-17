@@ -340,13 +340,6 @@ fn task_without_commit_is_w407_only_when_task_commits_is_on() {
         found[0].1.contains("v1.0/01/01-01/T1") && found[1].1.contains("v1.0/01/01-01/T2"),
         "{found:?}"
     );
-    // A manual task is a human's step.
-    p.edit(
-        "spec/plans.spec",
-        "task T2 \"Store tests\" {\n  plan   v1.0/01/01-01\n  type   tdd",
-        "task T2 \"Store tests\" {\n  plan   v1.0/01/01-01\n  type   manual",
-    );
-    assert_eq!(codes(&p), ["gsd/W407"], "{:?}", report(&p));
     // A commit that names the task settles it.
     let p = repository();
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);

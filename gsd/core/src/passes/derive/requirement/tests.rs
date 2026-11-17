@@ -69,7 +69,7 @@ fn itemized() -> PassInput {
             "auto",
             vec!["js:app/src/b.js::add", "js:app/src/a.js::board"],
         ),
-        ("01-01/T2", "manual", vec!["js:app/src/c.js::check"]),
+        ("01-01/T2", "tdd", vec!["js:app/src/c.js::check"]),
         (
             "02-01/T1",
             "auto",
@@ -100,7 +100,7 @@ fn satisfied_by(input: &PassInput, requirement: &str) -> Option<serde_json::Valu
 #[test]
 fn satisfied_by_is_each_item_its_tasks_name_once() {
     let input = itemized();
-    // Both plans' tasks, the manual one's item too, sorted and each once; R3's plan counts for R3 alone.
+    // Both plans' tasks, whatever their type, sorted and each once; R3's plan counts for R3 alone.
     assert_eq!(
         satisfied_by(&input, "R2"),
         Some(json!([

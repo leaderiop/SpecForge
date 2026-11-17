@@ -249,15 +249,12 @@ fn a_checkpoint_answer_is_a_harness_block_with_no_e107_rule() {
     assert_eq!(on_checkpoint, 0, "{rules}");
 }
 
-/// D-K20a-4: the tier of a truth is a person's decision, so an agent cannot lift or unset it.
+/// ADR 0370: the planner writes a truth's tier, as upstream's does (`backstop` for a lifted backstop edge), and a
+/// person may change it: the field is the author's.
 #[test]
-fn a_truths_verification_is_a_persons_to_write() {
-    assert_eq!(field_of("truth", "verification")["writer"], "human");
-    // the planner proposes a tier instead, once; a person confirms it in `verification`
-    assert_ne!(
-        field_of("truth", "proposed_verification")["writer"],
-        "human"
-    );
+fn a_truths_verification_is_the_authors() {
+    let verification = field_of("truth", "verification");
+    assert!(verification.get("writer").is_none(), "{verification}");
 }
 
 #[test]
@@ -269,15 +266,7 @@ fn must_haves_golden() {
         [
             (
                 "truth",
-                vec![
-                    "plan",
-                    "text",
-                    "requirement",
-                    "proof",
-                    "verification",
-                    "proposed_verification",
-                    "criterion"
-                ]
+                vec!["plan", "text", "requirement", "proof", "verification"]
             ),
             (
                 "artifact",
@@ -303,7 +292,7 @@ fn must_haves_golden() {
         .map(|(k, f)| (k, f.into_iter().map(String::from).collect()))
     );
     let total: usize = fields.iter().map(|(_, f)| f.len()).sum();
-    assert_eq!(total, 24);
+    assert_eq!(total, 22);
     for (kind, required) in [
         ("truth", vec!["plan", "text"]),
         ("artifact", vec!["plan", "path", "provides"]),
@@ -412,7 +401,7 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
     assert_eq!(kind_of("user_setup")["scoped_by"], "plan");
 }
 
-/// `plan.md` lists 81 fields over its nine kinds (the review kinds are counted on their own). The model fixes: `task.commits` waits for `commit`, which is 1
+/// `plan.md` lists 80 fields over its nine kinds (the review kinds are counted on their own). The model fixes: `task.commits` waits for `commit`, which is 1
 /// fewer, and `task.verify_text`, `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification`
 /// are 4 more: 81 - 1 + 4 = 84. `plan.gap_closure` is declared with the UAT kinds, and `artifact.state` and
 /// `key_link.state` (computed by the scan) are 2 more: 86. `plan.estimate_slices` (the smart-zone budget's answer) is 1 more, and `disposition.concern` 1 more.
@@ -430,12 +419,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    // + 1: truth.proposed_verification
-    assert_eq!(
-        total,
-        81 - 1 + 4 + 2 + 3 + 1 + 1 + 1 + 1,
-        "the kinds' fields"
-    );
+    assert_eq!(total, 80 - 1 + 4 + 2 + 3 + 1 + 1 + 1, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of
