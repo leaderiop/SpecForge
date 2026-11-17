@@ -1,31 +1,23 @@
-//! The census (ADR 0372 D8, ADR 0364 D4): per old kind, over this repository's own spec read as an old project and over
-//! absorb's fixture, every entity is converted (it is in the id map) or dropped whole (its title is ledgered
-//! `dropped`), never both and never neither, and an entity dropped whole leaves a `dropped` entry for each of its
-//! values. Over the root spec, the id map is total, one to one, repeatable and GSD's; the pure plan's ledger holds one
-//! outcome per entry; and every create writes only kinds and authored fields `@gsd/core` declares.
+//! The census (ADR 0372 D8, ADR 0364 D4): per old kind, over absorb's fixture, every entity is converted (it is in the
+//! id map) or dropped whole (its title is ledgered `dropped`), never both and never neither, and an entity dropped
+//! whole leaves a `dropped` entry for each of its values. The id map is total, one to one, repeatable and GSD's; the
+//! pure plan's ledger holds one outcome per entry; and every create writes only kinds and authored fields `@gsd/core`
+//! declares.
 //!
-//! Pure: it scaffolds no target, so it runs in the unit slice and the gate's `tests` check. The root spec is
-//! read as an old project, so the swap removes the root half with the self-spec sample (ADR 0367 D1); the fixture,
-//! which holds every old kind, is what keeps the census after it.
+//! Pure: it scaffolds no target, so it runs in the unit slice and the gate's `tests` check. It once also read this
+//! repository's own spec as an old project; that half last held on the spec before the swap and retired with it
+//! (ADR 0374 D2, D7). The fixture holds every old kind, so it is what keeps the census.
 
 use regex::Regex;
 use serde_json::{Value, json};
 use specforge_ops::authoring::edit::{Edit, Input};
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::LazyLock;
 
 use super::super::ledger::Why;
 use super::super::plan::{self, Planned, Stop};
-use super::super::read::{self, OldEntity};
+use super::super::read::OldEntity;
 use super::super::table::FATES;
 use super::{fixture, old};
-
-/// The root spec's authored entities, compiled once for the tests that read them.
-static ROOT: LazyLock<Vec<OldEntity>> = LazyLock::new(|| {
-    read::compile(specforge_repo_root::repo_root())
-        .expect("the self-spec compiles clean")
-        .entities()
-});
 
 /// One old kind's count: its entities, the converted and the dropped whole.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -149,50 +141,6 @@ fn gsd_kinds() -> BTreeMap<String, BTreeMap<String, String>> {
 }
 
 #[test]
-fn the_root_spec_census_holds_per_old_kind() {
-    let kinds: BTreeSet<String> = ROOT.iter().map(|e| e.kind.clone()).collect();
-    assert_eq!(kinds, fated(), "the root spec holds the 17 fated kinds");
-    let (_, counts) = census(&ROOT).expect("the root spec converts");
-    // ADR 0372 D1's fate table: a change here is read against it.
-    let expected = pins(&[
-        ("feature", 141, 0),
-        ("constraint", 63, 0),
-        ("invariant", 149, 0),
-        ("decision", 100, 17),
-        ("release", 3, 0),
-        ("milestone", 13, 5),
-        ("deliverable", 0, 12),
-        ("failure_mode", 0, 35),
-        ("journey", 0, 54),
-        ("term", 0, 100),
-        ("persona", 0, 6),
-        ("channel", 0, 5),
-        ("module", 0, 54),
-        ("behavior", 0, 706),
-        ("event", 0, 123),
-        ("type", 0, 678),
-        ("port", 0, 26),
-    ]);
-    for (kind, count) in &expected {
-        assert_eq!(
-            counts.get(kind),
-            Some(count),
-            "{kind}: entities, converted, dropped whole, as ADR 0372 D1's fate table gives them"
-        );
-    }
-    assert_eq!(counts, expected);
-    assert_eq!(
-        total(&counts),
-        Count {
-            entities: 2_290,
-            converted: 469,
-            dropped: 1_821
-        },
-        "ADR 0372 D1: 2,290 authored entities (with the spec block, the 2,291 of the baseline)"
-    );
-}
-
-#[test]
 fn the_fixture_census_holds_per_old_kind() {
     let entities = fixture().entities();
     let kinds: BTreeSet<String> = entities.iter().map(|e| e.kind.clone()).collect();
@@ -238,8 +186,9 @@ fn the_fixture_census_holds_per_old_kind() {
 }
 
 #[test]
-fn the_root_spec_ids_are_total_one_to_one_repeatable_and_grammatical() {
-    let (planned, _) = census(&ROOT).expect("the root spec converts");
+fn the_fixture_ids_are_total_one_to_one_repeatable_and_grammatical() {
+    let entities = fixture().entities();
+    let (planned, _) = census(&entities).expect("the fixture converts");
     let created: Vec<(String, String)> = planned
         .creates
         .iter()
@@ -269,7 +218,7 @@ fn the_root_spec_ids_are_total_one_to_one_repeatable_and_grammatical() {
     assert_eq!(mapped.len(), created.len());
     assert_eq!(planned.ledger.ids().count(), created.len());
 
-    let again = plan::plan(&ROOT);
+    let again = plan::plan(&entities);
     assert_eq!(planned.ids, again.ids, "a second plan gives the same map");
     assert_eq!(
         planned.ledger.to_json("specforge"),
@@ -294,14 +243,6 @@ fn the_root_spec_ids_are_total_one_to_one_repeatable_and_grammatical() {
             new.kind
         );
     }
-    assert!(
-        ROOT.iter().any(|e| e.kind == "term" && e.id == "blocker"),
-        "the old term that stopped the first trial with E013"
-    );
-    assert!(
-        planned.ids.get("term", "blocker").is_none(),
-        "an old term is dropped whole (ADR 0372 D1)"
-    );
 
     let mut by_kind: BTreeMap<&str, usize> = BTreeMap::new();
     let mut tiers: BTreeMap<String, usize> = BTreeMap::new();
@@ -317,23 +258,27 @@ fn the_root_spec_ids_are_total_one_to_one_repeatable_and_grammatical() {
     assert_eq!(
         by_kind,
         BTreeMap::from([
-            ("decision", 100),
-            ("milestone", 3),
-            ("phase", 13),
-            ("requirement", 353)
+            ("decision", 2),
+            ("milestone", 2),
+            ("phase", 3),
+            ("requirement", 10)
         ]),
         "ADR 0372 D3, D4, D5"
     );
     assert_eq!(
         tiers,
-        BTreeMap::from([("v1".to_string(), 69), ("v2".to_string(), 284)]),
-        "ADR 0372 D7: a requirement no written phase lists is v2"
+        BTreeMap::from([
+            ("out_of_scope".to_string(), 1),
+            ("v1".to_string(), 2),
+            ("v2".to_string(), 7)
+        ]),
+        "ADR 0372 D7: a requirement no written phase lists is v2, a deprecated feature out_of_scope"
     );
 }
 
 #[test]
-fn the_root_spec_ledger_holds_one_outcome_per_entry() {
-    let (planned, _) = census(&ROOT).expect("the root spec converts");
+fn the_fixture_ledger_holds_one_outcome_per_entry() {
+    let (planned, _) = census(&fixture().entities()).expect("the fixture converts");
     let classes: BTreeSet<String> = planned.ledger.counts().into_keys().collect();
     assert_eq!(
         classes,
@@ -356,7 +301,7 @@ fn the_root_spec_ledger_holds_one_outcome_per_entry() {
 
 #[test]
 fn every_create_writes_only_authored_kinds_and_fields_of_gsd_core() {
-    let (planned, _) = census(&ROOT).expect("the root spec converts");
+    let (planned, _) = census(&fixture().entities()).expect("the fixture converts");
     let declared = gsd_kinds();
     for edit in &planned.creates {
         let Edit::Create {

@@ -292,19 +292,6 @@ pub static CHECKS: &[Check] = &[
         run: steps::build,
     },
     Check {
-        name: "self-spec-sample",
-        proves: "the WASM-host sample of the self-spec, absorbed into @gsd/core kinds, checks with no error and no warning and runs only the tests absorb cites, none since ADR 0370; its infos, ledger and selection equal their goldens",
-        reach: Reach::Quick,
-        trigger: Trigger::Computed(
-            "the spec, @gsd, the builtins, the toolchain and build configuration; a source cargo builds into the CLI, absorb, the gate or a cited test",
-            crate::self_spec_sample::reach::reached,
-        ),
-        compiles: true,
-        after: &["build"],
-        fix: "read <target>/gate/self-spec-sample.log. An error or warning is fixed at the source (spec/, a test's attribute) or in absorb's table, never blessed. A compiled unit: the copy or the cargo environment differs from the gate's build (the log names the unit). An intended info, ledger or selection change: SPECFORGE_BLESS=1 cargo gate full --only self-spec-sample, then read the golden diff",
-        run: crate::self_spec_sample::run,
-    },
-    Check {
         name: "tests",
         proves: "the workspace tests pass (quick: the changed crates and their dependents)",
         reach: Reach::Quick,
@@ -548,17 +535,13 @@ fn blobs_fed(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     ))
 }
 
-/// Paths outside every member (`gsd/` is a workspace of its own, `spec/` and `specforge.json` the self-spec) that tests
-/// of a member read, each a file or a `<dir>/**` pattern with the members whose tests read it: a change there is no
-/// change to any member, so `member_of` cannot reach them. `xtask`'s keyword guard compiles the whole self-spec.
-const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[
-    (
-        "gsd/core/tests/golden/kinds.json",
-        &["specforge-component", "xtask"],
-    ),
-    ("spec/**", &["xtask"]),
-    ("specforge.json", &["xtask"]),
-];
+/// Paths outside every member (`gsd/` is a workspace of its own) that tests of a member read, each a file or a
+/// `<dir>/**` pattern with the members whose tests read it: a change there is no change to any member, so `member_of`
+/// cannot reach them.
+const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[(
+    "gsd/core/tests/golden/kinds.json",
+    &["specforge-component", "xtask"],
+)];
 
 /// The members holding a changed path, and the members that read a changed file outside the workspace
 /// ([`READ_FROM_OUTSIDE`]); a change to the root manifest, the lockfile or nextest's config reaches every member.

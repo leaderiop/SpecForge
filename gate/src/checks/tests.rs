@@ -363,36 +363,6 @@ fn a_file_outside_the_workspace_that_a_member_tests_read_selects_that_member() {
     }
 }
 
-/// The self-spec belongs to no member, yet `xtask`'s keyword guard compiles all of it: a change to a spec file or to
-/// the manifest selects `xtask`'s tests, and nothing else.
-#[test]
-fn a_change_to_the_self_spec_selects_the_test_that_compiles_it() {
-    for path in ["spec/governance/constraints.spec", "specforge.json"] {
-        assert!(this_repo().member_of(path).is_none(), "{path}");
-        assert_eq!(
-            selection("tests", Mode::Quick, &[path]),
-            only(&["xtask"]),
-            "{path}"
-        );
-    }
-    assert_eq!(
-        selection(
-            "tests",
-            Mode::Quick,
-            &[
-                "spec/product/features.spec",
-                "crates/surfaces/lsp/src/lib.rs"
-            ]
-        ),
-        only(&["specforge-lsp", "xtask"])
-    );
-    assert_eq!(
-        selection("tests", Mode::Quick, &["integrations/rust/spec/a.spec"]),
-        Selection::Skip,
-        "another project's spec is not the self-spec"
-    );
-}
-
 #[test]
 fn doctests_run_for_the_changed_members_that_hold_one() {
     assert_eq!(
@@ -621,72 +591,4 @@ fn spec_modules_runs_when_the_module_file_or_a_manifest_changes() {
         selection("spec-modules", Mode::Hook, &["spec/product/modules.spec"]),
         Selection::Skip
     );
-}
-
-/// The sample check's selection for `paths` in this repository as cargo describes it: its trigger reads the
-/// workspace's dependency graph, which the literal [`this_repo`] does not hold.
-fn sample(mode: Mode, paths: &[&str]) -> Selection {
-    static REPO: std::sync::OnceLock<Repo> = std::sync::OnceLock::new();
-    let repo = REPO.get_or_init(|| Repo::discover().unwrap());
-    check("self-spec-sample")
-        .selection(mode, repo, &ChangeSet::of(paths.iter().copied()))
-        .unwrap()
-}
-
-#[test]
-fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change() {
-    for path in [
-        "spec/governance/constraints.spec",
-        "specforge.json",
-        "xtask/src/absorb/select.rs",
-        "xtask/src/absorb.rs",
-        "xtask/Cargo.toml",
-        "xtask/src/lib.rs",
-        "xtask/src/links.rs",
-        "gsd/core/src/kinds/project.rs",
-        "crates/app/ops/src/lib.rs",
-        "crates/runtime/component/tests/sandbox_limits.rs",
-        "extensions/rust/test/src/lib.rs",
-        "extensions/governance/wasm/specforge_ext_governance.wasm",
-        ".config/nextest.toml",
-        "gate/src/checked_tree.rs",
-        "gate/golden/self-spec-sample/ledger.json",
-    ] {
-        assert_eq!(
-            sample(Mode::Quick, &[path]),
-            Selection::Everything,
-            "{path}"
-        );
-    }
-    for path in [
-        "docs/guide.md",
-        "xtask/src/revendor.rs",
-        "examples/shop/spec/a.spec",
-        "evaluation/tasks.json",
-        // The sample cites and runs no test until the swap (ADR 0370 D8), so specforge-test is not in what it builds.
-        "integrations/rust/specforge-test/src/atexit.rs",
-    ] {
-        assert_eq!(sample(Mode::Quick, &[path]), Selection::Skip, "{path}");
-    }
-}
-
-/// The sample runs where its cost is paid only for a change that can break it: a quick run, and CI's `ci --since` on a
-/// pull request (which chooses as quick), each when a path it watches changed; full and ci runs always; the
-/// pre-commit hook never.
-#[test]
-fn the_sample_runs_in_quick_and_a_pull_requests_ci_on_its_paths_and_never_in_the_hook() {
-    for path in [
-        "spec/a.spec",
-        "crates/leaf/cycles/src/lib.rs",
-        "gsd/core/src/lib.rs",
-    ] {
-        assert_eq!(sample(Mode::Hook, &[path]), Selection::Skip, "{path}");
-        assert_eq!(
-            sample(Mode::Quick, &[path]),
-            Selection::Everything,
-            "{path}"
-        );
-    }
-    assert_eq!(sample(Mode::Quick, &["docs/guide.md"]), Selection::Skip);
-    assert_eq!(sample(Mode::Ci, &[]), Selection::Everything);
 }
