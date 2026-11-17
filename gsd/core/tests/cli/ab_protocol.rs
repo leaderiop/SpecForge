@@ -266,8 +266,10 @@ fn the_corpus_is_version_2() {
     );
 }
 
-/// A verify task's seeds break the proofs of the truths its `b_signals` rows name: each of those truths is `not
-/// verified` in the task's ground truth, so a run that leaves it verified drifts.
+/// A verify task's seeds break what its `b_signals` rows name: the proof of a truth, which is then `not verified` in
+/// the task's ground truth, so a run that leaves it verified drifts; or a check of a summary's coverage item (a
+/// `deliverable`, which is no ground-truth key), whose seeded test a truth of the task's ground truth rests on, `not
+/// verified` there too.
 #[test]
 fn a_verify_tasks_seeded_truths_are_not_verified() {
     let tasks = ab_tasks();
@@ -276,13 +278,22 @@ fn a_verify_tasks_seeded_truths_are_not_verified() {
         if task["workflow"] != "verify" {
             continue;
         }
+        let truths = task["ground_truth"].as_object().expect("a ground truth");
         for row in task["b_signals"].as_array().expect("b_signals") {
             if let Some(entity) = row["entity"].as_str() {
-                assert_eq!(
-                    task["ground_truth"][entity], "not verified",
-                    "{}: {entity}",
-                    task["id"]
-                );
+                if entity.contains("-SUMMARY/") && !truths.contains_key(entity) {
+                    assert!(
+                        truths.values().any(|v| v == "not verified"),
+                        "{}: {entity} names a coverage item, and no truth is not verified",
+                        task["id"]
+                    );
+                } else {
+                    assert_eq!(
+                        task["ground_truth"][entity], "not verified",
+                        "{}: {entity}",
+                        task["id"]
+                    );
+                }
                 checked += 1;
             }
         }

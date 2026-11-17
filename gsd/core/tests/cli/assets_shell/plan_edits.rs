@@ -517,7 +517,11 @@ fn the_coverage_trace_names_an_uncovered_requirement() {
         ),
     );
     let uncovered = thread(&p);
-    assert!(uncovered.contains("STORE-03 → no plan"), "{uncovered}");
+    // No plan lists it, so its `proof` reads its tests alone: none is collected.
+    assert!(
+        uncovered.contains("STORE-03 (not_run) → no plan"),
+        "{uncovered}"
+    );
 }
 
 /// The pattern mapper finds an analog from the graph: the store task's search, then the source its facts are anchored

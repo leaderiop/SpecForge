@@ -32,11 +32,11 @@ fn the_verifier_traces_its_phases_requirements() {
     }
 }
 
-/// A verdict cites a test fact by the id the thread's test step prints: the verification template's record fence,
-/// filled with that id, the basis the truth's inputs give and no finding, is accepted, and the truth's inputs then
-/// list the cited test.
+/// A verdict cites a test by the `ref` of the coverage check the thread's deliverable line prints (ADR 0371 D7): the
+/// verification template's record fence, filled with that ref, the basis the truth's inputs give and no finding, is
+/// accepted; the verdict then cites the test (`cited_tests`) and is fresh.
 #[test]
-fn the_verifier_cites_a_test_by_fact_id() {
+fn the_verifier_cites_a_test_by_its_check_ref() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
@@ -58,10 +58,16 @@ fn the_verifier_cites_a_test_by_fact_id() {
         .expect("traces")
         .iter()
         .find(|t| t["entity_id"] == "TASK-01")
-        .and_then(|t| t["steps"].as_array()?.iter().find(|s| s["name"] == "test"))
-        .and_then(|s| s["matches"][0]["entity_id"].as_str())
-        .expect("TASK-01's test")
+        .and_then(|t| {
+            t["steps"]
+                .as_array()?
+                .iter()
+                .find(|s| s["name"] == "deliverable")
+        })
+        .and_then(|s| s["matches"][0]["annotations"][0]["values"][0].as_str())
+        .expect("TASK-01's coverage check")
         .to_string();
+    assert_eq!(test, "test/tasks.test.js#a task is added with the next id");
     let truth = "v1.0/01/01-01/TR1";
     let inputs = p.run(&[
         "query",
@@ -93,8 +99,14 @@ fn the_verifier_cites_a_test_by_fact_id() {
     let done = typed::apply(&sh, &p, &record);
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
     assert!(done.added.is_empty(), "{:?}", done.added);
+    let plans = p.read("spec/plans.spec");
+    assert!(
+        plans.contains(&format!("cited_tests [\"{test}\"]")),
+        "{plans}"
+    );
     let inputs = p.run(&["query", truth, "--inputs", "gsd/E501", "--format", "json"]);
-    assert!(inputs.stdout.contains(&test), "{}", inputs.stdout);
+    let inputs: serde_json::Value = serde_json::from_str(&inputs.stdout).expect("the inputs");
+    assert_eq!(inputs["verdict"]["state"], "fresh", "{inputs:#}");
 }
 
 /// The verifier spawn's reading list opens with the `gsd/verifier` pack line and reads no context window; run with

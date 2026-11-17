@@ -140,23 +140,32 @@ fn the_red_run_stales_exactly_the_truth_its_failing_test_proves() {
     );
 }
 
-/// `specforge trace LEDG-02 --partial` (the fixture has no commit) follows the requirement to the failing test: its
-/// run shows `(failed)`.
+/// `specforge trace LEDG-02 --partial` (the fixture has no commit) follows the requirement to its summary's coverage
+/// item, whose check names the failing test, and `gsd/W408` reports that check. The fixture's truths still write a
+/// `proof`, which no step of the route reads now (ADR 0371 D7).
 #[test]
-fn the_trace_of_ledg_02_reaches_the_failed_test() {
+fn the_trace_of_ledg_02_reaches_the_check_of_its_failing_test() {
     let p = collected("rust-test.xml");
     let trace = p.run(&["trace", "LEDG-02", "--partial"]);
     assert_eq!(trace.code, 0, "{}", trace.all());
-    let failed: Vec<&str> = trace
+    let deliverables: Vec<&str> = trace
         .stdout
         .lines()
-        .filter(|l| l.contains("(failed)"))
+        .filter(|l| l.trim_start().starts_with("→ deliverable "))
         .collect();
-    assert_eq!(failed.len(), 1, "{}", trace.stdout);
+    assert_eq!(deliverables.len(), 1, "{}", trace.stdout);
     assert!(
-        failed[0].contains("total_beyond_i32_is_exact"),
+        deliverables[0].contains("tests/totals.rs#total_beyond_i32_is_exact"),
         "{}",
         trace.stdout
+    );
+    let d1 = "deliverable 'v1.0/01/01-02/01-02-SUMMARY/D1'";
+    assert!(
+        p.report_all()
+            .iter()
+            .any(|(code, message)| code == "gsd/W408" && message.contains(d1)),
+        "{:#?}",
+        p.report_all()
     );
 }
 

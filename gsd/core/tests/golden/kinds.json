@@ -1449,7 +1449,7 @@
           },
           {
             "default_value": null,
-            "description": "the code items the tasks of its plans name, held or not: sorted, each once; absent when none",
+            "description": "the code items the recorded commits of its plans' tasks changed: sorted, each once; absent until a commit is collected with item facts",
             "edge": "RequirementSatisfiedBy",
             "field_type": "reference_list",
             "inverse_of": null,

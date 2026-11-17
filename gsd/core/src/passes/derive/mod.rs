@@ -3,7 +3,8 @@
 //! (`execute`: plan (`draft`, `checked`, `ready` from the plan-check verdicts, then execution) and task status, a summary's duration, actuals and key files, a deliverable check's status). A
 //! check's status reads the test facts its `ref` names (`passes::thread`). `progress` answers the requirement, phase,
 //! milestone, project, workstream, context and retrospective values; `requirement` a requirement's `proof`, its
-//! thread's state (`passes::thread::requirement_proof`, read once per requirement), and its `satisfied_by`.
+//! thread's state (`passes::thread::requirement_proof`, read once per requirement), and its `satisfied_by` (the items
+//! the recorded commits of its tasks changed).
 //!
 //! `verify` answers a verification's status, score and re-verification, `uat` a session's totals and status and a
 //! gap's resolution, `audit` a validation's coverage, a milestone audit and the windows and proposals, and `ladder` the
@@ -70,7 +71,7 @@ fn derive(input: &PassInput) -> PassOutput {
         .collect();
     let requirements = progress::requirement_states(input, &statuses, &failing);
     let proofs = requirement::proofs(input, &commits);
-    values.extend(requirement::values(input, &proofs));
+    values.extend(requirement::values(input, &commits, &proofs));
     values.extend(audit::values(input, &requirements, &verified));
     values.extend(branch::values(input));
     values.extend(estimate::values(input));

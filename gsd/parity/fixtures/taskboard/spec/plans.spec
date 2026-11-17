@@ -31,21 +31,19 @@ task T2 "Tests for add" {
 }
 
 truth TR1 "A task added to a board has the next integer id" {
-  plan        v1.0/01/01-01
-  text        "A task added to a board has the next integer id and keeps its title"
-  requirement TASK-01
-  proof       ["js:taskboard/test/tasks.test.js#a task is added with the next id"]
+  plan v1.0/01/01-01
+  text "A task added to a board has the next integer id and keeps its title"
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T04:09:24Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       files "sha256:dc97b0e36825caf1c2c8c2e7b3e84e3a8418f75ca87ddf8081d3e34cc26c6a03"
       phase "sha256:c76e530da600fb14ee69f0793892a7a8f0c915f5bb56c4dcdeff3a58da1cb08b"
       plan  "sha256:f1d2f5eae220cf0ed8230cbc47826bb8bff020bbe749fd78df89dcb002fce92d"
-      tests "sha256:9d794c9c6e504e7f794bc3f76e44b484c09683c828df232c33d874aa485e3a28"
-      truth "sha256:3101866cd90643f4b86d22ff170eef84d1cebbe4ea64f17b8282ea55d84f2252"
+      tests "none"
+      truth "sha256:82e482debddf8b2d7881c81af042596716d39fb4b88eb8d8b6155e74f1495887"
     }
   }
 }
@@ -58,7 +56,7 @@ artifact AR1 "createBoard and addTask" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T04:09:23Z"
     inputs {
       artifact "sha256:2c2662f92037f318a2e106bb106ae80b92c215d6bfe23b2aca2ad23daae190fb"
       cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
@@ -76,7 +74,7 @@ key_link KL1 "The tests import addTask" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T04:09:23Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       from  "sha256:801e738cc1c232ce0a0cd71c3bc4908b74acbc510ab26c919df97f5010c4a32f"
@@ -120,41 +118,37 @@ task T2 "The command line" {
 }
 
 truth TR1 "A task is completed by its id" {
-  plan        v1.0/01/01-02
-  text        "A task is completed by its id"
-  requirement TASK-02
-  proof       ["js:taskboard/test/tasks.test.js#a task is completed by its id"]
+  plan v1.0/01/01-02
+  text "A task is completed by its id"
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T04:09:25Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       files "sha256:a8f573e6bb9e1a91e1e3acc4202daa2cb0c221b8bade6450c03bfbf9aa35fc71"
       phase "sha256:c76e530da600fb14ee69f0793892a7a8f0c915f5bb56c4dcdeff3a58da1cb08b"
       plan  "sha256:6e995c187f75bcb70a652b755b78f7e192a6a0d4ce527e6de525c85989712591"
-      tests "sha256:a65c41656cc1801da18ca66947b304d45962a35ae9f446d031134de488177f19"
-      truth "sha256:aa4b7b3ada4eba64a6d32f5829b2228d95e9369e13cb2db815c24451edce93b0"
+      tests "none"
+      truth "sha256:763b12751147077b109fe5950ae9ccea81adcecaa06af3f56dd2f730795ef2a6"
     }
   }
 }
 
 truth TR2 "Completing a missing id fails with a message naming it" {
-  plan        v1.0/01/01-02
-  text        "Completing an id that does not exist fails with a message naming the id"
-  requirement TASK-02
-  proof       ["js:taskboard/test/tasks.test.js#completing an unknown id throws"]
+  plan v1.0/01/01-02
+  text "Completing an id that does not exist fails with a message naming the id"
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T04:09:25Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       files "sha256:a8f573e6bb9e1a91e1e3acc4202daa2cb0c221b8bade6450c03bfbf9aa35fc71"
       phase "sha256:c76e530da600fb14ee69f0793892a7a8f0c915f5bb56c4dcdeff3a58da1cb08b"
       plan  "sha256:6e995c187f75bcb70a652b755b78f7e192a6a0d4ce527e6de525c85989712591"
-      tests "sha256:cdd8327f5fcd72281e9e037d0802cbc2efaac5ebd926ec284643d486f810f181"
-      truth "sha256:439fc4d925875953c2133e65002daa75827fc4ca2666f1682641667988f38d75"
+      tests "none"
+      truth "sha256:918969b1bd1300b0825039eecced772755e43bc0b1fd3ed67cda32a3381d9411"
     }
   }
 }
@@ -167,7 +161,7 @@ artifact AR1 "taskboard add and taskboard done" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T04:09:24Z"
     inputs {
       artifact "sha256:43db50d0eafcf823c83ca4a8561f1b0739fd042cba54aa5c95e3dc5e9287e932"
       cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
@@ -185,7 +179,7 @@ key_link KL1 "The command line imports the board" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T04:09:24Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       from  "sha256:4b5da11f8e1e1d3bd76d7914e1bde0454baf6016f337ab229cd75b96f764836c"
@@ -231,19 +225,16 @@ task T2 "The command line saves" {
 truth TR1 "Every change to the board is written to tasks.json" {
   plan        v1.0/02/02-01
   text        "Every change to the board is written to tasks.json (D-01)"
-  requirement STORE-01
 }
 
 truth TR2 "A restarted board shows the tasks it had" {
   plan        v1.0/02/02-01
   text        "A restarted board shows the tasks it had"
-  requirement STORE-01
 }
 
 truth TR3 "A title comes back exactly as it was written" {
   plan        v1.0/02/02-01
   text        "A title comes back exactly as it was written (D-03)"
-  requirement STORE-02
 }
 
 artifact AR1 "load and save of tasks.json" {

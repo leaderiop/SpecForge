@@ -142,7 +142,7 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
     // + 2: the requirement's `shapes` and `text_en`, which the spec-less edge probe reads (ADR 0333).
     // + 2: the lesson's `graduated` and `status`; + 2: the milestone's `goal` and `target_features`.
-    // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks name).
+    // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks' commits changed).
     assert_eq!(
         total,
         68 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2,

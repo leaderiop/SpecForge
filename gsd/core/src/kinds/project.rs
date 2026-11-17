@@ -85,7 +85,8 @@ pub const REQUIREMENT: Kind = Kind::new(
             .c()
             .doc("Traceability status, from plans, summaries and verifications"),
         rfs("satisfied_by", "item").c().doc(
-            "the code items the tasks of its plans name, held or not: sorted, each once; absent when none",
+            "the code items the recorded commits of its plans' tasks changed: sorted, each once; absent until a \
+             commit is collected with item facts",
         ),
         en("proof", PROOF_STATES).c().doc(
             "how far its thread reaches: a task of its plans, a commit of one, a passing test (tagged with the task or \

@@ -1,5 +1,7 @@
 //! R1's exit, end to end on the taskboard twin: a commit whose `Gsd-Task:` trailer names `01-01/T1`, a collect of the
-//! twin's tests, and `specforge trace TASK-01` prints the requirement's thread from plan to verdict, a tree. The
+//! twin's tests, and `specforge trace TASK-01` prints the requirement's thread from its `proof` through plan, task,
+//! commit and the items it changed to the plan's truth and the requirement's coverage item, a tree, read from GSD's own
+//! fields and collected data alone (ADR 0371 D7): the twin's truths name no requirement and no proof. The
 //! thread is SpecForge's own (gsd-tools has no such command), so its golden is
 //! `tests/golden/trace/taskboard-TASK-01.txt`, not one of `goldens/taskboard/`, and `parity_scenario` does not list
 //! it. The commit's sha is the one varying part: it is replaced by `<sha>` before the comparison.
@@ -72,9 +74,9 @@ fn the_twin_checks_green_before_any_collect() {
     let p = taskboard();
     p.check_exact(&[]);
     let codes = raw_codes(&p);
-    // Each of the three proofs names a test no collect has stored, and T1 (done) names two items none has: W102 once
-    // per reference, and no error.
-    assert_eq!(count(&codes, "code/W102"), 5, "{codes:?}");
+    // T1 (done) names two items no collect has stored: W102 once per reference, and no error. The truths cite no
+    // test (no `proof`), so no test reference is left dangling.
+    assert_eq!(count(&codes, "code/W102"), 2, "{codes:?}");
     assert_eq!(
         (count(&codes, "code/E101"), count(&codes, "E003")),
         (0, 0),
@@ -109,23 +111,40 @@ fn the_thread_of_task_01_prints_from_a_live_node_run() {
     p.check_exact(&[]);
 }
 
+/// The failing test is the one the coverage item's check names: the requirement's `proof` carries the failure on the
+/// thread's first line, the coverage item's line is the same, and `gsd/W408` reports the check. TR1's verdict stays
+/// fresh: none of its inputs reads the test now (its `tests` select nothing, its files did not move).
 #[test]
-fn the_thread_shows_a_failing_proof_and_stales_its_truth() {
+fn the_thread_shows_a_failing_check_as_a_failed_proof() {
     let (p, sha) = collected_thread();
+    let passing: Vec<String> = traced(&p, &sha).lines().map(str::to_string).collect();
     fail_the_first_test(&p);
 
     let line = traced(&p, &sha);
-    assert!(
-        line.ends_with("with the next id (failed)\n  → TR1 verified, stale\n"),
-        "{line}"
+    let lines: Vec<&str> = line.lines().collect();
+    assert_eq!(lines.first(), Some(&"TASK-01 (failed)"), "{line}");
+    let deliverable = |lines: &[&str]| -> Option<String> {
+        lines
+            .iter()
+            .find(|l| l.trim_start().starts_with("→ deliverable "))
+            .map(|l| l.to_string())
+    };
+    let before: Vec<&str> = passing.iter().map(String::as_str).collect();
+    assert_eq!(deliverable(&lines), deliverable(&before), "{line}");
+    assert_eq!(
+        &lines[1..],
+        &before[1..],
+        "only the first line moves: {line}"
     );
+    assert!(line.contains("→ TR1 verified, fresh\n"), "{line}");
     let report = p.report_all();
     let tr1 = ("gsd/E501".to_string(), "v1.0/01/01-01/TR1".to_string());
-    assert!(judged(&report).contains(&tr1), "{report:#?}");
+    assert!(!judged(&report).contains(&tr1), "{report:#?}");
+    let d1 = "v1.0/01/01-01/01-01-SUMMARY/D1";
     assert!(
-        report.iter().any(|(code, message)| code == "gsd/E501"
-            && message.contains("'v1.0/01/01-01/TR1'")
-            && message.ends_with("tests changed")),
+        report
+            .iter()
+            .any(|(code, message)| code == "gsd/W408" && message.contains(d1)),
         "{report:#?}"
     );
 }
@@ -164,7 +183,7 @@ fn the_twin_verdicts_are_fresh_over_the_thread() {
     assert_eq!(p.verify_phase("v1.0/01"), 0);
 }
 
-/// With the requirement taken off plan 01-01 and its truth, each item its task names (`addTask`, `createBoard`) and the
+/// With the requirement taken off plan 01-01, each item its task names (`addTask`, `createBoard`) and the
 /// one only its commit changed (`completeTask`) is anchored by a plan that reaches no requirement.
 #[test]
 fn the_twins_items_of_a_plan_with_no_requirement_are_w522() {
@@ -174,7 +193,6 @@ fn the_twins_items_of_a_plan_with_no_requirement_are_w522() {
         "requirements     [TASK-01]",
         "requirements     []",
     );
-    p.edit("spec/plans.spec", "  requirement TASK-01\n", "");
     let mut found: Vec<String> = p
         .report_all()
         .into_iter()
@@ -277,14 +295,18 @@ fn the_requirements_proof_follows_its_thread() {
     assert_eq!(proof(&p, "TASK-01"), "failed");
 }
 
+/// `satisfied_by` is what the recorded commits of the requirement's tasks changed (ADR 0371 D6): nothing before a
+/// commit is collected (T1's own `items` are not read), then the three items the twin's root commit changed, which are
+/// the items the thread prints.
 #[test]
 fn satisfied_by_is_the_items_its_thread_reaches() {
     let items = serde_json::json!([
         "js:taskboard/src/tasks.js::addTask",
+        "js:taskboard/src/tasks.js::completeTask",
         "js:taskboard/src/tasks.js::createBoard"
     ]);
-    // Before any collect: the items T1 names are written, though no fact holds them yet.
-    assert_eq!(taskboard().fields_of("TASK-01")["satisfied_by"], items);
+    let bare = taskboard().fields_of("TASK-01");
+    assert!(bare.get("satisfied_by").is_none(), "{bare:#}");
     let (p, sha) = collected_thread();
     assert_eq!(p.fields_of("TASK-01")["satisfied_by"], items);
     let traced: Vec<String> = traced(&p, &sha)

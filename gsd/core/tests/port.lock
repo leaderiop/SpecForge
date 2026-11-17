@@ -2162,7 +2162,7 @@ gsd-core/templates/user-setup.md	kept	296+4	d012dc2f48be
 gsd-core/templates/user-setup.md	own	300+3	2	ee350253c8ee	e90e17d7ccdb	ported-name
 gsd-core/templates/user-setup.md	kept	303+1	e3b0c44298fc
 gsd-core/templates/verification-report.md	kept	1+2	5dc276bd5b29
-gsd-core/templates/verification-report.md	own	3+173	20	8da995ac0d2a	c19753210b3f	ported-name
+gsd-core/templates/verification-report.md	own	3+173	20	8da995ac0d2a	793de6abeb2a	ported-name
 gsd-core/templates/verification-report.md	kept	176+5	f241142c5d4d
 gsd-core/templates/verification-report.md	own	181+1	1	56e37b9a1f16	6e00411bdc6e	prose
 gsd-core/templates/verification-report.md	kept	182+4	180b5071a18b

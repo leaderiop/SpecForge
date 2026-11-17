@@ -152,32 +152,38 @@ the plan's summary, written by the executor at the end, lands in the same file.
 
 ## Route
 
-`@gsd/core` declares one route, `gsd/requirement-thread` (ADR 0331 D8, ADR 0352 D3): `specforge trace <requirement>`
-follows it and prints the requirement's thread on one line, or as a tree when a step has several matches.
+`@gsd/core` declares one route, `gsd/requirement-thread` (ADR 0331 D8, ADR 0352 D3, ADR 0371 D7): `specforge trace
+<requirement>` follows it and prints the requirement's thread on one line, or as a tree when a step has several
+matches. It reads GSD's own fields and collected data alone: no truth names a requirement for it, and no truth's
+`proof` is read.
 
 | Step | From | Via | Prints |
 |---|---|---|---|
+| (start) | | | the requirement and its computed `proof` (`(proven)`, `(failed)`, …); then the `(status)` of each test whose tag names it (`<test.names`), nothing when none does |
 | plan | the requirement | `<plan.requirements` | `plan <id>` |
 | task | each plan | `<task.plan` | `<id>` |
-| item | each task | `.items` | the item's id |
 | commit | each task | `<commit.task` | the short hash and `(linked_by)`: `(Gsd-Task)` or `(title)` |
-| test | the requirement | `<truth.requirement.proof` | the test fact and `(status)`, else `(not run)` |
-| truth | the requirement | `<truth.requirement` | `<id>` and its E501 judgement: outcome and freshness |
+| item | each commit | `.items_changed` | the id of each code item the commit changed |
+| truth | each plan | `<truth.plan` | `<id>` and its E501 judgement: outcome and freshness |
+| deliverable | the requirement | `<deliverable.requirement` | `deliverable <id>` and each check's `(ref)` |
 
-The `item` and `test` steps read `@code/core`'s `item` and `test` facts; without that optional peer both are skipped
-(I210), never a failure. The `item` step is required otherwise: a task that names no held item leaves the thread
-incomplete, which `--partial` shows. A task naming two items is two matches, so the thread of the taskboard twin, traced
-through every step, prints as a tree:
+A check's computed status is not printed: a route annotation reads a field's written value first, and a written
+`checks` block holds no `status`. The requirement's `proof`, which reads the coverage checks through the test facts
+they name, carries it on the first line. Every step is required, so a tagged test is an annotation of the start, not a
+step. The `item` step and the tests' annotation read `@code/core`'s `item` and `test` facts; without that optional
+peer both are skipped (I210), never a failure. A task with no recorded commit, or a commit that changed no held item,
+leaves its branch unkept, which `--partial` shows. The thread of the taskboard twin, collected, prints as a tree:
 
 ```text
-TASK-01
+TASK-01 (proven)
   → plan 01-01
     → T1
-      → js:taskboard/src/tasks.js::addTask
-      → js:taskboard/src/tasks.js::createBoard
       → <sha> (Gsd-Task)
-  → js:taskboard/test/tasks.test.js#a task is added with the next id (passed)
-  → TR1 verified, fresh
+        → js:taskboard/src/tasks.js::addTask
+        → js:taskboard/src/tasks.js::completeTask
+        → js:taskboard/src/tasks.js::createBoard
+    → TR1 verified, fresh
+  → deliverable D1 (test/tasks.test.js#a task is added with the next id)
 ```
 
 ## Every GSD file maps to a kind

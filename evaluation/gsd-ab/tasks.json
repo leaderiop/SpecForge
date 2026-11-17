@@ -64,7 +64,7 @@
     ]
   },
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "fd286f61290489cb7314ff91c9575abb499e706a", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "5ba46865f7e1681b68d48bf10c4306e9e0492bd9", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
       "baseline": [
         "I213 -:0", "gsd/E501 spec/plans.spec:231", "gsd/E501 spec/plans.spec:237", "gsd/E501 spec/plans.spec:243",
         "gsd/E501 spec/plans.spec:249", "gsd/E501 spec/plans.spec:256", "gsd/W311 spec/plans.spec:1",
@@ -216,7 +216,7 @@
       "seeds": {
         "S1": {
           "A": [{ "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"A title comes back exactly as it was written (D-03)\"", "new": "    - \"A title comes back exactly as it was written (D-03), proven by test/store.test.js#a title survives a reload byte for byte\"" } }],
-          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n", "new": "  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n  proof       [\"js:taskboard/test/store.test.js#a title survives a reload byte for byte\"]\n" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A title comes back exactly as it was written (D-03)\"\n", "new": "  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n  proof       [\"js:taskboard/test/store.test.js#a title survives a reload byte for byte\"]\n" } }],
           "resolved_if": [{ "file": "test/store.test.js", "contains": "a title survives a reload byte for byte" }]
         },
         "S4": {
@@ -255,8 +255,8 @@
         }
       },
       "b_signals": [
-        { "defect": "S5", "code": "code/W401", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
-        { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-02/TR2", "count": 1, "when": "seed" }
+        { "defect": "S5", "code": "gsd/W408", "entity": "v1.0/01/01-01/01-01-SUMMARY/D1", "count": 1, "when": "seed" },
+        { "defect": "S6", "code": "gsd/W408", "entity": "v1.0/01/01-02/01-02-SUMMARY/D1", "count": 1, "when": "seed" }
       ],
       "acceptance": [
         { "text": "every truth of phase 01 has a verdict", "judge": "each truth of phase 01 has a verdict in the arm's store, dated in this run" },
