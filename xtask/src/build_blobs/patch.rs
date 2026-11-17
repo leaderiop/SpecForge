@@ -10,13 +10,19 @@ use std::path::{Component, Path};
 
 /// The `[patch.crates-io]` table for the stage, read from `config` (a `.cargo/config.toml` that
 /// lies in `base/.cargo/`, `base` from the repository root): each entry is an inline table holding
-/// only a `path`, re-rooted from `base` to the repository root. An entry with another key, a
-/// patched registry other than crates.io, or a path that is absolute or leaves the repository is an
-/// error naming it. A config without the table gives an empty string.
+/// only a `path`, re-rooted from `base` to the repository root. A top-level key other than `patch`
+/// (which the workspace's own build would honour and the stage would not), an entry with another
+/// key, a patched registry other than crates.io, or a path that is absolute or leaves the
+/// repository is an error naming it. An empty config gives an empty string.
 pub(super) fn stage_patch(config: &Path, base: &str) -> Result<String, String> {
     let shown = config.display();
     let text = std::fs::read_to_string(config).map_err(|e| format!("read {shown}: {e}"))?;
     let table: toml::Table = text.parse().map_err(|e| format!("{shown}: {e}"))?;
+    if let Some(other) = table.keys().find(|key| key.as_str() != "patch") {
+        return Err(format!(
+            "{shown}: [{other}] is not replayed in the stage; only [patch.crates-io] is"
+        ));
+    }
     let Some(patch) = table.get("patch") else {
         return Ok(String::new());
     };

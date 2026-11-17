@@ -284,7 +284,28 @@ fn a_patch_entry_that_is_not_a_path_is_refused() {
         err.contains("pinned") && err.contains("not a lone `path`"),
         "{err}"
     );
-    assert_eq!(patch_of("[build]\njobs = 2\n"), Ok(String::new()));
+}
+
+/// The stage replays `[patch.crates-io]` and nothing else, so any other key of the config (which
+/// the gsd workspace's own build would honour) is refused by name rather than dropped unseen.
+#[test]
+fn a_config_key_other_than_the_patch_is_refused_naming_it() {
+    for (config, key) in [
+        ("[build]\njobs = 2\n", "build"),
+        ("[env]\nRUSTFLAGS = \"-C debuginfo=0\"\n", "env"),
+        (
+            "[patch.crates-io]\nsdk = { path = \"../crates/x\" }\n\n[target.wasm32-wasip2]\nrustflags = []\n",
+            "target",
+        ),
+        ("[source.crates-io]\nreplace-with = \"mirror\"\n", "source"),
+    ] {
+        let err = patch_of(config).unwrap_err();
+        assert!(
+            err.contains(&format!("[{key}]")) && err.contains("not replayed in the stage"),
+            "{key}: {err}"
+        );
+    }
+    assert_eq!(patch_of(""), Ok(String::new()));
 }
 
 fn parsed(args: &[&str]) -> Result<(Mode, Option<&'static str>), String> {
