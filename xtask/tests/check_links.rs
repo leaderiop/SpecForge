@@ -24,7 +24,7 @@ fn requirement_links_name_requirements_of_the_spec() {
         std::fs::create_dir_all(to.parent().unwrap()).unwrap();
         std::fs::copy(fixture.join(file), &to).unwrap();
     }
-    std::fs::create_dir_all(root.join("tests")).unwrap();
+    std::fs::create_dir_all(root.join("tests/fixtures/other/src")).unwrap();
     std::fs::write(
         root.join("tests/bad.rs"),
         "#[specforge_test(requirement = \"NOPE-99\")]\nfn a() {}\n\
@@ -33,6 +33,11 @@ fn requirement_links_name_requirements_of_the_spec() {
          #[specforge_test(behavior = \"TRACER-01\")]\nfn d() {}\n",
     )
     .unwrap();
+    // A helper of this project's tests under `tests/fixtures/` is checked; a crate there is another project's.
+    let unknown = "#[specforge_test(requirement = \"NOPE-98\")]\nfn e() {}\n";
+    std::fs::write(root.join("tests/fixtures/helper.rs"), unknown).unwrap();
+    std::fs::write(root.join("tests/fixtures/other/Cargo.toml"), "").unwrap();
+    std::fs::write(root.join("tests/fixtures/other/src/lib.rs"), unknown).unwrap();
     let out = Command::new(env!("CARGO_BIN_EXE_check-links"))
         .arg(root)
         .args(["tests", "src"])
@@ -43,7 +48,8 @@ fn requirement_links_name_requirements_of_the_spec() {
         "UNKNOWN tests/bad.rs:1 NOPE-99\n\
          KIND tests/bad.rs:3 requirement tracer is a project, not a requirement\n\
          VERIFY tests/bad.rs:5 TRACER-01: a requirement takes no verify text\n\
-         KIND tests/bad.rs:7 behavior TRACER-01: a test names a requirement\n"
+         KIND tests/bad.rs:7 behavior TRACER-01: a test names a requirement\n\
+         UNKNOWN tests/fixtures/helper.rs:1 NOPE-98\n"
     );
     assert_eq!(out.status.code(), Some(1));
 

@@ -35,8 +35,8 @@ pub struct Read {
 
 /// Every link in the `.rs` files under each of `scan` (directories relative to `root`), in file order. A file that
 /// does not parse is in [`Read::unparsed`] wherever it is; one that does, whose path from `root` starts with one of
-/// `skip` or has a `tests/fixtures/` part, gives no link: a crate under another crate's `tests/fixtures/` is another
-/// project's, its tests linked to that project's spec (ADR 0374 D4).
+/// `skip` or lies in a crate below a `tests/fixtures/` directory, gives no link: that crate is another project's,
+/// its tests linked to that project's spec (ADR 0374 D4).
 pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
     let mut read = Read::default();
     for dir in scan {
@@ -60,7 +60,9 @@ pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
                 continue;
             };
             let relative = path.strip_prefix(root).unwrap_or(path);
-            if skip.iter().any(|prefix| relative.starts_with(prefix)) || under_fixtures(relative) {
+            if skip.iter().any(|prefix| relative.starts_with(prefix))
+                || in_fixture_crate(root, relative)
+            {
                 continue;
             }
             let mut visitor = Links {
@@ -73,12 +75,21 @@ pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
     read
 }
 
-/// Whether `relative` passes through a `tests` directory holding a `fixtures` directory.
-fn under_fixtures(relative: &Path) -> bool {
-    let parts: Vec<_> = relative.components().map(|c| c.as_os_str()).collect();
+/// Whether the file `relative` (to `root`) lies in a fixture crate: a directory below a `tests/fixtures/` directory
+/// that holds its own `Cargo.toml`. Any other file there is a helper of the enclosing crate's own tests.
+fn in_fixture_crate(root: &Path, relative: &Path) -> bool {
+    relative
+        .ancestors()
+        .skip(1)
+        .any(|dir| below_fixtures(dir) && root.join(dir).join("Cargo.toml").is_file())
+}
+
+/// Whether `dir` sits below a `tests` directory's `fixtures` directory (not that directory itself).
+fn below_fixtures(dir: &Path) -> bool {
+    let parts: Vec<_> = dir.components().map(|c| c.as_os_str()).collect();
     parts
-        .windows(2)
-        .any(|pair| pair[0] == "tests" && pair[1] == "fixtures")
+        .windows(3)
+        .any(|parts| parts[0] == "tests" && parts[1] == "fixtures")
 }
 
 struct Links<'a> {
@@ -205,27 +216,34 @@ mod tests {
         );
     }
 
+    /// A crate below a `tests/fixtures/` directory (a directory there holding its own `Cargo.toml`) is another
+    /// project's; any other Rust file under `tests/fixtures/`, a helper of this crate's own tests, is read.
     #[test]
-    fn a_crate_under_tests_fixtures_gives_no_link() {
+    fn a_crate_under_tests_fixtures_gives_no_link_and_a_helper_there_does() {
         let dir = tempfile::tempdir().unwrap();
         let source = "#[specforge_test(requirement = \"TRACER-01\")]\nfn adds() {}\n";
-        for file in ["x/tests/fixtures/y/src/lib.rs", "x/src/lib.rs"] {
+        for file in [
+            "x/tests/fixtures/y/Cargo.toml",
+            "x/tests/fixtures/y/src/lib.rs",
+            "x/tests/fixtures/y/tests/api.rs",
+            "x/tests/fixtures/helper.rs",
+            "x/tests/fixtures/data/mod.rs",
+            "x/src/lib.rs",
+        ] {
             let path = dir.path().join(file);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, source).unwrap();
         }
         let read = read(dir.path(), &["x".to_string()], &[]);
+        let files: Vec<&str> = read.links.iter().map(|l| l.file.as_str()).collect();
         assert_eq!(
-            read.links,
-            [Link {
-                file: "x/src/lib.rs".to_string(),
-                line: 1,
-                id_line: 1,
-                kind: "requirement".to_string(),
-                id: "TRACER-01".to_string(),
-                verify: None,
-            }],
-            "another project's tests, under a crate's tests/fixtures/, are not this one's"
+            files,
+            [
+                "x/src/lib.rs",
+                "x/tests/fixtures/data/mod.rs",
+                "x/tests/fixtures/helper.rs"
+            ],
+            "another project's tests, in a crate under tests/fixtures/, are not this one's; its helpers are"
         );
     }
 }
