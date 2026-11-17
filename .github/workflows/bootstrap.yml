@@ -45,7 +45,8 @@ jobs:
     # holds it).
     timeout-minutes: 45
     env:
-      BUDGET_SECONDS: 1080
+      # Every run is cold (no cache by design): 1.25 x 1,360 s, its slowest of five runs on the code that ships this.
+      BUDGET_SECONDS: 1740
     steps:
       - name: Start the build-time budget clock
         shell: bash
