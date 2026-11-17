@@ -210,8 +210,8 @@ fn the_head_names_what_was_sampled_what_the_target_holds_and_the_work() {
 
 #[test]
 fn the_checks_error_is_the_verdicts_reason() {
-    let error = serde_json::json!({"severity": "Error", "code": "gsd/E537", "file": "spec/m.spec",
-        "line": 2, "message": "ships before it starts"});
+    let error = serde_json::json!({"severity": "Error", "code": "gsd/E101", "file": "spec/r.spec",
+        "line": 2, "message": "maps to no phase"});
     let on_code = serde_json::json!({"severity": "Info", "code": "code/I402",
         "file": "crates/x/src/lib.rs", "line": 9, "message": "names `Fs`"});
     let found = SampleRun {
@@ -225,9 +225,7 @@ fn the_checks_error_is_the_verdicts_reason() {
     let judged = verdict(&found, &SampleGoldens::default(), false);
     assert_eq!(
         failure(&judged).as_deref(),
-        Some(
-            "gsd/E537 spec/m.spec:2: ships before it starts (read <target>/gate/self-spec-sample.log)"
-        )
+        Some("gsd/E101 spec/r.spec:2: maps to no phase (read <target>/gate/self-spec-sample.log)")
     );
 }
 
@@ -332,11 +330,11 @@ fn a_passed_sample_removes_its_copies_and_a_failed_one_keeps_and_names_them() {
     assert!(copies.iter().all(|copy| !copy.exists()));
     assert_eq!(settled(&copies, Ok(())), Ok(()), "none left to remove");
     make();
-    let failed = settled(&copies, Err("gsd/E537 …".into())).unwrap_err();
+    let failed = settled(&copies, Err("gsd/E101 …".into())).unwrap_err();
     assert_eq!(
         failed,
         format!(
-            "gsd/E537 …; kept for reading: {}, {}",
+            "gsd/E101 …; kept for reading: {}, {}",
             copies[0].display(),
             copies[1].display()
         )
