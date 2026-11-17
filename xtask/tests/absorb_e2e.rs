@@ -169,6 +169,7 @@ fn all_seventeen_old_kinds_convert_or_drop_with_no_error_and_no_warning() {
         "a port's methods and a type's member annotations are ledgered: {ledger}"
     );
     releases_become_version_milestones_and_their_milestones_phases(&a, &ledger);
+    only_the_scaffold_entries_are_unconverted(&ledger);
 
     let again = absorb(&["--from", OLD, "--to", path(&b)]);
     assert_eq!(again.code, 0, "{}", again.stderr);
@@ -340,6 +341,26 @@ fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, led
     );
 }
 
+/// Only the target's scaffold entries, its `spec` block's and its `specforge.json`'s, are `unconverted`, each with the
+/// one outcome (ADR 0372 D8).
+fn only_the_scaffold_entries_are_unconverted(ledger: &str) {
+    let ledger: Value = serde_json::from_str(ledger).unwrap();
+    let unconverted: Vec<&Value> = ledger["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["why"].get("unconverted").is_some())
+        .collect();
+    assert!(!unconverted.is_empty(), "{ledger:#}");
+    for e in unconverted {
+        assert!(
+            (e["kind"] == "spec" || e["kind"] == "specforge.json")
+                && e["why"]["unconverted"] == "written fresh by absorb",
+            "{e:#}"
+        );
+    }
+}
+
 /// Whether `ledger` holds a `dropped` entry for `field` of the old entity `id`.
 fn dropped(ledger: &str, id: &str, field: &str) -> bool {
     let ledger: serde_json::Value = serde_json::from_str(ledger).unwrap();
@@ -419,6 +440,7 @@ fn the_target_keeps_the_source_spec_root_and_version() {
         ],
         "{ledger:#}"
     );
+    only_the_scaffold_entries_are_unconverted(&ledger.to_string());
 
     let (old, to) = (dir.path().join("rooted"), dir.path().join("tree"));
     decision_source(&old, "", "governance/decisions.spec");

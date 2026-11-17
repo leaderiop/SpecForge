@@ -7,7 +7,7 @@ use specforge_parser::lex::is_entity_id;
 
 use super::table::Compare;
 
-/// Why a scheme reference in a list of texts is not written: the writer spells it bare, which names a `ref`.
+/// Why a scheme reference in a list of texts is dropped (ADR 0372 D8): the writer spells it bare, which names a `ref`.
 pub const SCHEME_REF: &str =
     "a scheme reference is written bare and names a `ref`, which a typed edit cannot create";
 

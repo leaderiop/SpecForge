@@ -17,7 +17,9 @@ pub enum Why {
     Computed { field: String, new: Value },
     /// A required field the old entity had no value for, filled.
     Filled { field: String, value: Value },
-    /// A value the converter could not map, with why; it stays where the row's fallback put it.
+    /// A value of the source's project block that the target's scaffold, written fresh, does not hold (its `spec`
+    /// block's and its `specforge.json`'s): the only unconverted entries, each "written fresh by absorb" (ADR 0372
+    /// D8).
     Unconverted(String),
     /// A value no `@gsd/core` field takes, with why: nothing is written for it.
     Dropped(String),

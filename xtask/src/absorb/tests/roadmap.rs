@@ -473,3 +473,32 @@ fn a_release_version_is_the_milestone_id_as_written() {
         Some(Input::One(_))
     ));
 }
+
+/// A scheme reference in a written list cannot be written (bare, it names a `ref`, which a typed edit cannot create):
+/// it is dropped with its reason, and the rest of the list is written (ADR 0372 D8).
+#[test]
+fn a_scheme_reference_in_a_written_list_is_dropped() {
+    let planned = planned(&[
+        release("one", "0.1.0", &["first"]),
+        milestone(
+            "first",
+            10,
+            json!({"exit_criteria": ["gh.issue:42", "Entries are saved."]}),
+        ),
+    ]);
+    assert_eq!(
+        field(&planned, "v0.1.0/01", "success_criteria"),
+        Some(&many(&["Entries are saved."]))
+    );
+    assert_eq!(
+        why_of(&planned, "first", "exit_criteria"),
+        [Why::Dropped(super::super::how::SCHEME_REF.to_string())]
+    );
+    assert!(
+        planned
+            .ledger
+            .entries()
+            .all(|e| !matches!(e.why, Why::Unconverted(_))),
+        "no entry is unconverted"
+    );
+}

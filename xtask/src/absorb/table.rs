@@ -58,7 +58,7 @@ pub enum Home {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum How {
     /// As written: a text, a date, a number, a list of texts (appended to what the field holds; a scheme
-    /// reference in it is ledgered, as its `ref` cannot be written).
+    /// reference in it is ledgered `dropped`, as its `ref` cannot be written).
     As,
     /// A text joined after what the field holds, a blank line between.
     Text,

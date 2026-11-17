@@ -72,12 +72,15 @@ impl Planner {
         }
     }
 
-    /// `items` appended to the list `field`; a scheme reference among them is ledgered (see [`how::SCHEME_REF`]).
+    /// `items` appended to the list `field`; a scheme reference among them is ledgered `dropped` (see
+    /// [`how::SCHEME_REF`], ADR 0372 D8).
     fn list(&mut self, e: &OldEntity, old_field: &str, field: &str, items: Vec<String>) {
         let (refs, items): (Vec<String>, Vec<String>) =
             items.into_iter().partition(|item| how::is_scheme_ref(item));
         for item in refs {
-            self.unconverted(e, old_field, json!(item), how::SCHEME_REF);
+            let why = Why::Dropped(how::SCHEME_REF.to_string());
+            self.ledger
+                .record(&e.kind, &e.id, old_field, json!(item), why);
         }
         if let Some(draft) = self.own(e) {
             draft.append(field, items);

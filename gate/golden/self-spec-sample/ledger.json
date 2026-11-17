@@ -4906,7 +4906,7 @@
         "@specforge/formal"
       ],
       "why": {
-        "unconverted": "the target's spec block is init's starter: the project's name and version"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -4915,7 +4915,7 @@
       "field": "version",
       "value": "1.0",
       "why": {
-        "unconverted": "the target's spec block is init's starter: the project's name and version"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -4924,7 +4924,7 @@
       "field": "extensions",
       "value": "@specforge/cargo-test",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -4933,7 +4933,7 @@
       "field": "extensions",
       "value": "@specforge/formal",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -4942,7 +4942,7 @@
       "field": "extensions",
       "value": "@specforge/governance",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -4951,7 +4951,7 @@
       "field": "extensions",
       "value": "@specforge/product",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -4960,7 +4960,7 @@
       "field": "extensions",
       "value": "@specforge/software",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -4969,7 +4969,7 @@
       "field": "extensions",
       "value": "@specforge/testing",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {

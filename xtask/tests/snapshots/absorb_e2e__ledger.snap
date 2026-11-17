@@ -1596,7 +1596,7 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/formal",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -1605,7 +1605,7 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/governance",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -1614,7 +1614,7 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/product",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -1623,7 +1623,7 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/software",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -1632,7 +1632,7 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/testing",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {

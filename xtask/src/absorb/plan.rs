@@ -452,16 +452,6 @@ impl Planner {
         }
     }
 
-    fn unconverted(&mut self, e: &OldEntity, field: &str, value: Value, why: &str) {
-        self.ledger.record(
-            &e.kind,
-            &e.id,
-            field,
-            value,
-            Why::Unconverted(why.to_string()),
-        );
-    }
-
     /// The required values the old entity lacks, filled and ledgered. A requirement's category is the one rule's
     /// ([`ids::category`], ADR 0372 D3), which a constraint's own category word has already written; a constraint's
     /// and an invariant's tier is `v2` when the run writes a phase that does not list it (ADR 0372 D7), else `v1`.
