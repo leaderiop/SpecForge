@@ -22,11 +22,7 @@ fn run(diagnostics: Value) -> SampleRun {
         ledger: format!(
             "{{\n  \"from\": \"{SOURCE}\",\n  \"entries\": [\n    {{\"id\": \"t_a\"}}\n  ]\n}}\n"
         ),
-        paths: vec![
-            (SOURCE.into(), "<source>"),
-            (TARGET.into(), "<target>"),
-            ("/scratch/gsd/gsd_core.wasm".into(), "<gsd_core.wasm>"),
-        ],
+        paths: vec![(SOURCE.into(), "<source>"), (TARGET.into(), "<target>")],
         work: clean_work(),
     }
 }

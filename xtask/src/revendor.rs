@@ -469,8 +469,8 @@ mod tests {
     }
 
     /// The step takes `@gsd/core`'s kinds, read from the tracked golden, beside the pinned builtins.
-    /// It runs in every test run; the staged test below makes the same assertions on a built
-    /// component.
+    /// It runs in every test run; the vocabulary drift test of `specforge-project` holds the step's
+    /// output over the fifteen pinned builtins, the vendored `@gsd/core` among them.
     #[test]
     fn the_vocabulary_step_takes_gsd_cores_kinds_golden_beside_the_builtins() {
         the_step_takes_gsd_core_beside_the_builtins(gsd_core_kinds_golden());
@@ -529,30 +529,5 @@ mod tests {
         write_vocabulary(&blocked, &declarations).unwrap_err();
         assert!(blocked.is_dir(), "a name that cannot be replaced stays");
         assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 2, "no temp");
-    }
-
-    /// The step takes the declaration of a built `@gsd/core` component beside the pinned builtins.
-    /// The build of `gsd/core` stands for the staged blob: its declaration comes from the same
-    /// source. The vendoring change of ADR 0366 replaces this test with the session's drift test
-    /// over fifteen builtins.
-    #[test]
-    #[ignore = "needs GSD_CORE_WASM"]
-    fn the_vocabulary_step_takes_the_staged_gsd_core_beside_the_builtins() {
-        let path = std::path::PathBuf::from(std::env::var_os("GSD_CORE_WASM").expect(
-            "GSD_CORE_WASM names gsd_core.wasm: (cd gsd && cargo build --locked -p gsd-core --release --target wasm32-wasip2)",
-        ));
-        let bytes = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-        let runtime = ComponentRuntime::new();
-        runtime
-            .load(
-                "@gsd/core",
-                &bytes,
-                specforge_wasm::Provenance::third_party(&bytes),
-            )
-            .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-        let loaded = specforge_wasm::protocol::load_declaration(&runtime, "@gsd/core")
-            .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-        assert_eq!(loaded.declaration.name(), "@gsd/core");
-        the_step_takes_gsd_core_beside_the_builtins(loaded.declaration);
     }
 }

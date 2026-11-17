@@ -33,7 +33,7 @@ pub struct SampleRun {
     pub selection: String,
     /// absorb's ledger.
     pub ledger: String,
-    /// Each absolute path of the run and the placeholder it becomes (`<source>`, `<target>`, `<gsd_core.wasm>`).
+    /// Each absolute path of the run and the placeholder it becomes (`<source>`, `<target>`, `<run>`).
     pub paths: Vec<(String, &'static str)>,
     pub work: Work,
 }

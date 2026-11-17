@@ -115,7 +115,6 @@ fn settled(copies: &[PathBuf], outcome: Result<(), String>) -> Result<(), String
 
 /// Copy, convert, run the cited tests and check the sample in `dir`, then judge it.
 fn sample(ctx: &Ctx, dir: &Path) -> Result<(), String> {
-    let wasm = crate::gsd::build_wasm(ctx)?;
     let specforge = ctx.specforge()?.to_path_buf();
     let absorb = ctx.build("xtask", "absorb")?;
     // The repository's test build: fresh after `build`, else compiled here, so the cited tests' run compiles nothing.
@@ -192,11 +191,10 @@ fn sample(ctx: &Ctx, dir: &Path) -> Result<(), String> {
     for extension in EXTENSIONS {
         args.extend(["--extension".to_string(), extension.to_string()]);
     }
-    let mut converting = call(
+    let converting = call(
         &absorb,
         &args.iter().map(String::as_str).collect::<Vec<_>>(),
     );
-    converting.env("GSD_CORE_WASM", &wasm.core);
     let summary: Value = serde_json::from_str(&step("absorb", converting)?)
         .map_err(|e| format!("absorb printed no JSON summary: {e}"))?;
     let cited = cited_tests(&summary)?;
@@ -272,7 +270,6 @@ fn sample(ctx: &Ctx, dir: &Path) -> Result<(), String> {
         paths: vec![
             (source.to_string_lossy().into_owned(), "<source>"),
             (target.to_string_lossy().into_owned(), "<target>"),
-            (wasm.core.to_string_lossy().into_owned(), "<gsd_core.wasm>"),
             (dir.to_string_lossy().into_owned(), "<run>"),
         ],
         work: Work {

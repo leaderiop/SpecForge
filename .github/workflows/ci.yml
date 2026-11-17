@@ -120,10 +120,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: tests
-          # The sample check builds @gsd/core's wasm in the gsd workspace, as the gsd shard does.
           workspaces: |
             . -> target
-            gsd -> target/gsd
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@v2
         with:

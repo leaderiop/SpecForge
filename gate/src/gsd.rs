@@ -1,6 +1,10 @@
-//! The `gsd` check: the `@gsd` workspace (`gsd/`) lints, builds both extensions (`@gsd/core`, `@gsd/security`) to
-//! `wasm32-wasip2` and passes its tests against the `specforge` binary (ADR gsd/0001 D6, ADR gsd/0002). The workspace
-//! patches the in-tree SDK, so a kernel change that breaks an `@gsd` extension fails in the pull request that made it.
+//! The `gsd` check: the `@gsd` workspace (`gsd/`) lints, builds `@gsd/security` to `wasm32-wasip2` and passes its
+//! tests against the `specforge` binary (ADR gsd/0001 D6, ADR gsd/0002). The workspace patches the in-tree SDK, so a
+//! kernel change that breaks an `@gsd` extension fails in the pull request that made it.
+//!
+//! Who builds what (ADR 0373 D5): `@gsd/core` is a builtin the CLI embeds, vendored by `revendor` into
+//! `gsd/core/wasm/`, and nothing builds its wasm to load it; the suite loads it by name. `@gsd/security` is not
+//! vendored: this step builds its wasm from `gsd/` and the suite reads it through `GSD_SECURITY_WASM`.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -22,10 +26,11 @@ pub const TRIGGER: &[&str] = &[
     "extensions/**/*.wasm",
 ];
 
-/// Stops at the first failing step: clippy for native and wasm, the release wasm build, the `specforge` CLI build,
-/// then `cargo nextest run` (every test binary at once; `cargo test` runs them one after another) with
-/// `SPECFORGE_BIN`, `GSD_CORE_WASM` and `GSD_SECURITY_WASM` set to the three artifacts. Cargo runs in `gsd/`: it reads
-/// `.cargo/config.toml` (the SDK patch) from its working directory, not from `--manifest-path`.
+/// Stops at the first failing step: clippy for native and wasm, the release build of `@gsd/security`'s wasm (the one
+/// `@gsd` wasm anything builds; `@gsd/core` is the builtin the CLI embeds), the `specforge` CLI build, then
+/// `cargo nextest run` (every test binary at once; `cargo test` runs them one after another) with `SPECFORGE_BIN` and
+/// `GSD_SECURITY_WASM` set to the two artifacts. Cargo runs in `gsd/`: it reads `.cargo/config.toml` (the SDK patch)
+/// from its working directory, not from `--manifest-path`.
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let cargo = |args: &[&str]| cargo(ctx, args);
     ctx.sh(&mut cargo(&[
@@ -46,29 +51,21 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         "-D",
         "warnings",
     ]))?;
-    let wasm = build_wasm(ctx)?;
+    let security = build_security_wasm(ctx)?;
     let specforge = ctx.specforge()?;
     ctx.sh(cargo(&["nextest", "run", "--locked", "--no-fail-fast"])
         .env("SPECFORGE_BIN", specforge)
-        .env("GSD_CORE_WASM", wasm.core)
-        .env("GSD_SECURITY_WASM", wasm.security))
+        .env("GSD_SECURITY_WASM", security))
 }
 
-/// The two `@gsd` extensions, built for `wasm32-wasip2` in release.
-pub(crate) struct GsdWasm {
-    pub core: PathBuf,
-    pub security: PathBuf,
-}
-
-/// Build both `@gsd` extensions in release, the blobs the suite and any check that loads `@gsd/core` read.
-pub(crate) fn build_wasm(ctx: &Ctx) -> Result<GsdWasm, String> {
+/// Build `@gsd/security` for `wasm32-wasip2` in release (it is not vendored, ADR 0373 D5), the component the suite
+/// reads through `GSD_SECURITY_WASM`; answers its path.
+fn build_security_wasm(ctx: &Ctx) -> Result<PathBuf, String> {
     ctx.sh(&mut cargo(
         ctx,
         &[
             "build",
             "--locked",
-            "-p",
-            "gsd-core",
             "-p",
             "gsd-security",
             "--release",
@@ -76,11 +73,7 @@ pub(crate) fn build_wasm(ctx: &Ctx) -> Result<GsdWasm, String> {
             "wasm32-wasip2",
         ],
     ))?;
-    let release = target(ctx).join("wasm32-wasip2/release");
-    Ok(GsdWasm {
-        core: release.join("gsd_core.wasm"),
-        security: release.join("gsd_security.wasm"),
-    })
+    Ok(target(ctx).join("wasm32-wasip2/release/gsd_security.wasm"))
 }
 
 /// `<target_dir>/gsd`: the workspace's own target directory.

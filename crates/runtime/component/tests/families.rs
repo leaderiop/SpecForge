@@ -10,16 +10,12 @@
 use std::collections::BTreeSet;
 
 use specforge_common::DiagnosticData;
-use specforge_component::ComponentRuntime;
-use specforge_component::builtins::{BUILTINS, Family, load_family};
+use specforge_component::builtins::{BUILTINS, Family};
 use specforge_component::committed::pinned_builtin_declarations;
 use specforge_protocol_types::{
     EntityKindDescriptor, ExtensionDeclaration, HandshakeResponse, PROTOCOL_VERSION,
 };
 use specforge_registry::{CandidateVocabulary, RegistryBuild, build_registries};
-use specforge_wasm::Provenance;
-use specforge_wasm::protocol::load_declaration;
-use specforge_wasm::runtime::WasmRuntime;
 
 fn set(family: Family) -> BTreeSet<&'static str> {
     family.names().iter().copied().collect()
@@ -227,35 +223,4 @@ fn gsd_cores_kinds_golden_with_its_set_reports_no_e026() {
         .filter(|declaration| gsd.contains(declaration.name()))
         .collect();
     the_gsd_set_alone_reports_no_e026(in_set, gsd_core_kinds_golden());
-}
-
-/// The same as the test above, with the component a build of `gsd/core` gives, loaded into a runtime as
-/// `@gsd/core`; its peers and the rest of the set come from the same runtime, and no peer is missing
-/// (no E027).
-#[test]
-#[ignore = "needs GSD_CORE_WASM"]
-fn gsd_core_with_its_set_alone_reports_no_e026() {
-    let path = std::path::PathBuf::from(std::env::var_os("GSD_CORE_WASM").expect(
-        "GSD_CORE_WASM names gsd_core.wasm: (cd gsd && cargo build --locked -p gsd-core --release --target wasm32-wasip2)",
-    ));
-    let bytes = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-    let runtime = ComponentRuntime::new();
-    load_family(&runtime, Family::Gsd).unwrap();
-    runtime
-        .load("@gsd/core", &bytes, Provenance::third_party(&bytes))
-        .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-    let declaration = |name: &str| {
-        load_declaration(&runtime, name)
-            .unwrap_or_else(|e| panic!("{name}: {e}"))
-            .declaration
-    };
-    let in_set: Vec<ExtensionDeclaration> = Family::Gsd
-        .builtins()
-        .map(|builtin| declaration(builtin.name))
-        .collect();
-
-    let alone = the_gsd_set_alone_reports_no_e026(in_set, declaration("@gsd/core"));
-
-    let missing: Vec<_> = alone.diagnostics().filter(|d| d.code == "E027").collect();
-    assert!(missing.is_empty(), "{missing:?}");
 }
