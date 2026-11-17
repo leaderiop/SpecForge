@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="merged">
+    <testsuite name="tracer" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="tests::adds" classname="tracer" timestamp="2026-11-17T10:00:00.004+00:00" time="0.008"/>
+    </testsuite>
+    <testsuite name="tracer" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="tests::subtracts" classname="tracer" timestamp="2026-11-17T10:00:00.003+00:00" time="0.007"/>
+    </testsuite>
+</testsuites>

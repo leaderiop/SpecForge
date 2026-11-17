@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="nextest-run" tests="1" skipped="0" failures="0" errors="0" uuid="0b6f3c1e-7a51-4c2e-9d0a-1f2e3d4c5b6a" timestamp="2026-11-17T10:00:00.000+00:00" time="0.012">
+    <testsuite name="tracer" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="tests::adds" classname="tracer" timestamp="2026-11-17T10:00:00.004+00:00" time="0.008"/>
+    </testsuite>
+</testsuites>
