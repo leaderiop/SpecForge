@@ -163,13 +163,15 @@ jobs:
       - name: Run the partition
         if: steps.archive.outcome == 'success'
         run: cargo gate ci --only tests ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
-      # dogfood reaches only full runs (main), so only main keeps the partition's nextest report for it.
+      # dogfood reaches only full runs (main), so only main keeps the partition's nextest report for it. A missing
+      # report fails here: dogfood would otherwise judge the other partitions' reports as if they were all.
       - name: Keep the JUnit report for dogfood
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: junit-tests-${{ matrix.part }}
           path: target/nextest/ci/junit.xml
+          if-no-files-found: error
           retention-days: 1
 
   effect-plane:

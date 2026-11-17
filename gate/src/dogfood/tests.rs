@@ -52,6 +52,33 @@ fn the_partitions_reports_are_found_in_their_directories_and_other_xml_is_skippe
     );
 }
 
+/// CI keeps each test partition's report for this check, from where nextest writes it under the `ci` profile. A
+/// partition whose report is not there fails its upload: the verdict needs one proven requirement, so a lost
+/// partition would otherwise read as `no_test` on what only it proves and pass.
+#[test]
+fn ci_uploads_each_partitions_report_or_fails() {
+    let path = specforge_repo_root::repo_root().join(".github/workflows/ci.yml");
+    let workflow = std::fs::read_to_string(&path).unwrap();
+    let step: Vec<&str> = workflow
+        .lines()
+        .map(str::trim)
+        .skip_while(|line| !line.starts_with("name: junit-tests-"))
+        .take_while(|line| !line.is_empty() && !line.starts_with("- "))
+        .collect();
+    let report = report_dir(Path::new(""), "ci").join("junit.xml");
+    let report = report.to_string_lossy().replace('\\', "/");
+    assert!(
+        step.contains(&format!("path: {report}").as_str()),
+        "{}: the junit-tests upload does not keep {report}: {step:?}",
+        path.display()
+    );
+    assert!(
+        step.contains(&"if-no-files-found: error"),
+        "{}: the junit-tests upload passes with no report: {step:?}",
+        path.display()
+    );
+}
+
 #[test]
 fn the_anchored_entities_are_the_guest_named_set() {
     let anchors = serde_json::json!({"entities": [
