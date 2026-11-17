@@ -23,6 +23,92 @@ Four loose ends from the swap round meet in CI. Every figure below was measured 
 - **perf-report.** `cargo run -p xtask --bin perf-report` found, in the swap round, that a warm collect is slower than a
   cold one and over its budget. D6 records why.
 
+## D1. Each cache is keyed once, under one prefix
+
+`ci.yml` defines one workflow-level `CACHE_PREFIX` and passes it as rust-cache's `prefix-key` on every step. One bump
+of it starts every cache anew, and a change to a cache's path list bumps it: a changed path list is a new cache
+version, which orphans the old entry, as the `build` job's did. Every step names a `shared-key` instead of `key`, so
+the saved key carries no job id and a restore-only step can name a saver's key. The savers are `lint`, `gsd-crates`,
+`specs`, `build` and `effect-plane`, and a Windows-subset job's own key if D4's split happens, each saved only on main.
+`dogfood` restores `specs`. The `tests` jobs carry no cache: they compile only `cargo gate`, and a restore of a
+2 GB cache costs more than that compile. `coverage.yml` and `release.yml` save nothing (`save-if: false`): the first
+would save an instrumented multi-GB cache the day its job passes, the second saves caches scoped to a tag, which nothing
+on main can read. `perf.yml` keeps its own nightly cache. A pull request saves nothing and reads main's.
+
+The reason: with a `key` and no prefix, a job's key is its job id, so a restore-only job restored a key no job saved,
+and nothing could start every cache anew at once; one prefix is one bump, and a `shared-key` names a cache by what it
+holds.
+
+## D2. Main keeps one generation of each cache
+
+A `cache-prune` job, on pushes to main only and after the saving jobs, with `actions: write` and `contents: read` and no
+other permission, lists main's cache entries and deletes every entry that a newer entry of its group supersedes. A group
+is the key without its two trailing hashes, the toolchain's and the lockfile's; a key of any other shape is never
+grouped and so never deleted. The previous prefix's entries are deleted once, by the maintainer, after the first main
+run on the new prefix, and not by CI: the prune job leaves each old group's newest entry alone.
+
+The reason: GitHub evicts the least recently used entries once the total passes its cap, and one a run restored counts
+as used, so a superseded generation stays alive and pushes the total past it; deleting a cache is a destructive act on
+a shared resource, so the job's reach is main's pushes, one group's older entries and nothing else.
+
+## D3. Each job has a time budget under its timeout
+
+A first step records the clock and a last step fails the job with an `::error` when it took longer than its
+`BUDGET_SECONDS`. A budget is the smaller of 1.25 times the job's cold wall time rounded up to a whole minute, and its
+timeout less 300 seconds, set from this change's own cold run. A job a pull request cannot run takes its budget from its
+runs on main (`dogfood`, which has never had a cache hit) or from its cap. The timeouts are unchanged: `ci` and `build`
+40 minutes, `tests` and `effect-plane` 30, `dogfood` 20, `bootstrap` 45. Gate tests hold every budget under its cap,
+every cap under its timeout, and the key rules of D1.
+
+The reason: a timeout cuts a job at the cap and says only that it ran long; a budget under it fails the run while the
+job still finishes, and so names the job that slipped before a cold run lands on the timeout.
+
+## D4. The Windows leg runs a named subset
+
+On `windows-latest`, after the effect plane's two steps, `ci.yml` runs:
+
+- `cargo nextest run --no-fail-fast -p gate -E 'test(/^checked_tree::/)'`: the copy of the tracked tree, its times
+  and modes, and a destination over 260 characters;
+- `cargo nextest run --no-fail-fast -p specforge-component --lib -E 'test(/user_compile_cache/)'`: the user's home
+  (D5);
+- `cargo nextest run --no-fail-fast -p xtask --bin absorb --test absorb_e2e`: absorb's unit and end-to-end tests,
+  including the three symbolic-link refusals, now on both operating systems with a link helper per system, and a
+  target over 260 characters.
+
+Before checkout the leg sets `git config --global core.autocrlf false` and `core.longpaths true`, so a checkout keeps
+the line endings the tests expect and a long path is not cut by git. A Windows-only nextest override gives
+`binary_id(xtask::absorb_e2e)` a longer kill time, since each of its tests loads a wasm extension. A symbolic link a
+test cannot create fails the test; a directory falls back to a junction, which std reads as a symbolic link too. Nothing
+is skipped. The subset moves to a job of its own only when the Windows leg's cold time would pass 1,500 s.
+
+What stays `cfg(unix)`, each with its reason:
+
+- `xtask/src/revendor.rs`'s three pinned-rustc tests and their helper: they run `sh` as a stand-in for `rustc`, and
+  revendor is a maintainer tool whose only CI home is the Linux bootstrap job;
+- `gate/src/run/tests.rs`'s `a_failed_answer_keeps_what_it_printed`: it runs `sh`, and the gate runs only on Linux;
+- the two exec-bit blocks in `gate/src/checked_tree/tests.rs`: Windows has no exec bit, and its permission, read-only,
+  is covered by the test beside them;
+- `crates/adapters/registry-client/tests/home.rs`: a guard on that suite's own isolation, and the crate is not on the
+  Windows leg;
+- `xtask/src/build_blobs.rs` and `xtask/src/perf_report.rs` set only `HOME`: both are Linux-only tools.
+
+The rest of the workspace's `cfg(unix)` code is outside the named subset. The list is the planned one; what the leg ran
+is added as built.
+
+The reason: the leg tests the host's file effects, and the copy, the compile cache's directory and absorb's writes are
+the code that touches Windows paths, links and line endings; a subset that fails on a link it cannot make, and not one
+that skips it, cannot pass on a platform it never exercised.
+
+## D5. The user's home is HOME, else USERPROFILE, absolute only
+
+The compile cache's directory (`user_compile_cache_dir`) reads the home as the effect journal, the consent store and the
+registry files already do: `HOME`, else `USERPROFILE`, and a relative home is no home. Each reader's lookup is a pure
+function its tests call with values, never by setting the process environment.
+
+The reason: with `HOME` unset, as in a Windows shell, the wasm compile cache was off and every test that loads a builtin
+compiled it again; three readers agreeing and one not is a defect of the one, and a test that sets the process
+environment races every other test in its process.
+
 ## D6. perf-report's warm collect is over its budget, and the reason is recorded, not fixed
 
 `perf-report` was run again at `f7d90cf8c` (the `sha` its report names), three runs per step, on a 32-core Linux
@@ -82,3 +168,41 @@ what the runner measures is the owner's decision, not this change's.
 The reason: a measured, reproducible gap with a known cause and no local fix is worth more written down with an owner
 and a trigger than patched across three crates in a phase about CI time; and a budget that nothing can meet yet is a
 warning to keep, not a number to move to quiet it.
+
+## Rejected
+
+- **One cache for lint, specs and build.** Their `target` contents differ by profile, one saver would make the three
+  wait on each other, and each would restore more than 3 GB.
+- **GitHub's lazy eviction instead of a prune job.** A restored generation counts as used, so it outlives its
+  replacement and the total passes the cap.
+- **A gate check for the budgets.** The effect plane never runs `cargo gate`, and the job's own clock, with its cache
+  restore, installs and downloads, is what the timeout cuts.
+- **Raising a timeout.** It hides a slow job instead of naming it.
+- **A composite action for the two budget steps.** A local composite action needs the checkout first and cannot have a
+  post step, so it would still be two `uses:` lines per job, against three lines inline.
+- **A YAML parser in the gate.** The gate keeps its two dependencies; its tests read the workflow line by line, as the
+  bootstrap job's timeout test does.
+- **Editing `.gitattributes` for line endings.** The root-layout check describes that file's one line, and a Windows
+  checkout is made right by `core.autocrlf` before checkout, with no tracked change.
+- **A separate Windows job from the start.** It costs a second cache and a second runner for a subset that may fit;
+  D4 splits it when the cold time says so.
+- **Fixing perf-report in this change.** The cost is a compile across three crates (D6).
+- **Widening `dogfood` to pull requests to measure it.** It has never had a cache hit, so its history on main is its
+  cold evidence.
+
+## Consequences
+
+- Every cache is named by what it holds, and one edit of `CACHE_PREFIX` makes every job cold at once.
+- A pull request after a prefix bump is cold on every push, because a pull request saves nothing and reads main's
+  entries; the bump is the last change of the work it measures.
+- Main's total cache is one generation of each key, which is under the 10 GiB cap.
+- A job past its budget fails the run before it reaches its timeout.
+- The Windows leg takes longer, by the compile and run of three more test targets.
+- perf-report keeps warning every night until D6's trigger is met.
+
+## Would reopen it
+
+- A cold job past its budget twice.
+- rust-cache changing how it composes a key.
+- The Windows leg's cold time past 1,500 s.
+- D6's trigger.
