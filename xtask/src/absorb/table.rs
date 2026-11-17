@@ -391,10 +391,15 @@ pub fn new_kind(old: &str) -> Option<&'static str> {
     }
 }
 
-/// Whether every row of an old kind drops its value: its entities convert to nothing, each value ledgered `dropped`.
-pub fn drops(old: &str) -> bool {
-    let mut rows = rows_of(old).peekable();
-    rows.peek().is_some() && rows.all(|row| matches!(row.homes, [Home::Dropped(_)]))
+/// Why an old kind's entities convert to nothing: the one reason every row of it drops its value with. None for a
+/// kind with no row, or one a row of which writes, waits or refuses.
+pub fn dropped(old: &str) -> Option<&'static str> {
+    let mut reasons = rows_of(old).map(|row| match row.homes {
+        [Home::Dropped(reason)] => Some(*reason),
+        _ => None,
+    });
+    let reason = reasons.next()??;
+    reasons.all(|other| other == Some(reason)).then_some(reason)
 }
 
 /// The rows of an old kind, in table order.

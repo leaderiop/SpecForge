@@ -96,14 +96,14 @@ fn a_selected_failure_mode_is_kept_and_its_values_dropped() {
     ];
     let planned = selected(&all, &["a", "torn"]);
     assert_eq!(created(&planned), ["a"]);
-    assert!(
-        matches!(
-            ledgered(&planned, "torn").as_slice(),
-            [(field, Why::Dropped(_))] if field == "severity"
-        ),
-        "{:?}",
-        ledgered(&planned, "torn")
-    );
+    let fields: Vec<String> = ledgered(&planned, "torn")
+        .into_iter()
+        .map(|(field, why)| {
+            assert!(matches!(why, Why::Dropped(_)), "{field}: {why:?}");
+            field
+        })
+        .collect();
+    assert_eq!(fields, ["severity", "title"]);
 }
 
 #[test]

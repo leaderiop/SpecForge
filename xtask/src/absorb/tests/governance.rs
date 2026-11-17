@@ -51,6 +51,7 @@ fn a_failure_mode_converts_to_nothing_and_ledgers_each_value_dropped() {
         [
             ("f", "cause", json!("The disk fills."), dropped.clone()),
             ("f", "severity", json!("high"), dropped.clone()),
+            ("f", "title", json!("The f"), dropped.clone()),
             (
                 "f",
                 "verify",
@@ -58,7 +59,7 @@ fn a_failure_mode_converts_to_nothing_and_ledgers_each_value_dropped() {
                 dropped
             ),
         ],
-        "one entry per value, each with the table's reason"
+        "one entry for the title and one per value, each with the table's reason"
     );
 }
 

@@ -44,7 +44,9 @@ impl Scope {
         for id in ids {
             match all.iter().find(|e| &e.id == id) {
                 None => refused.push(format!("'{id}' names no entity of the absorbed kinds")),
-                Some(e) if table::new_kind(&e.kind).is_none() && !table::drops(&e.kind) => {
+                Some(e)
+                    if table::new_kind(&e.kind).is_none() && table::dropped(&e.kind).is_none() =>
+                {
                     refused.push(format!("'{id}' is a {}, which creates no entity", e.kind));
                 }
                 Some(_) => {}

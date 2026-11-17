@@ -2,7 +2,7 @@
 //! an old invariant, journey, persona, term and channel convert to nothing (ADR 0370 D8); a module or a release waits
 //! for a kind, and creates nothing.
 
-use serde_json::json;
+use serde_json::{Value, json};
 use specforge_ops::authoring::edit::Edit;
 use std::collections::BTreeMap;
 
@@ -294,7 +294,8 @@ fn a_milestone_keeps_its_goal_target_features_and_state() {
 }
 
 /// gsd-core has no invariant, journey, persona, term or channel kind (ADR 0370 D2): each old one creates no entity,
-/// and each of its values, an invariant's obligation too, is one `dropped` entry with its row's reason.
+/// and its title and each of its values, an invariant's obligation too, is one `dropped` entry with its kind's reason,
+/// the reason each of its rows gives.
 #[test]
 fn an_old_kind_that_converts_to_nothing_creates_no_entity_and_ledgers_each_value_dropped() {
     let mut invariant = old(
@@ -334,28 +335,87 @@ fn an_old_kind_that_converts_to_nothing_creates_no_entity_and_ledgers_each_value
         (
             "invariant",
             "durable",
-            ["guarantee", "risk", "verify"].as_slice(),
+            ["guarantee", "risk", "title", "verify"].as_slice(),
         ),
-        ("journey", "record", &["flow", "persona"]),
-        ("persona", "writer", &["description", "goals"]),
-        ("term", "t_entry", &["aliases", "definition"]),
-        ("channel", "cli", &["description", "status"]),
+        ("journey", "record", &["flow", "persona", "title"]),
+        ("persona", "writer", &["description", "goals", "title"]),
+        ("term", "t_entry", &["aliases", "definition", "title"]),
+        ("channel", "cli", &["description", "status", "title"]),
     ] {
         assert_eq!(table::new_kind(kind), None, "{kind}");
+        let reason = table::dropped(kind).unwrap();
+        assert!(reason.contains("ADR 0370"), "{reason}");
         let ledger = ledgered(&planned, id);
         assert_eq!(
             ledger.iter().map(|(f, _)| f.as_str()).collect::<Vec<_>>(),
             fields,
-            "{kind}: one entry per value"
+            "{kind}: one entry for the title and one per value"
         );
         for (field, why) in ledger {
-            let &[Home::Dropped(reason)] = table::row_of(kind, &field).unwrap().homes else {
-                panic!("{kind}.{field} is dropped");
-            };
-            assert!(reason.contains("ADR 0370"), "{reason}");
+            if let Some(row) = table::row_of(kind, &field) {
+                assert_eq!(row.homes, [Home::Dropped(reason)], "{kind}.{field}");
+            }
             assert_eq!(why, Why::Dropped(reason.to_string()), "{kind}.{field}");
         }
     }
+}
+
+/// An entity of a kind that converts to nothing, with no value, is still one `dropped` entry: its title, or `null`
+/// when it has none (ADR 0360 D3: the ledger lists every old value not written as itself).
+#[test]
+fn an_entity_with_no_value_of_a_kind_that_converts_to_nothing_ledgers_its_title() {
+    let mut untitled = old("persona", "p", json!({}));
+    untitled.title = None;
+    let planned = planned(&[old("term", "t", json!({})), untitled]);
+    assert!(planned.creates.is_empty(), "{:?}", planned.creates);
+    let entries: Vec<_> = planned
+        .ledger
+        .entries()
+        .map(|e| {
+            (
+                e.kind.as_str(),
+                e.id.as_str(),
+                e.field.as_str(),
+                e.value.clone(),
+                e.why.clone(),
+            )
+        })
+        .collect();
+    let dropped = |kind: &str| Why::Dropped(table::dropped(kind).unwrap().to_string());
+    assert_eq!(
+        entries,
+        [
+            ("persona", "p", "title", Value::Null, dropped("persona")),
+            ("term", "t", "title", json!("The t"), dropped("term")),
+        ]
+    );
+}
+
+/// The kinds whose every row drops its value, each with one reason, are exactly those that convert to nothing.
+#[test]
+fn the_kinds_that_convert_to_nothing_are_those_whose_every_row_drops_with_one_reason() {
+    let dropped: Vec<&str> = table::OLD_KINDS
+        .into_iter()
+        .filter(|kind| table::dropped(kind).is_some())
+        .collect();
+    assert_eq!(
+        dropped,
+        [
+            "failure_mode",
+            "invariant",
+            "journey",
+            "term",
+            "persona",
+            "channel"
+        ]
+    );
+    assert_eq!(
+        table::dropped("constraint"),
+        None,
+        "a row writes, another drops"
+    );
+    assert_eq!(table::dropped("module"), None, "every row waits");
+    assert_eq!(table::dropped("nothing"), None, "no row");
 }
 
 #[test]

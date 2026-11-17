@@ -46,9 +46,27 @@ expression: ledger
     },
     {
       "kind": "channel",
+      "id": "cli",
+      "field": "title",
+      "value": "Command Line",
+      "why": {
+        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "channel",
       "id": "web",
       "field": "description",
       "value": "A page that lists the entries.",
+      "why": {
+        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "channel",
+      "id": "web",
+      "field": "title",
+      "value": "Web Page",
       "why": {
         "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
       }
@@ -693,6 +711,15 @@ expression: ledger
     },
     {
       "kind": "failure_mode",
+      "id": "slow_disk",
+      "field": "title",
+      "value": "Slow Disk",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
       "id": "torn_write",
       "field": "affected_behaviors",
       "value": [
@@ -813,6 +840,15 @@ expression: ledger
       "id": "torn_write",
       "field": "severity",
       "value": "critical",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "title",
+      "value": "Torn Write",
       "why": {
         "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
       }
@@ -1012,6 +1048,15 @@ expression: ledger
     },
     {
       "kind": "invariant",
+      "id": "entries_are_whole",
+      "field": "title",
+      "value": "Entries Are Whole",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
       "id": "writes_are_durable",
       "field": "guarantee",
       "value": "An acknowledged write survives a crash.",
@@ -1024,6 +1069,15 @@ expression: ledger
       "id": "writes_are_durable",
       "field": "risk",
       "value": "high",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "writes_are_durable",
+      "field": "title",
+      "value": "Writes Are Durable",
       "why": {
         "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
       }
@@ -1057,6 +1111,15 @@ expression: ledger
       "id": "browse_entries",
       "field": "persona",
       "value": "writer",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "browse_entries",
+      "field": "title",
+      "value": "Browse Entries",
       "why": {
         "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
@@ -1121,6 +1184,15 @@ expression: ledger
       "value": [
         "daily"
       ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "title",
+      "value": "Record an Entry",
       "why": {
         "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
@@ -1344,6 +1416,15 @@ expression: ledger
       }
     },
     {
+      "kind": "persona",
+      "id": "writer",
+      "field": "title",
+      "value": "Writer",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
       "kind": "release",
       "id": "first_release",
       "field": "deliverables",
@@ -1500,9 +1581,27 @@ expression: ledger
     },
     {
       "kind": "term",
+      "id": "t_entry",
+      "field": "title",
+      "value": "Entry",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
       "id": "t_store",
       "field": "definition",
       "value": "The folder that holds every entry.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_store",
+      "field": "title",
+      "value": "Store",
       "why": {
         "dropped": "gsd-core has no term kind (ADR 0370): the value is dropped"
       }

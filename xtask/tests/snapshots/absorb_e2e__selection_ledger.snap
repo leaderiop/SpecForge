@@ -45,6 +45,15 @@ expression: ledger
       }
     },
     {
+      "kind": "channel",
+      "id": "cli",
+      "field": "title",
+      "value": "Command Line",
+      "why": {
+        "dropped": "gsd-core has no channel or term kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
       "kind": "constraint",
       "id": "write_latency",
       "field": "category",
@@ -385,6 +394,15 @@ expression: ledger
     {
       "kind": "failure_mode",
       "id": "torn_write",
+      "field": "title",
+      "value": "Torn Write",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370): an old failure mode converts to nothing; a threat belongs to @gsd/security's register and needs a plan"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
       "field": "verify",
       "value": {
         "kind": "unit",
@@ -520,6 +538,15 @@ expression: ledger
       }
     },
     {
+      "kind": "invariant",
+      "id": "writes_are_durable",
+      "field": "title",
+      "value": "Writes Are Durable",
+      "why": {
+        "dropped": "gsd-core has no invariant kind (ADR 0370): the conversion change writes an old invariant as a requirement"
+      }
+    },
+    {
       "kind": "journey",
       "id": "record_an_entry",
       "field": "channels",
@@ -579,6 +606,15 @@ expression: ledger
       "value": [
         "daily"
       ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "title",
+      "value": "Record an Entry",
       "why": {
         "dropped": "gsd-core has no journey kind (ADR 0370): the value is dropped"
       }
@@ -650,6 +686,15 @@ expression: ledger
       "id": "writer",
       "field": "technical_level",
       "value": "intermediate",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "writer",
+      "field": "title",
+      "value": "Writer",
       "why": {
         "dropped": "gsd-core has no persona kind (ADR 0370): the value is dropped"
       }

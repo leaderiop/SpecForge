@@ -231,15 +231,15 @@ struct Planner {
 pub fn plan(entities: &[OldEntity]) -> Planned {
     let mut planner = Planner::default();
     for e in entities {
-        planner.draft(e);
+        match dropped_whole(e) {
+            Some(reason) => planner.drop_whole(e, reason),
+            None => planner.draft(e),
+        }
     }
-    for e in entities {
+    for e in entities.iter().filter(|e| dropped_whole(e).is_none()) {
         for row in table::rows_of(&e.kind) {
             let values: Vec<Value> = if row.field == VERIFY {
-                e.obligations
-                    .iter()
-                    .map(|(kind, text)| json!({"kind": kind, "text": text}))
-                    .collect()
+                obligations(e)
             } else {
                 e.fields.get(row.field).cloned().into_iter().collect()
             };
@@ -254,7 +254,35 @@ pub fn plan(entities: &[OldEntity]) -> Planned {
     planner.finish()
 }
 
+/// Why `e` converts to nothing, if it does (ADR 0370 D8): every row of its kind drops its value.
+fn dropped_whole(e: &OldEntity) -> Option<&'static str> {
+    table::dropped(&e.kind)
+}
+
+/// `e`'s obligations, each as the ledger writes it.
+fn obligations(e: &OldEntity) -> Vec<Value> {
+    e.obligations
+        .iter()
+        .map(|(kind, text)| json!({"kind": kind, "text": text}))
+        .collect()
+}
+
 impl Planner {
+    /// `e`, which converts to nothing: its title, each of its values and each obligation ledgered `dropped` with
+    /// `reason`, so an entity with no value still leaves one entry.
+    fn drop_whole(&mut self, e: &OldEntity, reason: &str) {
+        let title = ("title", e.title.clone().map_or(Value::Null, Value::String));
+        let values = e
+            .fields
+            .iter()
+            .map(|(field, value)| (field.as_str(), value.clone()));
+        let obligations = obligations(e).into_iter().map(|value| (VERIFY, value));
+        for (field, value) in std::iter::once(title).chain(values).chain(obligations) {
+            let why = Why::Dropped(reason.to_string());
+            self.ledger.record(&e.kind, &e.id, field, value, why);
+        }
+    }
+
     /// The entity `e` converts to, empty but for its header.
     fn draft(&mut self, e: &OldEntity) {
         let Some(kind) = table::new_kind(&e.kind) else {
