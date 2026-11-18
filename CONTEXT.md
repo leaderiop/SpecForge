@@ -437,7 +437,23 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `specforge/graphChanged` (ADR 0058). `specforge migrate` keeps a migration only when the delta from the graph
   before it to the graph after is empty, and reports each change as W054. A node that only moved is no change; the
   update lists it apart (**moved node**, `Update::moved`), so what writes positions (MCP's `specforge://graph`) is
-  notified. A typed edit reads it over the files it changes (`compute_graph_delta_over`).
+  notified. A typed edit reads it over the files it changes (`compute_graph_delta_over`). The same change between
+  two **snapshots** is what `specforge diff` names and what a pass reads (ADR 0376): `specforge_project::delta::Delta`
+  adds to each changed node its content digests before and after (`sha256:`) and filters by kind, keeping an edge
+  when either end is of a named kind. A pass that declares the delta input (`Input::Delta { kinds }`, protocol 2.3.0)
+  is sent it restricted to its kinds as `PassInput.delta`, which names its base: `none`, `revision` (the merge-base
+  under `check --since`) or `previous` (a long-lived session's last completed check, or the project before a write
+  for a guard pass). Base none is the empty graph, so every node is added and a pass written for changes is correct
+  on a cold run; a node whose kind changed is a removal and an addition.
+- **Snapshot**: a project's compiled graph, its fact nodes included, at one key: a git revision, or the working tree
+  (`specforge_project::snapshot::Snapshot`, ADR 0376). Not the **entity snapshot** of one build. A revision's is
+  built from the `.spec` files, the harness ledger and `specforge.json` the commit holds, read through the **Git
+  port** with no checkout, by the one loader the **baseline** also goes through, and compiled with the current
+  extensions, so a diff shows changes of content, not of toolchain; a revision whose `specforge.json` loads another
+  extension set gets a note. Its facts come only from a retained fact store whose sha256 equals the ledger line at
+  that revision; with none, the diff notes the facts were not collected there and still compares the spec entities,
+  and no collector runs for a past revision. `specforge diff` (MCP: `specforge.diff`) compares two: HEAD and the
+  working tree, a revision and the working tree, or two revisions (`<a>..<b>`).
 - **Moved node**: a node in both graphs declared at another file or start line, where it is now
   (`specforge_graph::NodeChange` in `Applied::moved` / `Update::moved`). Not part of the graph delta; MCP notifies
   the resources that write positions (`Watched::Graph`, what a resource declares with
@@ -1788,7 +1804,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
   read through the **Git port** only when something declares history; what an immutable or append-only value is
   judged against and what a pass receives as `previous` (ADR 0287); a compute pass's declared reads see the files
-  the commit holds (ADR 0300). The old build cache and `lifecycle_field` are gone.
+  the commit holds (ADR 0300). The old build cache and `lifecycle_field` are gone. It is built through the one loader
+  every **snapshot** at a revision uses, and `check --since` resolves the revision and its merge-base before the
+  passes run, so the history checks and a pass's delta (base `revision`) read the same commit and each pass runs once
+  (ADR 0376).
 - **Edit plan**: what a writing command or collector answers to write (`EditPlan`, protocol 1.9.0): ordered typed ops
   the host checks, plans with the typed edit engine, judges (E080, guard passes included) and applies all or nothing;
   an extension never writes a file (ADR 0289).
@@ -1824,7 +1843,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `b/mod.rs`, a non-mod-rs file's children in its own directory, `#[path]`, `cfg_attr` paths): what `@rust/source` reads
   its items from (ADR 0348 D6).
 - **Fact store**: `.specforge/facts/<key>/<collector>.json`, git-ignored, one file per collector and key, recorded by a
-  `<collector> facts:<key> <digest>` line of the harness ledger.
+  `<collector> facts:<key> <digest>` line of the harness ledger. A collect that supersedes one archives it as
+  `.specforge/facts-history/<seq>-<key>/<collector>.json` (`<seq>` counts up, since a store has no clock) and keeps at
+  most `facts.retain` archived stores per collector (`specforge.json`, 1 to 100, default 8). The session never serves
+  an archived store; a **snapshot** at a revision is served the live or archived store whose sha256 equals the ledger
+  line at that revision, and none other (ADR 0376).
 - **Fact key**: the commit a collect ran at (`<sha>`, `<sha>-dirty`), or `worktree`.
 - **Fact scheme**: a scheme a collector-written kind declares. A reference written in it that names no fact is
   **unheld**: no edge and no core diagnostic; the kind's extension judges it.
