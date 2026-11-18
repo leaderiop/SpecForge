@@ -13,6 +13,12 @@ struct Selective {
     is_pub: bool,
 }
 
+/// What an import path never holds, on any OS: a `\` (a separator on Windows) or a `:` (a drive on Windows).
+const REFUSED: [char; 2] = ['\\', ':'];
+
+/// An E025's suggestion for an import path holding one of [`REFUSED`].
+const SLASHED: &str = "an import path is `/`-separated and holds no `\\` or `:`";
+
 /// What one `use` path names among a compile's sources.
 enum Named<'s> {
     Source(&'s str),
@@ -56,7 +62,7 @@ pub fn resolve_imports(
         .collect();
 
     // Candidates for fuzzy suggestions: what an import path would spell (source keys without the spec dir and
-    // .spec).
+    // .spec), never one an import path cannot hold (a `\` or a `:`, see `name`).
     let candidates: Vec<String> = sources
         .iter()
         .map(|key| {
@@ -66,6 +72,7 @@ pub fn resolve_imports(
                 None => key,
             }
         })
+        .filter(|path| !path.contains(REFUSED))
         .collect();
 
     // Resolve imports and build the file dependency graph, tracking each
@@ -116,11 +123,16 @@ pub fn resolve_imports(
                         path: import.path.to_string(),
                         did_you_mean: close.map(str::to_string),
                     });
-                    diagnostic.suggestion = Some(match close {
-                        Some(m) => format!("did you mean '{}'?", m),
-                        None => "a use path names a project source: a .spec file under the spec \
-                                 root, not excluded and not under a skipped directory"
-                            .to_string(),
+                    let refused = import.path.as_str().contains(REFUSED);
+                    diagnostic.suggestion = Some(match (close, refused) {
+                        (Some(m), false) => format!("did you mean '{}'?", m),
+                        (Some(m), true) => format!("{SLASHED}: did you mean '{m}'?"),
+                        (None, true) => SLASHED.to_string(),
+                        (None, false) => {
+                            "a use path names a project source: a .spec file under the spec \
+                             root, not excluded and not under a skipped directory"
+                                .to_string()
+                        }
                     });
                     diagnostics.push(diagnostic);
                 }
@@ -213,7 +225,7 @@ fn name<'s>(
     }
     // Windows reads `\` as a separator and `C:` as a drive, Linux reads both as part of a name: refused on every OS,
     // an import names the same source wherever it is checked.
-    if import_path.contains(['\\', ':']) {
+    if import_path.contains(REFUSED) {
         return Named::Nothing;
     }
     let importing = under(spec_dir, importing);
