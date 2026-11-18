@@ -460,7 +460,7 @@ impl PlannedChange {
                 }
                 for (collector, key, retain) in &self.superseded {
                     let Retirement { moves, pruned } =
-                        stager.retired_stores(collector, key, *retain);
+                        stager.retired_stores(collector, key, *retain)?;
                     // Archived, then removed, both journaled: a failed change puts each back where it was.
                     for (from, to) in moves {
                         if let Some(bytes) = stager.read_if_there(&from)? {

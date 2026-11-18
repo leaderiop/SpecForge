@@ -53,18 +53,25 @@ pub fn path(collector: &str, seq: u32, key: &str) -> String {
 }
 
 /// Every archive directory under the project root `root`, by sequence number and key, listed through `disk`: a
-/// directory whose name is no archive's is skipped.
-fn directories(disk: &dyn Disk, root: &Path) -> Vec<(u32, String)> {
-    disk.list(&root.join(FACTS_HISTORY_DIR))
-        .unwrap_or_default()
-        .iter()
-        .filter_map(|name| parse_name(name).map(|(seq, key)| (seq, key.to_string())))
-        .collect()
+/// directory whose name is no archive's is skipped, and no archive is none. `None` when the archive is there and
+/// cannot be listed: what it holds is not known.
+fn directories(disk: &dyn Disk, root: &Path) -> Option<Vec<(u32, String)>> {
+    let history = root.join(FACTS_HISTORY_DIR);
+    let Some(names) = disk.list(&history) else {
+        return (!disk.exists(&history)).then(Vec::new);
+    };
+    Some(
+        names
+            .iter()
+            .filter_map(|name| parse_name(name).map(|(seq, key)| (seq, key.to_string())))
+            .collect(),
+    )
 }
 
 /// The archived stores of `collector` under the project root `root`, listed through `disk`, newest first: each
 /// archive directory holding `<collector>.json`. A directory that holds none (one an interrupted change left empty)
-/// is skipped.
+/// is skipped, and an archive that cannot be listed holds none a revision is served (a collect refuses to archive
+/// into it, [`retire`]).
 pub fn archived(disk: &dyn Disk, root: &Path, collector: &str) -> Vec<Archived> {
     if !is_collector_name(collector) {
         return Vec::new();
@@ -72,6 +79,7 @@ pub fn archived(disk: &dyn Disk, root: &Path, collector: &str) -> Vec<Archived> 
     let file = format!("{collector}.json");
     let history = root.join(FACTS_HISTORY_DIR);
     let mut found: Vec<Archived> = directories(disk, root)
+        .unwrap_or_default()
         .into_iter()
         .filter(|(seq, key)| {
             disk.list(&history.join(dir_name(*seq, key)))
@@ -97,17 +105,35 @@ pub struct Retirement {
     pub pruned: Vec<String>,
 }
 
+/// Why a collect retires no store: the archive is there and cannot be listed, so no sequence number is known to be
+/// fresh, and a move could land on an archived store a ledger still trusts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Unlisted;
+
+impl std::fmt::Display for Unlisted {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{FACTS_HISTORY_DIR} is there and cannot be listed")
+    }
+}
+
 /// What a collect filing `collector`'s facts under `key` does to its stores under the project root `root`, listed
 /// through `disk`, keeping `retain` archived (ADR 0376 D4): each live store under another key is archived under a
 /// fresh sequence number, one more than the largest of the archive, in key order; then the collector's archives
 /// beyond the newest `retain`, the new ones counted, are pruned, oldest first. A collector or key that names no
-/// store retires nothing.
-pub fn retire(disk: &dyn Disk, root: &Path, collector: &str, key: &str, retain: u8) -> Retirement {
+/// store retires nothing; an archive that is there and cannot be listed is [`Unlisted`].
+pub fn retire(
+    disk: &dyn Disk,
+    root: &Path,
+    collector: &str,
+    key: &str,
+    retain: u8,
+) -> Result<Retirement, Unlisted> {
     let mut retirement = Retirement::default();
     if !is_collector_name(collector) || !is_store_key(key) {
-        return retirement;
+        return Ok(retirement);
     }
     let next = directories(disk, root)
+        .ok_or(Unlisted)?
         .iter()
         .map(|(seq, _)| *seq)
         .max()
@@ -149,7 +175,7 @@ pub fn retire(disk: &dyn Disk, root: &Path, collector: &str, key: &str, retain: 
             None => retirement.pruned.push(beyond.path.clone()),
         }
     }
-    retirement
+    Ok(retirement)
 }
 
 /// Where `collector`'s store filed under `key` may be under the project root `root`, listed through `disk`: its live

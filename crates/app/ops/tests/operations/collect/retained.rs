@@ -128,3 +128,53 @@ fn a_failed_collect_puts_every_store_back_and_removes_no_directory() {
         "the ledger still records the first store"
     );
 }
+
+#[cfg(unix)]
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_collect_over_an_archive_it_cannot_list_archives_nothing_and_overwrites_nothing() {
+    use std::os::unix::fs::PermissionsExt;
+    let p = project();
+    super::facts::collect(
+        &p,
+        &at(&p, SHA),
+        serving(two_tests(), nothing()),
+        Some("node"),
+    );
+    let live = Store::path("node", SHA);
+    let before = std::fs::read(p.root().join(&live)).unwrap();
+    // an earlier store of the same key, archived first: listed, the next seq is 2
+    let kept = format!(".specforge/facts-history/000001-{SHA}/node.json");
+    std::fs::create_dir_all(p.root().join(&kept).parent().unwrap()).unwrap();
+    std::fs::write(p.root().join(&kept), "archived first").unwrap();
+    // the archive may be entered, not listed
+    let history = p.root().join(".specforge/facts-history");
+    let mode = |m: u32| std::fs::set_permissions(&history, std::fs::Permissions::from_mode(m));
+    mode(0o300).unwrap();
+    if std::fs::read_dir(&history).is_ok() {
+        mode(0o755).unwrap();
+        eprintln!("skipped: this user lists a directory it may not read (root)");
+        return;
+    }
+
+    let (_, stored) = collecting(
+        &p,
+        &at(&p, NEXT),
+        serving(json!([two_tests()[0]]), nothing()),
+        Some("node"),
+    );
+    mode(0o755).unwrap();
+
+    let error = stored.expect_err("an archive it cannot list is refused");
+    assert_eq!(error.code, specforge_ops::FILE_UNREADABLE, "{error:?}");
+    assert!(
+        error.message.contains(".specforge/facts-history"),
+        "{error:?}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(p.root().join(&kept)).unwrap(),
+        "archived first",
+        "the archived store is not overwritten"
+    );
+    assert_eq!(std::fs::read(p.root().join(&live)).unwrap(), before);
+    assert!(!p.root().join(Store::path("node", NEXT)).exists());
+}

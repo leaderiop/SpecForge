@@ -4,7 +4,10 @@
 
 use std::path::Path;
 
-use specforge_project::facts::retain::{Archived, Retirement, archived, parse_name, retire};
+use specforge_project::facts::retain::{
+    Archived, Retirement, Unlisted, archived, parse_name, retire,
+};
+use specforge_registry::Disk;
 use specforge_registry::PlainDisk;
 
 use super::*;
@@ -56,7 +59,7 @@ fn archiving() -> tempfile::TempDir {
 #[specforge_test(requirement = "FEATURE-142")]
 fn a_retire_moves_each_superseded_store_under_a_fresh_seq_after_the_largest() {
     let dir = archiving();
-    let retired = retire(&PlainDisk, dir.path(), "c", NEW, 8);
+    let retired = retire(&PlainDisk, dir.path(), "c", NEW, 8).unwrap();
     assert_eq!(
         retired,
         Retirement {
@@ -74,7 +77,7 @@ fn a_retire_moves_each_superseded_store_under_a_fresh_seq_after_the_largest() {
 #[specforge_test(requirement = "FEATURE-142")]
 fn a_retire_prunes_the_collectors_archives_beyond_retain_oldest_first() {
     let dir = archiving();
-    let retired = retire(&PlainDisk, dir.path(), "c", NEW, 2);
+    let retired = retire(&PlainDisk, dir.path(), "c", NEW, 2).unwrap();
     assert_eq!(retired.moves.len(), 2, "{retired:?}");
     assert_eq!(
         retired.pruned,
@@ -82,7 +85,7 @@ fn a_retire_prunes_the_collectors_archives_beyond_retain_oldest_first() {
         "d's archive is not c's to prune"
     );
     // retain 1: the store the bound leaves no room for is removed where it is, never archived first
-    let retired = retire(&PlainDisk, dir.path(), "c", NEW, 1);
+    let retired = retire(&PlainDisk, dir.path(), "c", NEW, 1).unwrap();
     assert_eq!(
         retired,
         Retirement {
@@ -100,14 +103,14 @@ fn a_retire_at_the_bound_of_100_keeps_100() {
         archive(root, &format!("{seq:06}-{OLDER}"), "c");
     }
     live(root, "c", OLD);
-    let retired = retire(&PlainDisk, root, "c", NEW, 100);
+    let retired = retire(&PlainDisk, root, "c", NEW, 100).unwrap();
     assert_eq!(
         retired.moves,
         [(facts(OLD, "c"), history(&format!("000101-{OLD}"), "c"))]
     );
     assert_eq!(retired.pruned, [history(&format!("000001-{OLDER}"), "c")]);
     // with nothing superseded, 100 archives are within the bound
-    let none = retire(&PlainDisk, root, "c", OLD, 100);
+    let none = retire(&PlainDisk, root, "c", OLD, 100).unwrap();
     assert_eq!(none, Retirement::default());
 }
 
@@ -115,10 +118,13 @@ fn a_retire_at_the_bound_of_100_keeps_100() {
 fn a_retire_with_nothing_superseded_or_a_name_that_is_no_stores_does_nothing() {
     let dir = archiving();
     let root = dir.path();
-    assert_eq!(retire(&PlainDisk, root, "e", NEW, 8), Retirement::default());
+    assert_eq!(
+        retire(&PlainDisk, root, "e", NEW, 8).unwrap(),
+        Retirement::default()
+    );
     for (collector, key) in [("../c", NEW), (".c", NEW), ("c", "../x"), ("c", "")] {
         assert_eq!(
-            retire(&PlainDisk, root, collector, key, 8),
+            retire(&PlainDisk, root, collector, key, 8).unwrap(),
             Retirement::default(),
             "{collector} {key}"
         );
@@ -182,6 +188,37 @@ fn a_listing_keeps_the_collectors_archives_newest_first_and_skips_the_rest() {
         ]
     );
     // the empty directory still counts for the next seq: a fresh one is never a directory already there
-    let retired = retire(&PlainDisk, root, "c", NEW, 8);
+    let retired = retire(&PlainDisk, root, "c", NEW, 8).unwrap();
     assert_eq!(retired.moves[0].1, history(&format!("000014-{OLD}"), "c"));
+}
+
+/// The plain disk, the archive there and unlistable (a directory it may not read, or an I/O error).
+struct Unlistable;
+
+impl Disk for Unlistable {
+    fn exists(&self, path: &Path) -> bool {
+        PlainDisk.exists(path)
+    }
+    fn list(&self, dir: &Path) -> Option<Vec<String>> {
+        if dir.ends_with(".specforge/facts-history") {
+            return None;
+        }
+        PlainDisk.list(dir)
+    }
+    fn read(&self, path: &Path) -> std::io::Result<Vec<u8>> {
+        PlainDisk.read(path)
+    }
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_retire_over_an_archive_that_cannot_be_listed_moves_nothing() {
+    let dir = archiving();
+    let root = dir.path();
+    // listed, `000001` would be the fresh seq, and the move would land on this archived store
+    archive(root, &format!("000001-{OLD}"), "c");
+    assert_eq!(retire(&Unlistable, root, "c", NEW, 8), Err(Unlisted));
+    // no archive at all is none, not an unlistable one
+    fs::remove_dir_all(root.join(".specforge/facts-history")).unwrap();
+    let retired = retire(&Unlistable, root, "c", NEW, 8).unwrap();
+    assert_eq!(retired.moves[0].1, history(&format!("000001-{OLD}"), "c"));
 }
