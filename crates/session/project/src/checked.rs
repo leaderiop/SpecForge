@@ -23,16 +23,14 @@ pub struct Checked {
 }
 
 impl Environment {
-    /// Every check a compile runs over the entity snapshot `entities` of a
-    /// built graph: the registry build's checks (the structural
-    /// checks and the extensions' rules, in the order
-    /// [`RegistryBuild::check`] runs them), then the check-phase passes;
-    /// the custom verdicts and the passes run in [`Self::runtime`]. Every file
-    /// a check reads goes through `disk` (ADR 0107).
-    pub fn run_checks(&self, entities: &EntitySnapshot, disk: &dyn Disk) -> Vec<Diagnostic> {
+    /// Every check a compile runs over the graph `build`, on its entity snapshot taken now: the registry build's
+    /// checks (the structural checks and the extensions' rules, in the order [`RegistryBuild::check`] runs them),
+    /// then the check-phase passes; the custom verdicts and the passes run in [`Self::runtime`]. Every file a check
+    /// reads goes through `disk` (ADR 0107).
+    pub fn run_checks(&self, build: &GraphBuild, disk: &dyn Disk) -> Vec<Diagnostic> {
         self.checked(
-            None,
-            entities,
+            build,
+            &self.entity_snapshot(build),
             disk,
             &baseline::Baseline::of_head(self, &baseline::Checking::of(self)),
             &judged::DigestMemo::default(),
@@ -44,11 +42,11 @@ impl Environment {
     /// [`Self::run_checks`] over the authored snapshot `entities`, with what the compute passes gave (ADR 0287):
     /// they run first, the registry's checks and rules and the check passes read the snapshot with their values
     /// merged. `computed` is empty and `entities` is `None` (the snapshot given is the one read) when no compute
-    /// pass gave a value. With the graph `build` the snapshot was taken from, the harness ledger is checked too
-    /// ([`harness::check`]).
+    /// pass gave a value. `build` is the graph the snapshot was taken from: the harness ledger is checked against
+    /// it ([`harness::check`]).
     pub fn checked(
         &self,
-        build: Option<&GraphBuild>,
+        build: &GraphBuild,
         entities: &EntitySnapshot,
         disk: &dyn Disk,
         baseline: &baseline::BaselineRead,
@@ -63,18 +61,15 @@ impl Environment {
         // judged against.
         let harness = harness::Harness::of(&self.registries);
         // The ledger is read once, and only by a run that has a use for it: history, a harness value or a verdict.
-        let ledger_bytes = build
-            .filter(|_| matches!(baseline, Ok(Some(_))) || !harness.is_empty())
-            .map(|_| {
-                disk.read(&self.root().join(harness::LEDGER_FILE))
-                    .unwrap_or_default()
-            });
-        let translated = match (baseline, build, &ledger_bytes) {
-            (Ok(Some(baseline)), Some(build), Some(bytes)) => {
+        let ledger_bytes = (matches!(baseline, Ok(Some(_))) || !harness.is_empty()).then(|| {
+            disk.read(&self.root().join(harness::LEDGER_FILE))
+                .unwrap_or_default()
+        });
+        let translated = match (baseline, &ledger_bytes) {
+            (Ok(Some(baseline)), Some(bytes)) => {
                 let ledger = harness::Ledger::parse(&String::from_utf8_lossy(bytes)).ledger;
                 Some(baseline.translated(&ledger, build.graph(), self.registries.field_forms()))
             }
-            (Ok(Some(baseline)), None, _) => Some((**baseline).clone()),
             _ => None,
         };
         // The recorded report, once, for the passes that declare the `tests` input (protocol 1.11.0).
@@ -86,7 +81,7 @@ impl Environment {
             _ => None,
         };
         let mut found = judged::Evaluated::default();
-        if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
+        if let Some(bytes) = &ledger_bytes {
             found = judged::evaluate(self, build.graph(), entities, disk, digests, checked, bytes);
         }
         // The `V` fields the fresh verdicts give are values before any compute pass runs (ADR 0290).
@@ -124,7 +119,7 @@ impl Environment {
                 self.registries
                     .check(&entities.rule_input(), verdicts.as_ref()),
             );
-            if let (Some(build), Some(bytes)) = (build, &ledger_bytes) {
+            if let Some(bytes) = &ledger_bytes {
                 diagnostics.extend(harness::check(
                     &harness,
                     build.graph(),
@@ -151,9 +146,9 @@ impl Environment {
         {
             diagnostics.push(unread);
         }
-        match (baseline, &translated, build) {
-            (Err(notice), ..) => diagnostics.push(notice.clone()),
-            (_, Some(translated), Some(build)) => {
+        match (baseline, &translated) {
+            (Err(notice), _) => diagnostics.push(notice.clone()),
+            (_, Some(translated)) => {
                 diagnostics.extend(history::check::check(
                     translated,
                     build.graph(),

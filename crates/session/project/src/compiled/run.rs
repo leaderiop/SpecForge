@@ -81,7 +81,7 @@ impl CompiledProject {
                 Arc::new(values.checks.outcome_classes())
             };
             let checked = env.checked(
-                Some(graph),
+                graph,
                 &authored,
                 disk,
                 &read.read,

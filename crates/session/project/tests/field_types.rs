@@ -54,9 +54,8 @@ fn build_and_check(source: &str) -> (Graph, Vec<Diagnostic>) {
     let parsed = specforge_parser::parse(source, "main.spec");
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
     let build = env.graph_of([parsed]);
-    let entities = env.entity_snapshot(&build);
     let mut diags = build.diagnostics().to_vec();
-    diags.extend(env.run_checks(&entities, &specforge_registry::MemoryDisk::new()));
+    diags.extend(env.run_checks(&build, &specforge_registry::MemoryDisk::new()));
     (build.into_parts().0, diags)
 }
 
