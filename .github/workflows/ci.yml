@@ -437,6 +437,8 @@ jobs:
       actions: write
     env:
       BUDGET_SECONDS: 300
+      # The most entries one listing reads: a listing that reaches it fails the job, after the deletions it allows.
+      CACHE_LIST_LIMIT: 100
       STALE_CACHES: 'group_by(.key | sub("-[0-9a-f]{8}-[0-9a-f]{8}$"; "")) | map(sort_by(.createdAt) | .[:-1]) | flatten | .[].id'
     steps:
       - name: Start the build-time budget clock
@@ -449,12 +451,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          stale=$(gh cache list --ref refs/heads/main --limit 100 --json id,key,createdAt --jq "$STALE_CACHES")
+          caches=$(gh cache list --ref refs/heads/main --limit "$CACHE_LIST_LIMIT" --json id,key,createdAt)
+          stale=$(jq -r "$STALE_CACHES" <<<"$caches")
           for id in $stale; do
             if ! gh cache delete "$id"; then
               echo "::warning title=cache-prune::could not delete cache $id (a concurrent main run may have deleted it)"
             fi
           done
+          listed=$(jq length <<<"$caches")
+          if (( listed >= CACHE_LIST_LIMIT )); then
+            echo "::error title=cache-prune::the listing read $listed entries, its limit (CACHE_LIST_LIMIT): main may hold more, and a superseded entry past the limit stays (ADR 0375 D2)"
+            exit 1
+          fi
       - name: Build-time budget
         shell: bash
         run: |
