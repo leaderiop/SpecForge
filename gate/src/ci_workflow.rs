@@ -441,12 +441,13 @@ pub fn job_findings(file: &str, job: &Job<'_>) -> Vec<String> {
     if timeout.is_none() {
         say("has no timeout-minutes".to_string());
     }
-    // A job that may fail lets the run pass with the budget check failed, whatever its value (a matrix may set it).
-    if job.key("continue-on-error").is_some() {
-        say(
-            "has a job-level continue-on-error, which lets a job past its budget pass the run"
-                .to_string(),
-        );
+    // A job that may fail lets the run pass with the budget check failed. The key is refused whatever its value, as
+    // the budget steps' extra keys are: a matrix may set it, and `false`, the default, adds nothing written out.
+    if let Some(value) = job.key("continue-on-error") {
+        say(format!(
+            "has a job-level continue-on-error `{value}`: the gate allows none, since a `true` or a matrix value lets a \
+             job past its budget pass the run"
+        ));
     }
     match job.budgets() {
         Err(missing) => say(missing),

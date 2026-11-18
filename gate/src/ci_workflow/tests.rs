@@ -267,11 +267,12 @@ fn a_budget_step_with_another_key_or_shell_is_a_finding() {
     }
 }
 
-/// A job of its own `continue-on-error`, a constant or a matrix value, lets the run pass with its budget check failed.
+/// A job of its own `continue-on-error`, a constant or a matrix value, lets the run pass with its budget check failed;
+/// the gate allows none, so `false` written out is refused too, with the reason that holds for it.
 #[test]
 fn a_job_level_continue_on_error_is_a_finding() {
     let whole = synthetic("10", "300");
-    for value in ["true", "${{ matrix.experimental }}"] {
+    for value in ["true", "${{ matrix.experimental }}", "false"] {
         let workflow = whole.replace(
             "    timeout-minutes: 10\n",
             &format!("    timeout-minutes: 10\n    continue-on-error: {value}\n"),
@@ -280,7 +281,8 @@ fn a_job_level_continue_on_error_is_a_finding() {
         assert!(
             found.len() == 1
                 && found[0].contains("job `only`")
-                && found[0].contains("job-level continue-on-error"),
+                && found[0].contains(&format!("job-level continue-on-error `{value}`"))
+                && found[0].contains("the gate allows none"),
             "{value}: {found:?}\n{workflow}"
         );
     }
