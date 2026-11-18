@@ -29,6 +29,23 @@ runs every cargo and rustc of a blob build on it whatever the checkout's own too
 `built_with`, and `build-blobs --verify` fails on a blob another rustc built. A change of the pin re-vendors every blob
 in its commit.
 
+## Build on linux/amd64, not macOS
+
+The bootstrap job rebuilds every blob on the Linux runner and compares the bytes (`build-blobs --verify`). A macOS
+build of the same sources is not byte-identical: on a clean `main` it reports `[differs]` for every blob, and a
+`gsd_core.wasm` built there failed bootstrap (PR #185). Re-vendor on linux/amd64 and keep only the blobs whose
+inputs changed. From a plain clone (a worktree's `.git` points at a host path the container cannot see):
+
+```text
+docker run --rm --platform linux/amd64 -v "$PWD":/work -v sf-target:/work/target -v sf-cargo:/usr/local/cargo/registry \
+  -w /work -e CARGO_HOME=/usr/local/cargo -e CARGO_INCREMENTAL=0 rust:1.99.1 bash -c \
+  'git config --global --add safe.directory "*" && rustup toolchain install 1.99.1 --profile minimal --target wasm32-wasip2 \
+   && cargo run -p xtask --bin revendor'
+```
+
+Emulated amd64 takes about 15 minutes. Every blob whose inputs did not change comes out identical, so `git status`
+shows only the blob you meant to change.
+
 It refreshes the lockfile of every committed blob's crate, rebuilds every committed blob
 (`specforge_component::committed::COMMITTED`: every builtin, the four fixtures and the marketing example's extension) into `<crate>/wasm/` with its
 `inputs.json`, rewrites the declaration snapshots of every SDK blob in
