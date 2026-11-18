@@ -11,10 +11,11 @@ use specforge_effects::testing::{FakeProcess, MemoryConsent};
 use specforge_effects::{EffectsMode, SharedGit};
 use specforge_git::testing::Repo;
 use specforge_project::CompiledProject;
+use specforge_project::baseline::UnknownRevision;
 use specforge_project::harness::{LEDGER_FILE, Ledger, Line};
 use specforge_project::snapshot::{
-    AtError, Comparison, ConfigAt, FactsAt, NoteAbout, Side, Snapshot, SnapshotKey, SnapshotNote,
-    compare,
+    AtError, Comparison, ConfigAt, FactsAt, NoteAbout, Side, Since, Snapshot, SnapshotKey,
+    SnapshotNote, compare, since,
 };
 use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, TestProject, stored};
 use specforge_protocol_types::{DeltaBase, DeltaChange};
@@ -131,6 +132,40 @@ fn no_git_port_is_unreadable() {
         Snapshot::at_revision(compiled.environment(), &PlainDisk, "HEAD"),
         Err(AtError::Unreadable(_))
     ));
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn since_a_revision_names_its_commit_and_its_merge_base_with_head() {
+    // main: base, then head; the branch side: base, then its own commit
+    let project = TestProject::new().files(&[("a.spec", FIRST)]);
+    let repo = Repo::init(project.root());
+    let base = repo.commit_all("base");
+    repo.write("a.spec", SECOND);
+    repo.commit_all("head");
+    repo.branch("side", &base).head_on("side");
+    repo.write("b.spec", FIRST);
+    let side = repo.commit_all("side");
+    repo.head_on("main");
+    let project = project.with_git(gix());
+    let compiled = project.compile_bare();
+    let env = compiled.environment();
+    let sha = |s: &str| specforge_effects::git::Sha::new(s.to_string());
+    // nothing declares history in this project: the merge-base is still found when it is asked for
+    let Ok(Since::Base {
+        named, base: found, ..
+    }) = since(env, "side", true)
+    else {
+        panic!("a merge-base: {:?}", since(env, "side", true))
+    };
+    assert_eq!((named, found), (sha(&side), sha(&base)));
+    // not asked for: git stops at the revision
+    assert!(
+        matches!(since(env, "side", false), Ok(Since::Named { named, .. }) if named == sha(&side))
+    );
+    assert_eq!(
+        since(env, "no-such-rev", true),
+        Err(UnknownRevision("no-such-rev".to_string()))
+    );
 }
 
 const KEY: &str = "0123456789abcdef0123456789abcdef01234567";

@@ -26,7 +26,7 @@ use specforge_wasm::WasmRuntime;
 use crate::Environment;
 pub use crate::baseline_judged::Fetch;
 pub use crate::baseline_reads::{CommitReads, Sizes};
-use crate::snapshot::{LoadedAt, Wants, key_of, load_at};
+use crate::snapshot::{LoadedAt, NoBase, Since, Wants, key_of, load_at};
 use crate::values::CheckCache;
 use specforge_effects::git::{CommitFile, Git, GitPlace, Located, Sha, TreeEntry};
 use specforge_effects::{EffectJournal, Effects, UnixMillis};
@@ -189,64 +189,61 @@ impl Baseline {
         revision: &str,
         checking: &Checking<'_>,
     ) -> Result<BaselineRead, UnknownRevision> {
-        let Some(history) = env.git() else {
-            return Ok(Ok(None));
+        let since = crate::snapshot::since(env, revision, declared(env.registries()))?;
+        Self::read_since(env, revision, &since, checking)
+    }
+
+    /// The baseline read of a check since `revision`, resolved as `since` ([`crate::snapshot::since`]): the baseline
+    /// at the merge-base when the project declares history, else none; outside a repository a revision is unknown
+    /// unless history is declared (I204).
+    pub(crate) fn read_since(
+        env: &Environment,
+        revision: &str,
+        since: &Since,
+        checking: &Checking<'_>,
+    ) -> Result<BaselineRead, UnknownRevision> {
+        let declared = declared(env.registries());
+        let unreadable =
+            |why: &str| Diagnostic::new(codes::W164, format!("the baseline cannot be read: {why}"));
+        let nothing_judged = |what: &str| {
+            Diagnostic::new(
+                codes::I204,
+                format!("{what}: nothing is judged against history"),
+            )
         };
-        let unreadable = |why: String| {
-            Diagnostic::new(codes::W164, format!("the baseline cannot be read: {why}"))
-        };
-        let place = match env.place(&*history) {
-            Located::Repo(place) => place,
-            Located::NotARepository => {
-                return if declared(env.registries()) {
-                    Ok(Err(Diagnostic::new(
-                        codes::I204,
-                        "not in a git repository: nothing is judged against history",
-                    )))
-                } else {
-                    Err(UnknownRevision(revision.to_string()))
+        let notice = match since {
+            Since::NoBase {
+                why: NoBase::NoGitPort,
+                ..
+            } => return Ok(Ok(None)),
+            Since::NoBase {
+                why: NoBase::NotARepository,
+                ..
+            } if !declared => return Err(UnknownRevision(revision.to_string())),
+            // the revision is resolved, and nothing reads history
+            Since::NoBase { named: Some(_), .. } | Since::Named { .. } | Since::Base { .. }
+                if !declared =>
+            {
+                return Ok(Ok(None));
+            }
+            Since::Named { .. } => return Ok(Ok(None)),
+            Since::Base { place, base, .. } => {
+                let Some(history) = env.git() else {
+                    return Ok(Ok(None));
                 };
+                return Ok(Self::at(env, &*history, place, base, checking)
+                    .map(Some)
+                    .map_err(|why| unreadable(&why)));
             }
-            Located::Unavailable(why) => return Ok(Err(unreadable(why))),
+            Since::NoBase { why, .. } => match why {
+                NoBase::NotARepository => nothing_judged("not in a git repository"),
+                NoBase::UnbornHead => nothing_judged("no commit yet"),
+                NoBase::Unrelated(why) => Diagnostic::new(codes::I204, why.clone()),
+                NoBase::Unreadable(why) | NoBase::Shallow(why) => unreadable(why),
+                NoBase::NoGitPort => return Ok(Ok(None)),
+            },
         };
-        let named = match history.commit(&place, revision) {
-            Ok(Some(sha)) => sha,
-            Ok(None) => return Err(UnknownRevision(revision.to_string())),
-            Err(error) => return Ok(Err(unreadable(error.to_string()))),
-        };
-        if !declared(env.registries()) {
-            return Ok(Ok(None));
-        }
-        let head = match history.commit(&place, "HEAD") {
-            Ok(Some(sha)) => sha,
-            Ok(None) => {
-                return Ok(Err(Diagnostic::new(
-                    codes::I204,
-                    "no commit yet: nothing is judged against history",
-                )));
-            }
-            Err(error) => return Ok(Err(unreadable(error.to_string()))),
-        };
-        let base = match history.merge_base(&place, &named, &head) {
-            Ok(Some(sha)) => sha,
-            Ok(None) if place.shallow => {
-                return Ok(Err(unreadable(format!(
-                    "the merge-base of {revision} and HEAD is not in this shallow clone: fetch more history (`fetch-depth: 0`)"
-                ))));
-            }
-            Ok(None) => {
-                return Ok(Err(Diagnostic::new(
-                    codes::I204,
-                    format!(
-                        "{revision} and HEAD share no commit: nothing is judged against history"
-                    ),
-                )));
-            }
-            Err(error) => return Ok(Err(unreadable(error.to_string()))),
-        };
-        Ok(Self::at(env, &*history, &place, &base, checking)
-            .map(Some)
-            .map_err(unreadable))
+        Ok(Err(notice))
     }
 
     /// What a pass that names `kinds` in `baseline` receives as `previous`: the entities of those kinds, each field

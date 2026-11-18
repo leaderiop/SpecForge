@@ -22,6 +22,7 @@ use specforge_graph::{FieldForms, Graph};
 use specforge_protocol_types::DeltaBase;
 use specforge_registry::Disk;
 
+use crate::baseline::UnknownRevision;
 use crate::delta::Delta;
 use crate::facts::{Recorded, Store, recorded_by, retain, served_text};
 use crate::harness::Ledger;
@@ -86,28 +87,120 @@ pub enum AtError {
     Unreadable(String),
 }
 
+/// What a check run since a revision is judged since ([`since`]): the commit the revision names and, when it was
+/// asked for, the merge-base of that commit and `HEAD`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Since {
+    /// The revision's commit and its merge-base with `HEAD`, in the repository `place`.
+    Base {
+        place: GitPlace,
+        named: Sha,
+        base: Sha,
+    },
+    /// The revision's commit; its merge-base was not asked for.
+    Named { place: GitPlace, named: Sha },
+    /// No merge-base, and why. `named` is the revision's commit when git resolved it before it stopped.
+    NoBase { named: Option<Sha>, why: NoBase },
+}
+
+/// Why a check run since a revision has no merge-base to be judged against.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NoBase {
+    /// The environment was given no git port: history is never asked.
+    NoGitPort,
+    /// The project is in no git repository.
+    NotARepository,
+    /// Git could not be asked, or could not answer, and why.
+    Unreadable(String),
+    /// `HEAD` names no commit yet.
+    UnbornHead,
+    /// The merge-base is not in this shallow clone: the message that says so.
+    Shallow(String),
+    /// The revision and `HEAD` share no commit: the message that says so.
+    Unrelated(String),
+}
+
+/// The one resolver of what a check is judged since (`check --since`, a delta's revision base, ADR 0376 D7): the
+/// commit `revision` names in `env`'s repository, then, when `needs_base`, the commit `HEAD` names and the merge-base
+/// of the two, each asked of the git port in process, in that order, and nothing more. `UnknownRevision` when the
+/// repository names no commit by `revision`.
+pub fn since(
+    env: &Environment,
+    revision: &str,
+    needs_base: bool,
+) -> Result<Since, UnknownRevision> {
+    let no_base = |named: Option<&Sha>, why: NoBase| Since::NoBase {
+        named: named.cloned(),
+        why,
+    };
+    let Some(history) = env.git() else {
+        return Ok(no_base(None, NoBase::NoGitPort));
+    };
+    let place = match env.place(&*history) {
+        Located::Repo(place) => place,
+        Located::NotARepository => return Ok(no_base(None, NoBase::NotARepository)),
+        Located::Unavailable(why) => return Ok(no_base(None, NoBase::Unreadable(why))),
+    };
+    let named = match history.commit(&place, revision) {
+        Ok(Some(sha)) => sha,
+        Ok(None) => return Err(UnknownRevision(revision.to_string())),
+        Err(error) => return Ok(no_base(None, NoBase::Unreadable(error.to_string()))),
+    };
+    if !needs_base {
+        return Ok(Since::Named { place, named });
+    }
+    let head = match history.commit(&place, "HEAD") {
+        Ok(Some(sha)) => sha,
+        Ok(None) => return Ok(no_base(Some(&named), NoBase::UnbornHead)),
+        Err(error) => return Ok(no_base(Some(&named), NoBase::Unreadable(error.to_string()))),
+    };
+    let base = match history.merge_base(&place, &named, &head) {
+        Ok(Some(sha)) => sha,
+        Ok(None) if place.shallow => {
+            let why = format!(
+                "the merge-base of {revision} and HEAD is not in this shallow clone: fetch more history (`fetch-depth: 0`)"
+            );
+            return Ok(no_base(Some(&named), NoBase::Shallow(why)));
+        }
+        Ok(None) => {
+            let why =
+                format!("{revision} and HEAD share no commit: nothing is judged against history");
+            return Ok(no_base(Some(&named), NoBase::Unrelated(why)));
+        }
+        Err(error) => return Ok(no_base(Some(&named), NoBase::Unreadable(error.to_string()))),
+    };
+    Ok(Since::Base { place, named, base })
+}
+
 impl Snapshot {
     /// The project of `env` as the commit `revision` names holds it, compiled with `env`'s extensions (ADR 0376 D3),
     /// its facts the stores its ledger records, read through `disk`. The revision is resolved by the git port in
-    /// process, never handed to a program; no collector runs.
+    /// process ([`since`]), never handed to a program; no collector runs.
     pub fn at_revision(
         env: &Environment,
         disk: &dyn Disk,
         revision: &str,
     ) -> Result<Snapshot, AtError> {
+        let (place, sha) = match since(env, revision, false) {
+            Ok(Since::Named { place, named }) | Ok(Since::Base { place, named, .. }) => {
+                (place, named)
+            }
+            // with no merge-base asked for, git stopped before or while resolving the revision
+            Ok(Since::NoBase { why, .. }) => {
+                return Err(match why {
+                    NoBase::NoGitPort => AtError::Unreadable("no git port is given".to_string()),
+                    NoBase::NotARepository => AtError::NotARepository,
+                    NoBase::Unreadable(why) | NoBase::Shallow(why) | NoBase::Unrelated(why) => {
+                        AtError::Unreadable(why)
+                    }
+                    NoBase::UnbornHead => AtError::UnknownRevision(revision.to_string()),
+                });
+            }
+            Err(UnknownRevision(name)) => return Err(AtError::UnknownRevision(name)),
+        };
         let history = env
             .git()
             .ok_or_else(|| AtError::Unreadable("no git port is given".to_string()))?;
-        let place = match env.place(&*history) {
-            Located::Repo(place) => place,
-            Located::NotARepository => return Err(AtError::NotARepository),
-            Located::Unavailable(why) => return Err(AtError::Unreadable(why)),
-        };
-        let sha = match history.commit(&place, revision) {
-            Ok(Some(sha)) => sha,
-            Ok(None) => return Err(AtError::UnknownRevision(revision.to_string())),
-            Err(error) => return Err(AtError::Unreadable(error.to_string())),
-        };
         let wants = Wants {
             tree: false,
             facts: Some(disk),
