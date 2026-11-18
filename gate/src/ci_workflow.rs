@@ -299,6 +299,20 @@ impl<'a> Step<'a> {
         })
     }
 
+    /// The step's own keys, in order, never one nested under another.
+    pub fn keys(&self) -> Vec<&'a str> {
+        let at = self.key_indent();
+        std::iter::once(&self.lines[0][at..])
+            .chain(
+                self.lines[1..]
+                    .iter()
+                    .filter(|line| indent(line) == at)
+                    .copied(),
+            )
+            .filter_map(|line| bare(line).split_once(':').map(|(key, _)| key))
+            .collect()
+    }
+
     /// An input of the step's `with:`.
     pub fn with(&self, key: &str) -> Option<&'a str> {
         let at = self.key_indent();
@@ -350,7 +364,8 @@ impl<'a> Step<'a> {
     }
 }
 
-/// What is wrong with one job's timeout and budget, each a sentence naming the file and the job.
+/// What is wrong with one job's timeout and budget, each a sentence naming the file and the job: the clock that starts
+/// it and the check that ends it are each exactly `name`, `shell: bash` and `run`.
 pub fn job_findings(file: &str, job: &Job<'_>) -> Vec<String> {
     let mut findings = Vec::new();
     let mut say = |what: String| findings.push(format!("{file}: job `{}` {what}", job.id));
@@ -371,12 +386,25 @@ pub fn job_findings(file: &str, job: &Job<'_>) -> Vec<String> {
             }
         }
     }
-    let names: Vec<Option<&str>> = job.steps().iter().map(|step| step.key("name")).collect();
-    if names.first().copied().flatten() != Some(CLOCK) {
-        say(format!("does not start with the step `{CLOCK}`"));
-    }
-    if names.last().copied().flatten() != Some(CHECK) {
-        say(format!("does not end with the step `{CHECK}`"));
+    let steps = job.steps();
+    for (step, name, place) in [
+        (steps.first(), CLOCK, "start"),
+        (steps.last(), CHECK, "end"),
+    ] {
+        let Some(step) = step.filter(|step| step.key("name") == Some(name)) else {
+            say(format!("does not {place} with the step `{name}`"));
+            continue;
+        };
+        // An `if`, a `continue-on-error`, an `env` or a `working-directory` could turn the budget off unseen, and a
+        // step with no `shell: bash` runs in pwsh on Windows, where the script fails.
+        let mut keys = step.keys();
+        keys.sort_unstable();
+        if keys != ["name", "run", "shell"] || step.key("shell") != Some("bash") {
+            say(format!(
+                "has the step `{name}` with the keys `{}`, not exactly `name`, `shell: bash` and `run`",
+                step.keys().join("`, `")
+            ));
+        }
     }
     findings
 }

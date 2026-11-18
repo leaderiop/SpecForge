@@ -229,6 +229,44 @@ fn each_missing_part_of_a_budget_is_a_finding() {
     }
 }
 
+/// The clock and the check are each exactly `name`, `shell: bash` and `run`: an `if`, a `continue-on-error`, an `env`
+/// or a `working-directory` could turn the budget off unseen, and another shell runs it in pwsh on Windows.
+#[test]
+fn a_budget_step_with_another_key_or_shell_is_a_finding() {
+    let whole = synthetic("10", "300");
+    let clock = format!("      - name: {CLOCK}\n        shell: bash\n");
+    let check = format!("      - name: {CHECK}\n        shell: bash\n");
+    let mut cases = Vec::new();
+    for extra in [
+        "if: false",
+        "continue-on-error: true",
+        "env:\n          X: y",
+        "working-directory: x",
+    ] {
+        for (step, name) in [(&clock, CLOCK), (&check, CHECK)] {
+            cases.push((
+                whole.replace(step.as_str(), &format!("{step}        {extra}\n")),
+                name,
+            ));
+        }
+    }
+    for (step, name) in [(&clock, CLOCK), (&check, CHECK)] {
+        let pwsh = step.replace("shell: bash", "shell: pwsh");
+        cases.push((whole.replace(step.as_str(), &pwsh), name));
+        let none = step.replace("        shell: bash\n", "");
+        cases.push((whole.replace(step.as_str(), &none), name));
+    }
+    for (workflow, name) in cases {
+        let found = findings("x.yml", &workflow);
+        assert!(
+            found.len() == 1
+                && found[0].contains(&format!("has the step `{name}` with the keys"))
+                && found[0].contains("not exactly `name`, `shell: bash` and `run`"),
+            "{name}: {found:?}\n{workflow}"
+        );
+    }
+}
+
 /// Every job of `ci.yml` and `bootstrap.yml` has a budget under its timeout, starts with the clock and ends with the
 /// check, and each runs the same two scripts the tests above run on the `build` job (ADR 0375 D3).
 #[test]
