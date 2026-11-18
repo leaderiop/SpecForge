@@ -27,6 +27,20 @@ impl CompiledProject {
         self.delta.as_deref()
     }
 
+    /// What a pass that declares the `delta` input is sent of this project now (ADR 0376 D6, D7): the delta its last
+    /// check took ([`Self::delta`]), or, when the last update skipped the checks, the delta of its graph taken now
+    /// from the base the next check takes it from, so a declaring pass is never sent no `delta`. `None` when no loaded
+    /// pass declares it.
+    pub fn pass_delta(&self) -> Option<std::borrow::Cow<'_, crate::delta::Delta>> {
+        if self.checks_skipped {
+            return self
+                .env
+                .delta_of(&self.graph, &self.delta_base)
+                .map(std::borrow::Cow::Owned);
+        }
+        self.delta().map(std::borrow::Cow::Borrowed)
+    }
+
     /// Every check on the current graph, over a snapshot of it taken now (ADR 0019), in the environment's runtime,
     /// reading the file system through the disk `reads` gives them (ADR 0107), each effect record it consults an
     /// input (ADR 0337 D5); the memo starts again from that snapshot.

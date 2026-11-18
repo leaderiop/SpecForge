@@ -57,3 +57,38 @@ fn an_analyze_pass_is_sent_the_delta_of_the_compile_it_analyzes() {
     assert_eq!(delta["nodes"][0]["id"], "a");
     assert!(pass_input(&runtime, "plain").get("delta").is_none());
 }
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn an_analyze_pass_after_an_update_that_skipped_the_checks_is_sent_the_delta_since_the_last_check()
+{
+    const SPEC: &str = "item a \"A\" {\n}\n\nitem b \"B\" {\n}\n";
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[EXT])
+        .installing_enabled()
+        .file("a.spec", SPEC);
+    let runtime = Arc::new(InProcessRuntime::new().with(delta_extension));
+    let mut session = project.session_in(runtime.clone());
+    // typing: b retitled with a parse error after it, so the checks are skipped
+    let typing = format!("{}item c {{\n", SPEC.replace("\"B\"", "\"Bee\""));
+    let buffer = specforge_project::Buffer::new(project.root().join("a.spec"), typing);
+    session.hold_with(
+        &[buffer],
+        specforge_project::CheckMode::SyntaxOnlyIfParseErrors,
+    );
+    assert!(
+        session.project().delta().is_none(),
+        "the checks were skipped"
+    );
+    analyzed(session.project(), &AnalyzeOptions::default());
+    let delta = &pass_input(&runtime, "changed")["delta"];
+    assert_eq!(delta["base"], json!({"kind": "previous"}), "{delta}");
+    let changed: Vec<(&str, &str)> = delta["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| (n["id"].as_str().unwrap(), n["change"].as_str().unwrap()))
+        .collect();
+    // the half-typed `c` is in the graph the analysis reads
+    assert_eq!(changed, [("b", "modified"), ("c", "added")], "{delta}");
+}
