@@ -141,6 +141,7 @@ What builds and checks it:
 
 - [`gate/`](gate/) (`cargo gate`, the check list), [`xtask/`](xtask/) (build-blobs, revendor, check-links, perf-report, absorb),
   [`scripts/`](scripts/) (shell helpers the gate and the release run).
+- [`todos/`](todos/): trackable todos, one file each; a front-matter `status` says which are open (`todos/README.md`).
 - [`fixtures/`](fixtures/): extension fixtures and the frozen pre-swap spec the tests load (`fixtures/old-spec/`,
   never edited); [`evaluation/`](evaluation/): the first-attempt accuracy eval.
 - `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `clippy.toml`, `.cargo/`, `.config/` (nextest),
