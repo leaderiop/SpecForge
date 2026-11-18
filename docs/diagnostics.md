@@ -337,9 +337,11 @@ is named, left out of the graph, and an import of it reports nothing more; or a
 the spec root that discovery keeps. A file an `exclude` entry leaves out, one
 under a skipped directory (`target`, `build`, ...), one inside a nested project
 (a directory below the spec root holding its own `specforge.json`), one above
-the spec root and one whose name differs only in case are no source. Fix the
-import path or the `exclude` entry; a `did you mean` suggestion is included when
-a close match exists.
+the spec root and one whose name differs only in case are no source. An import
+path is written with `/` on every OS: one holding a `\` or a `:` names nothing,
+whatever the OS, and no source whose name holds one is suggested. Fix the import
+path or the `exclude` entry; a `did you mean` suggestion is included when a
+close match exists, after the `/` rule when the path holds a `\` or a `:`.
 
 Owner: core
 Level: error
