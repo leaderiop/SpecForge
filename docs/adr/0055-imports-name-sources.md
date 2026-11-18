@@ -35,6 +35,9 @@ only in editors: `"drafts/**"` and every glob excluded nothing, `"gen"` excluded
   re-export from it no W027.
 - **D3. Exact spelling.** Keys compare exactly on every platform. `.spec` is appended to the path's last
   name (`"api.v2"` names `api.v2.spec`); a path ending in `.spec` names itself; then `<path>/index.spec`.
+  An import path is `/`-separated on every OS: one holding a `\` or a `:` (a separator or a drive on Windows) names
+  nothing, its E025 suggestion says so, and a source whose name holds one is never suggested (2026-11-18, with the
+  Windows import fix of [ADR 0375](0375-ci-caches-are-keyed-once-each-job-has-a-time-budget-and-windows-runs-a-named-subset.md) D4).
 - **D4. E025 says where it looked.** "import target not found among the project's sources: X", with
   `did you mean` when a close match exists, else the rule as the suggestion. It never says why a file on
   disk is no source: that would make the disk an input again.

@@ -28,7 +28,8 @@ enum Named<'s> {
 
 /// The import diagnostics of a compile's sources, in this order: per parsed
 /// source in key order, each import's E025 (it names no source: no key by
-/// that path, or a path that leaves the spec root or is absolute) or I004
+/// that path, a path that leaves the spec root or is absolute, or one that
+/// holds a `\` or a `:` on any OS) or I004
 /// (`@scope/name`, an extension import); then one W113 per strongly
 /// connected set of imports, walking every file from its smallest key, in
 /// sorted order; then the W027s of
