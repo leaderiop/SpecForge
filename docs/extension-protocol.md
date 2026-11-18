@@ -151,11 +151,15 @@ nothing else:
 | `setting` | `extension`, `name` | hook | `other_settings["<extension>:<name>"]` |
 | `check_outcomes` | | collector | `check_outcomes`, each checked value's outcome (see [Category: collectors](#category-collectors)) |
 | `facts` | `kinds` | pass, collector | a pass's `entities` hold the facts of those collected kinds beside the authored entities, and a pass that declares none is sent no fact (ADR 0353); a collector's `facts`, the admitted facts of those collected kinds, sorted by kind and id: those the collectors that ran before it in this collect answered, else the stores `specforge-harness` records (ADR 0345 D3, see [Category: collectors](#category-collectors)) |
+| `delta` | `kinds` | pass | `delta`, what changed of those kinds since a base the host names: the changed nodes and the edges with an end of one of them, never their content (2.3.0, ADR 0376 D6, see [Category: passes](#category-passes)); a pass that declares none is sent no `delta` |
 
-An input the call's kind is not served, a second `tests`, `state`, `graph`, `slash_commands`, `git`, `check_outcomes` or `facts`
-input, a `facts` input with no kind or naming a kind no loaded extension declares `writer: "collector"`, or a
-`setting` that names the call's own extension (read it with `Settings::current`) or no extension and setting, is W021
-and served empty; the call is kept. A key no input defines is W138. Protocol 1.x spelled these as `reads`,
+An input the call's kind is not served, a second `tests`, `state`, `graph`, `slash_commands`, `git`, `check_outcomes`,
+`facts` or `delta` input, a `facts` input with no kind or naming a kind no loaded extension declares
+`writer: "collector"`, a `delta` input with no kind or naming a kind that is neither a core node kind nor declared by a
+loaded extension (authored or collector-written), or a `setting` that names the call's own extension (read it with
+`Settings::current`) or no extension and setting, is W021 and served empty; the call is kept. A `facts` or `delta`
+kind that only an optional peer the project does not load declares is no W021: it is inert, and nothing of it is
+sent. A key no input defines is W138. Protocol 1.x spelled these as `reads`,
 `reads_tests`, `reads_state`, `reads_graph`, `reads_slash_commands`, `reads_git`, `reads_git_status`, `git_when` and
 `reads_settings`; a 2.0.0 host reads none of them.
 
@@ -735,6 +739,16 @@ collector); a fact of a kind no loaded extension declares a collector writes, or
 `schemes`, is E116 and none of that collector's facts is stored. An answer with facts and no test results writes no
 `specforge-report.json`.
 
+**Retained stores (ADR 0376 D5).** A collect that files a collector's facts under a new key does not delete the store
+it supersedes: it moves it to `.specforge/facts-history/<seq>-<key>/<collector>.json`, `<seq>` a six-digit number one
+above the highest archived (a store has no clock), and keeps at most `facts.retain` archived stores per collector
+(`specforge.json`, 1 to 100, default 8; a value outside them is E069 and the default applies), pruning the oldest. The
+session never serves an archived store, so it raises no W191 or W192. A snapshot at a revision (`specforge diff`, the
+merge-base of `check --since`) serves a collector's facts from the store the ledger line at that revision records:
+the live store or an archived one under the line's key, newest first, and only one whose sha256 equals the line's
+digest. A store that is there and differs is W191 (a note of the diff); with none, the diff says the facts were not
+collected at that revision and still compares the spec entities. It never runs a collector for a past revision.
+
 **Answers and the facts input (ADR 0345 D3).** A collector lists in `answers` every collected kind it answers facts
 of; a fact of a kind it does not list is E116 like any other refused fact, and an `answers` kind no loaded extension
 declares `writer: "collector"` is W021. A collector whose `facts` input names a kind another selected collector answers
@@ -767,7 +781,7 @@ Returns compiler pass descriptors. Each pass declares ordering constraints relat
 graph checks, and its diagnostics join the compile's (`specforge check`,
 watch, the LSP, MCP). Passes with any other phase, or none, run only under
 `specforge analyze`. The `__pass_<name>` export receives a `PassInput`
-(`{"entities", "edges", "test_results"?, "proved_claims"?, "previous"?, "files"?, "fact_stores"?}`;
+(`{"entities", "edges", "test_results"?, "proved_claims"?, "previous"?, "files"?, "fact_stores"?, "delta"?}`;
 `test_results` is the recorded test report as `TestResults`, `{"runner"?,
 "results": {"<id>": {"tests": [TestResult]}}}`, sent to an analyze pass and, since 1.11.0, to a check, compute or guard
 pass that declares the `tests` input (ADR 0293: with no report recorded the host reports I205 once, with one that
@@ -802,6 +816,27 @@ one of another kind or several, `{"field", "id", "span", "reason", "actual"?, "d
 sent it, and the extension declaring the entity's kind is the one that judges it. A `PassEntity` carries `pending: true` (1.15.0, ADR 0329 D4) while its owner is not complete: its kind's
 `complete_when` does not hold, or, when its kind declares none, the nearest scope ancestor's whose kind declares one
 does not; it is absent otherwise, and decided on the snapshot the passes read, computed values included. A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface, the `graph` a command, a prompt, a hook or a writing collector receives included (as `fields`, with the judgements beside them; ADR 0299, no protocol change); a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
+
+**The delta (2.3.0, ADR 0376 D6, D7).** A check, compute, guard or analyze pass that declares the `delta` input
+(`{"input": "delta", "kinds": ["item"]}`) is sent `delta`, a `DeltaPayload` `{"base", "nodes"?, "added_edges"?,
+"removed_edges"?}`: what changed of the kinds it names since a base the host names, never their content, which stays in
+`entities`. A pass that declares none is sent no `delta` key, so its input is the bytes it was before 2.3.0. `base` is
+`{"kind": "none"}`, `{"kind": "revision", "id": "<40-hex sha>"}` or `{"kind": "previous"}`, and the host picks it:
+`specforge check --since <rev>` and the MCP `specforge.validate` with `since` take the merge-base of the revision and
+HEAD, resolved before any pass runs, so each pass runs once; a long-lived session (the LSP, MCP, `watch`) takes the
+graph of its last completed check, which it holds only while a loaded pass declares the delta; a guard pass takes the
+project before the write; anything else, a session's first check and the first after a reload included, has base
+`none`. Base `none` is the empty graph: every node of the named kinds is `added`, so a pass written to process only
+what changed is correct on a cold run, only slower. `nodes` holds one `DeltaNode` per changed node of a named kind,
+sorted by kind then id as bytes: `{"kind", "id", "change", "fields"?, "aspects"?, "before"?, "after"?}`, `change`
+being `added`, `removed` or `modified`. A modified node names the fields whose value changed, the `aspects` that
+changed besides them (`title`, `methods`, `obligations`, `verdicts`, `edges`) and the digests of its content at the
+base and now (`before`, `after`, `sha256:<64 hex>`); an added node carries `after`; a removed node only its kind and
+id. A node whose kind changed is its old kind removed and its new kind added. `added_edges` and `removed_edges` hold
+each changed edge (`{"source", "target", "label"}`, sorted by source, target then label) with an end of a named kind.
+An empty list is absent: a delta with nothing changed is its base alone, which tells "nothing changed" from "not
+sent". Facts are graph nodes, so a fact of a named collected kind changes like an authored entity. The host takes the
+delta once per check, only when a loaded pass declares it, and restricts it per pass to the kinds that pass names.
 
 **File reads (1.11.0, ADR 0293).** A pass, a command or a collector may declare `files` inputs, each
 `{"input": "files", "name", "field"?, "glob"?, "root"?, "text"?}`: the project files it wants the host to read, because

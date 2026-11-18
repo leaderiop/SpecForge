@@ -710,6 +710,33 @@ Limit: the git baseline (`previous`) a compute pass is given is computed without
 with the `tests` input derives from tests is unknown in `previous` and known now; compare such a value against `previous` only for
 fields the pass does not derive from tests.
 
+`p.input(Input::facts(&["test"]))` makes a pass's `entities` hold the facts of those collected kinds beside the
+authored entities (ADR 0353); a pass that declares none is sent no fact. `p.input(Input::delta(&["item"]))` (protocol
+2.3.0, ADR 0376) makes it receive `input.delta`, a `DeltaPayload`: what changed of those kinds since the base the host
+names. `delta.base` is a `DeltaBase`: `None`, `Revision { id }` (the merge-base's sha under `check --since`) or
+`Previous` (a long-lived session's last completed check, or the project before the write for a guard pass).
+`delta.nodes` lists each changed `DeltaNode` (`kind`, `id`, `change` a `DeltaChange`, and for a modified node the
+`fields` and `aspects` that changed with the digests `before` and `after`), `delta.added_edges` and
+`delta.removed_edges` the `DeltaEdge`s with an end of a named kind. The content stays in `entities`. Base `None` is the
+empty graph, every node of the named kinds `Added`, so a pass that works only on what changed is correct on a cold run.
+The prelude exports these types:
+
+```rust
+c.pass("changed", |p| {
+    p.phase("check").input(Input::delta(&["item"])).run(|input: &PassInput| {
+        let Some(delta) = &input.delta else { return Vec::new() };
+        delta.nodes.iter()
+            .filter(|node| node.change != DeltaChange::Removed)
+            .map(|node| PassDiagnostic::warning("A002", format!("{} changed", node.id)).with_entity(&node.id))
+            .collect::<Vec<_>>()
+    });
+});
+```
+
+`input.delta` is `None` only for a pass that does not declare the input; a declared delta with nothing changed is
+`Some`, its base and no node or edge. A delta input declared twice, naming no kind or a kind no loaded extension
+declares is W021.
+
 A pass receives `PassInput`: `entities` (each with its field texts by name
 ([Field text](#field-text)), edge counts, span, `testable`, and `owes_none`: it
 owes no obligations of its own, decided by the host's one obligation rule), `edges`, `test_results` (the recorded test report as [`TestResults`]; `TestResults::of(id)` lists an entity's tests) and `proved_claims` (always absent for a
