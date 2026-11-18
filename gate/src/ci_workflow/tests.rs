@@ -1,6 +1,9 @@
 use super::*;
 use specforge_repo_root::repo_root;
 
+#[cfg(unix)]
+mod prune;
+
 const CI: &str = ".github/workflows/ci.yml";
 const BOOTSTRAP: &str = ".github/workflows/bootstrap.yml";
 
