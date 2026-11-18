@@ -49,3 +49,25 @@ fn an_import_path_is_read_from_the_spec_dir_among_prefixed_keys() {
         "{found:?}"
     );
 }
+
+/// An import path is `/`-separated text on every OS: a `\` (a separator only on Windows) or a `:` (a drive only on
+/// Windows) names no source on any host, so a spec that checks clean on one checks clean on all.
+#[specforge_test(requirement = "FEATURE-109")]
+fn an_import_path_with_a_backslash_or_a_drive_names_nothing_on_every_os() {
+    let keys: BTreeSet<&str> = ["spec/a.spec", "spec/sub/b.spec", "spec/types.spec"].into();
+    let named = |path| import_target(&keys, Path::new(SPEC_DIR), "spec/a.spec", path);
+    assert_eq!(named("sub/b"), Some("spec/sub/b.spec"));
+    for path in ["sub\\b", ".\\sub\\b", "C:types", "C:/types", "\\types"] {
+        assert_eq!(named(path), None, "{path}");
+    }
+
+    let found = codes(&[
+        ("spec/a.spec", "use \"sub\\\\b\"\n"),
+        ("spec/sub/b.spec", ""),
+    ]);
+    assert_eq!(
+        found.iter().filter(|(code, _)| code == "E025").count(),
+        1,
+        "{found:?}"
+    );
+}
