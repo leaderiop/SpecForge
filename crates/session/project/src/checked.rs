@@ -7,6 +7,7 @@ use specforge_graph::{Computed, GraphBuild};
 use specforge_registry::rules::{CustomVerdicts, NoVerdicts};
 use specforge_registry::{Disk, EntitySnapshot};
 
+use crate::delta::Delta;
 use crate::verdicts::WasmVerdicts;
 use crate::{
     CheckedValues, Environment, baseline, check_passes, compute, coverage, harness, history, judged,
@@ -20,6 +21,8 @@ pub struct Checked {
     pub computed: Computed,
     /// Each judged rule's state on each entity (ADR 0290).
     pub judgements: judged::Judgements,
+    /// What changed since the run's base, when a loaded pass declares the `delta` input (ADR 0376 D6).
+    pub delta: Option<Delta>,
 }
 
 impl Environment {
@@ -39,11 +42,25 @@ impl Environment {
         .diagnostics
     }
 
+    /// The delta of `build` from the empty graph, its base none (ADR 0376 D7: with no base every node is added), when
+    /// a loaded pass declares the `delta` input; `None` otherwise, so it is never taken for nothing.
+    pub(crate) fn delta_of(&self, build: &GraphBuild) -> Option<Delta> {
+        (self.registries.passes_reading_delta() > 0).then(|| {
+            Delta::between(
+                &specforge_graph::Graph::default(),
+                build.graph(),
+                self.registries.field_forms(),
+                specforge_protocol_types::DeltaBase::None,
+            )
+        })
+    }
+
     /// [`Self::run_checks`] over the authored snapshot `entities`, with what the compute passes gave (ADR 0287):
     /// they run first, the registry's checks and rules and the check passes read the snapshot with their values
     /// merged. `computed` is empty and `entities` is `None` (the snapshot given is the one read) when no compute
     /// pass gave a value. `build` is the graph the snapshot was taken from: the harness ledger is checked against
-    /// it ([`harness::check`]).
+    /// it ([`harness::check`]). The delta of `build` is taken once ([`Self::delta_of`]): the compute and check passes
+    /// that declare the `delta` input are sent its part of their kinds (ADR 0376 D6), and it is returned.
     pub fn checked(
         &self,
         build: &GraphBuild,
@@ -54,6 +71,7 @@ impl Environment {
         checked: &CheckedValues,
     ) -> Checked {
         let runtime = self.runtime.as_deref();
+        let delta = self.delta_of(build);
         let mut diagnostics = Vec::new();
         let mut computed = Computed::default();
         let mut merged = None;
@@ -96,7 +114,11 @@ impl Environment {
                 translated.as_ref(),
                 &values,
                 &found.judgements,
-                compute::Reads { disk, tests },
+                compute::Reads {
+                    disk,
+                    tests,
+                    delta: delta.as_ref(),
+                },
             );
             values = computed_values;
             diagnostics.extend(reported);
@@ -135,8 +157,11 @@ impl Environment {
                     runtime,
                     translated.as_ref(),
                     &judgements,
-                    disk,
-                    tests,
+                    compute::Reads {
+                        disk,
+                        tests,
+                        delta: delta.as_ref(),
+                    },
                 ));
             }
         }
@@ -172,6 +197,7 @@ impl Environment {
             entities: merged,
             computed,
             judgements,
+            delta,
         }
     }
 }

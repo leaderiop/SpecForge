@@ -21,9 +21,10 @@ pub enum CallKind {
     Collector,
 }
 
-/// Whether a call of `kind` is served `input`: exactly what each kind was served before the fold, and the facts of the
-/// kinds a pass or a collector names (ADR 0345 D3, ADR 0353 D1). A pass gets the authored entities and a command and a
-/// writing collector the graph without asking; a hook's files are its tool's paths (ADR 0293 D6).
+/// Whether a call of `kind` is served `input`: exactly what each kind was served before the fold, the facts of the
+/// kinds a pass or a collector names (ADR 0345 D3, ADR 0353 D1), and what changed of the kinds a pass names (ADR 0376
+/// D6). A pass gets the authored entities and a command and a writing collector the graph without asking; a hook's
+/// files are its tool's paths (ADR 0293 D6).
 pub fn served(kind: CallKind, input: &Input) -> bool {
     use CallKind::*;
     match input.kind() {
@@ -35,6 +36,7 @@ pub fn served(kind: CallKind, input: &Input) -> bool {
         InputKind::Git | InputKind::Setting => kind == Hook,
         InputKind::CheckOutcomes => kind == Collector,
         InputKind::Facts => matches!(kind, Pass | Collector),
+        InputKind::Delta => kind == Pass,
     }
 }
 

@@ -159,6 +159,7 @@ fn c4_the_pass_input_of_an_analysis() {
             ..PassContext::of(compiled.entities())
         },
         &[],
+        None,
     );
     // flipped: a test's `runner` is the report's own
     // key and not sent; its name, status, `verify` and `duration_ms` are

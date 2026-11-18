@@ -21,6 +21,12 @@ struct CheckRun {
 }
 
 impl CompiledProject {
+    /// What changed since the last check's base (ADR 0376 D6): the delta the passes that declare the `delta` input
+    /// were sent their part of. `None` when no loaded pass declares it, or the last update skipped the checks.
+    pub fn delta(&self) -> Option<&crate::delta::Delta> {
+        self.delta.as_deref()
+    }
+
     /// Every check on the current graph, over a snapshot of it taken now (ADR 0019), in the environment's runtime,
     /// reading the file system through the disk `reads` gives them (ADR 0107), each effect record it consults an
     /// input (ADR 0337 D5); the memo starts again from that snapshot.
@@ -29,6 +35,7 @@ impl CompiledProject {
         let this = &*self;
         let graph = &this.graph;
         let mut outcome = None;
+        let mut delta = None;
         let (held, mut baseline) = (self.baseline.clone(), None);
         reads.run_checks(|disk| {
             this.effects().take_log();
@@ -89,6 +96,8 @@ impl CompiledProject {
                 &checked_values,
             );
             baseline = Some(read);
+            // Taken once for the whole run, and only when a pass reads it (ADR 0376 D6).
+            delta = checked.delta.map(Arc::new);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
             // A field whose checks wait for its owner: owner state is read on the merged snapshot (ADR 0350).
             let gated =
@@ -119,6 +128,7 @@ impl CompiledProject {
         });
         self.checks_skipped = false;
         self.baseline = baseline;
+        self.delta = delta;
         if let Some(run) = outcome {
             self.value_checks = Arc::new(run.value_checks);
             self.checked_values = run.checked_values;

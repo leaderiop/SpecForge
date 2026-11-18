@@ -91,6 +91,9 @@ pub struct CompiledProject {
     ledger_overlay: Vec<Arc<crate::harness::LedgerOverlay>>,
     /// One call's own effects ([`Self::effects_rerun`]); none: the environment's.
     effects: Option<Arc<specforge_effects::Effects>>,
+    /// What changed since the last check's base (ADR 0376 D6), taken by the check when a loaded pass declares the
+    /// `delta` input; none otherwise, and after an update that skipped the checks.
+    delta: Option<Arc<crate::delta::Delta>>,
 }
 
 impl CompiledProject {
@@ -452,6 +455,7 @@ impl CompiledProject {
             checks_skipped: false,
             ledger_overlay: Vec::new(),
             effects: None,
+            delta: None,
             baseline: None,
         }
     }
@@ -481,6 +485,7 @@ impl CompiledProject {
             checks_skipped: false,
             ledger_overlay: Vec::new(),
             effects: None,
+            delta: None,
             baseline: None,
         }
     }
@@ -515,6 +520,7 @@ impl CompiledProject {
             checks_skipped: false,
             ledger_overlay: Vec::new(),
             effects: None,
+            delta: None,
             baseline: None,
         }
     }
@@ -568,6 +574,7 @@ impl CompiledProject {
             checks_skipped: false,
             ledger_overlay: Vec::new(),
             effects: None,
+            delta: None,
             baseline: None,
         }
     }
@@ -629,6 +636,7 @@ impl CompiledProject {
         }
         self.computed = Arc::default();
         self.judgements = Arc::default();
+        self.delta = None;
         self.recorded = OnceLock::new();
         self.reported = OnceLock::new();
         self.checks_skipped = true;

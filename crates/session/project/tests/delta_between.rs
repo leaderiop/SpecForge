@@ -199,7 +199,7 @@ fn restricted_to_a_kind_keeps_its_nodes_and_the_edges_with_an_end_of_it() {
         notes.removed_edges,
         [edge("a", "n", "refs"), edge("n", "m", "refs")]
     );
-    let none = delta.restricted_to(&[]);
+    let none = delta.restricted_to::<&str>(&[]);
     assert!(none.nodes.is_empty() && none.added_edges.is_empty() && none.removed_edges.is_empty());
     assert_eq!(none.base, DeltaBase::None);
 }

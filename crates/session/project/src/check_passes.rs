@@ -6,25 +6,26 @@
 
 use crate::passes::{PassContext, run_extension_passes};
 use specforge_common::Diagnostic;
-use specforge_protocol_types::TestResults;
-use specforge_registry::{Disk, EntitySnapshot};
+use specforge_registry::EntitySnapshot;
 use specforge_wasm::WasmRuntime;
 
 use crate::Environment;
 use crate::baseline::Baseline;
+use crate::compute::Reads;
 
 /// Run `env`'s check passes over the entity snapshot `entities`, handing them the baseline (moves applied) as
-/// `previous`, restricted to the kinds each names. A pass that fails (it traps, or answers output that does not
-/// parse) is E028; the others still run.
+/// `previous`, restricted to the kinds each names, and what `reads` gives: the disk their `reads` are read through,
+/// the recorded report, and the check's delta restricted to the kinds each names in its `delta` input (ADR 0376 D6).
+/// A pass that fails (it traps, or answers output that does not parse) is E028; the others still run.
 pub(crate) fn run(
     env: &Environment,
     entities: &EntitySnapshot,
     runtime: &dyn WasmRuntime,
     baseline: Option<&Baseline>,
     judgements: &crate::judged::Judgements,
-    disk: &dyn Disk,
-    tests: Option<&TestResults>,
+    reads: Reads,
 ) -> Vec<Diagnostic> {
+    let Reads { disk, tests, delta } = reads;
     if env.registries().check_passes().next().is_none() {
         return Vec::new();
     }
@@ -33,6 +34,7 @@ pub(crate) fn run(
         judgements: Some(judgements),
         files: Some(env.file_source(disk)),
         reported: tests,
+        delta,
         ..PassContext::of(entities)
     };
     run_extension_passes(

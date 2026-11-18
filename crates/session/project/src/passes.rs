@@ -15,6 +15,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::baseline::Baseline;
 use crate::coverage::TestReport;
+use crate::delta::Delta;
 use crate::file_reads::{self, FileSource};
 use specforge_registry::EntitySnapshot;
 
@@ -46,6 +47,9 @@ pub struct PassContext<'a> {
     /// The recorded report, for a check, compute or guard pass that declares the `tests` input (protocol 1.11.0); an
     /// analyze pass is given `test_results` instead. Absent, no pass is sent a report it did not ask `analyze` for.
     pub reported: Option<&'a TestResults>,
+    /// What changed since the run's base (ADR 0376 D6), taken once when a loaded pass declares the `delta` input:
+    /// each pass that declares it is sent the part of its kinds. Absent, no pass is sent a delta.
+    pub delta: Option<&'a Delta>,
 }
 
 impl<'a> PassContext<'a> {
@@ -61,6 +65,7 @@ impl<'a> PassContext<'a> {
             trigger: None,
             files: None,
             reported: None,
+            delta: None,
         }
     }
 }
@@ -78,12 +83,13 @@ pub struct ExtensionPassReport {
 /// The input every `__pass_<name>` export receives (the protocol's
 /// `PassInput`): the entity snapshot's adapters (its entities and edges,
 /// ADR 0019), the authored entities and the facts of the kinds `facts` names,
-/// the pass's `facts` input (ADR 0353 D2), and the test results and proved claims when the caller has
-/// them. Each entity carries how the coverage rule sees it: `testable` is
+/// the pass's `facts` input (ADR 0353 D2), the test results and proved claims when the caller has
+/// them, and what changed of the kinds `delta` names when the pass declares that input and the caller took the
+/// delta (ADR 0376 D6). Each entity carries how the coverage rule sees it: `testable` is
 /// its kind's flag (a kind that merely accepts `verify` statements, a
 /// formal `property`, does not count), and `owes_none` says it owes no
 /// obligations of its own (ADR 0004, D2-b), its standing's.
-pub fn pass_input(input: &PassContext, facts: &[&str]) -> PassInput {
+pub fn pass_input(input: &PassContext, facts: &[&str], delta: Option<&[&str]>) -> PassInput {
     let mut entities = input.entities.pass_entities(facts);
     if let Some(judgements) = input.judgements {
         for entity in &mut entities {
@@ -100,6 +106,10 @@ pub fn pass_input(input: &PassContext, facts: &[&str]) -> PassInput {
         trigger: input.trigger.cloned(),
         files: Default::default(),
         fact_stores: crate::facts::stores(input.entities),
+        // Only the kinds the pass names, and only to a pass that declares the input.
+        delta: delta
+            .zip(input.delta)
+            .map(|(kinds, d)| d.restricted_to(kinds)),
     }
 }
 
@@ -177,8 +187,8 @@ fn code_misuse(
 
 /// Run `passes`, in the order given (the caller picks the phase:
 /// `check_passes` for a compile, `analyze_passes` for analyze), each on
-/// `context`'s input with the facts it declares, encoded once per distinct set of declared facts and baseline kinds
-/// (ADR 0353 D4): one report per pass. A pass that fails
+/// `context`'s input with the facts and the delta kinds it declares, encoded once per distinct set of declared facts,
+/// delta kinds and baseline kinds (ADR 0353 D4, ADR 0376 D6): one report per pass. A pass that fails
 /// (it traps, answers what does not parse, or its input did not encode) has
 /// a report of its own with one E028 finding and `failed` in its summary;
 /// the others still run.
@@ -193,10 +203,11 @@ pub fn run_extension_passes<'p>(
         return Vec::new();
     }
 
-    // A pass is sent the facts it declares, and `previous` differs by the kinds it names: built once per distinct
-    // set of facts, and encoded once per distinct (facts, baseline kinds).
-    let mut payloads: HashMap<Vec<String>, PassInput> = HashMap::new();
-    let mut encoded: HashMap<(Vec<String>, Vec<String>), Encoded<PassInput>> = HashMap::new();
+    // A pass is sent the facts and the delta kinds it declares, and `previous` differs by the kinds it names: built
+    // once per distinct (facts, delta kinds), and encoded once per distinct (facts, delta kinds, baseline kinds).
+    type Declared = (Vec<String>, Option<Vec<String>>);
+    let mut payloads: HashMap<Declared, PassInput> = HashMap::new();
+    let mut encoded: HashMap<(Declared, Vec<String>), Encoded<PassInput>> = HashMap::new();
     let calls = ExtensionCalls::new(runtime);
     let mut memo = file_reads::Memo::default();
 
@@ -211,10 +222,21 @@ pub fn run_extension_passes<'p>(
             .map(str::to_string)
             .collect();
         facts.sort();
-        let payload = payloads.entry(facts.clone()).or_insert_with_key(|facts| {
-            let kinds: Vec<&str> = facts.iter().map(String::as_str).collect();
-            pass_input(context, &kinds)
+        let delta = declared.inputs().delta().map(|kinds| {
+            let mut kinds: Vec<String> = kinds.into_iter().map(str::to_string).collect();
+            kinds.sort();
+            kinds
         });
+        let key = (facts, delta);
+        let payload = payloads
+            .entry(key.clone())
+            .or_insert_with_key(|(facts, delta)| {
+                let facts: Vec<&str> = facts.iter().map(String::as_str).collect();
+                let delta: Option<Vec<&str>> = delta
+                    .as_ref()
+                    .map(|kinds| kinds.iter().map(String::as_str).collect());
+                pass_input(context, &facts, delta.as_deref())
+            });
         let entities_analyzed = payload.entities.len();
         let mut summary = serde_json::Map::new();
         summary.insert("extension".into(), declared.extension.clone().into());
@@ -248,7 +270,7 @@ pub fn run_extension_passes<'p>(
                     .unwrap_or_default();
                 kinds.sort();
                 encoded
-                    .entry((facts, kinds))
+                    .entry((key, kinds))
                     .or_insert_with_key(|(_, kinds)| match previous {
                         Some(baseline) => ExtensionCalls::encode(&PassInput {
                             previous: Some(baseline.pass_view(kinds)),

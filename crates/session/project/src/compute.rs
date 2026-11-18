@@ -12,15 +12,18 @@ use specforge_wasm::{ExtensionCalls, WasmRuntime};
 
 use crate::Environment;
 use crate::baseline::Baseline;
+use crate::delta::Delta;
 use crate::judged::Judgements;
 use crate::passes::{PassContext, pass_findings, pass_input};
 
-/// What the compute passes read besides the snapshot: the disk their `reads` are read through (ADR 0293) and the
-/// recorded report for those that declare the `tests` input.
+/// What the compute passes read besides the snapshot: the disk their `reads` are read through (ADR 0293), the
+/// recorded report for those that declare the `tests` input, and the delta for those that declare the `delta` input
+/// (ADR 0376 D6).
 #[derive(Clone, Copy)]
 pub(crate) struct Reads<'a> {
     pub disk: &'a dyn Disk,
     pub tests: Option<&'a TestResults>,
+    pub delta: Option<&'a Delta>,
 }
 
 /// Run `env`'s compute passes over `authored`: what they computed, and what they reported (their findings, E028
@@ -34,7 +37,7 @@ pub(crate) fn run(
     judgements: &Judgements,
     reads: Reads,
 ) -> (Computed, Vec<Diagnostic>) {
-    let Reads { disk, tests } = reads;
+    let Reads { disk, tests, delta } = reads;
     let mut computed = given.clone();
     let mut diagnostics = Vec::new();
     let calls = ExtensionCalls::new(runtime);
@@ -49,9 +52,11 @@ pub(crate) fn run(
             let mut payload = pass_input(
                 &PassContext {
                     judgements: Some(judgements),
+                    delta,
                     ..PassContext::of(&seen)
                 },
                 &declared.inputs().facts(),
+                declared.inputs().delta().as_deref(),
             );
             payload.previous = baseline
                 .filter(|_| !declared.baseline().is_empty())

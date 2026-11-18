@@ -220,7 +220,11 @@ pub(crate) fn compute_at(
             None,
             &judged.values,
             &judged.judgements,
-            Reads { disk, tests: None },
+            Reads {
+                disk,
+                tests: None,
+                delta: None,
+            },
         )
         .0
     })

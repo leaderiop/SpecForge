@@ -136,8 +136,8 @@ impl Delta {
 
     /// The change a reader of `kinds` is sent: the nodes of those kinds and the edges with an end of one, under the
     /// same base. No kind: no node and no edge.
-    pub fn restricted_to(&self, kinds: &[String]) -> DeltaPayload {
-        let named = |kind: &str| kinds.iter().any(|k| k == kind);
+    pub fn restricted_to<K: AsRef<str>>(&self, kinds: &[K]) -> DeltaPayload {
+        let named = |kind: &str| kinds.iter().any(|k| k.as_ref() == kind);
         let edges = |edges: &[DeltaEdge], ends: &[[End; 2]]| -> Vec<DeltaEdge> {
             edges
                 .iter()

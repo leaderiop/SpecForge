@@ -95,7 +95,7 @@ fn pass_input_is_byte_equal_without_k11_k14() {
     // None of the later wire fields is on a pass input that does not ask for it.
     for text in [&check, &compute, &guard] {
         let input: Value = serde_json::from_str(text).unwrap();
-        for absent in ["files", "test_results", "now", "today"] {
+        for absent in ["files", "test_results", "now", "today", "delta"] {
             assert!(input.get(absent).is_none(), "{absent} in {text}");
         }
     }
