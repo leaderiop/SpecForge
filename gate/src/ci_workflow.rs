@@ -1,5 +1,5 @@
 //! The workflows' shape the gate holds: every job's timeout, and its build-time budget under it with the two steps
-//! that measure it (ADR 0375 D3). A workflow is read line by line, as the gate's other workflow tests read it, with no
+//! that measure it (ADR 0375 D3); every cache keyed once, under the workflow's one prefix (ADR 0375 D1). A workflow is read line by line, as the gate's other workflow tests read it, with no
 //! YAML parser: a job is a line of exactly two spaces' indent ending in `:` under `jobs:`, a step an item `- ` under
 //! the job's `steps:`. Only the tests read the workflows, so this module is compiled only for them.
 
@@ -70,6 +70,23 @@ fn value_of<'a>(line: &'a str, key: &str) -> Option<&'a str> {
     Some(unquote(rest.trim()))
 }
 
+/// A matrix entry's first line without its indent and its `- `.
+fn entry_line(line: &str) -> &str {
+    let line = line.trim_start();
+    line.strip_prefix("- ").unwrap_or(line)
+}
+
+/// A variable of the workflow's own top-level `env`.
+pub fn workflow_env<'a>(workflow: &'a str, name: &str) -> Option<&'a str> {
+    workflow
+        .lines()
+        .skip_while(|line| *line != "env:")
+        .skip(1)
+        .take_while(|line| line.trim().is_empty() || indent(line) > 0 || line.starts_with('#'))
+        .filter(|line| indent(line) == 2)
+        .find_map(|line| value_of(line, name))
+}
+
 fn unquote(value: &str) -> &str {
     for quote in ['"', '\''] {
         if let Some(inner) = value
@@ -134,6 +151,27 @@ impl<'a> Job<'a> {
         entries
     }
 
+    /// The value of `key` in each entry of the job's matrix, with the entry's first line to name it by. An error is a
+    /// sentence saying which entry lacks the key, or that the matrix has none.
+    fn matrix_values(&self, key: &str) -> Result<Vec<(&'a str, &'a str)>, String> {
+        let entries = self.matrix_entries();
+        if entries.is_empty() {
+            return Err(format!("reads its {key} from a matrix with no entries"));
+        }
+        entries
+            .iter()
+            .map(|entry| {
+                let first = entry_line(entry[0]);
+                let at = indent(entry[0]) + 2;
+                std::iter::once(first)
+                    .chain(entry[1..].iter().filter(|line| indent(line) == at).copied())
+                    .find_map(|line| value_of(line, key))
+                    .map(|value| (first, value))
+                    .ok_or_else(|| format!("has a matrix entry `{first}` with no {key}"))
+            })
+            .collect()
+    }
+
     /// The job's budgets in seconds: its `BUDGET_SECONDS`, or, when that reads `${{ matrix.budget }}`, each matrix
     /// entry's `budget`. An error is a sentence saying what is missing.
     pub fn budgets(&self) -> Result<Vec<u32>, String> {
@@ -146,19 +184,9 @@ impl<'a> Job<'a> {
                 .map(|budget| vec![budget])
                 .map_err(|_| format!("has BUDGET_SECONDS `{value}`, not a whole number"));
         }
-        let entries = self.matrix_entries();
-        if entries.is_empty() {
-            return Err("reads its budget from a matrix with no entries".to_string());
-        }
-        entries
-            .iter()
-            .map(|entry| {
-                let first = entry[0].trim_start().trim_start_matches("- ");
-                let budget = entry
-                    .iter()
-                    .map(|line| line.trim_start().trim_start_matches("- "))
-                    .find_map(|line| value_of(line, "budget"))
-                    .ok_or_else(|| format!("has a matrix entry `{first}` with no budget"))?;
+        self.matrix_values("budget")?
+            .into_iter()
+            .map(|(first, budget)| {
                 budget.parse().map_err(|_| {
                     format!(
                         "has a matrix entry `{first}` whose budget `{budget}` is not a whole number"
@@ -300,6 +328,114 @@ pub fn findings(file: &str, workflow: &str) -> Vec<String> {
         .iter()
         .flat_map(|job| job_findings(file, job))
         .collect()
+}
+
+/// The workflow variable every rust-cache step reads as its `prefix-key` (ADR 0375 D1).
+pub const PREFIX: &str = "CACHE_PREFIX";
+
+/// One key a rust-cache step names: where it is named (the job, and the matrix entry when the key comes from the
+/// matrix) and whether the step saves it.
+pub struct CacheKey {
+    pub key: String,
+    pub at: String,
+    pub saves: bool,
+}
+
+/// Every key the workflow's rust-cache steps name, and what is wrong with how a step names its key: a step that does
+/// not read its `prefix-key` from the workflow's `CACHE_PREFIX`, names a `key` (which rust-cache joins with the job's
+/// id), or names no `shared-key`. A `shared-key` of `${{ matrix.<name> }}` is one key per matrix entry; a literal one
+/// is one key for the job, whatever its matrix, since rust-cache adds the runner's OS to the key itself.
+pub fn cache_keys(file: &str, workflow: &str) -> (Vec<CacheKey>, Vec<String>) {
+    let prefix = format!("${{{{ env.{PREFIX} }}}}");
+    let mut keys = Vec::new();
+    let mut findings = Vec::new();
+    for job in jobs(workflow) {
+        for step in job.steps().iter().filter(|step| step.is_rust_cache()) {
+            let mut say = |what: String| {
+                findings.push(format!("{file}: job `{}`'s rust-cache step {what}", job.id))
+            };
+            if step.with("prefix-key") != Some(prefix.as_str()) {
+                say(format!("does not read its prefix-key from `{prefix}`"));
+            }
+            if step.with("key").is_some() {
+                say(
+                    "names a `key`, which rust-cache joins with the job's id: name a `shared-key`"
+                        .to_string(),
+                );
+            }
+            let Some(shared) = step.with("shared-key") else {
+                say("names no `shared-key`".to_string());
+                continue;
+            };
+            let saves = step.with("save-if") != Some("false");
+            let matrix = shared
+                .strip_prefix("${{ matrix.")
+                .and_then(|rest| rest.strip_suffix(" }}"));
+            match matrix {
+                None if shared.contains("${{") => {
+                    say(format!("has a shared-key `{shared}` the gate cannot read"));
+                }
+                None => keys.push(CacheKey {
+                    key: shared.to_string(),
+                    at: format!("job `{}`", job.id),
+                    saves,
+                }),
+                Some(name) => match job.matrix_values(name) {
+                    Err(missing) => say(missing),
+                    Ok(values) => keys.extend(values.into_iter().map(|(entry, key)| CacheKey {
+                        key: key.to_string(),
+                        at: format!("job `{}` (matrix entry `{entry}`)", job.id),
+                        saves,
+                    })),
+                },
+            }
+        }
+    }
+    (keys, findings)
+}
+
+/// What is wrong with the workflow's cache keys (ADR 0375 D1): no `CACHE_PREFIX` in its env, a step that names its
+/// key otherwise than [`cache_keys`] reads it, a key two steps save (each saver needs a key of its own, or one would
+/// save over what the other restored), and a key a step only restores that no step saves.
+pub fn key_findings(file: &str, workflow: &str) -> Vec<String> {
+    let mut findings = Vec::new();
+    if workflow_env(workflow, PREFIX).is_none_or(str::is_empty) {
+        findings.push(format!(
+            "{file}: the workflow's env has no {PREFIX}, the prefix-key of every cache"
+        ));
+    }
+    let (keys, step_findings) = cache_keys(file, workflow);
+    findings.extend(step_findings);
+    let savers = |key: &str| -> Vec<&str> {
+        keys.iter()
+            .filter(|saver| saver.saves && saver.key == key)
+            .map(|saver| saver.at.as_str())
+            .collect()
+    };
+    let mut seen: Vec<&str> = Vec::new();
+    for key in &keys {
+        if seen.contains(&key.key.as_str()) {
+            continue;
+        }
+        seen.push(&key.key);
+        let by = savers(&key.key);
+        if by.len() > 1 {
+            findings.push(format!(
+                "{file}: the cache key `{}` is saved by {}: each saver needs a key of its own",
+                key.key,
+                by.join(" and ")
+            ));
+        }
+    }
+    for key in keys.iter().filter(|key| !key.saves) {
+        if savers(&key.key).is_empty() {
+            findings.push(format!(
+                "{file}: {} restores the cache key `{}`, which no step saves",
+                key.at, key.key
+            ));
+        }
+    }
+    findings
 }
 
 mod tests;

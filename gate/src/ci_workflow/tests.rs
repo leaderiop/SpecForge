@@ -378,6 +378,197 @@ fn only_ci_and_perf_save_a_cache() {
     assert!(ci_savers > 0, "ci.yml saves no cache on main");
 }
 
+const PREFIXED: &str = "prefix-key: ${{ env.CACHE_PREFIX }}";
+const ON_MAIN: &str = "save-if: ${{ github.ref == 'refs/heads/main' }}";
+const RESTORE_ONLY: &str = "save-if: false";
+const PREFIX_ENV: &str = "  CACHE_PREFIX: v1-rust\n";
+
+/// A workflow whose env holds `env` and whose jobs each run one rust-cache step: a job is its id, the lines of its
+/// `strategy:` (none when empty) and the step's `with:` inputs.
+fn cached(env: &str, jobs: &[(&str, &str, &[&str])]) -> String {
+    let mut text = format!("name: X\n\non:\n  push:\n\nenv:\n{env}\njobs:\n");
+    for (id, strategy, with) in jobs {
+        text.push_str(&format!("  {id}:\n    runs-on: ubuntu-latest\n"));
+        if !strategy.is_empty() {
+            text.push_str(&format!("    strategy:\n{strategy}"));
+        }
+        text.push_str("    steps:\n      - uses: Swatinem/rust-cache@v2\n        with:\n");
+        for line in *with {
+            text.push_str(&format!("          {line}\n"));
+        }
+    }
+    text
+}
+
+/// A matrix whose entries each name `os` and, when given, `cache`.
+fn matrix(entries: &[(&str, Option<&str>)]) -> String {
+    let mut text = "      matrix:\n        include:\n".to_string();
+    for (os, cache) in entries {
+        text.push_str(&format!("          - os: {os}\n"));
+        if let Some(cache) = cache {
+            text.push_str(&format!("            cache: {cache}\n"));
+        }
+    }
+    text
+}
+
+/// The `ci.yml` cache keys: one prefix in the workflow's env, read by every rust-cache step; every step keyed by a
+/// `shared-key` alone; six savers, each its own key, saved only on main; `dogfood` restores the specs shard's key and
+/// saves nothing (ADR 0375 D1).
+#[test]
+fn every_cache_step_is_keyed_once_under_the_workflow_prefix() {
+    let workflow = read(CI);
+    assert_eq!(key_findings(CI, &workflow), Vec::<String>::new());
+    assert_eq!(workflow_env(&workflow, PREFIX), Some("v1-rust"));
+    let (keys, _) = cache_keys(CI, &workflow);
+    let savers: Vec<&str> = keys
+        .iter()
+        .filter(|key| key.saves)
+        .map(|key| key.key.as_str())
+        .collect();
+    assert!(savers.len() >= 5, "{savers:?}");
+    assert_eq!(
+        savers,
+        [
+            "lint",
+            "gsd-crates",
+            "specs",
+            "build",
+            "effect-plane",
+            "windows-subset"
+        ]
+    );
+    let restored: Vec<(&str, &str)> = keys
+        .iter()
+        .filter(|key| !key.saves)
+        .map(|key| (key.at.as_str(), key.key.as_str()))
+        .collect();
+    assert_eq!(restored, [("job `dogfood`", "specs")]);
+}
+
+/// A workflow keyed once under its prefix has no finding: a literal key over a matrix of runners is one key (rust-cache
+/// adds the OS), a matrix key is one per entry, and a restore-only step may name any saver's key.
+#[test]
+fn a_workflow_keyed_once_under_its_prefix_has_no_finding() {
+    let two = matrix(&[("a", Some("one")), ("b", Some("two"))]);
+    let runners = matrix(&[("windows-latest", None), ("macos-latest", None)]);
+    let workflow = cached(
+        PREFIX_ENV,
+        &[
+            (
+                "shards",
+                &two,
+                &[PREFIXED, "shared-key: ${{ matrix.cache }}", ON_MAIN],
+            ),
+            ("plane", &runners, &[PREFIXED, "shared-key: plane", ON_MAIN]),
+            ("reader", "", &[PREFIXED, "shared-key: two", RESTORE_ONLY]),
+        ],
+    );
+    assert_eq!(key_findings("x.yml", &workflow), Vec::<String>::new());
+}
+
+/// Two steps saving one key is a finding naming both, whether they are two jobs or two entries of one matrix.
+#[test]
+fn two_savers_of_one_key_are_a_finding_naming_both() {
+    let jobs = cached(
+        PREFIX_ENV,
+        &[
+            ("a", "", &[PREFIXED, "shared-key: specs", ON_MAIN]),
+            ("b", "", &[PREFIXED, "shared-key: specs", ON_MAIN]),
+        ],
+    );
+    let found = key_findings("x.yml", &jobs);
+    assert!(
+        found.len() == 1 && found[0].contains("`specs` is saved by job `a` and job `b`"),
+        "{found:?}"
+    );
+    let entries = matrix(&[("a", Some("same")), ("b", Some("same"))]);
+    let one_job = cached(
+        PREFIX_ENV,
+        &[(
+            "m",
+            &entries,
+            &[PREFIXED, "shared-key: ${{ matrix.cache }}", ON_MAIN],
+        )],
+    );
+    let found = key_findings("x.yml", &one_job);
+    assert!(
+        found.len() == 1
+            && found[0]
+                .contains("job `m` (matrix entry `os: a`) and job `m` (matrix entry `os: b`)"),
+        "{found:?}"
+    );
+}
+
+/// A restore-only step whose key no step saves is a finding: it would restore nothing, ever.
+#[test]
+fn a_restore_only_key_no_saver_holds_is_a_finding() {
+    let workflow = cached(
+        PREFIX_ENV,
+        &[
+            ("saver", "", &[PREFIXED, "shared-key: specs", ON_MAIN]),
+            ("reader", "", &[PREFIXED, "shared-key: spec", RESTORE_ONLY]),
+        ],
+    );
+    let found = key_findings("x.yml", &workflow);
+    assert!(
+        found.len() == 1
+            && found[0].contains("job `reader` restores the cache key `spec`, which no step saves"),
+        "{found:?}"
+    );
+}
+
+/// A cache step off the workflow's prefix, naming a `key`, naming no `shared-key`, or a matrix key an entry lacks, is
+/// a finding naming the job.
+#[test]
+fn a_cache_step_off_the_prefix_or_with_a_key_is_a_finding() {
+    let lacking = matrix(&[("a", Some("one")), ("b", None)]);
+    let cases: [(&str, &[&str], &str); 5] = [
+        (
+            "",
+            &["shared-key: x", ON_MAIN],
+            "does not read its prefix-key",
+        ),
+        (
+            "",
+            &["prefix-key: v1-rust", "shared-key: x", ON_MAIN],
+            "does not read its prefix-key",
+        ),
+        (
+            "",
+            &[PREFIXED, "key: x", "shared-key: x", ON_MAIN],
+            "names a `key`",
+        ),
+        ("", &[PREFIXED, ON_MAIN], "names no `shared-key`"),
+        (
+            &lacking,
+            &[PREFIXED, "shared-key: ${{ matrix.cache }}", ON_MAIN],
+            "has a matrix entry `os: b` with no cache",
+        ),
+    ];
+    for (strategy, with, says) in cases {
+        let found = key_findings("x.yml", &cached(PREFIX_ENV, &[("only", strategy, with)]));
+        assert!(
+            found.len() == 1 && found[0].contains("job `only`") && found[0].contains(says),
+            "{says}: {found:?}"
+        );
+    }
+}
+
+/// A workflow with no `CACHE_PREFIX` in its env is a finding, though every step reads it.
+#[test]
+fn a_workflow_without_a_cache_prefix_is_a_finding() {
+    let workflow = cached(
+        "  CARGO_TERM_COLOR: always\n",
+        &[("only", "", &[PREFIXED, "shared-key: x", ON_MAIN])],
+    );
+    let found = key_findings("x.yml", &workflow);
+    assert!(
+        found.len() == 1 && found[0].contains("the workflow's env has no CACHE_PREFIX"),
+        "{found:?}"
+    );
+}
+
 /// The one job that deletes caches runs only on a push (to main, the only branch `ci.yml` runs pushes for), after
 /// every job that saves a cache, with `actions: write` and `contents: read` alone, and lists only main's entries
 /// (ADR 0375 D2).

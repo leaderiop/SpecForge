@@ -15,6 +15,9 @@ env:
   # No debuginfo in test binaries: a core-crate rebuild links ~140 of them, 27% faster without it (measured
   # 108s -> 79s). opt-level 0 was tried too: the build saved 77s, the tests lost 267s. CI backtraces lose file:line.
   CARGO_PROFILE_TEST_DEBUG: "0"
+  # Every cache step's prefix-key. Bump it to start every cache anew, and whenever a cache step's paths or workspaces
+  # change: a changed path list is a new cache version, which orphans the old entry (ADR 0375 D1).
+  CACHE_PREFIX: v1-rust
 
 # Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's wall time on a
 # cold run times 1.25, under its timeout less five minutes (ADR 0375 D3).
@@ -33,12 +36,13 @@ jobs:
           - shard: lint
             checks: rustfmt,clippy,doctests,audit
             budget: 1440
+            cache: lint
           # The @gsd workspace on a runner of its own: its builds and black-box tests run beside lint and specs.
           - shard: gsd
             checks: gsd
             budget: 2040
-            # A key of its own: rust-cache never saves over a key it restored whole, so the old one would never hold
-            # the workspace crates.
+            # Its shared-key names what it holds, the workspace crates too: rust-cache never saves over a key it
+            # restored whole, so a key once saved without them would never gain them.
             cache: gsd-crates
             workspaces: |
               . -> target
@@ -46,6 +50,7 @@ jobs:
           - shard: specs
             checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs
             budget: 2040
+            cache: specs
     env:
       BUDGET_SECONDS: ${{ matrix.budget }}
     steps:
@@ -68,7 +73,8 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.cache || matrix.shard }}
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: ${{ matrix.cache }}
           workspaces: ${{ matrix.workspaces || '. -> target' }}
           # The gsd shard rebuilt every crate of the workspace (the `specforge` it drives) on each run: rust-cache
           # leaves workspace crates out by default. Kept, only what a change reaches rebuilds.
@@ -145,7 +151,8 @@ jobs:
           targets: wasm32-wasip2
       - uses: Swatinem/rust-cache@v2
         with:
-          key: tests
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: build
           workspaces: |
             . -> target
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -277,7 +284,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: effect-plane
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: effect-plane
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@v2
         with:
@@ -331,7 +339,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: windows-subset
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: windows-subset
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@v2
         with:
@@ -380,9 +389,11 @@ jobs:
           echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # Restores the specs shard's cache, the same build of the root, and saves nothing.
       - uses: Swatinem/rust-cache@v2
         with:
-          key: specs
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: specs
           save-if: false
       - uses: actions/download-artifact@v4
         with:
