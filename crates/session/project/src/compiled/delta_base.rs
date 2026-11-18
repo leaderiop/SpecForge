@@ -3,7 +3,7 @@
 //! graph of a session's last completed check (LSP, MCP, watch). A check since a revision is judged and given its
 //! delta in one run; a session holds its last checked graph only while a loaded pass reads the delta.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, LazyLock};
 
 use specforge_effects::git::Sha;
@@ -14,7 +14,7 @@ use super::CompiledProject;
 use crate::Environment;
 use crate::baseline::{Baseline, Checking, HeldBaseline, UnknownRevision, declared};
 use crate::ledger::Unrecorded;
-use crate::snapshot::{Since, Wants, load_at, since};
+use crate::snapshot::{Since, Wants, load_at, served_by, since};
 
 /// The graph a check's delta is taken from, and the base the payload names.
 #[derive(Debug, Clone, Default)]
@@ -22,8 +22,13 @@ pub(crate) enum DeltaBasis {
     /// No base: the delta is taken from the empty graph.
     #[default]
     None,
-    /// The project at the merge-base `sha`, compiled with the current extensions.
-    Revision { sha: Sha, graph: Arc<Graph> },
+    /// The project at the merge-base `sha`, compiled with the current extensions, and the collectors it serves a
+    /// fact store of: a collector the check's graph does not serve too is left out of the delta (ADR 0376 D4).
+    Revision {
+        sha: Sha,
+        graph: Arc<Graph>,
+        served: BTreeSet<String>,
+    },
     /// The graph of the session's last completed check.
     Previous(Arc<Graph>),
 }
@@ -145,6 +150,7 @@ fn at_merge_base(
     match load_at(env, &*history, place, &base, wants) {
         Ok(loaded) => DeltaBasis::Revision {
             sha: base,
+            served: served_by(&loaded.built.graph),
             graph: Arc::new(loaded.built.graph.into_parts().0),
         },
         Err(_) => DeltaBasis::None,

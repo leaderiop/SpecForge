@@ -24,6 +24,7 @@ mod custom_rules;
 mod delta;
 mod delta_between;
 mod delta_input;
+mod delta_since_facts;
 mod derived_references;
 mod directory_links;
 mod disk_changed;

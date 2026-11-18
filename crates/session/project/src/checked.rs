@@ -57,15 +57,24 @@ impl Environment {
 
     /// The delta of `build` from `base`'s graph, labelled with it (ADR 0376 D7: with no base it is the empty graph,
     /// so every node is added), when a loaded pass declares the `delta` input; `None` otherwise, so it is never taken
-    /// for nothing.
+    /// for nothing. From a revision, a collector served at the merge-base or by `build` only is left out, as a diff
+    /// leaves it out (ADR 0376 D4).
     pub(crate) fn delta_of(&self, build: &GraphBuild, base: &DeltaBasis) -> Option<Delta> {
         (self.registries.passes_reading_delta() > 0).then(|| {
-            Delta::between(
+            let delta = Delta::between(
                 base.graph(),
                 build.graph(),
                 self.registries.field_forms(),
                 base.label(),
-            )
+            );
+            match base {
+                DeltaBasis::Revision { served, .. } => crate::snapshot::facts_served_on_both(
+                    delta,
+                    served,
+                    &crate::snapshot::served_by(build),
+                ),
+                DeltaBasis::None | DeltaBasis::Previous(_) => delta,
+            }
         })
     }
 

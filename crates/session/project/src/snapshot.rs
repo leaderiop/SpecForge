@@ -11,14 +11,14 @@
 //! Both sides of a comparison are compiled with the current extensions, so a diff shows changes of content, not of
 //! toolchain (ADR 0376 D3); a revision whose `specforge.json` loads another extension set says so ([`ConfigAt`]).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::facts::{filed, is_collector_name, is_fact_store, is_store_key};
 use specforge_common::{Diagnostic, ExtensionEntry, PROJECT_FILE, codes, parse_project_config};
 use specforge_effects::git::{CommitFile, Git, GitPlace, Located, Sha, TreeEntry};
-use specforge_graph::{FieldForms, Graph};
+use specforge_graph::{FieldForms, Graph, GraphBuild};
 use specforge_protocol_types::DeltaBase;
 use specforge_registry::Disk;
 
@@ -294,9 +294,7 @@ pub fn compare(from: &Snapshot, to: &Snapshot, forms: &FieldForms, label: DeltaB
         .into_iter()
         .filter_map(|(side, snapshot)| config_note(side, snapshot))
         .collect();
-    let mut lacking = Vec::new();
-    let collectors: std::collections::BTreeSet<&String> =
-        from.facts.keys().chain(to.facts.keys()).collect();
+    let collectors: BTreeSet<&String> = from.facts.keys().chain(to.facts.keys()).collect();
     for collector in collectors {
         let sides = [(Side::From, from), (Side::To, to)];
         let at = |snapshot: &Snapshot| {
@@ -311,7 +309,6 @@ pub fn compare(from: &Snapshot, to: &Snapshot, forms: &FieldForms, label: DeltaB
         if (was == FactsAt::Served && is == FactsAt::Served) || neither {
             continue;
         }
-        lacking.push(collector.clone());
         for (side, snapshot) in sides {
             let (about, message) = match at(snapshot) {
                 FactsAt::Served => continue,
@@ -330,14 +327,46 @@ pub fn compare(from: &Snapshot, to: &Snapshot, forms: &FieldForms, label: DeltaB
         }
     }
     let delta = Delta::between(&from.graph, &to.graph, forms, label);
-    let delta = if lacking.is_empty() {
-        delta
-    } else {
-        delta.without(|file| {
-            filed(file).is_some_and(|(collector, _)| lacking.iter().any(|c| c == collector))
-        })
+    let served = |snapshot: &Snapshot| -> BTreeSet<String> {
+        snapshot
+            .facts
+            .iter()
+            .filter(|(_, at)| **at == FactsAt::Served)
+            .map(|(collector, _)| collector.clone())
+            .collect()
     };
-    Comparison { delta, notes }
+    Comparison {
+        delta: facts_served_on_both(delta, &served(from), &served(to)),
+        notes,
+    }
+}
+
+/// `delta` from a side whose served collectors are `from` to one whose are `to`, without the facts of a collector
+/// served on one side only (ADR 0376 D4): a store is never in git, so one side's missing store is never read as
+/// every fact of it removed or added. A collector neither side serves has no fact in either graph. The one rule of a
+/// diff ([`compare`]) and of a check's delta since a revision.
+pub(crate) fn facts_served_on_both(
+    delta: Delta,
+    from: &BTreeSet<String>,
+    to: &BTreeSet<String>,
+) -> Delta {
+    let lacking: BTreeSet<&String> = from.symmetric_difference(to).collect();
+    if lacking.is_empty() {
+        return delta;
+    }
+    delta.without(|file| {
+        filed(file).is_some_and(|(collector, _)| lacking.iter().any(|c| *c == collector))
+    })
+}
+
+/// The collectors `build` serves a fact store of: each store it was built from is one its compile served, whatever
+/// facts it holds (one that was not served is no source of the build).
+pub(crate) fn served_by(build: &GraphBuild) -> BTreeSet<String> {
+    build
+        .files()
+        .filter_map(|(key, _)| filed(key))
+        .map(|(collector, _)| collector.to_string())
+        .collect()
 }
 
 /// The note on `side` when `snapshot`'s `specforge.json` is not the current one's extension set.
