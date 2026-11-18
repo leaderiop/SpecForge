@@ -52,7 +52,7 @@ impl CompiledProject {
                         },
                     ),
                     stamp,
-                    pinned: false,
+                    since: None,
                 }),
             };
             let mut ledger = Vec::new();
@@ -87,16 +87,20 @@ impl CompiledProject {
             } else {
                 Arc::new(values.checks.outcome_classes())
             };
+            let bases = crate::checked::Bases {
+                baseline: &read.read,
+                delta: &this.delta_base,
+            };
             let checked = env.checked(
                 graph,
                 &authored,
                 disk,
-                &read.read,
+                bases,
                 &this.digests,
                 &checked_values,
             );
             baseline = Some(read);
-            // Taken once for the whole run, and only when a pass reads it (ADR 0376 D6).
+            // Taken once for the whole run, against the run's base, and only when a pass reads it (ADR 0376 D6, D7).
             delta = checked.delta.map(Arc::new);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
             // A field whose checks wait for its owner: owner state is read on the merged snapshot (ADR 0350).

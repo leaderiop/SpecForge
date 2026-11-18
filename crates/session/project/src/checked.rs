@@ -7,6 +7,7 @@ use specforge_graph::{Computed, GraphBuild};
 use specforge_registry::rules::{CustomVerdicts, NoVerdicts};
 use specforge_registry::{Disk, EntitySnapshot};
 
+use crate::compiled::DeltaBasis;
 use crate::delta::Delta;
 use crate::verdicts::WasmVerdicts;
 use crate::{
@@ -15,7 +16,7 @@ use crate::{
 
 /// What [`Environment::checked`] found: the diagnostics, and the compute passes' values with the snapshot that has
 /// them merged in (`None` when none gave a value).
-pub struct Checked {
+pub(crate) struct Checked {
     pub diagnostics: Vec<Diagnostic>,
     pub entities: Option<EntitySnapshot>,
     pub computed: Computed,
@@ -25,53 +26,68 @@ pub struct Checked {
     pub delta: Option<Delta>,
 }
 
+/// What a check run is taken against: the baseline its history is judged against (ADR 0287), and the base its delta
+/// is taken from (ADR 0376 D7).
+#[derive(Clone, Copy)]
+pub(crate) struct Bases<'a> {
+    pub baseline: &'a baseline::BaselineRead,
+    pub delta: &'a DeltaBasis,
+}
+
 impl Environment {
     /// Every check a compile runs over the graph `build`, on its entity snapshot taken now: the registry build's
     /// checks (the structural checks and the extensions' rules, in the order [`RegistryBuild::check`] runs them),
     /// then the check-phase passes; the custom verdicts and the passes run in [`Self::runtime`]. Every file a check
     /// reads goes through `disk` (ADR 0107).
     pub fn run_checks(&self, build: &GraphBuild, disk: &dyn Disk) -> Vec<Diagnostic> {
+        let baseline = baseline::Baseline::of_head(self, &baseline::Checking::of(self));
         self.checked(
             build,
             &self.entity_snapshot(build),
             disk,
-            &baseline::Baseline::of_head(self, &baseline::Checking::of(self)),
+            Bases {
+                baseline: &baseline,
+                delta: &DeltaBasis::None,
+            },
             &judged::DigestMemo::default(),
             &CheckedValues::default(),
         )
         .diagnostics
     }
 
-    /// The delta of `build` from the empty graph, its base none (ADR 0376 D7: with no base every node is added), when
-    /// a loaded pass declares the `delta` input; `None` otherwise, so it is never taken for nothing.
-    pub(crate) fn delta_of(&self, build: &GraphBuild) -> Option<Delta> {
+    /// The delta of `build` from `base`'s graph, labelled with it (ADR 0376 D7: with no base it is the empty graph,
+    /// so every node is added), when a loaded pass declares the `delta` input; `None` otherwise, so it is never taken
+    /// for nothing.
+    pub(crate) fn delta_of(&self, build: &GraphBuild, base: &DeltaBasis) -> Option<Delta> {
         (self.registries.passes_reading_delta() > 0).then(|| {
             Delta::between(
-                &specforge_graph::Graph::default(),
+                base.graph(),
                 build.graph(),
                 self.registries.field_forms(),
-                specforge_protocol_types::DeltaBase::None,
+                base.label(),
             )
         })
     }
 
-    /// [`Self::run_checks`] over the authored snapshot `entities`, with what the compute passes gave (ADR 0287):
-    /// they run first, the registry's checks and rules and the check passes read the snapshot with their values
-    /// merged. `computed` is empty and `entities` is `None` (the snapshot given is the one read) when no compute
-    /// pass gave a value. `build` is the graph the snapshot was taken from: the harness ledger is checked against
-    /// it ([`harness::check`]). The delta of `build` is taken once ([`Self::delta_of`]): the compute and check passes
-    /// that declare the `delta` input are sent its part of their kinds (ADR 0376 D6), and it is returned.
-    pub fn checked(
+    /// [`Self::run_checks`] over the authored snapshot `entities`, judged against `bases`, with what the compute
+    /// passes gave (ADR 0287): they run first, the registry's checks and rules and the check passes read the snapshot
+    /// with their values merged. `computed` is empty and `entities` is `None` (the snapshot given is the one read)
+    /// when no compute pass gave a value. `build` is the graph the snapshot was taken from: the harness ledger is
+    /// checked against it ([`harness::check`]). The delta of `build` is taken once, from the delta base
+    /// ([`Self::delta_of`]): the compute and check passes that declare the `delta` input are sent its part of their
+    /// kinds (ADR 0376 D6, D7), and it is returned.
+    pub(crate) fn checked(
         &self,
         build: &GraphBuild,
         entities: &EntitySnapshot,
         disk: &dyn Disk,
-        baseline: &baseline::BaselineRead,
+        bases: Bases<'_>,
         digests: &judged::DigestMemo,
         checked: &CheckedValues,
     ) -> Checked {
         let runtime = self.runtime.as_deref();
-        let delta = self.delta_of(build);
+        let baseline = bases.baseline;
+        let delta = self.delta_of(build, bases.delta);
         let mut diagnostics = Vec::new();
         let mut computed = Computed::default();
         let mut merged = None;

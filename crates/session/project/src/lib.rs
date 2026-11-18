@@ -77,7 +77,6 @@ use specforge_wasm::WasmRuntime;
 use verdicts::WasmVerdicts;
 
 pub use buffers::Buffer;
-pub use checked::Checked;
 pub use compiled::{CheckedValue, CheckedValues, CompiledProject, ValueOutcome};
 pub use diagnostics_delta::DiagnosticsDelta;
 pub use ledger::{Changes, Consulted, SessionInputs, SourceDisk, WatchRoot, Watched};

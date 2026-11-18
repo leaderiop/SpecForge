@@ -109,8 +109,8 @@ pub type RefStamp = Vec<Result<Vec<u8>, std::io::ErrorKind>>;
 #[derive(Debug)]
 pub struct HeldBaseline {
     pub stamp: Option<RefStamp>,
-    /// A `--since` copy: its baseline is the call's, whatever `HEAD` does.
-    pub pinned: bool,
+    /// The revision a `--since` copy is pinned to: its baseline is the merge-base's, whatever `HEAD` does.
+    pub since: Option<String>,
     pub read: BaselineRead,
 }
 
@@ -118,7 +118,7 @@ impl HeldBaseline {
     /// Whether a run whose `HEAD` is named by `stamp` judges against this read again: a `--since` copy's always; else
     /// while `HEAD` is the same commit and each journal record the baseline's checks read answers alike.
     pub(crate) fn reusable(&self, stamp: Option<&RefStamp>, journal: &EffectJournal) -> bool {
-        self.pinned
+        self.since.is_some()
             || (self.stamp.as_ref() == stamp && self.holds(journal, UnixMillis::now_or_end()))
     }
 
@@ -616,7 +616,8 @@ impl Baseline {
                     &snapshot,
                     &**runtime as &dyn WasmRuntime,
                     &judged,
-                    env.delta_of(&built.graph).as_ref(),
+                    env.delta_of(&built.graph, &crate::compiled::DeltaBasis::None)
+                        .as_ref(),
                     &disk,
                     reads,
                 )

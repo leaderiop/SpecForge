@@ -12,12 +12,14 @@ use specforge_graph::{
 };
 
 mod checked;
+mod delta_base;
 mod disk;
 mod effects;
 mod judged;
 mod run;
 
 pub use checked::{CheckedValue, CheckedValues, ValueOutcome};
+pub(crate) use delta_base::DeltaBasis;
 
 use crate::coverage::{REPORT_FILE, Recorded, RecordedCoverage, ReportError, TestReport};
 use crate::ledger::{Reads, Unrecorded};
@@ -94,6 +96,8 @@ pub struct CompiledProject {
     /// What changed since the last check's base (ADR 0376 D6), taken by the check when a loaded pass declares the
     /// `delta` input; none otherwise, and after an update that skipped the checks.
     delta: Option<Arc<crate::delta::Delta>>,
+    /// What the next check takes the delta against (ADR 0376 D7): none, or the merge-base of `check --since`.
+    delta_base: DeltaBasis,
 }
 
 impl CompiledProject {
@@ -271,27 +275,6 @@ impl CompiledProject {
         rewritten.canonical().into_bytes()
     }
 
-    /// This project judged against the merge-base of `revision` and `HEAD` instead of `HEAD` (`check --since`):
-    /// the checks run again over a copy; this project keeps its own baseline.
-    pub fn judged_since(
-        &self,
-        revision: &str,
-    ) -> Result<CompiledProject, crate::baseline::UnknownRevision> {
-        let checking = crate::baseline::Checking {
-            effects: self.effects(),
-            cache: Arc::clone(&self.check_cache),
-        };
-        let read = crate::baseline::Baseline::since(&self.env, revision, &checking)?;
-        let mut project = self.clone();
-        project.baseline = Some(Arc::new(crate::baseline::HeldBaseline {
-            stamp: None,
-            pinned: true,
-            read,
-        }));
-        project.check(&mut Unrecorded::plain());
-        Ok(project)
-    }
-
     /// What `specforge check` reports for this project now: [`Self::diagnostics`], or, when the last
     /// update skipped the checks (the editor's typing fast path, ADR 0136 D4), that report with every
     /// check run now over a copy; this project keeps skipping them. What [`Self::edited`]'s report is
@@ -456,6 +439,7 @@ impl CompiledProject {
             ledger_overlay: Vec::new(),
             effects: None,
             delta: None,
+            delta_base: DeltaBasis::None,
             baseline: None,
         }
     }
@@ -486,6 +470,7 @@ impl CompiledProject {
             ledger_overlay: Vec::new(),
             effects: None,
             delta: None,
+            delta_base: DeltaBasis::None,
             baseline: None,
         }
     }
@@ -521,6 +506,7 @@ impl CompiledProject {
             ledger_overlay: Vec::new(),
             effects: None,
             delta: None,
+            delta_base: DeltaBasis::None,
             baseline: None,
         }
     }
@@ -575,6 +561,7 @@ impl CompiledProject {
             ledger_overlay: Vec::new(),
             effects: None,
             delta: None,
+            delta_base: DeltaBasis::None,
             baseline: None,
         }
     }

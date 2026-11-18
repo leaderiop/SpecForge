@@ -305,3 +305,169 @@ fn a_guard_pass_a_gate_runs_is_sent_the_compiles_delta() {
     compiled.gated_against_self(&[code], &Trigger::gate("ship", None));
     assert_eq!(delta_of(&runtime, "guarded"), cold(&compiled, &["item"]));
 }
+
+/// Two items and a note at the merge-base.
+const AT_BASE: &str = "item x \"X\" {\n}\n\nitem y \"Y\" {\n}\n\nnote n1 \"N1\" {\n}\n";
+/// At `HEAD`: x retitled, z and n2 added.
+const AT_HEAD: &str = "item x \"Ex\" {\n}\n\nitem y \"Y\" {\n}\n\nitem z \"Z\" {\n}\n\n\
+                       note n1 \"N1\" {\n}\n\nnote n2 \"N2\" {\n}\n";
+
+/// A repository whose `main` commits [`AT_BASE`] then [`AT_HEAD`] (the working tree, clean), and whose branch `side`
+/// leaves the first commit with a commit of its own: the project with the real git port, and the first commit's sha
+/// (the merge-base of `side` and `HEAD`) and `HEAD`'s.
+fn forked() -> (TestProject, String, String) {
+    let project = project(&[("a.spec", AT_BASE)]);
+    let repo = specforge_git::testing::Repo::init(project.root());
+    let base = repo.commit_all("base");
+    repo.write("a.spec", AT_HEAD);
+    let head = repo.commit_all("head");
+    repo.branch("side", &base).head_on("side");
+    repo.write("b.spec", "note s \"S\" {\n}\n");
+    repo.commit_all("side");
+    repo.head_on("main");
+    repo.delete("b.spec");
+    let git: specforge_effects::SharedGit = Arc::new(specforge_git::Gix::default());
+    (project.with_git(git), base, head)
+}
+
+/// How many times `pass` was called.
+fn calls(runtime: &InProcessRuntime, pass: &str) -> usize {
+    let export = format!("__pass_{pass}");
+    runtime
+        .calls()
+        .iter()
+        .filter(|c| c.export == export)
+        .count()
+}
+
+/// The kind, id and change of each node of `delta`.
+fn changes(delta: &Value) -> Vec<(String, String, String)> {
+    delta["nodes"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|n| {
+            let text = |key: &str| n[key].as_str().unwrap().to_string();
+            (text("kind"), text("id"), text("change"))
+        })
+        .collect()
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn since_names_the_merge_base() {
+    let (project, base, _) = forked();
+    let runtime = runtime();
+    let compiled = CompiledProject::of_since(project.environment_in(runtime.clone()), "side")
+        .expect("side is a revision");
+    let items = delta_of(&runtime, "items");
+    // the merge-base by its full sha, never the revision as named nor its own commit
+    assert_eq!(items["base"], json!({"kind": "revision", "id": base}));
+    assert_eq!(base.len(), 40);
+    assert_eq!(
+        compiled.delta_base(),
+        DeltaBase::Revision { id: base.clone() }
+    );
+    let named = |kind: &str, id: &str, change: &str| (kind.into(), id.into(), change.into());
+    assert_eq!(
+        changes(&items),
+        [named("item", "x", "modified"), named("item", "z", "added")]
+    );
+    assert_eq!(
+        changes(&delta_of(&runtime, "notes")),
+        [named("note", "n2", "added")]
+    );
+    assert_eq!(delta_of(&runtime, "counted"), items);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn since_head_is_empty() {
+    let (project, _, head) = forked();
+    let runtime = runtime();
+    CompiledProject::of_since(project.environment_in(runtime.clone()), "HEAD").unwrap();
+    assert_eq!(
+        delta_of(&runtime, "items"),
+        json!({"base": {"kind": "revision", "id": head}})
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn since_an_unknown_revision_checks_nothing() {
+    let (project, _, _) = forked();
+    let runtime = runtime();
+    let refused = CompiledProject::of_since(project.environment_in(runtime.clone()), "no-such-rev");
+    assert_eq!(
+        refused.err(),
+        Some(specforge_project::baseline::UnknownRevision(
+            "no-such-rev".to_string()
+        ))
+    );
+    assert_eq!(calls(&runtime, "items"), 0, "no pass runs");
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn since_runs_each_pass_once() {
+    let (project, base, _) = forked();
+    let since = runtime();
+    let compiled =
+        CompiledProject::of_since(project.environment_in(since.clone()), "side").unwrap();
+    for pass in ["items", "notes", "plain", "counted"] {
+        assert_eq!(calls(&since, pass), 1, "{pass}");
+    }
+    // judged since the revision it was checked since: no pass runs again
+    let judged = compiled.judged_since("side").unwrap();
+    assert_eq!(calls(&since, "items"), 1);
+    assert_eq!(judged.delta_base(), compiled.delta_base());
+    // a compile with no base, judged since the revision: each pass once more, against the merge-base
+    let runtime = runtime();
+    let cold = CompiledProject::of(project.environment_in(runtime.clone()));
+    assert_eq!(delta_of(&runtime, "items")["base"], json!({"kind": "none"}));
+    let judged = cold.judged_since("side").unwrap();
+    assert_eq!(calls(&runtime, "items"), 2);
+    assert_eq!(calls(&runtime, "counted"), 2);
+    assert_eq!(
+        delta_of(&runtime, "items")["base"],
+        json!({"kind": "revision", "id": base})
+    );
+    assert_eq!(
+        cold.delta_base(),
+        DeltaBase::None,
+        "the compile keeps its own"
+    );
+    assert_eq!(judged.delta_base(), DeltaBase::Revision { id: base });
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn since_loads_no_graph_at_the_merge_base_when_no_pass_reads_the_delta() {
+    let project = project(&[("a.spec", AT_HEAD)]);
+    let sha = "c".repeat(40);
+    let fake = |files: &str| {
+        let mut git = FakeGit::repo(
+            project.root(),
+            &sha,
+            vec![("a.spec".into(), files.as_bytes().to_vec())],
+        );
+        git.named
+            .push(("side".into(), Sha::new("d".repeat(40)), Vec::new()));
+        Arc::new(git)
+    };
+    let plain = Arc::new(InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+        c.kind("item", |_| {});
+        c.kind("note", |_| {});
+        c.pass("plain", |p| {
+            p.phase("check").run(nothing);
+        });
+        c
+    }));
+    let git = fake(AT_BASE);
+    let env = project.environment_in(plain).with_git(git.clone());
+    let compiled = CompiledProject::of_since(env, "side").unwrap();
+    assert_eq!(git.files_asked(), 0, "nothing reads history or the delta");
+    assert_eq!(compiled.delta_base(), DeltaBase::None);
+    // the same project with a pass that reads the delta: the merge-base is loaded once
+    let git = fake(AT_BASE);
+    let env = project.environment_in(runtime()).with_git(git.clone());
+    let compiled = CompiledProject::of_since(env, "side").unwrap();
+    assert_eq!(git.files_asked(), 1);
+    assert!(matches!(compiled.delta_base(), DeltaBase::Revision { .. }));
+}
