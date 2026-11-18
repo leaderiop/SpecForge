@@ -255,12 +255,22 @@ pub(crate) struct Recorded {
 /// What the stores under the project root `root` are served against, read through `disk` ([`Recorded`]): each store a
 /// stale line names, served as the ledger records it, gives the places its renames rewrote.
 pub(crate) fn recorded(disk: &dyn Disk, root: &Path) -> Recorded {
-    recorded_by(disk, root, ledger(disk, root))
+    recorded_by(disk, root, ledger(disk, root), Reach::Live)
 }
 
-/// [`recorded`] against `ledger` (the root's, or a commit's): a stale line whose collector or key is no store name
-/// names no store and is never made a path.
-pub(crate) fn recorded_by(disk: &dyn Disk, root: &Path, ledger: Ledger) -> Recorded {
+/// Where the store a stale line names is read from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Reach {
+    /// Its live path only: the working tree, which never lists the archive (ADR 0376 D4).
+    Live,
+    /// Its live path or the archive, wherever the bytes a `facts:` line of the ledger digests are ([`retain::find`]):
+    /// a revision, whose stores a later collect may have archived.
+    Retained,
+}
+
+/// [`recorded`] against `ledger` (the root's, or a commit's), each stale store read where `reach` says: a stale line
+/// whose collector or key is no store name names no store and is never made a path.
+pub(crate) fn recorded_by(disk: &dyn Disk, root: &Path, ledger: Ledger, reach: Reach) -> Recorded {
     let stale: BTreeSet<(&str, &str)> = ledger
         .lines()
         .filter_map(Line::stale_of)
@@ -270,7 +280,14 @@ pub(crate) fn recorded_by(disk: &dyn Disk, root: &Path, ledger: Ledger) -> Recor
     let mut rewrites = Rewrites::new();
     let mut torn = BTreeSet::new();
     for (collector, key) in stale {
-        let Ok(bytes) = disk.read(&root.join(Store::path(collector, key))) else {
+        let bytes = match reach {
+            Reach::Live => disk.read(&root.join(Store::path(collector, key))).ok(),
+            Reach::Retained => ledger
+                .lines()
+                .filter(|line| line.facts_of() == Some((collector, key)))
+                .find_map(|line| retain::find(disk, root, collector, key, &line.digest)),
+        };
+        let Some(bytes) = bytes else {
             continue;
         };
         if !ledger.contains(&Line::facts(collector, key, &bytes)) {

@@ -24,7 +24,7 @@ use specforge_registry::Disk;
 
 use crate::baseline::UnknownRevision;
 use crate::delta::Delta;
-use crate::facts::{Recorded, Store, recorded_by, retain, served_text};
+use crate::facts::{Reach, Recorded, Store, recorded_by, retain, served_text};
 use crate::harness::Ledger;
 use crate::sources::Read;
 use crate::{CompiledProject, Environment, SourceBuild};
@@ -630,14 +630,20 @@ impl LoadedAt {
 
 /// The fact stores the ledger `text` records, read through `disk` under `env`'s root: the text served of each one
 /// whose bytes its line digests, live or archived ([`retain::find`]) and filed under its live source key as a compile
-/// files it, and what became of each collector a line names. A line whose collector or key is no store name is never
-/// made a path, and a store that is nowhere was not collected.
+/// files it, and what became of each collector a line names. Each store a stale line names is found the same way, so
+/// the renames it recorded rewrite the text served as they did at the revision. A line whose collector or key is no
+/// store name is never made a path, and a store that is nowhere was not collected.
 fn served_stores(
     env: &Environment,
     disk: &dyn Disk,
     text: &str,
 ) -> (BTreeMap<String, String>, BTreeMap<String, FactsAt>) {
-    let recorded = recorded_by(disk, env.root(), Ledger::parse(text).ledger);
+    let recorded = recorded_by(
+        disk,
+        env.root(),
+        Ledger::parse(text).ledger,
+        Reach::Retained,
+    );
     let mut stores = BTreeMap::new();
     let mut facts = BTreeMap::new();
     for line in recorded.ledger.lines() {

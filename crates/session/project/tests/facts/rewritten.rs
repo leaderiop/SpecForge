@@ -8,7 +8,9 @@ use std::sync::Arc;
 use serde_json::json;
 use specforge_project::ProjectSession;
 use specforge_project::harness::{Ledger, Line};
+use specforge_project::snapshot::Snapshot;
 use specforge_project::testing::{Collected, TestProject, revision_of, stored_with};
+use specforge_registry::PlainDisk;
 use specforge_test::prelude::*;
 
 use super::{KEY, collected};
@@ -82,4 +84,44 @@ fn a_store_in_a_file_another_stores_rename_rewrote_is_served_shifted_and_read_ag
     assert!(session.apply(&changes).is_some());
 
     assert_eq!(unit_placed(&session, &p), (14, false));
+}
+
+/// The column `T5` of `unit`'s fact starts at in `graph`.
+fn t5_column(graph: &specforge_graph::Graph) -> usize {
+    let fact = graph.node("js:a.test.js#five").unwrap();
+    let Some(specforge_parser::FieldValue::List(items)) =
+        fact.fields.entry("covers").map(|e| &e.value)
+    else {
+        panic!("{:?}", fact.fields);
+    };
+    items[0].span.start_col
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_revision_whose_stale_store_a_later_collect_archived_is_served_with_its_renames() {
+    let p = renamed();
+    let commit = specforge_git::testing::Repo::init(p.root()).commit_all("renamed");
+    let p = p.with_git(Arc::new(specforge_git::Gix::default()));
+    let compiled = p.compile_in(Arc::new(Collected::new().runtime()));
+    let env = compiled.environment();
+    let live = Snapshot::at_revision(env, &PlainDisk, &commit).unwrap();
+    assert_eq!(t5_column(&live.graph), 18, "shifted by node's rename");
+    // a later collect archives both stores: the revision is served what it served while they were live
+    let archive = format!(".specforge/facts-history/000001-{KEY}");
+    fs::create_dir_all(p.root().join(&archive)).unwrap();
+    for store in [NODE, UNIT] {
+        let name = store.rsplit_once('/').unwrap().1;
+        fs::rename(p.root().join(store), p.root().join(&archive).join(name)).unwrap();
+    }
+    let archived = Snapshot::at_revision(env, &PlainDisk, &commit).unwrap();
+    assert_eq!(
+        t5_column(&archived.graph),
+        18,
+        "still shifted by node's rename"
+    );
+    let forms = env.registries().field_forms();
+    let label = specforge_protocol_types::DeltaBase::None;
+    let changed =
+        specforge_project::delta::Delta::between(&live.graph, &archived.graph, forms, label);
+    assert!(changed.is_empty(), "{:?}", changed.payload());
 }
