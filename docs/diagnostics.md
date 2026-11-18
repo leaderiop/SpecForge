@@ -1014,7 +1014,10 @@ there and can't be read as a key (it is not JSON, or its `secretKey` is not 32
 hex-encoded bytes), or the key could not be created there (the directory or the
 file can't be written). Nothing was sent. Fix the file's permissions, or move it
 aside: the next publish creates a new key, and whoever pinned the old one then
-sees a changed publisher key (R-TRUST-003) for your packages.
+sees a changed publisher key (R-TRUST-003) for your packages. With no user home
+(`HOME`, else `USERPROFILE` on Windows, unset or relative) there is no
+`~/.specforge` and nothing is read or written there: set the home to an absolute
+path.
 
 Owner: core
 Level: error
@@ -2795,7 +2798,10 @@ of publisher pins, or the pins an install accepted can't be saved to it. Nothing
 is installed either way: a store read as empty would trust any key and lose your
 `denied_keys`, and an install whose pin can't be saved is put back. Fix the
 file's JSON, or move it aside (every package is then trusted on first use
-again), and check the permissions on the file and its directory.
+again), and check the permissions on the file and its directory. With no user
+home (`HOME`, else `USERPROFILE` on Windows, unset or relative) there is no
+`~/.specforge` and nothing is read or written there: set the home to an absolute
+path.
 
 Owner: core
 Level: error
@@ -2983,7 +2989,9 @@ Level: error
 R012: Credentials file unreadable
 
 `~/.specforge/credentials.json` can't be read, or isn't in the expected format.
-Check its permissions, or delete it and log in again.
+Check its permissions, or delete it and log in again. With no user home (`HOME`,
+else `USERPROFILE` on Windows, unset or relative) there is no `~/.specforge` and
+nothing is read or written there: set the home to an absolute path.
 
 Owner: core
 Level: error
