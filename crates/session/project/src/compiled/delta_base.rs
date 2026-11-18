@@ -1,6 +1,7 @@
 //! What a check's delta is taken against (ADR 0376 D7): nothing (the empty graph, so a cold run sees every node
-//! added), or the project at the merge-base of a revision and `HEAD` (`check --since`, MCP `validate since`). A check
-//! since a revision is judged and given its delta in one run.
+//! added), the project at the merge-base of a revision and `HEAD` (`check --since`, MCP `validate since`), or the
+//! graph of a session's last completed check (LSP, MCP, watch). A check since a revision is judged and given its
+//! delta in one run; a session holds its last checked graph only while a loaded pass reads the delta.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, LazyLock};
@@ -23,6 +24,8 @@ pub(crate) enum DeltaBasis {
     None,
     /// The project at the merge-base `sha`, compiled with the current extensions.
     Revision { sha: Sha, graph: Arc<Graph> },
+    /// The graph of the session's last completed check.
+    Previous(Arc<Graph>),
 }
 
 /// The graph of no base.
@@ -33,7 +36,7 @@ impl DeltaBasis {
     pub(crate) fn graph(&self) -> &Graph {
         match self {
             DeltaBasis::None => &EMPTY,
-            DeltaBasis::Revision { graph, .. } => graph,
+            DeltaBasis::Revision { graph, .. } | DeltaBasis::Previous(graph) => graph,
         }
     }
 
@@ -44,6 +47,7 @@ impl DeltaBasis {
             DeltaBasis::Revision { sha, .. } => DeltaBase::Revision {
                 id: sha.as_str().to_string(),
             },
+            DeltaBasis::Previous(_) => DeltaBase::Previous,
         }
     }
 }
@@ -105,6 +109,17 @@ impl CompiledProject {
             _ => DeltaBasis::None,
         };
         Ok(())
+    }
+
+    /// Hold this project's graph as the base of its next check's delta (a session, after each check it runs), only
+    /// while a loaded pass reads the delta: with none, no graph is held. A project whose last update skipped the
+    /// checks keeps the base it had, the last completed check's, so the next check's delta covers every edit since.
+    pub(crate) fn hold_previous(&mut self) {
+        if self.env.registries().passes_reading_delta() == 0 {
+            self.delta_base = DeltaBasis::None;
+        } else if !self.checks_skipped {
+            self.delta_base = DeltaBasis::Previous(Arc::new(self.graph().clone()));
+        }
     }
 }
 

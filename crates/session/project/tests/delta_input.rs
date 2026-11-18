@@ -471,3 +471,129 @@ fn since_loads_no_graph_at_the_merge_base_when_no_pass_reads_the_delta() {
     assert_eq!(git.files_asked(), 1);
     assert!(matches!(compiled.delta_base(), DeltaBase::Revision { .. }));
 }
+
+/// Whether every node `delta` names is of `kind`.
+fn only_of(delta: &Value, kind: &str) -> bool {
+    changes(delta).iter().all(|(of, ..)| of == kind)
+}
+
+/// A session of [`SPEC`] with `@test/delta` loaded, and the runtime it runs in.
+fn session() -> (
+    TestProject,
+    specforge_project::ProjectSession,
+    Arc<InProcessRuntime>,
+) {
+    let project = project(&[("a.spec", SPEC)]);
+    let runtime = runtime();
+    let session = project.session_in(runtime.clone());
+    (project, session, runtime)
+}
+
+/// The editor's buffer of `a.spec` holding `text`.
+fn buffer(project: &TestProject, text: &str) -> specforge_project::Buffer {
+    specforge_project::Buffer::new(project.root().join("a.spec"), text)
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_session_sends_the_changes_since_its_last_check() {
+    let (project, mut session, runtime) = session();
+    // the first check has no base: every item added
+    let first = delta_of(&runtime, "items");
+    assert_eq!(first, cold(session.project(), &["item"]));
+    assert_eq!(session.project().delta_base(), DeltaBase::Previous);
+    // an edit of b: b alone, against the last check
+    session.hold(&[buffer(&project, &SPEC.replace("\"B\"", "\"Bee\""))]);
+    let items = delta_of(&runtime, "items");
+    assert_eq!(items["base"], json!({"kind": "previous"}));
+    assert_eq!(
+        changes(&items),
+        [("item".to_string(), "b".to_string(), "modified".to_string())]
+    );
+    assert!(items.get("added_edges").is_none(), "{items}");
+    assert_eq!(
+        delta_of(&runtime, "notes"),
+        json!({"base": {"kind": "previous"}})
+    );
+    for pass in ["items", "counted"] {
+        assert!(only_of(&delta_of(&runtime, pass), "item"), "{pass}");
+    }
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn an_unchanged_recheck_sends_an_empty_delta() {
+    let (_project, mut session, runtime) = session();
+    let before = calls(&runtime, "items");
+    session.recheck();
+    assert_eq!(calls(&runtime, "items"), before + 1);
+    // the key is there, with its base and no node
+    let input = pass_input(&runtime, "items");
+    assert_eq!(input["delta"], json!({"base": {"kind": "previous"}}));
+    assert!(session.project().delta().is_some_and(|d| d.is_empty()));
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_skipped_check_leaves_the_base_at_the_last_completed_check() {
+    let (project, mut session, runtime) = session();
+    // typing: b retitled with a parse error, so the checks are skipped
+    let broken = SPEC
+        .replace("\"B\"", "\"Bee\"")
+        .replace("item c", "item c {");
+    session.hold_with(
+        &[buffer(&project, &broken)],
+        specforge_project::CheckMode::SyntaxOnlyIfParseErrors,
+    );
+    assert!(
+        session.project().delta().is_none(),
+        "the checks were skipped"
+    );
+    assert_eq!(session.project().delta_base(), DeltaBase::Previous);
+    // then c retitled too, and the checks run: both edits, against the last completed check
+    let fixed = SPEC.replace("\"B\"", "\"Bee\"").replace("\"C\"", "\"Sea\"");
+    session.hold_with(
+        &[buffer(&project, &fixed)],
+        specforge_project::CheckMode::SyntaxOnlyIfParseErrors,
+    );
+    let ids: Vec<String> = changes(&delta_of(&runtime, "items"))
+        .into_iter()
+        .map(|(_, id, change)| format!("{id} {change}"))
+        .collect();
+    assert_eq!(ids, ["b modified", "c modified"]);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_reloaded_environment_starts_again_with_no_base() {
+    let (project, mut session, runtime) = session();
+    session.hold(&[buffer(&project, &SPEC.replace("\"B\"", "\"Bee\""))]);
+    assert_eq!(
+        delta_of(&runtime, "items")["base"],
+        json!({"kind": "previous"})
+    );
+    session.reload_environment();
+    // the reload's check: every item added again, base none
+    let items = delta_of(&runtime, "items");
+    assert_eq!(items, cold(session.project(), &["item"]));
+    assert_eq!(items["base"], json!({"kind": "none"}));
+    assert!(only_of(&items, "item"));
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_session_with_no_delta_pass_holds_no_graph() {
+    let project = project(&[("a.spec", SPEC)]);
+    let runtime = Arc::new(InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+        c.kind("item", |_| {});
+        c.kind("note", |_| {});
+        c.pass("plain", |p| {
+            p.phase("check").run(nothing);
+        });
+        c
+    }));
+    let mut session = project.session_in(runtime.clone());
+    assert_eq!(session.project().delta_base(), DeltaBase::None);
+    session.hold(&[buffer(&project, &SPEC.replace("\"B\"", "\"Bee\""))]);
+    assert_eq!(session.project().delta_base(), DeltaBase::None);
+    session.recheck();
+    assert_eq!(session.project().delta_base(), DeltaBase::None);
+    assert!(session.project().delta().is_none());
+    assert!(pass_input(&runtime, "plain").get("delta").is_none());
+}

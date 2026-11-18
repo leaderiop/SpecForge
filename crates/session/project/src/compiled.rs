@@ -96,7 +96,8 @@ pub struct CompiledProject {
     /// What changed since the last check's base (ADR 0376 D6), taken by the check when a loaded pass declares the
     /// `delta` input; none otherwise, and after an update that skipped the checks.
     delta: Option<Arc<crate::delta::Delta>>,
-    /// What the next check takes the delta against (ADR 0376 D7): none, or the merge-base of `check --since`.
+    /// What the next check takes the delta against (ADR 0376 D7): none, the merge-base of `check --since`, or a
+    /// session's last completed check.
     delta_base: DeltaBasis,
 }
 
