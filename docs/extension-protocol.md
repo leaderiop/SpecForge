@@ -929,15 +929,20 @@ kind and goes through ordered `steps`; `trace` prints the thread it finds instea
   "items": [
     {
       "name": "requirement-thread",
-      "description": "A requirement's thread: its plans, tasks, commits, tests and truths",
+      "description": "A requirement's thread: its plans, tasks, their commits and the code items they changed, the plans' truths, and its summaries' coverage items",
       "start": "requirement",
+      "annotations": [
+        {"field": "proof"},
+        {"field": "status", "of": "<test.names"}
+      ],
       "steps": [
         {"name": "plan", "via": "<plan.requirements", "label": "plan"},
         {"name": "task", "via": "<task.plan"},
-        {"name": "commit", "via": "<commit.task", "annotations": [{"field": "linked_by"}]},
-        {"name": "test", "from": "start", "via": "<truth.requirement.proof",
-         "annotations": [{"field": "status", "of": "<test_run.test", "absent": "not run"}]},
-        {"name": "truth", "from": "start", "via": "<truth.requirement", "annotations": [{"judgement": "E901"}]}
+        {"name": "commit", "via": "<commit.task", "from": "task", "annotations": [{"field": "linked_by"}]},
+        {"name": "item", "via": ".items_changed"},
+        {"name": "truth", "via": "<truth.plan", "from": "plan", "annotations": [{"judgement": "E901"}]},
+        {"name": "deliverable", "via": "<deliverable.requirement", "from": "start", "label": "deliverable",
+         "annotations": [{"field": "checks.ref"}]}
       ]
     }
   ]

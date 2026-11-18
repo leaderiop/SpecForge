@@ -46,18 +46,16 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/gsd:d
 
 **Before creating ANY task, verify:**
 
-1. **Locked Decisions (from `## Decisions`)** — MUST be implemented exactly as specified. List each decision ID the plan implements in its `decisions` (D-01, D-02, etc.); task actions may name it too.
+1. **Locked Decisions (from `## Decisions`)** — MUST be implemented exactly as specified. Reference the decision ID (D-01, D-02, etc.) in task actions for traceability.
 
 2. **Deferred Ideas (from `## Deferred Ideas`)** — MUST NOT appear in plans.
 
 3. **Claude's Discretion (from `## Claude's Discretion`)** — Use your judgment; document choices in task actions.
 
 **Self-check before returning:** For each plan, verify:
-- [ ] Every locked decision in force (D-01, D-02, etc.) has a task implementing it. A decision whose `in_force` is
-      false (another decision supersedes it, read back as `superseded_by`) is no longer locked: implement its
-      successor, and leave it out of `decisions`
-- [ ] The plan's `decisions` lists the ID of each decision a task implements (e.g., `decisions: [D-03]`)
-      (The decision-coverage check `gsd/E310` reads the plan's `decisions` list: an ID cited only in prose covers nothing, and an ID resolves in the plan's own phase.)
+- [ ] Every locked decision (D-01, D-02, etc.) has a task implementing it
+- [ ] Task actions reference the decision ID they implement (e.g., "per D-03")
+      (The decision-coverage check `gsd/E310` reads D-NN citations in the plan's `objective`, `purpose` and `output` and in the text of its tasks, checkpoints, truths, artifacts, key links and prohibitions: citing D-NN in any of these counts toward coverage. A decision of another phase is cited with its phase's path (`01/D-01`); a bare `D-01` is always this phase's.)
 - [ ] No task implements a deferred idea
 - [ ] Discretion areas are handled reasonably
 
@@ -157,7 +155,7 @@ For niche domains (3D/games/audio/shaders/ML), suggest `/gsd:plan-phase --resear
 
 Every task has four required fields:
 
-**<files>:** Exact file paths created or modified. **<items>:** the code items the task creates or changes, by their quoted fact ids (`"rust:crate::module::item"`, `"js:package/file::export"`); one not written yet is allowed
+**<files>:** Exact file paths created or modified.
 - Good: `src/app/api/auth/login/route.ts`, `prisma/schema.prisma`
 - Bad: "the auth files", "relevant components"
 
@@ -303,7 +301,7 @@ A plan is entities in the spec, written with `specforge new`, changed with `spec
 prints the plan's as flags (likewise for each kind). A list of ids is a comma list (`--requirements AUTH-01,AUTH-02`), a list of texts takes
 its flag once per item (`--files_modified src/a.ts --files_modified src/b.ts`), a block is JSON (`--estimate '<json>'`),
 and a field named like an option is written with `--field path=<value>`. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you
-have no value for (an empty `DEPENDS_ON`, no `DECISIONS`), and repeat a `new task`, `truth`, `artifact` or `key_link`
+have no value for (an empty `DEPENDS_ON`), and repeat a `new task`, `truth`, `artifact` or `key_link`
 line per item with the next id (`T2`, `TR2`, `AR2`, `KL2`).
 
 Each plan has its own file beside the phase's file, so the executors of one wave never write the same file:
@@ -319,7 +317,6 @@ DEPENDS_ON="{the plan ids this plan needs, comma-separated}"
 FILE_1="{a file this plan touches}"
 FILE_2="{the next file it touches: one --files_modified per file}"
 REQUIREMENTS="{the requirement ids this plan addresses, comma-separated: never empty}"
-DECISIONS="{the D-NN ids of the phase's context this plan implements, comma-separated}"
 IFS= read -rd '' OBJECTIVE <<'TEXT' || true; OBJECTIVE=${OBJECTIVE%$'\n'}
 {what this plan accomplishes}
 TEXT
@@ -353,7 +350,6 @@ TEXT
 IFS= read -rd '' TRUTH <<'TEXT' || true; TRUTH=${TRUTH%$'\n'}
 {an observable behavior that must be true}
 TEXT
-TRUTH_REQUIREMENT="{the requirement id it proves}"
 IFS= read -rd '' ARTIFACT_NAME <<'TEXT' || true; ARTIFACT_NAME=${ARTIFACT_NAME%$'\n'}
 {what the file is}
 TEXT
@@ -372,9 +368,9 @@ TEXT
 PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 PLAN_FILE="${PHASE_FILE%/*}/plans/$PLAN.spec"
 PLAN_ID="$PHASE_ID/$PLAN"
-specforge new plan "$PLAN" "$TITLE" --in "$PLAN_FILE" --phase "$PHASE_ID" --type "$TYPE" --depends_on "$DEPENDS_ON" --files_modified "$FILE_1" --files_modified "$FILE_2" --requirements "$REQUIREMENTS" --decisions "$DECISIONS" --objective "$OBJECTIVE" --purpose "$PURPOSE" --output "$OUTPUT" --context_refs "$CONTEXT_REF" --verification "$VERIFICATION" --success_criteria "$SUCCESS_CRITERIA" --estimate "$ESTIMATE" || exit 1
+specforge new plan "$PLAN" "$TITLE" --in "$PLAN_FILE" --phase "$PHASE_ID" --type "$TYPE" --depends_on "$DEPENDS_ON" --files_modified "$FILE_1" --files_modified "$FILE_2" --requirements "$REQUIREMENTS" --objective "$OBJECTIVE" --purpose "$PURPOSE" --output "$OUTPUT" --context_refs "$CONTEXT_REF" --verification "$VERIFICATION" --success_criteria "$SUCCESS_CRITERIA" --estimate "$ESTIMATE" || exit 1
 specforge new task T1 "$TASK_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --type auto --files "$TASK_FILE" --action "$TASK_ACTION" --verify_text "$TASK_VERIFY" --done "$TASK_DONE" || exit 1
-specforge new truth TR1 "$TRUTH" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$TRUTH" --requirement "$TRUTH_REQUIREMENT" || exit 1
+specforge new truth TR1 "$TRUTH" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$TRUTH" || exit 1
 specforge new artifact AR1 "$ARTIFACT_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --field path="$ARTIFACT_PATH" --provides "$ARTIFACT_PROVIDES" || exit 1
 specforge new key_link KL1 "$LINK_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --from "$LINK_FROM" --to "$LINK_TO" --via "$LINK_VIA" || exit 1
 ```
@@ -436,7 +432,6 @@ highest `T-{phase}-NN`, never from `T-{phase}-01` again. `T-{phase}-SC` is reser
 | `wave`, `autonomous` | Computed | SpecForge computes both: `wave` from `depends_on`, `autonomous` false exactly when the plan has a checkpoint. Never written |
 | `depends_on` | Yes | Plan IDs this plan requires |
 | `files_modified` | Yes | Files this plan touches |
-| `decisions` | No | Context decision IDs (D-NN) this plan implements. `gsd/E310` reports a context decision no plan of the phase lists |
 | `requirements` | Yes | **MUST** list requirement IDs from ROADMAP. Every roadmap requirement ID MUST appear in at least one plan. |
 | `user_setup` | No | Human-required setup items |
 | `estimate` | No | Projected cost `{tokens, tasks, confidence}`. See Estimate Emission. |
@@ -962,7 +957,7 @@ Phase planning complete when:
 - [ ] Dependency graph built (needs/creates for each task)
 - [ ] Tasks grouped into plans by wave, not by sequence
 - [ ] Plan entities written, each with its tasks
-- [ ] Each plan: depends_on, files_modified, decisions (each context decision it implements), truths, artifacts and key links
+- [ ] Each plan: depends_on, files_modified, truths, artifacts and key links
 - [ ] Each plan: user_setup declared if external services involved
 - [ ] Each plan: Objective, context, tasks, verification, success criteria, output
 - [ ] Each plan: 2-3 tasks (~50% context)

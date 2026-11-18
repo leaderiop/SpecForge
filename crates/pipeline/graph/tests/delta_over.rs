@@ -21,10 +21,7 @@ const AC: &str =
 const CA: &str =
     "behavior gamma \"C\" { contract \"c\" }\nbehavior alpha \"A\" { contract \"a\" }\n";
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "a delta over the changed files is the delta of the whole graphs"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_delta_over_the_changed_files_is_the_delta_of_the_whole_graphs() {
     let cases: Vec<(Files, Files, Vec<&str>)> = vec![
         // a field value changed

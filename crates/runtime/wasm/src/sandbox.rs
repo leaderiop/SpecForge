@@ -239,10 +239,7 @@ mod tests {
         assert_eq!(keys, limit_keys);
     }
 
-    #[specforge_test(
-        behavior = "configure_sandbox_policy",
-        verify = "a declared limit above the ceiling is held to it, with W153"
-    )]
+    #[specforge_test(requirement = "FEATURE-136")]
     fn above_ceiling_is_w153() {
         let found = warnings(json!({"max_memory_mb": 1024}));
         assert_eq!(found.len(), 1, "{found:?}");
@@ -265,10 +262,7 @@ mod tests {
         assert!(warnings(json!({"max_memory_mb": 512, "max_execution_ms": 30000})).is_empty());
     }
 
-    #[specforge_test(
-        behavior = "configure_sandbox_policy",
-        verify = "a sandbox_policy key that asks for a capability is W153"
-    )]
+    #[specforge_test(requirement = "FEATURE-136")]
     fn a_key_asking_for_a_capability_is_w153() {
         let found = warnings(json!({
             "network_access": true,
@@ -297,10 +291,7 @@ mod tests {
         }));
     }
 
-    #[specforge_test(
-        behavior = "configure_sandbox_policy",
-        verify = "a sandbox_policy key that asks for nothing is not reported"
-    )]
+    #[specforge_test(requirement = "FEATURE-136")]
     fn a_key_asking_for_nothing_is_not_reported() {
         assert!(
             warnings(json!({

@@ -15,10 +15,7 @@ fn server_with_unformatted() -> Served {
         .serve(&[TestExtension::software()])
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "the format document names each file from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_reply_names_files_from_the_project_root() {
     let mut server = server_with_unformatted();
     let absolute = server.root().join("a.spec");
@@ -46,10 +43,7 @@ fn format_reply_names_files_from_the_project_root() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "the render document names each output file from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn render_output_files_are_named_from_the_project_root() {
     let mut server = TestProject::new()
         .file("test.spec", "behavior alpha \"Alpha\" {\n}\n")
@@ -64,10 +58,7 @@ fn render_output_files_are_named_from_the_project_root() {
     assert_eq!(reply["output_files"], json!(["out/graph.json"]), "{reply}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "the collect document names the report from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_reply_names_the_report_from_the_project_root() {
     let mut server = TestProject::new()
         .enabling(&[
@@ -108,10 +99,7 @@ fn named_files() -> Served {
         .serve_components()
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_edit_tool",
-    verify = "specforge.edit writes two spellings of one new file as one file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-068")]
 fn edit_reads_two_spellings_of_one_new_file_as_one_file() {
     let mut server = named_files();
     let create = |id: &str, file: &str| json!({"op": "create", "kind": "type", "id": id, "title": id, "file": file});
@@ -128,10 +116,7 @@ fn edit_reads_two_spellings_of_one_new_file_as_one_file() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_edit_tool",
-    verify = "specforge.edit refuses a new file outside the spec root, with no suggestion"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-068")]
 fn edit_refuses_a_new_file_named_from_the_spec_root() {
     let mut server = named_files();
     let reply = call_tool(
@@ -145,10 +130,7 @@ fn edit_refuses_a_new_file_named_from_the_spec_root() {
     assert!(!server.root().join("n.spec").exists());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "outline reads every spelling of a source under the project root as that source"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_reads_an_absolute_spelling_of_a_source() {
     let mut server = named_files();
     let absolute = server.root().join("spec/login.spec");
@@ -165,10 +147,7 @@ fn outline_reads_an_absolute_spelling_of_a_source() {
     assert_eq!(by_path, by_key);
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "file_path reads every spelling of a source as that source"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-069")]
 fn suggest_fixes_reads_a_spelling_of_its_file() {
     let mut server = named_files();
     let absolute = server.root().join("spec/login.spec");
@@ -185,10 +164,7 @@ fn suggest_fixes_reads_a_spelling_of_its_file() {
     assert_eq!(fixes(&mut server, absolute.to_str().unwrap()), by_key);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "outline refuses a spec-root spelling of a source, with no suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_refuses_a_spec_root_spelling_as_the_view_does() {
     let mut server = named_files();
     let refused = |server: &mut Served, tool: &str, argument: &str| {
@@ -206,10 +182,7 @@ fn outline_refuses_a_spec_root_spelling_as_the_view_does() {
     assert_eq!(outline["message"], fixes["message"], "{outline} / {fixes}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "a file_path that names no source is refused naming the file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-069")]
 fn suggest_fixes_names_the_file_it_refuses() {
     let mut server = named_files();
     for file in ["nope.spec", "login.spec", "../x.spec"] {
@@ -224,10 +197,7 @@ fn suggest_fixes_names_the_file_it_refuses() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "with no project served, a file_path is the no-project refusal naming the file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-069")]
 fn a_named_file_with_nothing_served_is_no_projects_file() {
     let mut server = unserved();
     for (tool, argument) in [
@@ -249,10 +219,7 @@ fn a_named_file_with_nothing_served_is_no_projects_file() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "a path that names nothing refuses the call about paths, naming it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn format_refuses_a_path_that_names_nothing_about_paths() {
     let mut server = named_files();
     let reply = call_tool(
@@ -268,10 +235,7 @@ fn format_refuses_a_path_that_names_nothing_about_paths() {
     assert!(error["data"].get("failures").is_none(), "{error}");
 }
 
-#[specforge_test(
-    invariant = "document_project_paths",
-    verify = "a rename reply names each file it edits and writes with one spelling"
-)]
+#[specforge_test(requirement = "INVARIANT-020")]
 fn a_reply_names_each_file_once() {
     let mut server = named_files();
     let reply = tool(

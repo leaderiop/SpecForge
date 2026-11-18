@@ -1,10 +1,7 @@
 use super::*;
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes (a missing one in the sentence every MCP tool uses), and the export is not called"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn refused_args_names_the_arg_each_refusal_is_about() {
     let name = || "arg".to_string();
     for (error, argument, suggestion) in [

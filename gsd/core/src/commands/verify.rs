@@ -217,7 +217,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.one_of(SEVERITIES).description("how bad the issue is (major when absent)");
             })
             .arg("reason", |a| {
-                a.description("why the test was skipped (required for a skipped, unless --follow-up)");
+                a.description("why the test was skipped (required for a skipped, unless a follow-up is given)");
             })
             .arg("follow_up", |a| {
                 a.description("a skipped test's deferred follow-up, in the person's words: the reason becomes `Deferred follow-up: <words>` and the session keeps the idea");

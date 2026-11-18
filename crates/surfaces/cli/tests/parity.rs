@@ -490,10 +490,7 @@ fn every_expected_divergence_names_a_scenario() {
 /// The CLI's exit code and MCP's `ok` are one verdict for every operation
 /// that judges: no `Verdict` divergence is expected, and each judging
 /// scenario must actually have compared one.
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "the CLI's exit code and MCP's ok agree for check, analyze, format and migrate"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn verdicts_agree() {
     assert!(
         EXPECTED_DIVERGENCES
@@ -530,10 +527,7 @@ fn verdicts_agree() {
 /// The CLI's `--format json` and MCP's reply are one outcome document for
 /// every operation both surfaces run: no `Document` divergence is expected
 /// (each `parity_*` runs the aspect itself).
-#[specforge_test_macros::test(
-    behavior = "report_command_outcome",
-    verify = "the CLI's --format json and MCP's reply are one outcome document for every operation both surfaces run"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn documents_agree() {
     let rows: Vec<&str> = EXPECTED_DIVERGENCES
         .iter()
@@ -575,10 +569,7 @@ fn cli_export(project: &TestProject, flags: &[&str]) -> Value {
     out.json()
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_export_tool",
-    verify = "the graph export is the document specforge export --format graph writes, Graph Protocol 2.0 with the schema embedded"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn mcp_graph_export_is_the_cli_export() {
     let dir = scratch();
     project(&dir);
@@ -591,10 +582,7 @@ fn mcp_graph_export_is_the_cli_export() {
     assert_eq!(mcp, cli);
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_export_tool",
-    verify = "the embedded schema carries the version specforge export computes against the schema cache, which the tool leaves as it is"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn mcp_export_carries_the_schema_version_the_cli_computes() {
     let dir = scratch();
     project(&dir);
@@ -632,10 +620,8 @@ fn mcp_export_carries_the_schema_version_the_cli_computes() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_graph_resource",
-    verify = "specforge://graph under max_tokens stays within the budget, as the budgeted export does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
+#[specforge_test_macros::test(requirement = "FEATURE-073")]
 fn graph_resource_under_a_budget_is_the_budgeted_export() {
     let dir = scratch();
     project(&dir);
@@ -676,10 +662,7 @@ fn both_listings(project: &TestProject, command: &str, tool: &str) -> (Value, Va
     (cli, mcp)
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_installed_extensions",
-    verify = "the CLI and the MCP extensions tool answer the same document"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn extensions_listings_match() {
     let dir = scratch();
     project_with_greet_installed(&dir);
@@ -699,10 +682,7 @@ fn extensions_listings_match() {
     assert_eq!(greet["entity_count"], 1, "{cli}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_configured_providers",
-    verify = "the CLI and the MCP providers tool list the same entries"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-107")]
 fn providers_listings_match() {
     let dir = scratch();
     project(&dir);
@@ -727,10 +707,7 @@ fn providers_listings_match() {
 
 // ── init: one scaffold ─────────────────────────────────────────────────────
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_init_tool",
-    verify = "specforge.init writes the files and config specforge init writes for the same inputs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-068")]
 fn mcp_init_writes_what_cli_init_writes() {
     let cli_dir = scratch();
     let mcp_dir = scratch();
@@ -974,10 +951,7 @@ fn export_both_ways(extra: &[&str], arguments: Value) -> (String, String) {
     (cli_text, mcp_text)
 }
 
-#[specforge_test_macros::test(
-    behavior = "export_agent_graph_format",
-    verify = "depth and kinds narrow the export the same way on every surface"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
 fn export_scoped_depth_kinds() {
     let (cli_text, mcp_text) = export_both_ways(
         &["--scope", "alpha", "--depth", "1", "--kinds", "invariant"],

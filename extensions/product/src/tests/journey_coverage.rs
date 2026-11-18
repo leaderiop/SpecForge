@@ -6,10 +6,7 @@ use specforge_test::prelude::*;
 
 // ── journey coverage ──────────────────────────────────────────────────────
 
-#[specforge_test(
-    behavior = "pe_query_journey_coverage",
-    verify = "journey with all features status=done returns full coverage"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_journey_whose_features_are_done_is_covered() {
     let g = plan().n("j4", "journey").edge("j4", "f1", "features");
     let jc = json_of("journey_coverage", json!({"journey": "j4"}), &g);
@@ -18,20 +15,14 @@ fn a_journey_whose_features_are_done_is_covered() {
     assert_eq!(jc["uncovered_features"], json!([]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_journey_coverage",
-    verify = "journey with uncovered features lists them"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_journeys_features_not_done_are_uncovered() {
     let jc = json_of("journey_coverage", json!({"journey": "j1"}), &plan());
     assert_eq!(jc["covered_count"], 1);
     assert_eq!(jc["uncovered_features"], json!(["f2", "f3"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_journey_coverage",
-    verify = "journey with zero features returns empty coverage"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_journey_without_features_has_empty_coverage() {
     let jc = json_of("journey_coverage", json!({"journey": "j3"}), &plan());
     assert_eq!(
@@ -40,10 +31,7 @@ fn a_journey_without_features_has_empty_coverage() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_journey_coverage",
-    verify = "features without status field are treated as uncovered"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn a_feature_without_a_status_is_uncovered() {
     let g = plan().n("j4", "journey").edge("j4", "f3", "features");
     let jc = json_of("journey_coverage", json!({"journey": "j4"}), &g);
@@ -51,10 +39,7 @@ fn a_feature_without_a_status_is_uncovered() {
     assert_eq!(jc["uncovered_features"], json!(["f3"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_journey_coverage",
-    verify = "journey coverage is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-090")]
 fn journey_coverage_is_deterministic() {
     let runtime = runtime();
     let g = plan();
@@ -77,10 +62,7 @@ fn journey_coverage_is_deterministic() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_journey_coverage",
-    verify = "journey-coverage returns JourneyCoveragePayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn journey_coverage_answers_its_payload() {
     let jc = json_of("journey_coverage", json!({"journey": "j1"}), &plan());
     assert_eq!(
@@ -95,10 +77,7 @@ fn journey_coverage_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_journey_coverage",
-    verify = "missing journey ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_mistyped_journey_is_not_found_with_the_nearest() {
     let error = run_in(
         &runtime(),
@@ -112,10 +91,7 @@ fn a_mistyped_journey_is_not_found_with_the_nearest() {
     assert_eq!(error["suggestion"], "j1");
 }
 
-#[specforge_test(
-    behavior = "surface_journey_coverage",
-    verify = "exit code 0 on success, 1 on error"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn journey_coverage_exits_zero_or_one() {
     let runtime = runtime();
     let g = plan();

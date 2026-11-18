@@ -13,10 +13,7 @@ fn sf(project: &TestProject, args: &[&str]) -> Run {
     Cli::on(project).run(args)
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "--verify reads a prefix as a kind only when it is one of the entity's kind's verify kinds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_verify_prefix_is_a_kind_only_when_the_entitys_kind_accepts_it() {
     let project = todo();
     for (given, written) in [
@@ -84,10 +81,7 @@ fn a_verify_prefix_is_a_kind_only_when_the_entitys_kind_accepts_it() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "--verify names the obligation the entity writes in either reading of its prefix"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn unlink_names_the_obligation_written_in_either_reading_of_its_prefix() {
     let project = todo();
     let before = project.read(TASKS);

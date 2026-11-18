@@ -138,15 +138,10 @@ TEXT
 IFS= read -rd '' SOURCES <<'TEXT' || true; SOURCES=${SOURCES%$'\n'}
 Sources: {Phase A, Phase B, Phase C}
 TEXT
-SUPERSEDES="{the earlier project decisions it reverses, comma-separated ids such as D-01, or nothing}"
-AFFECTS="{the requirements, invariants or code items it shapes, comma-separated ids such as AUTH-01, or nothing}"
-IFS= read -rd '' ALTERNATIVES <<'TEXT' || true; ALTERNATIVES=${ALTERNATIVES%$'\n'}
-{the options weighed and not chosen, one JSON list: [{"name": "…", "pros": ["…"], "cons": ["…"], "why_not": "…"}], or nothing}
-TEXT
 PROJECT=$(specforge export --kinds project --pick '.nodes[0].id') || exit 1
 [ -n "$PROJECT" ] || { echo "no project entity: run /gsd:new-project first" >&2; exit 1; }
 PROJECT_FILE=$(specforge query "$PROJECT" --depth 0 --pick '.nodes[0].file') || exit 1
-specforge new decision "$DECISION_ID" "$TITLE" --in "$PROJECT_FILE" --origin project --area "$AREA" --text "$BODY" --rationale "$SOURCES" ${SUPERSEDES:+--supersedes "$SUPERSEDES"} ${AFFECTS:+--affects "$AFFECTS"} ${ALTERNATIVES:+--alternatives "$ALTERNATIVES"} || exit 1
+specforge new decision "$DECISION_ID" "$TITLE" --in "$PROJECT_FILE" --origin project --area "$AREA" --text "$BODY" --rationale "$SOURCES" || exit 1
 specforge link "$PROJECT" key_decisions "$DECISION_ID" || exit 1
 specforge gsd graduate-lessons "$LESSONS" --disposition promoted --target "$DECISION_ID" || exit 1
 ```

@@ -528,8 +528,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   enables what it names (`Installed::unloaded`); each entry records where the load takes it from, its **origin** (`Origin`: `builtin`, the lock entry's source, `file:<path>`, `unknown`; `Resolution::origin`, a repeated entry the one it repeats'), and whether it loaded, with or without a runtime; what an environment is assembled from says which
   (`specforge_project::ExtensionLoad`: `NoRuntime`, or what was loaded `In` a runtime).
 - **Builtin**: a component this specforge embeds, a row of `BUILTINS`, loaded by name (`specforge add @code/core`),
-  whatever its scope. Its crate is `extensions/<dir>` (named `@specforge/<dir>`) or `extensions/<family>/<pack>`
-  (named `@<family>/<pack>`), and holds a `wasm/` dir. Not the same as first party: a builtin outside `@specforge/`
+  whatever its scope. Its crate is `extensions/<dir>` (named `@specforge/<dir>`), `extensions/<family>/<pack>`
+  (named `@<family>/<pack>`), or `gsd/core` for `@gsd/core`, the one builtin outside `extensions/` (ADR 0366), and
+  holds a `wasm/` dir. Not the same as first party: a builtin outside `@specforge/`
   catalogues its codes and prints them namespaced, as a third party's do (`code/E101`, ADR 0328).
 - **First-party extension**: an extension of the `@specforge/` scope. Its codes are bare, in the static catalogue that
   generates `docs/diagnostics.md`, and it declares no `codes` (ADR 0286 D2, ADR 0328 D1).
@@ -564,11 +565,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   E040 for nothing there, no built component, several, or a file that can't be read
   (`specforge_ops::extension::LocalComponent`, ADR 0172).
 - **Candidate vocabulary**: what the extensions a host could enable declare, read only for suggestions: each kind
-  keyword and each field an enhancement adds, with the extension that declares it
-  (`specforge_registry::CandidateVocabulary`, ADR 0122). The session hands the builtins' to the registry build;
-  `revendor` generates it from their pinned declarations
-  (`crates/runtime/component/data/builtin-vocabulary.json`). It never decides a diagnostic, only names the extension
-  to install.
+  keyword with every extension that declares it (ADR 0369), and each field an enhancement adds with the one extension
+  that declares it (`specforge_registry::CandidateVocabulary`, ADR 0122). The session hands the builtins' to the
+  registry build; `revendor` generates it from their pinned declarations
+  (`crates/runtime/component/data/builtin-vocabulary.json`). It decides no check's diagnostic and no ownership: it
+  names the extensions to install and, beside that, decides whether a kind that an extension's route, context
+  section, judged chain or facts input reaches is an unloaded optional peer's, which makes that part inert instead
+  of E118, W112 or W021 (`UnloadedPeers`, ADR 0331 D7, ADR 0369 D2).
 - **Lock plan**: the change one operation makes to what the project installs and enables (`add` its
   installs and builtins, `update` every upgrade, `init` its local files and builtins, `remove` its
   disabled entries and uninstall), staged as the operation leaves them: each package's lock entry
@@ -644,7 +647,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   caller reach it only through `build_registries` and that build's methods; its steps, its checks and
   its fields are private (ADR 0031).
 - **Graph inputs**: what the graph build reads of the loaded extensions (`specforge_graph::GraphInputs`):
-  the kinds whose bodies an extension parses, the extension that owns each target kind no loaded extension declares (`target_owners`), the
+  the kinds whose bodies an extension parses, the extensions that declare each target kind no loaded extension declares (`target_owners`), the
   each field's form with the kinds that take any field (`FieldForms`, with each reference field's target, ADR 0117) and the derived reference fields. Only the registry
   build derives them (`RegistryBuild::graph_inputs`), which holds them and builds every graph a snapshot reads with them
   (`RegistryBuild::graph_of`, ADR 0123); with the provider schemes the environment registers they are every graph's
@@ -804,7 +807,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   delta diffs it.
 - **Reference target**: the kind a reference field's ids must name, from its declaration
   (`FieldForm::target_kind`), and whether a loaded extension declares it (`FieldForms::target` gives a
-  `specforge_graph::Target`: `Loaded` or `Absent`; an absent kind's owner is `GraphInputs::target_owners`). The linker
+  `specforge_graph::Target`: `Loaded` or `Absent`; an absent kind's declarers are `GraphInputs::target_owners`). The linker
   decides each written reference against it once: an edge, E003, I004 (absent kind, missing id) or E022 (an entity of
   another kind), each at the reference (ADR 0117).
 - **Standing**: how the obligation rule sees an entity (`specforge_registry::Standing`):
@@ -1122,10 +1125,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Invariant**: a rule that must always hold (`guarantee`, graded by `risk`), declared by `@specforge/governance`
   beside the decisions, constraints and failure modes that protect or threaten it; a behavior (software) enforces it,
   an axiom or property (formal) relies on it, and W003 reports one nothing references. No builtin needs the software
-  extension to state one (ADR 0280). In `@gsd/core` an invariant is what must always hold in the code from a phase
-  on (`holds_from`), proven by `@code/core` tests and holding over code items; its `status` is `pending` until that
-  phase is complete, then reads its verdict, `gsd/I536`, judged by the prompt `verify_invariant`, and while it is
-  `holds` it mitigates the risks that name it (ADR 0358). The two kinds are never loaded together (E026).
+  extension to state one (ADR 0280).
 - **Inference sources**: the files inference covers: the files the item facts of the compiled graph locate
   (`specforge_ops::read::infer::ITEM_KIND`, each item's first place), under the inference manifest's source roots (the
   project root when none), keyed by the source path rule (root-relative, `/`-separated, no `..`), every recorded path
@@ -1134,7 +1134,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   project root adds none and is never read. Progress, the inference plan, the `inferred` lint and the mark read them
   through one module (`specforge_ops::read::infer::sources`, ADR 0113, ADR 0199).
 - **Anchor**: an edge of the compiled graph between an authored entity and a located fact, either way: a `.spec`
-  field citing the fact (`proof ["rust:…"]`, a gsd task's `items`), or a fact naming the entity (`item.names`,
+  field citing the fact (`proof ["rust:…"]`), or a fact naming the entity (`item.names`,
   `test.names`). Its `via` is `<holder kind>.<field>`. An edge between two facts or two authored entities is none.
   Read in one walk (`specforge_ops::read::navigate::anchors_in`) by the anchors of an entity and of a source file
   (`anchors_of_entity`, `anchors_of_file`: rows `{fact_id, file, line, end_line, item_kind, collector, via}`, I212
@@ -1488,8 +1488,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   holds defined once under `$defs`; content an extension defines is an open value), its structured
   result is it
   serialized, and a result its schema refuses is never sent as one (`schema_mismatch`). An optional
-  value is absent, never `null`. `spec/types/mcp.spec`'s `Mcp*` types state the same shapes, and a
-  test holds them to the derived schemas. A tool answering a document in text (validate, export,
+  value is absent, never `null`. A tool answering a document in text (validate, export,
   model, outline_extensions) has no outputSchema.
   A mutation's reply is sent as `WrittenReply`: its tool reply with what the mutation pipeline adds,
   declared beside it (`files_written`; `diagnostics` when its type says so, rename), never by the tool
@@ -1556,9 +1555,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **MCP event**: what an MCP server records it did — a tool, prompt or listing invoked, a resource
   read, a mutation completed, a subscription made or ended, a delta notified, an extension surface
   dispatched, the server initialized or shut down, a protocol error answered, a cancel acknowledged —
-  one typed value per event the spec declares for it, its payload the spec's field for field
-  (`specforge_mcp::events::McpEvent`; `spec/events/mcp.spec`, `surface-contributions.spec`, and the
-  `extension_added` and `project_initialized` a mutation produces). Every module records through the
+  one typed value per event (`specforge_mcp::events::McpEvent`, with the `extension_added` and
+  `project_initialized` a mutation produces). Every module records through the
   server's one **event sink** (`EventSink`): a production server's keeps nothing (`Discard`), so what
   a server holds never grows with the requests it answered; a test's keeps every event in order,
   stamped with the time it was recorded (`events::testing::EventLog`, given with
@@ -1778,9 +1776,6 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Risk grading**: the coverage owner's policy for one kind: its entities' risk is tallied, and
   one with no obligations is A002, an error at the grading's error level
   (`specforge_coverage::RiskGrading`, supplied by `@specforge/testing`; ADR 0009).
-- **Risk** (`@gsd/core`): what can go wrong in a GSD project, rated 1 to 10 for severity, occurrence and detection;
-  its rpn, post_rpn, status and blocking are computed (`specforge.risk_block_on`), never written (ADR 0358). Not the
-  coverage owner's Risk grading.
 - **Computed value**: the value of a `computed` field, given by a compute pass and held beside the graph (`Computed`),
   never written to a file; written by hand it is E082 (ADR 0287). Shown by every surface, the graph a call receives included (ADR 0299).
 - **Harness value**: the value of a `harness` field, which only a command's plan sets; the **Harness ledger**
@@ -1900,16 +1895,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
   take as its result (ADR 0331 D6).
-- **Requirement thread**: requirement → plan → task → the code items it targets (`task.items`) → commit (found by its
-  `Gsd-Task:` trailer or its title, `commit.linked_by`) → the proving test (`truth.proof`) → its result → the truth's
-  verdict: what `@gsd/core`'s route `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace`
-  prints (ADR 0331, ADR 0352).
+- **Requirement thread**: requirement → plan → task → commit (found by its `Gsd-Task:` trailer or its title,
+  `commit.linked_by`) → the code items it changed (`commit.items_changed`); the plans' truths, each with its verdict;
+  the coverage items of its summaries and their checks; and the requirement's computed `proof`, read from a committed
+  task's tests, the requirement's own tagged tests and the coverage checks' tests, or from the tests alone when no plan
+  lists it. Every link is a field GSD writes or something a pass computes from collected facts: what `@gsd/core`'s
+  route `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace` prints (ADR 0331, ADR 0352,
+  ADR 0371).
 - **History reference**: a reference held by a field declared `writer: harness` and `immutable` (`commit.items_changed`):
   it records what held when the harness wrote it, so an unheld one is marked `history` and is never a finding
   (ADR 0352 D2).
-- **Decision coverage**: a planned phase's context decisions still in force (none superseded), each listed in the
-  `decisions` of one of its plans: typed references resolved in the phase, never a match on the plan's text
-  (gsd/E310, W317, W506; ADR 0351, ADR 0359).
+- **Decision coverage**: a planned phase's context decisions, each cited by its id in the text of one of its plans:
+  the id as a whole word, read with the path written before it and resolved in the plan's phase, never a match on the
+  decision's own words (gsd/E310, W317, W506; ADR 0371, ADR 0370).
 - **Port lock**: `gsd/core/tests/port.lock`, which splits every `@gsd/core` and `@gsd/security` asset into kept spans
   and own spans against the tracked gsd-core release. Kept spans are upstream's text byte for byte, and are the
   quotes. Each own span holds a group that says why it differs. A test recomputes the lock and `GSD_BLESS=1` rewrites
@@ -1918,13 +1916,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   with no row and a row with no hit both fail. The ledgers are `pending_tools.txt` (a program a block runs, ADR 0343
   D1), `planning_names.txt` (a GSD file named outside an upstream quote) and `markdown_writes.txt` (a line that tells
   an agent to write a GSD file) (ADR 0332 D8, D9).
-- **Absorb table**: `xtask/src/absorb/table.rs`, one row per field of an old `@specforge/governance` or
-  `@specforge/product` kind (and one per old kind that takes `verify`), each naming its home in `@gsd/core`: a field it
-  is written to, a computed field it is compared with, a kind it waits for, refused, or an implied default. Its counts
-  are the measure that every old field has a home (ADR 0360).
-- **Absorb ledger**: the converter's sorted JSON list of every old value it did not write as itself, and why (waiting
-  for a kind, leaving the run, a computed value that differs, a filled required field, a collapsed word, an unproven
-  obligation, an entity it created) (ADR 0360). Not the **Harness ledger**, the **Read ledger** or a **Port ledger**.
+- **Absorb table**: `xtask/src/absorb/table.rs`: one fate per old kind (17: six convert, eleven are dropped whole,
+  each with its reason) and, for the six converting kinds, one row per field the old builtins register (and one per
+  converting kind that takes `verify`). Each row's homes are To (an authored `@gsd/core` field it is written to),
+  Computed (a field the new kind computes, compared after the write) or Dropped (with its reason). A run stops before
+  any write on a kind with no fate or a field with no row; no value waits and none is refused for having no home. Its
+  counts are the measure that every old value has a home (ADR 0360, ADR 0372).
+- **Absorb ledger**: the converter's sorted JSON record (format 2) of every old value it did not write as itself, each
+  with one outcome: `computed` (the new kind's computed value differs), `filled` (a required value the old entity
+  lacked), `unconverted` (the scaffold's own `spec` block and `specforge.json` values only, written fresh by absorb)
+  or `dropped` (no `@gsd/core` field takes it, with why). Its `ids` section holds the old (kind, id) of every
+  converted entity beside its GSD id: `<CAT>-<NN>`, `D-<NN>`, `v<version>`, or a phase's path (ADR 0360, ADR 0370,
+  ADR 0372). Not the **Harness ledger**, the **Read ledger** or a **Port ledger**.
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).

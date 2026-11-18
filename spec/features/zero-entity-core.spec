@@ -1,22 +1,13 @@
-// Zero-entity core architecture features
-
-use "behaviors/extensions"
-use "behaviors/lsp"
-use "behaviors/validation"
-use "behaviors/zero-entity-lsp"
-use "behaviors/zero-entity-registries"
-use "behaviors/zero-entity-validation"
-
-feature declarative_validation_rules "Declarative Validation Rules" {
-  status   done
-  problem  """
+requirement FEATURE-016 "Declarative Validation Rules" {
+  category "Feature"
+  tier     v1
+  text     """
     Validation passes are hardcoded functions in the compiler.
     Adding a new validation rule requires modifying Rust source code,
     recompiling the compiler, and releasing a new version. Extension authors
     cannot define domain-specific validation rules for their entity types
     without forking the compiler.
-  """
-  solution """
+
     Extensions declare validation rules as declarative patterns in their
     manifest. Each pattern specifies a check kind (no_incoming_edges,
     missing_field_when_flag_set, cycle_detection, etc.), a
@@ -39,16 +30,16 @@ feature declarative_validation_rules "Declarative Validation Rules" {
   """
 }
 
-feature extension_manifest "Extension Manifest" {
-  status   done
-  problem  """
+requirement FEATURE-029 "Extension Manifest" {
+  category "Feature"
+  tier     v1
+  text     """
     Extensions need a structured manifest format that carries rich metadata
     for each entity kind: LSP integration (semantic tokens, icons),
     visualization (DOT shapes), testability configuration, and typed field
     definitions. Verify kinds need to be extension-defined rather than
     hardcoded.
-  """
-  solution """
+
     Structured entityKinds entries in the extension manifest carry full
     metadata: testable flag, singleton flag, supportsVerify flag,
     semantic_token for LSP classification, lsp_icon
@@ -62,15 +53,15 @@ feature extension_manifest "Extension Manifest" {
   """
 }
 
-feature dynamic_entity_registration "Dynamic Entity Registration" {
-  status   done
-  problem  """
+requirement FEATURE-018 "Dynamic Entity Registration" {
+  category "Feature"
+  tier     v1
+  text     """
     Entity types are defined as a closed enum with hardcoded
     variants. Adding a new entity type requires modifying the enum, updating
     match arms across the codebase, and recompiling. The Custom(String)
     variant exists but has limited support throughout the pipeline.
-  """
-  solution """
+
     Registries (KindRegistry, FieldRegistry, edge type set) start empty
     and are populated exclusively from extension manifests in topological
     order. The parser recognizes any keyword structurally; the registries
@@ -81,15 +72,15 @@ feature dynamic_entity_registration "Dynamic Entity Registration" {
   """
 }
 
-feature extension_driven_lsp "Extension-Driven LSP" {
-  status   done
-  problem  """
+requirement FEATURE-026 "Extension-Driven LSP" {
+  category "Feature"
+  tier     v1
+  text     """
     LSP features for extension-defined entity kinds get generic treatment
     with no keyword completion, no semantic classification, default icons,
     and minimal hover information. The LSP needs extension-aware logic to
     provide rich editor integration for any entity kind from any extension.
-  """
-  solution """
+
     Five extension-layer bridge behaviors query the KindRegistry and
     FieldRegistry for extension-defined metadata: keyword completion with
     snippet templates, semantic token classification using the manifest's
@@ -101,16 +92,16 @@ feature extension_driven_lsp "Extension-Driven LSP" {
   """
 }
 
-feature extension_driven_visualization "Extension-Driven Visualization" {
-  status   done
-  problem  """
+requirement FEATURE-027 "Extension-Driven Visualization" {
+  category "Feature"
+  tier     v1
+  text     """
     Graph visualization uses hardcoded shapes and styles for entity nodes.
     Extension-defined entity kinds get generic default rendering with no
     domain-aware visual differentiation. The DOT serializer needs extension-
     aware logic to provide meaningful visual output for any entity kind
     from any extension.
-  """
-  solution """
+
     The DOT graph serializer queries the KindRegistry for each entity's
     visual attributes from the extension manifest. Entity nodes use the
     extension-defined DOT shape, color, and fill color from KindRegistryEntry
@@ -125,25 +116,25 @@ feature extension_driven_visualization "Extension-Driven Visualization" {
   """
 }
 
-feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
-  status   done
-  problem  """
+requirement FEATURE-140 "Zero-Entity Bootstrap" {
+  category "Feature"
+  tier     v1
+  text     """
     The compiler assumes entity keywords are known at parse time because
     they are hardcoded. With zero built-in entities, the parser cannot
     validate keywords during parsing because extensions have not been loaded
     yet. A chicken-and-egg problem exists: the parser needs to know valid
     keywords, but keywords come from extensions loaded after parsing.
-  """
-  solution """
+
     A two-phase compilation model. Phase 1 performs purely structural
     parsing — every keyword name { } block becomes a generic entity node
     with no keyword validation. Phase 2 loads extensions, populates
     registries, then validates all keywords against the KindRegistry.
     Pipeline event sequence: all_files_parsed → extension_manifests_loaded →
     registries_populated → validation_complete.
-    Unknown keywords produce E024 with help text suggesting which extension
-    to install. Every entity kind comes from an extension: a define block
-    in a .spec file is reported (W143) and ignored (ADR 0005).
+    Unknown keywords produce E024 with help text suggesting every extension
+    that declares the keyword, each with its install command. Every entity kind
+    comes from an extension: a define block in a .spec file is reported (W143) and ignored (ADR 0005).
     suggest_missing_extensions consumes the candidate
     vocabulary the registry build is handed (the builtins', generated with them, ADR 0122). With zero extensions, the compiler gracefully degrades to
     structural-only mode with an I002 info diagnostic. Export commands
@@ -154,21 +145,15 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
   """
 }
 
-// extension_driven_schema_export merged into self_describing_graph_protocol
-// in features/output.spec — same 3 behaviors, consolidated to avoid duplication.
-
-feature extension_driven_code_actions "Extension-Driven Code Actions" {
-  status   done
-  // Owned: code_actions_for_missing_verify, code_action_create_entity_stub,
-  //   code_action_replace_unresolved
-  // Bridge: listed in features/lsp.spec code_actions
-  problem  """
+requirement FEATURE-024 "Extension-Driven Code Actions" {
+  category "Feature"
+  tier     v1
+  text     """
     LSP code actions (quick fixes, refactorings) depend on extension
     metadata — testability flags, field registries, entity kind definitions.
     Without extension awareness, code actions cannot suggest adding missing
     verify statements or creating entity stubs for unresolved references.
-  """
-  solution """
+
     Code action providers query the KindRegistry for testability flags and
     the FieldRegistry for expected fields. Missing test code actions are
     offered only for entity kinds with testable=true. Entity stub creation
@@ -177,18 +162,15 @@ feature extension_driven_code_actions "Extension-Driven Code Actions" {
   """
 }
 
-feature extension_driven_coverage "Extension-Driven Coverage" {
-  status   done
-  // Bridge: compute_project_statistics is defined in behaviors/output.spec and
-  // also listed in ci_integration (features/output.spec). This feature owns the
-  // extension-aware coverage aspect; ci_integration owns the CLI/exit-code aspect.
-  problem  """
+requirement FEATURE-025 "Extension-Driven Coverage" {
+  category "Feature"
+  tier     v1
+  text     """
     Coverage percentage must only count entity kinds that are testable,
     but testability is an extension-level declaration, not a hardcoded
     property. Without flowing extension metadata into coverage calculations,
     coverage numbers would be incorrect or include untestable entities.
-  """
-  solution """
+
     This feature is intentionally minimal — it documents the single point
     where coverage computation depends on extension-provided testability
     flags. The behavior itself (compute_project_statistics) is defined in

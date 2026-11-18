@@ -103,10 +103,7 @@ mod tests {
         }
     }
 
-    #[specforge_test(
-        invariant = "graph_traversal_integrity",
-        verify = "a directed reach reads only the edges of the entities it reaches"
-    )]
+    #[specforge_test(requirement = "INVARIANT-054")]
     fn a_directed_reach_reads_only_the_edges_of_what_it_reaches() {
         // c0 -> c1 -> ... -> c99, and 300 entities d_i with 100 edges each among themselves (30,000 edges)
         let mut graph = Graph::new();

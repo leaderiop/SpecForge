@@ -568,10 +568,7 @@ fn parity_delete_file() {
 /// `check` prints the same diagnostics, messages included, in the same
 /// order on every run: no W113 cycle named in HashMap order, no file
 /// order leaking into the output.
-#[specforge_test(
-    invariant = "diagnostic_determinism",
-    verify = "identical source files produce identical diagnostics in the same order"
-)]
+#[specforge_test(requirement = "INVARIANT-018")]
 fn check_prints_the_same_diagnostics_on_every_run() {
     for &(fixture, entry, _) in FIXTURES {
         let project = project(fixture, entry);
@@ -588,10 +585,7 @@ fn check_prints_the_same_diagnostics_on_every_run() {
 
 /// On every fixture, watch's graph after a rebuild is a cold build's (the
 /// debug build compares them) and its diagnostics are `check`'s.
-#[specforge_test(
-    invariant = "incremental_correctness",
-    verify = "incremental recompilation produces the same graph as a full rebuild"
-)]
+#[specforge_test(requirement = "INVARIANT-057")]
 fn watch_rebuilds_what_a_cold_build_builds_on_every_fixture() {
     let mut failures = Vec::new();
     for &(fixture, entry, _) in FIXTURES {
@@ -614,10 +608,8 @@ fn watch_rebuilds_what_a_cold_build_builds_on_every_fixture() {
 /// changes (the spec root is indexed again, and everything republished),
 /// and after a file is deleted (the other files keep their extension-rule
 /// diagnostics).
-#[specforge_test(
-    behavior = "shared_incremental_pipeline",
-    verify = "the LSP publishes the diagnostics specforge check reports"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
+#[specforge_test(requirement = "FEATURE-059")]
 fn lsp_publishes_what_check_reports_on_every_fixture() {
     let mut failures = Vec::new();
     for &(fixture, entry, then) in FIXTURES {
@@ -631,10 +623,7 @@ fn lsp_publishes_what_check_reports_on_every_fixture() {
 /// `inferred` lint profile adds I200 (a source changed since it was
 /// inferred) and I202 (dense inference), and strict promotes warnings, on
 /// both surfaces alike.
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "validate with lint profiles reports what specforge check reports with the same profiles"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn mcp_validate_applies_the_lint_profiles_check_applies() {
     let project = project("product_cycle", "main.spec");
     fs::create_dir_all(project.root.join("src")).unwrap();
@@ -677,10 +666,8 @@ fn mcp_validate_applies_the_lint_profiles_check_applies() {
 /// diagnostics on every fixture, for each severity, with and without
 /// strict promotion (one filter, the check operation's), and the filter's
 /// name matches ignoring case on both.
-#[specforge_test(
-    behavior = "filter_reported_diagnostics",
-    verify = "check --severity and MCP validate severity_filter report the same diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn check_severity_and_mcp_severity_filter_agree_on_every_fixture() {
     let mut failures = Vec::new();
     for &(fixture, entry, _) in FIXTURES {
@@ -716,10 +703,8 @@ fn check_severity_and_mcp_severity_filter_agree_on_every_fixture() {
 
 /// `check --format json` and MCP validate print the same entries, key for
 /// key: one presenter (the nested span and the flat location together).
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "check and MCP validate present the same diagnostics identically"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn check_and_mcp_validate_present_the_same_json() {
     let entries = |diagnostics: Value| -> Vec<String> {
         let mut entries: Vec<String> = diagnostics

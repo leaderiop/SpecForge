@@ -1,5 +1,6 @@
-//! The table is the measure (ADR 0360 D2): every field the old builtins register has exactly one row, every row a
-//! home, and every home a field `@gsd/core` declares, authored or computed as the home says, of the type it writes.
+//! The table is the measure (ADR 0360 D2, ADR 0372 D2): every field the old builtins register for a converting kind
+//! has exactly one row, every row a home that is To, Computed or Dropped, and every home a field `@gsd/core` declares,
+//! authored or computed as the home says, of the type it writes.
 
 use serde_json::Value;
 use specforge_ops::authoring::edit;
@@ -7,21 +8,34 @@ use specforge_ops::view::ProjectView;
 use specforge_protocol_types::FieldType;
 use std::collections::BTreeMap;
 
-use super::super::table::{self, Home, How, OLD_KINDS, Pending, TABLE, VERIFY};
+use super::super::table::{self, FATES, Home, How, TABLE, VERIFY};
 use super::fixture;
 
+/// The old kinds that convert, in the fate table's order: the only kinds with rows (ADR 0372 D2).
+fn converting() -> Vec<&'static str> {
+    FATES
+        .iter()
+        .filter(|(_, fate)| fate.new_kind().is_some())
+        .map(|(kind, _)| *kind)
+        .collect()
+}
+
 #[test]
-fn every_old_governance_and_product_field_has_exactly_one_row() {
+fn every_field_of_a_converting_kind_has_exactly_one_row() {
     let old = fixture();
     let view = ProjectView::of(&old.project);
+    let kinds = view.kinds();
+    for (kind, _) in FATES {
+        assert!(kinds.declares(kind), "the old builtins declare {kind}");
+    }
     let mut registered = Vec::new();
-    for kind in OLD_KINDS {
+    for kind in converting() {
         let fields = edit::fields_of(&view, kind);
         assert!(!fields.is_empty(), "the old builtins register {kind}");
         registered.extend(fields.into_iter().map(|f| (kind, f.name)));
     }
-    assert_eq!(OLD_KINDS.len(), 13);
-    assert_eq!(registered.len(), 141, "{registered:?}");
+    assert_eq!(converting().len(), 6);
+    assert_eq!(registered.len(), 77, "{registered:?}");
     for (kind, field) in &registered {
         let rows = TABLE
             .iter()
@@ -41,46 +55,36 @@ fn every_old_governance_and_product_field_has_exactly_one_row() {
     );
 
     let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
-    let mut pending: BTreeMap<Pending, usize> = BTreeMap::new();
     for row in &fields {
+        // Exhaustive: a home of another class fails to compile here before it is counted.
         let class = match row.homes[0] {
             Home::To { .. } => "to",
             Home::Computed { .. } => "computed",
-            Home::Later(p) => {
-                *pending.entry(p).or_default() += 1;
-                "later"
-            }
-            Home::Refused => "refused",
-            Home::Default(_) => "default",
+            Home::Dropped(_) => "dropped",
         };
         *counts.entry(class).or_default() += 1;
     }
     assert_eq!(
         counts,
-        BTreeMap::from([
-            ("to", 89),
-            ("computed", 4),
-            ("later", 31),
-            ("refused", 16),
-            ("default", 1)
-        ])
+        BTreeMap::from([("to", 22), ("computed", 2), ("dropped", 53)])
     );
-    assert_eq!(
-        pending,
-        BTreeMap::from([
-            (Pending::Release, 14),
-            (Pending::Package, 11),
-            (Pending::Truth, 4),
-            (Pending::Behavior, 2)
-        ])
-    );
+    for row in TABLE {
+        if row.homes.iter().any(|h| matches!(h, Home::Dropped(_))) {
+            assert!(
+                matches!(row.homes, [Home::Dropped(reason)] if !reason.trim().is_empty()),
+                "{}.{}: a dropped value has no other home, and a reason",
+                row.kind,
+                row.field
+            );
+        }
+    }
 }
 
 #[test]
-fn every_kind_that_takes_verify_has_one_obligation_row() {
+fn every_converting_kind_that_takes_verify_has_one_obligation_row() {
     let old = fixture();
     let view = ProjectView::of(&old.project);
-    let taking: Vec<&str> = OLD_KINDS
+    let taking: Vec<&str> = converting()
         .into_iter()
         .filter(|kind| !edit::verify_kinds_of(&view, kind).is_empty())
         .collect();
@@ -90,7 +94,7 @@ fn every_kind_that_takes_verify_has_one_obligation_row() {
         .map(|r| r.kind)
         .collect();
     assert_eq!(rows, taking);
-    assert_eq!(rows, ["constraint", "failure_mode", "invariant"]);
+    assert_eq!(rows, ["constraint", "invariant"]);
 }
 
 /// The field type a home written `how` holds, from the old field's type (`None` for an obligation row, which no old
@@ -100,15 +104,13 @@ fn written(how: How, old: Option<FieldType>) -> Vec<FieldType> {
     use FieldType::*;
     match how {
         How::As => old.into_iter().collect(),
-        How::Text | How::Solution => vec![String],
-        How::Refs | How::InvertOnto | How::Proof => vec![ReferenceList],
-        How::Ref => vec![Reference],
-        How::Words => vec![StringList],
-        How::Steps | How::Options => vec![BlockList],
-        How::FeatureTier | How::Outcome | How::Category | How::Priority => vec![Enum],
+        How::Text | How::Bound | How::Category => vec![String],
+        How::Parent => vec![Reference],
+        How::Requirements | How::Earlier => vec![ReferenceList],
+        How::FeatureTier => vec![Enum],
         How::Settled => vec![Bool],
-        How::Sod(_) => vec![Integer],
-        How::PostWord(_) | How::Post | How::Bound | How::Threshold => vec![Block],
+        // The id the map assigns writes no field: the golden check skips its sentinel.
+        How::Id => Vec::new(),
     }
 }
 
@@ -147,6 +149,7 @@ fn every_home_names_a_field_the_gsd_core_golden_declares_of_the_type_it_writes()
             .map(|f| f.field_type);
         for home in row.homes {
             let (kind, field, writer, how) = match *home {
+                Home::To { field, .. } if field == table::ID => continue,
                 Home::To { kind, field, how } => (kind, field, "", Some(how)),
                 Home::Computed { kind, field, .. } => (kind, field, "computed", None),
                 _ => continue,
@@ -165,10 +168,13 @@ fn every_home_names_a_field_the_gsd_core_golden_declares_of_the_type_it_writes()
             }
         }
     }
-    assert!(homes > 89, "{homes}");
-    assert!(typed >= 89, "{typed}");
-    for old in OLD_KINDS {
-        if let Some(kind) = table::new_kind(old) {
+    assert_eq!(
+        (homes, typed),
+        (24, 21),
+        "every To and Computed home, and the To homes typed"
+    );
+    for (old, fate) in FATES {
+        if let Some(kind) = fate.new_kind() {
             assert!(declared.contains_key(kind), "{old} → {kind}");
         }
     }

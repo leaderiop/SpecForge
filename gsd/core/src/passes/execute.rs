@@ -149,11 +149,10 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
     found
 }
 
-/// W407: a task of a `complete` plan that no recorded commit names (a halted plan's later tasks never ran). A `manual` task is a human's
-/// step and leaves no commit. The host runs it only while `specforge.task_commits` is on.
+/// W407: a task of a `complete` plan that no recorded commit names (a halted plan's later tasks never ran). The host
+/// runs it only while `specforge.task_commits` is on.
 fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
     of_kind(input, "task")
-        .filter(|task| text(task, "type") != Some("manual"))
         .filter(|task| {
             let plan = crate::scope::scope_of(&task.id);
             let executed = of_kind(input, "plan")

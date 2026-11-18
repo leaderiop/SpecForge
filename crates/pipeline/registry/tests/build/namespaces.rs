@@ -15,10 +15,7 @@ fn warns(name: &str, code: &str) -> specforge_protocol_types::ExtensionDeclarati
     })
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "one local code from two extensions is two codes"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn one_local_code_from_two_extensions_is_two_codes() {
     let build = build([warns("@acme/a", "W901"), warns("@beta/b", "W901")]);
     assert!(codes(&build).is_empty(), "{:?}", codes(&build));
@@ -38,10 +35,7 @@ fn cataloguing(name: &str) -> specforge_protocol_types::ExtensionDeclaration {
     })
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "two loaded extensions that share a code namespace are E039"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn two_extensions_sharing_a_namespace_are_e039() {
     let build = build([cataloguing("gsd"), cataloguing("@gsd/core")]);
     let shared = coded(&build, "E039");

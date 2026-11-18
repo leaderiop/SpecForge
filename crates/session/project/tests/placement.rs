@@ -5,10 +5,8 @@ use specforge_test::prelude::*;
 
 const CYCLE: &str = "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\n";
 
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "a diagnostic about entities without a span of its own is located at the first one's block"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn a_spanless_diagnostic_about_entities_is_located_at_the_first_ones_block() {
     let dir = TestProject::new()
         .config(|c| c["name"] = "c".into())

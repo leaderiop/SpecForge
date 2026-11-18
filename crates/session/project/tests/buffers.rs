@@ -65,10 +65,7 @@ fn hold(session: &mut ProjectSession, dir: &TestProject, text: &str) {
     session.hold(&[Buffer::new(dir.root().join("a.spec"), text)]);
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "a held buffer is the truth for its file until it is released"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_held_buffer_is_the_truth_for_its_file_until_released() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);
@@ -85,10 +82,7 @@ fn a_held_buffer_is_the_truth_for_its_file_until_released() {
     assert!(session.stale().is_empty());
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "a held buffer's file changed or deleted on disk is not stale"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_held_buffers_deleted_file_is_not_stale() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);
@@ -106,10 +100,7 @@ fn a_held_buffers_deleted_file_is_not_stale() {
     assert!(!has(&session, "omega"));
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "holding a buffer whose text is its file's runs no check"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn holding_a_buffer_whose_text_is_its_files_runs_no_check() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);
@@ -120,10 +111,7 @@ fn holding_a_buffer_whose_text_is_its_files_runs_no_check() {
     assert_eq!(session.buffer("a.spec").unwrap().version, Some(3));
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "releasing a buffer reads its file through the one read and leaves nothing stale"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn releasing_a_saved_buffer_reads_it_once_and_leaves_nothing_stale() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);
@@ -141,10 +129,7 @@ fn releasing_a_saved_buffer_reads_it_once_and_leaves_nothing_stale() {
     assert_eq!(session.stale().sources(), ["a.spec"]);
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "releasing a buffer outside the project drops its file"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn releasing_a_buffer_outside_the_project_drops_it() {
     // No project: the buffer was the file's only text.
     let mut detached = ProjectSession::detached();
@@ -168,10 +153,7 @@ fn releasing_a_buffer_outside_the_project_drops_it() {
     assert_eq!(check_runs(&rt) - before, 0);
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "releasing a buffer that did not parse runs the skipped checks"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn releasing_a_buffer_that_did_not_parse_runs_the_skipped_checks() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);
@@ -203,10 +185,7 @@ fn releasing_a_buffer_that_did_not_parse_runs_the_skipped_checks() {
     );
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "an environment reload keeps the held buffers and runs the checks once"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_reload_keeps_the_held_buffers_and_runs_the_checks_once() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);
@@ -219,10 +198,7 @@ fn a_reload_keeps_the_held_buffers_and_runs_the_checks_once() {
     assert!(session.stale().is_empty());
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "opening a project in place of a session keeps its buffers and runs the checks once"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn opening_a_project_in_place_of_a_session_keeps_its_buffers() {
     let rt = counting();
     let (dir, session) = opened(&rt);
@@ -241,10 +217,7 @@ fn opening_a_project_in_place_of_a_session_keeps_its_buffers() {
     assert_eq!(session.buffer("a.spec").unwrap().version, Some(4));
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "a held buffer that a reload brings into the project is built from its text"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_held_buffer_a_reload_brings_into_the_project_is_built_from_its_text() {
     let dir = TestProject::new()
         .config(|c| {
@@ -266,10 +239,7 @@ fn a_held_buffer_a_reload_brings_into_the_project_is_built_from_its_text() {
     assert!(has(&session, "omega") && !has(&session, "zeta"));
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "a held buffer's file changed or deleted on disk is not stale"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn the_session_classifies_a_held_file_as_nothing() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);

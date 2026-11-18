@@ -872,7 +872,7 @@ Output consumed by /gsd:execute-phase. Plans need:
 - `task` entities with `read_first` and `acceptance` (MANDATORY on every task)
 - Verification criteria
 - `truth`, `artifact` and `key_link` entities for goal-backward verification
-- If the SPEC has an `## Edge Coverage` section, read its edges with `specforge gsd edge-probe "$SPEC_ID" --format json` (resolutions merged) and lift every resolved (verification: explicit) edge's acceptance criterion into a `truth` entity of the plan, and every resolved (verification: backstop) edge into a `truth` too, never a prose note, whose id your return lists as backstop: the tier (`verification backstop`) is the person's to set. At verify time a `backstop` truth the verifier cannot confirm with explicit evidence abstains → `human_needed` (reason `insufficient_spec`), never a silent pass (#1154; see `gsd-core/references/honest-verifier.md`). `unresolved` edges are explicit assumptions — surface them in the plan, do not silently drop them. **Otherwise** (`EDGE_ABSENT`): apply the SAME lift to the fallback report `{COVERAGE}` (per §C of `gsd-core/references/specless-probe-fallback.md`); a SPEC-supplied section is never re-run.
+- If the SPEC has an `## Edge Coverage` section, read its edges with `specforge gsd edge-probe "$SPEC_ID" --format json` (resolutions merged) and lift every resolved (verification: explicit) edge's acceptance criterion into a `truth` entity of the plan, and every resolved (verification: backstop) edge into a `truth` too, never a prose note, whose `verification` is `backstop` (upstream's `{ statement, verification: backstop }` marker). At verify time a `backstop` truth the verifier cannot confirm with explicit evidence abstains → `human_needed` (reason `insufficient_spec`), never a silent pass (#1154; see `gsd-core/references/honest-verifier.md`). `unresolved` edges are explicit assumptions — surface them in the plan, do not silently drop them. **Otherwise** (`EDGE_ABSENT`): apply the SAME lift to the fallback report `{COVERAGE}` (per §C of `gsd-core/references/specless-probe-fallback.md`); a SPEC-supplied section is never re-run.
 - If the SPEC has a `## Prohibitions` section, read them with `specforge query "$SPEC_ID" --depth 1 --kinds spec_prohibition --format json` and lift every resolved prohibition into a `prohibition` entity of the plan (never a `truth`) with its `statement` and `verification`, and its `test` when the verification is `test`; the wired check stays on the spec prohibition. Unresolved -> flagged assumptions, don't drop. **Otherwise** (`PROHIB_ABSENT`), write the recalled prohibitions by the SAME lift with `verification judgment` and no `test`, so each is judged; never auto-dismiss. Section-level precedence + no-silent-drop equality apply (§C).
 - When `@gsd/ui` is loaded, its hook or a query of its kind lifts a UI spec's considerations by the **identical rule** as the edges above; nothing with `@gsd/core` alone.
 - **Artifacts this phase produces (MANDATORY)** — one `artifact` entity per thing this phase creates: decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths. The plan-review-convergence source-grounding pass reads them to exclude newly-created symbols from drift verification; omitting one causes a new symbol to be flagged for acknowledgement.
@@ -1274,8 +1274,8 @@ A requirement whose thread says `no plan` is uncovered ✗; every other reaches 
 
 **Step 3: Check the phase's decisions against the plans**
 
-Each `decision` of the phase is referenced by a plan's `decisions`: the decision-coverage rule prints one line per
-decision no plan lists (`specforge check --format json --pick '[code=gsd/E310].message'`). A decision it names is
+Each `decision` of the phase is cited by its id in a plan's text: the decision-coverage rule prints one line per
+decision no plan cites (`specforge check --format json --pick '[code=gsd/E310].message'`). A decision it names is
 potentially dropped.
 
 **Step 4: Report**
@@ -1296,7 +1296,7 @@ If gaps found:
 |--------|-------------|-------|
 | {id} | {the requirement's text} | None |
 
-{K} decisions of the phase in no plan's `decisions`:
+{K} decisions of the phase cited by no plan:
 - {decision} — recorded in the phase's context but no plan covers it
 
 Options:
@@ -1355,7 +1355,7 @@ to step 13b.
 
 **If `passed` is false:** Display the handler's `message` block. It already
 names each uncovered decision (`D-NN | category | text`) and tells the user
-what to do — list the id in a relevant plan's `decisions`, or
+what to do — cite the id in a relevant plan's `must_haves` / `truths`, or
 move the decision under `### Claude's Discretion` / tag it `[informational]`
 if it should not be tracked. Then offer:
 

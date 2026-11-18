@@ -95,10 +95,7 @@ fn logged_in_to_a_registry_called_main() -> (
     (registry, project)
 }
 
-#[specforge_test(
-    behavior = "authenticate_registry_request",
-    verify = "a credential kept for one registry root is never sent to another root under the same alias"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_login_in_one_project_is_not_sent_to_another_projects_root() {
     let (registry, a) = logged_in_to_a_registry_called_main();
     let catcher = Catcher::start();
@@ -120,10 +117,7 @@ fn a_login_in_one_project_is_not_sent_to_another_projects_root() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "an add_extension dry run sends no credential kept for another registry root"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn an_add_extension_dry_run_sends_no_credential_kept_for_another_root() {
     let (registry, a) = logged_in_to_a_registry_called_main();
     let catcher = Catcher::start();
@@ -159,10 +153,7 @@ fn an_add_extension_dry_run_sends_no_credential_kept_for_another_root() {
     );
 }
 
-#[specforge_test(
-    behavior = "logout_registry",
-    verify = "logout --url forgets the credential kept for that root without reading a project"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn logout_with_a_url_forgets_that_roots_credential_without_a_project() {
     let (registry, a) = logged_in_to_a_registry_called_main();
     let other = Catcher::start();

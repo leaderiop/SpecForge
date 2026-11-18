@@ -352,10 +352,7 @@ async fn json_of(response: axum::response::Response) -> serde_json::Value {
     .expect("the typed JSON")
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a manifest that is not an extension declaration"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_manifest_that_is_not_a_declaration_is_refused() {
     let dir = tempfile::tempdir().unwrap();
@@ -382,10 +379,7 @@ async fn a_manifest_that_is_not_a_declaration_is_refused() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry takes a package's description and keywords from its declaration"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn description_and_keywords_come_from_the_declaration() {
     let dir = tempfile::tempdir().unwrap();
@@ -451,10 +445,7 @@ async fn publish_code(name: &str, version: &str) -> String {
 
 /// What `publish_package` makes of a name and a version: a
 /// name the package module refuses never reaches the signature check.
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a name or version that is not a package name or version"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn publish_refuses_what_is_not_a_package() {
     // Past the name check: the signature is the next refusal.
@@ -487,10 +478,7 @@ async fn publish_refuses_what_is_not_a_package() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a name or version that is not a package name or version"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_read_of_a_name_that_is_not_one_is_not_found() {
     let dir = tempfile::tempdir().unwrap();
@@ -537,10 +525,7 @@ async fn get_json(router: &axum::Router, uri: &str) -> (StatusCode, serde_json::
     (status, json_of(response).await)
 }
 
-#[specforge_test_macros::test(
-    behavior = "resolve_registry_source",
-    verify = "the registry server answers every call in the JSON its client reads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn the_server_answers_in_these_json_shapes() {
     let dir = tempfile::tempdir().unwrap();
@@ -693,10 +678,7 @@ async fn metadata_status(router: &axum::Router, version: &str) -> StatusCode {
     .0
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a signature that is not a package signature, and the version stays publishable"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_signature_that_is_not_one_is_refused() {
     let dir = tempfile::tempdir().unwrap();
@@ -750,10 +732,7 @@ async fn a_signature_that_is_not_one_is_refused() {
     assert_eq!(status, StatusCode::CREATED, "{receipt}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a signature that does not verify over the upload"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_signature_over_other_bytes_is_refused() {
     let dir = tempfile::tempdir().unwrap();
@@ -777,10 +756,7 @@ async fn a_signature_over_other_bytes_is_refused() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a signature that does not verify over the upload"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_signature_of_another_version_is_refused() {
     let dir = tempfile::tempdir().unwrap();
@@ -801,10 +777,7 @@ async fn a_signature_of_another_version_is_refused() {
     assert_eq!(body["error"]["code"], "INVALID_SIGNATURE");
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "the registry refuses a signature that does not verify over the upload"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn a_signature_over_another_manifest_is_refused() {
     let dir = tempfile::tempdir().unwrap();
@@ -911,10 +884,7 @@ fn stored(state: &AppState, name: &str, declares_entities: bool) {
         .expect("the package is stored");
 }
 
-#[specforge_test_macros::test(
-    behavior = "search_registry",
-    verify = "filters by declared category"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn search_filters_by_declared_category() {
     let dir = tempfile::tempdir().unwrap();
@@ -993,10 +963,7 @@ fn stored_described(state: &AppState, name: &str, description: &str, keywords: &
         .expect("the package is stored");
 }
 
-#[specforge_test_macros::test(
-    behavior = "search_registry",
-    verify = "a search matches a case-insensitive substring of a package's name, description or one keyword, wildcards included as text"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn search_matches_as_the_fakes_do() {
     let dir = tempfile::tempdir().unwrap();
@@ -1084,10 +1051,7 @@ async fn revoking_takes_a_token_id() {
     assert_eq!(verify(two).await, StatusCode::OK);
 }
 
-#[specforge_test_macros::test(
-    behavior = "resolve_registry_source",
-    verify = "the registry server answers every call in the JSON its client reads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 #[tokio::test]
 async fn an_address_the_registry_does_not_serve_answers_a_bare_404() {
     let dir = tempfile::tempdir().unwrap();

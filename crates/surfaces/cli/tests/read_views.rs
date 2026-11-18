@@ -152,10 +152,9 @@ fn assert_stats_agree(tmp: &mut Served) {
     assert_eq!(cli, *mcp, "{root:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "specforge stats --format json and specforge.stats answer the same document"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn cli_and_mcp_stats_report_the_same_numbers() {
     assert_stats_agree(&mut served(project("fx1")));
     assert_stats_agree(&mut served(rv1()));
@@ -235,10 +234,9 @@ fn assert_traces_agree(tmp: &mut Served) {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "specforge trace and specforge.trace return the same chain for an entity"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn cli_and_mcp_trace_are_the_same_chain() {
     assert_traces_agree(&mut served(project("fx1")));
     assert_traces_agree(&mut served(rv1()));
@@ -414,10 +412,7 @@ fn model_and_outline_today() {
     assert_eq!(&outline.stdout, &mcp[5]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "expose_model_mcp_tool",
-    verify = "MCP tool produces same output as CLI command"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-074")]
 fn cli_and_mcp_model_render_the_same_text() {
     let mut tmp = served(project("fx1"));
     let root_buf = tmp.root().to_path_buf();
@@ -510,10 +505,9 @@ fn a_model_refuses_what_the_project_does_not_have() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "specforge outline and specforge.outline_extensions render the same text"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn cli_and_mcp_outline_render_the_same_text() {
     // fx1 loads four extensions: direct and transitive dependencies.
     let mut tmp = served(project("fx1"));
@@ -561,10 +555,9 @@ fn cli_and_mcp_outline_render_the_same_text() {
     assert_eq!(run.stdout, defaults[0], "outline with no arguments");
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "specforge schema --kind and specforge.schema with a kind return the same document"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn cli_and_mcp_schema_kind_are_one_document() {
     let mut tmp = served(rv1());
     let root_buf = tmp.root().to_path_buf();
@@ -602,10 +595,9 @@ fn rv1_with_a_malformed_report() -> TestProject {
     rv1().file("specforge-report.json", "{not json")
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "the recorded test report is read at the view's root, never an ancestor's"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn analyze_and_stats_read_the_report_at_the_compiled_root() {
     let tmp = served(rv1_with_a_malformed_report());
     let sub: PathBuf = tmp.root().join("spec");
@@ -641,10 +633,9 @@ fn cached_kinds(dir: &Path) -> usize {
     cache["schema"]["entity_kinds"].as_array().unwrap().len()
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "the schema cache is the view root's, never an ancestor's"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn export_of_a_sub_path_leaves_the_project_cache_alone() {
     let tmp = served(rv1());
     let root_buf = tmp.root().to_path_buf();
@@ -666,10 +657,9 @@ fn export_of_a_sub_path_leaves_the_project_cache_alone() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "specforge schema and specforge.schema carry the same version"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn cli_and_mcp_schema_carry_the_same_version() {
     let mut tmp = served(rv1());
     let root_buf = tmp.root().to_path_buf();
@@ -725,10 +715,9 @@ fn record_alpha(root: &Path, status: &str) {
     .unwrap();
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn contract_read_views() {
     let mut tmp = served(rv1());
     let root_buf = tmp.root().to_path_buf();
@@ -1016,10 +1005,9 @@ fn assert_queries_agree(tmp: &mut Served) {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_views_over_the_project_view",
-    verify = "specforge query and specforge.query return the same document for an entity"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn cli_and_mcp_query_are_one_document() {
     assert_queries_agree(&mut served(project("fx1")));
     assert_queries_agree(&mut served(rv1()));
@@ -1056,10 +1044,7 @@ fn without(mut value: Value, keys: &[&str]) -> Value {
     value
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_explore_cli",
-    verify = "specforge explore --format json is the explore prompt's payload for the same arguments"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
 fn cli_and_prompt_explore_are_one_document() {
     let mut tmp = served(project("fx1"));
     let root_buf = tmp.root().to_path_buf();
@@ -1089,10 +1074,7 @@ fn cli_and_prompt_explore_are_one_document() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_explore_cli",
-    verify = "an unknown entity is E003 naming the closest entity, exit 1"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
 fn explore_refuses_an_unknown_entity() {
     let tmp = served(project("fx1"));
     let run = cli(&tmp, &["explore", "logn", "--path", s(tmp.root())]);
@@ -1104,10 +1086,8 @@ fn explore_refuses_an_unknown_entity() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_review_cli",
-    verify = "specforge review --format json is the review prompt's payload for the same arguments"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
 fn cli_and_prompt_review_are_one_document() {
     let mut tmp = served(project("fx1"));
     let root_buf = tmp.root().to_path_buf();
@@ -1135,10 +1115,8 @@ fn cli_and_prompt_review_are_one_document() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_review_cli",
-    verify = "a recorded report that cannot be read is E045, exit 1"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
+#[specforge_test_macros::test(requirement = "FEATURE-025")]
 fn review_refuses_an_unreadable_report() {
     let tmp = served(rv1_with_a_malformed_report());
     let run = cli(&tmp, &["review", "--path", s(tmp.root())]);
@@ -1151,10 +1129,7 @@ fn review_refuses_an_unreadable_report() {
     assert!(ghost.stderr.starts_with("error[E003]"), "{}", ghost.stderr);
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_infer_guide_cli",
-    verify = "specforge infer-guide --format json is the infer prompt's guide data"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-053")]
 fn cli_and_prompt_infer_guide_are_one_document() {
     let mut tmp = served(project("fx1"));
     let root_buf = tmp.root().to_path_buf();
@@ -1190,10 +1165,7 @@ fn cli_and_prompt_infer_guide_are_one_document() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_infer_guide_cli",
-    verify = "an undeclared kind is unknown_kind naming the closest declared kind, exit 1"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-053")]
 fn infer_guide_refuses_an_undeclared_kind() {
     let tmp = served(project("fx1"));
     let run = cli(&tmp, &["infer-guide", "behaviour", "--path", s(tmp.root())]);
@@ -1205,10 +1177,7 @@ fn infer_guide_refuses_an_undeclared_kind() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "compute_inference_guide",
-    verify = "every builtin kind's example parses and holds no value of the wrong type"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-053")]
 fn builtin_examples_are_well_typed() {
     let tmp = served(
         TestProject::new().raw_config(

@@ -181,10 +181,7 @@ fn a_pickaxe_over_a_withheld_path_is_refused() {
     assert_eq!(git.logs_asked(), 0);
 }
 
-#[specforge_test(
-    behavior = "grant_a_host_port_call",
-    verify = "a guest diff never carries the text of a withheld file"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn a_withheld_file_in_a_guest_diff_has_no_text() {
     let dir = tempfile::tempdir().unwrap();
     let mut fake = FakeGit::repo(dir.path(), SHA, Vec::new());
@@ -306,10 +303,7 @@ fn session_on_disk(git: &Arc<FakeGit>, fs: FakeFs, root: &Path, fs_read: bool) -
 
 /// A worktree's text is the disk's: a guest reads it only where its fs grant reads the file, through every link on
 /// the way. Its git grant alone gives the file's status and counts.
-#[specforge_test(
-    behavior = "grant_a_host_port_call",
-    verify = "a guest diff never carries a worktree file's text its fs grant does not read"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn a_guest_worktree_diff_carries_the_text_its_fs_grant_reads() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().canonicalize().unwrap();

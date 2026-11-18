@@ -4,7 +4,7 @@
 
 use gsd_kit::dsl::*;
 
-const COST: &[Field] = &[str("model_mix"), int("sessions"), str("notable").prose()];
+const COST: &[Field] = &[str("model_mix"), int("sessions"), str("notable")];
 
 /// One `## Milestone:` section of `RETROSPECTIVE.md`, named `v1.0-RETROSPECTIVE`.
 pub const RETROSPECTIVE: Kind = Kind::new(
@@ -12,10 +12,10 @@ pub const RETROSPECTIVE: Kind = Kind::new(
     "A milestone's retrospective (GSD RETROSPECTIVE.md)",
     &[
         rf("milestone", "milestone").r().i(),
-        strs("built").prose(),
-        strs("worked").prose(),
-        strs("inefficient").prose(),
-        strs("patterns").prose(),
+        strs("built"),
+        strs("worked"),
+        strs("inefficient"),
+        strs("patterns"),
         block("cost", COST),
         int("phases").c(),
         int("plans").c(),
@@ -42,8 +42,7 @@ pub const LESSON: Kind = Kind::new(
         rf("retrospective", "retrospective")
             .inverse("lessons")
             .doc("the retrospective that scopes it"),
-        str("text").prose().r(),
-        rf("milestone", "milestone"),
+        str("text").r(),
         bool("top"),
         en("kind", LESSON_KINDS).doc("what /gsd-extract-learnings classified it as"),
         block("graduated", GRADUATED).h().doc(
@@ -56,18 +55,14 @@ pub const LESSON: Kind = Kind::new(
 )
 .scoped_by("retrospective");
 
-const METHODOLOGY_STATUS: &[&str] = &["active", "superseded"];
-
 /// `METHODOLOGY.md`.
 pub const METHODOLOGY: Kind = Kind::new(
     "methodology",
     "A recorded methodology (GSD METHODOLOGY.md)",
     &[
         str("name").r(),
-        str("diagnoses").prose(),
-        str("recommends").prose(),
-        str("apply_when").prose(),
-        en("status", METHODOLOGY_STATUS),
-        rf("superseded_by", "methodology"),
+        str("diagnoses"),
+        str("recommends"),
+        str("apply_when"),
     ],
 );

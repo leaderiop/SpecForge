@@ -12,10 +12,7 @@ fn answer(server: &mut Served, tool: &str, arguments: Value) -> Value {
     serde_json::from_str(&tool_text(&reply)).unwrap()
 }
 
-#[specforge_test(
-    behavior = "discover_inference_sources",
-    verify = "no inference source lands outside the project root"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn infer_gaps_lists_no_file_outside_the_served_project() {
     let project = TestProject::new().file("src/lib.rs", "pub fn inside() {}\n");
     // A store no collect writes (it refuses a place outside the root), with a digest of each key so it is served.
@@ -60,10 +57,7 @@ fn infer_gaps_lists_no_file_outside_the_served_project() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "discover_inference_sources",
-    verify = "an indexed path outside the project root is deleted, never read"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn infer_progress_and_the_inferred_lint_read_no_indexed_file_outside_the_served_project() {
     let project = TestProject::new();
     let outside = TempDir::new().unwrap();

@@ -43,20 +43,9 @@ pub struct Code {
     pub severity: Severity,
     /// The severity under `gsd-strict` and `gsd-plus`; never below `severity`.
     pub strict: Severity,
-    /// Its findings speak only once their entity's owner is complete (`CodeBuilder::once_complete`, ADR 0363): the
-    /// host drops one on a pending entity, and the write that completes the owner reveals it rather than adding it.
-    pub once_complete: bool,
 }
 
 impl Code {
-    /// This code, its findings speaking only once their entity's owner is complete.
-    const fn once_complete(self) -> Code {
-        Code {
-            once_complete: true,
-            ..self
-        }
-    }
-
     fn explanation(&self) -> String {
         let raised = if self.strict == self.severity {
             String::new()
@@ -90,7 +79,6 @@ const fn code(
         section,
         severity,
         strict,
-        once_complete: false,
     }
 }
 
@@ -107,7 +95,7 @@ pub static CODES: &[Code] = &[
     code(
         "E102",
         "Dependency cycle or forward dependency",
-        "Phase, plan and milestone depends_on are acyclic; phase and plan ones point at earlier ones only",
+        "Phase and plan depends_on are acyclic and point at earlier ones only",
         "project-and-roadmap",
         Severity::Error,
         Severity::Error,
@@ -283,7 +271,7 @@ pub static CODES: &[Code] = &[
     code(
         "E310",
         "Context decision cited by no plan",
-        "Every trackable decision of a planned phase's context (origin context, superseded by none) is listed in the decisions of one of its plans",
+        "Every trackable decision of a planned phase's context (origin context) is cited by its id in the text of one of its plans",
         "plan",
         Severity::Error,
         Severity::Error,
@@ -299,7 +287,7 @@ pub static CODES: &[Code] = &[
     code(
         "E312",
         "Task action reduces scope",
-        "No task action reduces scope (\"for now\", \"simplified\", \"v1\")",
+        "No task action reduces scope (\"for now\", \"simplified\", \"v1\") unless a decision its plan cites says so",
         "plan",
         Severity::Error,
         Severity::Error,
@@ -339,7 +327,7 @@ pub static CODES: &[Code] = &[
     code(
         "W317",
         "Post-planning gaps open",
-        "The post-planning gap report finds nothing open",
+        "The post-planning gap report finds nothing open: each phase requirement is in a plan's requirements and each context decision is cited by a plan",
         "plan",
         Severity::Warning,
         Severity::Warning,
@@ -459,7 +447,7 @@ pub static CODES: &[Code] = &[
     code(
         "W407",
         "Task has no commit",
-        "Every task of a complete plan has a recorded commit (a manual task is exempt)",
+        "Every task of a complete plan has a recorded commit",
         "execute",
         Severity::Warning,
         Severity::Warning,
@@ -523,7 +511,7 @@ pub static CODES: &[Code] = &[
     code(
         "W506",
         "Settled decision maps to nothing shipped",
-        "Every settled decision maps to something shipped",
+        "Every settled decision is cited by something shipped: a complete plan's text, its summary or a commit subject",
         "verify",
         Severity::Warning,
         Severity::Warning,
@@ -609,14 +597,6 @@ pub static CODES: &[Code] = &[
         Severity::Error,
     ),
     code(
-        "E519",
-        "Truth proves no requirement of its plan",
-        "A truth of a phase's plan names one of its plan's requirements",
-        "verify",
-        Severity::Error,
-        Severity::Error,
-    ),
-    code(
         "W520",
         "Complete plan's paths not touched or not deleted",
         "A complete plan's commits touched every path it planned, and the files it deletes are gone",
@@ -635,7 +615,7 @@ pub static CODES: &[Code] = &[
     code(
         "W522",
         "Item anchored only by plans that reach no requirement",
-        "A code item a task or a commit names is anchored by a plan that reaches a requirement",
+        "A code item a recorded commit changed is anchored by a plan whose requirements name one",
         "verify",
         Severity::Warning,
         Severity::Warning,
@@ -656,67 +636,6 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
         Severity::Warning,
     ),
-    // An invariant owes a judgement only in force: the write that brings it into force reveals its E531.
-    code(
-        "E531",
-        "Invariant changed since it was last judged",
-        "A phase that changes code an invariant guards has the invariant judged again",
-        "governance",
-        Severity::Error,
-        Severity::Error,
-    )
-    .once_complete(),
-    code(
-        "E537",
-        "Milestone targets a day before it starts",
-        "A milestone's targets day is on or after its starts day",
-        "project-and-roadmap",
-        Severity::Error,
-        Severity::Error,
-    ),
-    code(
-        "W538",
-        "Term avoids a word the glossary accepts",
-        "A term's avoid lists no word the glossary accepts: its own name or aliases, or another term's",
-        "product",
-        Severity::Warning,
-        Severity::Warning,
-    ),
-    code(
-        "W532",
-        "Risk at the threshold with no mitigation",
-        "A risk whose rpn is at or above specforge.risk_block_on names a mitigation in mitigated_by",
-        "governance",
-        Severity::Warning,
-        Severity::Warning,
-    ),
-    code(
-        "I536",
-        "Invariant without a fresh holds verdict",
-        "An invariant holds while a fresh verdict of the verify_invariant prompt says so",
-        "governance",
-        Severity::Info,
-        Severity::Info,
-    ),
-    code(
-        "W534",
-        "Prose uses an avoided synonym",
-        "Prose the author can still change (each field or block member its kind marks prose: free text written \
-         now, never a name, an id, a quote or a copy) writes no word or phrase a term lists in avoid, read outside \
-         paths, code spans and the names and aliases the glossary accepts",
-        "product",
-        Severity::Warning,
-        Severity::Warning,
-    ),
-    code(
-        "W530",
-        "Journey requirement outside a listed milestone",
-        "Each requirement a journey names is listed by a phase of every milestone the journey lists that has a \
-         phase",
-        "product",
-        Severity::Warning,
-        Severity::Error,
-    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -725,9 +644,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
             d.title(k.title)
                 .explanation(&k.explanation())
                 .docs(&k.docs());
-            if k.once_complete {
-                d.once_complete();
-            }
         });
     }
 }

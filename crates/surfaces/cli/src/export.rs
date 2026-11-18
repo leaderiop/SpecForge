@@ -285,10 +285,7 @@ mod tests {
         args: SchemaArgs,
     }
 
-    #[specforge_test_macros::test(
-        behavior = "publish_schema_specification",
-        verify = "--kind with --publish, and --format without it, are refused"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-048")]
     fn format_needs_publish_beside_every_schema_flag() {
         for flag in [
             &["--kind", "behavior"][..],

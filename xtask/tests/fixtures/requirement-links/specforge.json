@@ -1,0 +1,13 @@
+{
+  "name": "tracer",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": [
+    "@specforge/checks",
+    "@code/core",
+    "@gsd/core",
+    "@rust/cargo",
+    "@rust/source",
+    "@rust/test"
+  ]
+}

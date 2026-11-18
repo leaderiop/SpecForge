@@ -10,6 +10,9 @@ use std::path::{Path, PathBuf};
 use tree_sitter::{Node, Parser, Tree};
 use tree_sitter_specforge::{LANGUAGE, kind};
 
+/// The pre-swap root spec, frozen as a corpus (ADR 0374 D8): the old kinds' bodies the grammar resumes after.
+const OLD_SPEC: &str = "fixtures/old-spec/spec";
+
 fn parse(source: &str) -> Tree {
     let mut parser = Parser::new();
     parser.set_language(&LANGUAGE.into()).unwrap();
@@ -48,10 +51,7 @@ fn pairs(expected: &[(&str, &str)]) -> Vec<(String, String)> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "an unclosed body ends where the next top-level form starts, missing its closing brace"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn an_unclosed_body_ends_at_the_next_form() {
     let source = r#"behavior a "A" {
   status done
@@ -124,10 +124,7 @@ behavior c {
     assert!(a.contains("guard expr { x < 1 }"), "{a}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a body member left half-typed ends where the next top-level form starts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn a_half_typed_member_ends_at_the_next_form() {
     for member in [
         "  st",                                             // a field's name, no value
@@ -160,10 +157,7 @@ fn a_half_typed_member_ends_at_the_next_form() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "an unclosed body ends at a form indented no deeper than the form it opened"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn indented_forms_end_an_unclosed_body() {
     let source = "  behavior a \"A\" {\n    status done\n    guard expr { x < 1 }\n  behavior b \"B\" {\n    status done\n  }\n";
     let tree = parse(source);
@@ -178,14 +172,11 @@ fn indented_forms_end_an_unclosed_body() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "the grammar resumes at every top-level form of the repository's spec after an unclosed body"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn the_grammar_resumes_after_every_unclosed_body_of_the_corpora() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     assert!(files.len() > 150, "found only {} spec files", files.len());
@@ -230,14 +221,11 @@ fn the_grammar_resumes_after_every_unclosed_body_of_the_corpora() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a body member left half-typed ends where the next top-level form starts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn the_grammar_resumes_after_every_half_typed_body_of_the_corpora() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     let mut lost = Vec::new();
@@ -353,10 +341,7 @@ fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a list of blocks left half-typed ends where the next top-level form starts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-023")]
 fn a_half_typed_block_list_ends_at_the_next_form() {
     let closed = "port p \"P\" {\n  requires [ { phase 02 } ]\n}\n";
     assert!(

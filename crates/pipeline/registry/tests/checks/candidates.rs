@@ -1,7 +1,9 @@
 //! The candidate vocabulary a build is handed (ADR 0122) changes the suggestions of E024, W151 and
-//! W020 and nothing else. Every test starts from `.spec` text (ADR 0115).
+//! W020 and nothing else. It lists every extension that declares a kind keyword (ADR 0369), and
+//! E024 and W151 suggest each of them. Every test starts from `.spec` text (ADR 0115).
 
 use specforge_common::Diagnostic;
+use specforge_registry::CandidateVocabulary;
 use specforge_test_macros::test as spec;
 
 use crate::support::written::checked;
@@ -22,10 +24,8 @@ fn without_suggestions(diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
         .collect()
 }
 
-#[spec(
-    behavior = "suggest_missing_extensions",
-    verify = "the candidate vocabulary changes only suggestions, never which diagnostics a check reports"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn the_candidate_vocabulary_changes_only_suggestions() {
     let bare = checked(&build([software()]), &[("t.spec", TEXT)]);
     let handed = build_with([software()], candidates(&[product(), formal()]));
@@ -80,4 +80,129 @@ fn a_build_handed_no_vocabulary_suggests_search() {
     );
     let w020 = coded_in(&diags, "W020");
     assert_eq!(w020[0].suggestion, None, "{diags:?}");
+}
+
+/// Two extensions declare the keyword `term`: one vocabulary, written with both under `term`, and
+/// E024 for a `term` no loaded extension declares suggests each of them (ADR 0369 D1, D2).
+#[test]
+fn two_extensions_declaring_term_yield_one_vocabulary_and_e024_names_both() {
+    let term = |name: &str| {
+        declare(name, |c| {
+            c.kind("Term", |k| {
+                k.keyword("term");
+            });
+        })
+    };
+    let vocabulary = CandidateVocabulary::of(&[term("@specforge/product"), term("@gsd/core")])
+        .expect("a keyword two extensions declare is no error");
+
+    let text = vocabulary.to_json();
+    let written: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        written["kinds"]["term"],
+        serde_json::json!(["@gsd/core", "@specforge/product"]),
+        "{text}"
+    );
+    let read_back = CandidateVocabulary::from_json(&text);
+    assert_eq!(read_back, vocabulary);
+
+    let diags = checked(
+        &build_with([software()], read_back),
+        &[("t.spec", "term t1 \"T\" {\n}\n")],
+    );
+    let e024 = coded_in(&diags, "E024");
+    assert_eq!(e024.len(), 1, "{diags:?}");
+    assert_eq!(
+        e024[0].suggestion.as_deref(),
+        Some(
+            "install one of the extensions that declare it with: `specforge add @gsd/core` or `specforge add @specforge/product`"
+        ),
+        "{diags:?}"
+    );
+}
+
+/// `@specforge/software` and `@test/behaviors` both declare the keyword `behavior`: W151, over a
+/// build that declares no kind, suggests each of them (ADR 0369 D2).
+#[test]
+fn w151_names_every_extension_that_declares_the_first_kind() {
+    let behaviors = declare("@test/behaviors", |c| {
+        c.kind("Behavior", |k| {
+            k.keyword("behavior");
+        });
+    });
+    let kindless = declare("@test/kindless", |_| {});
+    let diags = checked(
+        &build_with([kindless], candidates(&[software(), behaviors])),
+        &[("t.spec", "behavior b1 \"B\" {\n}\n")],
+    );
+    let w151 = coded_in(&diags, "W151");
+    assert_eq!(w151.len(), 1, "{diags:?}");
+    // An answer that takes the first declarer would name `@specforge/software` alone.
+    assert_eq!(
+        w151[0].suggestion.as_deref(),
+        Some(
+            "install one of the extensions that declare it with: `specforge add @specforge/software` or `specforge add @test/behaviors`"
+        ),
+        "{diags:?}"
+    );
+}
+
+/// `@x/a` and `@x/b` both declare `k`; `@x/a` also declares `j`, and `@x/b` declares `i` when
+/// `b_also_i`. E024 for a `k` beside a loaded extension that declares `loaded` (ADR 0373 D4).
+fn e024_for_k_beside(loaded: &[&str], b_also_i: bool) -> String {
+    let a = declare("@x/a", |c| {
+        c.kind("K", |k| {
+            k.keyword("k");
+        });
+        c.kind("J", |k| {
+            k.keyword("j");
+        });
+    });
+    let b = declare("@x/b", |c| {
+        c.kind("K", |k| {
+            k.keyword("k");
+        });
+        if b_also_i {
+            c.kind("I", |k| {
+                k.keyword("i");
+            });
+        }
+    });
+    let host = declare("@x/host", |c| {
+        for keyword in loaded {
+            c.kind(&keyword.to_uppercase(), |k| {
+                k.keyword(keyword);
+            });
+        }
+    });
+    let diags = checked(
+        &build_with([host], candidates(&[a, b])),
+        &[("t.spec", "k k1 \"K\" {\n}\n")],
+    );
+    let e024 = coded_in(&diags, "E024");
+    assert_eq!(e024.len(), 1, "{diags:?}");
+    e024[0].suggestion.clone().unwrap()
+}
+
+#[test]
+fn e024_offers_only_the_declarers_that_collide_with_nothing_loaded() {
+    // `@x/a` would declare `j` a second time (E026): `@x/b` alone.
+    assert_eq!(
+        e024_for_k_beside(&["j"], false),
+        "install it with: specforge add @x/b"
+    );
+    // Nothing loaded collides: both, as before.
+    assert_eq!(
+        e024_for_k_beside(&["z"], true),
+        "install one of the extensions that declare it with: `specforge add @x/a` or `specforge add @x/b`"
+    );
+}
+
+#[test]
+fn e024_offers_every_declarer_when_all_collide_and_says_so() {
+    assert_eq!(
+        e024_for_k_beside(&["j", "i"], true),
+        "install one of the extensions that declare it with: `specforge add @x/a` or `specforge add @x/b`; \
+         each also declares a kind a loaded extension declares, so adding one reports E026"
+    );
 }

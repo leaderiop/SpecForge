@@ -95,10 +95,7 @@ const WITH_DECLARATION: ReferenceQuery = ReferenceQuery {
     include_declaration: true,
 };
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "find-refs returns all reference sites"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn references_are_every_field_that_names_the_entity() {
     let p = compile(
         SOFTWARE,
@@ -122,10 +119,7 @@ fn references_are_every_field_that_names_the_entity() {
     assert!(refs.iter().all(|o| o.role == Role::Reference));
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "find-refs includes the declaration site"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn the_declaration_is_included_on_request() {
     let p = nav();
     let refs = p
@@ -142,10 +136,7 @@ fn the_declaration_is_included_on_request() {
     assert_eq!(refs[0].role, Role::Declaration);
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "find-refs omits the declaration when the request excludes it"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn the_declaration_is_left_out_otherwise() {
     let p = nav();
     let refs = p.navigator().references("session_limit", INCOMING).unwrap();
@@ -155,10 +146,7 @@ fn the_declaration_is_left_out_otherwise() {
     );
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "find-refs across multiple files"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn references_come_from_every_file() {
     let p = compile(
         SOFTWARE,
@@ -182,10 +170,7 @@ fn references_come_from_every_file() {
     assert_eq!(files, ["a.spec", "b.spec", "limit.spec"]);
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "find-refs excludes what the entity itself references"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn what_an_entity_refers_to_is_not_a_reference_to_it() {
     let p = nav();
     let nav = p.navigator();
@@ -221,10 +206,7 @@ fn what_an_entity_refers_to_is_not_a_reference_to_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "each reference is the identifier token as written"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn a_reference_is_its_token() {
     let p = compile(
         SOFTWARE,
@@ -244,10 +226,7 @@ fn a_reference_is_its_token() {
     assert_eq!(refs[0].precision, Precision::Token);
 }
 
-#[specforge_test(
-    behavior = "go_to_definition",
-    verify = "go-to-def navigates to entity declaration"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn the_definition_is_the_declaration() {
     let p = nav();
     let definition = p.navigator().definition("session_limit").unwrap();
@@ -255,10 +234,7 @@ fn the_definition_is_the_declaration() {
     assert_eq!(definition.kind, "invariant");
 }
 
-#[specforge_test(
-    behavior = "go_to_definition",
-    verify = "go-to-def on non-existent ID returns no result"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn an_unknown_id_has_no_definition() {
     let p = nav();
     let error = p.navigator().definition("nope").unwrap_err();
@@ -268,7 +244,7 @@ fn an_unknown_id_has_no_definition() {
     assert!(p.navigator().definition("sesion_limit").is_err());
 }
 
-#[specforge_test(behavior = "go_to_definition", verify = "go-to-def works across files")]
+#[specforge_test(requirement = "FEATURE-046")]
 fn a_reference_leads_to_its_definition_in_another_file() {
     let p = nav();
     let nav = p.navigator();
@@ -278,10 +254,7 @@ fn a_reference_leads_to_its_definition_in_another_file() {
     assert_eq!(at(&definition.name), "limit.spec 1:11-1:24");
 }
 
-#[specforge_test(
-    behavior = "go_to_definition",
-    verify = "the definition's selection is the entity's name token"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn the_definition_selects_the_name() {
     let p = compile(
         SOFTWARE,
@@ -357,10 +330,7 @@ const REFS: &str = concat!(
     "}\n",
 );
 
-#[specforge_test(
-    behavior = "go_to_definition",
-    verify = "the definition's selection is the entity's name token"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn a_refs_definition_selects_its_scheme_id() {
     // A scheme ref ID is one token (the grammar's `scheme_ref_id`).
     let p = compile(SOFTWARE, &[("main.spec", REFS)]);
@@ -441,10 +411,7 @@ const FIELD_TEXTS: &str = "invariant fast \"Fast\" {\n  guarantee \"responds qui
                            produces [logged_in]\n  requires {\n    ready \"the account exists\"\n  }\n}\n\n\
                            event logged_in \"Logged in\" {\n}\n";
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "the field filter reads a field's text: a list by its items, an expression by its written form, a block by its keys; never the export's JSON"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn the_field_filter_reads_the_field_text() {
     let p = compile(
         &[SOFTWARE, &["@specforge/formal"]].concat(),
@@ -476,10 +443,7 @@ fn the_field_filter_reads_the_field_text() {
     assert_eq!(holding("requires", "ready"), ["login"]);
 }
 
-#[specforge_test(
-    behavior = "workspace_symbol_search",
-    verify = "search by ID prefix returns matches"
-)]
+#[specforge_test(requirement = "FEATURE-078")]
 fn an_id_prefix_finds_its_entities() {
     let p = compile(SOFTWARE, &[("users.spec", USERS)]);
     let names = |text| found(&p, &EntityQuery::new(text, MatchScope::Names));
@@ -487,10 +451,7 @@ fn an_id_prefix_finds_its_entities() {
     assert_eq!(names("auth_"), ["auth_token"]);
 }
 
-#[specforge_test(
-    behavior = "workspace_symbol_search",
-    verify = "search by title fragment returns matches"
-)]
+#[specforge_test(requirement = "FEATURE-078")]
 fn a_title_fragment_finds_its_entity() {
     let p = compile(SOFTWARE, &[("users.spec", USERS)]);
     // "user log" is in the titles ("User Login", "User Logout"), not the ids.
@@ -507,10 +468,7 @@ fn a_title_fragment_finds_its_entity() {
     );
 }
 
-#[specforge_test(
-    behavior = "workspace_symbol_search",
-    verify = "a misspelled query within the fuzzy threshold finds the entity"
-)]
+#[specforge_test(requirement = "FEATURE-078")]
 fn a_misspelled_id_is_found_within_the_threshold() {
     let p = nav();
     let matches = find_entities(
@@ -533,10 +491,7 @@ fn a_misspelled_id_is_found_within_the_threshold() {
     );
 }
 
-#[specforge_test(
-    behavior = "autocomplete_entity_ids",
-    verify = "autocomplete suggests matching IDs"
-)]
+#[specforge_test(requirement = "FEATURE-049")]
 fn completion_suggests_the_matching_ids() {
     let p = compile(SOFTWARE, &[("users.spec", USERS)]);
     assert_eq!(
@@ -545,10 +500,7 @@ fn completion_suggests_the_matching_ids() {
     );
 }
 
-#[specforge_test(
-    behavior = "autocomplete_entity_ids",
-    verify = "suggestions filtered by target_kind when FieldRegistry has constraint"
-)]
+#[specforge_test(requirement = "FEATURE-049")]
 fn completion_keeps_the_fields_target_kind() {
     let p = compile(SOFTWARE, &[("limit.spec", LIMIT), ("users.spec", USERS)]);
     // What the LSP reads for a cursor inside `invariants [`.
@@ -568,10 +520,7 @@ fn completion_keeps_the_fields_target_kind() {
     assert_eq!(found(&p, &query), ["session_limit"]);
 }
 
-#[specforge_test(
-    behavior = "autocomplete_entity_ids",
-    verify = "all IDs suggested when no target_kind constraint exists"
-)]
+#[specforge_test(requirement = "FEATURE-049")]
 fn completion_without_a_target_kind_suggests_every_id() {
     let p = compile(SOFTWARE, &[("limit.spec", LIMIT), ("users.spec", USERS)]);
     assert_eq!(
@@ -778,10 +727,7 @@ fn match_file_is_component_wise() {
     assert_eq!(match_file("login.rs", "src/xlogin.rs"), FileMatch::None);
 }
 
-#[specforge_test(
-    behavior = "outline_view",
-    verify = "outline lists all entities in file"
-)]
+#[specforge_test(requirement = "FEATURE-078")]
 fn the_outline_lists_the_files_entities() {
     let p = compile(
         SOFTWARE,
@@ -800,10 +746,7 @@ fn the_outline_lists_the_files_entities() {
     );
 }
 
-#[specforge_test(
-    behavior = "outline_view",
-    verify = "outline shows entity kind, ID, and title"
-)]
+#[specforge_test(requirement = "FEATURE-078")]
 fn the_outline_shows_kind_id_title_and_name() {
     let p = compile(
         SOFTWARE,
@@ -851,10 +794,7 @@ fn ends(occurrences: &[Occurrence], direction: Direction) -> Vec<String> {
     ids.into_iter().collect()
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "find-refs excludes what the entity itself references"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn references_list_the_same_entities_the_navigator_finds() {
     for p in [nav(), cyc()] {
         let navigator = p.navigator();
@@ -939,10 +879,7 @@ fn an_edge_to_an_entity_the_graph_lacks_is_no_reference() {
     assert_eq!(References::of(&view, "ghost"), References::default());
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_read_view_about_one_entity_names_it() {
     use specforge_ops::view::EntityField;
     let p = nav();

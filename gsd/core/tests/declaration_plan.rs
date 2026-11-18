@@ -29,7 +29,6 @@ fn the_plan_kind_declares_the_fields_of_the_model() {
             "coupling_justified",
             "gap_closure",
             "requirements",
-            "decisions",
             "wave0",
             "agent_hint",
             "estimate",
@@ -119,7 +118,6 @@ fn the_task_and_checkpoint_kinds_declare_the_fields_of_the_model() {
             "type",
             "files",
             "read_first",
-            "items",
             "precondition",
             "reversibility",
             "action",
@@ -249,15 +247,12 @@ fn a_checkpoint_answer_is_a_harness_block_with_no_e107_rule() {
     assert_eq!(on_checkpoint, 0, "{rules}");
 }
 
-/// D-K20a-4: the tier of a truth is a person's decision, so an agent cannot lift or unset it.
+/// ADR 0370: the planner writes a truth's tier, as upstream's does (`backstop` for a lifted backstop edge), and a
+/// person may change it: the field is the author's.
 #[test]
-fn a_truths_verification_is_a_persons_to_write() {
-    assert_eq!(field_of("truth", "verification")["writer"], "human");
-    // the planner proposes a tier instead, once; a person confirms it in `verification`
-    assert_ne!(
-        field_of("truth", "proposed_verification")["writer"],
-        "human"
-    );
+fn a_truths_verification_is_the_authors() {
+    let verification = field_of("truth", "verification");
+    assert!(verification.get("writer").is_none(), "{verification}");
 }
 
 #[test]
@@ -267,18 +262,7 @@ fn must_haves_golden() {
     assert_eq!(
         fields,
         [
-            (
-                "truth",
-                vec![
-                    "plan",
-                    "text",
-                    "requirement",
-                    "proof",
-                    "verification",
-                    "proposed_verification",
-                    "criterion"
-                ]
-            ),
+            ("truth", vec!["plan", "text", "verification"]),
             (
                 "artifact",
                 vec![
@@ -303,7 +287,7 @@ fn must_haves_golden() {
         .map(|(k, f)| (k, f.into_iter().map(String::from).collect()))
     );
     let total: usize = fields.iter().map(|(_, f)| f.len()).sum();
-    assert_eq!(total, 24);
+    assert_eq!(total, 20);
     for (kind, required) in [
         ("truth", vec!["plan", "text"]),
         ("artifact", vec!["plan", "path", "provides"]),
@@ -333,24 +317,11 @@ fn must_haves_golden() {
     }
 }
 
-/// A truth names the requirement it proves, and the requirement reads its truths back as `truths` (ADR 0331 D1): the
-/// requirement declares no field for them.
+/// A truth names no test (ADR 0371 D5): its tests are `@code/core`'s `test` facts that name it, and `@gsd/core` does
+/// not declare the kind.
 #[test]
-fn a_truth_names_its_requirement_with_an_inverse() {
-    let requirement = field_of("truth", "requirement");
-    assert_eq!(requirement["target_kind"], "requirement");
-    assert_eq!(requirement["inverse_of"], "truths");
-    assert_ne!(requirement["required"], true);
-    assert!(!fields_of("requirement").contains(&"truths".to_string()));
-}
-
-/// A truth's `proof` lists `@code/core`'s `test` facts (ADR 0331 D2): `@gsd/core` does not declare the kind.
-#[test]
-fn a_truths_proof_lists_test_facts() {
-    let proof = field_of("truth", "proof");
-    assert_eq!(proof["field_type"], "reference_list");
-    assert_eq!(proof["target_kind"], "test");
-    assert_ne!(proof["required"], true);
+fn a_truth_names_no_test_and_gsd_core_declares_no_test_kind() {
+    assert!(!fields_of("truth").contains(&"proof".to_string()));
     assert!(
         describe("entities")["items"]
             .as_array()
@@ -361,7 +332,7 @@ fn a_truths_proof_lists_test_facts() {
 }
 
 /// A plan is complete once `complete`, a task once `done`, and a truth follows its plan (ADR 0329 D4): until then a
-/// red test of its proof is TDD, not a `@code/core` finding.
+/// red test that names it is TDD, not a `@code/core` finding.
 #[test]
 fn the_plan_and_the_task_declare_when_they_are_complete() {
     assert_eq!(
@@ -381,7 +352,7 @@ fn the_disposition_kind_is_append_only_and_every_field_immutable() {
     assert_eq!(disposition["append_only"], true);
     assert_eq!(disposition["scoped_by"], "plan");
     let fields = disposition["fields"].as_array().expect("fields");
-    assert_eq!(fields.len(), 7);
+    assert_eq!(fields.len(), 6);
     for field in fields {
         assert_eq!(field["immutable"], true, "{}", field["name"]);
     }
@@ -412,10 +383,9 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
     assert_eq!(kind_of("user_setup")["scoped_by"], "plan");
 }
 
-/// `plan.md` lists 81 fields over its nine kinds (the review kinds are counted on their own). The model fixes: `task.commits` waits for `commit`, which is 1
-/// fewer, and `task.verify_text`, `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification`
-/// are 4 more: 81 - 1 + 4 = 84. `plan.gap_closure` is declared with the UAT kinds, and `artifact.state` and
-/// `key_link.state` (computed by the scan) are 2 more: 86. `plan.estimate_slices` (the smart-zone budget's answer) is 1 more, and `disposition.concern` 1 more.
+/// `plan.md` names 87 fields over its nine kinds (the review kinds are counted on their own). `task.commits` is read,
+/// not written (the inverse of `commit.task`), so it is no field: 86. `artifact.state` and `key_link.state`, computed
+/// by the scan, are 2 more: 88.
 #[test]
 fn the_plan_kinds_declare_every_field_of_plan_md() {
     let kinds = [
@@ -430,12 +400,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    // + 1: truth.proposed_verification
-    assert_eq!(
-        total,
-        81 - 1 + 4 + 2 + 3 + 1 + 1 + 1 + 1,
-        "the kinds' fields"
-    );
+    assert_eq!(total, 85 - 1 + 2, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of

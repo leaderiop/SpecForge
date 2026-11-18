@@ -28,10 +28,7 @@ fn collector(report: &str) -> Collector {
     }
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "wildcards match within the last path segment"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn wildcard_matches_segments() {
     assert!(wildcard("vitest.config.*", "vitest.config.ts"));
     assert!(wildcard("*.json", "a.json"));
@@ -40,10 +37,7 @@ fn wildcard_matches_segments() {
     assert!(!wildcard("a*a", "a"));
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "a repository above the project root selects a collector detecting a repository"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_repository_the_git_port_locates_selects_a_collector_detecting_one() {
     use specforge_effects::git::Located;
     use specforge_effects::testing::FakeGit;
@@ -70,10 +64,7 @@ fn a_repository_the_git_port_locates_selects_a_collector_detecting_one() {
     assert!(detect(&[collector("r.json")], &root, Some(&found)).is_empty());
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "report path must stay inside the project"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn report_path_must_stay_inside_the_project() {
     let root = Path::new("/p");
     let any = Containment::unbounded();
@@ -111,10 +102,7 @@ fn collected(entries: &[(&str, &str, TestStatus)]) -> CollectOutput {
     }
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "the entities results may name are the entity snapshot's, with their obligation texts"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn known_entities_are_the_snapshots_records() {
     use specforge_common::{SourceSpan, Sym};
     use specforge_parser::{EntityId, EntityKind, FieldMap, VerifyStatement};
@@ -164,10 +152,7 @@ fn known_entities_are_the_snapshots_records() {
     assert_eq!(known.obligations("widget"), ["first", "second"]);
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "merge replaces only the same runner"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn merge_replaces_only_the_same_runner() {
     let known = KnownEntities::from_iter(["a", "b"].map(|s| (s.to_string(), Vec::new())));
     let mut report = TestReport {
@@ -222,10 +207,7 @@ fn empty_report() -> TestReport {
     }
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "the recorded test report speaks the collect vocabulary, and a status outside it is a report that cannot be used"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn the_report_collect_writes() {
     let known = KnownEntities::from_iter([("a".to_string(), Vec::new())]);
     let mut report = empty_report();
@@ -243,10 +225,7 @@ fn the_report_collect_writes() {
     );
 }
 
-#[specforge_test(
-    invariant = "collector_output_conformance",
-    verify = "unknown entity ID in collector entry produces W115"
-)]
+#[specforge_test(requirement = "INVARIANT-005")]
 fn unknown_entities_are_dropped_with_w115() {
     let known = KnownEntities::from_iter([("a".to_string(), Vec::new())]);
     let mut report = empty_report();
@@ -262,10 +241,7 @@ fn unknown_entities_are_dropped_with_w115() {
     assert!(report.results.is_empty());
 }
 
-#[specforge_test(
-    invariant = "collector_output_conformance",
-    verify = "skipped tests are not recorded as proof"
-)]
+#[specforge_test(requirement = "INVARIANT-005")]
 fn skipped_tests_are_not_recorded() {
     let known = KnownEntities::from_iter([("a".to_string(), Vec::new())]);
     let mut report = empty_report();
@@ -304,10 +280,7 @@ fn collect_without_a_root_is_no_project() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn an_unknown_runner_is_invalid_input_about_it() {
     let dir = tempfile::tempdir().unwrap();
     let available = vec![collector("r.json")];
@@ -380,10 +353,7 @@ fn known(ids: &[&str]) -> KnownEntities {
     KnownEntities::from_iter(ids.iter().map(|s| (s.to_string(), Vec::new())))
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "collect files a test reported for an entity's short id under its full path"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_short_id_is_filed_under_its_full_path() {
     let known = known(&["v1.0/03/TR1"]);
     let mut report = empty_report();
@@ -399,10 +369,7 @@ fn a_short_id_is_filed_under_its_full_path() {
     assert!(!report.results.contains_key("TR1"));
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "collect reads a rooted test id as its path"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_rooted_id_is_filed_under_its_path() {
     let known = known(&["v1.0/03/TR1"]);
     let mut report = empty_report();
@@ -416,10 +383,7 @@ fn a_rooted_id_is_filed_under_its_path() {
     assert_eq!(report.results["v1.0/03/TR1"].tests.len(), 1);
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "an ambiguous short test id is W115 and names its candidates"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn an_ambiguous_short_id_stays_unknown() {
     let known = known(&["a/TR1", "b/TR1"]);
     let mut report = empty_report();
@@ -447,10 +411,7 @@ fn an_ambiguous_short_id_stays_unknown() {
     );
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "collect matches a short test id at a segment boundary only"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_segment_suffix_only() {
     let known = known(&["v1.0/03/XTR1"]);
     let mut report = empty_report();
@@ -466,10 +427,7 @@ fn a_segment_suffix_only() {
     assert!(report.results.is_empty());
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "two spellings of one entity's test are recorded once"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn two_spellings_of_one_entity_merge_once() {
     let known = known(&["v1.0/03/TR1"]);
     let mut report = empty_report();
@@ -486,10 +444,7 @@ fn two_spellings_of_one_entity_merge_once() {
     assert_eq!((stats.entities, stats.passed), (1, 1));
 }
 
-#[specforge_test(
-    behavior = "ingest_collector_report",
-    verify = "a rooted test id that is not exact stays unknown"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_rooted_unknown_id_stays_unknown() {
     let known = known(&["v1.0/03/TR1"]);
     let mut report = empty_report();
@@ -505,10 +460,7 @@ fn a_rooted_unknown_id_stays_unknown() {
     assert_eq!(diags[0].code, "W115");
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "the config's report path is escaped for a quoted TOML or JSON string"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn the_config_expands_the_report_path_escaped_for_a_quoted_string() {
     let template = "[profile.specforge.junit]\npath = \"{report}\"\n";
     assert_eq!(

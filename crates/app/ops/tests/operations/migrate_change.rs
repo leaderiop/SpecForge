@@ -33,10 +33,7 @@ fn chmod(path: &Path, mode: u32) {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).unwrap();
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a migrated source keeps its permissions"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_migrated_source_keeps_its_permissions() {
     let dir = project();
     if !binds(dir.path()) {
@@ -48,10 +45,7 @@ fn a_migrated_source_keeps_its_permissions() {
     assert_eq!(mode(&dir.path().join("old.spec")), 0o600);
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a backup has its source's permissions"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_backup_has_its_sources_permissions() {
     let dir = project();
     if !binds(dir.path()) {
@@ -63,10 +57,7 @@ fn a_backup_has_its_sources_permissions() {
     assert_eq!(mode(&dir.path().join("old.spec.bak")), 0o600);
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a read-only source refuses the migration and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_read_only_source_refuses_the_migration_and_nothing_is_written() {
     let dir = project();
     if !binds(dir.path()) {
@@ -97,10 +88,7 @@ fn a_read_only_source_refuses_the_migration_and_nothing_is_written() {
     }
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a record the migration cannot write refuses it"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_record_the_migration_cannot_write_refuses_it() {
     let dir = project();
     if !binds(dir.path()) {
@@ -124,10 +112,7 @@ fn a_record_the_migration_cannot_write_refuses_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "a rollback keeps a file's permissions and refuses a read-only one"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_rollback_keeps_a_files_permissions_and_refuses_a_read_only_one() {
     let dir = project();
     if !binds(dir.path()) {
@@ -168,10 +153,7 @@ fn a_rollback_keeps_a_files_permissions_and_refuses_a_read_only_one() {
     assert!(record.contains("other.spec"), "{record}");
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a file that cannot be migrated leaves every file as it was"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_file_that_cannot_be_migrated_leaves_every_file_as_it_was() {
     let dir = project();
     std::fs::write(
@@ -192,10 +174,7 @@ fn a_file_that_cannot_be_migrated_leaves_every_file_as_it_was() {
     assert_eq!(crate::migrate::files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a source changed since the migration read it refuses the migration"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_source_changed_since_the_plan_refuses_the_migration() {
     use specforge_extension_sdk::prelude::*;
     let dir = project_with_extension();
@@ -241,10 +220,7 @@ fn a_source_changed_since_the_plan_refuses_the_migration() {
     assert!(!dir.path().join(".specforge/migration.json").exists());
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "the backup and temporary file are created new, never through a planted link"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn an_inside_link_at_a_temp_name_is_not_written_through() {
     let dir = project();
     let notes = dir.path().join("notes.txt");
@@ -263,10 +239,7 @@ fn an_inside_link_at_a_temp_name_is_not_written_through() {
     );
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "the backup and temporary file are created new, never through a planted link"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn an_inside_link_at_the_backup_name_is_not_written_through() {
     let dir = project();
     let notes = dir.path().join("notes.txt");

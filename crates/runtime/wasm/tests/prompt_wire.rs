@@ -45,10 +45,7 @@ fn guest(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     })
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "the host sends a prompt export its typed arguments and host and reads back its messages"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_prompt_call_sends_the_golden_input_and_reads_the_golden_output() {
     let runtime = InProcessRuntime::new().with_handler(extension, guest);
     let golden = wire("prompt.input.json");
@@ -76,10 +73,7 @@ fn a_prompt_call_sends_the_golden_input_and_reads_the_golden_output() {
     assert_eq!(output.messages.len(), 2);
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt export that answers no message is E028"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_prompt_that_answers_no_message_is_malformed() {
     let runtime = InProcessRuntime::new().with_handler(extension, |export, _| {
         (export == "prompt__x").then(|| Ok(br#"{"messages":[]}"#.to_vec()))
@@ -97,10 +91,7 @@ fn a_prompt_that_answers_no_message_is_malformed() {
     assert_eq!(error.diagnostic().code, "E028");
 }
 
-#[specforge_test_macros::test(
-    behavior = "gate_a_command",
-    verify = "a guard pass's input carries the trigger that made the host run it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_guard_pass_input_carries_its_trigger() {
     let golden = wire("pass.guard.input.json");
     let input: PassInput = serde_json::from_value(golden.clone()).unwrap();
@@ -114,10 +105,7 @@ fn a_guard_pass_input_carries_its_trigger() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt answer that is not a PromptOutput is E028"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_prompt_answer_that_does_not_decode_is_e028() {
     use specforge_wasm::WasmCallResult;
     for raw in [
@@ -150,10 +138,7 @@ fn a_prompt_answer_that_does_not_decode_is_e028() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt message keeps its lines and tabs, and every other control character is escaped"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-071")]
 fn a_prompt_message_keeps_its_lines() {
     use specforge_wasm::WasmCallResult;
     let raw = serde_json::json!({"messages": [{"role": "user", "text": "# Title\n\n\tstep\r\nnext \u{1b}[31mred\u{1b}[0m\r"}]});

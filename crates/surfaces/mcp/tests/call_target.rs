@@ -103,10 +103,7 @@ fn collect_project() -> TempDir {
     dir
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "in a handshake session, a path while no project is served serves that project, for every tool that takes a path"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn validate_with_a_path_while_nothing_is_served_serves_it() {
     let other = project(&[], "behavior adopted \"Adopted\" {\n}\n");
     let mut server = serving_nothing();
@@ -143,10 +140,7 @@ fn collect_with_another_path_keeps_serving_this_one() {
     assert!(server.state().graph().node("alpha").is_none());
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation on another project does not reload the served one"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn format_with_another_path_leaves_the_served_spans() {
     // Blank lines inside each block: formatting removes them.
     let unformatted = "behavior login \"Login\" {\n\n\n\n}\n";
@@ -207,10 +201,7 @@ fn tool_names(server: &mut McpServer) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a tool call serves files written since the last call, without watch"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_tool_call_serves_files_written_since_the_last_call() {
     let dir = project(&[], "behavior login \"Login\" {\n}\n");
     let mut server = McpServer::new();
@@ -233,10 +224,7 @@ fn a_tool_call_serves_files_written_since_the_last_call() {
     assert!(!finds(&mut server, "fresh"), "a deleted file's entities go");
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a prompt reads the project as it is on disk"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_prompt_reads_the_project_as_it_is_on_disk() {
     let dir = project(&[], "behavior login \"Login\" {\n}\n");
     let mut server = McpServer::new();
@@ -256,10 +244,7 @@ fn a_prompt_reads_the_project_as_it_is_on_disk() {
     assert!(resp["result"]["messages"].is_array(), "{resp}");
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a resource read serves files written since the last call, without watch"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_resource_read_serves_files_written_since_the_last_call() {
     let dir = project(&[], "behavior login \"Login\" {\n}\n");
     let mut server = McpServer::new();
@@ -280,10 +265,7 @@ fn a_resource_read_serves_files_written_since_the_last_call() {
     assert!(text.contains("\"fresh\""), "{text}");
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "an environment change on disk updates the extension tools listed"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn an_environment_change_on_disk_updates_the_extension_tools_listed() {
     use crate::fake_extension::{self, EXT, FakeExtension};
 
@@ -326,10 +308,7 @@ fn an_environment_change_on_disk_updates_the_extension_tools_listed() {
     assert_eq!(reports, 1, "{again:?}");
 }
 
-#[specforge_test(
-    invariant = "mcp_tool_idempotency",
-    verify = "read-only tools return equivalent results for identical inputs"
-)]
+#[specforge_test(requirement = "INVARIANT-069")]
 fn an_unchanged_project_is_not_rebuilt_by_a_call() {
     let dir = project(&[], "behavior login \"Login\" {\n}\n");
     let mut server = McpServer::new();
@@ -354,10 +333,7 @@ fn an_unchanged_project_is_not_rebuilt_by_a_call() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "in a handshake session, a path while no project is served serves that project, for every tool that takes a path"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_path_while_nothing_is_served_serves_it_for_every_tool() {
     // Every core tool whose schema takes a project path is covered, init
     // (which creates its project) below.
@@ -407,10 +383,7 @@ fn a_path_while_nothing_is_served_serves_it_for_every_tool() {
     assert_eq!(served_root(&server), Some(canonical(&created)));
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a path that does not exist is a file_not_found error on path"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_path_that_does_not_exist_is_file_not_found() {
     let served = project(&[], "behavior login \"Login\" {\n}\n");
     let missing = served.path().join("no/such/dir");
@@ -428,10 +401,7 @@ fn a_path_that_does_not_exist_is_file_not_found() {
     }
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation on another project does not reload the served one"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_mutation_on_another_project_does_not_reload_the_served_one() {
     let served = project(&[], "behavior login \"Login\" {\n}\n");
     let calls: Vec<(&str, Value)> = vec![
@@ -534,10 +504,7 @@ fn a_tool_of_the_served_project_refuses_another_projects_path() {
     assert_eq!(resp["result"]["isError"], false, "{resp}");
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a path inside the served project names the served project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_path_inside_the_served_project_names_the_served_project() {
     let dir = TempDir::new().unwrap();
     let config = json!({"name": "a", "version": "0.1.0", "spec_root": "spec",
@@ -565,10 +532,7 @@ fn a_path_inside_the_served_project_names_the_served_project() {
     assert_eq!(server.state().session_generation(), generation);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "analyzing another project leaves the served project untouched"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_of_another_project_runs_its_extensions_in_one_runtime() {
     use crate::fake_extension::{self, EXT, FakeExtension};
 
@@ -607,10 +571,7 @@ fn analyze_of_another_project_runs_its_extensions_in_one_runtime() {
 
 /// A rename on another project reports what `specforge check` reports for
 /// it afterwards, in order, and the served project is untouched.
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation on another project brings it up to date with what it wrote and reports what a fresh compile reports"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_mutation_on_another_project_reports_what_a_fresh_compile_reports() {
     use crate::fake_extension::{self, FakeExtension};
 
@@ -644,10 +605,7 @@ fn a_mutation_on_another_project_reports_what_a_fresh_compile_reports() {
     assert_eq!(server.state().session_generation(), generation);
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation on another project brings it up to date with what it wrote and reports what a fresh compile reports"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn an_extension_added_to_another_project_is_loaded_when_it_is_brought_up_to_date() {
     let served = project(&[], "behavior login \"Login\" {\n}\n");
     let mut server = McpServer::new();
@@ -683,10 +641,7 @@ fn an_extension_added_to_another_project_is_loaded_when_it_is_brought_up_to_date
     assert_eq!(server.state().session_generation(), generation);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "a file under the spec root with no entities has an empty outline"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_finds_an_empty_file_under_the_spec_root() {
     let dir = TempDir::new().unwrap();
     let config = json!({"name": "o", "version": "0.1.0", "spec_root": "spec"});
@@ -728,10 +683,7 @@ fn outline_finds_an_empty_file_under_the_spec_root() {
 /// (`precondition_failed`, naming the file), whatever the server's working
 /// directory holds. Nextest runs this binary in the package root, where
 /// `Cargo.toml` exists.
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "with no project served, outline is the no-project refusal"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_with_nothing_served_is_no_project() {
     assert!(
         Path::new("Cargo.toml").is_file(),
@@ -758,10 +710,7 @@ fn outline_with_nothing_served_is_no_project() {
 /// With nothing served, a read that names a file or an entity is the
 /// no-project refusal, in a tool, a prompt and a resource; a read of the
 /// whole project answers over the empty session.
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "with no project served, a read naming a file or an entity is the no-project refusal, an aggregate read answers over the empty session"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_read_naming_something_with_nothing_served_is_no_project() {
     let mut server = serving_nothing();
 
@@ -821,10 +770,7 @@ fn a_read_naming_something_with_nothing_served_is_no_project() {
     assert!(resp["error"].is_null(), "{resp}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "analyze with no project served and no path is a no-project error"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_without_a_project_is_refused() {
     let mut server = serving_nothing();
     let resp = call_tool(&mut server, "specforge.analyze", json!({}));
@@ -833,10 +779,7 @@ fn analyze_without_a_project_is_refused() {
     assert_eq!(error["tool"], "specforge.analyze", "{error}");
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "rename with a path to another project edits that project only and keeps serving this one"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn rename_on_another_project_edits_that_project_only() {
     let served = project(&[], "behavior alpha \"A\" {\n}\n");
     let other = within(
@@ -948,10 +891,7 @@ fn declared_target(entry: Entry, name: &str) -> TargetSpec {
 /// entry that reads only the project view answers (or, naming a file or an
 /// entity, is the no-project refusal); one that acts on the project is
 /// refused as no project, naming `path` where it takes one.
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "with no project served, every core tool, prompt and resource answers or refuses as its target declares"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn every_core_entry_with_nothing_served_answers_or_refuses_as_its_target_declares() {
     let mut server = serving_nothing();
     for &(entry, name, arguments) in NOTHING_SERVED_PROBES {
@@ -1010,10 +950,7 @@ fn every_core_entry_with_nothing_served_answers_or_refuses_as_its_target_declare
 /// With nothing served, an entry that acts on the project is refused as no
 /// project before its arguments are read: an argument it does not declare or
 /// cannot read is not the refusal.
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "with no project served, an entry that acts on the project is refused before its arguments are read"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_call_that_needs_a_project_is_refused_before_its_arguments_are_read() {
     let mut server = serving_nothing();
 
@@ -1049,10 +986,7 @@ fn loose_directory() -> TempDir {
     dir
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a server whose root lies in no project serves nothing, and a handshake init then serves the project it creates"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_root_in_no_project_serves_nothing_and_init_serves_what_it_creates() {
     let loose = loose_directory();
     let mut server = McpServer::with_project_root(loose.path().to_path_buf());
@@ -1071,10 +1005,7 @@ fn a_root_in_no_project_serves_nothing_and_init_serves_what_it_creates() {
     assert_eq!(served_root(&server), Some(canonical(&nested)));
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "while nothing is served, a project created at or above the server's root is served by the next request, in either revision"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_project_created_at_the_root_after_initialize_is_served_by_the_next_request() {
     let root = TempDir::new().unwrap();
     let mut server = McpServer::with_project_root(root.path().to_path_buf());
@@ -1094,10 +1025,7 @@ fn a_project_created_at_the_root_after_initialize_is_served_by_the_next_request(
     assert_eq!(served_root(&server), Some(canonical(root.path())));
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a server started inside a project serves that project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_root_inside_a_project_serves_that_project() {
     let p = project(&[], "behavior ok \"Ok\" {\n}\n");
     let docs = p.path().join("docs");
@@ -1125,10 +1053,7 @@ fn project_with_a_spec_block() -> TempDir {
     p
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "a server started in a spec root holding specforge.spec serves the project around it"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_server_started_in_a_spec_root_holding_specforge_spec_serves_the_project_around_it() {
     let p = project_with_a_spec_block();
     let mut server = McpServer::new();
@@ -1136,10 +1061,7 @@ fn a_server_started_in_a_spec_root_holding_specforge_spec_serves_the_project_aro
     assert_eq!(served_root(&server), Some(canonical(p.path())));
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a path to a directory that is no project is read for that call and never served"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_loose_path_is_opened_for_its_call_and_never_served() {
     let loose = loose_directory();
     let mut server = serving_nothing();
@@ -1176,10 +1098,7 @@ fn a_loose_path_is_opened_for_its_call_and_never_served() {
 /// A file discovery does not find (an excluded `drafts/x.spec`) is no
 /// source: creating it moves nothing, and a call reports what a fresh
 /// compile reports (ADR 0055).
-#[specforge_test(
-    invariant = "incremental_correctness",
-    verify = "a file discovery does not find changes nothing a compile or a session reports"
-)]
+#[specforge_test(requirement = "INVARIANT-057")]
 fn validate_reports_what_check_reports_when_an_excluded_import_target_appears() {
     let dir = project(&[], "use \"drafts/x\"\n\nterm a \"A\" {\n}\n");
     let config =

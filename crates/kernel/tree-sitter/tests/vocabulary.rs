@@ -7,10 +7,7 @@
 use std::collections::BTreeSet;
 use tree_sitter_specforge::{LANGUAGE, field, kind};
 
-#[specforge_test_macros::test(
-    invariant = "cst_vocabulary_grammar_consistency",
-    verify = "every named node kind and field name of the grammar has one constant, and every constant names one"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-011")]
 fn the_vocabulary_is_the_grammars() {
     let language: tree_sitter::Language = LANGUAGE.into();
     let grammar_kinds: BTreeSet<&str> = (0..language.node_kind_count() as u16)

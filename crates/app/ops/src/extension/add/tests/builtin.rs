@@ -31,10 +31,7 @@ fn runtime_with_cargo_test() -> InProcessRuntime {
     )
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add enables a builtin's required peers but not its optional ones"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_builtin_is_enabled_after_its_required_builtin_peers() {
     let dir = project_with(EMPTY_PROJECT);
 
@@ -95,10 +92,7 @@ fn extensions_enabled_counts_the_string_entries_after_the_add() {
     assert_eq!(again.extensions_enabled, 2);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a builtin whose declaration cannot be read is refused before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_builtin_whose_declaration_cannot_be_read_is_refused() {
     use crate::config::testing::files_under;
     let dir = project_with(EMPTY_PROJECT);
@@ -126,10 +120,7 @@ fn a_builtin_whose_declaration_cannot_be_read_is_refused() {
     assert_eq!(files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add enables the builtins a required builtin peer requires, dependencies first"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_enables_what_a_required_builtin_requires_first() {
     let dir = project_with(EMPTY_PROJECT);
     let registry = crate::registry::Unconfigured("add");
@@ -220,10 +211,7 @@ fn add_enables_what_a_required_builtin_requires_first() {
     ));
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a required builtin peer the embedded builtin does not satisfy is refused before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_required_builtin_peer_the_embedded_one_does_not_satisfy_is_refused() {
     use crate::config::testing::files_under;
     let dir = project_with(EMPTY_PROJECT);
@@ -271,10 +259,7 @@ fn a_required_builtin_peer_the_embedded_one_does_not_satisfy_is_refused() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "a failed install puts back the binary, specforge.lock and specforge.json it changed"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_failed_builtin_edit_enables_no_peer() {
     use std::os::unix::fs::PermissionsExt;
     let dir = project_with(EMPTY_PROJECT);
@@ -298,10 +283,7 @@ fn a_failed_builtin_edit_enables_no_peer() {
     assert_eq!(std::fs::read(&config).unwrap(), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a builtin asked at a version this specforge does not embed is refused with R-RES-004 before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_builtin_asked_at_a_version_this_specforge_does_not_embed_is_refused() {
     use crate::config::testing::files_under;
     let dir = project_with(EMPTY_PROJECT);

@@ -54,10 +54,7 @@ fn config_with_module(l: &Layout) {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an environment input that is a symlink is followed to its target"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_symlinked_modules_target_is_watched() {
     let l = layout();
     config_with_module(&l);
@@ -80,10 +77,7 @@ fn a_symlinked_modules_target_is_watched() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an environment input that is a symlink is followed to its target"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_symlinked_config_and_locks_targets_are_watched() {
     let l = layout();
     let base = l.root.parent().unwrap();
@@ -120,10 +114,7 @@ fn a_symlinked_config_and_locks_targets_are_watched() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an input that is a symlink pointed elsewhere is its change"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_module_link_pointed_elsewhere_reloads_the_environment() {
     let l = layout();
     config_with_module(&l);
@@ -156,10 +147,7 @@ fn project(config: serde_json::Value, files: &[(&str, &str)]) -> TestProject {
         .files(files)
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory moved above an environment or check input changes that input"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_moved_directory_holding_a_module_reloads_the_environment() {
     let dir = project(
         json!({"name": "c", "version": "0.1.0", "extensions": ["@acme/local=ext/local.wasm"]}),
@@ -173,10 +161,7 @@ fn a_moved_directory_holding_a_module_reloads_the_environment() {
     assert_eq!(changes.environment(), vec![root.join("ext")]);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "specforge.json, specforge.lock and a loaded extension module are environment changes"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn config_lock_and_loaded_modules_are_environment_inputs() {
     let dir = project(
         json!({

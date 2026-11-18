@@ -1,6 +1,6 @@
-//! The route `gsd/requirement-thread` (ADR 0331 D8), end to end: `specforge trace` follows a requirement to the
-//! commit whose `Gsd-Task:` trailer names its task. The facts half (test, status, verdict) is the taskboard parity
-//! golden's.
+//! The route `gsd/requirement-thread` (ADR 0331 D8, ADR 0371 D7), end to end: `specforge trace` follows a requirement
+//! to the commit whose `Gsd-Task:` trailer names its task. The facts half (items, proof, verdict, coverage item) is the
+//! taskboard parity golden's.
 
 use super::harness::project;
 
@@ -56,10 +56,13 @@ fn trace_follows_a_requirement_to_its_commit() {
         found.contains(&(s("commit"), hash[..12].to_string(), s("(Gsd-Task)"))),
         "{trace:#}"
     );
-    // Without `@code/core` the steps into its `item` and `test` kinds are inert, named, and never a failure.
+    // The start carries the requirement's computed `proof`: committed, and no test fact collected.
+    assert_eq!(trace["annotations"][0]["text"], "(not_run)", "{trace:#}");
+    // Without `@code/core` the start's annotation of the tests that name it and the step into its `item` kind are
+    // inert, named, and never a failure.
     assert_eq!(
         trace["skipped"],
-        serde_json::json!(["step 'item'", "step 'test'"]),
+        serde_json::json!(["annotation 'status' of the start", "step 'item'"]),
         "{trace:#}"
     );
     assert!(run.stderr.contains("I210"), "{}", run.all());

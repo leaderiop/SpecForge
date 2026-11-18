@@ -20,10 +20,7 @@ fn handshake(version: &str) -> HandshakeResponse {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_context_route",
-    verify = "a contexts category round trips on the wire and a 2.0 guest is never asked for it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
 fn a_contexts_category_round_trips_and_a_2_0_guest_is_never_asked_for_it() {
     let items = json!([{
         "name": "executor",
@@ -100,10 +97,7 @@ fn a_contexts_category_round_trips_and_a_2_0_guest_is_never_asked_for_it() {
     assert!(loaded.contexts.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_context_route",
-    verify = "an unknown key of a context route or a section is reported"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
 fn an_unknown_key_of_a_context_route_or_a_section_is_reported() {
     let mut unknown = Vec::new();
     ExtensionDeclaration::from_wire(
@@ -138,10 +132,7 @@ fn an_unknown_key_of_a_context_route_or_a_section_is_reported() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "record_harness_values",
-    verify = "a context writer round trips on the wire"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn a_context_writer_round_trips() {
     use specforge_protocol_types::FieldWriter;
     assert_eq!(FieldWriter::parse("context"), Some(FieldWriter::Context));
@@ -160,10 +151,7 @@ fn a_context_writer_round_trips() {
     assert_eq!(serde_json::to_value(&field).unwrap()["writer"], "context");
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_context_route",
-    verify = "a route's records and stale code round trip on the wire, and an unknown record key is reported"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
 fn records_and_stale_round_trip_and_an_unknown_record_key_is_reported() {
     use specforge_protocol_types::ContextRecordDescriptor;
     let item = json!({

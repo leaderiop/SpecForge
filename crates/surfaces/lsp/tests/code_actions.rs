@@ -4,10 +4,8 @@
 
 use specforge_test_macros::test as spec;
 
-#[spec(
-    behavior = "code_actions_for_missing_verify",
-    verify = "generated verify stubs added to entity block in .spec file"
-)]
+#[spec(requirement = "FEATURE-008")]
+#[spec(requirement = "FEATURE-024")]
 #[tokio::test]
 async fn missing_verify_produces_stub() {
     // `first` has no verify statement; `second` follows it in the file.
@@ -117,10 +115,7 @@ async fn actions_are_those_overlapping_the_requested_range() {
     assert!(between["result"].is_null(), "{between}");
 }
 
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "a fix names the version of the buffer it edits for a client that takes document changes"
-)]
+#[spec(requirement = "FEATURE-059")]
 #[tokio::test]
 async fn lsp_fixes_are_versioned() {
     let text = "behavior first \"First\" {\n  contract \"c\"\n}\n";

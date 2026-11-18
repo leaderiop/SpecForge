@@ -56,10 +56,8 @@ fn ids(rows: &[CoverageRow]) -> Vec<&str> {
     rows.iter().map(|r| r.entity_id.as_str()).collect()
 }
 
-#[specforge_test(
-    behavior = "compute_the_coverage_view",
-    verify = "with no filters the rows are the entities that count toward coverage"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn the_view_lists_what_counts_toward_coverage() {
     let project = project();
     let outcome = answered(coverage(&project.view(), &CoverageQuery::default()));
@@ -86,10 +84,9 @@ fn the_view_lists_what_counts_toward_coverage() {
     assert_eq!(ids(&rows), ["logout", "uptime"]);
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "an entity is unverified when it counts toward coverage and is not proven"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn coverage_rows_and_stats_read_one_standing() {
     let project = project();
     let view = project.view();
@@ -120,10 +117,8 @@ fn coverage_rows_and_stats_read_one_standing() {
     assert_eq!(stats.testable_count, counted);
 }
 
-#[specforge_test(
-    behavior = "compute_the_coverage_view",
-    verify = "an entity that does not count, named by entity_id, is returned with the status that says why"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_exempt_entity_is_reachable_by_id() {
     let project = project();
     for exempt in ["Status", "base", "latency"] {
@@ -141,10 +136,9 @@ fn an_exempt_entity_is_reachable_by_id() {
     assert_eq!(signin.status, Status::NotTestable);
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "an entity is unverified when it counts toward coverage and is not proven"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn unverified_is_counted_and_not_proven() {
     let project = project();
     let view = project.view();
@@ -166,10 +160,9 @@ fn unverified_is_counted_and_not_proven() {
     assert_eq!(unverified, ["logout", "uptime"]);
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "coverage is computed once per compile and report content, and again after the report changes"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn the_view_scores_against_the_report_as_it_is_now() {
     let project = project();
     let before = project.view().coverage().unwrap();
@@ -183,10 +176,9 @@ fn the_view_scores_against_the_report_as_it_is_now() {
     assert!(before.is_unverified("logout"));
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "a coverage row is one JSON document on every surface"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_coverage_row_is_one_document() {
     let project = project();
     let view = project.view();
@@ -234,10 +226,8 @@ fn two(project: &Assembled) -> serde_json::Value {
     serde_json::to_value(row(&project.view(), "two").document()).unwrap()
 }
 
-#[specforge_test(
-    behavior = "compute_the_coverage_view",
-    verify = "an entity with an unproven obligation is partial, not covered"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_unproven_obligation_leaves_the_row_partial() {
     let project = two_with(&[("a", "passed")]);
     let row = two(&project);
@@ -259,10 +249,8 @@ fn an_unproven_obligation_leaves_the_row_partial() {
     assert_eq!(two(&both)["unproven"], json!([]));
 }
 
-#[specforge_test(
-    behavior = "compute_the_coverage_view",
-    verify = "a failing recorded test keeps an entity from being covered"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_failing_test_keeps_the_row_from_covered() {
     // Both obligations proven, and a third test fails (A014).
     let row = two(&two_with(&[

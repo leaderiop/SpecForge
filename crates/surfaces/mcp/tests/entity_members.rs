@@ -35,10 +35,7 @@ fn tool(server: &mut Served, name: &str, args: Value) -> Value {
     serde_json::from_str(&tool_text(&call_tool(server, name, args))).unwrap()
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "an entity's facts carry its methods and its fields' annotations as the graph export writes them"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn inspect_answers_methods_and_annotations() {
     let mut server = served();
     for (id, key) in [("order_store", "methods"), ("Order", "annotations")] {
@@ -56,10 +53,7 @@ fn inspect_answers_methods_and_annotations() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "the context prompt carries the entity's methods and its fields' annotations, a structural constraint's too"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn the_context_prompt_carries_methods_and_annotations() {
     let mut server = served();
     let resp = get_prompt(
@@ -85,10 +79,7 @@ fn prompt_payload(server: &mut Served, id: &str) -> Value {
     serde_json::from_str(&prompt_text(&resp)).unwrap()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "inspect writes each obligation as its kind, absent for a bare verify, and its text"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_writes_each_obligation_as_its_kind_and_its_text() {
     let mut server = served();
     let want = json!([{"kind": "unit", "text": "tests pass"}, {"text": "unit tests pass"}]);
@@ -98,10 +89,7 @@ fn inspect_writes_each_obligation_as_its_kind_and_its_text() {
     assert_eq!(payload["verify_expectations"], want, "{payload}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "an obligation inspect writes, given to remove_verify, removes that verify line"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn an_inspected_obligation_is_the_one_remove_verify_removes() {
     let mut server = served();
     let inspected = tool(&mut server, "specforge.inspect", json!({"entity_id": "b3"}));
@@ -131,10 +119,7 @@ fn an_inspected_obligation_is_the_one_remove_verify_removes() {
     }
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "inspect, the context prompt and the graph and context exports write an entity's obligations as one record"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn every_reply_writes_an_obligation_as_the_graph_export_does() {
     let mut server = served();
     let queried = tool(
@@ -159,10 +144,7 @@ fn every_reply_writes_an_obligation_as_the_graph_export_does() {
     assert_eq!(Some(verify.clone()), in_context, "{exported}");
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "inspect writes a block list as an array of objects, and specforge.edit appends an item to it"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn mcp_inspect_shows_blocks_and_edits_them() {
     use specforge_project::testing::{TYPED_EXTENSION, typed_kinds};
     let mut server = TestProject::new()
@@ -195,10 +177,7 @@ fn mcp_inspect_shows_blocks_and_edits_them() {
     assert!(diff.contains("+    { phase 03 provides \"y\" }"), "{reply}");
 }
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "MCP inspect shows a computed value"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn mcp_inspect_shows_a_computed_value() {
     let runtime: SharedRuntime = std::sync::Arc::new(gsd_history_runtime(
         json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]),
@@ -220,10 +199,7 @@ fn mcp_inspect_shows_a_computed_value() {
     assert_eq!(inspected["computed"], json!(["status"]), "{inspected}");
 }
 
-#[specforge_test(
-    behavior = "refuse_stale_revision",
-    verify = "a core edit names the revision it was planned on and is refused when it is stale"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn core_edits_name_their_revision() {
     let mut server = served();
     let inspected = tool(&mut server, "specforge.inspect", json!({"entity_id": "b3"}));
@@ -244,10 +220,7 @@ fn core_edits_name_their_revision() {
     assert!(tool_text(&reply).contains("stale_revision"), "{reply}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "specforge.inspect lists each checked value's outcome, as its output schema says"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn mcp_inspect_shows_value_checks() {
     const EXT: &str = "@pin/surface";
     fn extension() -> specforge_extension_sdk::ContributionsBuilder {

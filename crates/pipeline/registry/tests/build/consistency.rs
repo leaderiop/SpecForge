@@ -12,10 +12,8 @@ use crate::support::{
     build, coded, codes, declare, diagnostics, extension, optional_peer, peer, product, software,
 };
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a target_kind the extension or a loaded peer declares passes"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn a_target_kind_the_extension_or_a_loaded_peer_declares_passes() {
     // Its own kind.
     let own = declare("@test/own", |c| {
@@ -63,10 +61,8 @@ fn a_target_kind_the_extension_or_a_loaded_peer_declares_passes() {
     assert_eq!(codes(&without_peer), ["E027"]);
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "an edge label the extension declares an edge type for passes"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn an_edge_label_the_extension_declares_passes() {
     let build = build([software(), product()]);
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
@@ -76,10 +72,8 @@ fn an_edge_label_the_extension_declares_passes() {
     assert_eq!(behaviors.declared().edge.as_deref(), Some("composes"));
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a target_kind no loaded extension declares is a W021 warning"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn a_target_kind_no_loaded_extension_declares_is_w021() {
     let build = build([declare("@test/tasks", |c| {
         c.kind("Task", |k| {
@@ -107,10 +101,8 @@ fn a_target_kind_no_loaded_extension_declares_is_w021() {
     assert!(build.fields().contains("task", "owner"));
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a target_kind only a non-peer extension declares is a W021 warning naming that extension"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn a_target_kind_only_a_non_peer_declares_is_w021_naming_it() {
     // A peer of @specforge/software only, yet it points at product's
     // `feature`.
@@ -143,10 +135,8 @@ fn a_target_kind_only_a_non_peer_declares_is_w021_naming_it() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "an edge label the extension declares no edge type for is a W021 warning"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn an_edge_label_with_no_declared_edge_type_is_w021() {
     let build = build([declare("@test/ext", |c| {
         c.kind("Behavior", |k| {
@@ -168,10 +158,8 @@ fn an_edge_label_with_no_declared_edge_type_is_w021() {
     assert!(build.edges().contains("missing_edge"));
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a derived_from the host can't apply produces a W021 warning"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn a_derived_from_the_host_cannot_apply_is_w021() {
     let build = build([declare("@test/ext", |c| {
         c.kind("Shape", |k| {
@@ -217,10 +205,8 @@ fn a_derived_from_the_host_cannot_apply_is_w021() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "cross-validation uses no domain-specific logic"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn consistency_is_checked_by_structure_alone() {
     // A domain the host knows nothing of: its references resolve, so
     // nothing is reported.
@@ -244,10 +230,8 @@ fn consistency_is_checked_by_structure_alone() {
     assert!(build.kinds().contains("recipe") && build.kinds().contains("ingredient"));
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "Registry Build Checks Declaration Consistency: declaration consistency holds — declarations_in_load_order, peers_loaded, references_resolved, authoring_errors_diagnosed, compile_not_failed"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn declaration_consistency_holds() {
     // declarations_in_load_order + peers_loaded: the extension loads before
     // its peer; the check waits for both.
@@ -329,10 +313,8 @@ fn edge_rule(name: &str, peers: &[&str], code: &str, edge_type: &str) -> Extensi
     c.declaration()
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a rule's edge type that neither its extension nor its peers declare produces W021"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn a_rules_edge_type_nobody_it_knows_declares_is_w021() {
     // software's own edge, used by an extension that does not peer on it.
     let stranger = edge_rule("@test/stranger", &[], "X100", "enforces");
@@ -367,10 +349,8 @@ fn a_rules_edge_type_nobody_it_knows_declares_is_w021() {
     assert_eq!(coded(&build, "W021")[0].severity, Severity::Warning);
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a rule's target kind that neither its extension nor its peers declare produces W021"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn a_rules_target_kind_nobody_it_knows_declares_is_w021() {
     let targeting = |name: &str, peers: Vec<PeerDependency>, target: &str| {
         let mut c = extension(name);
@@ -448,10 +428,8 @@ fn naming(
     c.declaration()
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "a rule's target_extension, loaded, must declare its target kind and edge type; not loaded, the rule is inert and costs no W021"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn a_rules_target_extension_resolves_its_kind_and_edge_type() {
     let w021 = |build: &specforge_registry::RegistryBuild| -> Vec<String> {
         coded(build, "W021")
@@ -518,10 +496,8 @@ fn a_rules_target_extension_resolves_its_kind_and_edge_type() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_declaration_consistency",
-    verify = "an edge label the extension declares no edge type for is a W021 warning"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-029")]
 fn a_shared_or_enhancement_fields_undeclared_edge_label_is_w021() {
     let build = build([declare("@test/ext", |c| {
         c.kind("Task", |k| {

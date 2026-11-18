@@ -66,10 +66,7 @@ fn assert_one_agent_context(project: TestProject) {
     }
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "the context export and the context prompt carry the same members of every entity"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn the_context_export_and_prompt_carry_the_same_members() {
     assert_one_agent_context(TestProject::copy_of(
         specforge_repo_root::repo_root().join("examples/todo-app"),

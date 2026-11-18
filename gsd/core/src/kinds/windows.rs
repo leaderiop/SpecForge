@@ -45,7 +45,7 @@ pub const BROKEN_WINDOW: Kind = Kind::new(
             "`file`: checked while the window is open (E016); a fixed one's may since be gone",
         ),
         int("line").doc("`line`"),
-        str("description").prose().r().doc("`description`"),
+        str("description").r().doc("`description`"),
         block("waiver", WAIVER)
             .h()
             .i()

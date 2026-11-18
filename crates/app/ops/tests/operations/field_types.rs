@@ -48,10 +48,7 @@ const FAILURE_MODE_FIELDS: &str = r#"cause "disk full"
   effect "writes fail"
   severity high"#;
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a single string on a string_list field becomes a one-item list"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_single_string_on_a_string_list_field_is_exported_as_a_list() {
     let (_project, compiled) = governance_project(
         r#"decision d1 "D" {
@@ -72,10 +69,7 @@ fn a_single_string_on_a_string_list_field_is_exported_as_a_list() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a single reference on a reference_list field becomes a one-item list"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_single_reference_on_a_reference_list_field_links_like_a_list() {
     let (_project, compiled) = governance_project(
         r#"invariant inv1 "I" {
@@ -123,10 +117,7 @@ decision d1 "D" {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a value that is not the declared integer, bool or enum type is an error"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_value_that_is_not_an_integer_on_an_integer_field_is_an_error() {
     let (_project, compiled) = governance_project(&format!(
         r#"failure_mode fm1 "F" {{
@@ -152,10 +143,7 @@ fn a_value_that_is_not_an_integer_on_an_integer_field_is_an_error() {
     assert_eq!(diag["span"]["end_line"], 5);
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a value that is not the declared integer, bool or enum type is an error"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_quoted_integer_on_an_integer_field_is_exported_as_a_number() {
     let (_project, compiled) = governance_project(&format!(
         r#"failure_mode fm1 "F" {{
@@ -182,10 +170,7 @@ failure_mode fm2 "G" {{
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a list on a field declared as a single value is an error"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_list_on_a_string_field_is_an_error() {
     let (_project, compiled) = governance_project(
         r#"decision d1 "D" {
@@ -207,10 +192,7 @@ fn a_list_on_a_string_field_is_an_error() {
     assert_eq!(e061[0]["span"]["start_line"], 3);
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a single integer, boolean or date, or a mixed list, on a list field becomes a list of strings"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_single_integer_or_a_mixed_list_on_a_list_field_is_exported_as_a_list() {
     let (_project, compiled) = governance_project(
         r#"decision d1 "D" {
@@ -339,10 +321,7 @@ fn refused_field(message: &str) -> String {
     format!("{field}/{id}")
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a value outside a builtin vocabulary is E061"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn every_builtin_vocabulary_refuses_a_value_outside_it() {
     let (_project, compiled) = vocabulary_project(OFF_VOCABULARY);
 
@@ -391,10 +370,7 @@ fn every_builtin_vocabulary_refuses_a_value_outside_it() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "an enum value suggests the closest declared value"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_off_vocabulary_value_suggests_the_closest_value() {
     let (_project, compiled) = project_enabling(
         &["@specforge/product"],
@@ -514,10 +490,7 @@ fn every_closed_value() -> String {
     spec
 }
 
-#[specforge_test(
-    behavior = "validate_product_vocabularies",
-    verify = "check admits every value the list filters take, and the lists find it"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn the_lists_take_every_value_check_admits() {
     let (_project, compiled) = vocabulary_project(&every_closed_value());
 
@@ -556,10 +529,7 @@ deliverable press_kit "Press kit" {
 }
 "#;
 
-#[specforge_test(
-    behavior = "accept_a_projects_own_words",
-    verify = "check and the lists take a project's own words for an artifact type, an interaction model and a family"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn a_project_writes_its_own_words_for_what_it_delivers_and_how_it_reaches_people() {
     let (_project, compiled) = project_enabling(&["@specforge/product"], OWN_WORDS);
     let (_ok, diags) = check(&compiled);

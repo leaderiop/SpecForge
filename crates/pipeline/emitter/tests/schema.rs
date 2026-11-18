@@ -190,10 +190,7 @@ fn sample_schema() -> GraphProtocolSchema {
 // ===========================================================================
 
 // B:generate_schema_from_registries — verify unit "SchemaVersion Display produces MAJOR.MINOR.PATCH"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "SchemaVersion Display"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn schema_version_display() {
     assert_eq!(SchemaVersion::new(1, 0, 0).to_string(), "1.0.0");
     assert_eq!(SchemaVersion::new(2, 3, 4).to_string(), "2.3.4");
@@ -203,10 +200,7 @@ fn schema_version_display() {
 }
 
 // B:generate_schema_from_registries — verify unit "SchemaVersion FromStr round-trips"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "SchemaVersion FromStr"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn schema_version_from_str() {
     let v: SchemaVersion = "1.2.3".parse().unwrap();
     assert_eq!(v, SchemaVersion::new(1, 2, 3));
@@ -221,10 +215,7 @@ fn schema_version_from_str() {
 }
 
 // B:generate_schema_from_registries — verify unit "SchemaVersion Ord compares correctly"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "SchemaVersion Ord"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn schema_version_ord() {
     let v1 = SchemaVersion::new(1, 0, 0);
     let v2 = SchemaVersion::new(1, 1, 0);
@@ -247,10 +238,7 @@ fn empty_schema_serde_round_trip() {
 }
 
 // B:generate_schema_from_registries — verify unit "populated schema round-trips through serde"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "populated schema serde round-trip"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn populated_schema_serde_round_trip() {
     let schema = sample_schema();
     let json = serde_json::to_string_pretty(&schema).unwrap();
@@ -263,10 +251,7 @@ fn populated_schema_serde_round_trip() {
 // ===========================================================================
 
 // B:generate_schema_from_registries — verify unit "generate from registries with kinds and edges"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "schema includes all registered entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn generate_schema_includes_kinds_edges_fields() {
     let build = software_and_product();
 
@@ -309,10 +294,7 @@ fn generate_schema_includes_kinds_edges_fields() {
 }
 
 // B:generate_schema_from_registries — verify unit "zero-extension registries produce valid empty schema"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "zero extensions produces valid empty schema"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn generate_schema_empty_registries() {
     let build = build_registries(vec![]);
 
@@ -324,10 +306,7 @@ fn generate_schema_empty_registries() {
 }
 
 // B:generate_schema_from_registries — verify unit "field types map correctly"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "schema fields match FieldRegistry entries"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn generate_schema_field_type_mapping() {
     let build = build_registries(vec![declaration(
         "@specforge/software",
@@ -366,10 +345,7 @@ fn generate_schema_field_type_mapping() {
 }
 
 // B:generate_schema_from_registries — verify unit "entity_kinds sorted by name"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "schema includes all registered edge types"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn generate_schema_deterministic_sort() {
     let build = build_registries(vec![declaration(
         "@specforge/software",
@@ -402,10 +378,7 @@ fn generate_schema_deterministic_sort() {
 // ===========================================================================
 
 // B:embed_schema_in_export — a graph export with a schema is format 2.0
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "format_version set to 2.0 with schema"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn a_graph_export_with_a_schema_is_format_2_0() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
@@ -418,10 +391,7 @@ fn a_graph_export_with_a_schema_is_format_2_0() {
 }
 
 // B:embed_schema_in_export — a graph export embeds the schema as a top-level key
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "schema embedded as top-level key in full JSON export"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn a_graph_export_embeds_the_schema() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));
@@ -444,10 +414,7 @@ fn existing_emit_json_has_no_schema_key() {
 }
 
 // B:embed_schema_in_export — a context export with a schema is format 2.0
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "format_version set to 2.0 with schema"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn a_context_export_with_a_schema_is_format_2_0() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
@@ -458,10 +425,7 @@ fn a_context_export_with_a_schema_is_format_2_0() {
 }
 
 // B:embed_schema_in_export — a brief export with a schema is format 2.0
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "format_version set to 2.0 with schema"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn a_brief_export_with_a_schema_is_format_2_0() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
@@ -472,10 +436,7 @@ fn a_brief_export_with_a_schema_is_format_2_0() {
 }
 
 // B:embed_schema_in_export — verify unit "schema_version in V2 matches schema object"
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "output includes schema_version field"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn the_export_version_is_the_schema_version() {
     let graph = Graph::new();
     let schema = sample_schema();
@@ -534,10 +495,7 @@ fn publish_json_schema_valid() {
 }
 
 // B:publish_schema_specification — verify unit "all kinds in node kind enum"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "published schema describes all registered entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn publish_json_schema_kinds_in_enum() {
     let schema = sample_schema();
     let parsed = publish(&schema, EmitFormat::Json).unwrap();
@@ -551,10 +509,7 @@ fn publish_json_schema_kinds_in_enum() {
 }
 
 // B:publish_schema_specification — verify unit "all edge labels in edge label enum"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "published schema describes all edge types"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn publish_json_schema_edge_labels_in_enum() {
     let mut schema = sample_schema();
     schema.entity_kinds[0].fields.push(SchemaField {
@@ -584,10 +539,7 @@ fn publish_json_schema_edge_labels_in_enum() {
 }
 
 // B:publish_schema_specification — verify unit "required properties present"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "published schema requires the Graph Protocol top-level properties"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn publish_json_schema_required_properties() {
     let schema = sample_schema();
     let parsed = publish(&schema, EmitFormat::Json).unwrap();
@@ -641,10 +593,7 @@ fn publish_json_schema_has_title() {
 // ===========================================================================
 
 // B:generate_schema_from_registries — verify integration "full pipeline: registries → schema → embed"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "schema includes all registered entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn full_pipeline_registries_to_schema_to_embed() {
     // Build registries
     let build = software_and_product();
@@ -675,10 +624,7 @@ fn full_pipeline_registries_to_schema_to_embed() {
 }
 
 // B:embed_schema_in_export — verify unit "V2 nodes contain all fields"
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all fields and metadata"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn a_graph_export_with_a_schema_keeps_every_field() {
     let mut graph = Graph::new();
     let mut fields = FieldMap::new();
@@ -703,10 +649,7 @@ fn a_graph_export_with_a_schema_keeps_every_field() {
 }
 
 // B:embed_schema_in_export — verify unit "V2 edges present"
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all nodes and edges"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn a_graph_export_with_a_schema_keeps_the_edges() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", None));
@@ -728,10 +671,7 @@ fn a_graph_export_with_a_schema_keeps_the_edges() {
 }
 
 // B:generate_schema_from_registries — verify unit "edge with no source/target kinds"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "schema includes all registered edge types"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn generate_schema_edge_no_source_target() {
     let build = build_registries(vec![declaration(
         "@specforge/software",
@@ -746,10 +686,7 @@ fn generate_schema_edge_no_source_target() {
 }
 
 // B:publish_schema_specification — verify unit "description includes version"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "description includes version"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn publish_json_schema_description_includes_version() {
     let schema = sample_schema();
     let parsed = publish(&schema, EmitFormat::Json).unwrap();
@@ -774,10 +711,7 @@ fn schema_generated_deterministically_for_caching() {
 }
 
 // B:serve_schema_resource — verify unit "schema reflects current compilation state"
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "schema reflects current compilation state"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn schema_reflects_current_state() {
     // The path `specforge schema` takes: compile the project, build the
     // schema from the compilation's registries, serialize it.
@@ -841,10 +775,7 @@ fn published_schema_validates_known_good_export() {
 }
 
 // B:publish_schema_specification — verify unit "published schema describes all registered entity kinds"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "published schema describes all registered entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn published_schema_describes_all_kinds() {
     let schema = sample_schema();
     let json_schema = publish(&schema, EmitFormat::Json).unwrap();
@@ -860,10 +791,7 @@ fn published_schema_describes_all_kinds() {
 }
 
 // B:publish_schema_specification — verify unit "published schema describes all edge types"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "published schema describes all edge types"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn published_schema_describes_all_edge_types() {
     let schema = sample_schema();
     let json_schema = publish(&schema, EmitFormat::Json).unwrap();
@@ -889,10 +817,7 @@ fn published_schema_describes_all_edge_types() {
 // ===========================================================================
 
 // B:generate_schema_from_registries — verify contract "requires/ensures consistency for schema generation from registries"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "Generate Schema From Registries: schema generation from registries holds — registries_populated_fired, all_kinds_in_schema, all_edges_in_schema, schema_cached, schema_generated_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn generate_schema_contract() {
     let build = software_and_product();
 
@@ -917,10 +842,7 @@ fn generate_schema_contract() {
 }
 
 // B:embed_schema_in_export — verify contract "requires/ensures consistency for schema embedding in export"
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "Embed Schema in Export: schema embedding in export holds — schema_version_computed_fired, validation_complete_fired, schema_embedded, format_version_set, schema_ref_names_full_schema"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn embed_schema_contract() {
     let schema = sample_schema();
     let mut graph = Graph::new();
@@ -941,10 +863,7 @@ fn embed_schema_contract() {
 }
 
 // B:publish_schema_specification — verify contract "requires/ensures consistency for schema specification publication"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "Publish Schema Specification: schema specification publication holds — schema_version_computed_fired, validation_complete_fired, valid_json_schema_produced, all_kinds_described, third_party_usable, render_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn publish_schema_contract() {
     let schema = sample_schema();
     let parsed = publish(&schema, EmitFormat::Json).unwrap();
@@ -967,10 +886,7 @@ fn publish_schema_contract() {
 // ===========================================================================
 
 // B:embed_schema_in_export — verify unit "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn scoped_v2_export_references_schema() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", Some("A")));
@@ -1000,10 +916,7 @@ fn scoped_v2_export_references_schema() {
 }
 
 // B:embed_schema_in_export — verify unit "scoped context V2 export references schema"
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn scoped_context_v2_export() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", Some("A")));
@@ -1016,10 +929,7 @@ fn scoped_context_v2_export() {
 }
 
 // B:embed_schema_in_export — verify unit "scoped brief V2 export references schema"
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn scoped_brief_v2_export() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", Some("A")));
@@ -1137,10 +1047,7 @@ fn published_schema_constrains_fields_per_kind() {
 }
 
 // B:publish_schema_specification — verify unit "published context schema admits declared headline and normative fields"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "published context schema admits declared headline and normative fields"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn published_context_schema_admits_declared_headline_and_normative_fields() {
     // A headline field named neither `contract` nor `status`.
     let registries = build_registries(vec![declaration(
@@ -1238,10 +1145,7 @@ fn ticket_registries() -> specforge_registry::RegistryBuild {
     specforge_registry::build_registries(vec![declaration])
 }
 
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "a field's type is named in the schema as its extension declares it"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn a_field_type_is_named_in_the_schema_as_declared() {
     let build = ticket_registries();
     let schema = generate_schema(&build);
@@ -1262,10 +1166,7 @@ fn a_field_type_is_named_in_the_schema_as_declared() {
     assert!(!written.contains("boolean"), "{written}");
 }
 
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "the published schema lists the field types the host reads"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_published_schema_lists_the_field_types_the_host_reads() {
     let schema = generate_schema(&ticket_registries());
     let published = publish(&schema, EmitFormat::Json).unwrap();
@@ -1278,10 +1179,7 @@ fn the_published_schema_lists_the_field_types_the_host_reads() {
     assert_eq!(listed, &serde_json::json!(names));
 }
 
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "a field's declared default value reaches the schema"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn the_schema_carries_a_declared_default_value() {
     let build = ticket_registries();
     let schema = generate_schema(&build);
@@ -1315,10 +1213,7 @@ fn the_schema_carries_a_declared_default_value() {
 }
 
 // B:generate_schema_from_registries — an edge type that leaves a side open takes its writers
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "an edge type that declares no source or target kind names those of the fields that write it"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn an_open_edge_type_takes_the_kinds_of_the_fields_writing_it() {
     let build = build_registries(vec![declaration(
         "@specforge/software",
@@ -1378,10 +1273,7 @@ fn an_open_edge_type_takes_the_kinds_of_the_fields_writing_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "an edge type several kinds write without declaring it names every writing kind"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn an_undeclared_edge_two_kinds_write_names_every_writer() {
     use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
     let writer = |name: &str| EntityKindDescriptor {
@@ -1428,10 +1320,7 @@ fn an_undeclared_edge_two_kinds_write_names_every_writer() {
 
 const AGENT_FORMATS: [EmitFormat; 3] = [EmitFormat::Json, EmitFormat::Context, EmitFormat::Brief];
 
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "the published schema is the export document's schema narrowed by the project"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_published_schema_is_the_export_documents_narrowed() {
     let schema = sample_schema();
     for format in AGENT_FORMATS {
@@ -1475,10 +1364,7 @@ fn the_published_schema_is_the_export_documents_narrowed() {
     }
 }
 
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "the published schema uses only keywords the in-repo checker reads"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_published_schema_uses_only_keywords_the_checker_reads() {
     for schema in [sample_schema(), GraphProtocolSchema::empty()] {
         for format in AGENT_FORMATS {
@@ -1515,10 +1401,7 @@ fn each_format_publishes_its_own_id() {
     assert!(publish(&schema, EmitFormat::Dot).is_none());
 }
 
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "every JSON export carries the project's schema version, whether the schema is attached or not"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn a_plain_export_carries_the_given_schemas_version() {
     let mut schema = GraphProtocolSchema::empty();
     schema.schema_version = SchemaVersion::new(4, 2, 0);
@@ -1549,10 +1432,7 @@ fn a_plain_export_carries_the_given_schemas_version() {
     assert_eq!(document["format_version"], "1.0");
 }
 
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "the published schema of every format admits a node's coverage_status"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn every_published_format_admits_a_nodes_coverage_status() {
     use specforge_common::shape::violations;
     use std::collections::BTreeMap;

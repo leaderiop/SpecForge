@@ -45,10 +45,7 @@ fn w112(judge: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "declare_judged_rule",
-    verify = "a judge may be a prompt of the rule's own extension, and a missing or a peer's prompt is W112"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_prompt_judge_registers() {
     let build = build_registries(declarations("prompt:spec_phase"));
     let w112: Vec<String> = build
@@ -73,10 +70,7 @@ fn a_prompt_judge_registers() {
     );
 }
 
-#[specforge_test(
-    behavior = "declare_judged_rule",
-    verify = "a judge may be a prompt of the rule's own extension, and a missing or a peer's prompt is W112"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_missing_prompt_judge_is_w112() {
     let found = w112("prompt:missing");
     assert_eq!(found.len(), 1, "{found:#?}");
@@ -86,29 +80,20 @@ fn a_missing_prompt_judge_is_w112() {
     );
 }
 
-#[specforge_test(
-    behavior = "declare_judged_rule",
-    verify = "a judge may be a prompt of the rule's own extension, and a missing or a peer's prompt is W112"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_peers_prompt_is_not_a_judge() {
     let found = w112("prompt:peer_only");
     assert_eq!(found.len(), 1, "{found:#?}");
 }
 
-#[specforge_test(
-    behavior = "declare_judged_rule",
-    verify = "a judge may be a prompt of the rule's own extension, and a missing or a peer's prompt is W112"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_malformed_prompt_judge_is_w112() {
     for judge in ["prompt:", "prompt:a b", "prompt:a:b", "Prompt x"] {
         assert_eq!(w112(judge).len(), 1, "{judge}: {:#?}", w112(judge));
     }
 }
 
-#[specforge_test(
-    behavior = "declare_judged_rule",
-    verify = "a judge may be a prompt of the rule's own extension, and a missing or a peer's prompt is W112"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_prompt_the_surfaces_check_dropped_is_not_a_judge() {
     // An argument named for something the host owns drops the prompt whole (W021): it is not registered.
     let mut declarations = declarations("prompt:spec_phase");

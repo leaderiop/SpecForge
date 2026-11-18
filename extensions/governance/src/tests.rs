@@ -18,10 +18,7 @@ fn declared(kind: &str, name: &str) -> FieldDescriptor {
 /// The fields that take a closed set of
 /// values are enums of it, with no default, and a value outside it is the
 /// core's E061, so the extension declares no rule of its own.
-#[specforge_test(
-    behavior = "ge_declare_vocabularies",
-    verify = "decision status, constraint priority and every failure mode rating are declared enums of their vocabularies"
-)]
+#[specforge_test(requirement = "FEATURE-045")]
 fn governance_declares_its_rating_and_status_vocabularies() {
     const SEVERITY: &[&str] = &["critical", "high", "medium", "low"];
     const OCCURRENCE: &[&str] = &["certain", "likely", "occasional", "unlikely", "rare"];
@@ -65,10 +62,7 @@ fn a_decisions_date_is_a_date() {
 }
 
 /// Governance declares the rules a project keeps (ADR 0280).
-#[specforge_test(
-    behavior = "ge_declare_manifest",
-    verify = "the declaration declares invariant with its guarantee and its risk levels, and W003 over it"
-)]
+#[specforge_test(requirement = "FEATURE-044")]
 fn governance_declares_invariant_its_risk_and_w003() {
     let guarantee = declared("invariant", "guarantee");
     assert!(guarantee.required, "invariant.guarantee is required");

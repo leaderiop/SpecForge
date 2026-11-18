@@ -39,10 +39,7 @@ fn assert_tool_carries_i016(server: &mut Served, name: &str, arguments: Value) {
     assert_eq!(codes(&response), ["I016"], "{name}: {response}");
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn export_render_and_query_carry_an_unreadable_record() {
     let mut server = project_with_unreadable_record();
     assert_tool_carries_i016(&mut server, "specforge.export", json!({"format": "brief"}));
@@ -50,29 +47,20 @@ fn export_render_and_query_carry_an_unreadable_record() {
     assert_tool_carries_i016(&mut server, "specforge.query", json!({"entity_id": "act"}));
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_schema_tool_carries_an_unreadable_record() {
     let mut server = project_with_unreadable_record();
     assert_tool_carries_i016(&mut server, "specforge.schema", json!({}));
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn trace_and_model_carry_an_unreadable_record() {
     let mut server = project_with_unreadable_record();
     assert_tool_carries_i016(&mut server, "specforge.trace", json!({"entity_id": "act"}));
     assert_tool_carries_i016(&mut server, "specforge.model", json!({"format": "json"}));
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn reads_carry_an_unreadable_record() {
     let mut server = project_with_unreadable_record();
     for uri in [
@@ -93,10 +81,7 @@ fn an_unknown_kind_read_carries_i020() {
     assert_eq!(codes(&response), ["I020"], "{response}");
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn render_into_a_directory_carries_an_unreadable_record() {
     let mut server = project_with_unreadable_record();
     assert_tool_carries_i016(
@@ -107,10 +92,7 @@ fn render_into_a_directory_carries_an_unreadable_record() {
     assert!(server.root().join("out").join("graph.dot").is_file());
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_scoped_view_carries_an_unreadable_record() {
     let mut server = project_with_unreadable_record();
     for uri in ["specforge://graph/act", "specforge://context/act"] {
@@ -195,10 +177,7 @@ fn only_the_envelopes_open_a_noticed_read() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "a kind of kinds the project does not know matches nothing and is reported as I020, on every surface"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn export_and_the_graph_views_report_an_unknown_kind() {
     let mut server = project_with_unreadable_record();
     let response = server.call_tool(

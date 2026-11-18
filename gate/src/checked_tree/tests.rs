@@ -111,3 +111,39 @@ fn a_read_only_tracked_file_is_copied_with_its_time_and_mode_and_copied_over() {
     writable.set_readonly(false);
     std::fs::set_permissions(&file, writable).unwrap();
 }
+
+/// A destination past Windows' old 260-character limit receives the tracked file with its bytes and time: the Windows
+/// leg runs this, where std's long-path handling is what it tests (ADR 0375 D4).
+#[test]
+fn a_copy_into_a_path_longer_than_260_characters_arrives() {
+    let repo = tempfile::tempdir().unwrap();
+    let root = repo.path();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("src/lib.rs"), "pub fn a() {}\n").unwrap();
+    let an_hour_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+    std::fs::File::options()
+        .write(true)
+        .open(root.join("src/lib.rs"))
+        .unwrap()
+        .set_modified(an_hour_ago)
+        .unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let mut into = scratch.path().to_path_buf();
+    while into.as_os_str().len() <= 260 {
+        into.push("d".repeat(60));
+    }
+    assert!(
+        into.as_os_str().len() > 260,
+        "{} is not long",
+        into.display()
+    );
+
+    copy_tracked(root, &["src/lib.rs"].map(String::from), &into).unwrap();
+
+    let copied = into.join("src/lib.rs");
+    assert_eq!(std::fs::read_to_string(&copied).unwrap(), "pub fn a() {}\n");
+    assert_eq!(
+        std::fs::metadata(&copied).unwrap().modified().unwrap(),
+        an_hour_ago
+    );
+}

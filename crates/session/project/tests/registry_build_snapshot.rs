@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_component::ComponentRuntime;
-use specforge_component::builtins::BUILTIN_EXTENSIONS;
+use specforge_component::builtins::{BUILTIN_EXTENSIONS, Family};
 use specforge_component::committed::key_of;
 use specforge_project::Environment;
 use specforge_protocol_types::{FieldType, SurfaceDescriptor};
@@ -105,7 +105,7 @@ fn graph_inputs(env: &Environment) -> Value {
             (
                 format!("{kind}.{field}"),
                 match config.target_owners.get(target) {
-                    Some(owner) => format!("{target} ({owner})"),
+                    Some(owners) => format!("{target} ({})", owners.join(", ")),
                     None => target.to_string(),
                 },
             )
@@ -267,14 +267,16 @@ fn digest(env: &Environment) -> Value {
     })
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "the registry build of the builtins matches its pinned snapshot"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn registry_build_of_the_builtins_matches_its_snapshot() {
     let runtime = std::sync::Arc::new(runtime());
+    // Each set loads together into its own registry (ADR 0369 D3): two declarers of one keyword never
+    // load into one. `all_builtins` pins the old set's fourteen, `all_builtins_gsd` the gsd set's eight.
+    let old: Vec<&str> = Family::Old.builtins().map(|builtin| builtin.name).collect();
+    insta::assert_json_snapshot!("all_builtins", digest(&load(&runtime, &old)));
+    let gsd: Vec<&str> = Family::Gsd.builtins().map(|builtin| builtin.name).collect();
+    insta::assert_json_snapshot!("all_builtins_gsd", digest(&load(&runtime, &gsd)));
     let all: Vec<&str> = BUILTIN_EXTENSIONS.iter().map(|(name, _)| *name).collect();
-    insta::assert_json_snapshot!("all_builtins", digest(&load(&runtime, &all)));
     // Each is keyed by its whole name (`CommittedBlob::key`, ADR 0328 D4).
     let mut keys = std::collections::BTreeSet::new();
     for name in &all {

@@ -31,10 +31,7 @@ fn write_config(root: &Path, extensions: &[&str]) {
     fs::write(root.join("specforge.json"), config.to_string()).unwrap();
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "analyze notifies subscribers when the diagnostics it compiled changed"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn analyze_notifies_the_diagnostics_it_compiled() {
     let dir = project(&[], "behavior login \"Login\" {\n}\n");
     let mut server = McpServer::new();
@@ -65,10 +62,7 @@ fn analyze_notifies_the_diagnostics_it_compiled() {
     assert!(added.iter().any(|d| d["code"] == "E003"), "{added:?}");
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "validate with a path to another project leaves the served project in place"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn validate_on_another_project_keeps_serving_this_one() {
     let served = project(&[], "behavior login \"Login\" {\n}\n");
     let other = within(
@@ -109,10 +103,7 @@ fn validate_on_another_project_keeps_serving_this_one() {
     assert!(state.diagnostics().iter().all(|d| d.code != "E003"));
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation tool that wrote files leaves the server serving what is on disk"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_format_that_wrote_files_is_served() {
     // Three blank lines inside the block: formatting removes them.
     let dir = project(&[], "behavior login \"Login\" {\n\n\n\n}\n");
@@ -143,10 +134,7 @@ fn a_format_that_wrote_files_is_served() {
 /// A request before `initialize` serves the project at the server's root; `initialize` naming
 /// another project then replaces it whole (ADR 0109: the served session is reopened at the new
 /// root).
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "initialize naming another project replaces the project a stateless request served"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn initialize_naming_another_project_replaces_the_one_a_stateless_request_served() {
     let a = project(&[], "behavior a \"A\" {\n");
     let b = project(&[], "behavior b \"B\" {\n}\n");

@@ -41,10 +41,7 @@ fn related(term: &str, args: Value, g: &G) -> Value {
     json_of("term_graph", args, g)["related_terms"].clone()
 }
 
-#[specforge_test(
-    behavior = "surface_term_graph",
-    verify = "term-graph returns TermGraphPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn term_graph_answers_its_payload() {
     let tg = json_of(
         "term_graph",
@@ -62,10 +59,7 @@ fn term_graph_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_term_graph",
-    verify = "max-hops flag is respected and capped at 5"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn term_graph_follows_max_hops_up_to_five() {
     let chain = terms(
         &["t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7"],
@@ -101,20 +95,14 @@ fn term_graph_follows_max_hops_up_to_five() {
     assert_eq!(error.error()["code"], "INVALID_INPUT");
 }
 
-#[specforge_test(
-    behavior = "surface_term_graph",
-    verify = "missing term ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn term_graph_of_a_mistyped_term_suggests_the_nearest() {
     let error = not_found_suggesting("term_graph", json!({"term": "apj"}), &glossary());
     assert_eq!(error["suggestion"], "api");
     assert_eq!(error["message"], "term 'apj' not found");
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_graph",
-    verify = "term with see_also returns related terms at hop 1"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_terms_see_also_is_related_at_one_hop() {
     assert_eq!(
         related("rest", json!({"max_hops": 1}), &glossary()),
@@ -122,10 +110,7 @@ fn a_terms_see_also_is_related_at_one_hop() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_graph",
-    verify = "term with 2-hop chain returns transitive terms when maxHops=2"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_two_hop_chain_is_related_at_two_hops() {
     assert_eq!(
         related("rest", json!({"max_hops": 2}), &glossary()),
@@ -133,10 +118,7 @@ fn a_two_hop_chain_is_related_at_two_hops() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_graph",
-    verify = "term with no see_also returns empty related_terms"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_term_without_see_also_has_no_related_terms() {
     assert_eq!(
         related("lone", json!({"max_hops": 5}), &glossary()),
@@ -144,19 +126,13 @@ fn a_term_without_see_also_has_no_related_terms() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_graph",
-    verify = "source term is excluded from related_terms"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn the_term_is_not_its_own_relation() {
     let cycle = terms(&["a", "b"], &[("a", "b"), ("b", "a"), ("a", "a")]);
     assert_eq!(related("a", json!({"max_hops": 5}), &cycle), json!(["b"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_graph",
-    verify = "omitted maxHops defaults to 1"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn max_hops_defaults_to_one() {
     let tg = json_of("term_graph", json!({"term": "api"}), &glossary());
     assert_eq!(
@@ -165,10 +141,7 @@ fn max_hops_defaults_to_one() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_graph",
-    verify = "maxHops=10 is clamped to 5"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn ten_hops_are_five() {
     let tg = json_of(
         "term_graph",
@@ -179,10 +152,7 @@ fn ten_hops_are_five() {
     assert_eq!(tg["related_terms"], json!(["http", "rest", "tcp"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_graph",
-    verify = "maxHops=0 returns empty related_terms"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn zero_hops_relate_nothing() {
     assert_eq!(
         related("api", json!({"max_hops": 0}), &glossary()),
@@ -190,10 +160,7 @@ fn zero_hops_relate_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "product_query_correctness",
-    verify = "term graph respects maxHops boundary"
-)]
+#[specforge_test(requirement = "RELIABILITY-20")]
 fn each_hop_adds_exactly_the_terms_one_further() {
     // Along api -> rest -> http -> tcp, hop h reaches the first h terms.
     let order = ["rest", "http", "tcp"];
@@ -208,10 +175,7 @@ fn each_hop_adds_exactly_the_terms_one_further() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_term_clusters",
-    verify = "product:term-clusters returns TermClusterPayload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn term_clusters_answers_its_payload() {
     let tc = json_of("term_clusters", json!({}), &glossary());
     assert_eq!(
@@ -234,10 +198,7 @@ fn term_clusters_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_term_clusters",
-    verify = "no terms returns zero clusters and zero isolated"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn term_clusters_of_no_terms_is_empty() {
     assert_eq!(
         json_of("term_clusters", json!({}), &G::default().n("f1", "feature")),
@@ -257,10 +218,7 @@ fn cluster_ids(g: &G) -> Value {
     )
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_clusters",
-    verify = "three terms in a connected chain produce one cluster of size 3"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_chain_of_three_terms_is_one_cluster() {
     // b links to both, so a and c are clustered through it.
     let g = terms(&["a", "b", "c"], &[("b", "a"), ("b", "c")]);
@@ -271,29 +229,20 @@ fn a_chain_of_three_terms_is_one_cluster() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_clusters",
-    verify = "two disconnected pairs produce two clusters of size 2"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn two_disconnected_pairs_are_two_clusters() {
     let g = terms(&["a", "b", "c", "d"], &[("a", "b"), ("d", "c")]);
     assert_eq!(cluster_ids(&g), json!([["a", "b"], ["c", "d"]]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_clusters",
-    verify = "isolated term with no see_also edges is counted in isolated_count"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_term_without_see_also_is_isolated() {
     let tc = json_of("term_clusters", json!({}), &glossary());
     assert_eq!(tc["isolated_count"], 1);
     assert!(!cluster_ids(&glossary()).to_string().contains("lone"));
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_clusters",
-    verify = "empty term graph returns zero clusters and zero isolated"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn an_empty_glossary_has_no_clusters() {
     let tc = json_of("term_clusters", json!({}), &G::default());
     assert_eq!(
@@ -306,10 +255,7 @@ fn an_empty_glossary_has_no_clusters() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_clusters",
-    verify = "total_terms equals sum of cluster sizes plus isolated_count"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn cluster_sizes_and_isolated_terms_add_up_to_every_term() {
     let tc = json_of("term_clusters", json!({}), &glossary());
     let sizes: u64 = tc["clusters"]
@@ -324,10 +270,7 @@ fn cluster_sizes_and_isolated_terms_add_up_to_every_term() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_clusters",
-    verify = "clusters sorted by size descending"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn the_largest_cluster_comes_first() {
     let g = terms(
         &["a", "b", "x", "y", "z", "m", "n"],
@@ -339,10 +282,7 @@ fn the_largest_cluster_comes_first() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_clusters",
-    verify = "result is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn term_clusters_are_the_same_every_time_and_in_any_order() {
     let first = json_of("term_clusters", json!({}), &glossary());
     assert_eq!(json_of("term_clusters", json!({}), &glossary()), first);
@@ -376,10 +316,7 @@ fn hub() -> G {
     )
 }
 
-#[specforge_test(
-    behavior = "surface_term_density",
-    verify = "product:term-density returns TermDensityPayload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn term_density_answers_its_payload() {
     let td = json_of("term_density", json!({}), &glossary());
     assert_eq!(
@@ -399,10 +336,7 @@ fn term_density_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_term_density",
-    verify = "empty graph returns zero stats"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn term_density_of_no_terms_is_zero() {
     assert_eq!(
         json_of("term_density", json!({}), &G::default()),
@@ -411,10 +345,7 @@ fn term_density_of_no_terms_is_zero() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_density",
-    verify = "5 terms with 8 edges computes correct average"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn five_terms_with_eight_links_average_one_point_six() {
     let g = terms(
         &["a", "b", "c", "d", "e"],
@@ -436,20 +367,14 @@ fn five_terms_with_eight_links_average_one_point_six() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_density",
-    verify = "term with 6 connections in a graph averaging 2 is a hub"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn six_connections_against_an_average_of_two_is_a_hub() {
     let td = json_of("term_density", json!({}), &hub());
     assert_eq!(td["avg_connections"], 2.0);
     assert_eq!(td["hub_terms"], json!(["h"]));
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_density",
-    verify = "term with zero connections is listed in isolated_terms"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn a_term_without_links_is_isolated() {
     assert_eq!(
         json_of("term_density", json!({}), &glossary())["isolated_terms"],
@@ -457,10 +382,7 @@ fn a_term_without_links_is_isolated() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_density",
-    verify = "empty term graph returns total_terms=0 and avg_connections=null"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn an_empty_glossary_has_no_average() {
     let td = json_of("term_density", json!({}), &G::default().n("f1", "feature"));
     assert_eq!(
@@ -469,10 +391,7 @@ fn an_empty_glossary_has_no_average() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_density",
-    verify = "max_connections reflects the most-connected term"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn max_connections_is_the_hubs() {
     assert_eq!(
         json_of("term_density", json!({}), &hub())["max_connections"],
@@ -485,10 +404,7 @@ fn max_connections_is_the_hubs() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_term_density",
-    verify = "result is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-093")]
 fn term_density_is_the_same_every_time_and_in_any_order() {
     let first = json_of("term_density", json!({}), &hub());
     assert_eq!(json_of("term_density", json!({}), &hub()), first);

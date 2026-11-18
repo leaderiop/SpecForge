@@ -1,6 +1,9 @@
 # Requirement and decision fields absorb feature, constraint and decision
 
-**Status:** accepted (2026-11-15). Amends [ADR 0331](0331-the-gsd-requirement-thread.md) D5 (a requirement's thread
+**Status:** accepted (2026-11-15). Superseded by
+[ADR 0370](0370-gsd-core-holds-exactly-gsd-cores-kinds-and-fields.md): the fields gsd-core does not write leave the
+requirement and the decision; D8, D9 and D12 are kept, and ADR 0370's table gives each decision its outcome.
+Amends [ADR 0331](0331-the-gsd-requirement-thread.md) D5 (a requirement's thread
 state is its computed `proof`, which `gsd/E515` reads), [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md)
 D6 (`gate_e515` declares no facts any more: it reads that `proof`),
 [ADR 0150](0150-a-relation-is-written-on-one-side.md) D2 (a reverse an `inverse_of` names is the other side by name

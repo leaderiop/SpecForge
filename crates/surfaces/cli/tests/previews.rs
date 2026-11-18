@@ -11,10 +11,7 @@ fn json_of(project: &TestProject, args: &[&str]) -> Value {
     serde_json::from_str(&run.stdout).unwrap()
 }
 
-#[specforge_test(
-    behavior = "report_command_outcome",
-    verify = "a preview lists no files_written and a run lists every file it wrote, none included, on the command line as over MCP"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_run_that_changes_nothing_lists_no_file() {
     let project = TestProject::copy_of(specforge_repo_root::repo_root().join("examples/todo-app"));
     let link = [
@@ -31,10 +28,7 @@ fn a_run_that_changes_nothing_lists_no_file() {
     assert_eq!(again["files_written"], json!([]), "{again}");
 }
 
-#[specforge_test(
-    invariant = "dry_run_side_effect_freedom",
-    verify = "a dry run of an extension already present is told from the add, on the command line"
-)]
+#[specforge_test(requirement = "INVARIANT-021")]
 fn an_add_dry_run_of_a_present_extension_lists_no_file() {
     let project = TestProject::new().without_config();
     project.write(

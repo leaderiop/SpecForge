@@ -14,10 +14,7 @@ fn project() -> TestProject {
     project
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "format refuses a path that names nothing and exits 1, so a mistyped directory fails a check"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_refuses_a_path_that_names_nothing() {
     let project = project();
     let cli = Cli::on(&project);
@@ -35,10 +32,7 @@ fn format_refuses_a_path_that_names_nothing() {
     assert_eq!(json.json["code"], "file_not_found", "{}", json.json);
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "with no path typed, the human output names each file it found from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_names_a_file_it_found_from_the_project_root() {
     let project = project();
     let cli = Cli::on(&project);
@@ -57,10 +51,7 @@ fn format_names_a_file_it_found_from_the_project_root() {
     assert_eq!(typed.stdout, "spec/bad.spec\n");
 }
 
-#[specforge_test(
-    behavior = "format_from_stdin",
-    verify = "--stdin refuses a path, --check and --diff as a usage error"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn stdin_refuses_a_path_check_and_diff() {
     let project = project();
     let cli = Cli::on(&project).stdin(MESSY);

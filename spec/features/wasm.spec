@@ -1,22 +1,12 @@
-// Wasm component extension runtime features
-
-use "behaviors/host-install"
-use "behaviors/surface-contributions"
-use "behaviors/wasm-authoring"
-use "behaviors/wasm-extensions"
-use "behaviors/wasm-host-functions"
-use "behaviors/wasm-lifecycle"
-use "behaviors/wasm-sandbox"
-
-feature wasm_extension_runtime "Wasm Extension Runtime" {
-  status   done
-  problem  """
+requirement FEATURE-136 "Wasm Extension Runtime" {
+  category "Feature"
+  tier     v1
+  text     """
     Extensions need a unified runtime that works across all platforms
     without requiring specific language runtimes (Node.js, Python, JVM)
     on the host machine. The runtime must handle module lifecycle,
     dependency ordering, and graceful error recovery.
-  """
-  solution """
+
     Wasm components (wasmtime Component Model) as the sole extension runtime. Extensions compile to .wasm
     binaries. The compiler loads modules, validates peer dependencies,
     initializes in topological order, calls validators, and handles traps
@@ -26,16 +16,16 @@ feature wasm_extension_runtime "Wasm Extension Runtime" {
   """
 }
 
-feature wasm_host_function_api "Wasm Host Function API" {
-  status   accepted
-  problem  """
+requirement FEATURE-137 "Wasm Host Function API" {
+  category "Feature"
+  tier     v2
+  text     """
     A command, a collector or an MCP surface sometimes needs an effect it
     cannot name before it runs (a paginated API, a log since a recorded
     commit), and declared inputs cannot express it. It must get one without
     escaping the sandbox, and without any export that stays pure gaining
     the same reach.
-  """
-  solution """
+
     Two faces (ADR 0335 D4): declared inputs and probes for the pure call
     kinds, and four granted ports for the effectful ones: the WIT package
     specforge:host/{http,fs,process,git}@0.1.0, written once in the SDK and
@@ -50,14 +40,14 @@ feature wasm_host_function_api "Wasm Host Function API" {
   """
 }
 
-feature wasm_performance_optimization "Wasm Performance Optimization" {
-  status   done
-  problem  """
+requirement FEATURE-139 "Wasm Performance Optimization" {
+  category "Feature"
+  tier     v1
+  text     """
     Cold-loading .wasm binaries on every compilation is too slow for CLI
     and unacceptable for interactive LSP/MCP contexts. Extensions need
     fast startup without sacrificing sandbox isolation.
-  """
-  solution """
+
     Wasmtime's on-disk compilation cache (selected via
     SPECFORGE_WASMTIME_CACHE) stores compiled machine code keyed by
     component bytes and engine config, so CLI cold starts deserialize
@@ -67,14 +57,14 @@ feature wasm_performance_optimization "Wasm Performance Optimization" {
   """
 }
 
-feature wasm_extension_authoring "Wasm Extension Authoring" {
-  status   done
-  problem  """
+requirement FEATURE-133 "Wasm Extension Authoring" {
+  category "Feature"
+  tier     v1
+  text     """
     Extension authors need a streamlined workflow to create, test, and
     publish Wasm extensions. Without tooling, authors must manually
     configure build targets, sandbox policies, and registry publishing.
-  """
-  solution """
+
     specforge extension CLI subcommands: init scaffolds a project with
     PDK skeleton, build compiles to .wasm targeting wasm32-wasi,
     validate loads the binary in a production sandbox against fixtures,
@@ -84,17 +74,15 @@ feature wasm_extension_authoring "Wasm Extension Authoring" {
   """
 }
 
-feature entity_enhancement "Entity Enhancement" {
-  status   done
-  // Bridge: depends on validate_extension_manifest (contribution_based_extensions feature)
-  // for manifest schema validation before enhancement registration proceeds.
-  problem  """
+requirement FEATURE-021 "Entity Enhancement" {
+  category "Feature"
+  tier     v1
+  text     """
     Extensions can add new entity types but cannot enhance existing entities
     with additional fields or edges. This blocks cross-cutting extensions
     that need to annotate entity kinds defined by other extensions with
     additional metadata.
-  """
-  solution """
+
     Extensions declare entity enhancements in their sidecar manifest.json.
     Manifest validation (validate_extension_manifest) runs before
     enhancement loading — owned by contribution_based_extensions.
@@ -107,13 +95,13 @@ feature entity_enhancement "Entity Enhancement" {
   """
 }
 
-feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
-  status   done
-  problem  """
+requirement FEATURE-022 "Entity Kind Conflict Prevention" {
+  category "Feature"
+  tier     v1
+  text     """
     Wasm extensions register new entity kinds when they load, and two
     extensions can declare the same kind name.
-  """
-  solution """
+
     The registry build detects a kind an earlier-loaded extension already
     registered: the first extension in load order owns it and the
     duplicate is E026. Entity ids that collide with the grammar's
@@ -121,14 +109,14 @@ feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
   """
 }
 
-feature wasm_extension_installation "Wasm Extension Installation" {
-  status   done
-  problem  """
+requirement FEATURE-134 "Wasm Extension Installation" {
+  category "Feature"
+  tier     v1
+  text     """
     Extensions need a reliable install/uninstall/upgrade workflow that
     resolves from multiple sources (registry, local, git) and maintains
     project configuration integrity.
-  """
-  solution """
+
     Install resolves from multiple sources, verifies integrity, and
     places the binary atomically. Uninstall removes the extension and
     checks peer dependencies. Upgrade checks compatibility and handles
@@ -136,14 +124,14 @@ feature wasm_extension_installation "Wasm Extension Installation" {
   """
 }
 
-feature wasm_lock_management "Wasm Lock Management" {
-  status   done
-  problem  """
+requirement FEATURE-138 "Wasm Lock Management" {
+  category "Feature"
+  tier     v1
+  text     """
     Reproducible builds require pinning exact extension versions with
     integrity verification. Without a lock file, different environments
     may resolve different extension versions.
-  """
-  solution """
+
     Lock file (specforge.lock) pins exact versions with SHA256 integrity
     hashes for reproducible builds. Lock file is read at startup to verify
     installed extensions match expected hashes. Refresh updates the lock
@@ -151,14 +139,14 @@ feature wasm_lock_management "Wasm Lock Management" {
   """
 }
 
-feature wasm_extension_maintenance "Wasm Extension Maintenance" {
-  status   done
-  problem  """
+requirement FEATURE-135 "Wasm Extension Maintenance" {
+  category "Feature"
+  tier     v1
+  text     """
     Extension ecosystems need discovery, cache management, and bulk
     update capabilities. Without these, users must manage extensions
     individually and manually clear stale caches.
-  """
-  solution """
+
     Discovery queries registries for available extensions. The engine
     compile cache is content-keyed, so replaced binaries never serve
     stale artifacts and need no host-side invalidation. Bulk update
@@ -167,17 +155,17 @@ feature wasm_extension_maintenance "Wasm Extension Maintenance" {
   """
 }
 
-feature contribution_based_extensions "Contribution-Based Extensions" {
-  status   done
-  problem  """
+requirement FEATURE-013 "Contribution-Based Extensions" {
+  category "Feature"
+  tier     v1
+  text     """
     Extensions need a structured way to declare what they contribute
     (the nine describe categories: entities, edges, shared_fields,
     enhancements, validation_rules, surfaces, collectors, passes,
     feature_flags) with per-entity metadata such
     as testable flags, field type definitions, and structured validation
     rule patterns.
-  """
-  solution """
+
     Structured manifest format with typed objects (entity_kinds
     EntityKindDescriptor[], validation_rules ValidationRulePattern[],
     edge_types EdgeTypeDescriptor[]). What an extension contributes is what its declaration declares in
@@ -201,16 +189,16 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
   """
 }
 
-feature test_result_collection "Test Result Collection" {
-  status   done
-  problem  """
+requirement FEATURE-128 "Test Result Collection" {
+  category "Feature"
+  tier     v1
+  text     """
     Coverage needs to know which entities the project's tests prove, but
     every test runner has its own command and report format. Wiring them
     into the compiler would put runner knowledge in core, and asking users
     to run each runner in exactly the way SpecForge expects makes the loop
     fragile (ADR 0002).
-  """
-  solution """
+
     Runner extensions (`@specforge/cargo-test`, …) declare a collector: the
     project files that select it, the command that runs the runner, where
     the report lands and a pure export that maps the report to entities.
@@ -223,16 +211,16 @@ feature test_result_collection "Test Result Collection" {
   """
 }
 
-feature surface_contributions "Surface Contributions" {
-  status   done
-  problem  """
+requirement FEATURE-125 "Surface Contributions" {
+  category "Feature"
+  tier     v1
+  text     """
     Extensions can extend the compilation pipeline (entities, validation rules,
     collectors, passes) but cannot
     extend the tooling surfaces — CLI and MCP server. This creates a
     capability asymmetry: domain extensions need CLI commands (e.g., analyze, audit) but has no registration mechanism; extensions cannot register
     MCP tools so agents only see core tools.
-  """
-  solution """
+
     Extensions declare surface contributions in their manifest's surfaces
     field: commands[] for CLI, mcp_tools[] for MCP tools, mcp_resources[]
     for MCP resources. Core discovers contributions from manifests (static,

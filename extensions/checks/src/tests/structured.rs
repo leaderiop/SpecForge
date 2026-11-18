@@ -41,10 +41,7 @@ fn codes(findings: &[CheckFinding]) -> Vec<&str> {
     findings.iter().map(|f| f.code.as_str()).collect()
 }
 
-#[specforge_test(
-    behavior = "checks_structured",
-    verify = "json, yaml and toml read their file whole, up to 1 MiB, under its root"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_structured_checker_reads_its_file_under_its_root() {
     let plan = planned("yaml", "<spec>/ci.yml", json!({}));
     assert_eq!(
@@ -66,10 +63,7 @@ fn a_structured_checker_reads_its_file_under_its_root() {
     ));
 }
 
-#[specforge_test(
-    behavior = "checks_structured",
-    verify = "a file that parses passes, a byte order mark included, and one that does not is E097 at its line"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_file_parses_or_is_e097_at_its_line() {
     assert!(found("json", "a.json", b"\xef\xbb\xbf{\"a\": [1]}").is_empty());
     assert!(found("yaml", "a.yml", b"a: [1]\n").is_empty());
@@ -91,10 +85,7 @@ fn a_file_parses_or_is_e097_at_its_line() {
     );
 }
 
-#[specforge_test(
-    behavior = "checks_structured",
-    verify = "a missing file is E016, and one over the read or no regular file is W176"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_file_that_is_not_read_whole_is_told_why() {
     let missing = answer(
         OutcomeClass::Missing,
@@ -130,10 +121,7 @@ fn a_file_that_is_not_read_whole_is_told_why() {
     assert_eq!(codes(&judged("toml", "d", json!({}), dir)), ["W176"]);
 }
 
-#[specforge_test(
-    behavior = "checks_structured",
-    verify = "a pointer that names nothing is E098 on its fragment, naming the deepest part that exists"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_pointer_is_resolved_in_the_files_tree() {
     let doc = b"a:\n  b: [x, y]\n";
     assert!(found("pointer", "c.yaml#/a/b/1", doc).is_empty());
@@ -153,10 +141,7 @@ fn a_pointer_is_resolved_in_the_files_tree() {
     assert_eq!(codes(&broken), ["E097"]);
 }
 
-#[specforge_test(
-    behavior = "checks_structured",
-    verify = "a pointer that is malformed is E103 on its token, and one whose format is unknown is E097"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_pointer_is_well_formed_and_its_format_known() {
     assert_eq!(e103_at("pointer", "a.json#/x~2", json!({})), [7, 11]);
     assert_eq!(e103_at("pointer", "a.json#x", json!({})), [7, 8]);
@@ -167,10 +152,7 @@ fn a_pointer_is_well_formed_and_its_format_known() {
         .is_empty());
 }
 
-#[specforge_test(
-    behavior = "checks_structured",
-    verify = "a markdown anchor that is no heading or html id is E098 on its fragment, listing the headings"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_markdown_anchor_is_a_heading_or_an_html_id() {
     let md = b"# Install\n## Use it\n```\n# not\n```\n<a name=\"old\"></a>\n";
     assert!(found("markdown_anchor", "a.md#install", md).is_empty());

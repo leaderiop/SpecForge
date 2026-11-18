@@ -69,10 +69,7 @@ fn node_with_verify(id: &str, kind: &str) -> Node {
 }
 
 // B:compute_project_statistics — verify unit "stats reports correct entity counts"
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports correct entity counts"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_reports_correct_entity_counts() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior"));
@@ -94,7 +91,7 @@ fn stats_reports_correct_entity_counts() {
 
 // B:compute_project_statistics — verify unit "stats reports correct entity counts"
 // (covers edge count reporting)
-#[specforge_test(behavior = "compute_project_statistics")]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_reports_edge_count() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature"));
@@ -110,10 +107,7 @@ fn stats_reports_edge_count() {
 }
 
 // B:compute_project_statistics — verify unit "stats reports the unconnected entity count"
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports the unconnected entity count"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_reports_the_unconnected_count() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior")); // unconnected: no edges
@@ -137,7 +131,7 @@ fn stats_reports_the_unconnected_count() {
 
 // B:compute_project_statistics — verify unit "stats reports correct entity counts"
 // (edge case: empty graph)
-#[specforge_test(behavior = "compute_project_statistics")]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_on_empty_graph() {
     let graph = Graph::new();
     let stats = crate::view_support::stats_of(&graph, &[], &[]);
@@ -147,10 +141,7 @@ fn stats_on_empty_graph() {
 }
 
 // B:compute_project_statistics — verify unit "stats reports coverage percentage"
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports coverage percentage"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_coverage_over_the_testable_kinds() {
     let mut graph = Graph::new();
     graph.add_node(node_with_verify("a", "behavior")); // testable + verified
@@ -166,10 +157,7 @@ fn stats_coverage_over_the_testable_kinds() {
 }
 
 // B:compute_project_statistics — verify unit "coverage is 0% when testable_entity_count is zero"
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "coverage is 0% when testable_entity_count is zero"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_coverage_zero_when_no_testable_entities() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature")); // not testable
@@ -181,10 +169,7 @@ fn stats_coverage_zero_when_no_testable_entities() {
 }
 
 // B:compute_project_statistics — verify unit "stats reports diagnostic summary"
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports diagnostic summary"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_includes_diagnostic_summary() {
     let graph = Graph::new();
     let diagnostics = vec![
@@ -200,10 +185,7 @@ fn stats_includes_diagnostic_summary() {
 // A type may declare a struct member named `verify`; the entity's
 // obligations are its verify statements wherever they sit among its fields,
 // so the member must not hide them.
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports coverage percentage"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_counts_obligations_behind_a_verify_member() {
     let mut payload = node_with_verify("Payload", "type");
     payload
@@ -219,10 +201,7 @@ fn stats_counts_obligations_behind_a_verify_member() {
     assert!((stats.declared_pct - 50.0).abs() < 0.01);
 }
 
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats leaves the entities W004 exempts out of the testable count"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_leaves_union_types_out_of_the_testable_count() {
     // `type Status = active | inactive`: no body to hold obligations.
     let mut status = node("Status", "type");
@@ -316,10 +295,7 @@ fn stats_today_through_the_registries() {
 }
 
 // B:compute_project_statistics — verify unit "the stats document has no proof_pct without recorded test results"
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "the stats document has no proof_pct without recorded test results"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_document_leaves_proof_pct_out_without_results() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior"));
@@ -341,10 +317,7 @@ fn stats_document_leaves_proof_pct_out_without_results() {
 
 /// "Verified" is the glossary's word for what counts and is
 /// proven; stats must not print it for entities that only declare.
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports no verified count: unverified is what counts toward coverage and is not proven"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_calls_no_count_verified() {
     let mut graph = Graph::new();
     graph.add_node(node_with_verify("a", "behavior")); // declares, nothing proven

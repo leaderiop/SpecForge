@@ -9,6 +9,9 @@ description: "Write module blocks in .spec files (the module kind is declared by
 > it: run `specforge extensions` first, and if it is not listed, do not write `module` blocks (add it with
 > `specforge add @specforge/product`, or write the kinds the project's own extensions declare).
 > `specforge infer-guide module` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `module` blocks in a project that does, such as the
+> example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Modules group features into components and form a dependency graph the checks keep acyclic.
 

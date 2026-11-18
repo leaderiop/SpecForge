@@ -331,6 +331,24 @@ leaves out. All three are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GS
 | `src/runtime-slash.cts` | `0ba8838ff084a5182b12ca0e9c346b9c964bf18cdeb57a18591035523cb0ab4a` |
 | `tests/smart-entry.unit.test.cjs` | `bd8c7a27c5317110236221c073b6f77e2ac3628877a10f3f0f1533576efdfd80` |
 
+## `src/decision-coverage-support.cts` and its three users: decision coverage
+
+The matcher that decides whether a plan cites a context decision (`decisionMentioned`), and the three gates that read
+it: the plan gate (`src/gate-decision-coverage-plan.cts`), the verify gate (`src/gate-decision-coverage-verify.cts`)
+and the post-planning gap report (`src/gap-checker.cts`), copied unchanged by `git -C <gsd-core> show v1.19.0:<path>`.
+SpecForge ports them in `gsd/core/src/passes/`: `gsd/E310` in `cross_plan.rs`, `gsd/W317` and `gsd/E312`'s exemption
+in `scope.rs`, and `gsd/W506` in `decision_coverage.rs`. SpecForge ports the id match (`\b<id>\b`) and not the soft
+phrase (the first six normalised words of the decision's text found in the plan's text, `softPhrase` and
+`SOFT_PHRASE_MIN_WORDS`): a paraphrase is no citation, a divergence ADR 0371 names. All four are
+MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
+
+| File | sha256 |
+|---|---|
+| `src/decision-coverage-support.cts` | `24ff766073aedd255cb99a6ccb0b06ff5701816d1e57da723d10309ce0f3ea82` |
+| `src/gate-decision-coverage-plan.cts` | `e5c29567782a96ab3d15460e792c31e9def907714d759d41ec27209ce31910a1` |
+| `src/gate-decision-coverage-verify.cts` | `21e87cadbc147812b22634ef729b34e6fbe1cfbb0596d5e6f10d3df93e5b25a5` |
+| `src/gap-checker.cts` | `224909ded6b5d13230ac75ee9cf7122297793cb98c230b75f2ceb93ff3667210` |
+
 ## r43 T1: next, progress and manager
 
 Vendored byte for byte from gsd-core v1.19.0 for `/gsd-next`, `/gsd-progress` and `/gsd-manager`.

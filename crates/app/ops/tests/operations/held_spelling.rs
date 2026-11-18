@@ -41,10 +41,7 @@ fn added(root: &Path, specifier: &str) -> specforge_ops::OpError {
     .error
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "a refusal of test_results names it as the call spelled it"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_bounded_named_report_is_named_as_the_call_wrote_it() {
     let dir = tempfile::tempdir().unwrap();
     for name in ["none.json", "sub/../none.json"] {
@@ -56,10 +53,7 @@ fn a_bounded_named_report_is_named_as_the_call_wrote_it() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "a refusal of a local path in specifiers names it as the call spelled it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_bounded_add_names_a_local_path_as_the_call_wrote_it() {
     let dir = project(&[], &[("ext/Cargo.toml", "[package]\nname = \"e\"\n")]);
     let root = dir.path();
@@ -83,10 +77,7 @@ fn a_bounded_add_names_a_local_path_as_the_call_wrote_it() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a local install is locked by its project path, a link by its own name"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_local_install_records_its_project_path_a_link_by_its_own_name() {
     let dir = project(&[], &[]);
     let root = dir.path();
@@ -109,10 +100,7 @@ fn a_local_install_records_its_project_path_a_link_by_its_own_name() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "a test_results that names a directory or nothing is invalid_input on test_results"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_named_report_that_is_a_directory_is_invalid_input_on_the_report() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir(dir.path().join("spec")).unwrap();

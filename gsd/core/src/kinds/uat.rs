@@ -30,7 +30,7 @@ const FOLLOW_UP: &[Field] = &[
     str("idea").r(),
     date("deferred_at").r(),
 ];
-const GAP_ARTIFACTS: &[Field] = &[path("path", Mode::Present), str("issue").prose()];
+const GAP_ARTIFACTS: &[Field] = &[path("path", Mode::Present), str("issue")];
 
 /// `NN-UAT.md`, named `01-UAT` and scoped by its phase.
 pub const UAT_SESSION: Kind = Kind::new(
@@ -47,7 +47,7 @@ pub const UAT_SESSION: Kind = Kind::new(
         blocks("follow_ups", FOLLOW_UP)
             .h()
             .append()
-            .doc("`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result --follow-up`"),
+            .doc("`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result` when a follow-up is given"),
         block("totals", TOTALS)
             .c()
             .doc("`## Summary`; `follow_ups` counts the deferred follow-ups"),
@@ -61,22 +61,17 @@ pub const UAT_TEST: Kind = Kind::new(
     "One thing a person checks (GSD UAT test)",
     &[
         rf("session", "uat_session").r().i().doc("parent"),
-        str("expected").prose().r().doc("expected behaviour"),
-        int("criterion").doc("the phase success criterion it proves"),
-        rf("from_task", "task").doc("a harvested `<human-check>`"),
+        str("expected").r().doc("expected behaviour"),
         en("result", RESULT)
             .h()
             .doc("written from the person's answer"),
         en("source", SOURCE).h().doc(
-            "an automated result is marked by the caller (a collector, or `--source automated`)",
+            "the caller marks a result automated, through a collector or by setting the source to automated",
         ),
         str("reported").doc("the person's words, verbatim, when `issue`"),
         en("severity", SEVERITY).doc("major when absent"),
-        str("reason").prose().doc("why skipped; `Deferred follow-up` counts as passing"),
+        str("reason").doc("why skipped; `Deferred follow-up` counts as passing"),
         en("blocked_by", BLOCKED_BY).doc("when blocked"),
-        rf("journey", "journey").inverse("uat_tests").doc(
-            "beyond GSD: the journey the test walks; the journey reads it back as `uat_tests` (ADR 0357 D22)",
-        ),
     ],
 )
 .scoped_by("session");
@@ -90,9 +85,9 @@ pub const UAT_GAP: Kind = Kind::new(
         str("truth").r().doc("`truth:`"),
         str("reason").doc("`reason:`"),
         en("severity", SEVERITY).doc("`severity:`"),
-        str("root_cause").prose().doc("`root_cause:`"),
+        str("root_cause").doc("`root_cause:`"),
         blocks("artifacts", GAP_ARTIFACTS).doc("`artifacts:`"),
-        strs("missing").prose().doc("`missing:`"),
+        strs("missing").doc("`missing:`"),
         en("status", GAP_STATUS)
             .c()
             .doc("resolved once a `gap_closure` plan naming it completes"),

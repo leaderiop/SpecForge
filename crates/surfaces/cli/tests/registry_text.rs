@@ -48,10 +48,7 @@ fn serve_hostile() -> LocalRegistry {
     registry
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "a hit's description is listed printable, each control character as its escape"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn search_writes_no_registry_control_character_and_no_hit_that_is_no_package_name() {
     let registry = serve_hostile();
     let dir = project_on(&registry);

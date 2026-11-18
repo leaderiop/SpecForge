@@ -128,8 +128,7 @@ Each lesson is written with this command:
 ```bash
 specforge new lesson "L-${PHASE_NUMBER}-1" "<short title>" --in spec/lessons.spec \
   --kind decision \
-  --text "<what was decided, why it was decided, Source: artifact>" \
-  --milestone "$MILESTONE"
+  --text "<what was decided, why it was decided, Source: artifact>"
 
 # --kind is decision, lesson, pattern or surprise.
 # The text holds the item's body: for a decision its rationale, for a lesson its context,

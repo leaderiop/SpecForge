@@ -30,10 +30,7 @@ fn payload(description: &str) -> Graph {
     graph
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "a verify statement edit is the obligations aspect, not a changed field"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_statement_edit_is_the_obligations_aspect() {
     let delta = compute_graph_delta(&payload("it works"), &payload("it holds"));
     assert_eq!(delta.modified_nodes.len(), 1);
@@ -45,10 +42,7 @@ fn a_statement_edit_is_the_obligations_aspect() {
 const BEFORE: &str = "type Payload \"Payload\" {\n  verify unit \"it works\"\n}\n";
 const AFTER: &str = "type Payload \"Payload\" {\n  verify unit \"it holds\"\n}\n";
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "an incremental build compares each node's obligations"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn an_incremental_edit_of_a_statement_matches_the_cold_build() {
     let file = |text| parse(text, "a.spec");
     let mut build = GraphBuild::of([file(BEFORE)], GraphConfig::default());
@@ -70,10 +64,7 @@ fn an_incremental_edit_of_a_statement_matches_the_cold_build() {
 const WITH_VERDICT: &str = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
 const OTHER_VERDICT: &str = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 issues {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
 
-#[specforge_test(
-    behavior = "parse_verdict_statement",
-    verify = "a verdict is a node member and a delta aspect, never a field"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_verdict_is_a_node_member_and_a_delta_aspect() {
     let file = |text| parse(text, "a.spec");
     let mut build = GraphBuild::of([file(WITH_VERDICT)], GraphConfig::default());

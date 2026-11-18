@@ -111,10 +111,7 @@ fn token_create_needs_an_account() {
     assert!(stderr.contains("--account"), "{stderr}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "a token's scope filter is a scope: text that is not one is refused where the token is issued, and a token issued with none covers every scope"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn token_create_refuses_a_scope_filter_that_is_no_scope() {
     let dir = tempfile::tempdir().unwrap();
     let data = dir.path().to_str().unwrap();
@@ -182,10 +179,7 @@ fn token_list_lines_each_scope_up_under_its_header() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "a stored token scope that is not a scope authenticates nothing, and the token listing names the token to revoke"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_stored_scope_that_is_no_scope_is_named_for_revocation() {
     let dir = tempfile::tempdir().unwrap();
     let data = dir.path().to_str().unwrap();

@@ -71,10 +71,7 @@ fn two_named() -> Served {
 
 /// `T1` renamed to `T2`, then `U1`, another entity named in the same source file, to `U2`: each rename's line holds,
 /// shown and landed.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an editor rename's stale line holds while its names read in the source, whatever else changed there"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_rename_of_another_entity_in_the_same_source_keeps_the_first_line() {
     let mut served = two_named();
     rename(&mut served, 0, "T2");
@@ -88,10 +85,7 @@ fn a_rename_of_another_entity_in_the_same_source_keeps_the_first_line() {
 }
 
 /// `T1` renamed to `T2`, then a test typed below in the source file: the line holds.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an editor rename's stale line holds while its names read in the source, whatever else changed there"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn typing_elsewhere_in_the_source_keeps_the_line() {
     let mut served = fact_named();
     rename(&mut served, 0, "T2");
@@ -106,10 +100,7 @@ fn typing_elsewhere_in_the_source_keeps_the_line() {
 
 /// `T1` renamed to `T2`, then the name typed over in the source (`T2x`, which no rename wrote): the source no longer
 /// holds the rename there, so no line.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an editor rename's stale line holds while its names read in the source, whatever else changed there"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_name_typed_over_in_the_source_drops_its_line() {
     let mut served = fact_named();
     rename(&mut served, 0, "T2");
@@ -123,10 +114,7 @@ fn a_name_typed_over_in_the_source_drops_its_line() {
 }
 
 /// `T1 → T2 → T3`, undone once in both files and saved (the first lands), then redone in both and saved.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "editor renames redone after a save land what the redo says"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_redo_after_a_save_lands_the_rest() {
     let (mut served, steps) = composed();
     served.edit(SPEC, &steps.spec[1]);
@@ -148,10 +136,7 @@ fn a_redo_after_a_save_lands_the_rest() {
 /// `T1 → T2 → T3`, saved (both land), then undone to `T1` in both files and saved: the ledger as a rename back of `T3`
 /// to `T1` leaves it (the record of `T1` dropped as it moves back onto its own name, `T1 moved:T3` added), and no stale
 /// line.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "editor renames redone after a save land what the redo says"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn an_undo_past_a_save_lands_the_rename_back() {
     let (mut served, steps) = composed();
     save(&mut served, &[SPEC, SOURCE]);
@@ -168,10 +153,7 @@ fn an_undo_past_a_save_lands_the_rename_back() {
 
 /// `T1` renamed to `T2`, then `T2` to `T3` answered and never applied; the declaring file edited otherwise (the title),
 /// then `T3` typed by hand: no rename wrote that edit, so no move lands.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an editor rename never applied is dropped at the first change of its declaring file that is not its edit"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_rename_never_applied_lands_no_move_for_a_name_typed_later() {
     let mut served = fact_named();
     rename(&mut served, 0, "T2");
@@ -191,10 +173,7 @@ fn a_rename_never_applied_lands_no_move_for_a_name_typed_later() {
 /// One store placing `T1` in `a.test.js` and in `b.test.js`, renamed `T1 → T2 → T3`. One stale line names one name
 /// for both files: with `b.test.js` undone once it is the first rename's, undone twice there is none, though
 /// `a.test.js` still says `T3` (W198 there until the next collect).
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "a stale line about two source files is the line of the earliest rename either holds"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_store_in_two_files_undone_in_one_reads_the_earlier_step() {
     let mut served = served_with(
         "truth T1 \"One\" {\n}\n",
@@ -225,10 +204,7 @@ fn buffer_or_disk(served: &Served, file: &str) -> String {
 
 /// `T1 → T2 → T3`, saved, then undone once in both files (`T2`) and `T2` renamed to `T9`: the new rename hangs under
 /// the first, and saved, the ledger goes from what landed (`T3`) back to `T2` and down to `T9`.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "editor renames redone after a save land what the redo says"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_rename_after_an_undo_past_a_save_lands_from_what_landed() {
     let (mut served, steps) = composed();
     save(&mut served, &[SPEC, SOURCE]);

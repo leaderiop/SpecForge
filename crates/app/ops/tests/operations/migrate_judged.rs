@@ -63,10 +63,7 @@ fn hook_refused() -> (tempfile::TempDir, SharedRuntime) {
     )
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "a refused migration's cause counts only the errors it would add"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_refused_migrations_cause_counts_only_the_errors_it_adds() {
     let (dir, original) = erring_project();
     let owner_free = ["a", "b", "c", "d", "e"]
@@ -94,10 +91,7 @@ fn a_refused_migrations_cause_counts_only_the_errors_it_adds() {
     );
 }
 
-#[specforge_test(
-    behavior = "generate_migration_diff",
-    verify = "a dry run reports the verdict the run reaches: its hooks, its W054 and its errors"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_dry_run_reports_the_verdict_the_run_reaches() {
     let kept = || {
         (
@@ -143,10 +137,7 @@ fn a_dry_run_reports_the_verdict_the_run_reaches() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "a refused migration writes nothing, not even a backup"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_refused_migration_writes_nothing() {
     use std::os::unix::fs::MetadataExt as _;
     let (dir, runtime) = hook_refused();
@@ -172,10 +163,7 @@ fn a_refused_migration_writes_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "the hooks run before any file is written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_hooks_run_before_any_file_is_written() {
     let dir = project_with_extension();
     // The hook sees the file as it is on disk: still the old text.
@@ -201,10 +189,7 @@ fn the_hooks_run_before_any_file_is_written() {
     assert!(outcome.ok(), "{outcome:?}");
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "a planned text that adds an error is refused even when the graph is unchanged"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_planned_text_that_adds_an_error_and_keeps_the_graph_is_refused() {
     let dir = project_with_extension();
     // A second `alpha`: E002, and the graph is the one the project has.
@@ -224,10 +209,7 @@ fn a_planned_text_that_adds_an_error_and_keeps_the_graph_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "a migration that only moves lines is kept in a file that already reports a duplicate ID"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_migration_that_only_moves_a_duplicate_ids_position_is_kept() {
     let dir = project_with_extension();
     let duplicate = "behavior alpha \"Alpha\" {\n}\n";

@@ -115,10 +115,7 @@ fn asks_for_budget(project: &CompiledProject) -> String {
     summary[0].message.clone()
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "what is over a run's budget is not run and counts toward I206 as budget"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_value_asking_too_many_probes_is_not_run() {
     let scene = scene_of(FakeHttp::new(), &services("many", [url(0)]));
     let project = within(&scene, ValueBudget::RUN);
@@ -228,10 +225,7 @@ fn check_calls(runtime: &InProcessRuntime) -> usize {
         .count()
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a judge call stays inside its guest's memory limit"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn the_judge_call_is_batched_to_what_its_guest_can_hold() {
     const VALUES: usize = 20;
     let body = vec![b'x'; 16 * 1024];

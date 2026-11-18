@@ -53,10 +53,7 @@ fn codes(providers: &Providers) -> Vec<&str> {
 
 // The array of {scheme, alias, extension, settings} (ADR 0004 D3-c), in
 // declaration order, each registered to its extension.
-#[specforge_test(
-    behavior = "load_provider_configurations",
-    verify = "multiple aliased instances are created"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn test_load_providers_valid_array() {
     let providers = register(
         json!([
@@ -142,10 +139,7 @@ fn test_load_providers_invalid_entry_warns() {
     );
 }
 
-#[specforge_test(
-    behavior = "load_provider_configurations",
-    verify = "Load Provider Configurations: provider configuration loading holds — extension_manifests_loaded_fired, specforge_json_available, provider_instances_created, aliased_instances_distinct, no_hardcoded_schemes, provider_configured_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn test_load_providers_contract() {
     // ensures: valid → parsed correctly
     let providers = register(
@@ -165,10 +159,7 @@ fn test_load_providers_contract() {
     assert!(reported(&invalid).iter().any(|d| d.code == "W118"));
 }
 
-#[specforge_test(
-    behavior = "register_provider_schemes",
-    verify = "provider schemes registered from manifest"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn test_register_schemes_from_manifest() {
     let providers = register(
         json!([entry("github", "gh", "@specforge/github")]),
@@ -186,10 +177,7 @@ fn test_register_schemes_from_manifest() {
     );
 }
 
-#[specforge_test(
-    behavior = "register_provider_schemes",
-    verify = "duplicate scheme resolved by specforge.json declaration order"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn test_register_schemes_duplicate_produces_e057() {
     let providers = register(
         json!([entry("gh-a", "gh", "@ext/a"), entry("gh-b", "gh", "@ext/b")]),
@@ -240,10 +228,7 @@ fn test_register_schemes_no_manifest_warns() {
     assert!(not_a_provider.schemes().is_empty());
 }
 
-#[specforge_test(
-    behavior = "register_provider_schemes",
-    verify = "Register Provider Schemes: provider scheme registration holds — provider_configured_fired, wasm_runtime_available, schemes_registered, duplicate_scheme_warned, declaration_order_tiebreak, schemes_registered_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-107")]
 fn test_register_schemes_contract() {
     let config = json!([entry("github", "gh", "@ext/gh")]);
 

@@ -2,10 +2,7 @@ use super::*;
 
 // --- Slice 6: Parse errors ---
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "file with syntax error is partially formatted without crash"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_file_with_syntax_error_partially_formatted() {
     let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\nthis is invalid syntax { broken\n\nbehavior bar \"Bar\" {\n  contract \"also good\"\n}\n";
     let result = format_source(
@@ -20,10 +17,7 @@ fn test_file_with_syntax_error_partially_formatted() {
     assert!(result.formatted.contains("behavior bar \"Bar\""));
 }
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "error regions are preserved verbatim in output"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_error_regions_preserved_verbatim() {
     let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{broken\n\nbehavior bar \"Bar\" {\n  contract \"also good\"\n}\n";
     let result = format_source(
@@ -35,10 +29,7 @@ fn test_error_regions_preserved_verbatim() {
     assert!(!result.formatted.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "well-formed blocks in a file with errors are still formatted"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_well_formed_blocks_with_errors_are_formatted() {
     let input = "behavior foo \"Foo\" {\n      contract \"good\"\n}\n\n broken {{\n\nbehavior bar \"Bar\" {\n    contract \"also good\"\n}\n";
     let result = format_source(
@@ -53,10 +44,7 @@ fn test_well_formed_blocks_with_errors_are_formatted() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "diagnostic lists files with parse errors and error line ranges"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_parse_error_diagnostics() {
     let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n{{{broken\n";
     let result = format_source(
@@ -100,10 +88,7 @@ fn test_parse_error_diagnostics() {
 
 // --- Behavior: format_with_parse_errors (additional) ---
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "error region starts at first unparseable token"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_error_region_starts_at_first_unparseable_token() {
     let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n{{{broken stuff here\n";
     let result = format_source(
@@ -121,10 +106,7 @@ fn test_error_region_starts_at_first_unparseable_token() {
     assert!(result.formatted.contains("behavior foo \"Foo\" {"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "error region ends before next parseable top-level statement"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_error_region_ends_before_next_parseable_statement() {
     let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{ broken\n\nbehavior bar \"Bar\" {\n  contract \"also good\"\n}\n";
     let result = format_source(
@@ -140,10 +122,7 @@ fn test_error_region_ends_before_next_parseable_statement() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "whitespace within error regions is preserved byte-for-byte"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_whitespace_within_error_regions_preserved_byte_for_byte() {
     let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n  {{{  broken   stuff  \n\nbehavior bar \"Bar\" {\n  contract \"also good\"\n}\n";
     let result = format_source(
@@ -162,10 +141,7 @@ fn test_whitespace_within_error_regions_preserved_byte_for_byte() {
 
 // --- Contract: format_with_parse_errors ---
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "Format Files with Parse Errors: formatting with parse errors holds — cst_with_errors, no_crash, well_formed_regions_formatted, error_regions_preserved, parse_error_diagnosed"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_format_with_parse_errors_contract() {
     let config = FormatConfig::default();
 
@@ -219,10 +195,7 @@ fn test_format_with_parse_errors_contract() {
 
 // --- Gap coverage: lsp_format_document ---
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "error regions are preserved verbatim in output"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn test_parse_errors_trigger_partial_formatting() {
     let config = FormatConfig::default();
     let source_with_error = "behavior foo \"Foo\" {\n  contract \"ok\"\n}\n\n{{{ invalid syntax\n\nbehavior bar \"Bar\" {\n      contract   \"fix\"\n}\n";

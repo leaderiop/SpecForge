@@ -66,10 +66,7 @@ fn thread(spec: &str) -> RouteTrace {
     thread_of(&compiled, "AUTH-07")
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "trace follows the route its kind declares, step by step, each match under the match it came from"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_requirement_is_traced_along_its_route_in_one_line() {
     let route = thread(GSD_ROUTED_SPEC);
     assert_eq!(route.route, "gsd/requirement-thread");
@@ -117,10 +114,7 @@ fn verdict_on_the_truth(project: &TestProject) -> serde_json::Value {
         "judge": "gsd-verifier", "model": "m", "findings": [], "cited": [], "basis": basis}])
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "an annotation prints a field, a value reached through a selector, or a judgement's outcome and freshness"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_fresh_verdict_reads_outcome_and_freshness() {
     let project = gsd_routed_project(GSD_ROUTED_SPEC);
     let ops = verdict_on_the_truth(&project);
@@ -154,10 +148,7 @@ fn a_fresh_verdict_reads_outcome_and_freshness() {
     );
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "an annotation prints a field, a value reached through a selector, or a judgement's outcome and freshness"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn an_annotation_reads_a_field_of_the_entities_a_selector_reaches() {
     // The route as declared, its plan step also printing the `linked_by` of its tasks' commits.
     let runtime = gsd_routed_serving(|| {
@@ -179,10 +170,7 @@ fn an_annotation_reads_a_field_of_the_entities_a_selector_reaches() {
     );
 }
 
-#[specforge_test(
-    behavior = "render_trace_thread",
-    verify = "several matches of a step print as branches of a tree"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn several_matches_render_as_branches() {
     let spec = format!(
         "{GSD_ROUTED_SPEC}\ncommit 7b3c11aa09fe \"Another\" {{\n  task v1.0/03/03-02/T1\n  linked_by \"Gsd-Task\"\n}}\n"
@@ -207,10 +195,7 @@ fn no_commit() -> String {
     )
 }
 
-#[specforge_test(
-    behavior = "render_trace_thread",
-    verify = "a thread with at most one match per step prints on one line, a step with none as no <step>"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_step_with_no_match_prints_no_and_its_descendants_nothing() {
     assert_eq!(
         thread(&no_commit()).text,
@@ -228,7 +213,7 @@ fn a_step_with_no_match_prints_no_and_its_descendants_nothing() {
     assert_eq!(route.missing, ["plan"]);
 }
 
-#[specforge_test(behavior = "follow_trace_route")]
+#[specforge_test(requirement = "FEATURE-129")]
 fn an_absent_fact_prints_the_absent_text() {
     // The cited test is collected, with no status recorded.
     let project = gsd_routed_project_over(GSD_ROUTED_SPEC, &[GSD_JUDGED, CODE_CORE]);
@@ -255,10 +240,7 @@ fn an_absent_fact_prints_the_absent_text() {
     ));
 }
 
-#[specforge_test(
-    behavior = "render_trace_thread",
-    verify = "only a complete thread prints by default, its dead-end branches left out, and a partial one with --partial"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn an_incomplete_thread_prints_one_line_by_default_and_whole_with_partial() {
     let route = thread(&no_commit());
     assert_eq!(route.thread(Partial::No), None);
@@ -276,7 +258,7 @@ fn an_incomplete_thread_prints_one_line_by_default_and_whole_with_partial() {
     );
 }
 
-#[specforge_test(behavior = "render_trace_thread")]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_complete_thread_leaves_dead_end_branches_out() {
     let spec = format!("{GSD_ROUTED_SPEC}\ntask T2 \"Other\" {{\n  plan 03-02\n}}\n");
     let route = thread(&spec);
@@ -295,10 +277,7 @@ fn a_complete_thread_leaves_dead_end_branches_out() {
     );
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "a kind with no route is traced by the generic reach, unchanged"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_kind_without_a_route_keeps_the_generic_reach_byte_for_byte() {
     let (_project, compiled) = compiled(GSD_ROUTED_SPEC);
     let view = ProjectView::of(&compiled);
@@ -320,7 +299,7 @@ fn a_kind_without_a_route_keeps_the_generic_reach_byte_for_byte() {
     assert!(GSD_JUDGED_SPEC.contains("requirement AUTH-07"));
 }
 
-#[specforge_test(behavior = "follow_trace_route")]
+#[specforge_test(requirement = "FEATURE-129")]
 fn reach_traces_a_routed_kind_generically() {
     let (_project, compiled) = compiled(GSD_ROUTED_SPEC);
     let view = ProjectView::of(&compiled);
@@ -332,10 +311,7 @@ fn reach_traces_a_routed_kind_generically() {
     );
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "a named route, the reach, and every entity are traced as asked, and a wrong route is refused"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_named_route_of_another_kind_or_none_is_refused() {
     let (_project, compiled) = compiled(GSD_ROUTED_SPEC);
     let view = ProjectView::of(&compiled);
@@ -372,10 +348,7 @@ fn a_named_route_of_another_kind_or_none_is_refused() {
     assert_eq!(missing.subject, Some(TraceField::EntityId));
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "a named route, the reach, and every entity are traced as asked, and a wrong route is refused"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn every_entity_is_traced_as_its_own_trace_and_a_route_traces_its_start_kind() {
     let spec = format!("{GSD_ROUTED_SPEC}\nrequirement AUTH-08 \"Logout\" {{}}\n");
     let (_project, compiled) = compiled(&spec);
@@ -414,10 +387,7 @@ fn every_entity_is_traced_as_its_own_trace_and_a_route_traces_its_start_kind() {
     assert_eq!(ids(&reach).len(), all.len());
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "a step skipped for an unloaded optional peer is an I210 notice"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_skipped_step_is_an_i210_notice() {
     // `@code/core`, the optional peer that declares `test`, is not loaded.
     let spec = GSD_ROUTED_SPEC.replace(&format!("  proof [\"{ROUTED_TEST}\"]\n"), "");
@@ -451,10 +421,7 @@ fn a_skipped_step_is_an_i210_notice() {
     );
 }
 
-#[specforge_test(
-    behavior = "render_trace_thread",
-    verify = "the summary counts a step's matches"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn the_summary_counts_branches() {
     assert_eq!(
         thread(GSD_ROUTED_SPEC).summary(),
@@ -494,10 +461,7 @@ fn with_facts(collected: bool) -> RouteTrace {
     thread_of(&compiled, "AUTH-07")
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "a route step reaches collector-written facts through a scheme reference, and an unheld one is no match"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_route_step_follows_a_scheme_reference_into_a_fact_entity() {
     let route = with_facts(true);
     assert_eq!(
@@ -509,10 +473,7 @@ fn a_route_step_follows_a_scheme_reference_into_a_fact_entity() {
     assert_eq!(route.steps[3].matches[0].entity_id, ROUTED_TEST);
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "a route step reaches collector-written facts through a scheme reference, and an unheld one is no match"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn an_unheld_scheme_reference_is_no_match() {
     let route = with_facts(false);
     assert_eq!(
@@ -544,10 +505,7 @@ fn two_milestones() -> String {
     )
 }
 
-#[specforge_test(
-    behavior = "trace_within_entity",
-    verify = "a trace within a milestone traces the requirements its phases name, and none of another milestone"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn within_a_milestone_traces_the_requirements_its_phases_name() {
     let (_project, compiled) = compiled(&two_milestones());
     let thread = Follow::Route("gsd/requirement-thread");
@@ -557,10 +515,7 @@ fn within_a_milestone_traces_the_requirements_its_phases_name() {
     assert_eq!(within("03"), ["AUTH-07"]);
 }
 
-#[specforge_test(
-    behavior = "trace_within_entity",
-    verify = "a trace within an entity with no route traces it, its scope's entities and those one reference away"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn within_with_no_route_traces_the_scope_and_one_reference_away() {
     let (_project, compiled) = compiled(&two_milestones());
     let (outcome, _) = traced(&compiled, Target::Within("03"), Follow::Declared);
@@ -579,10 +534,7 @@ fn within_with_no_route_traces_the_scope_and_one_reference_away() {
     );
 }
 
-#[specforge_test(
-    behavior = "trace_within_entity",
-    verify = "a trace within an entity the graph lacks is not found about in"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn within_an_unknown_entity_is_not_found_about_in() {
     let (_project, compiled) = compiled(GSD_ROUTED_SPEC);
     let view = ProjectView::of(&compiled);
@@ -591,10 +543,7 @@ fn within_an_unknown_entity_is_not_found_about_in() {
     assert_eq!(missing.subject, Some(TraceField::In));
 }
 
-#[specforge_test(
-    behavior = "declare_trace_route",
-    verify = "a trace route step with a kind filter follows only the entities whose field holds one of the values"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_route_step_with_a_kind_filter_follows_only_matching_entities() {
     let spec = format!(
         "{GSD_ROUTED_SPEC}\ndecision D-01 \"Discussed\" {{\n  phase 03\n  origin context\n}}\n\n\

@@ -53,10 +53,7 @@ fn edited(edit: WorkspaceEdit) -> Vec<String> {
     out
 }
 
-#[spec(
-    behavior = "find_all_references",
-    verify = "find-refs include a use binding's imported name"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn references_show_a_use_binding() {
     let served = served();
     let found = located(answers::references(
@@ -71,10 +68,7 @@ fn references_show_a_use_binding() {
     );
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename answers on a use binding's imported name"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn prepare_rename_and_rename_answer_on_a_use_binding() {
     let served = served();
     let (state, uri) = (served.state(), served.uri("main.spec"));

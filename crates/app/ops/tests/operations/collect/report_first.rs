@@ -158,10 +158,7 @@ fn commit_as(id: &str, phase: &str) -> Value {
         "revision": "absent", "fields": {"phase": phase, "sha": "abc"}}])
 }
 
-#[specforge_test(
-    behavior = "answer_edit_plan",
-    verify = "a writing collectors plan is judged against the report its collect wrote"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collectors_plan_is_judged_against_the_report_it_wrote() {
     let p = project();
     let (applied, runtime) = collect_and_apply(&p, commit("03"));
@@ -176,10 +173,7 @@ fn a_collectors_plan_is_judged_against_the_report_it_wrote() {
     );
 }
 
-#[specforge_test(
-    behavior = "answer_edit_plan",
-    verify = "a collector's plan is judged for host errors only"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collectors_plan_is_not_refused_for_an_extensions_error() {
     // The recorded commit makes the extension's E901 stand: reported after the write, not a refusal of it.
     let p = project();
@@ -194,10 +188,7 @@ fn a_collectors_plan_is_not_refused_for_an_extensions_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "answer_edit_plan",
-    verify = "a writing collectors plan is judged against the report its collect wrote"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collector_plan_adding_an_error_itself_is_still_e080() {
     // The commit names a phase that does not exist (E003): refused, and the report's E900 is not named.
     let p = project();
@@ -209,10 +200,7 @@ fn a_collector_plan_adding_an_error_itself_is_still_e080() {
     assert!(!p.root().join("commits.spec").exists());
 }
 
-#[specforge_test(
-    behavior = "answer_edit_plan",
-    verify = "a writing collectors plan is judged against the report its collect wrote"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collect_without_plans_compiles_once() {
     let p = project();
     let runtime = Arc::new(
@@ -239,10 +227,7 @@ fn a_collect_without_plans_compiles_once() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "answer_edit_plan",
-    verify = "a writing collectors plan is applied within its calls containment"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collectors_plan_reads_the_format_configuration_within_the_calls_containment() {
     let p = project();
     let elsewhere = tempfile::TempDir::new().unwrap();

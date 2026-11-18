@@ -16,10 +16,7 @@ fn wire(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_edit_plan",
-    verify = "an edit plan and a writing command's input read back as they were written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_writing_commands_input_and_answer_are_the_goldens() {
     let golden = wire("command.writes.input.json");
     let input = CommandInput {
@@ -43,10 +40,7 @@ fn a_writing_commands_input_and_answer_are_the_goldens() {
     assert!(plain.get("plan").is_none(), "{plain}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_edit_plan",
-    verify = "an edit plan and a writing command's input read back as they were written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn every_plan_op_reads_back_as_written() {
     let rev = "sha256:ab".to_string();
     let ops = vec![
@@ -157,10 +151,7 @@ fn every_plan_op_reads_back_as_written() {
     assert!(matches!(missing, PlanOp::Unset { revision, .. } if revision.is_empty()));
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_edit_plan",
-    verify = "a cite naming more than one thing is not a cite"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_cite_naming_more_than_one_thing_is_not_a_cite() {
     for ok in [
         json!({"entity": "a"}),
@@ -182,7 +173,7 @@ fn a_cite_naming_more_than_one_thing_is_not_a_cite() {
     }
 }
 
-#[specforge_test_macros::test(type = "Fact", verify = "Fact schema is valid")]
+#[test]
 fn a_collectors_facts_are_the_golden() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/wire/collect.facts.output.json");

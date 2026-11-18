@@ -6,10 +6,7 @@ fn a_pass_is_called_at_its_prefixed_export() {
     assert_eq!(pass_export("a-b_c"), "__pass_a-b_c");
 }
 
-#[specforge_test_macros::test(
-    invariant = "collector_output_conformance",
-    verify = "a test status is passed, failed or skipped, and no other value decodes"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-005")]
 fn a_test_status_is_passed_failed_or_skipped() {
     for (text, status) in [
         ("passed", TestStatus::Passed),

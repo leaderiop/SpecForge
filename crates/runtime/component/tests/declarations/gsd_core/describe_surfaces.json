@@ -1,0 +1,5307 @@
+{
+  "category": "surfaces",
+  "items": [
+    {
+      "agents": [
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-advisor-researcher.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "cyan",
+          "description": "Researches a single gray area decision and returns a structured comparison table with rationale. Spawned by discuss-phase advisor mode.",
+          "id": "gsd-advisor-researcher",
+          "model": "setting:model_overrides.gsd-advisor-researcher",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "skill",
+            "web_search",
+            "web_fetch",
+            "mcp:context7/*",
+            "mcp:plugin_context7_context7/*",
+            "specforge:query",
+            "specforge:search",
+            "specforge:inspect",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:explain",
+            "specforge:schema",
+            "specforge:context"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-assumptions-analyzer.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "cyan",
+          "description": "Deeply analyzes codebase for a phase and returns structured assumptions with evidence. Spawned by discuss-phase assumptions mode.",
+          "id": "gsd-assumptions-analyzer",
+          "model": "setting:model_overrides.gsd-assumptions-analyzer",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "skill",
+            "specforge:query",
+            "specforge:search",
+            "specforge:inspect",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:explain",
+            "specforge:schema",
+            "specforge:context"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-doc-classifier.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "yellow",
+          "description": "Classifies a single planning document as ADR, PRD, SPEC, DOC, or UNKNOWN. Extracts title, scope summary, and cross-references. Spawned in parallel by /gsd:ingest-docs. Writes a JSON classification file and returns a one-line confirmation.",
+          "id": "gsd-doc-classifier",
+          "model": "setting:model_overrides.gsd-doc-classifier",
+          "tools": [
+            "read",
+            "write",
+            "search",
+            "specforge:query",
+            "specforge:search",
+            "specforge:inspect",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:explain",
+            "specforge:schema",
+            "specforge:context",
+            "specforge:edit",
+            "specforge:collect"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-doc-synthesizer.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "orange",
+          "description": "Synthesizes classified planning docs into a single consolidated context. Applies precedence rules, detects cross-ref cycles, enforces LOCKED-vs-LOCKED hard-blocks, and writes INGEST-CONFLICTS.md with three buckets (auto-resolved, competing-variants, unresolved-blockers). Spawned by /gsd:ingest-docs.",
+          "id": "gsd-doc-synthesizer",
+          "model": "setting:model_overrides.gsd-doc-synthesizer",
+          "tools": [
+            "read",
+            "write",
+            "search",
+            "shell",
+            "specforge:query",
+            "specforge:search",
+            "specforge:inspect",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:explain",
+            "specforge:schema",
+            "specforge:context",
+            "specforge:edit",
+            "specforge:collect"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-executor.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "yellow",
+          "description": "Executes GSD plans with atomic commits, deviation handling, checkpoint protocols, and state management. Spawned by execute-phase orchestrator or execute-plan command.",
+          "id": "gsd-executor",
+          "model": "setting:model_overrides.gsd-executor",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "shell",
+            "search",
+            "skill",
+            "mcp:context7/*",
+            "mcp:plugin_context7_context7/*",
+            "specforge:query",
+            "specforge:find_implementation",
+            "specforge:find_spec_for_source",
+            "specforge:validate",
+            "specforge:explain",
+            "specforge:gsd.branch_check",
+            "specforge:context",
+            "specforge:edit",
+            "specforge:collect",
+            "specforge:gsd.start_plan",
+            "specforge:gsd.complete_plan",
+            "specforge:gsd.raise_blocker",
+            "specforge:gsd.resolve_blocker",
+            "specforge:gsd.record_window",
+            "specforge:gsd.pause"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-integration-checker.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "blue",
+          "description": "Verifies cross-phase integration and E2E flows. Checks that phases connect properly and user workflows complete end-to-end.",
+          "id": "gsd-integration-checker",
+          "model": "setting:model_overrides.gsd-integration-checker",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "skill",
+            "specforge:query",
+            "specforge:search",
+            "specforge:trace",
+            "specforge:find_implementation",
+            "specforge:find_references",
+            "specforge:validate",
+            "specforge:explain",
+            "specforge:context",
+            "specforge:verdict_inputs",
+            "specforge:gsd.record_verdict"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-nyquist-auditor.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "purple",
+          "description": "Fills Nyquist validation gaps by generating tests and verifying coverage for phase requirements",
+          "id": "gsd-nyquist-auditor",
+          "model": "setting:model_overrides.gsd-nyquist-auditor",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "shell",
+            "search",
+            "skill",
+            "specforge:query",
+            "specforge:trace",
+            "specforge:find_implementation",
+            "specforge:find_references",
+            "specforge:validate",
+            "specforge:explain",
+            "specforge:gsd.user_story_validate",
+            "specforge:context",
+            "specforge:find_spec_for_source",
+            "specforge:collect"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-pattern-mapper.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "purple",
+          "description": "Analyzes codebase for existing patterns and produces PATTERNS.md mapping new files to closest analogs. Read-only codebase analysis spawned by /gsd:plan-phase orchestrator before planning.",
+          "id": "gsd-pattern-mapper",
+          "model": "setting:model_overrides.gsd-pattern-mapper",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "write",
+            "specforge:query",
+            "specforge:search",
+            "specforge:inspect",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:explain",
+            "specforge:schema",
+            "specforge:context",
+            "specforge:edit",
+            "specforge:collect"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-phase-researcher.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "cyan",
+          "description": "Researches how to implement a phase before planning. Produces RESEARCH.md consumed by gsd-planner. Spawned by /gsd:plan-phase orchestrator.",
+          "id": "gsd-phase-researcher",
+          "model": "setting:model_overrides.gsd-phase-researcher",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "shell",
+            "search",
+            "skill",
+            "web_search",
+            "web_fetch",
+            "mcp:context7/*",
+            "mcp:plugin_context7_context7/*",
+            "mcp:firecrawl/*",
+            "mcp:exa/*",
+            "mcp:tavily/*",
+            "mcp:ref/*",
+            "mcp:jina/*",
+            "mcp:perplexity/*",
+            "specforge:query",
+            "specforge:search",
+            "specforge:inspect",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:explain",
+            "specforge:schema",
+            "specforge:context",
+            "specforge:edit",
+            "specforge:collect",
+            "specforge:verdict_inputs",
+            "specforge:gsd.record_verdict"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-plan-checker.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "green",
+          "description": "Verifies plans will achieve phase goal before execution. Goal-backward analysis of plan quality. Spawned by /gsd:plan-phase orchestrator.",
+          "id": "gsd-plan-checker",
+          "model": "setting:model_overrides.gsd-plan-checker",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "skill",
+            "specforge:query",
+            "specforge:search",
+            "specforge:trace",
+            "specforge:find_implementation",
+            "specforge:find_references",
+            "specforge:validate",
+            "specforge:explain",
+            "specforge:context",
+            "specforge:verdict_inputs",
+            "specforge:gsd.record_verdict"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-planner.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "green",
+          "description": "Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /gsd:plan-phase orchestrator.",
+          "id": "gsd-planner",
+          "model": "setting:model_overrides.gsd-planner",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "shell",
+            "search",
+            "skill",
+            "web_fetch",
+            "mcp:context7/*",
+            "mcp:plugin_context7_context7/*",
+            "specforge:query",
+            "specforge:search",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:validate",
+            "specforge:explain",
+            "specforge:export",
+            "specforge:schema",
+            "specforge:find_references",
+            "specforge:context",
+            "specforge:edit",
+            "specforge:collect",
+            "specforge:gsd.phase"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-project-researcher.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "cyan",
+          "description": "Researches domain ecosystem before roadmap creation. Produces files in spec/gsd/research/ consumed during roadmap creation. Spawned by /gsd:new-project or /gsd:new-milestone orchestrators.",
+          "id": "gsd-project-researcher",
+          "model": "setting:model_overrides.gsd-project-researcher",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "skill",
+            "web_search",
+            "web_fetch",
+            "mcp:context7/*",
+            "mcp:plugin_context7_context7/*",
+            "mcp:firecrawl/*",
+            "mcp:exa/*",
+            "mcp:tavily/*",
+            "mcp:ref/*",
+            "mcp:jina/*",
+            "mcp:perplexity/*",
+            "specforge:query",
+            "specforge:search",
+            "specforge:inspect",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:explain",
+            "specforge:schema",
+            "specforge:context",
+            "specforge:edit",
+            "specforge:collect"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-research-synthesizer.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "purple",
+          "description": "Synthesizes research outputs from parallel researcher agents into SUMMARY.md. Spawned by /gsd:new-project after 4 researcher agents complete.",
+          "id": "gsd-research-synthesizer",
+          "model": "setting:model_overrides.gsd-research-synthesizer",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "skill",
+            "specforge:query",
+            "specforge:search",
+            "specforge:inspect",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:explain",
+            "specforge:schema",
+            "specforge:context",
+            "specforge:edit",
+            "specforge:collect"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-roadmapper.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "purple",
+          "description": "Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation. Spawned by /gsd:new-project orchestrator.",
+          "id": "gsd-roadmapper",
+          "model": "setting:model_overrides.gsd-roadmapper",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "skill",
+            "specforge:query",
+            "specforge:search",
+            "specforge:trace",
+            "specforge:find_spec_for_source",
+            "specforge:find_implementation",
+            "specforge:validate",
+            "specforge:explain",
+            "specforge:export",
+            "specforge:schema",
+            "specforge:find_references",
+            "specforge:context",
+            "specforge:edit",
+            "specforge:collect",
+            "specforge:gsd.phase"
+          ],
+          "variant_setting": "specforge.agent_variant",
+          "variants": [
+            "compact"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "agents/gsd-verifier.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "color": "green",
+          "description": "Verifies phase goal achievement through goal-backward analysis. Checks codebase delivers what phase promised, not just that tasks completed. Creates VERIFICATION.md report.",
+          "id": "gsd-verifier",
+          "model": "setting:model_overrides.gsd-verifier",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "skill",
+            "specforge:query",
+            "specforge:trace",
+            "specforge:find_implementation",
+            "specforge:find_references",
+            "specforge:validate",
+            "specforge:explain",
+            "specforge:gsd.user_story_validate",
+            "specforge:context",
+            "specforge:find_spec_for_source",
+            "specforge:collect",
+            "specforge:verdict_inputs",
+            "specforge:gsd.record_verdict",
+            "specforge:edit"
+          ]
+        }
+      ],
+      "commands": [
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the entity judged (its path, or a short form that is not ambiguous)",
+              "name": "entity",
+              "required": true
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "W311",
+                    "W313",
+                    "W315",
+                    "W316",
+                    "E501",
+                    "E518",
+                    "E202",
+                    "W203",
+                    "W205"
+                  ]
+                }
+              },
+              "description": "the judged rule, as its local code",
+              "name": "rule",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the verdict's outcome, one of the rule's",
+              "name": "outcome",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the model that judged",
+              "name": "model",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the JSON object `basis` of `specforge query <entity> --inputs gsd/<code> --format json`",
+              "name": "basis",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "JSON list of findings (default []): objects with severity and message",
+              "name": "findings",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "JSON list of what the verdict cites (default []): {\"entity\": ..}, {\"file\": ..} or {\"test\": ..}",
+              "name": "cited",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "JSON object of the field values the rule binds (default {}), such as the scores of gsd/E202",
+              "name": "values",
+              "required": false
+            }
+          ],
+          "description": "Record a judge's verdict on a judged gsd/ rule: read the inputs with `specforge query <entity> --inputs gsd/<code>`, judge, then record the outcome with that `basis`",
+          "export": "cmd__record_verdict",
+          "id": "record_verdict",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the research (its path, or a short form that is not ambiguous)",
+              "name": "entity",
+              "required": true
+            }
+          ],
+          "description": "Record the pack of gsd/phase-context (gsd/quick-context for a quick plan's research) on a research, so a later change of its context is gsd/W406",
+          "export": "cmd__record_research",
+          "id": "record_research",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the phase spec (its path, or a short form that is not ambiguous)",
+              "name": "entity",
+              "required": true
+            }
+          ],
+          "description": "Record the pack of gsd/phase-context on a phase spec, so a later change of its context is gsd/W406",
+          "export": "cmd__record_spec",
+          "id": "record_spec",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the validation (its path, or a short form that is not ambiguous)",
+              "name": "entity",
+              "required": true
+            }
+          ],
+          "description": "Record the pack of gsd/phase-context on a validation, so a later change of its context is gsd/W406",
+          "export": "cmd__record_validation",
+          "id": "record_validation",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the checkpoint (its path, or a short form that is not ambiguous)",
+              "name": "checkpoint",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the name of one of a decision checkpoint's options",
+              "name": "option",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the reply in the person's words, kept verbatim",
+              "name": "text",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "required; who answered (typed by the person at their terminal)",
+              "name": "by",
+              "required": false
+            }
+          ],
+          "description": "Record a human's answer to a checkpoint of a plan, with the host's clock: a decision's option, or free text",
+          "export": "cmd__answer_checkpoint",
+          "human": true,
+          "id": "answer_checkpoint",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the user setup (its path, or a short form that is not ambiguous)",
+              "name": "user_setup",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "required; who did it (typed by the person at their terminal)",
+              "name": "by",
+              "required": false
+            }
+          ],
+          "description": "Record that a human did a plan's user setup step, with the host's clock",
+          "export": "cmd__confirm_setup",
+          "human": true,
+          "id": "confirm_setup",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the plan about to run (its path, or a short form that is not ambiguous)",
+              "name": "plan",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the commit it opens at, in full (`specforge git head --pick .sha`); empty on an unborn branch, which has none",
+              "name": "head",
+              "required": false
+            },
+            {
+              "arg_type": "integer",
+              "description": "the budget of the executor pack it records (default: the route's own)",
+              "minimum": 0,
+              "name": "max_tokens",
+              "required": false
+            }
+          ],
+          "description": "Open a plan: runs the plan's entry gates (W318, E516), records the host's clock and the commit it opens at in its `plan_start`, each once (a second call answers the first values), and on every call records the plan's gsd/executor pack in its `context_pack` (gsd/W524)",
+          "export": "cmd__start_plan",
+          "gates": [
+            "W318",
+            "E516"
+          ],
+          "id": "start_plan",
+          "subject": "plan",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the plan's summary (its path, or a short form that is not ambiguous)",
+              "name": "summary",
+              "required": true
+            }
+          ],
+          "description": "Close a plan: write its summary's `started` (what `start-plan` recorded) and `completed` (the host's clock); the summary must exist with its required fields",
+          "export": "cmd__complete_plan",
+          "gates": [
+            "W404"
+          ],
+          "id": "complete_plan",
+          "subject": "summary",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the UAT test (its path, or a short form that is not ambiguous)",
+              "name": "uat_test",
+              "required": true
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "pending",
+                    "pass",
+                    "issue",
+                    "skipped",
+                    "blocked"
+                  ]
+                }
+              },
+              "description": "the answer",
+              "name": "result",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "required; whose answer it is (typed by the person at their terminal; echoed, not stored)",
+              "name": "by",
+              "required": false
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "human",
+                    "automated"
+                  ]
+                }
+              },
+              "description": "a person's answer is `human`; `automated` is refused here (use record_automated_uat)",
+              "name": "source",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the person's words, kept verbatim (required for an issue)",
+              "name": "reported",
+              "required": false
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "blocker",
+                    "major",
+                    "minor",
+                    "cosmetic"
+                  ]
+                }
+              },
+              "description": "how bad the issue is (major when absent)",
+              "name": "severity",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "why the test was skipped (required for a skipped, unless a follow-up is given)",
+              "name": "reason",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "a skipped test's deferred follow-up, in the person's words: the reason becomes `Deferred follow-up: <words>` and the session keeps the idea",
+              "name": "follow_up",
+              "required": false
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "server",
+                    "physical_device",
+                    "release_build",
+                    "third_party",
+                    "prior_phase"
+                  ]
+                }
+              },
+              "description": "what blocks the test (required for a blocked)",
+              "name": "blocked_by",
+              "required": false
+            }
+          ],
+          "description": "Record a person's answer to a UAT test: pass, issue (with their words), skipped (with a reason), blocked (with what blocks it) or pending",
+          "export": "cmd__set_uat_result",
+          "human": true,
+          "id": "set_uat_result",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the UAT test (its path, or a short form that is not ambiguous)",
+              "name": "uat_test",
+              "required": true
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "pass",
+                    "issue"
+                  ]
+                }
+              },
+              "description": "the automated result",
+              "name": "result",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "required; what produced it (for example ci; echoed, not stored)",
+              "name": "by",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "what the run showed, kept verbatim (required for an issue)",
+              "name": "reported",
+              "required": false
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "blocker",
+                    "major",
+                    "minor",
+                    "cosmetic"
+                  ]
+                }
+              },
+              "description": "how bad the issue is (major when absent)",
+              "name": "severity",
+              "required": false
+            }
+          ],
+          "description": "Record an automated UAT result (a pass or an issue) that a test run produced, without asking the person",
+          "export": "cmd__record_automated_uat",
+          "id": "record_automated_uat",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the validation (its path, or a short form that is not ambiguous)",
+              "name": "validation",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "who approves it",
+              "name": "by",
+              "required": true
+            }
+          ],
+          "description": "Record who approved a phase's validation, with the host's clock",
+          "export": "cmd__approve_validation",
+          "human": true,
+          "id": "approve_validation",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "why the work stopped, in the person's words",
+              "name": "reason",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the phase the work was in",
+              "name": "phase",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the plan that was open",
+              "name": "plan",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the handoff entity that carries what the next session needs",
+              "name": "handoff",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "required; who paused: the caller's attestation, not a proof of the person; `pause` stays an agent's call",
+              "name": "by",
+              "required": false
+            }
+          ],
+          "description": "Pause the work for a handoff: records why, who and when (the host's clock), in a phase or the project",
+          "export": "cmd__pause",
+          "id": "pause",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the pause (its path, or a short form that is not ambiguous)",
+              "name": "pause",
+              "required": true
+            }
+          ],
+          "description": "Resume paused work: removes the pause and its handoff (a handoff another pause still names stays)",
+          "export": "cmd__resume",
+          "id": "resume",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the blocker, in the person's words",
+              "name": "text",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the phase it blocks",
+              "name": "phase",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the plan it blocks",
+              "name": "plan",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the task whose TDD gate tripped (`T1` under the given plan, or its full id): an open blocker of the same gate is reused",
+              "name": "gate",
+              "required": false
+            }
+          ],
+          "description": "Raise a blocker or concern, with the host's clock",
+          "export": "cmd__raise_blocker",
+          "id": "raise_blocker",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the blocker (its id, or a short form that is not ambiguous)",
+              "name": "blocker",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "how it was resolved, in the person's words",
+              "name": "how",
+              "required": true
+            }
+          ],
+          "description": "Resolve a blocker: how it was resolved, and when (the host's clock)",
+          "export": "cmd__resolve_blocker",
+          "id": "resolve_blocker",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "stub",
+                    "todo",
+                    "fixme",
+                    "skipped_test",
+                    "lint_warning",
+                    "unmet_truth",
+                    "unrun_verify",
+                    "deviation"
+                  ]
+                }
+              },
+              "description": "what kind of defect",
+              "name": "kind",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the phase that found it",
+              "name": "phase",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "what is wrong, in the person's words",
+              "name": "description",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the file it is in",
+              "name": "file",
+              "required": false
+            },
+            {
+              "arg_type": "integer",
+              "description": "the line it is on",
+              "minimum": 0,
+              "name": "line",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the refactor proposal a strict-mode trigger recorded it as a deviation of",
+              "name": "refactor",
+              "required": false
+            }
+          ],
+          "description": "Record a broken window: a defect left in the code, open until it is fixed or waived",
+          "export": "cmd__record_window",
+          "id": "record_window",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the window (its id, or a short form that is not ambiguous)",
+              "name": "window",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "why it is waived, in the person's words",
+              "name": "reason",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "who waives it",
+              "name": "by",
+              "required": true
+            }
+          ],
+          "description": "Waive a broken window with a reason and who waives it, at the host's clock; a window is resolved once",
+          "export": "cmd__waive_window",
+          "human": true,
+          "id": "waive_window",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the window (its id, or a short form that is not ambiguous)",
+              "name": "window",
+              "required": true
+            }
+          ],
+          "description": "Mark a broken window fixed, at the host's clock; a window is resolved once",
+          "export": "cmd__fix_window",
+          "id": "fix_window",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the phase whose plans' files are scored",
+              "name": "phase",
+              "required": true
+            }
+          ],
+          "description": "Score the files a phase's plans modified with upstream's decision-point scorer and record a refactor proposal for the top function over the threshold or up by more than the jump delta; records nothing when none crosses",
+          "export": "cmd__propose_refactor",
+          "id": "propose_refactor",
+          "inputs": [
+            {
+              "field": "plan.files_modified",
+              "input": "files",
+              "name": "files",
+              "text": true
+            }
+          ],
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the refactor proposal (its path, or a short form that is not ambiguous)",
+              "name": "proposal",
+              "required": true
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "accepted",
+                    "declined"
+                  ]
+                }
+              },
+              "description": "accepted or declined",
+              "name": "outcome",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "who decided",
+              "name": "by",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "why, in the person's words (required when declined)",
+              "name": "reason",
+              "required": false
+            }
+          ],
+          "description": "Record what was decided on a refactor proposal: accepted or declined (a declined one needs a reason); a proposal is disposed once",
+          "export": "cmd__dispose_refactor",
+          "human": true,
+          "id": "dispose_refactor",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the milestone (its id, or a short form that is not ambiguous)",
+              "name": "milestone",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "what was built, as a JSON list of strings, for a retrospective this creates",
+              "name": "built",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "what worked, as a JSON list of strings",
+              "name": "worked",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "what was inefficient, as a JSON list of strings",
+              "name": "inefficient",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the patterns established, as a JSON list of strings",
+              "name": "patterns",
+              "required": false
+            }
+          ],
+          "description": "Close a milestone whose audit passes and whose phases are verified: record its completion against the latest audit and create its retrospective if it has none",
+          "export": "cmd__close_milestone",
+          "gates": [
+            "E106",
+            "E511",
+            "E515",
+            "E516"
+          ],
+          "id": "close_milestone",
+          "subject": "milestone",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the milestone (default: the only one still open)",
+              "name": "milestone",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "insert a decimal phase after this phase (02 makes 02.1, or the first free decimal)",
+              "name": "insert",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "remove this phase that has not started, and renumber the later ones",
+              "name": "remove",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "edit this phase: its name, goal, criteria or dependencies",
+              "name": "edit",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "promote this backlog phase (999.1) to the next number of the milestone, children included",
+              "name": "promote",
+              "required": false
+            },
+            {
+              "arg_type": "bool",
+              "description": "add the phase to the backlog at the first free 999.x number",
+              "name": "backlog",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the phase's name (required to add or insert)",
+              "name": "name",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the phase's goal",
+              "name": "goal",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the success criteria, as a JSON list of strings",
+              "name": "criteria",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "what it depends on, as a JSON list of phase numbers (when editing a phase)",
+              "name": "depends_on",
+              "required": false
+            },
+            {
+              "arg_type": "bool",
+              "description": "remove a phase that has plans with summaries or commits",
+              "name": "force",
+              "required": false
+            }
+          ],
+          "description": "Add, insert, remove, edit or promote a phase of the roadmap; a removal renumbers the later phases in one edit plan",
+          "export": "cmd__phase",
+          "id": "phase",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "list",
+                    "status",
+                    "progress",
+                    "create",
+                    "complete",
+                    "switch",
+                    "resume"
+                  ]
+                }
+              },
+              "description": "what to do",
+              "name": "action",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the workstream (all but list; status and progress take every workstream without it)",
+              "name": "name",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "what the workstream is for (create)",
+              "name": "purpose",
+              "required": false
+            }
+          ],
+          "description": "Manage workstreams: list them, show their status and progress, create one, say whether one is complete, or switch to one",
+          "export": "cmd__workstreams",
+          "id": "workstreams",
+          "inputs": [
+            {
+              "input": "state"
+            }
+          ],
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [],
+          "description": "Report the shipped milestones GSD would archive; nothing is archived here and nothing is written",
+          "export": "cmd__cleanup",
+          "id": "cleanup",
+          "title": ""
+        },
+        {
+          "args": [],
+          "description": "List what @gsd/core serves: its slash commands by cluster, its prompts and its commands",
+          "export": "cmd__help",
+          "id": "help",
+          "title": ""
+        },
+        {
+          "args": [],
+          "description": "Report the project's health as gsd-tools does: phases whose plans lack a summary (I001); `specforge check` has the rest",
+          "export": "cmd__health",
+          "id": "health",
+          "title": ""
+        },
+        {
+          "args": [],
+          "description": "Report the project's statistics as gsd-tools does: phases, plans, requirements, recorded commits and the last activity",
+          "export": "cmd__stats",
+          "id": "stats",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "report this phase alone, from its own milestone (default: every phase of the milestone in progress, else the last)",
+              "name": "phase",
+              "required": false
+            }
+          ],
+          "description": "Report each phase's plans, summaries and status, and the plan-based percent, as gsd-tools' progress json does",
+          "export": "cmd__progress_report",
+          "id": "progress_report",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the file, as the text that names it writes it",
+              "name": "file",
+              "required": true
+            }
+          ],
+          "description": "Print one ported GSD workflow, reference or template by its path (gsd-core/references/x.md; the gsd-core/ may be left out), converted for the calling host",
+          "export": "cmd__reference",
+          "id": "reference",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the phase whose plans were reviewed",
+              "name": "phase",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "required; the round as JSON: plans, reviewers [{name, model, source}], lanes [{reviewer, summary, strengths, suggestions, risk}], coverage [{reviewer, total, missing}], consensus, strengths, divergent, unchecked [{symbol, why}], concerns [{plan, reviewers, severity, text, actionable, drift, evidence}]",
+              "name": "review",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "a round already recorded: the JSON then holds only unchecked and concerns, which are added to it",
+              "name": "round",
+              "required": false
+            }
+          ],
+          "description": "Record a cross-AI review round of a phase's plans (GSD NN-REVIEWS.md): its reviewers, lanes, coverage and consensus, and one concern each; with a round named, more unchecked symbols and concerns of that round",
+          "export": "cmd__record_review",
+          "id": "record_review",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the plan whose revision reported it",
+              "name": "plan",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "required; the checker dimension or review lane that asked (one line)",
+              "name": "dimension",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "required; what the ask would change (one line)",
+              "name": "property",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "required; the decision, requirement or must-have it would break (one line)",
+              "name": "conflicts_with",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the ways out the planner named (one line)",
+              "name": "alternatives",
+              "required": false
+            }
+          ],
+          "description": "Record a conflict a plan revision reported (GSD REVISION_CONFLICT): open in the plan's phase; the same open conflict twice is one entity, answered reused",
+          "export": "cmd__record_conflict",
+          "id": "record_conflict",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "how the replan resolved it",
+              "name": "how",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the open conflict to resolve (exactly one of a conflict or a plan)",
+              "name": "conflict",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the plan whose open conflicts all resolve (exactly one of a conflict or a plan)",
+              "name": "plan",
+              "required": false
+            }
+          ],
+          "description": "Resolve a revision conflict: the one conflict named, or every open one of a named plan",
+          "export": "cmd__resolve_conflict",
+          "id": "resolve_conflict",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the story text, usually the phase's goal",
+              "name": "story",
+              "required": false
+            }
+          ],
+          "description": "Check a phase goal against the canonical user story: \"As a [role], I want to [capability], so that [outcome].\" on one line; answers valid, the errors and the three slots",
+          "export": "cmd__user_story_validate",
+          "id": "user_story_validate",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the phase spec or the phase (its path, or a short form that is not ambiguous)",
+              "name": "subject",
+              "required": true
+            }
+          ],
+          "description": "Propose and roll up a spec's edge coverage: the edge probe's rows for each locked requirement of a phase spec (or each requirement of a phase), merged with the spec's recorded edges; answers the items and the coverage (applicable, resolved, unresolved, unclassified, byVerification)",
+          "export": "cmd__edge_probe",
+          "id": "edge_probe",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the locked requirement (its path, or a short form that is not ambiguous)",
+              "name": "requirement",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the edge category: one of the taxonomy's eight, or unclassified",
+              "name": "category",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "resolved, dismissed or unresolved",
+              "name": "status",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "a resolved row's tier: explicit or backstop",
+              "name": "verification",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the acceptance criterion or backstop note a resolved row requires",
+              "name": "resolution",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "why a dismissed row is dismissed",
+              "name": "reason",
+              "required": false
+            }
+          ],
+          "description": "Write an edge-coverage row's resolution in one edit: the edge of a locked requirement and a category (created in the requirement's spec when none holds the pair) gets the status, tier, resolution and reason given, and only those; refused before anything is written when the probe engine refuses the resolution",
+          "export": "cmd__resolve_edge",
+          "id": "resolve_edge",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the spec prohibition (its path, or a short form that is not ambiguous)",
+              "name": "prohibition",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "resolved, dismissed or unresolved",
+              "name": "status",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "a resolved row's tier: test or judgment",
+              "name": "verification",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "why a dismissed row is dismissed",
+              "name": "reason",
+              "required": false
+            }
+          ],
+          "description": "Write a spec prohibition's resolution in one edit: its status, tier and reason, and only those; the check descriptor (check_*) is cleared unless the row is resolved with the test tier; refused before anything is written when the probe engine refuses the resolution",
+          "export": "cmd__resolve_prohibition",
+          "id": "resolve_prohibition",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the phase whose plans the review must cover",
+              "name": "phase",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "required; the reviewer's text",
+              "name": "review",
+              "required": false
+            }
+          ],
+          "description": "Check that a reviewer's text names every plan of a phase, each id standing alone (no word character or `-` beside it); answers complete, missing_ids and total",
+          "export": "cmd__plan_coverage",
+          "id": "plan_coverage",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the milestone to count (default: the given phase's, else the one in progress, else the last)",
+              "name": "milestone",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the phase whose open tests `blockers` lists (default: the milestone's)",
+              "name": "phase",
+              "required": false
+            }
+          ],
+          "description": "Count the UAT tests still open (pending or missing, blocked, an issue with an open gap, a skip without a `Deferred follow-up` reason) in a milestone and in the shipped ones, and list a phase's",
+          "export": "cmd__verification_debt",
+          "id": "verification_debt",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "build",
+                    "test"
+                  ]
+                }
+              },
+              "description": "the gate: build or test",
+              "name": "target",
+              "required": true
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "post_merge",
+                    "regression"
+                  ]
+                }
+              },
+              "default_value": "post_merge",
+              "description": "post_merge, or regression: no Xcode, and pytest on the named files",
+              "name": "scope",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the .xcodeproj the block found; empty is absent",
+              "name": "xcode_project",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the text of xcodebuild -list -json",
+              "name": "xcode_list",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the text of xcrun simctl list devices available -j",
+              "name": "simulators",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the regression's test files, one per line",
+              "name": "files",
+              "required": false
+            }
+          ],
+          "description": "Answer the argv of the build or test gate: the workflow.<target>_command setting, else the project's runner in upstream's order. Read-only; it runs nothing",
+          "export": "cmd__gate_command",
+          "id": "gate_command",
+          "inputs": [
+            {
+              "glob": "package.json",
+              "input": "files",
+              "name": "package_json",
+              "text": true
+            },
+            {
+              "glob": "Makefile",
+              "input": "files",
+              "name": "makefile",
+              "text": true
+            },
+            {
+              "glob": "**/*.py",
+              "input": "files",
+              "name": "python_sources"
+            },
+            {
+              "glob": "pnpm-lock.yaml",
+              "input": "files",
+              "name": "pnpm_lock"
+            },
+            {
+              "glob": "yarn.lock",
+              "input": "files",
+              "name": "yarn_lock"
+            },
+            {
+              "glob": "bun.lock",
+              "input": "files",
+              "name": "bun_lock"
+            },
+            {
+              "glob": "bun.lockb",
+              "input": "files",
+              "name": "bun_lockb"
+            },
+            {
+              "glob": "Justfile",
+              "input": "files",
+              "name": "justfile_upper"
+            },
+            {
+              "glob": "justfile",
+              "input": "files",
+              "name": "justfile_lower"
+            },
+            {
+              "glob": "Cargo.toml",
+              "input": "files",
+              "name": "cargo_toml"
+            },
+            {
+              "glob": "go.mod",
+              "input": "files",
+              "name": "go_mod"
+            },
+            {
+              "glob": "pyproject.toml",
+              "input": "files",
+              "name": "pyproject"
+            },
+            {
+              "glob": "requirements.txt",
+              "input": "files",
+              "name": "requirements"
+            },
+            {
+              "glob": "package.json",
+              "input": "files",
+              "name": "package_json_file"
+            },
+            {
+              "glob": "uv.lock",
+              "input": "files",
+              "name": "uv_lock"
+            }
+          ],
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the path; a relative one is from the worktree's top",
+              "name": "target",
+              "required": true
+            }
+          ],
+          "description": "Answer whether a path is inside this worktree, read lexically as the guard reads a target",
+          "export": "cmd__worktree_contains",
+          "id": "worktree_contains",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the <automated> command, as the plan wrote it; when a task is named, the task whose commands are read",
+              "name": "command",
+              "required": true
+            },
+            {
+              "arg_type": "bool",
+              "description": "the argument names a task: read each of its `<automated>` commands",
+              "name": "task",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the repository's common directory (`specforge git repo --pick .common_dir`): the main checkout is it without its `.git`. Empty is refused: it means that read failed",
+              "name": "common_dir",
+              "required": false
+            }
+          ],
+          "description": "Halt when a plan's <automated> command would leave the worktree: its words are read, never run",
+          "export": "cmd__automated_guard",
+          "id": "automated_guard",
+          "title": ""
+        },
+        {
+          "args": [],
+          "description": "Answer whether the branch HEAD is on may take a commit: protected, an agent's, overridden. Read-only",
+          "export": "cmd__branch_check",
+          "id": "branch_check",
+          "inputs": [
+            {
+              "glob": "specforge.json",
+              "input": "files",
+              "name": "manifest",
+              "text": true
+            }
+          ],
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the milestone, by its id",
+              "name": "milestone",
+              "required": true
+            }
+          ],
+          "description": "Answer the local branches a milestone's work sits on, by the branching strategy: read-only",
+          "export": "cmd__milestone_branches",
+          "id": "milestone_branches",
+          "title": ""
+        },
+        {
+          "args": [],
+          "description": "Classify the project's situation and name the next actions, as gsd-tools smart-entry does (idle-stranded is never derived: a command runs no git)",
+          "export": "cmd__smart_entry",
+          "id": "smart_entry",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "one task: its one item gets a slug and a branch name",
+              "name": "description",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "a task list: one item per entry, its list marker and blank lines dropped; attach it with `=`, as a list starts with a hyphen",
+              "name": "tasks",
+              "required": false
+            },
+            {
+              "arg_type": "bool",
+              "description": "the items are a batch: needs a task list of at least 2 entries, and each item gains `batch`",
+              "name": "batch",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "the branch template (`git.quick_branch_template`): `{num}` is the id, `{slug}` the slug; empty names no branch",
+              "name": "template",
+              "required": false
+            }
+          ],
+          "description": "What a quick task or a batch starts from: one quick id per task, each free in the graph, with its slug, branch name and the host's date",
+          "export": "cmd__quick_init",
+          "id": "quick_init",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the batch id quick-init answered (`261112-batch`)",
+              "name": "batch",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "required; the batch's quick plans, as a JSON list of ids, in item order",
+              "name": "items",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "required; the commit the batch starts from: 40 lowercase hex digits",
+              "name": "base",
+              "required": false
+            }
+          ],
+          "description": "Record a quick batch: its quick plans in item order, the commit it starts from and the host's clock (GSD BATCH.json)",
+          "export": "cmd__start_batch",
+          "id": "start_batch",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the lessons of the cluster, as a JSON list of ids",
+              "name": "lessons",
+              "required": true
+            },
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "promoted",
+                    "deferred",
+                    "dismissed"
+                  ]
+                }
+              },
+              "description": "required; promoted, deferred or dismissed",
+              "name": "disposition",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "a promotion's decision: the decision the lessons became",
+              "name": "target",
+              "required": false
+            },
+            {
+              "arg_type": "string",
+              "description": "a deferral's phase: the lessons are open again once it is complete",
+              "name": "until",
+              "required": false
+            }
+          ],
+          "description": "Record what the developer chose for a cluster of lessons: promoted into a decision, deferred until a phase, or dismissed (the host's clock)",
+          "export": "cmd__graduate_lessons",
+          "id": "graduate_lessons",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": {
+                "enum": {
+                  "values": [
+                    "list",
+                    "status",
+                    "enable",
+                    "disable",
+                    "reset",
+                    "profile"
+                  ]
+                }
+              },
+              "description": "what to do (profile is refused)",
+              "name": "action",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "the cluster (enable and disable)",
+              "name": "cluster",
+              "required": false
+            }
+          ],
+          "description": "Show which skill clusters are shown, or print the lines that show or hide one; it changes no setting itself",
+          "export": "cmd__surface",
+          "id": "surface",
+          "title": ""
+        }
+      ],
+      "hooks": [
+        {
+          "description": "Reminds a host that does not enforce it to Read a file before writing it",
+          "event": "pre_tool",
+          "export": "hook__read_guard",
+          "hosts": [
+            "codex",
+            "cursor"
+          ],
+          "id": "read_guard",
+          "tools": [
+            "write",
+            "edit"
+          ]
+        },
+        {
+          "description": "Refuses a Write that shrinks a spec file to under 40% of its bytes",
+          "event": "pre_tool",
+          "export": "hook__write_guard",
+          "id": "write_guard",
+          "paths": [
+            "{spec_root}/**/*.spec"
+          ],
+          "tools": [
+            "write"
+          ]
+        },
+        {
+          "description": "Refuses a read of .env, .env.<suffix> or .secrets by a Read, a Grep or a shell command",
+          "event": "pre_tool",
+          "export": "hook__secret_read_guard",
+          "id": "secret_read_guard",
+          "on_failure": "deny",
+          "tools": [
+            "read",
+            "search",
+            "shell"
+          ]
+        },
+        {
+          "description": "Warns of prompt-injection phrases in what a read, fetch or search returned",
+          "event": "post_tool",
+          "export": "hook__injection_scanner",
+          "id": "injection_scanner",
+          "inputs": [
+            {
+              "extension": "@gsd/security",
+              "input": "setting",
+              "name": "security.injection_blocking"
+            }
+          ],
+          "tools": [
+            "read",
+            "web_fetch",
+            "web_search"
+          ]
+        },
+        {
+          "description": "Warns of prompt-injection phrases in what a write puts into the spec root",
+          "event": "pre_tool",
+          "export": "hook__prompt_guard",
+          "id": "prompt_guard",
+          "paths": [
+            "{spec_root}/**"
+          ],
+          "tools": [
+            "write",
+            "edit"
+          ]
+        },
+        {
+          "description": "Refuses a write from an agent's worktree to a path in another repository",
+          "event": "pre_tool",
+          "export": "hook__worktree_path_guard",
+          "id": "worktree_path_guard",
+          "inputs": [
+            {
+              "input": "git"
+            }
+          ],
+          "tools": [
+            "write",
+            "edit"
+          ]
+        },
+        {
+          "description": "Marks the session when the user starts a /gsd- command",
+          "event": "user_prompt",
+          "export": "hook__workflow_marker",
+          "id": "workflow_marker"
+        },
+        {
+          "description": "Warns of an edit made outside a GSD command, and refuses a force-add on an agent branch",
+          "event": "pre_tool",
+          "export": "hook__workflow_guard",
+          "id": "workflow_guard",
+          "inputs": [
+            {
+              "input": "state"
+            },
+            {
+              "input": "git"
+            }
+          ],
+          "tools": [
+            "write",
+            "edit",
+            "shell"
+          ],
+          "when": "hooks.workflow_guard"
+        },
+        {
+          "description": "Warns when the context window is running out",
+          "event": "post_tool",
+          "export": "hook__context_monitor",
+          "id": "context_monitor",
+          "inputs": [
+            {
+              "input": "state"
+            }
+          ],
+          "tools": [
+            "shell",
+            "write",
+            "edit",
+            "agent"
+          ],
+          "when": "hooks.context_warnings"
+        },
+        {
+          "description": "Resets the context monitor when the host compacts",
+          "event": "pre_compact",
+          "export": "hook__context_compacted",
+          "id": "context_compacted"
+        },
+        {
+          "description": "Renders the status line from the graph and the session",
+          "event": "statusline",
+          "export": "hook__statusline",
+          "id": "statusline",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "state"
+            },
+            {
+              "input": "git",
+              "status": true,
+              "when": "statusline.show_git"
+            }
+          ]
+        },
+        {
+          "description": "Refuses a commit whose subject is not a Conventional Commit",
+          "event": "pre_commit",
+          "export": "hook__validate_commit",
+          "id": "validate_commit",
+          "tools": [
+            "shell"
+          ],
+          "when": "hooks.community"
+        },
+        {
+          "description": "Reminds, after a spec file is written, that a phase's progress is computed",
+          "event": "post_tool",
+          "export": "hook__phase_boundary",
+          "id": "phase_boundary",
+          "tools": [
+            "write",
+            "edit"
+          ],
+          "when": "hooks.community"
+        },
+        {
+          "description": "Starts a session with the project's progress, blockers and workstream",
+          "event": "session_start",
+          "export": "hook__session_state",
+          "id": "session_state",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "state"
+            }
+          ],
+          "when": "hooks.community"
+        },
+        {
+          "description": "Tells the session the settings when specforge.json changes",
+          "event": "file_changed",
+          "export": "hook__config_reload",
+          "id": "config_reload",
+          "paths": [
+            "specforge.json"
+          ]
+        }
+      ],
+      "prompts": [
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "bool",
+              "name": "auto"
+            },
+            {
+              "field_type": "bool",
+              "name": "text"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/spec-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Clarify WHAT a phase delivers with ambiguity scoring; produces a SPEC.md before discuss-phase.",
+          "export": "prompt__spec_phase",
+          "id": "spec_phase",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "record_spec",
+              "id": "record_spec",
+              "title": "Record the spec's digest once it is written (specforge gsd record-spec <phase_spec>)"
+            },
+            {
+              "id": "discuss",
+              "prompt": "discuss_phase",
+              "title": "Discuss the phase next (discuss_phase)"
+            }
+          ],
+          "subject": "phase",
+          "title": "Specify a phase"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/mvp-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Plan a phase as a vertical MVP slice — user story, SPIDR splitting, then plan-phase",
+          "export": "prompt__mvp_phase",
+          "gates": [
+            "E516"
+          ],
+          "id": "mvp_phase",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "id": "plan",
+              "prompt": "plan_phase",
+              "title": "Plan the phase, in MVP mode (the prompt plan_phase)"
+            }
+          ],
+          "subject": "phase",
+          "title": "Plan a phase as an MVP slice"
+        },
+        {
+          "args": [
+            {
+              "field_type": "bool",
+              "name": "auto"
+            },
+            {
+              "field_type": "string",
+              "name": "idea"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/new-project.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Initialize a new project with deep context gathering and PROJECT.md",
+          "export": "prompt__new_project",
+          "id": "new_project",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-project-researcher",
+              "id": "research",
+              "title": "Research the domain with the project researcher, one agent per dimension"
+            },
+            {
+              "agent": "gsd-research-synthesizer",
+              "id": "synthesize",
+              "title": "Synthesize the research"
+            },
+            {
+              "agent": "gsd-roadmapper",
+              "id": "roadmap",
+              "title": "Create the roadmap"
+            },
+            {
+              "command": "record_research",
+              "id": "record_research",
+              "title": "Record each research entity's digest (specforge gsd record-research <research>)"
+            },
+            {
+              "id": "discuss",
+              "prompt": "discuss_phase",
+              "title": "Discuss the first phase before planning it (discuss_phase)"
+            }
+          ],
+          "title": "Start a new project"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "ws"
+            },
+            {
+              "field_type": "bool",
+              "name": "reset_phase_numbers"
+            },
+            {
+              "field_type": "string",
+              "name": "name",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/new-milestone.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Start a new milestone cycle — update PROJECT.md and route to requirements",
+          "export": "prompt__new_milestone",
+          "id": "new_milestone",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-project-researcher",
+              "id": "research",
+              "title": "Research the domain with the project researcher, one agent per dimension"
+            },
+            {
+              "agent": "gsd-research-synthesizer",
+              "id": "synthesize",
+              "title": "Synthesize the research"
+            },
+            {
+              "agent": "gsd-roadmapper",
+              "id": "roadmap",
+              "title": "Create the roadmap"
+            },
+            {
+              "command": "record_research",
+              "id": "record_research",
+              "title": "Record each research entity's digest (specforge gsd record-research <research>)"
+            },
+            {
+              "id": "discuss",
+              "prompt": "discuss_phase",
+              "title": "Discuss the first phase before planning it (discuss_phase)"
+            }
+          ],
+          "title": "Start a new milestone"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "bool",
+              "name": "all"
+            },
+            {
+              "field_type": "bool",
+              "name": "auto"
+            },
+            {
+              "field_type": "bool",
+              "name": "chain"
+            },
+            {
+              "field_type": "bool",
+              "name": "batch"
+            },
+            {
+              "field_type": "bool",
+              "name": "analyze"
+            },
+            {
+              "field_type": "bool",
+              "name": "text"
+            },
+            {
+              "field_type": "bool",
+              "name": "power"
+            },
+            {
+              "field_type": "bool",
+              "name": "assumptions"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/discuss-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Gather phase context through adaptive questioning before planning.",
+          "export": "prompt__discuss_phase",
+          "id": "discuss_phase",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-assumptions-analyzer",
+              "id": "analyze_assumptions",
+              "title": "Analyze the codebase for the phase's assumptions, in assumptions mode"
+            },
+            {
+              "agent": "gsd-advisor-researcher",
+              "id": "research_gray_areas",
+              "title": "Research a gray area for the advisor table, in advisor mode"
+            },
+            {
+              "id": "plan",
+              "prompt": "plan_phase",
+              "title": "Plan the phase next (plan_phase)"
+            }
+          ],
+          "subject": "phase",
+          "title": "Discuss a phase"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "bool",
+              "name": "auto"
+            },
+            {
+              "field_type": "bool",
+              "name": "research"
+            },
+            {
+              "field_type": "bool",
+              "name": "skip_research"
+            },
+            {
+              "field_type": "string",
+              "name": "research_phase"
+            },
+            {
+              "field_type": "bool",
+              "name": "view"
+            },
+            {
+              "field_type": "bool",
+              "name": "gaps"
+            },
+            {
+              "field_type": "bool",
+              "name": "skip_verify"
+            },
+            {
+              "field_type": "bool",
+              "name": "skip_ui"
+            },
+            {
+              "field_type": "string",
+              "name": "prd"
+            },
+            {
+              "field_type": "string",
+              "name": "ingest"
+            },
+            {
+              "enum_values": [
+                "auto",
+                "nygard",
+                "madr",
+                "narrative"
+              ],
+              "field_type": "enum",
+              "name": "ingest_format"
+            },
+            {
+              "field_type": "bool",
+              "name": "reviews"
+            },
+            {
+              "field_type": "bool",
+              "name": "text"
+            },
+            {
+              "field_type": "bool",
+              "name": "bounce"
+            },
+            {
+              "field_type": "bool",
+              "name": "skip_bounce"
+            },
+            {
+              "field_type": "bool",
+              "name": "chunked"
+            },
+            {
+              "field_type": "bool",
+              "name": "tdd"
+            },
+            {
+              "field_type": "bool",
+              "name": "mvp"
+            },
+            {
+              "enum_values": [
+                "coarse",
+                "standard",
+                "fine"
+              ],
+              "field_type": "enum",
+              "name": "granularity"
+            },
+            {
+              "field_type": "bool",
+              "name": "no_tracer"
+            },
+            {
+              "field_type": "bool",
+              "name": "no_reversibility_gates"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/plan-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Create detailed phase plan (PLAN.md) with verification loop",
+          "export": "prompt__plan_phase",
+          "gates": [
+            "E201",
+            "W204",
+            "E206",
+            "W406",
+            "E516"
+          ],
+          "id": "plan_phase",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "slash_commands"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-phase-researcher",
+              "id": "research",
+              "title": "Research how to implement the phase"
+            },
+            {
+              "command": "record_research",
+              "id": "record_research",
+              "title": "Record the research's digest (specforge gsd record-research <research>)"
+            },
+            {
+              "agent": "gsd-pattern-mapper",
+              "id": "patterns",
+              "title": "Map the closest existing patterns"
+            },
+            {
+              "agent": "gsd-planner",
+              "id": "plan",
+              "title": "Create the phase's plans"
+            },
+            {
+              "agent": "gsd-plan-checker",
+              "id": "check",
+              "title": "Check the plans against the phase goal"
+            },
+            {
+              "command": "record_verdict",
+              "id": "record_verdict",
+              "title": "Record the plan checker's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')"
+            },
+            {
+              "id": "execute",
+              "prompt": "execute_phase",
+              "title": "Continue with the execution of the phase (the prompt execute_phase)"
+            }
+          ],
+          "subject": "phase",
+          "title": "Plan a phase"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "bool",
+              "name": "claude"
+            },
+            {
+              "field_type": "bool",
+              "name": "codex"
+            },
+            {
+              "field_type": "bool",
+              "name": "coderabbit"
+            },
+            {
+              "field_type": "bool",
+              "name": "opencode"
+            },
+            {
+              "field_type": "bool",
+              "name": "qwen"
+            },
+            {
+              "field_type": "bool",
+              "name": "cursor"
+            },
+            {
+              "field_type": "bool",
+              "name": "antigravity"
+            },
+            {
+              "field_type": "bool",
+              "name": "agy"
+            },
+            {
+              "field_type": "bool",
+              "name": "ollama"
+            },
+            {
+              "field_type": "bool",
+              "name": "lm_studio"
+            },
+            {
+              "field_type": "bool",
+              "name": "llama_cpp"
+            },
+            {
+              "field_type": "bool",
+              "name": "kimi_code"
+            },
+            {
+              "field_type": "bool",
+              "name": "text"
+            },
+            {
+              "field_type": "string",
+              "name": "ws"
+            },
+            {
+              "field_type": "bool",
+              "name": "all"
+            },
+            {
+              "field_type": "integer",
+              "name": "max_cycles"
+            },
+            {
+              "field_type": "bool",
+              "name": "override_gate"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/plan-review-convergence.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Cross-AI plan convergence - replan until review concerns are resolved.",
+          "export": "prompt__plan_review_convergence",
+          "gates": [
+            "E201",
+            "W204",
+            "E206",
+            "W406",
+            "E516"
+          ],
+          "id": "plan_review_convergence",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "id": "replan",
+              "prompt": "plan_phase",
+              "title": "Replan with the reviewers' feedback (the prompt plan_phase, with the reviewers' concerns)"
+            },
+            {
+              "agent": "gsd-plan-checker",
+              "id": "check",
+              "title": "Check the revised plans against the phase goal"
+            }
+          ],
+          "subject": "phase",
+          "title": "Replan until the reviewers' concerns are resolved"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ultraplan-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "[BETA] Offload plan phase to Claude Code's ultraplan cloud; review in browser and import back.",
+          "export": "prompt__ultraplan_phase",
+          "gates": [
+            "E201",
+            "W204",
+            "E206",
+            "W406",
+            "E516"
+          ],
+          "id": "ultraplan_phase",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-plan-checker",
+              "id": "check",
+              "title": "Check the imported plans against the phase goal"
+            },
+            {
+              "command": "record_verdict",
+              "id": "record_verdict",
+              "title": "Record the plan checker's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')"
+            }
+          ],
+          "subject": "phase",
+          "title": "Offload planning to Claude Code's ultraplan cloud"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "plan",
+              "required": true,
+              "target_kind": "plan"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "gsd-core/workflows/execute-plan.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Execute a phase prompt (PLAN.md) and create the outcome summary (SUMMARY.md)",
+          "export": "prompt__execute_plan",
+          "gates": [
+            "W318",
+            "E516"
+          ],
+          "id": "execute_plan",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "start_plan",
+              "id": "start",
+              "title": "Open the plan: its start is recorded once (specforge gsd start-plan <plan>)"
+            },
+            {
+              "agent": "gsd-executor",
+              "id": "execute",
+              "title": "Execute the plan's tasks"
+            },
+            {
+              "command": "answer_checkpoint",
+              "id": "checkpoint",
+              "title": "Ask the person to run `specforge gsd answer-checkpoint <checkpoint> ...` in their terminal (an agent's call is refused: it records what a person says)"
+            },
+            {
+              "command": "confirm_setup",
+              "id": "setup",
+              "title": "Ask the person to run `specforge gsd confirm-setup <user_setup> --by <who>` in their terminal (an agent's call is refused: it records what a person says)"
+            },
+            {
+              "command": "raise_blocker",
+              "id": "blocker",
+              "title": "Raise a blocker (specforge gsd raise-blocker <text>)"
+            },
+            {
+              "command": "complete_plan",
+              "id": "complete",
+              "title": "Close the plan (specforge gsd complete-plan <summary>)"
+            }
+          ],
+          "subject": "plan",
+          "title": "Execute one plan"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "integer",
+              "name": "wave"
+            },
+            {
+              "field_type": "bool",
+              "name": "gaps_only"
+            },
+            {
+              "field_type": "bool",
+              "name": "interactive"
+            },
+            {
+              "field_type": "bool",
+              "name": "tdd"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/execute-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "SDD phase execution — execute all plans in a phase with dependency-aware wave parallelization",
+          "export": "prompt__execute_phase",
+          "gates": [
+            "W311",
+            "W313",
+            "W315",
+            "W318",
+            "E516"
+          ],
+          "id": "execute_phase",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "id": "execute",
+              "prompt": "execute_plan",
+              "title": "Execute each plan of the wave (the prompt execute_plan)"
+            },
+            {
+              "agent": "gsd-verifier",
+              "id": "verify",
+              "title": "Verify the phase goal"
+            },
+            {
+              "command": "record_verdict",
+              "id": "record_verdict",
+              "title": "Record the verifier's verdicts (specforge gsd record-verdict <plan> <code> <outcome> <model> '<basis>')"
+            },
+            {
+              "command": "record_window",
+              "id": "record_window",
+              "title": "Record a window of the phase (specforge gsd record-window <kind> <phase> <description> ...)"
+            },
+            {
+              "id": "next",
+              "prompt": "verify_work",
+              "title": "Continue with the verification of the built work (the prompt verify_work)"
+            }
+          ],
+          "subject": "phase",
+          "title": "Execute a phase"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "string",
+              "name": "ws"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/verify-work.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Validate built features through conversational UAT",
+          "export": "prompt__verify_work",
+          "gates": [
+            "E516"
+          ],
+          "id": "verify_work",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "set_uat_result",
+              "id": "uat",
+              "title": "Ask the person to run `specforge gsd set-uat-result <uat_test> <result> --by <who>` in their terminal (an agent's call is refused: it records what a person says)"
+            },
+            {
+              "agent": "gsd-planner",
+              "id": "plan_gaps",
+              "title": "Plan the fixes of the gaps the tests found"
+            },
+            {
+              "agent": "gsd-plan-checker",
+              "id": "check",
+              "title": "Check the fix plans"
+            }
+          ],
+          "subject": "phase",
+          "title": "Verify the built work with the person"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/validate-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Retroactively audit and fill Nyquist validation gaps for a completed phase",
+          "export": "prompt__validate_phase",
+          "gates": [
+            "E516"
+          ],
+          "id": "validate_phase",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-nyquist-auditor",
+              "id": "audit",
+              "title": "Audit the validation and fill its gaps"
+            },
+            {
+              "command": "record_validation",
+              "id": "record",
+              "title": "Record the validation's context digest (specforge gsd record-validation <validation>)"
+            },
+            {
+              "command": "approve_validation",
+              "id": "approve",
+              "title": "Ask the person to run `specforge gsd approve-validation <validation> <who>` in their terminal (an agent's call is refused: it records what a person says)"
+            }
+          ],
+          "subject": "phase",
+          "title": "Validate a phase"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "string",
+              "name": "instructions",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/add-tests.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Generate tests for a completed phase based on UAT criteria and implementation",
+          "export": "prompt__add_tests",
+          "gates": [
+            "E516"
+          ],
+          "id": "add_tests",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "subject": "phase",
+          "title": "Add tests for a phase"
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/audit-uat.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Cross-phase audit of all outstanding UAT and verification items",
+          "export": "prompt__audit_uat",
+          "id": "audit_uat",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "set_uat_result",
+              "id": "uat",
+              "title": "Ask the person to run `specforge gsd set-uat-result <uat_test> <result> --by <who>` in their terminal (an agent's call is refused: it records what a person says)"
+            }
+          ],
+          "title": "Audit the outstanding UAT items"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "milestone",
+              "required": true,
+              "target_kind": "milestone"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/audit-milestone.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Audit milestone completion against original intent before archiving",
+          "export": "prompt__audit_milestone",
+          "gates": [
+            "E516"
+          ],
+          "id": "audit_milestone",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-integration-checker",
+              "id": "integrate",
+              "title": "Check the wiring across the phases"
+            },
+            {
+              "command": "record_verdict",
+              "id": "record_verdict",
+              "title": "Record the integration checker's verdict once, on the milestone's audit (specforge gsd record-verdict <milestone>/A1 E518 <outcome> <model> '<basis>')"
+            },
+            {
+              "id": "plan_gaps",
+              "prompt": "plan_phase",
+              "title": "Plan the closure of the gaps the audit found (the prompt plan_phase)"
+            }
+          ],
+          "subject": "milestone",
+          "title": "Audit a milestone"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "milestone",
+              "required": true,
+              "target_kind": "milestone"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/complete-milestone.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Archive completed milestone and prepare for next version",
+          "export": "prompt__complete_milestone",
+          "gates": [
+            "E106",
+            "E511",
+            "E515",
+            "E516"
+          ],
+          "id": "complete_milestone",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "close_milestone",
+              "id": "close",
+              "title": "Close the milestone: its completion and its retrospective (specforge gsd close-milestone <milestone> --built <json>)"
+            }
+          ],
+          "subject": "milestone",
+          "title": "Complete a milestone"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ship.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Create PR, run review, and prepare for merge after verification passes",
+          "export": "prompt__ship",
+          "gates": [
+            "E511",
+            "E512",
+            "E515",
+            "E516"
+          ],
+          "id": "ship",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "fix_window",
+              "id": "fix_window",
+              "title": "Record that a broken window was fixed (specforge gsd fix-window <window>)"
+            },
+            {
+              "command": "waive_window",
+              "id": "waive_window",
+              "title": "Ask the person to run `specforge gsd waive-window <window> <reason> <who>` in their terminal (an agent's call is refused: it records what a person says)"
+            }
+          ],
+          "subject": "phase",
+          "title": "Ship a phase"
+        },
+        {
+          "args": [
+            {
+              "field_type": "bool",
+              "name": "text"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/next.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Smart entry — detect project state and route to the right next GSD action.",
+          "export": "prompt__next",
+          "id": "next",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "slash_commands"
+            }
+          ],
+          "steps": [
+            {
+              "command": "smart_entry",
+              "id": "detect",
+              "title": "Detect the situation and its next actions (specforge gsd smart-entry)"
+            }
+          ],
+          "title": "Route to the next action"
+        },
+        {
+          "args": [
+            {
+              "field_type": "bool",
+              "name": "forensic"
+            },
+            {
+              "field_type": "bool",
+              "name": "next"
+            },
+            {
+              "field_type": "bool",
+              "name": "auto"
+            },
+            {
+              "field_type": "bool",
+              "name": "converge"
+            },
+            {
+              "field_type": "string",
+              "name": "do"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/progress.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Check progress, advance workflow, or dispatch freeform intent — the unified GSD situational command",
+          "export": "prompt__progress",
+          "id": "progress",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "state"
+            }
+          ],
+          "steps": [
+            {
+              "command": "progress_report",
+              "id": "report",
+              "title": "Report the phases, their plans and summaries, and the percent done (specforge gsd progress-report)"
+            }
+          ],
+          "title": "Check progress"
+        },
+        {
+          "args": [
+            {
+              "field_type": "bool",
+              "name": "analyze_deps"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/manager.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Interactive command center for managing multiple phases from one terminal",
+          "export": "prompt__manager",
+          "id": "manager",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "progress_report",
+              "id": "dashboard",
+              "title": "Read the phases and what each needs next (specforge gsd progress-report)"
+            },
+            {
+              "id": "discuss",
+              "prompt": "discuss_phase",
+              "title": "Discuss a phase inline"
+            },
+            {
+              "id": "plan",
+              "prompt": "plan_phase",
+              "title": "Plan a phase"
+            },
+            {
+              "id": "execute",
+              "prompt": "execute_phase",
+              "title": "Execute a phase"
+            },
+            {
+              "id": "verify",
+              "prompt": "verify_work",
+              "title": "Verify a phase's work"
+            },
+            {
+              "id": "complete",
+              "prompt": "complete_milestone",
+              "title": "Complete the milestone once every phase is done"
+            }
+          ],
+          "title": "Manage the phases"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "task",
+              "rest": true
+            },
+            {
+              "field_type": "bool",
+              "name": "full"
+            },
+            {
+              "field_type": "bool",
+              "name": "validate"
+            },
+            {
+              "field_type": "bool",
+              "name": "discuss"
+            },
+            {
+              "field_type": "bool",
+              "name": "research"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/quick.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Execute a quick task with GSD guarantees (atomic commits, state tracking) but skip optional agents",
+          "export": "prompt__quick",
+          "id": "quick",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-phase-researcher",
+              "id": "research",
+              "title": "Research how to implement the task"
+            },
+            {
+              "agent": "gsd-planner",
+              "id": "plan",
+              "title": "Create the quick plan"
+            },
+            {
+              "agent": "gsd-plan-checker",
+              "id": "check",
+              "title": "Check the quick plan"
+            },
+            {
+              "command": "record_verdict",
+              "id": "record_verdict",
+              "title": "Record the plan checker's verdict (specforge gsd record-verdict <plan> <code> <outcome> <model> <basis>)"
+            },
+            {
+              "command": "start_plan",
+              "id": "start",
+              "title": "Open the plan: its start is recorded once (specforge gsd start-plan <plan>)"
+            },
+            {
+              "agent": "gsd-executor",
+              "id": "execute",
+              "title": "Execute the quick plan"
+            },
+            {
+              "command": "complete_plan",
+              "id": "complete",
+              "title": "Complete the plan: both times of its summary (specforge gsd complete-plan <summary>)"
+            },
+            {
+              "agent": "gsd-verifier",
+              "id": "verify",
+              "title": "Verify the quick plan's truths"
+            }
+          ],
+          "title": "Run a quick task"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "file"
+            },
+            {
+              "field_type": "string",
+              "name": "jobs"
+            },
+            {
+              "field_type": "bool",
+              "name": "validate"
+            },
+            {
+              "field_type": "bool",
+              "name": "research"
+            },
+            {
+              "field_type": "string",
+              "name": "resume"
+            },
+            {
+              "field_type": "string",
+              "name": "tasks",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/quick-batch.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Batch several `/gsd:quick`-shaped tasks together — planned, dispatched, and merged as one run",
+          "export": "prompt__quick_batch",
+          "id": "quick_batch",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-phase-researcher",
+              "id": "research",
+              "title": "Research how to implement the task"
+            },
+            {
+              "agent": "gsd-planner",
+              "id": "plan",
+              "title": "Create the quick plan"
+            },
+            {
+              "agent": "gsd-plan-checker",
+              "id": "check",
+              "title": "Check the quick plan"
+            },
+            {
+              "command": "record_verdict",
+              "id": "record_verdict",
+              "title": "Record the plan checker's verdict (specforge gsd record-verdict <plan> <code> <outcome> <model> <basis>)"
+            },
+            {
+              "command": "start_plan",
+              "id": "start",
+              "title": "Open the plan: its start is recorded once (specforge gsd start-plan <plan>)"
+            },
+            {
+              "agent": "gsd-executor",
+              "id": "execute",
+              "title": "Execute the quick plan"
+            },
+            {
+              "command": "complete_plan",
+              "id": "complete",
+              "title": "Complete the plan: both times of its summary (specforge gsd complete-plan <summary>)"
+            },
+            {
+              "agent": "gsd-verifier",
+              "id": "verify",
+              "title": "Verify the quick plan's truths"
+            }
+          ],
+          "title": "Run a batch of quick tasks"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "task",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/fast.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Execute a trivial task inline — no subagents, no planning overhead",
+          "export": "prompt__fast",
+          "id": "fast",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "title": "Run a trivial task inline"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "from",
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "reference",
+              "name": "to",
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "reference",
+              "name": "only",
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "bool",
+              "name": "interactive"
+            },
+            {
+              "field_type": "bool",
+              "name": "converge"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/autonomous.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Run all remaining phases autonomously — discuss→plan→execute per phase",
+          "export": "prompt__autonomous",
+          "id": "autonomous",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "id": "discuss",
+              "prompt": "discuss_phase",
+              "title": "Discuss the phase"
+            },
+            {
+              "id": "plan",
+              "prompt": "plan_phase",
+              "title": "Plan the phase"
+            },
+            {
+              "id": "converge",
+              "prompt": "plan_review_convergence",
+              "title": "Replan until the cross-AI review concerns are resolved (when converging)"
+            },
+            {
+              "id": "execute",
+              "prompt": "execute_phase",
+              "title": "Execute the phase"
+            },
+            {
+              "id": "verify",
+              "prompt": "verify_work",
+              "title": "Verify the phase's work"
+            },
+            {
+              "id": "audit",
+              "prompt": "audit_milestone",
+              "title": "Audit the milestone once every phase is done"
+            },
+            {
+              "id": "complete",
+              "prompt": "complete_milestone",
+              "title": "Complete the milestone"
+            },
+            {
+              "command": "cleanup",
+              "id": "cleanup",
+              "title": "Archive the closed milestone's phases (specforge gsd cleanup)"
+            }
+          ],
+          "title": "Run the remaining phases"
+        },
+        {
+          "args": [
+            {
+              "field_type": "bool",
+              "name": "report"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/pause-work.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Create context handoff when pausing work mid-phase",
+          "export": "prompt__pause_work",
+          "id": "pause_work",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "pause",
+              "id": "pause",
+              "title": "Record the pause: why, who and the handoff (specforge gsd pause <reason> --by <who> --handoff <handoff>)"
+            }
+          ],
+          "title": "Pause the work"
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/resume-work.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Resume work from previous session with full context restoration",
+          "export": "prompt__resume_work",
+          "id": "resume_work",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "state"
+            }
+          ],
+          "steps": [
+            {
+              "command": "resume",
+              "id": "resume",
+              "title": "Remove the pause and its handoff once the work is resumed (specforge gsd resume <pause>)"
+            }
+          ],
+          "title": "Resume the work"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "bool",
+              "name": "claude"
+            },
+            {
+              "field_type": "bool",
+              "name": "codex"
+            },
+            {
+              "field_type": "bool",
+              "name": "coderabbit"
+            },
+            {
+              "field_type": "bool",
+              "name": "opencode"
+            },
+            {
+              "field_type": "bool",
+              "name": "qwen"
+            },
+            {
+              "field_type": "bool",
+              "name": "cursor"
+            },
+            {
+              "field_type": "bool",
+              "name": "antigravity"
+            },
+            {
+              "field_type": "bool",
+              "name": "agy"
+            },
+            {
+              "field_type": "bool",
+              "name": "ollama"
+            },
+            {
+              "field_type": "bool",
+              "name": "lm_studio"
+            },
+            {
+              "field_type": "bool",
+              "name": "llama_cpp"
+            },
+            {
+              "field_type": "bool",
+              "name": "kimi_code"
+            },
+            {
+              "field_type": "bool",
+              "name": "all"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/review.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Request cross-AI peer review of phase plans from external AI CLIs",
+          "export": "prompt__review",
+          "id": "review",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "subject": "phase",
+          "title": "Ask other AI CLIs to review the phase plans"
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/review-backlog.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Review and promote backlog items to active milestone",
+          "export": "prompt__review_backlog",
+          "id": "review_backlog",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "phase",
+              "id": "phase",
+              "title": "Promote a backlog phase into the milestone, or remove it (specforge gsd phase)"
+            }
+          ],
+          "title": "Review the backlog"
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/settings.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Configure GSD workflow toggles and model profile",
+          "export": "prompt__settings",
+          "id": "settings",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "title": "Configure the workflow toggles and the model profile"
+        },
+        {
+          "args": [
+            {
+              "field_type": "bool",
+              "name": "advanced"
+            },
+            {
+              "field_type": "bool",
+              "name": "integrations"
+            },
+            {
+              "enum_values": [
+                "quality",
+                "balanced",
+                "budget",
+                "adaptive",
+                "inherit"
+              ],
+              "field_type": "enum",
+              "name": "profile"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/config.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Configure GSD settings — workflow toggles, advanced knobs, integrations, and model profile",
+          "export": "prompt__config",
+          "id": "config",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "title": "Configure the settings, the advanced knobs and the integrations"
+        },
+        {
+          "args": [
+            {
+              "field_type": "integer",
+              "name": "last"
+            },
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "target_kind": "phase"
+            },
+            {
+              "field_type": "reference",
+              "name": "plan",
+              "target_kind": "plan"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/undo.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Safe git revert. Roll back phase or plan commits using the phase manifest with dependency checks.",
+          "export": "prompt__undo",
+          "id": "undo",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "title": "Revert the commits of a phase or a plan"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "target"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/pr-branch.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Create a clean PR branch by filtering out spec-only commits — ready for code review",
+          "export": "prompt__pr_branch",
+          "id": "pr_branch",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "title": "Create a clean branch for the pull request"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "milestone",
+              "target_kind": "milestone"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/milestone-summary.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Generate a comprehensive project summary from milestone artifacts for team onboarding and review",
+          "export": "prompt__milestone_summary",
+          "id": "milestone_summary",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "command": "progress_report",
+              "id": "report",
+              "title": "Read the progress of the milestone (specforge gsd progress-report)"
+            }
+          ],
+          "title": "Summarise a milestone for onboarding"
+        },
+        {
+          "args": [
+            {
+              "field_type": "reference",
+              "name": "phase",
+              "required": true,
+              "target_kind": "phase"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/extract-learnings.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Extract decisions, lessons, patterns, and surprises from completed phase artifacts",
+          "export": "prompt__extract_learnings",
+          "id": "extract_learnings",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "subject": "phase",
+          "title": "Extract the learnings of a phase"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "path",
+              "rest": true
+            },
+            {
+              "enum_values": [
+                "new",
+                "merge"
+              ],
+              "field_type": "enum",
+              "name": "mode"
+            },
+            {
+              "field_type": "string",
+              "name": "manifest"
+            },
+            {
+              "enum_values": [
+                "auto",
+                "interactive"
+              ],
+              "field_type": "enum",
+              "name": "resolve"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ingest-docs.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Bootstrap or merge a SpecForge spec setup from existing ADRs, PRDs, SPECs, and docs in a repo.",
+          "export": "prompt__ingest_docs",
+          "id": "ingest_docs",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "agent": "gsd-doc-classifier",
+              "id": "classify",
+              "title": "Classify each document in parallel"
+            },
+            {
+              "agent": "gsd-doc-synthesizer",
+              "id": "synthesize",
+              "title": "Synthesize the classifications and detect conflicts"
+            },
+            {
+              "agent": "gsd-roadmapper",
+              "id": "roadmap",
+              "title": "Write the project, requirements and roadmap"
+            }
+          ],
+          "title": "Ingest ADRs, PRDs and SPECs into the spec"
+        },
+        {
+          "args": [
+            {
+              "field_type": "bool",
+              "name": "fast"
+            },
+            {
+              "field_type": "bool",
+              "name": "text"
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/onboard.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Guide existing codebase onboarding through mapping, doc ingest, and planning setup",
+          "export": "prompt__onboard",
+          "id": "onboard",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "steps": [
+            {
+              "id": "ingest",
+              "prompt": "ingest_docs",
+              "title": "Ingest the existing documents"
+            },
+            {
+              "id": "new_project",
+              "prompt": "new_project",
+              "title": "Start the project"
+            },
+            {
+              "id": "manager",
+              "prompt": "manager",
+              "title": "Hand over to the manager"
+            }
+          ],
+          "title": "Onboard an existing repository"
+        },
+        {
+          "args": [
+            {
+              "field_type": "bool",
+              "name": "new"
+            },
+            {
+              "field_type": "bool",
+              "name": "list"
+            },
+            {
+              "field_type": "bool",
+              "name": "remove"
+            },
+            {
+              "field_type": "string",
+              "name": "repos"
+            },
+            {
+              "field_type": "string",
+              "name": "path"
+            },
+            {
+              "enum_values": [
+                "worktree",
+                "clone"
+              ],
+              "field_type": "enum",
+              "name": "strategy"
+            },
+            {
+              "field_type": "string",
+              "name": "branch"
+            },
+            {
+              "field_type": "bool",
+              "name": "auto"
+            },
+            {
+              "field_type": "string",
+              "name": "name",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/workspace.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "Manage GSD workspaces — create, list, or remove isolated workspace environments",
+          "export": "prompt__workspace",
+          "id": "workspace",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "title": "Create, list or remove a workspace"
+        },
+        {
+          "args": [
+            {
+              "field_type": "bool",
+              "name": "sync"
+            },
+            {
+              "field_type": "bool",
+              "name": "reapply"
+            },
+            {
+              "field_type": "bool",
+              "name": "next"
+            },
+            {
+              "field_type": "bool",
+              "name": "rc"
+            }
+          ],
+          "description": "Update GSD to latest version with changelog display",
+          "export": "prompt__update",
+          "id": "update",
+          "inputs": [
+            {
+              "input": "graph"
+            }
+          ],
+          "title": "Update the GSD extension"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "intent",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-context.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "codebase intel | map graphify docs learnings mempalace",
+          "export": "prompt__ns_context",
+          "id": "ns_context",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "slash_commands"
+            }
+          ],
+          "title": "Route to the codebase and learnings skills"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "intent",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-ideate.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "exploration capture | explore sketch spike spec capture",
+          "export": "prompt__ns_ideate",
+          "id": "ns_ideate",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "slash_commands"
+            }
+          ],
+          "title": "Route to the exploration and capture skills"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "intent",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-manage.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "config workspace | workstreams thread update ship inbox",
+          "export": "prompt__ns_manage",
+          "id": "ns_manage",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "slash_commands"
+            }
+          ],
+          "title": "Route to the configuration and workspace skills"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "intent",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-project.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "project lifecycle | milestones audits summary",
+          "export": "prompt__ns_project",
+          "id": "ns_project",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "slash_commands"
+            }
+          ],
+          "title": "Route to the project lifecycle skills"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "intent",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-review.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "quality gates | code review debug audit security eval ui",
+          "export": "prompt__ns_review",
+          "id": "ns_review",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "slash_commands"
+            }
+          ],
+          "title": "Route to the quality gate skills"
+        },
+        {
+          "args": [
+            {
+              "field_type": "string",
+              "name": "intent",
+              "rest": true
+            }
+          ],
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-workflow.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "description": "workflow | discuss plan execute verify phase progress",
+          "export": "prompt__ns_workflow",
+          "id": "ns_workflow",
+          "inputs": [
+            {
+              "input": "graph"
+            },
+            {
+              "input": "slash_commands"
+            }
+          ],
+          "title": "Route to the phase pipeline skills"
+        }
+      ],
+      "slash_commands": [
+        {
+          "argument_hint": "[--insert | --remove | --edit] <phase-name-or-number>",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "command": "phase",
+          "when": "specforge.surface.utility"
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/workstreams.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "command": "workstreams",
+          "when": "specforge.surface.workspace_state"
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/cleanup.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "command": "cleanup",
+          "when": "specforge.surface.utility"
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/help.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "command": "help",
+          "when": [
+            "specforge.surface.core_loop",
+            "specforge.surface.utility"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/health.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "command": "health",
+          "when": [
+            "specforge.surface.milestone",
+            "specforge.surface.utility"
+          ]
+        },
+        {
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/stats.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "command": "stats",
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[list | status | enable --cluster <c> | disable --cluster <c> | reset]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/surface.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "command": "surface",
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "<phase> [--auto] [--text]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/spec-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "spec_phase",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "<phase-number>",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/mvp-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "mvp_phase",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "agent",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[--auto]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/new-project.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "new_project",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "write",
+            "agent",
+            "ask_user"
+          ],
+          "when": "specforge.surface.core_loop"
+        },
+        {
+          "argument_hint": "[milestone name, e.g., 'v1.1 Notifications'] [--ws <name>] [--reset-phase-numbers]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/new-milestone.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "new_milestone",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "agent",
+            "ask_user"
+          ],
+          "when": "specforge.surface.milestone"
+        },
+        {
+          "argument_hint": "<phase> [--all] [--auto] [--chain] [--batch] [--analyze] [--text] [--power] [--assumptions]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/discuss-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "discuss_phase",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "ask_user",
+            "agent",
+            "mcp:context7/resolve-library-id",
+            "mcp:context7/query-docs"
+          ],
+          "when": "specforge.surface.core_loop"
+        },
+        {
+          "argument_hint": "[phase] [--auto] [--research] [--skip-research] [--research-phase <N>] [--view] [--gaps] [--skip-verify] [--skip-ui] [--prd <file>] [--ingest <path-or-glob>] [--ingest-format <auto|nygard|madr|narrative>] [--reviews] [--text] [--bounce] [--skip-bounce] [--chunked] [--tdd] [--mvp] [--granularity <coarse|standard|fine>] [--no-tracer] [--no-reversibility-gates]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/plan-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "effort": "max",
+          "prompt": "plan_phase",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "agent",
+            "ask_user",
+            "web_fetch",
+            "mcp:context7/*"
+          ],
+          "when": "specforge.surface.core_loop"
+        },
+        {
+          "argument_hint": "<phase> [--claude] [--codex] [--coderabbit] [--opencode] [--qwen] [--cursor] [--antigravity] [--agy] [--ollama] [--lm-studio] [--llama-cpp] [--kimi-code] [--text] [--ws <name>] [--all] [--max-cycles N]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/plan-review-convergence.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "plan_review_convergence",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "agent",
+            "skill",
+            "ask_user"
+          ],
+          "when": "specforge.surface.audit_review"
+        },
+        {
+          "argument_hint": "<phase>",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ultraplan-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "ultraplan_phase",
+          "tools": [
+            "read",
+            "shell",
+            "search"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "<phase> [--wave N] [--gaps-only] [--interactive] [--tdd]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/execute-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "effort": "max",
+          "prompt": "execute_phase",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "search",
+            "shell",
+            "agent",
+            "todo",
+            "ask_user"
+          ],
+          "when": [
+            "specforge.surface.core_loop",
+            "specforge.surface.utility"
+          ]
+        },
+        {
+          "argument_hint": "<phase> [--ws <name>]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/verify-work.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "verify_work",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "edit",
+            "write",
+            "agent"
+          ],
+          "when": "specforge.surface.audit_review"
+        },
+        {
+          "argument_hint": "<phase>",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/validate-phase.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "validate_phase",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "shell",
+            "search",
+            "agent",
+            "ask_user"
+          ],
+          "when": "specforge.surface.audit_review"
+        },
+        {
+          "argument_hint": "<phase> [additional instructions]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/add-tests.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "add_tests",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "shell",
+            "search",
+            "agent",
+            "ask_user"
+          ],
+          "when": "specforge.surface.audit_review"
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/audit-uat.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "audit_uat",
+          "tools": [
+            "read",
+            "search",
+            "shell"
+          ],
+          "when": "specforge.surface.audit_review"
+        },
+        {
+          "argument_hint": "<milestone>",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/audit-milestone.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "audit_milestone",
+          "tools": [
+            "read",
+            "search",
+            "shell",
+            "agent",
+            "write"
+          ],
+          "when": "specforge.surface.audit_review"
+        },
+        {
+          "argument_hint": "<milestone>",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/complete-milestone.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "complete_milestone",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search"
+          ],
+          "when": "specforge.surface.milestone"
+        },
+        {
+          "argument_hint": "<phase>",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ship.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "ship",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "write",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/next.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "effort": "low",
+          "prompt": "next",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "skill",
+            "ask_user"
+          ],
+          "when": "specforge.surface.core_loop"
+        },
+        {
+          "argument_hint": "[--forensic | --next [--auto] [--converge] | --do \"task description\"]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/progress.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "effort": "low",
+          "prompt": "progress",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "skill",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[--analyze-deps]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/manager.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "manager",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "ask_user",
+            "skill",
+            "agent"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[list | status <slug> | resume <slug> | --full] [--validate] [--discuss] [--research] [task description]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/quick.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "quick",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "search",
+            "shell",
+            "agent",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[--file <path>] [--jobs auto|N] [--validate] [--research] [--resume <batch-id>] [task list]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/quick-batch.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "quick_batch",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "search",
+            "shell",
+            "agent"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[task description]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/fast.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "fast",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "shell",
+            "search"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[--from N] [--to N] [--only N] [--interactive] [--converge]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/autonomous.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "effort": "max",
+          "prompt": "autonomous",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "ask_user",
+            "agent"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[--report]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/pause-work.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "pause_work",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search"
+          ],
+          "when": "specforge.surface.workspace_state"
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/resume-work.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "resume_work",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "write",
+            "ask_user",
+            "skill"
+          ],
+          "when": "specforge.surface.workspace_state"
+        },
+        {
+          "argument_hint": "<phase> [--claude] [--codex] [--opencode] [--qwen] [--cursor] [--agy] [--all]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/review.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "review",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search"
+          ],
+          "when": [
+            "specforge.surface.audit_review",
+            "specforge.surface.utility"
+          ]
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/review-backlog.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "review_backlog",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/settings.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "settings",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[--advanced | --integrations | --profile <name>]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/config.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "config",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "--last N | --phase NN | --plan NN-MM",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/undo.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "undo",
+          "tools": [
+            "read",
+            "shell",
+            "search",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[--target <branch>]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/pr-branch.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "pr_branch",
+          "tools": [
+            "shell",
+            "search",
+            "read",
+            "ask_user"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[--milestone <version>]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/milestone-summary.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "milestone_summary",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search"
+          ],
+          "when": "specforge.surface.milestone"
+        },
+        {
+          "argument_hint": "<phase>",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/extract-learnings.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "extract_learnings",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "agent"
+          ],
+          "when": "specforge.surface.utility"
+        },
+        {
+          "argument_hint": "[path] [--mode new|merge] [--manifest <file>] [--resolve auto|interactive]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ingest-docs.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "ingest_docs",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "shell",
+            "search",
+            "ask_user",
+            "agent"
+          ],
+          "when": "specforge.surface.docs"
+        },
+        {
+          "argument_hint": "[--fast] [--text]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/onboard.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "onboard",
+          "tools": [
+            "read",
+            "shell",
+            "write",
+            "search",
+            "agent",
+            "ask_user"
+          ],
+          "when": "specforge.surface.core_loop"
+        },
+        {
+          "argument_hint": "[--new | --list | --remove] [name]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/workspace.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "workspace",
+          "tools": [
+            "read",
+            "write",
+            "shell",
+            "search",
+            "ask_user"
+          ],
+          "when": "specforge.surface.workspace_state"
+        },
+        {
+          "argument_hint": "[--sync | --reapply | --next | --rc]",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/update.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "update",
+          "tools": [
+            "read",
+            "write",
+            "edit",
+            "shell",
+            "search",
+            "ask_user"
+          ],
+          "when": [
+            "specforge.surface.core_loop",
+            "specforge.surface.utility"
+          ]
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-context.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "ns_context",
+          "tools": [
+            "read",
+            "skill"
+          ],
+          "when": "specforge.surface.ns_meta"
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-ideate.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "ns_ideate",
+          "tools": [
+            "read",
+            "skill"
+          ],
+          "when": [
+            "specforge.surface.research_ideate",
+            "specforge.surface.ns_meta"
+          ]
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-manage.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "ns_manage",
+          "tools": [
+            "read",
+            "skill"
+          ],
+          "when": "specforge.surface.ns_meta"
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-project.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "ns_project",
+          "tools": [
+            "read",
+            "skill"
+          ],
+          "when": "specforge.surface.ns_meta"
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-review.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "ns_review",
+          "tools": [
+            "read",
+            "skill"
+          ],
+          "when": "specforge.surface.ns_meta"
+        },
+        {
+          "argument_hint": "",
+          "attribution": {
+            "copyright": "Copyright (c) 2026 Open GSD",
+            "license": "MIT",
+            "path": "commands/gsd/ns-workflow.md",
+            "upstream": "gsd-core",
+            "version": "v1.19.0"
+          },
+          "prompt": "ns_workflow",
+          "tools": [
+            "read",
+            "skill"
+          ],
+          "when": "specforge.surface.ns_meta"
+        }
+      ]
+    }
+  ]
+}

@@ -69,10 +69,7 @@ fn analyzed(settings: serde_json::Value, strict: bool) -> Vec<(String, Severity)
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "analyze findings are gated and raised as the project's report is"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn analyze_findings_are_gated_and_raised_too() {
     // The same rule on an analyze pass's findings, before `policy.promote`.
     let w = |code: &str, severity| (code.to_string(), severity);
@@ -86,10 +83,7 @@ fn analyze_findings_are_gated_and_raised_too() {
     assert_eq!(analyzed(strict, false), [w("W902", Severity::Error)]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "a preset raises a code before strict, in every surface"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn strict_promotes_what_the_raise_left_as_warnings() {
     let on = json!({"@t/a": {"flag": true, "profile": "strict"}});
     assert_eq!(
@@ -108,10 +102,7 @@ fn strict_promotes_what_the_raise_left_as_warnings() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a command and a tool see whether a secret is set and never its value"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_command_sees_secret_presence_not_its_value() {
     use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, run};
     let runtime = Arc::new(InProcessRuntime::new().with(|| {
@@ -169,10 +160,7 @@ fn a_command_sees_secret_presence_not_its_value() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "settings lists each setting's type, value, origin, default, gates, raises and each secret's status"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_exact_setting_inside_a_family_is_listed_and_typed_once() {
     use specforge_ops::extension::settings;
     use specforge_ops::read::schema::config_schema;

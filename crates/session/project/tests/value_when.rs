@@ -86,10 +86,7 @@ fn check_calls(runtime: &InProcessRuntime) -> usize {
         .count()
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a checker whose when setting is off is not called and asks no scope"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_checker_whose_when_setting_is_off_is_not_called_and_asks_no_scope() {
     let spec = format!("service a \"A\" {{\n  link \"{A_URL}\"\n}}\n");
     let (scene, runtime) = scene(Some(false), &spec);

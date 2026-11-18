@@ -19,10 +19,7 @@ fn declare(c: &mut ContributionsBuilder) {
     });
 }
 
-#[specforge_test(
-    behavior = "watch_baseline_refs",
-    verify = "the LSP republishes after a commit"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn the_lsp_republishes_after_a_commit() {
     let served = Served::new(&[("main.spec", "thing a \"A\" {\n  origin one\n}\n")])
         .extension("@t/immutable", declare)

@@ -55,10 +55,7 @@ fn refusals(scratch: &Path, path: &Path) -> [(String, String); 4] {
     [by_add, by_init, by_publish, by_validate].map(|e| (e.code.to_string(), e.message))
 }
 
-#[specforge_test(
-    behavior = "resolve_extension_source",
-    verify = "a local path is refused by add, init, publish and extension validate with one code and message per cause"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn every_verb_refuses_a_path_alike() {
     let t = TempDir::new().unwrap();
     let scratch = t.path();

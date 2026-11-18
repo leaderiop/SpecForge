@@ -103,10 +103,7 @@ fn members<'v>(value: &'v Value, path: &mut Vec<String>, out: &mut Vec<(Vec<Stri
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a JSON key is located at its own text and the path at an offset names the key or value there"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_json_key_is_located_at_its_text() {
     let mut checked = 0;
     for seed in 0..3000u64 {
@@ -153,10 +150,7 @@ fn a_json_key_is_located_at_its_text() {
     assert!(locate("{\"a\": 1, \"b\": ", &["a"]).is_some());
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a JSON key is located at its own text and the path at an offset names the key or value there"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_half_typed_member_is_found_by_its_nearest_enclosing_member() {
     // `"lev"` has no colon yet: the cursor is in the extension's object.
     let text = r#"{"settings": {"@t/s": {"flag": true, "lev"}}}"#;
@@ -174,10 +168,7 @@ fn a_half_typed_member_is_found_by_its_nearest_enclosing_member() {
     assert_eq!(at.path, ["settings", "@t/s"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a JSON key is located at its own text and the path at an offset names the key or value there"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn only_the_last_of_three_repeated_keys_is_live() {
     let text = r#"{"a": 1, "a": 2, "a": 3}"#;
     let live = index(text);

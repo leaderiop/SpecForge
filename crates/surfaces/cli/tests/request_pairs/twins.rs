@@ -106,10 +106,7 @@ fn refs_with_direction_and_declaration_is_one_request() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "trace_within_entity",
-    verify = "specforge trace --in and specforge.trace's in answer the same document"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-129")]
 fn trace_in_is_one_request() {
     match pair("trace_in_entity").0 {
         Outcome::Answered(document) => {
@@ -120,10 +117,7 @@ fn trace_in_is_one_request() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "trace_within_entity",
-    verify = "specforge trace and specforge.trace both refuse an entity with in"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-129")]
 fn trace_entity_and_in_is_one_request() {
     assert_eq!(pair("trace_entity_and_in").0, Outcome::Refused);
 }

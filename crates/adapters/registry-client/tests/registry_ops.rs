@@ -427,10 +427,7 @@ impl RegistryClient for WrongReceipt {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "publish checks the registry's receipt against what it uploaded"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_receipt_for_another_upload_is_refused() {
     let error = publish_to_registry(
         &DeclaredPackage::of(&minimal_manifest()).unwrap(),
@@ -446,10 +443,7 @@ fn a_receipt_for_another_upload_is_refused() {
     assert!(error.message.contains("receipt"), "{error:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "verify_publisher_signature",
-    verify = "a signature is verified over the digests the reply describes, before any download"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_signature_is_verified_over_the_digests_the_reply_describes() {
     use specforge_registry_client::{TrustCheck, verify_package_signature};
     let wasm = b"fake-wasm-bytes";
@@ -473,10 +467,7 @@ fn a_signature_is_verified_over_the_digests_the_reply_describes() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "verify_publisher_signature",
-    verify = "a signature made over a reply's text verifies over the values the reply is read as"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_signature_over_a_replys_text_verifies_over_its_values() {
     use specforge_registry_client::{TrustCheck, verify_package_signature};
     use specforge_registry_wire::SignedContent;

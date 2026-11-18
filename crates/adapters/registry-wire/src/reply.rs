@@ -61,10 +61,7 @@ mod tests {
         serde_json::to_vec(&ErrorBody::new(code, "m")).unwrap()
     }
 
-    #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn an_answer_is_its_wire_type_or_not_a_registrys() {
         let list: VersionList = read(200, br#"{"name":"@a/b","versions":[]}"#).unwrap();
         assert_eq!(list.name.as_str(), "@a/b");
@@ -82,10 +79,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "a 404 without the protocol's NOT_FOUND error is R009, not package not found"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_404_is_not_found_only_with_the_protocols_error() {
         assert!(matches!(
             failure(404, &body(ErrorCode::NotFound)),
@@ -109,10 +103,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "authenticate_registry_request",
-        verify = "every registry call reads an answer's status as one error"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-110")]
     fn another_error_status_reads_by_its_status_without_the_envelope() {
         assert_eq!(failure(401, b""), Failure::Status { status: 401 });
         assert!(matches!(

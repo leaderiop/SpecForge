@@ -44,10 +44,7 @@ fn migrated_with(
     (summary, after)
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "every block a migration step changed is laid out with its file's format configuration"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn every_block_a_step_changed_is_laid_out_with_the_given_configuration() {
     let config = FormatConfig {
         use_tabs: true,
@@ -73,10 +70,7 @@ fn every_block_a_step_changed_is_laid_out_with_the_given_configuration() {
     );
 }
 
-#[specforge_test(
-    invariant = "migration_canonical_form",
-    verify = "a block no migration step changed is left as written"
-)]
+#[specforge_test(requirement = "INVARIANT-072")]
 fn a_block_no_step_changed_is_left_as_written() {
     let untouched = "port R \"R\" {\n      direction inbound\n}\n";
     let (_, after) = migrated_with(
@@ -88,10 +82,7 @@ fn a_block_no_step_changed_is_left_as_written() {
     assert!(after.contains("defaults behavior {"), "{after}");
 }
 
-#[specforge_test(
-    invariant = "migration_idempotency",
-    verify = "a file no migration step changes is skipped as written, unformatted"
-)]
+#[specforge_test(requirement = "INVARIANT-075")]
 fn a_file_no_step_changes_is_skipped_as_written() {
     let (summary, after) = migrated_with(
         "port R \"R\" {\n      direction inbound\n}\n",

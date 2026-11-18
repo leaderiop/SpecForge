@@ -93,10 +93,7 @@ fn remove(
     )
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "removing an extension another installed extension requires fails with E027 unless --force"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn removing_an_extension_another_installed_extension_requires_is_e027_unless_forced() {
     let dir = project(&["@probe/base", "@probe/dep"]);
     for (name, bytes) in [
@@ -117,10 +114,7 @@ fn removing_an_extension_another_installed_extension_requires_is_e027_unless_for
     assert_eq!(enabled(dir.path()), ["@probe/dep"]);
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "removing a .wasm file entry another extension requires fails with E027 unless --force"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn removing_a_wasm_file_entry_another_extension_requires_is_e027_unless_forced() {
     let dir = project(&["greet.wasm", "@acme/uses-greet"]);
     std::fs::write(dir.path().join("greet.wasm"), GREET).unwrap();
@@ -146,10 +140,7 @@ fn removing_a_wasm_file_entry_another_extension_requires_is_e027_unless_forced()
     assert!(dir.path().join("greet.wasm").is_file());
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an install that leaves a locked extension's peer unsatisfied is refused before anything is written, local or from a registry"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_install_a_locked_extension_does_not_accept_is_refused_local_or_from_a_registry() {
     let dir = project(&["@acme/app"]);
     let runtime = || {
@@ -200,10 +191,7 @@ fn an_install_a_locked_extension_does_not_accept_is_refused_local_or_from_a_regi
     assert_eq!(snapshot(dir.path()), before, "nothing is installed");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "a version diamond with a locked peer is refused with R-RES-006, as specforge add refuses it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_version_diamond_with_a_locked_peer_is_refused_with_r_res_006() {
     let dir = project(&["@acme/base", "@acme/other"]);
     // `@acme/base` is locked at 1.0.0 for `@acme/other`, which takes any 1+.

@@ -22,10 +22,7 @@ use specforge_wasm::testing::InProcessRuntime;
 
 use super::{Fixture, Machine, Runner};
 
-#[specforge_test_macros::test(
-    behavior = "register_collector_contributions",
-    verify = "a collector with no command and no report is called under run and no-run, and ran is false"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_collector_with_no_command_and_no_report_is_called_under_run_and_no_run() {
     let fx = Fixture::new(vec![Runner::new("source").reading_ports()]);
     // Nothing approved: a collector that runs nothing needs no approval.
@@ -54,10 +51,7 @@ fn a_collector_with_no_command_and_no_report_is_called_under_run_and_no_run() {
     assert!(!fx.exists(".specforge/reports/source.json"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "register_collector_contributions",
-    verify = "a report run naming a collector that reads through its ports is E058"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_report_run_naming_a_ports_collector_is_e058() {
     let fx = Fixture::new(vec![Runner::new("acme").reading_ports()]);
     fx.write("given.json", "{}");
@@ -157,10 +151,7 @@ impl Reading {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "register_collector_contributions",
-    verify = "a collector that reads through its ports is lent its fs reads without an approval"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_ports_collector_is_lent_its_fs_reads_without_an_approval() {
     let reading = Reading::new(
         || {
@@ -216,10 +207,7 @@ fn names(answer: &SyntaxAnswer, file: usize) -> Vec<String> {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "register_collector_contributions",
-    verify = "a collector parses source through the syntax import, and what it found broken is noted once"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_ports_collector_parses_through_syntax_and_its_work_is_on_the_call() {
     let reading = Reading::new(
         || reader(parse_sources),
@@ -248,10 +236,7 @@ fn a_ports_collector_parses_through_syntax_and_its_work_is_on_the_call() {
     assert!(outcome.diagnostics[0].message.contains("`src/broken.rs`"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_source_syntax",
-    verify = "a second collect answers every file from the project's syntax cache"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_second_collect_answers_every_file_from_the_projects_syntax_cache() {
     let reading = Reading::new(
         || reader(|| parse_into(&TWICE)),
@@ -285,10 +270,7 @@ fn a_second_collect_answers_every_file_from_the_projects_syntax_cache() {
 static FILLED: Mutex<Vec<Result<SyntaxAnswer, HostError>>> = Mutex::new(Vec::new());
 static COMMANDED: Mutex<Vec<Result<SyntaxAnswer, HostError>>> = Mutex::new(Vec::new());
 
-#[specforge_test_macros::test(
-    behavior = "read_source_syntax",
-    verify = "a command's syntax request is answered from the cache a collect filled"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_commands_syntax_request_is_answered_from_the_cache_a_collect_filled() {
     let reading = Reading::new(
         || {

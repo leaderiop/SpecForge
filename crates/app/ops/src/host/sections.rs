@@ -85,10 +85,7 @@ pub(crate) fn agent_sections(view: &ProjectView<'_>, agent: &str, lines: &[Engin
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "the SpecForge tools section names each tool by its MCP name, its CLI line or MCP only, and when to use it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn the_tools_section_names_each_tool_its_cli_and_when_to_use_it() {
         assert_eq!(tools_section(&[]), "");
         let line = |mcp: &str, cli: &[&str], use_when: &str| EngineLine {

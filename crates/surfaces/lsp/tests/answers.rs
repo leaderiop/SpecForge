@@ -62,10 +62,7 @@ fn declaring(definition: bool, hierarchical: bool, insert_replace: bool) -> Clie
     }
 }
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "a definition is a location link for a client that declares linkSupport, else a location at the name"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn client_support_reads_what_the_client_declared() {
     assert_eq!(
         ClientSupport::of(&ClientCapabilities::default()),
@@ -139,10 +136,7 @@ fn quad(r: tower_lsp::lsp_types::Range) -> (u32, u32, u32, u32) {
     (r.start.line, r.start.character, r.end.line, r.end.character)
 }
 
-#[spec(
-    invariant = "cursor_names_one_entity",
-    verify = "a cursor in a buffer typed since the compile names what its own word names, never the compiled text's token at its position"
-)]
+#[spec(requirement = "INVARIANT-012")]
 fn a_stale_cursor_names_its_own_word() {
     let dir = TempDir::new().unwrap();
     let (mut state, uri) = typed_since_the_compile(&dir);
@@ -200,10 +194,7 @@ fn content_modified<T: std::fmt::Debug>(result: tower_lsp::jsonrpc::Result<T>) {
     );
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename over a buffer typed since the compile is refused as content modified"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn prepare_rename_waits_for_the_compile_of_its_document() {
     let dir = TempDir::new().unwrap();
     let (mut state, uri) = typed_since_the_compile(&dir);
@@ -218,10 +209,7 @@ fn prepare_rename_waits_for_the_compile_of_its_document() {
     assert_eq!(quad(range), (2, 5, 2, 9));
 }
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename from a buffer typed since the compile is refused as content modified"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_waits_for_the_compile_of_its_document() {
     let dir = TempDir::new().unwrap();
     let (mut state, uri) = typed_since_the_compile(&dir);
@@ -321,10 +309,7 @@ fn client_support_reads_what_steers_the_reaction() {
 const HALF_TYPED: &str =
     "type alpha \"A\" {\n  note\n\ntype beta \"B\" {}\n\ntype gamma \"C\" {}\n";
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "the entity after a body being typed is navigated to"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn the_entity_after_a_half_typed_body_is_navigable() {
     let dir = TempDir::new().unwrap();
     let (mut state, uri) = serving(&dir, HALF_TYPED);

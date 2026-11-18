@@ -58,10 +58,7 @@ fn round(
         .expect("the round is judged")
 }
 
-#[specforge_test(
-    behavior = "checks_registries",
-    verify = "a package asks its ecosystem's index, and a coordinate no registry names is E103"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_package_asks_its_ecosystems_index() {
     for (text, url) in [
         ("crates:serde@1", "https://index.crates.io/se/rd/serde"),
@@ -83,10 +80,7 @@ fn a_package_asks_its_ecosystems_index() {
     assert_eq!((refused.code.as_str(), refused.at), ("E103", Some([0, 5])));
 }
 
-#[specforge_test(
-    behavior = "checks_registries",
-    verify = "a requirement only yanked releases meet is E105 on the requirement, naming the newest release"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_requirement_only_yanked_releases_meet_is_e105() {
     assert!(judged("package", "crates:serde@1", json!({}), ok(SERDE_INDEX)).is_empty());
     let yanked = judged("package", "crates:serde@=1.0.1", json!({}), ok(SERDE_INDEX));
@@ -122,10 +116,7 @@ fn a_requirement_only_yanked_releases_meet_is_e105() {
     }
 }
 
-#[specforge_test(
-    behavior = "checks_registries",
-    verify = "an advisory check queries OSV for the release the requirement resolves to, and reports each advisory as W179"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn an_advisory_check_queries_osv_for_the_resolved_release() {
     let first = round(
         "advisory",
@@ -164,10 +155,7 @@ fn an_advisory_check_queries_osv_for_the_resolved_release() {
     );
 }
 
-#[specforge_test(
-    behavior = "checks_registries",
-    verify = "a licence the release record states outside allow, or none, is W179"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_licence_outside_allow_is_w179() {
     let first = round(
         "license_of",
@@ -202,10 +190,7 @@ fn a_licence_outside_allow_is_w179() {
     assert_eq!(codes(&licensed("null", json!(["MIT"]))), ["W179"]);
 }
 
-#[specforge_test(
-    behavior = "checks_registries",
-    verify = "a doi or an orcid is asked of its resolver, a malformed one is E103 and an unknown one E105"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_doi_or_an_orcid_is_asked_of_its_resolver() {
     assert!(matches!(
         &planned("doi", "doi:10.1000/182", json!({})).probes[..],
@@ -254,10 +239,7 @@ fn a_doi_or_an_orcid_is_asked_of_its_resolver() {
     assert!(judged("orcid", "0000-0002-1825-0097", json!({}), ok("{}")).is_empty());
 }
 
-#[specforge_test(
-    behavior = "checks_registries",
-    verify = "an answer cut at the read leaves the value unchecked, never W172 nor a pass"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn an_answer_cut_at_the_read_leaves_the_value_unchecked() {
     let cut = |class| {
         let mut outcome = http(class, 200, "{\"versions\":");

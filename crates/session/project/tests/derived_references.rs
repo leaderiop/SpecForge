@@ -68,10 +68,7 @@ fn edges_from(compiled: &CompiledProject, id: &str) -> Vec<(String, String)> {
     edges
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a field's derived_from reaches the graph from the extension's manifest"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_derived_from_declared_by_an_extension_links_the_compiled_graph() {
     let dir = project(
         r#"
@@ -137,10 +134,7 @@ fn w002(compiled: &CompiledProject) -> Vec<String> {
     messages
 }
 
-#[specforge_test(
-    behavior = "se_validate_unreferenced_types",
-    verify = "a type named in another type's field type is referenced"
-)]
+#[specforge_test(requirement = "FEATURE-119")]
 fn a_type_named_in_a_field_type_is_referenced() {
     let compiled = compile_with_software(
         r#"
@@ -162,10 +156,7 @@ type Holder {
     );
 }
 
-#[specforge_test(
-    behavior = "se_validate_unreferenced_types",
-    verify = "a type named in a port method signature is referenced"
-)]
+#[specforge_test(requirement = "FEATURE-119")]
 fn a_type_named_in_a_port_method_signature_is_referenced() {
     let compiled = compile_with_software(
         r#"
@@ -188,10 +179,7 @@ port Scanner {
     assert!(w002(&compiled).is_empty(), "{:?}", w002(&compiled));
 }
 
-#[specforge_test(
-    behavior = "se_validate_unreferenced_types",
-    verify = "a primitive or generic wrapper name references no type"
-)]
+#[specforge_test(requirement = "FEATURE-119")]
 fn a_primitive_or_generic_wrapper_references_no_type() {
     let compiled = compile_with_software(
         r#"

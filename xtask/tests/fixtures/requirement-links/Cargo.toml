@@ -1,0 +1,7 @@
+# A gsd fixture project read by crates/surfaces/cli/tests/requirement_proof.rs, gate/src/junit/tests.rs and xtask/tests/check_links.rs; never built by the workspace.
+[package]
+name = "tracer"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]

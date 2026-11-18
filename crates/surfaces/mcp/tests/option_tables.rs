@@ -157,10 +157,8 @@ fn property(tool: &str, argument: &str) -> Value {
     spec.input_schema()["properties"][argument].clone()
 }
 
-#[specforge_test_macros::test(
-    behavior = "name_enumerated_options_once",
-    verify = "each enumerated MCP argument advertises the table's names and default"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn each_enumerated_argument_advertises_its_table() {
     for expected in enumerated() {
         let at = format!("{}.{}", expected.tool, expected.argument);
@@ -204,10 +202,7 @@ fn content(response: &Value) -> Value {
     serde_json::from_str(text).unwrap_or_else(|e| panic!("{e}: {text}"))
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_render_tool",
-    verify = "graph and its alias json select the full graph renderer"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-070")]
 fn render_accepts_graph_and_its_json_alias() {
     let mut server = served();
     let mut written = Vec::new();
@@ -235,10 +230,7 @@ fn render_accepts_graph_and_its_json_alias() {
     assert_eq!(written[0], written[1], "json is graph");
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_query_tool",
-    verify = "an unknown format is an invalid-input error naming the expected formats"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn query_refuses_an_unknown_format() {
     let mut server = served();
     for (name, message) in [
@@ -316,10 +308,8 @@ fn coverage_and_find_references_refuse_with_the_table_wording() {
     assert_eq!(answered["direction"], "incoming", "{answered}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "name_enumerated_options_once",
-    verify = "a refusal's available choices are the names its message lists, an alias never among them"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn a_refusal_offers_one_list_the_tables_names() {
     let mut server = served();
     let response = call_tool(&mut server, "specforge.render", json!({"format": "yaml"}));

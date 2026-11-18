@@ -1,0 +1,29 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "name": "project",
+      "ops": [
+        "stat"
+      ],
+      "port": "fs",
+      "why": "see whether an <automated> command's directory leads out through a link, and what a gate's manifest is"
+    },
+    {
+      "name": "repo",
+      "ops": [
+        "read"
+      ],
+      "port": "git",
+      "why": "read the branch HEAD is on, and the history gsd-git records commits from"
+    },
+    {
+      "name": "worktree",
+      "ops": [
+        "read"
+      ],
+      "port": "fs",
+      "why": "carry the lines a commit wrote to where they are now, to name the items it changed"
+    }
+  ]
+}

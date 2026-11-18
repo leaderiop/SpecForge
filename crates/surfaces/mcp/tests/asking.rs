@@ -5,10 +5,7 @@ use crate::support::*;
 use serde_json::json;
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "specforge.collect refuses an unapproved command with the operation's own message"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_refuses_an_unapproved_command_with_the_operations_own_message() {
     let mut server = test_server();
     let project = within(server.root(), collect_project());
@@ -30,10 +27,7 @@ fn collect_refuses_an_unapproved_command_with_the_operations_own_message() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "a missing report's refusal tells the agent to run the tests, naming no CLI flag"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_without_a_report_tells_the_agent_to_run_the_tests() {
     let mut served = TestProject::new()
         .enabling(&["@specforge/software", "@specforge/cargo-test"])

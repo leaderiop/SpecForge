@@ -65,7 +65,7 @@ pub fn seconds(time: &str) -> Option<i64> {
 
 /// Seconds since the epoch of the calendar day `YYYY-MM-DD` at midnight UTC, the one text a `date` field holds;
 /// `None` for any other spelling (the kernel reports those as E061 and still passes their text on).
-pub fn day(text: &str) -> Option<i64> {
+fn day(text: &str) -> Option<i64> {
     let shaped = text.len() == 10
         && text.bytes().enumerate().all(|(at, b)| match at {
             4 | 7 => b == b'-',

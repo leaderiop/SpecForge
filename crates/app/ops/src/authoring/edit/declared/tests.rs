@@ -74,10 +74,7 @@ fn declaring(edits: &[Edit]) -> Declared {
     declared
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "a graph change no edit declares is beyond the declaration"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_remove_verify_that_changes_a_methods_field_leaves_it_beyond() {
     let declared = declaring(&[remove_verify("auth_port")]);
     let changed = delta(vec![modified("auth_port", &["methods"], &[])]);

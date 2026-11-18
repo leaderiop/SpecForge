@@ -31,10 +31,7 @@ fn node(id: &str) -> Node {
     }
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "every export format writes an entity id holding a dash or a dot as written"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn every_export_writes_an_id_holding_a_dash_or_a_dot_as_written() {
     let ids = ["AUTH-01", "v1.0", "03-02", "03.1", "G-03-1"];
     let mut graph = Graph::new();
@@ -64,10 +61,7 @@ fn every_export_writes_an_id_holding_a_dash_or_a_dot_as_written() {
     }
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "an export of a project with no scoped kind writes each id as its name and each edge as written"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn an_unscoped_export_is_unchanged() {
     // The matrix golden (`emit_matrix`) pins the whole text; this states the link K2 must keep:
     // an unscoped entity's id is its name and an edge target is the written reference.

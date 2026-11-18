@@ -75,10 +75,7 @@ fn faults_of(items: Vec<Value>) -> (Vec<String>, Vec<String>) {
     (faults(&build), kept)
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "the registry refuses a malformed setting, preset or secret with W021 and keeps the rest"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_registry_refuses_a_malformed_setting() {
     let (none, kept) = faults_of(vec![]);
     assert!(none.is_empty(), "{none:?}");
@@ -290,10 +287,7 @@ fn the_registry_refuses_a_malformed_setting() {
     assert!(followed.is_empty(), "{followed:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "the registry refuses a malformed setting, preset or secret with W021 and keeps the rest"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_family_keeps_no_default() {
     let mut all = base();
     all.push(setting("fd.*", json!({"default": "x"})));
@@ -314,20 +308,14 @@ fn a_family_keeps_no_default() {
     assert_eq!(default_of("whole"), Some(json!("y")));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a bool setting gates codes while it is on"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn gates_when_on_on_a_string_setting_is_w021() {
     let (found, _) = faults_of(vec![setting("txt", json!({"gates_when_on": ["W901"]}))]);
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(found[0].contains("gates_when_on"), "{found:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a bool setting gates codes while it is on"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_code_gated_both_ways_is_w021() {
     let both = setting(
         "both",
@@ -338,10 +326,7 @@ fn a_code_gated_both_ways_is_w021() {
     assert!(found[0].contains("W901"), "{found:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "a bool setting gates codes while it is on"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn two_codes_gated_both_ways_are_each_w021() {
     let both = setting(
         "both",

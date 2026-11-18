@@ -18,10 +18,7 @@ const BLOCKS: &str = "defaults behavior {\n  ports [Repo]\n}\n\n\
                       behavior a \"A\" {\n}\n\nbehavior b \"B\" {\n}\n\nbehavior c \"C\" {\n}\n";
 const PORT: &str = "port Repo \"Repo\" {\n}\n";
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "an inherited reference is written at the default"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn the_occurrence_at_a_defaults_token_is_its_reference() {
     let p = compile(SOFTWARE, &[("a.spec", BLOCKS), ("port.spec", PORT)]);
     let occurrence = p.navigator().occurrence_at("a.spec", 2, 10).unwrap();
@@ -29,10 +26,7 @@ fn the_occurrence_at_a_defaults_token_is_its_reference() {
     assert_eq!(crate::navigate::at(&occurrence.span), "a.spec 2:10-2:14");
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "rename edits an inherited reference once"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn renaming_an_inherited_reference_edits_it_once() {
     let p = compile(SOFTWARE, &[("a.spec", BLOCKS), ("port.spec", PORT)]);
     let plan = rename::plan(&p.navigator(), "Repo", "Store").unwrap();
@@ -44,10 +38,7 @@ fn renaming_an_inherited_reference_edits_it_once() {
     assert_eq!(on_line, 1, "{:?}", plan.edits());
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "navigation answers an inherited reference's token once"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn tokens_hold_an_inherited_reference_once() {
     let p = compile(SOFTWARE, &[("a.spec", BLOCKS), ("port.spec", PORT)]);
     let query = ReferenceQuery {
@@ -67,10 +58,7 @@ fn tokens_hold_an_inherited_reference_once() {
     assert_eq!(p.navigator().references("Repo", query).unwrap().len(), 4);
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "find-references lists an inherited reference once per block"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn find_references_lists_an_inherited_reference_once_per_block() {
     let p = compile(SOFTWARE, &[("a.spec", BLOCKS), ("port.spec", PORT)]);
     let incoming = ReferenceQuery {
@@ -88,10 +76,7 @@ fn find_references_lists_an_inherited_reference_once_per_block() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "query, trace and the graph export show the inherited list"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn query_trace_and_export_show_the_inherited_list() {
     let p = compile(SOFTWARE, &[("a.spec", BLOCKS), ("port.spec", PORT)]);
     let view = ProjectView::of(&p.project);
@@ -158,10 +143,7 @@ fn project_of(text: &str) -> tempfile::TempDir {
     dir
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a migration that hoists defaults keeps the graph"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_hoists_and_keeps_the_graph() {
     let block =
         |id: &str| format!("behavior {id} \"T\" {{\n  ports [Repo]\n  features [Auth]\n}}\n");
@@ -191,10 +173,7 @@ fn migrate_hoists_and_keeps_the_graph() {
     assert!(!after.contains("behavior a \"T\" {\n  ports"), "{after}");
 }
 
-#[specforge_test(
-    behavior = "hoist_file_defaults",
-    verify = "a field its kind does not declare is never hoisted, and the other steps are written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_migration_over_a_field_its_kind_does_not_declare_writes_its_titles() {
     let block = |n: usize| {
         format!(

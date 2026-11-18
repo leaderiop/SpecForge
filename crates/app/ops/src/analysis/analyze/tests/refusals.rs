@@ -28,10 +28,7 @@ fn named(path: std::path::PathBuf) -> ReportSource {
     }
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn analyze_refusals_are_pinned_field_by_field() {
     let refused =
         |project: &Project, options: AnalyzeOptions| line(&project.run(&options).unwrap_err());

@@ -137,10 +137,7 @@ fn handed(runtime: &InProcessRuntime, export: &str, code: &str) -> Vec<String> {
         .collect::<Vec<_>>()
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a judged target that waits for an owner state is owed a verdict only in it, decided after the compute passes"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_target_waiting_for_its_owner_is_judged_only_once_it_is_complete() {
     let runtime = Arc::new(waits());
     let compiled = project(&spec(false)).compile_in(Arc::clone(&runtime) as _);
@@ -163,10 +160,7 @@ fn a_target_waiting_for_its_owner_is_judged_only_once_it_is_complete() {
     assert_eq!(reported(&done), ["p1/t1", "p2/t2"]);
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a verdict recorded while its owner is pending is read once the owner is complete"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_verdict_recorded_early_counts_once_the_owner_is_complete() {
     let runtime: Arc<InProcessRuntime> = Arc::new(waits());
     let project = project(&spec(false));

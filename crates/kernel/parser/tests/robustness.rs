@@ -8,10 +8,7 @@ use specforge_parser::testing::{
 use specforge_parser::{FieldValue, Previous, parse, parse_incremental};
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "parsing any text yields a file and never panics"
-)]
+#[specforge_test(requirement = "FEATURE-023")]
 fn parsing_any_edit_of_the_corpus_yields_a_file() {
     let mut runner = TestRunner::new(property_config());
     let result = runner.run(&edited_corpus(), |case| {
@@ -28,10 +25,7 @@ fn parsing_any_edit_of_the_corpus_yields_a_file() {
     }
 }
 
-#[specforge_test(
-    invariant = "incremental_correctness",
-    verify = "a file parsed with its previous text and tree reads as the same file parsed cold"
-)]
+#[specforge_test(requirement = "INVARIANT-057")]
 fn a_reparse_reads_as_a_cold_parse() {
     let mut runner = TestRunner::new(property_config());
     let result = runner.run(&edited_corpus(), |case| {
@@ -56,10 +50,7 @@ fn a_reparse_reads_as_a_cold_parse() {
     }
 }
 
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a syntax error quoting a long first line cuts it at a character boundary"
-)]
+#[specforge_test(requirement = "FEATURE-023")]
 fn a_long_error_line_is_cut_at_a_character_boundary() {
     // The 57th byte falls inside '─' (3 bytes): the cut used to panic.
     let line = "ref rust.fn:x// ── Property Entity Kind ──────────────────────";
@@ -88,10 +79,7 @@ fn parsed_on_a_small_stack(text: String) -> specforge_parser::SpecFile {
         .unwrap()
 }
 
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "brackets nested past 32 levels are one parse error, and no tree is read"
-)]
+#[specforge_test(requirement = "FEATURE-023")]
 fn brackets_nested_past_the_limit_are_one_parse_error() {
     let parens = format!(
         "invariant deep_x \"Deep\" {{\n  expression expr {{\n    {}x < 1{}\n  }}\n}}\n",
@@ -116,10 +104,7 @@ fn brackets_nested_past_the_limit_are_one_parse_error() {
     }
 }
 
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a control or bidirectional character in the text is one parse error at it, and no tree is read"
-)]
+#[specforge_test(requirement = "FEATURE-023")]
 fn a_control_character_in_the_text_is_one_parse_error_at_it() {
     // `§` stands for the character under test.
     let held = [
@@ -239,10 +224,7 @@ fn a_source_nested_past_the_limit_reports_the_first_bracket_past_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "a reference holding a colon written bare is one E120 that says to quote it, and no E001 or E003 for it"
-)]
+#[specforge_test(requirement = "FEATURE-023")]
 fn a_bare_colon_reference_in_a_list_is_one_e120_spanning_it() {
     let file = parse(
         "truth T1 \"One\" {\n  proof [\"ok\", js:a.test.js, run:x, b]\n}\n",

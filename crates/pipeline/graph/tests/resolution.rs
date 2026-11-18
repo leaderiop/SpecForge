@@ -9,11 +9,12 @@ use specforge_protocol_types::FieldType;
 use specforge_test_macros::test as specforge_test;
 
 /// `behavior.features` names `feature`s; `behavior.peers` names `behavior`s; `behavior.note` names nothing in
-/// particular. `loaded` are the kinds a loaded extension declares; `owners` are the absent kinds' providers.
+/// particular. `loaded` are the kinds a loaded extension declares; `owners` are the absent kinds, each with its
+/// providers.
 fn build(
     source: &str,
     loaded: &[&str],
-    owners: &[(&str, &str)],
+    owners: &[(&str, &[&str])],
 ) -> (Graph, Vec<specforge_graph::Diagnostic>) {
     let form = |field: &str, target: Option<&str>| {
         let form = FieldForm::new(FieldType::ReferenceList, Vec::new());
@@ -40,7 +41,12 @@ fn build(
             ),
             target_owners: owners
                 .iter()
-                .map(|(kind, owner)| (kind.to_string(), owner.to_string()))
+                .map(|(kind, owners)| {
+                    (
+                        kind.to_string(),
+                        owners.iter().map(|owner| owner.to_string()).collect(),
+                    )
+                })
                 .collect(),
             ..Default::default()
         },
@@ -55,12 +61,13 @@ fn codes(diagnostics: &[specforge_graph::Diagnostic]) -> Vec<&str> {
 
 const MISSING: &str = "behavior b1 \"B1\" { features [f_missing] }\n";
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "an unresolved reference in a field whose target kind no extension declares is I004 naming the extension"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_missing_id_of_an_absent_kind_is_i004_naming_its_provider() {
-    let (graph, diagnostics) = build(MISSING, &["behavior"], &[("feature", "@specforge/product")]);
+    let (graph, diagnostics) = build(
+        MISSING,
+        &["behavior"],
+        &[("feature", &["@specforge/product"])],
+    );
     assert_eq!(codes(&diagnostics), ["I004"], "{diagnostics:?}");
     assert_eq!(
         diagnostics[0].suggestion.as_deref(),
@@ -75,10 +82,7 @@ fn a_missing_id_of_an_absent_kind_is_i004_naming_its_provider() {
     assert_eq!(graph.edge_count(), 0);
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "an unresolved reference in a field whose target kind no extension declares is I004 naming the extension"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_missing_id_of_an_absent_kind_with_no_provider_suggests_a_search() {
     let (_, diagnostics) = build(MISSING, &["behavior"], &[]);
     assert_eq!(codes(&diagnostics), ["I004"], "{diagnostics:?}");
@@ -90,10 +94,28 @@ fn a_missing_id_of_an_absent_kind_with_no_provider_suggests_a_search() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "an unresolved reference to a loaded or undeclared target kind is E003 alone"
-)]
+#[test]
+fn a_missing_id_of_an_absent_kind_two_extensions_declare_is_i004_naming_both() {
+    let (graph, diagnostics) = build(
+        MISSING,
+        &["behavior"],
+        &[("feature", &["@gsd/core", "@specforge/product"])],
+    );
+    assert_eq!(codes(&diagnostics), ["I004"], "{diagnostics:?}");
+    assert_eq!(
+        diagnostics[0].suggestion.as_deref(),
+        Some(
+            "enable one of the extensions that declare 'feature' with `specforge add @gsd/core` or `specforge add @specforge/product`, or drop the field"
+        )
+    );
+    assert_eq!(
+        diagnostics[0].message,
+        "reference 'f_missing' in field 'features' of 'b1' targets kind 'feature', which no enabled extension provides"
+    );
+    assert_eq!(graph.edge_count(), 0);
+}
+
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_missing_id_is_e003_alone() {
     // `feature` is loaded: the field's target exists, so the id is simply missing.
     let (_, diagnostics) = build(MISSING, &["behavior", "feature"], &[]);
@@ -103,15 +125,12 @@ fn a_missing_id_is_e003_alone() {
     assert_eq!(codes(&diagnostics), ["E003"], "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a reference naming an existing entity of the absent target kind links without a diagnostic"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_id_of_the_absent_kind_links_silently() {
     let (graph, diagnostics) = build(
         "behavior b1 \"B1\" { features [f1] }\nfeature f1 \"F1\" { }\n",
         &["behavior"],
-        &[("feature", "@specforge/product")],
+        &[("feature", &["@specforge/product"])],
     );
     assert_eq!(codes(&diagnostics), Vec::<&str>::new(), "{diagnostics:?}");
     assert_eq!(graph.edge_count(), 1);
@@ -119,10 +138,7 @@ fn an_id_of_the_absent_kind_links_silently() {
 
 const WRONG_KIND: &str = "behavior b1 \"B1\" {\n  features [b2]\n}\nbehavior b2 \"B2\" {\n}\n";
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a reference to an existing entity of another kind than its field's target kind is E022 at the reference"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_reference_to_another_kind_is_e022_at_the_reference_and_links() {
     let (graph, diagnostics) = build(WRONG_KIND, &["behavior", "feature"], &[]);
     assert_eq!(codes(&diagnostics), ["E022"], "{diagnostics:?}");
@@ -215,15 +231,12 @@ fn e022_names_the_target_the_field_the_kinds_and_the_source() {
     }
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a reference to an existing entity of another kind than its field's target kind is E022 at the reference"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_wrong_kind_id_of_an_absent_kind_is_e022_naming_its_provider() {
     let (graph, diagnostics) = build(
         WRONG_KIND,
         &["behavior"],
-        &[("feature", "@specforge/product")],
+        &[("feature", &["@specforge/product"])],
     );
     assert_eq!(codes(&diagnostics), ["E022"], "{diagnostics:?}");
     assert_eq!(
@@ -243,10 +256,24 @@ fn a_wrong_kind_id_of_an_absent_kind_is_e022_naming_its_provider() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a quoted reference is written at its ID, inside its quotes"
-)]
+#[test]
+fn a_wrong_kind_id_of_an_absent_kind_two_extensions_declare_is_e022_naming_both() {
+    let (graph, diagnostics) = build(
+        WRONG_KIND,
+        &["behavior"],
+        &[("feature", &["@gsd/core", "@specforge/product"])],
+    );
+    assert_eq!(codes(&diagnostics), ["E022"], "{diagnostics:?}");
+    assert_eq!(
+        diagnostics[0].suggestion.as_deref(),
+        Some(
+            "name a feature here (enable one of the extensions that declare it with `specforge add @gsd/core` or `specforge add @specforge/product`), or drop the reference"
+        )
+    );
+    assert_eq!(graph.edge_count(), 1, "it still links");
+}
+
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_quoted_reference_is_e003_and_e022_at_its_id() {
     let source = "behavior b1 \"B1\" {\n  features [\"ghost\"]\n  peers \"ghost\"\n}\n\n\
                   behavior b2 \"B2\" {\n  features [\"b1\"]\n}\n";
@@ -300,10 +327,7 @@ fn placed(graph: &mut Graph, path: &str, kind: &str, scope: Option<&str>) {
     });
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a surface finds a numeric id whatever its zero padding, and a reference in the spec text does not"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_numeric_segment_matches_its_padded_form() {
     use specforge_graph::Found;
 
@@ -348,10 +372,7 @@ fn a_numeric_segment_matches_its_padded_form() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a rooted spelling is never a suffix, numeric or not"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_rooted_spelling_is_never_a_suffix() {
     use specforge_graph::Found;
 

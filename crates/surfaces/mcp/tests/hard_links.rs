@@ -60,10 +60,7 @@ fn untouched(victim: &Path) {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn migrate_writes_no_backup_or_temporary_file_through_a_hard_link() {
     for at in ["spec/main.spec.bak", "spec/main.spec.tmp"] {
         let project = old_project();
@@ -78,10 +75,7 @@ fn migrate_writes_no_backup_or_temporary_file_through_a_hard_link() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn format_fails_a_hard_linked_source_and_writes_neither_name() {
     let project = plain_project();
     let outside = TempDir::new().unwrap();
@@ -105,10 +99,7 @@ fn format_fails_a_hard_linked_source_and_writes_neither_name() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn rename_of_a_hard_linked_source_is_refused_and_writes_neither_name() {
     let project = plain_project();
     let outside = TempDir::new().unwrap();
@@ -134,10 +125,7 @@ fn rename_of_a_hard_linked_source_is_refused_and_writes_neither_name() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn init_replaces_a_hard_linked_gitignore() {
     let project = TempDir::new().unwrap();
     let (_outside, victim) = plant(project.path(), ".gitignore");
@@ -149,10 +137,7 @@ fn init_replaces_a_hard_linked_gitignore() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn collect_replaces_a_hard_linked_report() {
     let project = crate::operations_mgmt::collect_project();
     let (_outside, victim) = plant(project.path(), "specforge-report.json");
@@ -166,10 +151,7 @@ fn collect_replaces_a_hard_linked_report() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn infer_session_replaces_a_hard_linked_manifest() {
     let project = plain_project();
     let (_outside, victim) = plant(project.path(), "specforge-infer.json");
@@ -185,10 +167,7 @@ fn infer_session_replaces_a_hard_linked_manifest() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn migrate_record_is_not_written_through_a_hard_link() {
     let project = old_project();
     let (_outside, victim) = plant(project.path(), ".specforge/migration.json");
@@ -200,10 +179,7 @@ fn migrate_record_is_not_written_through_a_hard_link() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn add_extension_writes_no_lock_through_a_hard_linked_or_symlinked_temp() {
     let greet = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../fixtures/greet-extension/wasm/greet.wasm");

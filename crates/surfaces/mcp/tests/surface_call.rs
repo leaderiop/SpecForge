@@ -90,10 +90,7 @@ fn a_resource_read_ignores_a_path_param() {
 
 // --- P2: graph/{id} and graph?scope= name one subgraph ---
 
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "the entity resource is the scoped graph export with its schema_ref"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn the_entity_resource_is_the_scoped_graph_export() {
     let mut server = served();
     let (content, entity) = resource(&mut server, "specforge://graph/alpha");
@@ -126,10 +123,7 @@ fn the_entity_resource_is_the_scoped_graph_export() {
 
 // --- P3: a core resource's refusal ---
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a failed resources/read carries its McpError as the error's data"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_failed_resource_read_carries_its_mcp_error() {
     let mut server = served();
     // A resource that does not exist is not found, in a handshake session
@@ -162,10 +156,7 @@ fn a_failed_resource_read_carries_its_mcp_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "a resource that does not exist is -32002 in a handshake session and -32602 in a 2026-07-28 request, its data naming the uri"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_missing_resource_is_not_found_in_the_revision_it_was_asked_in() {
     let mut server = served();
     for uri in ["specforge://nope", "specforge://graph/ghost"] {
@@ -187,10 +178,7 @@ fn a_missing_resource_is_not_found_in_the_revision_it_was_asked_in() {
 
 // --- P4, P5: a prompt's refusal ---
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "a prompt refusal is a JSON-RPC error whose data is an McpError naming the prompt"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_refusal_carries_its_mcp_error() {
     let mut server = served();
     let reply = get_prompt(
@@ -208,10 +196,7 @@ fn a_prompt_refusal_carries_its_mcp_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "a refusal naming an argument is -32602 for a prompt or a resource read"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_prompt_path_refusal_is_invalid_params() {
     let mut server = served();
     let reply = get_prompt(
@@ -227,10 +212,7 @@ fn a_prompt_path_refusal_is_invalid_params() {
 
 // --- P6: a tool's path refusal ---
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a path that does not exist is a file_not_found error on path"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_tool_path_refusal_is_file_not_found() {
     let mut server = served();
     let reply = call_tool(
@@ -246,10 +228,7 @@ fn a_tool_path_refusal_is_file_not_found() {
 
 // --- P7, P8: an operation's failure code ---
 
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "a token budget too small for the export is invalid_input carrying E062"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_budget_too_small_is_invalid_input() {
     let mut server = served();
     let reply = call_tool(&mut server, "specforge.export", json!({"max_tokens": 1}));
@@ -262,10 +241,7 @@ fn a_budget_too_small_is_invalid_input() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "specforge.export takes the options specforge export takes"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn export_takes_a_schema_version() {
     let mut server = served();
     // A version of another major is refused as `specforge export
@@ -316,10 +292,7 @@ fn export_takes_a_schema_version() {
     assert_eq!(error["code"], "invalid_input", "{error}");
 }
 
-#[specforge_test(
-    behavior = "negotiate_schema_version",
-    verify = "--schema-version and the export tool's schema_version are checked whatever the format"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_export_tools_schema_version_is_checked_whatever_the_format() {
     let mut server = served();
     for format in ["graph", "brief", "context"] {
@@ -351,10 +324,7 @@ fn a_budget_too_small_for_a_resource_is_invalid_input() {
     assert_eq!(error["data"]["uri"], "specforge://graph?max_tokens=1");
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation's failure kind decides its McpError code, never its code text"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn an_unknown_scope_is_entity_not_found_with_its_code_in_diagnostic() {
     let mut server = served();
     let reply = call_tool(&mut server, "specforge.export", json!({"scope": "ghost"}));
@@ -370,10 +340,7 @@ fn an_unknown_scope_is_entity_not_found_with_its_code_in_diagnostic() {
 
 // --- P9: subscribe ---
 
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "resources/subscribe to a URI the server does not serve is refused as not found, as resources/read refuses it"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn subscribing_to_an_unserved_uri_is_refused_as_not_found() {
     let mut server = served();
     for uri in ["specforge://nope", "not a uri at all"] {
@@ -425,10 +392,7 @@ fn subscribing_to_an_unserved_uri_is_refused_as_not_found() {
 
 // --- P10: an extension enabled on disk ---
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "an extension tool enabled on disk since the last request is callable by name"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn an_extension_enabled_on_disk_is_callable_by_the_next_request() {
     let mut server = served();
     let features =
@@ -477,10 +441,7 @@ fn extension_enabled_after_serving()
     (server, ext)
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "an extension enabled on disk since the last request is listed by the next listing of every kind"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_listing_brings_the_served_project_up_to_date() {
     let names = |reply: &Value, list: &str, key: &str| -> Vec<String> {
         reply["result"][list]
@@ -514,10 +475,7 @@ fn a_listing_brings_the_served_project_up_to_date() {
     }
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a subscription to an extension resource enabled on disk since the last request is accepted"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_subscription_finds_an_extension_resource_enabled_on_disk() {
     let (mut server, _ext) = extension_enabled_after_serving();
     let uri = "specforge://ext/cmds/summary";
@@ -533,10 +491,8 @@ fn a_subscription_finds_an_extension_resource_enabled_on_disk() {
 
 // --- P11, P12: the scope query ---
 
-#[specforge_test(
-    behavior = "serve_graph_resource",
-    verify = "scope query parameter restricts to subgraph"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-073")]
 fn scope_restricts_the_graph_to_a_subgraph() {
     let mut server = served();
     let nodes = |graph: &Value| graph["nodes"].as_array().unwrap().len();
@@ -579,10 +535,7 @@ fn exported(root: &std::path::Path, request: &Request) -> String {
     exported.unwrap().into_value_and_notices().0
 }
 
-#[specforge_test(
-    behavior = "expose_context_as_mcp_resource",
-    verify = "the context resource is the context export of the same request"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn context_resource_is_its_export() {
     let mut server = served();
     let root = server.root().to_path_buf();
@@ -602,10 +555,7 @@ fn context_resource_is_its_export() {
     }
 }
 
-#[specforge_test(
-    behavior = "expose_brief_as_mcp_resource",
-    verify = "the brief resource is the brief export of the same request"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn the_brief_resource_is_its_export() {
     let mut server = served();
     let root = server.root().to_path_buf();
@@ -623,10 +573,7 @@ fn the_brief_resource_is_its_export() {
     }
 }
 
-#[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "specforge://graph resource returns full Graph Protocol JSON"
-)]
+#[specforge_test(requirement = "FEATURE-073")]
 fn the_graph_resource_is_the_export_text() {
     let mut server = served();
     let root = server.root().to_path_buf();
@@ -641,10 +588,7 @@ fn the_graph_resource_is_the_export_text() {
     assert_eq!(text, exported);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "the entities resource lists what specforge.list lists for the kind"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn the_entities_resource_lists_what_list_lists() {
     let mut server = served();
     // `zeta` is declared before `alpha`: both answer them sorted by id.
@@ -663,10 +607,8 @@ fn the_entities_resource_lists_what_list_lists() {
     assert_eq!(none, json!([]));
 }
 
-#[specforge_test(
-    behavior = "serve_graph_resource",
-    verify = "an unknown query key, a repeated key or a malformed value is invalid_input naming the key"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-073")]
 fn a_query_the_resource_cannot_read_is_refused_naming_its_key() {
     let mut server = served();
     for (uri, key) in [
@@ -702,10 +644,8 @@ fn a_query_the_resource_cannot_read_is_refused_naming_its_key() {
     assert_eq!(error["data"]["argument"], "scope", "{error}");
 }
 
-#[specforge_test(
-    behavior = "serve_graph_resource",
-    verify = "a count in a resource query is read as a tool's count argument is"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-073")]
 fn a_resource_count_is_read_as_a_tool_reads_one() {
     let mut server = served();
     let error = read_error(&mut server, "specforge://brief?depth=x");
@@ -720,10 +660,8 @@ fn a_resource_count_is_read_as_a_tool_reads_one() {
     assert_eq!(spaced, plain);
 }
 
-#[specforge_test(
-    behavior = "serve_graph_resource",
-    verify = "an unknown query key, a repeated key or a malformed value is invalid_input naming the key"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
+#[specforge_test(requirement = "FEATURE-073")]
 fn a_depth_without_a_scope_is_refused() {
     let mut server = served();
     let error = read_error(&mut server, "specforge://graph?depth=2");
@@ -734,10 +672,7 @@ fn a_depth_without_a_scope_is_refused() {
 
 // --- P15, P16: the request's own schema ---
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "each request method that needs a session refuses before initialize with -32600"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn every_session_method_needs_initialize() {
     let mut server = McpServer::new();
     for method in [
@@ -764,10 +699,7 @@ fn every_session_method_needs_initialize() {
     assert_eq!(reply["error"]["code"], -32601, "{reply}");
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "missing required params produces -32602 Invalid params"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn arguments_must_be_an_object() {
     let mut server = served();
     let reply = call(
@@ -841,10 +773,7 @@ fn target_argument_descriptions() {
 
 // --- P18: the events of each request kind ---
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "an unknown prompt records no mcp_prompt_invoked event"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn events_per_request_kind() {
     let mut server = served();
     let base = event_names(&server).len();
@@ -905,10 +834,7 @@ fn events_per_request_kind() {
 
 // --- P19: one rule says what a change touches ---
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "a recompile that changes a listened resource sends resources/updated with the subscription id"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn listen_and_subscribe_watch_by_one_rule() {
     let mut server = served();
     let (context, diagnostics) = ("specforge://context", "specforge://diagnostics");

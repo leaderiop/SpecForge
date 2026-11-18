@@ -216,10 +216,7 @@ mod tests {
             .collect()
     }
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "a contribution's engine tool classes resolve in catalogue order, a group to each of its tools"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn named_classes_resolve_in_catalogue_order_and_a_group_to_its_rows() {
         let declared = classes(&[
             "read",
@@ -241,10 +238,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "a contribution that names no engine tool class gets the read and navigation tools, the edit and output tools when it writes, and its extension's own commands"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn a_contribution_naming_no_engine_class_gets_the_default_tools() {
         let reader = resolve(&classes(&["read", "search"]), "@t/core", &served(), None);
         let mut want = classes(&["read", "search"]);
@@ -272,10 +266,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "an agent or skill that declares no tools keeps the host's whole tool set, and its section lists the default SpecForge tools"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn an_agent_with_no_tools_keeps_the_hosts_set_and_lists_the_default() {
         let r = resolve(&[], "@t/core", &served(), None);
         assert!(r.classes.is_empty());
@@ -283,10 +274,7 @@ mod tests {
         assert_eq!(r.lines, default.lines);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "a slash command also gets the SpecForge tool its trampoline calls"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn a_slash_command_also_gets_the_tool_it_calls() {
         let prompt = resolve(
             &classes(&["read", "specforge:trace"]),
@@ -303,10 +291,7 @@ mod tests {
         assert!(command.classes.contains(&"specforge:query".to_string()));
     }
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "a human-attested or refused extension command is never granted"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn a_human_or_refused_command_is_never_granted() {
         // `served_commands` leaves them out; a class naming one resolves to nothing for it.
         let r = resolve(
@@ -318,10 +303,7 @@ mod tests {
         assert_eq!(r.classes, classes(&["read", "specforge:trace"]));
     }
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "a non-empty tool declaration that resolves to no SpecForge tool keeps its host classes and specforge:query, never an empty list"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn a_declaration_that_resolves_to_nothing_never_writes_an_empty_list() {
         let r = resolve(
             &classes(&["read", "specforge:t.gone"]),

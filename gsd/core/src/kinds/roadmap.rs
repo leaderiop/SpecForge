@@ -2,11 +2,7 @@
 
 use gsd_kit::dsl::*;
 
-const ABANDONED: &[Field] = &[
-    str("reason").prose().r(),
-    str("ruled_by").r(),
-    date("at").r(),
-];
+const ABANDONED: &[Field] = &[str("reason").r(), str("ruled_by").r(), date("at").r()];
 const COMPLETION: &[Field] = &[date("at"), rf("audit", "milestone_audit")];
 const STATS: &[Field] = &[
     int("files"),
@@ -23,7 +19,6 @@ const PROGRESS: &[Field] = &[
     int("plans_complete"),
     int("percent"),
 ];
-const JOURNEYS_COVERED: &[Field] = &[int("journeys"), int("covered")];
 const MILESTONE_STATE: &[&str] = &["planned", "in_progress", "shipped", "abandoned"];
 
 /// A milestone section of `ROADMAP.md`, named `v1.0` and scoped by its workstream when it has one.
@@ -32,27 +27,18 @@ pub const MILESTONE: Kind = Kind::new(
     "A milestone: a shippable version of the project (GSD ROADMAP.md, MILESTONES.md)",
     &[
         str("name").r().doc("MVP"),
-        str("delivered").prose().doc("Delivered"),
-        strs("accomplishments").prose().doc("Key accomplishments"),
-        str("whats_next").prose().doc("What's next"),
-        str("goal").prose().doc("**Goal:** of the Current Milestone in PROJECT.md"),
-        strs("target_features").prose().doc("**Target features:** of the Current Milestone in PROJECT.md"),
-        strs("exit_criteria").prose().doc("what must hold to call it done (beyond GSD)"),
-        date("starts").doc("when work on it starts (beyond GSD)"),
-        date("targets")
-            .doc("the date it aims to ship; not before `starts`, gsd/E537 (beyond GSD)"),
-        rfs("depends_on", "milestone")
-            .doc("the milestones that ship before it; acyclic, gsd/E102 (beyond GSD)"),
-        str("owner").doc("the person or team that answers for it (beyond GSD)"),
-        strs("contributors").doc("the others working on it (beyond GSD)"),
-        strs("artifact_types").doc(
-            "the kinds of thing it ships, as words: cli, library, extension, service (beyond GSD)",
-        ),
-        strs("tags").doc("free words (beyond GSD)"),
+        str("delivered").doc("Delivered"),
+        strs("accomplishments").doc("Key accomplishments"),
+        str("whats_next").doc("What's next"),
+        str("goal").doc("**Goal:** of the Current Milestone in PROJECT.md"),
+        strs("target_features").doc("**Target features:** of the Current Milestone in PROJECT.md"),
         block("abandoned", ABANDONED).doc("gsd-path's abandon ruling"),
         rf("workstream", "workstream")
             .i()
-            .doc("the workstream that scopes it; absent outside one"),
+            .doc(
+                "the workstream that scopes it; absent outside one (upstream: the workstream directory that holds \
+                 its state)",
+            ),
         block("completion", COMPLETION)
             .h()
             .doc("written by close_milestone (/gsd-complete-milestone) once its audit passes"),
@@ -75,13 +61,6 @@ pub const MILESTONE: Kind = Kind::new(
         str("branch")
             .c()
             .doc("the branch it is executed on: git.branching_strategy and its template"),
-        int("risk_level").c().doc(
-            "the highest current rpn of the risks it carries: its phases' and those that name it (beyond GSD)",
-        ),
-        block("journeys_covered", JOURNEYS_COVERED).c().doc(
-            "the journeys whose `milestones` list it, and how many of them are `covered`; absent with none (beyond \
-             GSD, ADR 0357 D23)",
-        ),
     ],
 )
 .scoped_by("workstream");
@@ -96,8 +75,6 @@ const PHASE_STATUS: &[&str] = &[
     "complete",
     "deferred",
 ];
-/// The statuses in which a phase is complete (its `complete_when`): executed is enough, verification is not awaited.
-pub const PHASE_COMPLETE: &[&str] = &["executed", "needs_review", "complete"];
 
 /// `### Phase N: Name`, named `03`, `03.1` (inserted) or `999.1` (backlog), scoped by its milestone.
 pub const PHASE: Kind = Kind::new(
@@ -110,16 +87,15 @@ pub const PHASE: Kind = Kind::new(
             .doc("the section it sits in"),
         str("name").r().doc("heading text"),
         str("slug").r().doc("directory NN-slug"),
-        str("goal").prose().r().doc("Goal"),
+        str("goal").r().doc("Goal"),
         rfs("depends_on", "phase").doc("Depends on"),
         rfs("requirements", "requirement")
             .inverse("phase")
             .doc("Requirements; the requirement reads its phase back as `phase`"),
-        strs("success_criteria").prose()
+        strs("success_criteria")
             .r()
             .doc("Success Criteria (2 to 5, gsd/W103)"),
         en("mode", MODES).doc("Mode (/gsd-mvp-phase)"),
-        str("tag").doc("the parenthetical, (Cluster B)"),
         bool("inserted").c().doc("(INSERTED): a decimal name"),
         bool("backlog").c().doc("a 999.x name"),
         str("branch")
@@ -133,21 +109,10 @@ pub const PHASE: Kind = Kind::new(
             .c()
             .doc("Progress: Plans Complete, N/M"),
         date("completed").c().doc("Progress: Completed"),
-        int("risk_level")
-            .c()
-            .doc("the highest current rpn of the risks its plans mitigate (beyond GSD)"),
-        // Its own relation beside `invariant.holds_from`, so it names its reverse (W162 otherwise, ADR 0354).
-        rfs("invariants_due", "invariant")
-            .c()
-            .inverse("due_in")
-            .doc(
-                "the invariants a commit of the phase changed after their last gsd/I536 verdict (gsd/E531); each \
-                 reads it back as `due_in` (beyond GSD)",
-            ),
     ],
 )
 .scoped_by("milestone")
-.complete_when("status", PHASE_COMPLETE);
+.complete_when("status", &["executed", "needs_review", "complete"]);
 
 const WORKSTREAM_STATUS: &[&str] = &["active", "complete"];
 
@@ -156,10 +121,7 @@ pub const WORKSTREAM: Kind = Kind::new(
     "workstream",
     "A workstream: a scope with its own milestones and phases (GSD workstreams)",
     &[
-        str("purpose")
-            .prose()
-            .r()
-            .doc("the workstream's description"),
+        str("purpose").r().doc("the workstream's description"),
         en("status", WORKSTREAM_STATUS)
             .c()
             .doc("complete when all its milestones shipped"),

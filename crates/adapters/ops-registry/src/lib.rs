@@ -653,10 +653,7 @@ fn read_declaration(
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation's failure kind decides its McpError code, never its code text"
-    )]
+    #[specforge_test_macros::test(requirement = "INVARIANT-067")]
     fn a_registry_failure_has_the_kind_of_its_variant() {
         let s = || "x".to_string();
         for (error, kind) in [
@@ -700,10 +697,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_reply_or_manifest_naming_another_package_is_quoted_printable() {
         let name = PackageName::parse("@sdk/greet").unwrap();
         let version = Version::new(1, 0, 0);
@@ -728,10 +722,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "check_registry_reply",
-        verify = "a manifest's declaration is read printable, as a loaded binary's is"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_manifest_is_read_printable() {
         let manifest = serde_json::json!({
             "handshake": {"protocol_version": "1.0.0", "name": "@sdk/greet", "version": "1.0.0",
@@ -770,10 +761,7 @@ mod tests {
         assert!(registry.reported().is_empty());
     }
 
-    #[specforge_test_macros::test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test_macros::test(requirement = "INVARIANT-067")]
     fn a_registry_reply_that_is_no_wire_type_is_a_schema_mismatch() {
         // The reply is the registry's fault, not a value the caller gave: no argument is about
         // it. The registry's own refusal of a request (a 400) is the caller's.

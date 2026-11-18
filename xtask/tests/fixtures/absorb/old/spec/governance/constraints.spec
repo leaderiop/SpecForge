@@ -1,8 +1,8 @@
 // Constraints: a bound line with prose, a strict bound, a prose-only metric, a unitless bound, a one-name metric
 // with a threshold, interoperability, an enforced_by value and a constrains list.
 
-use "governance/invariants"
 use "behaviors/b"
+use "governance/invariants"
 
 constraint write_latency "Write Latency" {
   description "A write reaches the disk quickly."

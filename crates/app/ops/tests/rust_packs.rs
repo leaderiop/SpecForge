@@ -121,10 +121,8 @@ fn fact<'o>(outcome: &'o Outcome, collector: &str, id: &str) -> &'o Fact {
         .unwrap_or_else(|| panic!("{collector} answered no {id}"))
 }
 
-#[specforge_test_macros::test(
-    behavior = "rc_map_manifests_to_package_facts",
-    verify = "the rust packs run in fact order over a fixture crate"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-108")]
 fn the_rust_packs_declare_their_collectors_and_run_in_fact_order() {
     let p = fixture();
     let outcome = collected(&p, None, &machine(None));
@@ -149,10 +147,8 @@ fn the_rust_packs_declare_their_collectors_and_run_in_fact_order() {
     assert_eq!(ids, ["pkg:cargo/adder"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "rs_mint_item_facts",
-    verify = "a fixture crate's items are minted from its module tree by the host's reader"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-113")]
 fn a_fixture_crate_collects_its_packages_items_and_tests() {
     let p = fixture();
     let outcome = collected(&p, None, &machine(None));
@@ -207,10 +203,8 @@ fn a_fixture_crate_collects_its_packages_items_and_tests() {
     assert_eq!(named.at, adds.at);
 }
 
-#[specforge_test_macros::test(
-    behavior = "rt_map_nextest_report",
-    verify = "rust-test writes its nextest config and runs cargo-nextest with it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
+#[specforge_test_macros::test(requirement = "FEATURE-114")]
 fn rust_test_writes_its_nextest_config_and_runs_cargo_nextest() {
     let p = fixture();
     let machine = machine(None);
@@ -285,10 +279,8 @@ fn a_filter_reaches_nextest_as_its_filterset() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "rt_declare_test_collector",
-    verify = "a missing nextest names its install line and keeps the packages and items"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
+#[specforge_test_macros::test(requirement = "FEATURE-114")]
 fn a_missing_nextest_says_to_install_it() {
     let p = fixture();
     let said = "install it: `cargo install cargo-nextest --locked`";
@@ -315,10 +307,8 @@ fn a_missing_nextest_says_to_install_it() {
     assert!(refused.contains(said), "{refused}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "rs_mint_item_facts",
-    verify = "a second collect answers the same facts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-113")]
 fn a_second_collect_reads_the_same_facts() {
     let p = fixture();
     let first = collected(&p, None, &machine(None));
@@ -348,10 +338,7 @@ fn stored(p: &TestProject) {
     .unwrap();
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "find_implementation lists every anchor of the entity, by file and line"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-069")]
 fn a_test_naming_a_behavior_is_its_anchor() {
     let p = fixture();
     let anchors = |p: &TestProject| {
@@ -438,10 +425,7 @@ fn said(outcome: &Outcome, code: &str) -> Vec<String> {
 /// The fixture's Rust files `@rust/source` reads: its module tree from `src/lib.rs` and `src/main.rs`, and `tests/`.
 const READ: usize = 4;
 
-#[specforge_test_macros::test(
-    behavior = "dispatch_collector",
-    verify = "a second collect of an unchanged tree parses no file: each is read from the syntax cache"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_second_collect_parses_no_file() {
     let p = fixture();
     let first = collected(&p, None, &machine(None));
@@ -458,10 +442,7 @@ fn a_second_collect_parses_no_file() {
     assert_eq!(said(&second, "W200"), Vec::<String>::new());
 }
 
-#[specforge_test_macros::test(
-    behavior = "dispatch_collector",
-    verify = "a collect after one file's edit parses that file alone"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn one_edit_parses_one_file() {
     let p = fixture();
     collected(&p, None, &machine(None));
@@ -473,10 +454,7 @@ fn one_edit_parses_one_file() {
     assert_eq!(syntax(&edited, "rust-source"), (1, READ - 1));
 }
 
-#[specforge_test_macros::test(
-    behavior = "dispatch_collector",
-    verify = "a syntax cache that cannot be written is W200 and the facts are still stored"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn an_unwritable_syntax_cache_is_w200() {
     let p = fixture();
     // A file where the cache's directory goes: no entry can be written under it.
@@ -548,10 +526,8 @@ fn store_ids(p: &TestProject, collector: &str) -> Vec<String> {
     ids
 }
 
-#[specforge_test_macros::test(
-    behavior = "rs_mint_item_facts",
-    verify = "a source collect stores exactly the items of the files it reads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-113")]
 fn the_store_holds_exactly_the_fixtures_items() {
     let p = fixture();
     stored(&p);
@@ -578,10 +554,8 @@ const ITEMS: [&str; 10] = [
     "rust:adder::tests::slow",
 ];
 
-#[specforge_test_macros::test(
-    behavior = "rs_mint_item_facts",
-    verify = "the source guest maps the fixture crate within a counted work budget"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-113")]
 fn the_source_guest_maps_the_fixture_within_its_fuel() {
     // Without `@specforge/software`, whose `describe` costs more than the collect: its behavior is E024, not E028.
     let p = TestProject::copy_of(FIXTURE)

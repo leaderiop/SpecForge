@@ -71,10 +71,7 @@ fn a_rooted_project_reads_its_report_through_the_disk_it_is_given() {
     assert!(project.test_report(&PlainDisk).unwrap().is_none());
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "the checks, the check passes and the coverage of one compile read one snapshot"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn skipping_the_checks_reports_none_and_scores_the_graph_on_first_use() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(

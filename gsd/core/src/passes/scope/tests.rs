@@ -81,9 +81,10 @@ fn edge(source: &str, target: &str, label: &str) -> PassEdge {
     }
 }
 
-#[test]
-fn a_hit_its_listed_decision_says_is_clean() {
-    let mut input = action("Build the v1 only, as D-02 settles");
+/// Plan `v/1/1-01` of phase `v/1` with the task `v/1/1-01/T1` whose action is `text`, and the phase's decisions
+/// `D-02` ("Ship the v1 only") and `D-03` ("Ship every route at once").
+fn planned_action(text: &str) -> PassInput {
+    let mut input = action(text);
     input.entities.push(entity("v/1", "phase", &[]));
     input.entities.push(entity("v/1/1-01", "plan", &[]));
     input.entities.push(entity(
@@ -97,11 +98,28 @@ fn a_hit_its_listed_decision_says_is_clean() {
         &[("text", "Ship every route at once")],
     ));
     input.edges.push(edge("v/1/1-01", "v/1", "phase"));
-    // A decision the plan does not list never excuses, whatever it says.
+    input
+}
+
+/// Set the plan's objective, a part of its text.
+fn objective(input: &mut PassInput, text: &str) {
+    let plan = input
+        .entities
+        .iter_mut()
+        .find(|e| e.id == "v/1/1-01")
+        .expect("the plan");
+    plan.fields.insert("objective".into(), text.into());
+}
+
+#[test]
+fn a_hit_its_cited_decision_says_is_clean() {
+    let mut input = planned_action("Build the v1 only");
+    // A decision the plan does not cite never excuses, whatever it says.
     assert_eq!(scope_reduction(&input).len(), 1);
-    input.edges.push(edge("v/1/1-01", "v/1/D-03", "decisions"));
+    objective(&mut input, "Implement D-03");
     assert_eq!(scope_reduction(&input).len(), 1, "D-03 does not say v1");
-    input.edges.push(edge("v/1/1-01", "v/1/D-02", "decisions"));
+    // Cited anywhere in the plan's text: here its objective.
+    objective(&mut input, "Implement D-03 and D-02");
     assert!(scope_reduction(&input).is_empty());
     // Each hit is excused on its own.
     input.entities[0].fields.insert(
@@ -113,6 +131,24 @@ fn a_hit_its_listed_decision_says_is_clean() {
     assert!(
         found[0].message.contains("\"future enhancement\""),
         "{found:?}"
+    );
+}
+
+/// A decision of another phase that says the phrase excuses only when the plan cites it by its path.
+#[test]
+fn a_decision_of_the_phase_the_plan_does_not_cite_excuses_nothing() {
+    let mut input = planned_action("Build the v1 only");
+    input.entities.push(entity("v/2", "phase", &[]));
+    input.entities.push(entity(
+        "v/2/D-02",
+        "decision",
+        &[("text", "Ship the v1 only")],
+    ));
+    assert_eq!(scope_reduction(&input).len(), 1, "D-02 uncited");
+    objective(&mut input, "Implement 2/D-02");
+    assert!(
+        scope_reduction(&input).is_empty(),
+        "phase 2's D-02, cited by its path, says v1"
     );
 }
 
@@ -135,7 +171,6 @@ fn a_decision_that_does_not_say_the_phrase_does_not_excuse_it() {
         )],
     ));
     input.edges.push(edge("v/1/1-01", "v/1", "phase"));
-    input.edges.push(edge("v/1/1-01", "v/1/D-26", "decisions"));
     let found = scope_reduction(&input);
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(
@@ -198,9 +233,9 @@ fn rows_sort_by_source_then_natural_key() {
     assert_eq!(order, ["REQ-9", "REQ-10", "D-01", "D-02"]);
 }
 
-/// Phase `v/1` asking for REQ-01 and REQ-02, with one plan that lists `requirements` and `decisions` (ids) and
-/// whose objective is `text`.
-fn planned_phase(text: &str, requirements: &[&str], decisions: &[&str]) -> PassInput {
+/// Phase `v/1` asking for REQ-01 and REQ-02, with one plan that lists `requirements` and whose objective is `text`,
+/// where it cites decisions.
+fn planned_phase(text: &str, requirements: &[&str]) -> PassInput {
     let mut edges = vec![
         edge("v/1", "REQ-01", "requirements"),
         edge("v/1", "REQ-02", "requirements"),
@@ -210,7 +245,6 @@ fn planned_phase(text: &str, requirements: &[&str], decisions: &[&str]) -> PassI
             .iter()
             .map(|r| edge("v/1/1-01", r, "requirements")),
     );
-    edges.extend(decisions.iter().map(|d| edge("v/1/1-01", d, "decisions")));
     PassInput {
         entities: vec![
             entity("v/1", "phase", &[]),
@@ -226,11 +260,7 @@ fn planned_phase(text: &str, requirements: &[&str], decisions: &[&str]) -> PassI
 
 #[test]
 fn an_uncovered_item_is_one_w317_on_the_phase() {
-    let found = post_planning_gaps(&planned_phase(
-        "Implement REQ-02",
-        &["REQ-01"],
-        &["v/1/D-01"],
-    ));
+    let found = post_planning_gaps(&planned_phase("Implement REQ-02 and D-01", &["REQ-01"]));
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(found[0].code, "W317");
     assert_eq!(found[0].entity.as_deref(), Some("v/1"));
@@ -245,32 +275,37 @@ fn an_uncovered_item_is_one_w317_on_the_phase() {
             .is_some_and(|t| t.contains("| REQUIREMENTS.md | REQ-02 | ✗ Not covered |")),
         "{found:?}"
     );
-    // A decision named only in prose is not covered.
-    let found = post_planning_gaps(&planned_phase("Implement D-01", &["REQ-01", "REQ-02"], &[]));
-    assert_eq!(
-        found[0].message,
-        "⚠ 1 of 3 items not covered by any plan: D-01"
-    );
+    // A decision cited nowhere is not covered; nor is one only the project's namesake, by its rooted path.
+    for text in ["Build it", "Implement /D-01"] {
+        let found = post_planning_gaps(&planned_phase(text, &["REQ-01", "REQ-02"]));
+        assert_eq!(
+            found[0].message, "⚠ 1 of 3 items not covered by any plan: D-01",
+            "{text}"
+        );
+    }
 }
 
 #[test]
 fn a_covered_phase_and_an_unplanned_phase_are_silent() {
-    let mut input = planned_phase("Build it", &["REQ-01", "REQ-02"], &["v/1/D-01"]);
+    let mut input = planned_phase("Implement D-01", &["REQ-01", "REQ-02"]);
     assert!(post_planning_gaps(&input).is_empty());
     input.entities.retain(|e| e.kind != "plan");
     assert!(post_planning_gaps(&input).is_empty());
 }
 
-/// The gap report's CONTEXT.md rows leave out a decision another decision supersedes.
+/// The gap report's CONTEXT.md rows hold every context decision: one a later decision says it reverses is still a
+/// row, open until a plan cites it, since a decision has no supersession.
 #[test]
-fn a_superseded_decision_is_no_gap_row() {
-    let mut input = planned_phase("Build it", &["REQ-01", "REQ-02"], &["v/1/D-03"]);
-    input
-        .entities
-        .push(entity("v/1/D-03", "decision", &[("origin", "context")]));
-    input.edges.push(edge("v/1/D-03", "v/1/D-01", "supersedes"));
-    assert!(post_planning_gaps(&input).is_empty());
-    input.edges.retain(|e| e.label != "supersedes");
+fn every_context_decision_is_a_gap_row_with_no_supersession() {
+    let mut input = planned_phase("Implement D-03", &["REQ-01", "REQ-02"]);
+    input.entities.push(entity(
+        "v/1/D-03",
+        "decision",
+        &[
+            ("origin", "context"),
+            ("text", "Supersedes D-01: the store is in memory"),
+        ],
+    ));
     assert_eq!(
         post_planning_gaps(&input)[0].message,
         "⚠ 1 of 4 items not covered by any plan: D-01"

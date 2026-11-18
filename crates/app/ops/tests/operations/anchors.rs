@@ -50,10 +50,7 @@ fn row(file: &str, line: usize, fact: &str, via: &str) -> (String, usize, String
     (file.into(), line, fact.into(), via.into())
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "an anchor is an edge either way: a fact naming the entity or the entity citing the fact"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn an_anchor_is_an_edge_either_way() {
     let project = anchored(
         &["rust:p::cited"],
@@ -73,10 +70,7 @@ fn an_anchor_is_an_edge_either_way() {
     assert_eq!(rows(&project, "beta"), []);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "find_implementation lists every anchor of the entity, by file and line"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_implementation_lists_every_anchor_by_file_and_line() {
     let project = anchored(
         &[],
@@ -127,10 +121,7 @@ fn find_implementation_lists_every_anchor_by_file_and_line() {
     assert_eq!(rows(&project, "beta").len(), 1);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "an id the graph does not declare is refused with E003"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn an_id_the_graph_does_not_declare_is_e003() {
     let project = anchored(
         &[],
@@ -153,10 +144,7 @@ fn an_id_the_graph_does_not_declare_is_e003() {
     assert_eq!(fact.error.kind, specforge_ops::OpErrorKind::InvalidInput);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_spec_for_source_tool",
-    verify = "find_spec_for_source lists the anchors of every located fact the path names"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_spec_for_source_lists_the_anchors_of_the_located_facts_of_the_path() {
     let project = anchored(
         &["rust:p::cited"],
@@ -195,10 +183,7 @@ fn find_spec_for_source_lists_the_anchors_of_the_located_facts_of_the_path() {
     assert_eq!((found.match_mode, found.count), (FileMatch::Exact, 3));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_spec_for_source_tool",
-    verify = "the tightest match wins: exact, else under the directory, else ending with the path"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn the_tightest_match_wins() {
     let project = anchored(
         &[],
@@ -254,10 +239,7 @@ fn notices(project: &TestProject, entity: &str) -> Vec<String> {
     notices.into_iter().map(|n| n.code).collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "an answer with no located fact served carries I212"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn nothing_collected_is_i212() {
     let project = anchored(&[], vec![]);
     assert_eq!(rows(&project, "alpha"), []);
@@ -290,10 +272,7 @@ fn notices_of_file(project: &TestProject) -> Vec<String> {
     notices.into_iter().map(|n| n.code).collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "a source file edited since collect gives one W198 and keeps its rows"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn an_edited_source_file_is_one_w198() {
     let project = anchored(&[], vec![]);
     let root = project.root();
@@ -334,10 +313,7 @@ fn an_edited_source_file_is_one_w198() {
     assert_eq!(notices(&project, "alpha"), ["W198", "W198"]);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "two stores placing one file are each judged by their own digest"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn two_stores_placing_one_file_are_each_judged_by_their_own_digest() {
     let project = anchored(&[], vec![]);
     let root = project.root();

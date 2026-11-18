@@ -19,10 +19,7 @@ fn assert_format_clean(project: &TestProject) {
     assert_eq!(check.code, 0, "format --check\n{}", check.stdout);
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new writes the block in the canonical form after the last block of its kind"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn new_writes_the_canonical_block() {
     let project = todo();
     let before = project.read(TASKS);
@@ -65,10 +62,7 @@ behavior archive_task "Archive a Task" {
     assert_format_clean(&project);
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new --in reads a spelling of an existing file as that file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_in_a_spelling_of_an_existing_file_adds_to_it() {
     let project = todo();
     let before = project.read(TASKS);
@@ -94,10 +88,7 @@ fn new_in_a_spelling_of_an_existing_file_adds_to_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new refuses a file named from the spec root, with no suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn new_in_a_spec_root_spelling_is_refused_with_no_suggestion() {
     let project = todo();
     let before = project.read(TASKS);
@@ -121,18 +112,7 @@ fn new_in_a_spec_root_spelling_is_refused_with_no_suggestion() {
     assert!(!project.root().join("behaviors").exists());
 }
 
-#[specforge_test(
-    behavior = "edit_entity_link",
-    verify = "link appends the target and keeps the items as written"
-)]
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "unset removes the field and the comment above it"
-)]
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "set of an absent field inserts it at its rank"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn link_unset_and_a_new_field_are_laid_out_by_the_formatter() {
     let project = todo();
     sf(
@@ -160,10 +140,7 @@ fn link_unset_and_a_new_field_are_laid_out_by_the_formatter() {
     assert_format_clean(&project);
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "an edit that adds an error is E080 and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_dangling_link_is_e080_and_writes_nothing() {
     let project = todo();
     let before = project.read(TASKS);
@@ -188,18 +165,7 @@ fn a_dangling_link_is_e080_and_writes_nothing() {
     assert_eq!(project.read(TASKS), before);
 }
 
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "retitle replaces the header title"
-)]
-#[specforge_test(
-    behavior = "edit_entity_obligation",
-    verify = "a verify line is added after the last one"
-)]
-#[specforge_test(
-    behavior = "edit_entity_obligation",
-    verify = "a verify line is removed by kind and text"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn set_retitle_and_verify_change_one_block() {
     let project = todo();
     let unchanged = sf(&project, &["set", "list_tasks", "category", "query"]).exits(0);
@@ -245,14 +211,7 @@ fn set_retitle_and_verify_change_one_block() {
     assert_format_clean(&project);
 }
 
-#[specforge_test(
-    behavior = "delete_entity",
-    verify = "delete of a referenced entity is E080"
-)]
-#[specforge_test(
-    behavior = "delete_entity",
-    verify = "delete with unlink_references removes every reference"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn delete_is_e080_until_references_are_unlinked() {
     let project = todo();
     let refused = sf(&project, &["delete", "create_task"]);
@@ -264,10 +223,7 @@ fn delete_is_e080_until_references_are_unlinked() {
     assert_format_clean(&project);
 }
 
-#[specforge_test(
-    behavior = "validate_typed_edit",
-    verify = "every block an edit touches is format-clean"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn every_written_file_is_format_clean() {
     let project = todo();
     sf(&project, &["set", "list_tasks", "--title", "List Tasks"]).exits(0);
@@ -379,10 +335,7 @@ fn json_output_is_the_edit_report() {
     assert!(preview.json.get("files_written").is_none());
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new --field sets a field of the kind by name, refuses a name the kind lacks and a field given twice"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn new_sets_a_field_with_field() {
     let project = todo();
     let new = |extra: &[&str]| {
@@ -449,10 +402,7 @@ fn link_on_the_other_side_is_refused_naming_the_owning_field() {
     assert_eq!(project.read(file), before);
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new reads its field flags from the project its --path names, wherever --path stands"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn new_with_path_after_the_kind_reads_that_projects_fields() {
     let project = todo();
     let outside = tempfile::TempDir::new().unwrap();
@@ -476,10 +426,7 @@ fn new_with_path_after_the_kind_reads_that_projects_fields() {
     );
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new refuses a field given twice that takes one value"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn new_given_one_value_field_twice_is_refused() {
     let project = todo();
     let run = sf(
@@ -502,10 +449,7 @@ fn new_given_one_value_field_twice_is_refused() {
     assert!(run.stderr.contains("takes one text"), "{}", run.stderr);
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new refuses an unknown kind as unknown_kind"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn new_of_an_unknown_kind_is_refused_as_unknown_kind() {
     let project = todo();
     let run = sf(
@@ -530,10 +474,7 @@ fn new_of_an_unknown_kind_is_refused_as_unknown_kind() {
     );
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new --help begins with what new does"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn new_help_begins_with_what_new_does() {
     let project = todo();
     let help = sf(&project, &["new", "--help"]).exits(0);
@@ -545,10 +486,7 @@ fn new_help_begins_with_what_new_does() {
     );
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new's help and its usage errors name the program as specforge new"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn new_usage_names_the_program() {
     let project = todo();
     let help = sf(&project, &["new", "--help"]).exits(0);
@@ -567,10 +505,7 @@ fn new_usage_names_the_program() {
     );
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new refuses one of its options given twice, wherever each stands"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_option_of_new_given_twice_is_refused_wherever_it_stands() {
     let project = todo();
     let before = project.read(TASKS);
@@ -622,10 +557,7 @@ fn an_option_of_new_given_twice_is_refused_wherever_it_stands() {
     }
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new's help of a kind shows each of its options as every command declares it"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn the_kinds_help_shows_each_option_as_declared() {
     let project = todo();
     let help = sf(&project, &["new", "behavior", "--help"]).exits(0);
@@ -642,10 +574,7 @@ fn the_kinds_help_shows_each_option_as_declared() {
     }
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new --help of a kind the project does not declare is refused as unknown_kind"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn help_of_an_unknown_kind_is_refused_as_unknown_kind() {
     let project = todo();
     let run = sf(&project, &["new", "behaviour", "--help"]);
@@ -659,10 +588,7 @@ fn help_of_an_unknown_kind_is_refused_as_unknown_kind() {
     assert!(run.stdout.is_empty(), "{}", run.stdout);
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new --help after a field flag prints the kind's help"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn help_after_a_field_flag_is_the_kinds_help() {
     let project = todo();
     let before = project.read(TASKS);
@@ -687,10 +613,7 @@ fn help_after_a_field_flag_is_the_kinds_help() {
     assert_eq!(project.read(TASKS), before);
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new refuses a command line whose --path a field's value spells"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_field_value_spelled_as_path_names_no_project() {
     let project = todo();
     let other = todo();
@@ -715,10 +638,7 @@ fn a_field_value_spelled_as_path_names_no_project() {
     }
 }
 
-#[specforge_test(
-    behavior = "refuse_stale_revision",
-    verify = "a core edit names the revision it was planned on and is refused when it is stale"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn core_edits_name_their_revision() {
     let project = todo();
     let before = project.read(TASKS);

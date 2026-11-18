@@ -9,6 +9,9 @@ description: "Write feature blocks in .spec files (the feature kind is declared 
 > it: run `specforge extensions` first, and if it is not listed, do not write `feature` blocks (add it with
 > `specforge add @specforge/product`, or write the kinds the project's own extensions declare).
 > `specforge infer-guide feature` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `feature` blocks in a project that does, such as the
+> example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Features bridge what users need (problem) and how it is delivered (solution). In a software project, behaviors (from
 `@specforge/software`) name the features they implement in their own `features` field.

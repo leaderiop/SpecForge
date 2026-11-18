@@ -9,7 +9,7 @@ const GAP_STATUS: &[&str] = &["unsatisfied", "partial", "orphaned"];
 const AUDIT_STATUS: &[&str] = &["passed", "gaps_found", "tech_debt"];
 
 const INTEGRATION: &[&str] = &["passed", "issues"];
-const TECH_DEBT: &[Field] = &[rf("phase", "phase"), str("item").prose().r()];
+const TECH_DEBT: &[Field] = &[rf("phase", "phase"), str("item").r()];
 const DEBT_ACCEPTED: &[Field] = &[str("by").r(), date("at").r()];
 const GAPS: &[Field] = &[rf("requirement", "requirement"), en("status", GAP_STATUS)];
 const NYQUIST: &[Field] = &[

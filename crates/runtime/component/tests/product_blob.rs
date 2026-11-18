@@ -9,6 +9,7 @@
 )]
 
 use serde_json::{Map, Value, json};
+use specforge_component::builtins::Family;
 use specforge_component::{ComponentRuntime, builtins};
 use specforge_protocol_types::{
     CommandEvidence, CommandFormat, CommandInput, CommandOutput, RawGraph,
@@ -34,7 +35,7 @@ const KINDS: [&str; 9] = [
 
 fn runtime() -> ComponentRuntime {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
     runtime
 }
 
@@ -70,10 +71,8 @@ fn run(
         .unwrap_or_else(|error| panic!("{export}: {error}"))
 }
 
-#[specforge_test(
-    behavior = "pe_declare_surface_contributions",
-    verify = "every declared command answers through the component as the host calls it, over a graph holding every kind"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
+#[specforge_test(requirement = "FEATURE-104")]
 fn every_product_command_answers_through_the_component_as_the_host_calls_it() {
     let runtime = runtime();
     let commands = load_declaration(&runtime, PRODUCT)
@@ -118,10 +117,8 @@ fn every_product_command_answers_through_the_component_as_the_host_calls_it() {
     }
 }
 
-#[specforge_test(
-    behavior = "pe_declare_surface_contributions",
-    verify = "the dependency commands answer a 5000-long depends_on chain through the component"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
+#[specforge_test(requirement = "FEATURE-104")]
 fn a_five_thousand_long_dependency_chain_answers_through_the_component() {
     // Each kind a 5000-long chain, plus a hub every module depends on.
     let mut nodes = vec![node("hub", "module")];

@@ -29,10 +29,8 @@ fn owner(owned: &[(&str, &str, Option<&str>)], other: &str) -> ExtensionDeclarat
     })
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "a field written on the non-owning side of a relation is E079 naming the owning field"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn a_field_written_on_the_non_owning_side_is_e079_naming_the_owning_field() {
     let build = build([owner(&[("features", "feature", None)], "feature")]);
     let text = "feature checkout \"C\" {\n  behaviors [pay]\n}\nbehavior pay \"P\" {\n}\n";
@@ -45,10 +43,8 @@ fn a_field_written_on_the_non_owning_side_is_e079_naming_the_owning_field() {
     assert!(coded_in(&diags, "W020").is_empty(), "{diags:?}");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "a reverse name an inverse_of declares is E079 even when its ids do not resolve"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn a_reverse_name_is_e079_even_when_its_ids_do_not_resolve() {
     let build = build([owner(
         &[("features", "feature", Some("behaviors"))],
@@ -59,10 +55,8 @@ fn a_reverse_name_is_e079_even_when_its_ids_do_not_resolve() {
     assert_eq!(coded_in(&diags, "E079").len(), 1, "{diags:?}");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "an event's trigger is E079 naming the produces and consumes fields"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn an_event_trigger_is_e079_naming_produces_and_consumes() {
     let build = build([owner(
         &[("produces", "event", None), ("consumes", "event", None)],
@@ -76,10 +70,8 @@ fn an_event_trigger_is_e079_naming_produces_and_consumes() {
     assert!(suggestion.contains("consumes [paid]") && suggestion.contains("produces [paid]"));
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "an unknown field of a kind's own relation stays W020"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn an_unknown_field_naming_its_own_kind_stays_w020() {
     let build = build([declare("@test/self", |c| {
         c.kind("Behavior", |k| {
@@ -96,10 +88,8 @@ fn an_unknown_field_naming_its_own_kind_stays_w020() {
     assert!(coded_in(&diags, "E079").is_empty(), "{diags:?}");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "a reverse name a self-relation's inverse_of declares is E079 naming the owning field"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn a_self_relations_named_reverse_is_e079_naming_its_owning_field() {
     let build = build([declare("@test/self", |c| {
         c.kind("Behavior", |k| {
@@ -124,10 +114,8 @@ fn a_self_relations_named_reverse_is_e079_naming_its_owning_field() {
     assert!(coded_in(&diags, "W020").is_empty(), "{diags:?}");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "a reverse name a union's inverse_of declares is E079 on each kind of the union"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn a_unions_named_reverse_is_e079_on_each_of_its_kinds() {
     let build = build([declare("@test/union", |c| {
         c.kind("Behavior", |k| {
@@ -158,10 +146,8 @@ fn a_unions_named_reverse_is_e079_on_each_of_its_kinds() {
 }
 
 /// Six owners into `event`: E079 names them in (kind, field) order on every registry built.
-#[spec(
-    behavior = "detect_unknown_entity_fields",
-    verify = "E079 names its owning fields in kind and field order"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-141")]
 fn e079_names_its_owning_fields_in_kind_and_field_order() {
     let names = ["f_six", "e_five", "d_four", "c_three", "b_two", "a_one"];
     let owned: Vec<(&str, &str, Option<&str>)> =

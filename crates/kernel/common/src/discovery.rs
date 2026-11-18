@@ -386,10 +386,7 @@ mod tests {
         SourceRoot::new(dir.to_path_buf(), dir.to_path_buf(), exclude)
     }
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "an exclude entry without a slash matches a name at any depth"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn an_exclude_entry_without_a_slash_matches_a_name_at_any_depth() {
         assert!(!found("drafts/a.spec", &["drafts"]));
         assert!(!found("sub/drafts/b.spec", &["drafts"]));
@@ -402,10 +399,7 @@ mod tests {
         assert!(!found("sub/drafts/a.spec", &["drafts/"]));
     }
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "an exclude entry with a slash is anchored at the spec root"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn an_exclude_entry_with_a_slash_is_anchored_at_the_spec_root() {
         assert!(!found("sub/drafts/a.spec", &["sub/drafts"]));
         assert!(found("x/sub/drafts/a.spec", &["sub/drafts"]));
@@ -413,10 +407,7 @@ mod tests {
         assert!(found("sub/drafts/a.spec", &["/drafts"]));
     }
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "exclude entries are glob patterns matched against a file and its directories"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn exclude_entries_are_glob_patterns_over_a_file_and_its_directories() {
         assert!(!found("drafts/a.spec", &["drafts/**"]));
         assert!(!found("drafts/x/y.spec", &["drafts/**"]));
@@ -430,10 +421,7 @@ mod tests {
         assert!(found("x.spec", &["x.spec/"]));
     }
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "a spec root named like a skipped directory is compiled"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn a_walked_root_is_walked_whatever_its_name() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();
@@ -448,10 +436,7 @@ mod tests {
         assert!(sources(root, Exclude::default()).files().is_empty());
     }
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "a directory named like a .spec file is no source"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn only_files_are_sources() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();
@@ -465,10 +450,7 @@ mod tests {
     }
 
     #[cfg(unix)]
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "a symlink is a source only when it resolves to a file"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn a_symlink_is_a_source_only_when_it_resolves_to_a_file() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path().join("root");
@@ -579,10 +561,7 @@ mod tests {
         assert_eq!(inside.files, vec![root.join("p/b.spec")]);
     }
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "discovery at a path finds what the whole walk finds there"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn discovery_at_a_path_is_the_walk_under_it() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path().join("root");
@@ -656,10 +635,7 @@ mod tests {
         tmp
     }
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "a .spec file inside a nested project below the spec root is no source"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn a_projects_sources_end_at_a_nested_project() {
         let tmp = tree_with_a_nested_project();
         let root = tmp.path();
@@ -669,10 +645,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "a .spec file inside a nested project below the spec root is no source"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn a_path_in_a_nested_project_is_no_source() {
         let tmp = tree_with_a_nested_project();
         let held = sources(tmp.path(), Exclude::default());

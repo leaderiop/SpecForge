@@ -17,10 +17,7 @@ fn project(source: &str) -> specforge_project::CompiledProject {
         .compile()
 }
 
-#[specforge_test(
-    behavior = "parse_verify_statements",
-    verify = "a field named verify is exported beside the entity's verify statements"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_field_named_verify_is_exported_beside_the_statements() {
     let p = project(BOTH);
     let document = exported(&p);
@@ -39,10 +36,7 @@ fn a_field_named_verify_is_exported_beside_the_statements() {
     );
 }
 
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "an export holding a field named verify meets its published schema"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_export_with_a_field_named_verify_meets_its_published_schema() {
     let p = project(FIELD_ONLY);
     let violations =
@@ -64,10 +58,8 @@ fn a_field_named_verify_is_one_field_of_the_node() {
     assert_eq!(node.obligations.len(), 1);
 }
 
-#[specforge_test(
-    behavior = "compute_the_coverage_view",
-    verify = "a field named verify does not hide an entity's verify statements"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_field_named_verify_hides_no_obligation() {
     let p = project(BOTH);
     let view = specforge_ops::view::ProjectView::of(&p);

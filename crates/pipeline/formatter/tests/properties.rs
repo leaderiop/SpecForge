@@ -80,10 +80,7 @@ fn fail<V: std::fmt::Debug>(result: Result<(), proptest::test_runner::TestError<
     }
 }
 
-#[specforge_test(
-    behavior = "format_with_parse_errors",
-    verify = "formatting any text never panics, and formatting its output again changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn formatting_any_edit_of_the_corpus_reaches_a_fixed_point() {
     let mut runner = TestRunner::new(property_config());
     let lines = (0usize..400, 0usize..8);
@@ -114,18 +111,9 @@ fn formatting_any_edit_of_the_corpus_reaches_a_fixed_point() {
     fail(result);
 }
 
-#[specforge_test(
-    invariant = "formatting_semantic_preservation",
-    verify = "format(spec) parses to an identical entity graph as spec"
-)]
-#[specforge_test(
-    invariant = "formatting_idempotency",
-    verify = "random valid .spec files satisfy format(format(x)) == format(x)"
-)]
-#[specforge_test(
-    behavior = "preserve_comments",
-    verify = "formatting keeps each block's doc comment as the parse reads it"
-)]
+#[specforge_test(requirement = "INVARIANT-049")]
+#[specforge_test(requirement = "INVARIANT-048")]
+#[specforge_test(requirement = "FEATURE-009")]
 fn formatting_a_valid_edit_keeps_its_entities() {
     let mut config = property_config();
     // About one edit in ten still parses without an error.
@@ -161,14 +149,7 @@ fn formatting_a_valid_edit_keeps_its_entities() {
     fail(result);
 }
 
-#[specforge_test(
-    invariant = "formatting_consistency",
-    verify = "two files differing only in whitespace produce identical formatted output"
-)]
-#[specforge_test(
-    invariant = "formatting_consistency",
-    verify = "tab-indented and space-indented inputs produce the same output"
-)]
+#[specforge_test(requirement = "INVARIANT-047")]
 fn a_relaid_corpus_file_formats_as_the_file_does() {
     let mut runner = TestRunner::new(property_config());
     let result = runner.run(&relaid_corpus(), |case| {
@@ -183,10 +164,7 @@ fn a_relaid_corpus_file_formats_as_the_file_does() {
     fail(result);
 }
 
-#[specforge_test(
-    invariant = "formatting_semantic_preservation",
-    verify = "a file with CRLF line breaks parses to the entities its LF reading does, and format keeps them"
-)]
+#[specforge_test(requirement = "INVARIANT-049")]
 fn formatting_a_corpus_file_with_crlf_line_breaks_keeps_its_entities() {
     for (path, text) in specforge_parser::testing::corpus() {
         let lf = specforge_parser::parse(text, "p.spec");

@@ -33,10 +33,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 }
 
 // B:serialize_dot_visualization — verify unit "DOT output is valid Graphviz syntax"
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "DOT output is valid Graphviz syntax"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn empty_graph_produces_valid_dot() {
     // An empty graph is a complete digraph with no statements.
     let graph = Graph::new();
@@ -71,10 +68,7 @@ fn empty_graph_produces_valid_dot() {
 }
 
 // B:serialize_dot_visualization — verify unit "nodes are labeled with IDs"
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "nodes are labeled with IDs"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_nodes_labeled_with_id_and_title() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha Behavior")));
@@ -85,10 +79,7 @@ fn dot_nodes_labeled_with_id_and_title() {
 }
 
 // B:serialize_dot_visualization — verify unit "edges are labeled with types"
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "edges are labeled with types"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_edges_labeled_with_type() {
     let mut graph = Graph::new();
     graph.add_node(node("feat_a", "feature", Some("Feature A")));
@@ -117,10 +108,7 @@ fn dot_node_default_shape_is_box() {
 }
 
 // B:serialize_dot_visualization — verify unit "labels toggle emits bare IDs"
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "labels toggle emits bare IDs"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_labels_toggle_drops_titles() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha Behavior")));
@@ -140,10 +128,7 @@ fn dot_labels_toggle_drops_titles() {
 }
 
 // B:serialize_dot_visualization — verify unit "kind filter drops other kinds"
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "kind filter drops other kinds"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_kind_filter_drops_nodes_and_edges() {
     let mut graph = Graph::new();
     graph.add_node(node("feat_a", "feature", None));
@@ -171,10 +156,7 @@ fn dot_kind_filter_drops_nodes_and_edges() {
 }
 
 // B:serialize_dot_visualization — verify unit "clusters group by declaring extension"
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "clusters group by declaring extension"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_cluster_by_extension_groups_nodes() {
     use crate::support::{declaration, kind};
     let registries = specforge_registry::build_registries(vec![
@@ -279,10 +261,7 @@ fn styled_dot(style: Option<&str>, color: Option<&str>, arrowhead: Option<&str>)
     )
 }
 
-#[specforge_test(
-    behavior = "render_extension_defined_edge_styles",
-    verify = "edge_style appears in DOT edge attributes"
-)]
+#[specforge_test(requirement = "FEATURE-027")]
 fn an_edge_is_drawn_in_its_declared_style() {
     let dot = styled_dot(Some("dashed"), None, None);
     assert!(
@@ -291,10 +270,7 @@ fn an_edge_is_drawn_in_its_declared_style() {
     );
 }
 
-#[specforge_test(
-    behavior = "render_extension_defined_edge_styles",
-    verify = "edge_color sets DOT edge color attribute"
-)]
+#[specforge_test(requirement = "FEATURE-027")]
 fn declared_edge_color_and_arrowhead_are_written() {
     let dot = styled_dot(Some("dashed"), Some("#E65100"), Some("vee"));
     assert!(
@@ -305,10 +281,7 @@ fn declared_edge_color_and_arrowhead_are_written() {
     assert!(hostile.contains("color=\"\\\"]; x\""), "{hostile}");
 }
 
-#[specforge_test(
-    behavior = "render_extension_defined_edge_styles",
-    verify = "default style is solid when edge_style not specified"
-)]
+#[specforge_test(requirement = "FEATURE-027")]
 fn an_edge_type_without_a_style_is_drawn_by_default() {
     let dot = styled_dot(Some("dashed"), None, None);
     assert!(dot.contains("\"b\" -> \"e\" [label=\"uses\"];"), "{dot}");

@@ -61,7 +61,7 @@ catalog! {
         "The package is signed with a key listed in `denied_keys` in your known-keys file. Remove the key from `denied_keys` only if you trust it again.";
     R_TRUST_006 = "R-TRUST-006": Error core,
         "Known-keys file unusable",
-        "Your known-keys file (`~/.specforge/known-keys.json`) can't be read as the store of publisher pins, or the pins an install accepted can't be saved to it. Nothing is installed either way: a store read as empty would trust any key and lose your `denied_keys`, and an install whose pin can't be saved is put back. Fix the file's JSON, or move it aside (every package is then trusted on first use again), and check the permissions on the file and its directory.";
+        "Your known-keys file (`~/.specforge/known-keys.json`) can't be read as the store of publisher pins, or the pins an install accepted can't be saved to it. Nothing is installed either way: a store read as empty would trust any key and lose your `denied_keys`, and an install whose pin can't be saved is put back. Fix the file's JSON, or move it aside (every package is then trusted on first use again), and check the permissions on the file and its directory. With no user home (`HOME`, else `USERPROFILE` on Windows, unset or relative) there is no `~/.specforge` and nothing is read or written there: set the home to an absolute path.";
     R_TRUST_007 = "R-TRUST-007": Error core,
         "Unsigned package for a pinned publisher",
         "The registry package carries no publisher signature, but a publisher key is expected for its name: the key you pinned when you first installed it, or, when you have no pin for it, the key the project's `specforge.lock` records. A package its publisher signs does not arrive unsigned, so this can be a mirror or a compromised registry serving other bytes. Nothing is downloaded, and neither `--allow-unsigned`, `--yes`, an interactive yes nor `trusted_keys` accepts it. Check the registry that serves the name. If its publisher really stopped signing it, remove the extension (`specforge remove <name>`) and its pin in `~/.specforge/known-keys.json`, then add it again.";
@@ -100,7 +100,7 @@ catalog! {
         "The registry's credential is a reference to a token file (`specforge login --token-file`, or a `token_file` entry) that can't be read, or is empty. Check the path and its permissions, or log in again with another source.";
     R012: Error core,
         "Credentials file unreadable",
-        "`~/.specforge/credentials.json` can't be read, or isn't in the expected format. Check its permissions, or delete it and log in again.";
+        "`~/.specforge/credentials.json` can't be read, or isn't in the expected format. Check its permissions, or delete it and log in again. With no user home (`HOME`, else `USERPROFILE` on Windows, unset or relative) there is no `~/.specforge` and nothing is read or written there: set the home to an absolute path.";
     R013: Error core,
         "Credentials file not writable",
         "The credentials couldn't be saved: creating `~/.specforge`, serializing the credentials, or writing `~/.specforge/credentials.json` failed. Check the permissions on `~/.specforge`.";

@@ -262,10 +262,7 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "registry_build_fields",
-    verify = "a field declared with a vocabulary registers as an enum of its values, its absent value as its default"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-018")]
 fn a_vocabulary_reaches_the_field_registry() {
     let declaration = loaded(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@you/tone", "0.1.0"));

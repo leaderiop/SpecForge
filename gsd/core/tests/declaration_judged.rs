@@ -15,7 +15,7 @@ fn plan_checker_inputs_match_rules_md() {
         .find(|r| r.codes.iter().any(|c| c == "W311"))
         .expect("the plan check row");
     assert_eq!(row.codes, ["W311", "W313", "W315", "W316"]);
-    assert_eq!(row.inputs.len(), 12, "{:?}", row.inputs);
+    assert_eq!(row.inputs.len(), 11, "{:?}", row.inputs);
     for code in &row.codes {
         assert_inputs_match_rules_md(code);
         let judged = judged_descriptor(code).expect("judged");
@@ -25,10 +25,10 @@ fn plan_checker_inputs_match_rules_md() {
     }
 }
 
-/// E501 reads a truth's tests two ways (ADR 0331 D7, amended): its proof's test facts and the test facts that name it
-/// (a `[gsd:<id>]` tag in a test's name, `@code/core`'s `test.names`); without `@code/core` both chains are inert.
+/// E501 reads a truth's tests one way (ADR 0331 D7, amended by ADR 0371 D5): the test facts that name it (a
+/// `[gsd:<id>]` tag in a test's name, `@code/core`'s `test.names`); without `@code/core` the chain is inert.
 #[test]
-fn the_truth_verdict_reads_its_tags_and_its_proof() {
+fn the_truth_verdict_reads_the_tests_that_name_it() {
     assert_inputs_match_rules_md("E501");
     let judged = judged_descriptor("E501").expect("judged");
     let truth = judged["targets"]
@@ -39,40 +39,5 @@ fn the_truth_verdict_reads_its_tags_and_its_proof() {
         .as_array()
         .and_then(|inputs| inputs.iter().find(|i| i["name"] == "tests"))
         .expect("a tests input");
-    assert_eq!(tests["selector"], "test(self.proof, self<test.names)");
-}
-
-/// I536 is judged by the `verify_invariant` prompt over the invariant and its tests, read as a truth's are (its
-/// proof's results and the tests whose name tags it); no input reads its items or a file.
-#[test]
-fn the_invariant_verdict_reads_its_statement_and_tests() {
-    assert_inputs_match_rules_md("I536");
-    let judged = judged_descriptor("I536").expect("judged");
-    assert_eq!(judged["judge"], "prompt:verify_invariant");
-    assert_eq!(
-        judged["outcomes"],
-        serde_json::json!(["holds", "violated", "uncertain"])
-    );
-    assert_eq!(judged["passing"], serde_json::json!(["holds"]));
-    let targets = judged["targets"].as_array().expect("targets");
-    assert_eq!(targets.len(), 1, "{targets:?}");
-    assert_eq!(targets[0]["kind"], "invariant");
-    let inputs: Vec<(&str, &str)> = targets[0]["inputs"]
-        .as_array()
-        .expect("inputs")
-        .iter()
-        .map(|i| {
-            (
-                i["name"].as_str().expect("a name"),
-                i["selector"].as_str().expect("a selector"),
-            )
-        })
-        .collect();
-    assert_eq!(
-        inputs,
-        [
-            ("invariant", "self"),
-            ("tests", "test(self.proof, self<test.names)")
-        ]
-    );
+    assert_eq!(tests["selector"], "test(self<test.names)");
 }

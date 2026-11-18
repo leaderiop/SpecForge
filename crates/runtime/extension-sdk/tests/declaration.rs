@@ -53,10 +53,7 @@ fn reports() -> ContributionsBuilder {
     b
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "the SDK's short name reaches the handshake as ext_short"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_short_name_reaches_the_handshake() {
     let host = MockHost::new(reports());
     let handshake: serde_json::Value = serde_json::from_str(&host.handshake_json()).unwrap();
@@ -79,10 +76,7 @@ fn the_short_name_reaches_the_handshake() {
     assert_eq!(plain.declaration().short(), "plain");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "the SDK's peer and optional_peer calls reach the handshake as peer_dependencies, in call order"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn peers_reach_the_handshake_in_call_order() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/peers", "1.0.0"));
     b.peer("@a/x", "^1.0").optional_peer("@a/y", "^2");
@@ -99,10 +93,7 @@ fn peers_reach_the_handshake_in_call_order() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a raw category that does not parse panics when the extension is built"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_raw_category_that_does_not_parse_panics() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/raw", "1.0.0"));
     b.raw_category(
@@ -162,10 +153,7 @@ fn dispatch(export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
 /// A served guest routes as the component guest does: the protocol exports,
 /// then the declared surfaces and operations, then the handler, else an
 /// unknown export.
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "a guest answers the handshake and every describe from one declaration it builds once"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_served_guest_routes_every_export() {
     let host = MockHost::new(reports());
     let handshake_json = host.handshake_json().into_bytes();
@@ -200,10 +188,7 @@ fn a_served_guest_routes_every_export() {
 /// What a served guest answers is what its builder declares, for every
 /// category the protocol defines: the answers it reads from one declaration
 /// are the ones the builder gives.
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "a guest answers the handshake and every describe from one declaration it builds once"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn served_answers_what_the_builder_declares() {
     let host = MockHost::new(reports());
     let expected: Vec<(&str, Option<String>)> = DeclaredCategory::ALL
@@ -226,10 +211,7 @@ fn served_answers_what_the_builder_declares() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "the SDK's raw category and the host's load parse a category's items through one function"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_raw_category_and_a_loaded_one_parse_alike() {
     let mut built = reports();
     built
@@ -279,10 +261,7 @@ fn a_raw_category_and_a_loaded_one_parse_alike() {
     assert_eq!(loaded, declared);
 }
 
-#[specforge_test_macros::test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "the SDK refuses to build an explicit MCP tool whose input schema declares path, as a property or a required name"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-125")]
 fn a_tool_declaring_the_targets_path_panics_when_built() {
     let declare = |schema: serde_json::Value| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/files", "1.0.0"));
@@ -325,10 +304,7 @@ fn a_tool_declaring_the_targets_path_panics_when_built() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a code entry is declared with its title, explanation and docs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_code_entry_is_declared_with_its_title_explanation_and_docs() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/reports", "0.1.0"));
     b.code("E101", |d| {
@@ -351,10 +327,7 @@ fn a_code_entry_is_declared_with_its_title_explanation_and_docs() {
     assert!(declared.declares(DeclaredCategory::Codes));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "the SDK declares a setting, a preset and a secret, and a feature flag is a bool setting"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn settings_presets_secrets_and_flags_are_declared() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/gsd", "0.1.0"));
     b.setting("workflow.tdd_mode", |s| {
@@ -461,10 +434,7 @@ fn requirement_thread(c: &mut ContributionsBuilder) {
     });
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_trace_route",
-    verify = "an SDK route builds the descriptor the host reads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-129")]
 fn a_route_builds_the_descriptor_the_host_reads() {
     use specforge_extension_sdk::{
         RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
@@ -530,10 +500,7 @@ fn a_route_builds_the_descriptor_the_host_reads() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_trace_route",
-    verify = "an SDK route builds the descriptor the host reads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-129")]
 fn a_route_step_goes_on_from_the_start_or_a_named_step() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/work", "1.0.0"));
     c.route("need-thread", |r| {
@@ -577,10 +544,7 @@ fn a_route_step_goes_on_from_the_start_or_a_named_step() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_host_ports_from_the_sdk",
-    verify = "an extension declares a capability with its port, scope, call kinds and reason"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn an_extension_declares_a_capability() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/caps", "1.0.0"));
     c.capability(
@@ -615,10 +579,7 @@ fn an_extension_declares_a_capability() {
     assert_eq!(process.argv, ["cargo", "test"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_context_route",
-    verify = "an SDK context route builds the descriptor the host reads"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
 fn a_context_builds_the_descriptor_the_host_reads() {
     use specforge_protocol_types::{ContextDescriptor, ContextSectionDescriptor, ContextTier};
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/work", "1.0.0"));
@@ -667,10 +628,7 @@ fn a_context_builds_the_descriptor_the_host_reads() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "record_harness_values",
-    verify = "the SDK declares a context field as the block of a context record"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn a_context_field_declares_writer_context() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "0.1.0"));
     b.kind("plan", |k| {
@@ -697,10 +655,7 @@ fn a_context_field_declares_writer_context() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "declare_context_route",
-    verify = "an SDK route records context fields and names its stale code"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
 fn a_context_route_records_fields_and_names_its_stale_code() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "0.1.0"));
     b.context("executor", |r| {
@@ -733,10 +688,7 @@ fn a_context_route_records_fields_and_names_its_stale_code() {
     assert_eq!(route.stale.as_deref(), Some("W524"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a guest declares a number field with number() and its decimal bounds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_number_field_is_declared_with_its_bounds() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/measures", "0.1.0"));
     b.kind("measure", |k| {

@@ -36,10 +36,7 @@ fn messages(build: &RegistryBuild, code: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "a prompt and a command of one route are E039, and the command is the one routed"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_prompt_and_a_command_of_one_route_are_e039() {
     let build = build_registries(vec![
         declaration(
@@ -64,10 +61,7 @@ fn a_prompt_and_a_command_of_one_route_are_e039() {
     assert_eq!(build.commands().routed().len(), 1, "the command is routed");
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "a prompt declaration the registry refuses is W021 and the rest of the declaration is kept"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_prompt_declaration_the_registry_refuses_is_w021() {
     let defects = [
         (
@@ -116,10 +110,7 @@ fn a_prompt_declaration_the_registry_refuses_is_w021() {
     assert!(w021.iter().all(|m| !m.contains("'fine'")), "{w021:#?}");
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "a human command that does not write is dropped"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_human_command_that_does_not_write_is_dropped() {
     let mut mute = command("attest");
     mute["human"] = json!(true);
@@ -146,10 +137,7 @@ fn a_human_command_that_does_not_write_is_dropped() {
     assert_eq!(routed, ["confirm"]);
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "the registry refuses a second free-text tail and a tail that is not text, naming the arguments"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_prompt_takes_one_tail_of_text() {
     let arg = |name: &str, field_type: &str, rest: bool| {
         let mut arg = json!({"name": name, "field_type": field_type});
@@ -208,10 +196,7 @@ fn a_prompt_takes_one_tail_of_text() {
     assert!(w021.iter().all(|m| !m.contains("'one_tail'")), "{w021:#?}");
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "a prompt argument may be named path or format, never host, argv, help, settings or secrets"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_prompt_may_name_an_argument_path_or_format() {
     let with = |id: &str, name: &str| {
         let mut p = prompt(id);
@@ -250,10 +235,7 @@ fn a_prompt_may_name_an_argument_path_or_format() {
     );
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "an optional subject follows the required positional arguments"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_optional_subject_follows_the_required_positionals() {
     let phase = json!({"name": "phase", "field_type": "reference", "target_kind": "phase"});
     let name = json!({"name": "name", "field_type": "string", "required": true});

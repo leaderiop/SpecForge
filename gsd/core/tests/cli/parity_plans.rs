@@ -226,8 +226,8 @@ fn gate_cutover_plan_verdicts_reproduce() {
         ]
     );
 
-    // Decision coverage: the uncovered ids are the E310 entities. The project's plans list their decisions in
-    // `decisions` and upstream's cite them in prose; the verdicts' items are equal.
+    // Decision coverage: the uncovered ids are the E310 entities. The project's plans cite their decisions by id in
+    // their prose, as upstream's fixture does; the verdicts' items are equal.
     let uncovered: Vec<String> = printed("decision-coverage-plan-uncovered")["uncovered"]
         .as_array()
         .expect("uncovered")
@@ -300,8 +300,8 @@ fn gate_cutover_plan_verdicts_reproduce() {
         "the clean phase has no finding"
     );
 
-    // The gap golden's summary is the W317 message's prefix, byte for byte: typed `requirements` and `decisions` here,
-    // upstream's word search in the plans' text, the same items.
+    // The gap golden's summary is the W317 message's prefix, byte for byte: typed `requirements` and the decision ids
+    // the plans cite here, upstream's word search in the plans' text, the same items.
     let summary = printed("gap-analysis-plan-post-enabled")["summary"]
         .as_str()
         .expect("a summary")

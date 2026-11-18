@@ -24,10 +24,7 @@ fn project() -> TestProject {
         .file("Cargo.toml", "")
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "specforge.collect runs a command the user approved, its output discarded"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_runs_a_command_the_user_approved() {
     let machine = Arc::new(ScriptedMachine::new().answering(ScriptedRun {
         files: vec![(

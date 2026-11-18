@@ -25,10 +25,7 @@ fn next_batch(rx: &mpsc::Receiver<Vec<PathBuf>>, timeout: Duration) -> Option<Ve
 
 /// A modified file is reported as its whole path under the (canonical)
 /// watched directory: what it is to the project is the session's to say.
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "file modification triggers recompilation"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn changed_paths_are_reported_whole() {
     let dir = TempDir::new().unwrap();
     let spec_path = dir.path().join("a.spec");
@@ -59,10 +56,7 @@ fn changed_paths_are_reported_whole() {
 
 // ── file creation triggers recompilation ──────────────────────
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "file creation triggers recompilation"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn file_creation_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
 
@@ -90,10 +84,7 @@ fn file_creation_triggers_recompilation() {
 
 // ── file deletion triggers recompilation ──────────────────────
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "file deletion triggers recompilation"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn file_deletion_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
     let spec_path = dir.path().join("doomed.spec");
@@ -122,10 +113,7 @@ fn file_deletion_triggers_recompilation() {
 
 // ── latency integration test ──────────────────────────────────
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "watch detects changes within 100ms"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn watch_detects_changes_within_latency_target() {
     use specforge_project::WatchRoot;
     use specforge_watch::{Notify, Watchers};
@@ -169,10 +157,7 @@ fn watch_detects_changes_within_latency_target() {
 
 // ── contract test ─────────────────────────────────────────────
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "Watch File System for Changes: file system watching holds for the declared obligations"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn watch_contract_consistency() {
     let dir = TempDir::new().unwrap();
 
@@ -233,10 +218,7 @@ fn a_shallow_watcher_reports_its_own_entries_only() {
 
 // ── one burst across two watched roots ────────────────────────
 
-#[spec(
-    behavior = "debounce_file_changes",
-    verify = "changes under different watched directories within the window join one batch"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_burst_across_two_roots_is_one_batch() {
     use specforge_project::WatchRoot;
     use specforge_watch::{Notify, Watchers};

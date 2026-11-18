@@ -17,10 +17,9 @@ fn cache_file(project: &Assembled) -> std::path::PathBuf {
     project.root().join(".specforge/schema-cache.json")
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "the schema cache is the view root's, never an ancestor's"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn export_recorded_compares_then_records_on_success() {
     use specforge_ops::read::export::{CacheWrite, Request, export_recorded};
     let project = recorded_project();
@@ -126,10 +125,7 @@ fn project_at_two() -> Assembled {
     project
 }
 
-#[specforge_test(
-    behavior = "render_model_json",
-    verify = "output carries the schema_version specforge schema prints for the project"
-)]
+#[specforge_test(requirement = "FEATURE-076")]
 
 fn the_model_names_the_versioned_schema() {
     use specforge_ops::read::model::{ModelFormat, ModelOptions, model};
@@ -154,10 +150,7 @@ fn the_model_names_the_versioned_schema() {
     assert_eq!(dbml.lines().nth(1), Some("// Schema version: 2.0.0"));
 }
 
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "every JSON export carries the project's schema version, whether the schema is attached or not"
-)]
+#[specforge_test(requirement = "FEATURE-120")]
 fn every_document_names_the_versioned_schema() {
     use specforge_ops::read::export::{Format, Request, Schema, export};
     use specforge_ops::read::trace::{Follow, Target, trace};
@@ -213,10 +206,7 @@ fn every_document_names_the_versioned_schema() {
     );
 }
 
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "the trace document carries the project's schema version"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_trace_carries_the_projects_schema_version() {
     use specforge_ops::read::trace::{Follow, Target, trace};
     let project = project_at_two();

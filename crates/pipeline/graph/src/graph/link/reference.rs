@@ -13,12 +13,13 @@ pub(super) enum Resolution<'g> {
     /// It names an entity its field takes (of its target kind, or any kind when the field declares
     /// none): `path`.
     Linked { path: Sym },
-    /// It names an entity of another kind than its field's target kind: E022. `provider` only when the
-    /// target is absent.
+    /// It names an entity of another kind than its field's target kind: E022. `providers` are the extensions that
+    /// declare the first absent target kind, in the graph inputs' order; empty when the target is loaded or nothing
+    /// is known to declare it.
     Mistyped {
         path: Sym,
         target: Targets<'g>,
-        provider: Option<&'g str>,
+        providers: &'g [String],
         actual: &'g str,
         did_you_mean: Option<String>,
     },
@@ -31,10 +32,8 @@ pub(super) enum Resolution<'g> {
         ambiguous: bool,
     },
     /// It names no entity, and no loaded extension declares a target kind of its field: I004. `kinds` are the target
-    /// kinds no loaded extension declares, each with the extension that declares it where one is known.
-    Unavailable {
-        kinds: Vec<(&'g str, Option<&'g str>)>,
-    },
+    /// kinds no loaded extension declares, each with every extension known to declare it (empty when none is).
+    Unavailable { kinds: Vec<(&'g str, &'g [String])> },
     /// It names no entity, its id is in the scheme of a collector-written kind its field takes, and no store served
     /// that fact (ADR 0327 D6): no edge, no diagnostic; the node keeps it, and a pass is sent it with `kinds`, the
     /// collected kinds of the scheme its field admits (ADR 0347 D9).
@@ -43,9 +42,9 @@ pub(super) enum Resolution<'g> {
 
 impl Graph {
     /// The resolution of `id`, written in a field whose target is `target`, read with `inputs`: their
-    /// `target_owners` name an absent kind's provider, their `fact_schemes` a scheme's collected kinds. `from` is the
-    /// path of the entity holding it: its scope chain answers (ADR 0284). `None` for a scope field, which has no chain
-    /// yet.
+    /// `target_owners` name every extension that declares an absent kind, in their order, their `fact_schemes` a
+    /// scheme's collected kinds. `from` is the path of the entity holding it: its scope chain answers (ADR 0284).
+    /// `None` for a scope field, which has no chain yet.
     pub(super) fn resolve<'g>(
         &'g self,
         target: Option<Targets<'g>>,
@@ -53,7 +52,9 @@ impl Graph {
         from: Option<Sym>,
         id: &str,
     ) -> Resolution<'g> {
-        let owners = &inputs.target_owners;
+        let owners = |kind: &str| -> &'g [String] {
+            inputs.target_owners.get(kind).map_or(&[], Vec::as_slice)
+        };
         let admits = |kind: &str| target.as_ref().is_none_or(|t| t.admits(kind));
         let found = self.scopes.resolve(from, id, &admits);
         let named = |path: Sym| self.nodes[&path].kind.raw.as_str();
@@ -64,10 +65,7 @@ impl Graph {
                 let absent = target.absent();
                 return Resolution::Mistyped {
                     path,
-                    provider: absent
-                        .first()
-                        .and_then(|kind| owners.get(*kind))
-                        .map(String::as_str),
+                    providers: absent.first().map_or(&[], |kind| owners(kind)),
                     actual: named(path),
                     did_you_mean: self.close_match(
                         from,
@@ -96,7 +94,7 @@ impl Graph {
                 kinds: target
                     .absent()
                     .into_iter()
-                    .map(|kind| (kind, owners.get(kind).map(String::as_str)))
+                    .map(|kind| (kind, owners(kind)))
                     .collect(),
             },
             None if let Some(kinds) = specforge_common::scheme::of(id)
@@ -229,7 +227,7 @@ impl Resolution<'_> {
             Self::Linked { .. } | Self::Unheld { .. } => None,
             Self::Mistyped {
                 target,
-                provider,
+                providers,
                 actual,
                 did_you_mean,
                 ..
@@ -245,18 +243,20 @@ impl Resolution<'_> {
                         ),
                     )
                     .with_span(span)
-                    .with_suggestion(match (target.absent().first(), did_you_mean, provider) {
-                        (None, Some(close), _) => format!("did you mean '{close}'?"),
-                        (None, None, _) => {
+                    .with_suggestion(match (target.absent().first(), did_you_mean) {
+                        (None, Some(close)) => format!("did you mean '{close}'?"),
+                        (None, None) => {
                             format!("name a {expected} here, or drop the reference")
                         }
-                        (Some(_), _, Some(extension)) => format!(
-                            "name a {expected} here (enable the extension that declares it with `{}`), or drop the reference",
-                            specforge_common::remedy::command("specforge add {}", &[extension])
-                        ),
-                        (Some(kind), _, None) => format!(
-                            "name a {expected} here (find an extension that declares it with `{}`), or drop the reference",
-                            specforge_common::remedy::command("specforge extensions search {}", &[kind])
+                        (Some(kind), _) => format!(
+                            "name a {expected} here ({}), or drop the reference",
+                            enable("it", providers).unwrap_or_else(|| format!(
+                                "find an extension that declares it with `{}`",
+                                specforge_common::remedy::command(
+                                    "specforge extensions search {}",
+                                    &[kind]
+                                )
+                            ))
                         ),
                     }),
                 )
@@ -308,18 +308,16 @@ impl Resolution<'_> {
                     .collect::<Vec<_>>()
                     .join(", ");
                 let plural = if kinds.len() == 1 { "kind" } else { "kinds" };
-                let remedy = |(kind, provider): &(&str, Option<&str>)| match provider {
-                    Some(extension) => format!(
-                        "enable the extension that declares '{kind}' with `{}`",
-                        specforge_common::remedy::command("specforge add {}", &[extension])
-                    ),
-                    None => format!(
-                        "find an extension that declares '{kind}' with `{}`",
-                        specforge_common::remedy::command(
-                            "specforge extensions search {}",
-                            &[kind]
+                let remedy = |(kind, providers): &(&str, &[String])| {
+                    enable(&format!("'{kind}'"), providers).unwrap_or_else(|| {
+                        format!(
+                            "find an extension that declares '{kind}' with `{}`",
+                            specforge_common::remedy::command(
+                                "specforge extensions search {}",
+                                &[kind]
+                            )
                         )
-                    ),
+                    })
                 };
                 Some(
                     Diagnostic::new(
@@ -337,5 +335,29 @@ impl Resolution<'_> {
                 )
             }
         }
+    }
+}
+
+/// The clause that enables a declarer of `what` (I004 and E022): each of `providers` with its `specforge add`
+/// command in backticks, joined with ` or ` in their order (ADR 0369 D2). None when no provider is known.
+fn enable(what: &str, providers: &[String]) -> Option<String> {
+    let commands = providers
+        .iter()
+        .map(|extension| {
+            format!(
+                "`{}`",
+                specforge_common::remedy::command("specforge add {}", &[extension.as_str()])
+            )
+        })
+        .collect::<Vec<_>>();
+    match commands.as_slice() {
+        [] => None,
+        [only] => Some(format!(
+            "enable the extension that declares {what} with {only}"
+        )),
+        several => Some(format!(
+            "enable one of the extensions that declare {what} with {}",
+            several.join(" or ")
+        )),
     }
 }

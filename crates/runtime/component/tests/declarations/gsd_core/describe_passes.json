@@ -1,0 +1,375 @@
+{
+  "category": "passes",
+  "items": [
+    {
+      "after": null,
+      "before": null,
+      "computes": [
+        "plan.wave",
+        "plan.autonomous"
+      ],
+      "name": "waves",
+      "phase": "compute"
+    },
+    {
+      "after": null,
+      "before": null,
+      "computes": [
+        "artifact.state",
+        "key_link.state",
+        "verification.anti_patterns",
+        "verification.scan_partial",
+        "validation_row.file_exists",
+        "wave0_item.done"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "test"
+          ]
+        },
+        {
+          "field": "plan.files_modified",
+          "input": "files",
+          "name": "modified",
+          "text": true
+        },
+        {
+          "field": "artifact.path",
+          "input": "files",
+          "name": "artifacts",
+          "text": true
+        },
+        {
+          "field": "key_link.from",
+          "input": "files",
+          "name": "links",
+          "text": true
+        },
+        {
+          "field": "key_link.to",
+          "input": "files",
+          "name": "link_targets",
+          "text": true
+        },
+        {
+          "field": "validation_row.file",
+          "input": "files",
+          "name": "rows"
+        },
+        {
+          "field": "wave0_item.path",
+          "input": "files",
+          "name": "wave0"
+        }
+      ],
+      "name": "scan",
+      "phase": "compute"
+    },
+    {
+      "after": null,
+      "before": null,
+      "inputs": [
+        {
+          "field": "plan.files_modified",
+          "input": "files",
+          "name": "modified",
+          "text": true
+        }
+      ],
+      "name": "scan_check",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "baseline": [
+        "verification",
+        "truth",
+        "artifact",
+        "key_link",
+        "verify_gap",
+        "override"
+      ],
+      "before": null,
+      "computes": [
+        "project.validated",
+        "project.active",
+        "project.updated",
+        "project.windows_open",
+        "project.windows_waived",
+        "project.windows_fixed",
+        "project.windows_total",
+        "requirement.status",
+        "requirement.satisfied_by",
+        "requirement.proof",
+        "milestone.state",
+        "milestone.first_commit",
+        "milestone.shipped",
+        "milestone.stats",
+        "milestone.git_range",
+        "milestone.progress",
+        "milestone.branch",
+        "phase.inserted",
+        "phase.backlog",
+        "phase.branch",
+        "phase.frontend",
+        "phase.status",
+        "phase.plans_complete",
+        "phase.completed",
+        "workstream.status",
+        "retrospective.phases",
+        "retrospective.plans",
+        "retrospective.sessions",
+        "lesson.status",
+        "context.status",
+        "plan.status",
+        "plan.quick",
+        "plan.files_touched",
+        "plan.estimate_slices",
+        "task.status",
+        "review.open",
+        "review_concern.status",
+        "revision_conflict.status",
+        "summary.duration",
+        "summary.actuals",
+        "summary.files_created",
+        "summary.files_modified",
+        "deliverable.checks.status",
+        "quick_batch.status",
+        "quick_batch.eligible",
+        "verification.status",
+        "verification.score",
+        "verification.verified",
+        "verification.covered_files",
+        "verification.covered_digest",
+        "verification.re_verification",
+        "verify_gap.status",
+        "verify_gap.closed_by",
+        "uat_session.status",
+        "uat_session.totals",
+        "uat_gap.status",
+        "uat_gap.resolved_by",
+        "uat_gap.resolved_at",
+        "validation.status",
+        "validation.nyquist_compliant",
+        "validation.wave_0_complete",
+        "validation_row.wave",
+        "validation_row.status",
+        "milestone_audit.gaps",
+        "milestone_audit.nyquist",
+        "milestone_audit.status",
+        "broken_window.status",
+        "broken_window.milestone",
+        "refactor_proposal.status"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "test"
+          ]
+        }
+      ],
+      "name": "derive",
+      "phase": "compute"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "roadmap",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "research",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "execute",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "schema_drift",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "plan_shape",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "probe_rows",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "cross_plan",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "decision_coverage",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "fails_when",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "file_scope",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "scope",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "computes": [
+        "task.verify_paths"
+      ],
+      "name": "verify_paths_compute",
+      "phase": "compute"
+    },
+    {
+      "after": null,
+      "before": null,
+      "inputs": [
+        {
+          "field": "task.verify_paths",
+          "input": "files",
+          "name": "targets",
+          "text": true
+        }
+      ],
+      "name": "verify_paths",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "nyquist",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "test"
+          ]
+        }
+      ],
+      "name": "verify_rules",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "windows",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "workstreams",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "gate_e106",
+      "phase": "guard",
+      "reports": [
+        "E106"
+      ]
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "gate_e511",
+      "phase": "guard",
+      "reports": [
+        "E511"
+      ]
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "gate_e512",
+      "phase": "guard",
+      "reports": [
+        "E512"
+      ]
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "gate_w318",
+      "phase": "guard",
+      "reports": [
+        "W318"
+      ]
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "gate_w404",
+      "phase": "guard",
+      "reports": [
+        "W404"
+      ]
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "gate_e515",
+      "phase": "guard",
+      "reports": [
+        "E515"
+      ]
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "gate_e516",
+      "phase": "guard",
+      "reports": [
+        "E516"
+      ]
+    },
+    {
+      "after": null,
+      "before": null,
+      "inputs": [
+        {
+          "field": "plan.files_deleted",
+          "input": "files",
+          "name": "deleted"
+        }
+      ],
+      "name": "traceability",
+      "phase": "check"
+    }
+  ]
+}

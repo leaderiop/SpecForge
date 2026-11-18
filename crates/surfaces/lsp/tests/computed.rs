@@ -32,10 +32,7 @@ fn declare(c: &mut ContributionsBuilder) {
     });
 }
 
-#[specforge_test(
-    behavior = "compute_field_values",
-    verify = "hover marks a computed field and completion offers none"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn hover_marks_a_computed_field_and_completion_offers_none() {
     let served = Served::new(&[("main.spec", "thing a \"A\" {\n  \n}\n")])
         .extension("@t/computed", declare)

@@ -9,10 +9,7 @@ use specforge_test::prelude::*;
 
 use crate::support::{Cli, TestProject};
 
-#[specforge_test(
-    behavior = "watch_file_system_for_changes",
-    verify = "the ready event names the spec root as the path given names the project"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn the_ready_event_names_the_spec_root_through_the_path_given() {
     let project = TestProject::new().raw_config(r#"{"spec_root":"spec"}"#);
     project.write("spec/a.spec", "entity one \"One\" {}\n");

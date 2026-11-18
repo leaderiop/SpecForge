@@ -225,10 +225,7 @@ mod tests {
         fixture
     }
 
-    #[specforge_test(
-        behavior = "provide_mcp_infer_progress_tool",
-        verify = "returns summary with unanalyzed files"
-    )]
+    #[specforge_test(requirement = "FEATURE-054")]
     fn progress_lists_unindexed_and_deleted_files() {
         let dir = project();
         let progress = progress(&dir.view()).unwrap();
@@ -248,20 +245,14 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "provide_mcp_infer_progress_tool",
-        verify = "detects stale files by content hash"
-    )]
+    #[specforge_test(requirement = "FEATURE-054")]
     fn progress_detects_a_changed_file() {
         let dir = project();
         std::fs::write(dir.root().join("src/lib.rs"), "pub fn beta() {}\n").unwrap();
         assert_eq!(progress(&dir.view()).unwrap().stale, ["src/lib.rs"]);
     }
 
-    #[specforge_test(
-        behavior = "provide_mcp_infer_progress_tool",
-        verify = "graceful handling when specforge-infer.json is missing"
-    )]
+    #[specforge_test(requirement = "FEATURE-054")]
     fn progress_without_a_manifest_counts_every_file_an_item_locates_unanalyzed() {
         let dir = project();
         std::fs::remove_file(dir.root().join("specforge-infer.json")).unwrap();
@@ -307,10 +298,7 @@ mod tests {
         assert!(!fresh.recorded && fresh.sessions.is_empty());
     }
 
-    #[specforge_test(
-        behavior = "mark_source_file_analyzed",
-        verify = "mark records the path root-relative with / separators"
-    )]
+    #[specforge_test(requirement = "FEATURE-054")]
     fn an_entry_recorded_as_dot_slash_counts_as_analyzed() {
         let dir = project();
         let hash = content_hash(&std::fs::read(dir.root().join("src/lib.rs")).unwrap());
@@ -332,10 +320,7 @@ mod tests {
         assert!(progress.stale.is_empty(), "{progress:?}");
     }
 
-    #[specforge_test(
-        behavior = "load_inference_manifest",
-        verify = "load refuses an unreadable or invalid manifest with E071"
-    )]
+    #[specforge_test(requirement = "FEATURE-054")]
     fn an_invalid_manifest_is_e071() {
         let dir = project();
         std::fs::write(dir.root().join("specforge-infer.json"), "{ nope").unwrap();

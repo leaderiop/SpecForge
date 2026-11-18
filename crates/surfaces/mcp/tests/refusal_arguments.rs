@@ -187,10 +187,8 @@ fn refused(tool: &str, arguments: &Value) -> Value {
     serde_json::from_str(&tool_text(&reply)).unwrap()
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "an operation's refusal of a core tool's call names the argument it is about"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn refusals_name_their_argument() {
     for (tool, arguments, code, argument) in named_today() {
         let error = refused(tool, &arguments);
@@ -203,10 +201,8 @@ fn refusals_name_their_argument() {
     }
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "an operation's refusal of a core tool's call names the argument it is about"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn every_invalid_input_refusal_names_its_argument() {
     for (tool, arguments, code, argument) in named_today().into_iter().chain(unnamed_today()) {
         let error = refused(tool, &arguments);
@@ -223,10 +219,8 @@ fn every_invalid_input_refusal_names_its_argument() {
     }
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "a refusal a value the caller gave earns names that argument, whatever its kind"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn extension_refusals_name_their_argument() {
     let git = "git+https://example.com/x";
     let add = |specifiers: Value| {
@@ -305,10 +299,8 @@ fn extension_refusals_name_their_argument() {
     assert_refused(&reply, "conflict", Some("path"), None);
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "a refusal a value the caller gave earns names that argument, whatever its kind"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn read_view_refusals_name_their_argument() {
     assert_refused(
         &call_served("specforge.export", json!({"schema_version": "9.0.0"})),
@@ -357,10 +349,8 @@ fn read_view_refusals_name_their_argument() {
     assert_rpc_refused(&reply, -32002, "entity_not_found", Some("entity_id"));
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "a prompt's or a resource read's refusal names the argument or query key it is about"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn entity_refusals_name_their_argument() {
     for tool in [
         "specforge.inspect",
@@ -393,10 +383,8 @@ fn entity_refusals_name_their_argument() {
     assert_rpc_refused(&reply, -32602, "invalid_input", Some("scope"));
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "a refusal a value the caller gave earns names that argument, whatever its kind"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn mutation_refusals_name_their_argument() {
     assert_refused(
         &call_served(
@@ -428,10 +416,7 @@ fn mutation_refusals_name_their_argument() {
     assert_refused(&reply, "invalid_input", Some("runner"), Some("E058"));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a new_name that is a reserved word is refused as invalid input naming new_name"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_to_a_reserved_word_is_refused_naming_new_name() {
     assert_refused(
         &call_served(
@@ -444,10 +429,7 @@ fn a_rename_to_a_reserved_word_is_refused_naming_new_name() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a new_name the project already writes for no entity is refused as a conflict naming new_name"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_onto_a_name_written_for_no_entity_is_a_conflict_naming_new_name() {
     let text = "type Session \"Session\" {\n  token string\n}\n\ntype ApiKey \"Api Key\" {\n  value Token\n}\n";
     let mut server = TestProject::new()
@@ -468,10 +450,7 @@ fn a_rename_onto_a_name_written_for_no_entity_is_a_conflict_naming_new_name() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_refusal_of_the_project_names_no_argument() {
     // No registry is configured: a refusal of the project.
     assert_refused(

@@ -58,10 +58,7 @@ fn link(target: &Path, at: &Path) {
 
 /// R1: `specforge-report.json` is a link to a file outside.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "specforge.collect reads and writes no file through a symlink that leaves the project"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-070")]
 fn collect_writes_no_report_through_a_symlink_that_leaves_the_project() {
     let project = crate::operations_mgmt::collect_project();
     let outside = outside();
@@ -78,10 +75,7 @@ fn collect_writes_no_report_through_a_symlink_that_leaves_the_project() {
 
 /// R4: a runner's captured output is a link to a file outside.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "specforge.collect reads and writes no file through a symlink that leaves the project"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-070")]
 fn collect_reads_no_captured_output_through_a_symlink_that_leaves_the_project() {
     let project = crate::operations_mgmt::collect_project();
     let outside = outside();
@@ -104,10 +98,7 @@ fn collect_reads_no_captured_output_through_a_symlink_that_leaves_the_project() 
 
 /// R2: the manifest's temporary file is a link to a file outside.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation reads and writes no file through a symlink that leaves the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn infer_session_writes_no_manifest_through_a_temporary_file_that_leaves_the_project() {
     let project = plain_project();
     let outside = outside();
@@ -139,10 +130,7 @@ fn infer_session_writes_no_manifest_through_a_temporary_file_that_leaves_the_pro
 
 /// R5: the manifest itself is a link to a file outside.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a file the project keeps at its root is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn infer_progress_reads_no_manifest_through_a_symlink_that_leaves_the_project() {
     let project = plain_project();
     let outside = outside();
@@ -164,10 +152,7 @@ fn infer_progress_reads_no_manifest_through_a_symlink_that_leaves_the_project() 
 
 /// The schema cache is a link to a file outside: no read view reads it, quotes it or versions against it.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "no schema cache a call reads leaves the project, and none with more than one name is read"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn read_views_read_no_schema_cache_through_a_symlink_that_leaves_the_project() {
     let project = plain_project();
     let outside = outside();
@@ -197,10 +182,7 @@ fn read_views_read_no_schema_cache_through_a_symlink_that_leaves_the_project() {
 
 /// The schema cache has a second name: the same.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "no schema cache a call reads leaves the project, and none with more than one name is read"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn read_views_read_no_hard_linked_schema_cache() {
     let project = plain_project();
     let outside = outside();
@@ -222,10 +204,7 @@ const SECRET_RECORD: &str = r#"{"schema": "OUTSIDE-SCHEMA-SECRET", "content_hash
 
 /// R7: `specforge-report.json` is a link to a report outside: no read view reads it.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a file the project keeps at its root is read only from inside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn read_views_read_no_report_through_a_symlink_that_leaves_the_project() {
     let project = plain_project();
     let outside = outside();
@@ -265,10 +244,7 @@ fn read_views_read_no_report_through_a_symlink_that_leaves_the_project() {
 }
 
 /// R3: a `test_results` that resolves outside the project, in every spelling.
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "a test_results that resolves outside the call's project is refused before it is read"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn analyze_test_results_outside_the_project_is_refused_before_it_is_read() {
     let scene = TempDir::new().unwrap();
     let project = scene.path().join("proj");
@@ -326,10 +302,7 @@ fn analyze_test_results_outside_the_project_is_refused_before_it_is_read() {
 
 /// R6: the backup and the temporary file of a migrated source are links to files outside.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation reads and writes no file through a symlink that leaves the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn migrate_writes_no_backup_or_temporary_file_through_a_symlink_that_leaves_the_project() {
     let project = plain_project();
     let outside = outside();

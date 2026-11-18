@@ -94,11 +94,11 @@ Options: 1) Add AUTH-04 "User can reset password via email link" 2) Remove crite
 
 ## Deriving Phases from Requirements
 
-**Step 1 — Group by Area:** requirements already have areas (their `area`, which their ids name: AUTH, CONTENT, SOCIAL, etc.) — examine these groupings first.
+**Step 1 — Group by Category:** requirements already have categories (AUTH, CONTENT, SOCIAL, etc.) — examine these groupings first.
 
-**Step 2 — Identify Dependencies:** which areas depend on others? (SOCIAL needs CONTENT; CONTENT needs AUTH; everything needs SETUP.)
+**Step 2 — Identify Dependencies:** which categories depend on others? (SOCIAL needs CONTENT; CONTENT needs AUTH; everything needs SETUP.)
 
-**Step 3 — Create Delivery Boundaries:** each phase delivers a coherent, verifiable capability. Good: completes a requirement area, enables a user workflow end-to-end, unblocks the next phase. Bad: arbitrary technical layers (all models, then all APIs), partial features (half of auth), artificial splits to hit a number.
+**Step 3 — Create Delivery Boundaries:** each phase delivers a coherent, verifiable capability. Good: completes a requirement category, enables a user workflow end-to-end, unblocks the next phase. Bad: arbitrary technical layers (all models, then all APIs), partial features (half of auth), artificial splits to hit a number.
 
 **Step 4 — Assign Requirements:** map every v1 requirement to exactly one phase, track coverage.
 
@@ -218,9 +218,9 @@ Orchestrator presents this roadmap and collects approval/feedback; revisions app
 Orchestrator provides: the roadmapper pack (`specforge context gsd/roadmapper <project>`: the project, its decisions, the requirements with REQ-IDs, the project research and its summary if any, the milestones); in `/gsd:new-milestone`, a `<requirements>` block with the milestone, its goal and the new v1 requirements to record with the phases; config.json (granularity). Parse and confirm understanding before proceeding.
 
 ## Step 2: Extract Requirements
-From the pack's requirements (and the handed-over ones): count total v1 requirements, extract areas, build ID list.
+From the pack's requirements (and the handed-over ones): count total v1 requirements, extract categories, build ID list.
 ```
-Areas: 4
+Categories: 4
 - Authentication: 3 (AUTH-01..03)
 - Profiles: 2 (PROF-01..02)
 - Content: 4 (CONT-01..04)

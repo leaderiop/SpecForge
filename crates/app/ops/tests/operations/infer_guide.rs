@@ -33,10 +33,7 @@ fn project_of(source: &str, declarations: Vec<ExtensionDeclaration>) -> Assemble
     Assembled::over(build_registries(declarations)).source(source)
 }
 
-#[specforge_test(
-    behavior = "compute_inference_guide",
-    verify = "a kind's guide is its extension's guide, then the project's guide for the kind under Project-specific"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn a_guide_is_the_extension_s_then_the_project_s() {
     let project = Assembled::assembling(|root| {
         Environment::assemble(
@@ -69,10 +66,7 @@ fn a_guide_is_the_extension_s_then_the_project_s() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_inference_guide",
-    verify = "a kind only the project guides has the project's guide alone, and one nobody guides an empty guide"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn a_kind_without_an_extension_guide_has_the_project_s_alone() {
     let project = Assembled::assembling(|root| {
         Environment::assemble(
@@ -96,10 +90,7 @@ fn a_kind_without_an_extension_guide_has_the_project_s_alone() {
     assert_eq!(guide.conventions, None);
 }
 
-#[specforge_test(
-    behavior = "compute_inference_guide",
-    verify = "a kind guide lists every field registered on the kind, by name, with its type"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn a_kind_guide_lists_every_registered_field() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/soft", "1.0.0"));
     c.kind("behavior", |k| {
@@ -126,10 +117,7 @@ fn a_kind_guide_lists_every_registered_field() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_inference_guide",
-    verify = "the example entity writes its required fields and three optional ones, each the way its type is written"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn the_example_writes_each_field_by_its_type() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/soft", "1.0.0"));
     c.kind("widget", |k| {
@@ -187,10 +175,7 @@ fn the_example_writes_each_field_by_its_type() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_inference_guide",
-    verify = "a kind declared by two extensions is guided by the one that registered it"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn a_kind_declared_twice_is_guided_by_the_first() {
     let project = project_of(
         "",
@@ -209,10 +194,7 @@ fn a_kind_declared_twice_is_guided_by_the_first() {
     assert_eq!(guide.kinds[0].extension, "@t/first");
 }
 
-#[specforge_test(
-    behavior = "compute_inference_guide",
-    verify = "the guide's spec directory is the project's spec root, relative to its root"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn the_spec_directory_is_the_spec_root_relative_to_the_root() {
     let rooted = |config: serde_json::Value| {
         Assembled::assembling(|root| {
@@ -237,10 +219,7 @@ fn the_spec_directory_is_the_spec_root_relative_to_the_root() {
     assert_eq!(guide(&rootless).spec_directory, "./");
 }
 
-#[specforge_test(
-    behavior = "compute_inference_guide",
-    verify = "the guide lists each loaded extension, every declared kind in declaration order, and the entities of every written kind"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn the_guide_lists_extensions_kinds_and_entities() {
     let project = project_of(
         "behavior zeta \"Z\" {\n}\nbehavior alpha \"A\" {\n}\nwidget w \"W\" {\n}\n",
@@ -265,10 +244,7 @@ fn the_guide_lists_extensions_kinds_and_entities() {
     assert_eq!(json["existing_entity_ids"], json!(["alpha", "zeta"]));
 }
 
-#[specforge_test(
-    behavior = "compute_inference_guide",
-    verify = "the guide lists no kind a collector writes"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn a_collected_kind_is_not_a_kind_to_infer() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/code", "1.0.0"));
     c.kind("package", |k| {
@@ -284,10 +260,7 @@ fn a_collected_kind_is_not_a_kind_to_infer() {
     assert_eq!(kinds, ["behavior"]);
 }
 
-#[specforge_test(
-    behavior = "compute_inference_guide",
-    verify = "a guide field lists an enum's values and what an absent value counts as"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn a_guide_field_lists_an_enums_values_and_its_default() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/soft", "1.0.0"));
     c.kind("gadget", |k| {
@@ -315,10 +288,9 @@ fn a_guide_field_lists_an_enums_values_and_its_default() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "an argument naming an undeclared kind is refused with unknown_kind naming the closest declared kind"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn kind_guide_refuses_an_undeclared_kind() {
     let project = project_of("", vec![extension("@t/soft", &[("behavior", None)])]);
     let error = kind_guide(&project.view(), "behaviour").unwrap_err();
@@ -354,10 +326,7 @@ fn plan_kinds(project: &Assembled) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_infer_plan_scope",
-    verify = "plan lists kinds with no entities first, then each kind after the kinds it references"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn kinds_are_ordered_by_what_they_reference() {
     // behavior -> event, type; event -> type; one behavior is written.
     let project = project_of(
@@ -412,10 +381,7 @@ fn sources(files: &[String], manifest: Option<serde_json::Value>) -> Assembled {
     project
 }
 
-#[specforge_test(
-    behavior = "provide_infer_plan_scope",
-    verify = "plan excludes already-analyzed files"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn the_plan_excludes_analyzed_files() {
     let project = sources(
         &["src/a.rs".to_string(), "src/b.rs".to_string()],
@@ -435,10 +401,7 @@ fn the_plan_excludes_analyzed_files() {
     assert_eq!(plan.progress.summary.files_analyzed, 1);
 }
 
-#[specforge_test(
-    behavior = "provide_infer_plan_scope",
-    verify = "plan's target directory defaults to the project's spec root"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn the_plan_targets_the_spec_root_unless_told() {
     let project = Assembled::assembling(|root| {
         Environment::assemble(
@@ -462,10 +425,7 @@ fn the_plan_targets_the_spec_root_unless_told() {
     assert_eq!(told.target_spec_directory, "specs/");
 }
 
-#[specforge_test(
-    behavior = "provide_infer_plan_scope",
-    verify = "plan pages the file lists 50 at a time from the cursor"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn the_plan_pages_its_file_lists() {
     let files: Vec<String> = (0..60).map(|i| format!("src/mod_{i:02}.rs")).collect();
     let project = sources(&files, None);
@@ -491,10 +451,7 @@ fn the_plan_pages_its_file_lists() {
     assert_eq!(second.next_cursor, None);
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn an_unknown_kind_guide_is_about_its_kind() {
     use specforge_ops::read::infer::KindGuideField;
     let project = project_of("", vec![extension("@t/soft", &[("behavior", None)])]);

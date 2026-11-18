@@ -1,15 +1,15 @@
-//! The requirement thread's gap rules. Three are off in gsd-compat and switched by their `specforge.*` setting
-//! (ADR 0351): `gsd/E519`, a truth of a phase's plan proves one of its plan's requirements; `gsd/W520`, a complete
-//! plan's commits touched every path it planned and the files it deletes are gone; `gsd/E521`, a task commit names its
-//! task by its `Gsd-Task:` trailer. `gsd/W522` is on under every profile (ADR 0352 D7): a code item a task or a commit
-//! names is anchored by a plan that reaches a requirement.
+//! The requirement thread's gap rules. Two are off in gsd-compat and switched by their `specforge.*` setting
+//! (ADR 0351): `gsd/W520`, a complete plan's commits touched every path it planned and the files it deletes are gone;
+//! `gsd/E521`, a task commit names its task by its `Gsd-Task:` trailer. `gsd/W522` is on under every profile (ADR 0352
+//! D7, amended by ADR 0371 D6): a code item a recorded commit changed is anchored by a plan that reaches a requirement
+//! through its `requirements`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_extension_sdk::prelude::*;
 
 use super::commits::{CommitType, commits};
-use super::plans::{children, link, links, of_kind, phase_of, strings, text};
+use super::plans::{children, links, of_kind, phase_of, strings, text};
 use crate::collectors::LinkedBy;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -24,52 +24,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
 }
 
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
-    let mut found = truth_requirements(input);
-    found.extend(plan_paths(input));
+    let mut found = plan_paths(input);
     found.extend(task_trailers(input));
     found.extend(anchored_items(input));
     found
-}
-
-/// E519, on the truth: a truth whose plan is in a phase (not a quick plan) names a requirement, and one its plan
-/// claims in `requirements`.
-fn truth_requirements(input: &PassInput) -> Vec<PassDiagnostic> {
-    of_kind(input, "truth")
-        .filter_map(|truth| {
-            let plan = input
-                .entities
-                .iter()
-                .find(|e| Some(e.id.as_str()) == link(input, truth, "plan"))?;
-            link(input, plan, "phase")?;
-            let (message, suggestion) = match link(input, truth, "requirement") {
-                None => (
-                    format!("truth '{}' names no requirement it proves", truth.id),
-                    "set its requirement to the one of its plan's requirements it proves".to_string(),
-                ),
-                Some(requirement) => {
-                    let claimed: BTreeSet<&str> =
-                        links(input, plan, "requirements").into_iter().collect();
-                    if claimed.contains(requirement) {
-                        return None;
-                    }
-                    (
-                        format!(
-                            "truth '{}' proves '{requirement}', which is not a requirement of plan '{}'",
-                            truth.id, plan.id
-                        ),
-                        format!(
-                            "name one of the plan's requirements, or add '{requirement}' to the plan's requirements"
-                        ),
-                    )
-                }
-            };
-            Some(
-                PassDiagnostic::new("E519", PassSeverity::Error, message)
-                    .with_suggestion(suggestion)
-                    .with_entity(&truth.id),
-            )
-        })
-        .collect()
 }
 
 /// A path as a plan writes it, compared as the commits' are: trimmed, a leading `./` dropped.
@@ -185,35 +143,23 @@ fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// W522, on the first anchoring task by id (else commit): an item that `task.items` (its plan the task's) or
-/// `commit.items_changed` (the commit's plan) names, whose anchors in a phase's plan all sit in plans that reach no
-/// requirement: none of their `requirements` resolves to one, and no truth of theirs names one that resolves. Anchors
-/// in a quick plan are dropped; an item with none left is not judged. The item need not be held.
+/// W522, on the first anchoring commit by id (ADR 0371 D6, amending ADR 0352 D7): an item that a recorded commit's
+/// `items_changed` names, whose anchoring commits in a phase's plan all belong to plans that reach no requirement: none
+/// of their `requirements` resolves to one. Commits of a quick plan are dropped, and an item with none left is not
+/// judged. A commit whose `items_changed` is unwritten anchors nothing. The item need not be held.
 fn anchored_items(input: &PassInput) -> Vec<PassDiagnostic> {
-    let is = |id: &str, kind: &str| input.entities.iter().any(|e| e.id == id && e.kind == kind);
-    let requirement = |id: Option<&str>| id.is_some_and(|r| is(r, "requirement"));
     let reaches = |plan: &str| {
         of_kind(input, "plan").filter(|p| p.id == plan).any(|p| {
-            links(input, p, "requirements")
-                .into_iter()
-                .any(|r| requirement(Some(r)))
-        }) || of_kind(input, "truth").any(|t| {
-            link(input, t, "plan") == Some(plan) && requirement(link(input, t, "requirement"))
+            links(input, p, "requirements").into_iter().any(|r| {
+                input
+                    .entities
+                    .iter()
+                    .any(|e| e.id == r && e.kind == "requirement")
+            })
         })
     };
-    // Each item's anchors: (a commit's, the anchoring entity, its plan); a task sorts before a commit.
-    let mut anchors: BTreeMap<String, Vec<(bool, &str, &str)>> = BTreeMap::new();
-    for task in of_kind(input, "task") {
-        let Some(plan) = link(input, task, "plan") else {
-            continue;
-        };
-        for item in strings(task, "items") {
-            anchors
-                .entry(item)
-                .or_default()
-                .push((false, &task.id, plan));
-        }
-    }
+    // Each item's anchors: (the anchoring commit, its plan).
+    let mut anchors: BTreeMap<String, Vec<(&str, &str)>> = BTreeMap::new();
     let recorded = commits(input);
     for commit in &recorded {
         let Some(plan) = commit.plan.as_deref() else {
@@ -223,18 +169,18 @@ fn anchored_items(input: &PassInput) -> Vec<PassDiagnostic> {
             anchors
                 .entry(item.clone())
                 .or_default()
-                .push((true, &commit.id, plan));
+                .push((&commit.id, plan));
         }
     }
     anchors
         .into_iter()
         .filter_map(|(item, mut found)| {
-            found.retain(|(_, _, plan)| phase_of(input, plan).is_some());
-            if found.is_empty() || found.iter().any(|(_, _, plan)| reaches(plan)) {
+            found.retain(|(_, plan)| phase_of(input, plan).is_some());
+            if found.is_empty() || found.iter().any(|(_, plan)| reaches(plan)) {
                 return None;
             }
             found.sort();
-            let plans: BTreeSet<&str> = found.iter().map(|(_, _, plan)| *plan).collect();
+            let plans: BTreeSet<&str> = found.iter().map(|(_, plan)| *plan).collect();
             let named: Vec<String> = plans.iter().map(|p| format!("'{p}'")).collect();
             let (noun, verb) = if plans.len() == 1 {
                 ("plan", "reaches")
@@ -250,10 +196,8 @@ fn anchored_items(input: &PassInput) -> Vec<PassDiagnostic> {
                         named.join(", ")
                     ),
                 )
-                .with_suggestion(
-                    "name the requirement it delivers in the plan's requirements, or a truth's requirement",
-                )
-                .with_entity(found[0].1),
+                .with_suggestion("name the requirement it delivers in the plan's requirements")
+                .with_entity(found[0].0),
             )
         })
         .collect()

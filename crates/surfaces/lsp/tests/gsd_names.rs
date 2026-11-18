@@ -16,10 +16,7 @@ fn prepared(text: &str, at: Position) -> Option<(Position, Position)> {
     }
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename ranges a name holding a dash or a dot whole"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn prepare_rename_ranges_a_gsd_name_whole() {
     for (name, end) in [("AUTH-01", 12), ("v1.0", 9), ("03-02", 10)] {
         let text = format!("type {name} \"T\" {{\n}}\n");
@@ -31,10 +28,7 @@ fn prepare_rename_ranges_a_gsd_name_whole() {
     }
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "an entity named with digits only is a name to the editor"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn an_all_digit_entity_name_is_a_name_to_the_editor() {
     assert_eq!(
         prepared("type 03 \"T\" {\n}\n", Position::new(0, 6)),
@@ -42,10 +36,7 @@ fn an_all_digit_entity_name_is_a_name_to_the_editor() {
     );
 }
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "go-to-definition follows a number written in a field that names entities"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn a_number_in_a_reference_field_navigates_to_its_entity() {
     let text = "ticket 10 \"A\" {\n}\nticket t \"B\" {\n  parent 10\n  deps [10]\n}\n";
     let served = Served::new(&[("main.spec", text)])
@@ -70,10 +61,7 @@ fn a_number_in_a_reference_field_navigates_to_its_entity() {
     }
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "hover shows an integer field's value beside the word it was written as when they differ"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn hover_shows_an_integer_field_value_beside_its_written_word() {
     let text = "ticket tt \"B\" {\n  points 2-1\n  more 5\n}\n";
     let served = Served::new(&[("main.spec", text)])

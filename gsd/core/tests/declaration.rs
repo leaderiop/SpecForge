@@ -20,9 +20,9 @@ fn the_handshake_names_gsd_core_and_its_tracked_release() {
     );
 }
 
-/// A truth's `proof` names `@code/core`'s test facts (ADR 0331 D2), and a project works without them: the peer is
-/// optional, so `specforge add @gsd/core` does not enable it and a project without it is no W021. A path field
-/// needs `@specforge/checks`, a required peer.
+/// `@code/core`'s test facts are read by the requirement thread and E501's truth input (ADR 0371 D5), and a project
+/// works without them: the peer is optional, so `specforge add @gsd/core` does not enable it and a project without it
+/// is no W021. A path field needs `@specforge/checks`, a required peer.
 #[test]
 fn the_handshake_names_code_core_as_an_optional_peer() {
     let host = MockHost::new(build());
@@ -162,7 +162,7 @@ fn the_code_book_matches_rules_md() {
         from_book, from_md,
         "the code book and rules.md list different codes"
     );
-    assert_eq!(book.len(), 77);
+    assert_eq!(book.len(), 69);
     for row in &rows {
         let code = book
             .iter()
@@ -225,7 +225,7 @@ fn the_kinds_golden() {
     );
 }
 
-/// ADR 0331 D8: the one route, `gsd/requirement-thread` once qualified by the short name, as `specforge trace` follows
+/// ADR 0331 D8, ADR 0371 D7: the one route, `gsd/requirement-thread` once qualified by the short name, as `specforge trace` follows
 /// it from a requirement.
 #[test]
 fn the_requirement_route_is_declared() {
@@ -233,18 +233,22 @@ fn the_requirement_route_is_declared() {
         describe("routes")["items"],
         serde_json::json!([{
             "name": "requirement-thread",
-            "description": "A requirement's thread: its plans, tasks, their code items and commits, proving tests and truths",
+            "description": "A requirement's thread: its plans, tasks, their commits and the code items they changed, the plans' truths, and its summaries' coverage items",
             "start": "requirement",
+            "annotations": [
+                {"field": "proof"},
+                {"field": "status", "of": "<test.names"},
+            ],
             "steps": [
                 {"name": "plan", "via": "<plan.requirements", "label": "plan"},
                 {"name": "task", "via": "<task.plan"},
-                {"name": "item", "via": ".items"},
                 {"name": "commit", "via": "<commit.task", "from": "task",
                     "annotations": [{"field": "linked_by"}]},
-                {"name": "test", "via": "<truth.requirement.proof", "from": "start",
-                    "annotations": [{"field": "status", "absent": "not run"}]},
-                {"name": "truth", "via": "<truth.requirement", "from": "start",
+                {"name": "item", "via": ".items_changed"},
+                {"name": "truth", "via": "<truth.plan", "from": "plan",
                     "annotations": [{"judgement": "E501"}]},
+                {"name": "deliverable", "via": "<deliverable.requirement", "from": "start",
+                    "label": "deliverable", "annotations": [{"field": "checks.ref"}]},
             ]
         }])
     );

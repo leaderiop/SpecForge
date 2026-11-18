@@ -51,7 +51,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::graph::find_kind;
 // A task title is compared as GSD compares a task description (trimmed, case-folded, whitespace runs collapsed):
-// the glossary's fold, the one reading of a word or phrase.
+// `passes::words`'s fold, the one reading of a word or phrase.
 use crate::passes::words::folded;
 use crate::time::utc;
 

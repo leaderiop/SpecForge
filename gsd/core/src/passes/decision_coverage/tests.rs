@@ -12,34 +12,76 @@ fn entity(id: &str, kind: &str, fields: &[(&str, &str)]) -> PassEntity {
     }
 }
 
-/// Phase `v/1` with its verification at `status`, and one plan at `plan_status` that lists `v/1/D-03` when `listed`;
-/// its summary names D-03 and its commit's subject says the decision's words.
-fn input(status: &str, listed: bool, plan_status: &str) -> PassInput {
-    let mut edges = vec![PassEdge {
-        source: "v/1/1-VERIFICATION".into(),
-        target: "v/1".into(),
-        label: "phase".into(),
-    }];
-    if listed {
-        edges.push(PassEdge {
-            source: "v/1/1-01".into(),
-            target: "v/1/D-03".into(),
-            label: "decisions".into(),
-        });
+fn edge(source: &str, target: &str, label: &str) -> PassEdge {
+    PassEdge {
+        source: source.into(),
+        target: target.into(),
+        label: label.into(),
     }
+}
+
+/// Where the phase's one plan cites `D-03`, if anywhere.
+#[derive(Clone, Copy, PartialEq)]
+enum Cited {
+    Nowhere,
+    Plan,
+    Summary,
+    Item,
+    Deviation,
+    Commit,
+}
+
+/// Phase `v/1` with its verification at `status`, and one plan at `plan_status` with its summary, a coverage item, a
+/// deviation and a recorded commit; `cited` says which of them writes `D-03`. The summary repeats the decision's words
+/// either way.
+fn input(status: &str, cited: Cited, plan_status: &str) -> PassInput {
+    let says = |place: Cited, text: &str| {
+        if cited == place {
+            format!("{text} (D-03)")
+        } else {
+            text.to_string()
+        }
+    };
+    let edges = vec![
+        edge("v/1/1-VERIFICATION", "v/1", "phase"),
+        edge("abc123def456", "v/1/1-01", "plan"),
+    ];
     PassInput {
         entities: vec![
             entity("v/1", "phase", &[]),
-            entity("v/1/1-01", "plan", &[("status", plan_status)]),
+            entity(
+                "v/1/1-01",
+                "plan",
+                &[
+                    ("status", plan_status),
+                    ("objective", &says(Cited::Plan, "Log the retries")),
+                ],
+            ),
             entity(
                 "v/1/1-01/1-01-SUMMARY",
                 "summary",
-                &[("one_liner", "Implements D-03")],
+                &[(
+                    "one_liner",
+                    &says(Cited::Summary, "Log every retry with its reason"),
+                )],
             ),
             entity(
-                "v/1/1-01/abc",
+                "v/1/1-01/1-01-SUMMARY/D1",
+                "deliverable",
+                &[("description", &says(Cited::Item, "The retry log"))],
+            ),
+            entity(
+                "v/1/1-01/1-01-SUMMARY/DV1",
+                "deviation",
+                &[("description", &says(Cited::Deviation, "Log moved"))],
+            ),
+            entity(
+                "abc123def456",
                 "commit",
-                &[("subject", "feat(1-01): log every retry with its reason")],
+                &[(
+                    "subject",
+                    &says(Cited::Commit, "feat(1-01): log every retry"),
+                )],
             ),
             entity("v/1/1-VERIFICATION", "verification", &[("status", status)]),
             entity(
@@ -59,71 +101,59 @@ fn input(status: &str, listed: bool, plan_status: &str) -> PassInput {
 
 #[test]
 fn a_decision_nothing_shipped_is_w506_on_the_decision() {
-    let found = check(&input("passed", false, "complete"));
+    let found = check(&input("passed", Cited::Nowhere, "complete"));
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].code, "W506");
     assert_eq!(found[0].entity.as_deref(), Some("v/1/D-03"));
     assert_eq!(
         found[0].message,
-        "decision 'v/1/D-03' of verified phase 'v/1' is listed by no complete plan of the phase"
+        "decision 'v/1/D-03' of verified phase 'v/1' is cited by no complete plan of the phase, its summaries or its commits"
     );
 }
 
 #[test]
-fn w506_a_complete_plan_listing_the_decision_covers_it() {
-    assert!(check(&input("passed", true, "complete")).is_empty());
-    assert_eq!(check(&input("passed", true, "halted")).len(), 1);
+fn w506_a_complete_plan_citing_the_decision_covers_it() {
+    for cited in [
+        Cited::Plan,
+        Cited::Summary,
+        Cited::Item,
+        Cited::Deviation,
+        Cited::Commit,
+    ] {
+        assert!(check(&input("passed", cited, "complete")).is_empty());
+        // A plan that is not complete ships nothing, whatever cites it.
+        assert_eq!(check(&input("passed", cited, "halted")).len(), 1);
+    }
 }
 
 #[test]
 fn a_phase_not_verified_is_not_judged() {
-    assert!(check(&input("gaps_found", false, "complete")).is_empty());
-    assert!(check(&input("pending", false, "complete")).is_empty());
+    assert!(check(&input("gaps_found", Cited::Nowhere, "complete")).is_empty());
+    assert!(check(&input("pending", Cited::Nowhere, "complete")).is_empty());
 }
 
-/// A verified phase's decision another decision supersedes needs no complete plan that lists it; the one that
-/// supersedes it does.
+/// A verified phase's context decision a later decision says it reverses is still W506 until a complete plan cites
+/// it: a decision has no supersession, so the later one, cited, covers only itself.
 #[test]
-fn a_superseded_decision_is_not_w506() {
-    let mut superseded = input("passed", false, "complete");
-    superseded
+fn every_context_decision_is_w506_with_no_supersession() {
+    let mut reversed = input("passed", Cited::Nowhere, "complete");
+    reversed.entities.push(entity(
+        "v/1/D-05",
+        "decision",
+        &[
+            ("origin", "context"),
+            ("settled", "true"),
+            ("text", "Supersedes D-03: a retry is not logged"),
+        ],
+    ));
+    let plan = reversed
         .entities
-        .push(entity("v/1/D-05", "decision", &[("origin", "context")]));
-    superseded.edges.push(PassEdge {
-        source: "v/1/D-05".into(),
-        target: "v/1/D-03".into(),
-        label: "supersedes".into(),
-    });
-    let found = check(&superseded);
-    assert_eq!(found.len(), 1, "{found:?}");
-    assert_eq!(found[0].entity.as_deref(), Some("v/1/D-05"));
-    superseded.edges.push(PassEdge {
-        source: "v/1/1-01".into(),
-        target: "v/1/D-05".into(),
-        label: "decisions".into(),
-    });
-    assert!(check(&superseded).is_empty());
-}
-
-/// An executor's `summary` decision that supersedes a context decision, settled or not, does not retire it: W506
-/// still asks whether it shipped. A decision taken with the user (`origin context`) does retire it.
-#[test]
-fn a_summary_decision_does_not_retire_a_context_one_for_w506() {
-    let mut locked = input("passed", false, "complete");
-    locked.edges.push(PassEdge {
-        source: "v/1/D-04".into(),
-        target: "v/1/D-03".into(),
-        label: "supersedes".into(),
-    });
-    let found = check(&locked);
+        .iter_mut()
+        .find(|e| e.id == "v/1/1-01")
+        .expect("the plan");
+    plan.fields
+        .insert("objective".into(), "Implement D-05".into());
+    let found = check(&reversed);
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(found[0].entity.as_deref(), Some("v/1/D-03"));
-    for decision in &mut locked.entities {
-        if decision.id == "v/1/D-04" {
-            decision.fields.insert("origin".into(), "context".into());
-        }
-    }
-    let found = check(&locked);
-    assert_eq!(found.len(), 1, "{found:?}");
-    assert_eq!(found[0].entity.as_deref(), Some("v/1/D-04"));
 }

@@ -1,9 +1,13 @@
 # GSD A/B protocol (proof lane)
 
-**Status:** v2, a draft (`tasks.json` version `gsd-ab-v2`). v1 is frozen by the tag `gsd-ab-v1`, which the owner sets
-at v1's gate A on a commit before this version. v2 adds arm Bv1, arm B as that tag froze it, and the measure M7 of the
-context an executor starts on. It is reviewed at its own gate A ([REVIEW.md](REVIEW.md)), then tagged `gsd-ab-v2`
-(section 10). A change after a tag is a new version, and the report says so.
+**Status:** v3, a draft (`tasks.json` version `gsd-ab-v3`). v1 is frozen by the tag `gsd-ab-v1`, which the owner sets
+at v1's gate A on a commit before this version. v2 added arm Bv1, arm B as that tag froze it, and the measure M7 of
+the context an executor starts on; it was never tagged (`git tag -l 'gsd-ab*'` lists `gsd-ab-v1` alone), so v3 carries
+its additions. v3 changes the thread's signals: S1 is retired, S5 and S6 are signalled by the coverage check that
+names the failed or deleted test, H2 is re-registered over S5 and S6, and the requirement's B read finds its truths
+through the plans that list it (sections 1 and 5). It is reviewed at its own gate A ([REVIEW.md](REVIEW.md)), then
+tagged `gsd-ab-v3` (section 10). A change after a tag is a new version, and the report says so. A v2 run file does not
+score against v3.
 
 This is the pre-registered protocol of the A/B the build plan's gate B reads: does an agent that keeps its project
 state in a checked graph do better than one that keeps it in Markdown? The files beside this one are the corpus
@@ -17,9 +21,12 @@ committed.
   state drift (M2), without costing more than 10% in tokens per completed plan (M4).
 - **H2 (secondary, the requirement thread).** The requirement thread helps an agent: arm B beats arm B0 on false "verified"
   for the defects the thread exists to catch, counted alone (M3 over those, `M3_thread`). They are the defects marked
-  `"thread": true` in `tasks.json#defects`: S1, S5 and S6, whose signals read the test facts B0 lacks. H2 is reported
-  and gates nothing. S4 is not a thread defect: B0 keeps `gsd/E521` (it reads commits, not test facts) and reports
-  it as B does.
+  `"thread": true` in `tasks.json#defects`: S5 and S6, whose signal, `gsd/W408` on the deliverable whose check names
+  the failed or deleted test, reads the status of that check, which only a collected test fact gives. B0 has no test
+  facts, so B can report S5 and S6 and B0 cannot. v3 re-registers H2 over these two (v2 counted S1, S5 and S6; v3
+  retires S1, section 5): a change of the registered hypothesis's defect set, which the version records. Its claim
+  and its gate are otherwise unchanged: H2 is reported and gates nothing. S4 is not a thread defect: B0 keeps
+  `gsd/E521` (it reads commits, not test facts) and reports it as B does.
 - **H3 (the context compiler's hypothesis).** 30% fewer context tokens per executor spawn: arm B's `gsd-executor`
   spawns start on at most 0.70 of arm Bv1's context (M7). H3 is reported and gates nothing.
 
@@ -28,23 +35,24 @@ committed.
 Same model, same temperature, same tool budget, same task prompts. The prompt is `prompts/<arm>.md` with the task's
 `prompt` in place of `{task.prompt}` and its workflow's `RESULT:` values in place of `{task.results}`, as `seed.py
 prompt` prints it: the four files are one text except their commands block (between `<!-- commands -->` and
-`<!-- /commands -->`), which names the arm's tools (B0's is B's, and Bv1's file is B's byte for byte), and all end asking for one `RESULT:` line, whose
+`<!-- /commands -->`), which names the arm's tools (B0's is B's, and Bv1's file is B's byte for byte, though its binary's `trace` is the tag's), and all end asking for one `RESULT:` line, whose
 value is the run's `final_report`. `tasks.json#results` gives each workflow's values, what each means, and whether it
 claims the work done (`complete` for execute, `verified` for verify, `passed` for progress/resume and ship). Each arm's configuration is frozen in `tasks.json#arms`
 (`config`: the extensions by name, whether the fixture's thread packs load, the settings; `drop`: the fixture's paths
 the arm does not see), and `seed.py` writes it into every copy.
 
-No configuration turns the route off: `@gsd/core` declares it whatever is loaded. What B0 lacks is what the route's
-`item` and `test` steps read, and what `code/E101` and `gsd/E501`'s `tests` input read. So in B0 a verifier verdict
-recorded over tests reads stale from the start (its `tests` input reads none), on the seeded and the unseeded copy
-alike: it is no signal of a seed.
+No configuration turns the route off: `@gsd/core` declares it whatever is loaded. What B0 lacks is the test facts:
+what the route's `item` step and the start's tagged-test annotation read, what `gsd/E501`'s `tests` input reads, and
+the status of each check of a summary's coverage item, so `gsd/W408` has no check to judge and reports nothing. No
+fixture's verdict is recorded over tests (no fixture test names a truth, so every verdict's `tests` input reads none),
+and B0's missing facts stale none of them.
 
 | Arm | State | Tools |
 |---|---|---|
 | **A** | gsd-core 1.19.0: `.planning/` Markdown | `gsd-tools` |
 | **B** | SpecForge `@gsd/core` with the gsd-strict profile and `specforge.task_trailers` on (E521: a task commit links its task by a `Gsd-Task:` trailer): the `.spec` graph | `specforge` CLI and MCP, `collect`, `trace <requirement>` |
-| **Bv1** | arm B as the tag `gsd-ab-v1` froze it: the fixtures' trees, the `@gsd/*` components and the `specforge` binary built from the tag, with v2's tasks, seeds, prompt (B's) and measures | as B, with its own binary |
-| **B0** | B without the test facts: no `@code/core` and no pack that writes its facts (the fixture's `thread` in `tasks.json`), so no test or item facts and no `proof` links. The requirement route is `@gsd/core`'s and stays: `trace` follows it with its `item` and `test` steps skipped (`I210`) | as B |
+| **Bv1** | arm B as the tag `gsd-ab-v1` froze it: the fixtures' trees, the `@gsd/*` components and the `specforge` binary built from the tag, with the current version's tasks, seeds, prompt (B's) and measures | as B, with its own binary |
+| **B0** | B without the test facts: no `@code/core` and no pack that writes its facts (the fixture's `thread` in `tasks.json`), so no test or item facts, no tagged test and no status for a coverage item's check. The requirement route is `@gsd/core`'s and stays: `trace` follows it with its `item` step and the start's tagged-test annotation skipped (`I210`) | as B |
 
 ## 3. Fixtures
 
@@ -77,37 +85,53 @@ copy of the fixture, never in the committed one.
 
 | Id | Defect | B's signal | When |
 |---|---|---|---|
-| S1 | a test that never ran: a must-have or verdict claims a test that is not in the run | `code/E101` on the truth | `complete` on taskboard and ledger, whose cited truth is of the plan the run executes; `seed` on vault, whose cited truth's plan is already complete |
 | S2 | a requirement id that does not exist (`requirements [TASK-09]`) | `E003` | `seed` |
 | S3 | a status written ahead of the work: phase 02 marked complete before its plan ran | `E082` | `seed` |
 | S4 | a commit trailer naming a task that does not exist: `Gsd-Task: 01-01/T9` under GSD's subject `feat(01-01): <T1's title>` | `gsd/E521` on the commit (its task found by the subject's title, not by the trailer) | `seed`, after `collect` |
-| S5 | a truth verified over a failing proof | `code/W401` on the truth: a complete entity links a failed test | `seed`, after `collect` |
-| S6 | a proof naming a deleted test | `code/E101` | `seed` |
+| S5 | a truth verified over a failing test: a test file's edit makes a test fail in the recorded run | `gsd/W408` on the deliverable whose check names the failed test | `seed`, after `collect` |
+| S6 | a coverage check naming a deleted test: a test is deleted and the recorded run no longer holds it | `gsd/W408` on the deliverable whose check names the deleted test | `seed`, after `collect` |
+
+S1 (a test that never ran) is retired in v3, the one row of `tasks.json#retired`: no gsd entity holds an authored
+reference to a test any more, and the coverage item that could name a test absent from the run is written by the run
+itself (the execute task's summary), so there is nothing to seed before the run. S5 and S6 are seeded only where their
+`gsd/W408` is seed-only: the seeded copy reports it, and the unseeded copy and the seeded copy collected over the
+recorded run unchanged do not. Where it is not, the task does not seed the defect and says so in its `not_seeded`
+entry, with the reason:
+
+| Task | Not seeded | Why |
+|---|---|---|
+| `ledger-verify-01` | S6 | the only deliverable that names `the_total_sums_every_entry` is `01-02-SUMMARY/D1`, and the recorded run already fails its other check, so `gsd/W408` reports it on an unseeded copy |
+| `vault-verify-01` | S5, S6 | the vault twin has no summary coverage item, so no `gsd/W408` can name the failed or deleted test |
+
+`taskboard-verify-01` seeds both, and `ledger-verify-01` seeds S5. A task that stops seeding a defect has the ground
+truth of its unseeded fixture. Nothing is faked to make a seed signal: no fixture gains a field, a tag or a coverage
+item for one.
 
 `tasks.json`'s `b_signals` is the data, per task: the code, the entity, the count and when, and `ab_seeds` is the
 proof: on a copy `seed.py` made, B reports each row's count where the unseeded copy of the same task reports none,
-and B0 reports none of the thread's (`"thread": true`: S1, S5, S6). A seed that changes the test run (S5 fails a
-test, S6 removes one: `run` in its seed) is also checked against its file edit alone: the seeded copy collected over
-the recorded run unchanged reports none of its row, so the signal reads the failed or missing test, not the edited
-file. `seed` means after seeding and a collect; `complete` means only after the task's `completion`, the edits a
-correct run leaves. S1's holder is a truth of the plan the run executes,
-and `@gsd/core` checks what a pending plan cites only once the plan completes: a run that ends with that plan still
-pending has no B signal for S1, and that is correct, since it did not claim the plan complete.
+and B0 reports none of the thread's (`"thread": true`: S5, S6), which the same test checks on the copies of both arms.
+A seed that changes the test run (S5 fails a test, S6 removes one: `run` in its seed) is also checked against its file
+edit alone: the seeded copy collected over the recorded run unchanged reports none of its row, so the signal reads the
+failed or missing test, not the edited file. `seed` means after seeding and a collect. A row may also say `complete`,
+meaning only after the task's `completion`, the edits a correct run leaves (`seed.py seed --state complete`); v3 has
+no task with a `completion` or a `complete` row.
 
 The tests: `gsd/core/tests/cli/ab_seeds.rs` (taskboard and ledger) and `gsd/security/tests/cli/ab_seeds.rs` (vault)
 check the table on every task, `gsd/core/tests/cli/ab_protocol.rs` checks `tasks.json`, the prompts and the fixtures'
 pins and runs both self-tests, and `gsd/core/tests/cli/harness_ab.rs` holds what they share. `cargo gate full --only
 gsd` runs them all, with the components built as [OPERATOR.md](OPERATOR.md) says.
 
-A verdict goes stale when anything it read changes, the cited test file included: S5's and S6's edits to a test file
-stale (`gsd/E501`) the verdicts of every truth that file's tests prove, the seeded truth's among them. That is
-context, not a signal in the table: it fires on a harmless edit to the file as well. The signal is counted on the
-seeded entity, so a row still checks the truth it names; the other stale verdicts are the same on every arm's copy.
+A verdict goes stale when anything it read changes. A failing or missing test stales a truth's verdict only through a
+test that names the truth (a `[gsd:<id>]` tag in its name), and the fixtures' tests name none. S5's and S6's edits to a
+test file do stale (`gsd/E501`, `files changed`) the verdicts of every truth of a plan whose `files_modified` lists that
+file, the seeded deliverable's plan's among them. That is context, not a signal in the table: it fires on a harmless
+edit to the file as well. The signal is counted on the deliverable, which no verdict reads, so a row still checks
+the check it names; the other stale verdicts are the same on every arm's copy.
 
 ## 6. Measures
 
 Per arm, per (task, seed) run. The operator's scripts write a run file (section 7); `score.py` computes M1 to M7:
-v1's fixed set, M1 to M6, and v2's M7 (measures of autonomy may join v2 before its tag, section 10):
+v1's fixed set, M1 to M6, and M7, added in v2 (measures of autonomy may join v3 before its tag, section 10):
 
 | Id | Measure | From the run file |
 |---|---|---|
@@ -177,8 +201,10 @@ any of this, or whose path is not its arm, task and seed.
   no partner is refused, never dropped.
 - Per measure, the paired difference B − A, with a 95% percentile bootstrap interval: 10,000 resamples over tasks, and
   over seeds within each resampled task, with a fixed RNG seed so a report reproduces.
-- H2 is reported the same way: B − B0 on `M3_thread` (false "verified" counting only the thread's defects, S1, S5 and S6), with its
-  interval and whether its upper bound is below 0. It gates nothing.
+- H2 is reported the same way: B − B0 on `M3_thread` (false "verified" counting only the thread's defects, S5 and S6
+  in v3), with its interval and whether its upper bound is below 0. It gates nothing. Only two tasks seed a thread
+  defect (`taskboard-verify-01`: S5 and S6; `ledger-verify-01`: S5), so H2 rests on three seeded defects in two of the
+  twelve tasks, where v2's S1, S5 and S6 were nine in six: the interval is wider, and the report says so.
 - H3 pairs B and Bv1 by (task, seed) where both have M7, takes each pair's ratio M7(B) / M7(Bv1), and bootstraps the
   mean ratio the same way; it is shown when the interval's upper bound is at most 0.70. It gates nothing.
 - The seeds of a task are replicates only when the model samples: the operator fixes `temperature` above 0 for the
@@ -192,8 +218,9 @@ An arm that completed no plan has no M4, and the M4 clause then fails: no eviden
 
 ## 10. Pre-registration
 
-The tag `gsd-ab-v1` is set at v1's gate A, before any run, on the commit the review read; v2's tag `gsd-ab-v2` is set at
-v2's gate A, after `gsd-ab-v1` exists. Each freezes:
+The tag `gsd-ab-v1` is set at v1's gate A, before any run, on the commit the review read; v3's tag `gsd-ab-v3` is set at
+v3's gate A, after `gsd-ab-v1` exists (v2 was never tagged; its additions are v3's). A run of v3 needs both tags: the
+protocol's own, and the earlier one that arm Bv1 reads. Each freezes:
 
 - `evaluation/gsd-ab/`: this README, `tasks.json`, `seed.py`, `score.py`, `prompts/` (A.md, B.md, B0.md, Bv1.md),
   [OPERATOR.md](OPERATOR.md) and [REVIEW.md](REVIEW.md);
@@ -202,17 +229,19 @@ v2's gate A, after `gsd-ab-v1` exists. Each freezes:
   refuses a fixture whose tree at HEAD is not the pinned one; `ab_protocol` fails on a fixture edited after its pin;
 - the components arm B and B0 load, `@gsd/core` and `@gsd/security`, and the `specforge` binary, all built from the
   tagged commit (OPERATOR.md), and gsd-core 1.19.0 for arm A;
-- the measures, M1 to M6 for v1 and M1 to M7 for v2 (section 6), with gate B's rule (section 9);
-- for v2, the reference to the tag Bv1 reads (`tasks.json#arms`, `"tag": "gsd-ab-v1"`).
+- the measures, M1 to M6 for v1 and M1 to M7 from v2 on (section 6), with gate B's rule (section 9);
+- from v2 on, the reference to the tag Bv1 reads (`tasks.json#arms`, `"tag": "gsd-ab-v1"`).
 
 Every run file records its `protocol`: the commit `seed.py seed` reports and `specforge --version`. `score.py`
 refuses a run set that mixes two protocol commits or two `specforge` versions of one build (A, B and B0 share one,
 Bv1 records the tag's), a set whose Bv1 runs record B's, and a run whose copy came from a working tree
 (`seed.py --worktree`, for the tests). A change after the tag, a fixture's included, is a new version, and the report names it.
 
-Open before v2's tag: `gsd-ab-v1` set; Bv1's preflight run on the tag's build (`seed.py preflight --arm Bv1`); the
-autonomy measures and a project from outside may join v2 before its tag, or come in a later version. Open before
-v1's tag, each needing gsd-core 1.19.0 installed (`gsd-tools`, node 24):
+Open before v3's tag: `gsd-ab-v1` set; Bv1's preflight run on the tag's build (`seed.py preflight --arm Bv1`); the
+fixtures' preflight baselines in `tasks.json`, re-recorded on one machine (`seed.py preflight --record`), checked on the
+operator's build (arm B's preflight, OPERATOR.md step 4); the autonomy measures and a project from outside may join v3
+before its tag, or come in a later version.
+Open before v1's tag, each needing gsd-core 1.19.0 installed (`gsd-tools`, node 24):
 
 - the ledger's JSON goldens, recorded by `gsd/parity/record-ledger.sh`, and the comparison of the statuses gsd-tools
   reads from its `.planning/` with the ledger's `.spec` twin;
@@ -228,7 +257,7 @@ v1's tag, each needing gsd-core 1.19.0 installed (`gsd-tools`, node 24):
 | One model | name it; a second model's run is a new version, not a retry |
 | Fixtures written by the authors: all three are | every fixture, seed, completion, acceptance row and prompt is in the tagged commit; each `.planning/` is hand-written from gsd-core's templates; taskboard's and vault's are read by gsd-tools 1.19.0 (the `record*.sh` scripts fail on a verb that errors), the ledger's not yet (its goldens are open, section 10); one fixture (ledger) is red from the start, so a "verified" is false there with no seed. A project from outside, replayed through `@gsd/import`, cannot be in v1: the importer is built after the tag, and arm B's input would come from code the tag does not hold (section 10). It is a threat a later version may close (section 10) |
 | Arm B's prompts are newer than arm A's | both arms' prompts are frozen at gate A (`prompts/`), and each arm's agents and skills come from its release unchanged (gsd-core 1.19.0, `@gsd/core` at the tag) |
-| B and Bv1 start from different fixture trees when v2 moved a pin | Bv1 runs the trees its own build reads (a digest the newer build records would not match the older), so each arm meets the fixture its build was made for; the tag names the trees |
+| B and Bv1 start from different fixture trees when a newer version moved a pin | Bv1 runs the trees its own build reads (a digest the newer build records would not match the older), so each arm meets the fixture its build was made for; the tag names the trees |
 | The operator's hand in interventions | [OPERATOR.md](OPERATOR.md): four reasons, each with its text, logged with its turn and counted in M5; `score.py` refuses any other |
 
 ## Score

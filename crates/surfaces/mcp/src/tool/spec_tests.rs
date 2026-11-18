@@ -94,10 +94,7 @@ impl CoreTool for MutationProbe {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_mcp_tools",
-    verify = "a core tool's spec is derived from its one module: its name, description, effect, arguments, target and reply"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-066")]
 fn a_core_tool_spec_is_derived_from_its_module() {
     let tool = spec(&ReadProbe);
     assert_eq!(tool.name(), "specforge.inspect");
@@ -125,10 +122,7 @@ fn a_core_tool_spec_is_derived_from_its_module() {
     assert_eq!(descriptor.source, CORE_SOURCE);
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_mcp_tools",
-    verify = "a core tool's spec is derived from its one module: its name, description, effect, arguments, target and reply"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-066")]
 fn a_core_tool_runs_its_handler_on_its_input() {
     let tool = spec(&ReadProbe);
     let log = EventLog::new();
@@ -168,10 +162,7 @@ fn a_core_tool_runs_its_handler_on_its_input() {
     assert_eq!(error.message, "unknown argument 'bogus'");
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_mcp_tools",
-    verify = "a core tool's spec is derived from its one module: its name, description, effect, arguments, target and reply"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-066")]
 fn a_refused_mutation_reports_a_failed_mutation() {
     let tool = spec(&MutationProbe);
     assert!(tool.is_mutation());
@@ -233,10 +224,7 @@ fn a_refused_mutation_reports_a_failed_mutation() {
     assert!(log.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_mcp_tools",
-    verify = "every core MCP tool is a row of the engine-tool catalogue, in its order, with its effect and group"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-066")]
 fn the_core_tools_are_the_engine_catalogue() {
     use specforge_protocol_types::engine_tools::ENGINE_TOOLS;
     let core: Vec<&str> = crate::tools::CORE_TOOLS.iter().map(|t| t.name()).collect();

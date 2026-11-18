@@ -8,10 +8,7 @@ use specforge_test::prelude::*;
 use super::declaration;
 use crate::facts::{collect, rfc3339};
 
-#[specforge_test(
-    behavior = "ck_outcome_facts",
-    verify = "the checks collector declares the check_outcomes input and no detection, command or report"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn declares_the_checks_collector_with_no_detection_and_the_check_outcomes_input() {
     let declaration = declaration();
     let collector = declaration
@@ -61,10 +58,7 @@ fn row(
     }
 }
 
-#[specforge_test(
-    behavior = "ck_outcome_facts",
-    verify = "each served row becomes one check_outcome fact, a finding failed and a check not performed skipped"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn each_outcome_row_becomes_one_fact_and_a_finding_is_failed() {
     let input: CollectInput = CollectInput {
         check_outcomes: vec![
@@ -124,10 +118,7 @@ fn each_outcome_row_becomes_one_fact_and_a_finding_is_failed() {
     assert_eq!(one.fields.get("outcome"), Some(&"unreachable:dns".into()));
 }
 
-#[specforge_test(
-    behavior = "ck_outcome_facts",
-    verify = "a planned or closed row becomes no fact"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_planned_or_closed_row_becomes_no_fact() {
     let input = CollectInput {
         check_outcomes: vec![

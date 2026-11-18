@@ -258,7 +258,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("a task list: one item per entry, its list marker and blank lines dropped; attach it with `=`, as a list starts with a hyphen");
             })
             .arg("batch", |a| {
-                a.flag().description("the items are a batch: needs --tasks with at least 2 entries, and each item gains `batch`");
+                a.flag().description("the items are a batch: needs a task list of at least 2 entries, and each item gains `batch`");
             })
             .arg("template", |a| {
                 a.description("the branch template (`git.quick_branch_template`): `{num}` is the id, `{slug}` the slug; empty names no branch");

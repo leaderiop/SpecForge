@@ -83,9 +83,10 @@ fn with(more: &str) -> Project {
     p
 }
 
-fn manual(name: &str, plan: &str) -> String {
+/// An `auto` task of `plan` with its files and an automated verify, so no plan-shape rule fires on the task itself.
+fn auto(name: &str, plan: &str) -> String {
     format!(
-        "task {name} \"Manual {name}\" {{\n  plan   {plan}\n  type   manual\n  action \"Do it by hand\"\n  done   \"Done by hand\"\n}}\n\n"
+        "task {name} \"Auto {name}\" {{\n  plan   {plan}\n  type   auto\n  files  [\"src/tasks.js\"]\n  action \"Do it\"\n  verify [\n    {{ automated \"node --test test/tasks.test.js\" fails_when \"a test fails\" }}\n  ]\n  done   \"Done\"\n}}\n\n"
     )
 }
 
@@ -114,13 +115,13 @@ fn each_plan_shape_code_fires_on_its_fixture() {
     // W304: four children, and E322: five. Never both.
     let four = format!(
         "{}{}",
-        manual("T3", "v1.0/01/01-01"),
-        manual("T4", "v1.0/01/01-01")
+        auto("T3", "v1.0/01/01-01"),
+        auto("T4", "v1.0/01/01-01")
     );
     let p = with(&four);
     assert_eq!(p.codes(), ["gsd/W304"]);
     assert!(only(&p, "gsd/W304").contains("plan 'v1.0/01/01-01' has 4 tasks"));
-    let p = with(&format!("{four}{}", manual("T5", "v1.0/01/01-01")));
+    let p = with(&format!("{four}{}", auto("T5", "v1.0/01/01-01")));
     assert_eq!(p.codes(), ["gsd/E322"]);
     assert!(only(&p, "gsd/E322").contains("plan 'v1.0/01/01-01' has 5 tasks"));
 
@@ -182,7 +183,7 @@ fn each_plan_shape_code_fires_on_its_fixture() {
 
     // ... and after a decision checkpoint (`C1` of plan 01-02 is after T1).
     let p = with(
-        "task T2 \"Irreversible\" {\n  plan          v1.0/01/01-02\n  type          manual\n  reversibility { rating one_way why \"deletes the old file\" }\n  action        \"Delete it\"\n  done          \"Deleted\"\n}\n",
+        "task T2 \"Irreversible\" {\n  plan          v1.0/01/01-02\n  type          auto\n  files         [\"src/complete.js\"]\n  reversibility { rating one_way why \"deletes the old file\" }\n  action        \"Delete it\"\n  verify        [{ automated \"node --test test/tasks.test.js\" fails_when \"a test fails\" }]\n  done          \"Deleted\"\n}\n",
     );
     assert_eq!(p.codes(), CLEAN);
 
@@ -217,8 +218,8 @@ fn each_plan_shape_code_fires_on_its_fixture() {
 }
 
 #[test]
-fn a_manual_task_without_files_and_three_children_are_clean() {
-    let p = with(&manual("T3", "v1.0/01/01-01"));
+fn three_children_are_clean() {
+    let p = with(&auto("T3", "v1.0/01/01-01"));
     assert_eq!(p.codes(), CLEAN);
 }
 
@@ -377,8 +378,8 @@ fn a_version_and_a_hit_its_decision_states_are_not_e312() {
     let p = with(&phase_1_decision("Ship the v1 only"));
     p.edit(
         "spec/plans.spec",
-        "  decisions      [D-01]\n",
-        "  decisions      [D-01, D-02]\n",
+        "in-memory store (D-01)\"",
+        "in-memory store (D-01, D-02)\"",
     );
     p.edit(
         "spec/plans.spec",
@@ -386,17 +387,18 @@ fn a_version_and_a_hit_its_decision_states_are_not_e312() {
         "action \"Tag the v1.0 release in package.json\"",
     );
     assert_eq!(p.codes(), CLEAN);
+    // The plan cites D-02, which says "v1": the hit is excused.
     p.edit(
         "spec/plans.spec",
         "action \"Tag the v1.0 release in package.json\"",
-        "action \"Write src/tasks.js, v1 only, as D-02 settles\"",
+        "action \"Write src/tasks.js, v1 only\"",
     );
     assert_eq!(p.codes(), CLEAN);
-    // Named in the action but not listed, D-02 excuses nothing (and is itself uncovered).
+    // Cited nowhere, D-02 excuses nothing (and is itself uncovered).
     p.edit(
         "spec/plans.spec",
-        "  decisions      [D-01, D-02]\n",
-        "  decisions      [D-01]\n",
+        "in-memory store (D-01, D-02)\"",
+        "in-memory store (D-01)\"",
     );
     assert_eq!(p.codes(), ["gsd/E310", "gsd/E312", "gsd/W317"]);
 }
@@ -435,7 +437,7 @@ fn an_unplanned_phase_is_not_w317() {
     let p = project("plan");
     p.write(
         "spec/third.spec",
-        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  area \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n",
+        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  category \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n",
     );
     assert_eq!(p.codes(), CLEAN);
 }
@@ -463,7 +465,7 @@ fn an_unplanned_phase_is_not_e301() {
     let p = project("plan");
     p.write(
         "spec/third.spec",
-        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  area \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n\ncontext 03-CONTEXT \"Sync context\" {\n  phase v1.0/03\n  gathered 2026-10-28\n  boundary \"Sync\"\n  canonical_refs [{ topic \"No external specs: none\" paths [] }]\n}\n\ndecision D-01 \"Sync by file\" {\n  phase v1.0/03\n  text \"Tasks sync through one shared file\"\n  origin context\n}\n",
+        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  category \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n\ncontext 03-CONTEXT \"Sync context\" {\n  phase v1.0/03\n  gathered 2026-10-28\n  boundary \"Sync\"\n  canonical_refs [{ topic \"No external specs: none\" paths [] }]\n}\n\ndecision D-01 \"Sync by file\" {\n  phase v1.0/03\n  text \"Tasks sync through one shared file\"\n  origin context\n}\n",
     );
     assert_eq!(p.codes(), CLEAN, "an unplanned phase has nothing to cover");
 }
@@ -487,15 +489,22 @@ fn an_uncited_context_decision_is_e310() {
 }
 
 #[test]
-fn a_decision_named_only_in_prose_is_e310() {
-    // A task action names `D-02` and repeats its first six words; only a `decisions` entry covers it.
+fn a_paraphrase_is_no_citation_and_the_id_is_one() {
+    // A task action repeats the decision's first six words: no citation.
     let p = with(&phase_1_decision("Completed tasks move to a done list"));
     p.edit(
         "spec/plans.spec",
         "action \"Write src/complete.js with complete(id)\"",
-        "action \"D-02: completed tasks move to a done list: write src/complete.js\"",
+        "action \"Completed tasks move to a done list: write src/complete.js\"",
     );
     assert_eq!(p.codes(), ["gsd/E310", "gsd/W317"]);
+    // The id in the action cites it, for the gap report too.
+    p.edit(
+        "spec/plans.spec",
+        "action \"Completed tasks move",
+        "action \"D-02: completed tasks move",
+    );
+    assert_eq!(p.codes(), CLEAN);
 }
 
 #[test]
@@ -565,43 +574,4 @@ fn a_coupling_peer_counts_as_the_kernel_resolves_it() {
         ["E003", "gsd/I321"],
         "02-01 resolves to nothing"
     );
-}
-
-#[test]
-fn truth_without_requirement_is_e519_only_when_truth_requirements_is_on() {
-    // The phase plans' truths name no requirement; the quick plan's truth is not judged.
-    let p = project("plan");
-    assert_eq!(p.codes(), CLEAN);
-    p.settings(serde_json::json!({ "specforge.truth_requirements": true }));
-    assert_eq!(p.codes(), ["gsd/E519", "gsd/E519", "gsd/E519"]);
-    assert_eq!(
-        message(&p, "gsd/E519"),
-        "truth 'v1.0/01/01-01/TR1' names no requirement it proves"
-    );
-    p.edit(
-        "spec/plans.spec",
-        "  text         \"A user can add a task and see it listed\"\n",
-        "  text         \"A user can add a task and see it listed\"\n  requirement  TASK-02\n",
-    );
-    let found = p.findings();
-    assert!(
-        found.iter().any(|(c, m)| c == "gsd/E519"
-            && m == "truth 'v1.0/01/01-01/TR1' proves 'TASK-02', which is not a requirement of plan 'v1.0/01/01-01'"),
-        "{found:#?}"
-    );
-    p.edit(
-        "spec/plans.spec",
-        "requirement  TASK-02",
-        "requirement  TASK-01",
-    );
-    assert_eq!(p.codes(), ["gsd/E519", "gsd/E519"]);
-}
-
-#[test]
-fn e519_is_on_under_gsd_plus() {
-    let p = project("plan");
-    p.settings(serde_json::json!({ "profile": "gsd-plus" }));
-    assert!(p.codes().iter().any(|c| c == "gsd/E519"), "{:?}", p.codes());
-    p.settings(serde_json::json!({ "profile": "gsd-strict" }));
-    assert!(!p.codes().iter().any(|c| c == "gsd/E519"));
 }

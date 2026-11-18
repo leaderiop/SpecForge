@@ -327,7 +327,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("remove this phase that has not started, and renumber the later ones");
             })
             .arg("edit", |a| {
-                a.description("edit this phase: --name, --goal, --criteria, --depends-on");
+                a.description("edit this phase: its name, goal, criteria or dependencies");
             })
             .arg("promote", |a| {
                 a.description("promote this backlog phase (999.1) to the next number of the milestone, children included");
@@ -345,7 +345,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("the success criteria, as a JSON list of strings");
             })
             .arg("depends_on", |a| {
-                a.description("what it depends on, as a JSON list of phase numbers (--edit)");
+                a.description("what it depends on, as a JSON list of phase numbers (when editing a phase)");
             })
             .arg("force", |a| {
                 a.flag().description("remove a phase that has plans with summaries or commits");

@@ -34,11 +34,6 @@
           "tier": "core"
         },
         {
-          "name": "decisions",
-          "selector": "self.decisions",
-          "tier": "core"
-        },
-        {
           "name": "context",
           "selector": "self.phase<context|decision[origin=context]|deferred_idea[origin=discussion].phase",
           "tier": "enrich"
@@ -106,11 +101,6 @@
         {
           "name": "requirements",
           "selector": "self.requirements",
-          "tier": "core"
-        },
-        {
-          "name": "decisions",
-          "selector": "self.decisions",
           "tier": "core"
         },
         {

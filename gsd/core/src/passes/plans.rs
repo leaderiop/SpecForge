@@ -40,72 +40,12 @@ pub fn links<'a>(input: &'a PassInput, entity: &PassEntity, field: &str) -> Vec<
         .collect()
 }
 
-/// The decisions the plans `plans` (ids) list in `decisions`, each resolved id once: what E310, W317, W506 and E312
-/// read as covered, shipped or decided.
-pub fn listed_decisions<'a, 'b>(
-    input: &'a PassInput,
-    plans: impl IntoIterator<Item = &'b str>,
-) -> BTreeSet<&'a str> {
-    plans
-        .into_iter()
-        .flat_map(|plan| {
-            input
-                .edges
-                .iter()
-                .filter(move |e| e.source == plan && e.label == "decisions")
-                .map(|e| e.target.as_str())
-        })
-        .collect()
-}
-
-/// The decisions no longer in force, so no plan must list them: each one a decision lists in `supersedes` with force.
-/// - A decision taken with the user (`origin` `context` or `project`) leaves force only through another taken with
-///   the user. An agent's decision (`summary` or `checkpoint`) retires only an agent's decision, and never a settled
-///   one, which the user locked.
-/// - A decision that supersedes itself, directly or round a cycle of such edges, is reversed by nothing outside the
-///   cycle: an edge between two decisions of one cycle retires neither (the graph's W061 reports the cycle).
-pub fn superseded(input: &PassInput) -> BTreeSet<&str> {
-    let decisions: BTreeMap<&str, &PassEntity> = of_kind(input, "decision")
-        .map(|d| (d.id.as_str(), d))
-        .collect();
-    let with_the_user = |d: &PassEntity| matches!(text(d, "origin"), Some("context" | "project"));
-    let locked = |d: &PassEntity| with_the_user(d) || text(d, "settled") == Some("true");
-    let mut graph: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for edge in input.edges.iter().filter(|e| e.label == "supersedes") {
-        let (Some(by), Some(earlier)) = (
-            decisions.get(edge.source.as_str()),
-            decisions.get(edge.target.as_str()),
-        ) else {
-            continue;
-        };
-        if with_the_user(by) || !locked(earlier) {
-            graph.entry(&by.id).or_default().push(&earlier.id);
-        }
-    }
-    let cycle_of: BTreeMap<&str, usize> = super::cycles::cycles(&graph)
-        .into_iter()
-        .enumerate()
-        .flat_map(|(n, members)| members.into_iter().map(move |m| (m, n)))
-        .collect();
-    graph
-        .iter()
-        .flat_map(|(by, earlier)| earlier.iter().map(move |e| (*by, *e)))
-        .filter(|(by, earlier)| {
-            cycle_of
-                .get(by)
-                .is_none_or(|n| cycle_of.get(earlier) != Some(n))
-        })
-        .map(|(_, earlier)| earlier)
-        .collect()
-}
-
-/// The trackable decisions of a phase's context (`origin context`) still in force (none [`superseded`]), in id order:
-/// the ones its plans must list.
+/// The trackable decisions of a phase's context (`origin context`), every one of them, in id order: the ones its
+/// plans must cite.
 pub fn context_decisions<'a>(input: &'a PassInput, phase: &str) -> Vec<&'a PassEntity> {
-    let superseded = superseded(input);
     children(input, phase, "decision")
         .into_iter()
-        .filter(|d| text(d, "origin") == Some("context") && !superseded.contains(d.id.as_str()))
+        .filter(|d| text(d, "origin") == Some("context"))
         .collect()
 }
 

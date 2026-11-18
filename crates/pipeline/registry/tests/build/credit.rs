@@ -6,10 +6,7 @@ use specforge_test_macros::test as spec;
 
 use crate::support::{build, coded, declare, diagnostics, software};
 
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "an enhancement's fields are credited to the extension that declares the enhancement"
-)]
+#[spec(requirement = "FEATURE-021")]
 fn an_enhancements_fields_are_credited_to_its_declarer() {
     let mut enhancer = declare("@acme/enhancer", |c| {
         c.optional_peer("@specforge/software", "^1");
@@ -57,10 +54,7 @@ fn an_enhancements_fields_are_credited_to_its_declarer() {
     assert_eq!(layers.writers().len(), 1);
 }
 
-#[spec(
-    behavior = "register_entity_enhancements",
-    verify = "an enhancement of an unknown kind is skipped silently when its extension declares an optional peer the project does not load"
-)]
+#[spec(requirement = "FEATURE-021")]
 fn an_unknown_target_is_silent_only_behind_an_unloaded_optional_peer() {
     let enhance_absent = |name: &str, optional: bool| {
         declare(name, |c| {

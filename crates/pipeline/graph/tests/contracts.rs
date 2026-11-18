@@ -4,10 +4,7 @@ use specforge_parser::parse;
 use specforge_test_macros::test as specforge_test;
 
 // B:build_in_memory_graph — verify contract "requires/ensures consistency for in-memory graph construction"
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_dangling_edges"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn build_in_memory_graph_contract() {
     // Two files: `b.spec` references entities declared in `a.spec` (cross-file
     // resolution) plus one reference to an entity that does not exist.
@@ -94,10 +91,8 @@ behavior delta "D" { features [alpha] }
 }
 
 // B:maintain_mutable_graph — verify contract "requires/ensures consistency for mutable graph maintenance"
-#[specforge_test(
-    behavior = "maintain_mutable_graph",
-    verify = "Maintain Mutable Graph: mutable graph maintenance holds — graph_initialized, mutations_applied, no_dangling_edges_enforced, graph_consistency"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
+#[specforge_test(requirement = "FEATURE-050")]
 fn maintain_mutable_graph_contract() {
     // Requires: existing graph with nodes and edges
     // Ensures: add/remove mutations reflect correctly, edges cleaned on node removal
@@ -149,10 +144,7 @@ fn maintain_mutable_graph_contract() {
 }
 
 // B:resolve_external_ref_declarations — verify contract "requires/ensures consistency for external ref resolution"
-#[specforge_test(
-    behavior = "resolve_external_ref_declarations",
-    verify = "Resolve External Ref Declarations: external ref resolution holds — ref_blocks_parsed, filesystem_available, refs_registered, known_schemes_marked, unknown_schemes_deferred"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn resolve_external_ref_declarations_contract() {
     // Requires: graph with ref nodes having scheme metadata
     // Ensures: ref nodes are in graph with scheme field; known scheme = no I005, unknown = I005
@@ -195,10 +187,7 @@ ref jira.story:ABC-1 "Backend work"
 }
 
 // B:provide_did_you_mean_suggestions — verify contract "requires/ensures consistency for did-you-mean suggestions"
-#[specforge_test(
-    behavior = "provide_did_you_mean_suggestions",
-    verify = "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn provide_did_you_mean_suggestions_contract() {
     // Requires: unresolved reference with entity IDs available
     // Ensures: close match → suggestion, distant match → no suggestion

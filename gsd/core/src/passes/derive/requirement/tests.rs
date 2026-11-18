@@ -2,7 +2,8 @@ use serde_json::json;
 
 use super::*;
 
-/// R1, which no plan lists, and R2, which plan 01-01 lists, whose task T1 a commit names and a passing test names.
+/// R1, which no plan lists (so it reads its tests alone, and no test names it), and R2, which plan 01-01 lists, whose
+/// task T1 a commit names and a passing test names.
 fn project() -> PassInput {
     let value = json!({
         "entities": [
@@ -38,23 +39,24 @@ fn every_requirement_gets_its_proof() {
     let proofs = proofs(&input, &commits);
     assert_eq!(
         proofs,
-        BTreeMap::from([("R1", Proof::NoTask), ("R2", Proof::Proven)])
+        BTreeMap::from([("R1", Proof::NoTest), ("R2", Proof::Proven)])
     );
-    let written: Vec<(String, String, serde_json::Value)> = values(&input, &proofs)
+    let written: Vec<(String, String, serde_json::Value)> = values(&input, &commits, &proofs)
         .into_iter()
         .map(|v| (v.entity, v.field, v.value))
         .collect();
     assert_eq!(
         written,
         [
-            ("R1".to_string(), "proof".to_string(), json!("no_task")),
+            ("R1".to_string(), "proof".to_string(), json!("no_test")),
             ("R2".to_string(), "proof".to_string(), json!("proven")),
         ]
     );
 }
 
-/// Plans 01-01 and 02-01 list R2, plan 03-01 lists R3; each task names `items`.
-fn itemized() -> PassInput {
+/// Plans 01-01 and 02-01 list R2, plan 03-01 lists R3; each task is named by one recorded commit, whose
+/// `items_changed` is written as `items` gives it (`None`: unwritten).
+fn itemized(items: &[(&str, &str, Option<Vec<&str>>)]) -> PassInput {
     let mut entities = vec![
         json!({ "id": "R2", "kind": "requirement", "fields": { "text": "a task is added" } }),
         json!({ "id": "R3", "kind": "requirement", "fields": { "text": "a board is shared" } }),
@@ -63,24 +65,18 @@ fn itemized() -> PassInput {
         entities.push(json!({ "id": format!("v1.0/01/{plan}"), "kind": "plan",
                               "values": { "requirements": [requirement] } }));
     }
-    for (task, task_type, items) in [
-        (
-            "01-01/T1",
-            "auto",
-            vec!["js:app/src/b.js::add", "js:app/src/a.js::board"],
-        ),
-        ("01-01/T2", "manual", vec!["js:app/src/c.js::check"]),
-        (
-            "02-01/T1",
-            "auto",
-            vec!["js:app/src/a.js::board", "js:app/src/d.js::done"],
-        ),
-        ("03-01/T1", "auto", vec!["js:app/src/e.js::share"]),
-    ] {
+    for (n, (task, task_type, changed)) in items.iter().enumerate() {
         let (plan, _) = task.split_once('/').expect("a plan");
-        entities.push(json!({ "id": format!("v1.0/01/{task}"), "kind": "task",
-                              "fields": { "plan": format!("v1.0/01/{plan}"), "type": task_type },
-                              "values": { "items": items } }));
+        let task = format!("v1.0/01/{task}");
+        entities.push(json!({ "id": task, "kind": "task",
+                              "fields": { "plan": format!("v1.0/01/{plan}"), "type": task_type } }));
+        let mut commit = json!({ "id": format!("abcdef12345{n}"), "kind": "commit",
+                                 "fields": { "task": task, "at": format!("2026-10-29T10:00:0{n}Z") } });
+        if let Some(changed) = changed {
+            commit["fields"]["items_changed"] = json!(changed.join(", "));
+            commit["values"] = json!({ "items_changed": changed });
+        }
+        entities.push(commit);
     }
     serde_json::from_value(crate::passes::plans::with_field_edges(
         json!({ "entities": entities, "edges": [] }),
@@ -90,17 +86,32 @@ fn itemized() -> PassInput {
 
 /// The `satisfied_by` value `values` writes for `requirement`, if any.
 fn satisfied_by(input: &PassInput, requirement: &str) -> Option<serde_json::Value> {
-    let proofs = proofs(input, &[]);
-    values(input, &proofs)
+    let commits = crate::passes::commits::commits(input);
+    let proofs = proofs(input, &commits);
+    values(input, &commits, &proofs)
         .into_iter()
         .find(|v| v.entity == requirement && v.field == "satisfied_by")
         .map(|v| v.value)
 }
 
 #[test]
-fn satisfied_by_is_each_item_its_tasks_name_once() {
-    let input = itemized();
-    // Both plans' tasks, the manual one's item too, sorted and each once; R3's plan counts for R3 alone.
+fn satisfied_by_is_each_item_the_commits_of_its_tasks_changed_once() {
+    let input = itemized(&[
+        (
+            "01-01/T1",
+            "auto",
+            Some(vec!["js:app/src/b.js::add", "js:app/src/a.js::board"]),
+        ),
+        ("01-01/T2", "tdd", Some(vec!["js:app/src/c.js::check"])),
+        (
+            "02-01/T1",
+            "auto",
+            Some(vec!["js:app/src/a.js::board", "js:app/src/d.js::done"]),
+        ),
+        ("03-01/T1", "auto", Some(vec!["js:app/src/e.js::share"])),
+    ]);
+    // Both plans' tasks, whatever their type, sorted and each once; the task's own `items` are not read, and the
+    // commit of R3's task counts for R3 alone.
     assert_eq!(
         satisfied_by(&input, "R2"),
         Some(json!([
@@ -117,12 +128,30 @@ fn satisfied_by_is_each_item_its_tasks_name_once() {
 }
 
 #[test]
-fn a_requirement_whose_tasks_name_no_item_has_no_satisfied_by() {
-    let mut input = itemized();
-    for task in input.entities.iter_mut().filter(|e| e.kind == "task") {
-        task.values.clear();
-    }
+fn an_unwritten_items_changed_adds_nothing() {
+    let input = itemized(&[
+        ("01-01/T1", "auto", None),
+        ("02-01/T1", "auto", Some(vec!["js:app/src/d.js::done"])),
+        ("03-01/T1", "auto", None),
+    ]);
+    assert_eq!(
+        satisfied_by(&input, "R2"),
+        Some(json!(["js:app/src/d.js::done"]))
+    );
+    assert_eq!(satisfied_by(&input, "R3"), None);
+}
+
+#[test]
+fn a_requirement_with_no_commit_that_changed_an_item_has_no_satisfied_by() {
+    // A commit that changed no item, and the commit of another requirement's task.
+    let input = itemized(&[
+        ("01-01/T1", "auto", Some(vec![])),
+        ("03-01/T1", "auto", Some(vec!["js:app/src/e.js::share"])),
+    ]);
     assert_eq!(satisfied_by(&input, "R2"), None);
-    // One with no task at all has none either.
+    // One with no task at all has none either, and one whose task no commit names (its `items` written) none.
     assert_eq!(satisfied_by(&project(), "R1"), None);
+    let mut uncommitted = itemized(&[("01-01/T1", "auto", Some(vec!["js:app/src/b.js::add"]))]);
+    uncommitted.entities.retain(|e| e.kind != "commit");
+    assert_eq!(satisfied_by(&uncommitted, "R2"), None);
 }

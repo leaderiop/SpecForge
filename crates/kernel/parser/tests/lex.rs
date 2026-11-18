@@ -10,6 +10,10 @@ use specforge_test_macros::test as specforge_test;
 use std::path::{Path, PathBuf};
 use tree_sitter_specforge::kind;
 
+/// The pre-swap root spec, frozen as a corpus (ADR 0374 D8): the old kinds' syntax these tests hold the lexer and
+/// the grammar to, which the live spec no longer writes.
+pub(crate) const OLD_SPEC: &str = "fixtures/old-spec/spec";
+
 /// The `.spec` files under `dir`, recursively.
 pub(crate) fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -66,14 +70,11 @@ pub(crate) fn grammar_leaves(
     }
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "the lexer agrees with the grammar on every spec file of the repository"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn lexer_agrees_with_the_grammar() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    spec_files(&root.join("spec"), &mut files);
+    spec_files(&root.join(OLD_SPEC), &mut files);
     assert!(files.len() > 150, "found only {} spec files", files.len());
     for corpus in ["integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
@@ -126,7 +127,7 @@ fn lexemes(text: &str) -> Vec<(LexemeKind, &str)> {
         .collect()
 }
 
-#[specforge_test(behavior = "lex_spec_text", verify = "a scheme ref ID is one lexeme")]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_scheme_ref_id_is_one_lexeme() {
     assert_eq!(lexemes("gh.issue:42"), [(LexemeKind::RefId, "gh.issue:42")]);
     assert_eq!(
@@ -161,10 +162,7 @@ fn a_scheme_ref_id_is_one_lexeme() {
     );
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "strings and comments are lexemes of their own and hold no others"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn strings_and_comments_are_lexemes_of_their_own() {
     let text = "behavior a \"a b\" { // a c\n  x [a] \"\"\"a\n\"q\" a\"\"\" y \"esc \\\" a\" z\n}";
     let names: Vec<&str> = lex(text)
@@ -218,10 +216,7 @@ fn numbers_start_with_a_digit() {
     );
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "a string spanning lines is one lexeme, and one the grammar would not close ends at its line's end"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn an_unclosed_string_ends_at_its_lines_end() {
     let unclosed = LexemeKind::Str { closed: false };
     assert_eq!(
@@ -256,10 +251,7 @@ fn an_unclosed_string_ends_at_its_lines_end() {
     );
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "a string spanning lines is one lexeme, and one the grammar would not close ends at its line's end"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_string_spanning_lines_is_one_lexeme() {
     assert_eq!(
         lexemes("d \"a\nb\" c"),
@@ -282,10 +274,7 @@ fn a_string_spanning_lines_is_one_lexeme() {
     );
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "an unclosed triple-quoted string ends before the next line that starts a top-level form"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn an_unclosed_triple_quoted_string_ends_before_the_next_form() {
     let unclosed = LexemeKind::Str { closed: false };
     let closed = LexemeKind::Str { closed: true };
@@ -328,7 +317,7 @@ fn an_unclosed_triple_quoted_string_ends_before_the_next_form() {
     );
 }
 
-#[specforge_test(behavior = "lex_spec_text", verify = "a scheme ref ID is one lexeme")]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_ref_id_cut_short_is_a_ref_id_prefix() {
     for text in [
         "gh",
@@ -424,14 +413,11 @@ fn form_start_lines() {
     assert_eq!(line_indent(text, text.find("behavior b").unwrap()), None);
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "a line starts a top-level form exactly where the grammar reads one, on every spec file of the repository"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn form_starts_are_the_grammars_top_level_nodes() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     files.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lexemes.spec"));
@@ -519,14 +505,11 @@ fn grammar_ends_a_body_at(parser: &mut tree_sitter::Parser, line: &str) -> bool 
     ended_list(tree.root_node(), probe.len() - 1)
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "the grammar ends an unclosed body at exactly the lines the form-start rule reads as form starts"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn the_grammars_scanner_reads_form_starts_as_the_lexer_does() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     files.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lexemes.spec"));
@@ -600,14 +583,11 @@ fn the_grammars_scanner_reads_form_starts_as_the_lexer_does() {
     assert!(disagree.is_empty(), "{disagree:#?}");
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "a document's form starts are the grammar's top-level nodes, and stay so with every body left unclosed"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_documents_form_starts_are_its_top_level_nodes() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [OLD_SPEC, "integrations/rust/spec", "examples"] {
         spec_files(&root.join(corpus), &mut files);
     }
     assert!(files.len() > 150);
@@ -720,10 +700,7 @@ fn an_identifier_is_the_grammars_identifier_whole() {
     }
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "the lexer agrees with the grammar on a list of blocks, a nested typed block and an enum list"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn the_lexer_agrees_on_block_lists() {
     let text = "thing t \"T\" {\n  requires [\n    { phase 02 provides \"x\" }\n    { phase 01 files [a, b] }\n  ]\n  completion { at 2026-10-27 inner { n 3 } }\n  reasons [threshold, jump]\n}\n";
     let (file, tree) = parse_incremental(text, "t.spec", None);

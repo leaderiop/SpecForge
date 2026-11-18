@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: built so far: the collector `gsd-git` (r38), the 15 hooks and the install goldens (r44, K20c), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served; beyond them, the prompt `verify_invariant`, the judge of `gsd/I536` ([ADR 0358](../../../docs/adr/0358-a-risk-is-rated-and-an-invariant-is-judged.md)).** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: built so far: the collector `gsd-git` (r38), the 15 hooks and the install goldens (r44, K20c), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.19.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -179,8 +179,9 @@ The assets are upstream's text; where the spec has no counterpart a line was def
   edge-probe steps of `spec-phase` and `specless-probe-fallback` run `specforge gsd edge-probe` and read the
   graph's counts of a spec's `edge` and `spec_prohibition` rows (ADR 0333), where upstream ran its runtime
   libraries `edge-probe.cjs` / `spec-section.cjs` with node.
-- `gsd/W506` reads what a complete plan lists in `decisions` (ADR 0351): a decision cited only in prose covers nothing,
-  where upstream reads the plans' text, the modified files and the commit bodies.
+- `gsd/W506` reads the text of a complete plan, of its summaries and the subjects of its recorded commits for a decision's
+  id (ADR 0371 D4): where upstream also reads the files the summaries list and the commit bodies, this reads neither
+  (ACCEPTANCE.md `[decision-shipped-reach]`).
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
   an agent's effort to `high` as upstream does (`gsd/kit/tests/golden/host/` holds the probe and both conversions, made with
@@ -310,7 +311,6 @@ how the judge records its verdict; its body also ends with a section that names 
 | `gsd-phase-researcher` | `gsd/W205` (a package audit) |
 | `gsd-integration-checker` | `gsd/E518` (a milestone audit) |
 | prompt `spec_phase` | `gsd/E202` (a phase spec), `gsd/W203` (a locked requirement) |
-| prompt `verify_invariant` | `gsd/I536` (an invariant) |
 | `gsd-verifier` | `gsd/E501` (a truth, an artifact, a key link without a `pattern`) |
 
 Every other core agent judges nothing.

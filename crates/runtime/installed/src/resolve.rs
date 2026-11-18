@@ -380,10 +380,7 @@ mod tests {
         entries.iter().map(|e| e.to_string()).collect()
     }
 
-    #[specforge_test(
-        behavior = "load_extension_manifests",
-        verify = "the extension load and the lock plan resolve an entry by one rule"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
     fn an_entry_resolves_as_the_load_tries_it() {
         let installed = Installed::with_lock(Path::new("/p"), lock_of(&["@acme/tool"]));
         let builtins = Builtins(&[("@specforge/product", b"\0asm")]);

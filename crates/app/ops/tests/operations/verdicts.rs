@@ -39,10 +39,7 @@ fn verdict(rule: &str, outcome: &str, judge: &str, cited: &[&str], basis: Value)
     verdict_of("v1.0/03/V", rule, outcome, judge, cited, basis)
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "set_verdict is refused without a judged rule"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn set_verdict_is_refused_without_a_judged_rule() {
     let p = project();
     let ops = verdict("quality", "pass", "judge", &[], json!({}));
@@ -52,10 +49,7 @@ fn set_verdict_is_refused_without_a_judged_rule() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "set_verdict checks the rule and its basis"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn set_verdict_checks_the_rule_and_its_basis() {
     // The fake rule `quality` targets `verification`, declares outcomes `pass` and `fail`, and belongs to
     // `@t/core`'s judge `judge`; `with_rules` gives the host this port.
@@ -155,10 +149,7 @@ fn run_with_rules(
     }
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "set_verdict is refused on a human-only kind and for a computed value"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn set_verdict_is_refused_on_a_human_only_kind_and_for_a_computed_value() {
     let p = project().file("o.spec", "override O1 \"O\" {\n  phase v1.0/03\n}\n");
     let on_override = verdict_of(
@@ -181,10 +172,7 @@ fn set_verdict_is_refused_on_a_human_only_kind_and_for_a_computed_value() {
     assert_eq!(with_rules(&p, "record", computed), "computed_field");
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "set_verdict compares its inputs with the disk under the lock"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn set_verdict_compares_its_inputs_with_the_disk_under_the_lock() {
     let p = project();
     let ops = verdict(
@@ -253,10 +241,7 @@ fn plan_check(project: &TestProject) -> Value {
         "judge": "gsd-plan-checker", "model": "m", "findings": [], "cited": [], "basis": basis}])
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "set_verdict writes its verdict and its ledger line"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn set_verdict_writes_its_verdict_and_its_ledger_line() {
     let p = gsd_judged_project("");
     assert_eq!(gsd(&p, plan_check(&p), false), "applied");
@@ -285,10 +270,7 @@ fn set_verdict_writes_its_verdict_and_its_ledger_line() {
     assert_eq!(spec.matches("verdict gsd/W311").count(), 1, "{spec}");
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "set_verdict refuses a value its field refuses"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn set_verdict_refuses_a_value_its_field_refuses() {
     // E202 binds `phase_spec.scores`, whose members are integers from 0 to 100: 140 is refused, `value`.
     let p = gsd_judged_project("phase_spec S \"Spec\" {\n  phase 03\n}\n");
@@ -351,10 +333,7 @@ fn set_verdict_refuses_a_value_its_field_refuses() {
     assert!(rule.values.contains(&"scores".to_string()));
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "set_verdict refuses a finding whose member name a spec block cannot write"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn set_verdict_refuses_a_finding_member_a_spec_block_cannot_write() {
     let p = gsd_judged_project("");
     let mut ops = plan_check(&p);

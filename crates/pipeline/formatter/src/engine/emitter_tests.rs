@@ -17,14 +17,8 @@ fn fmt(source: &str) -> String {
     result.formatted
 }
 
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "leading comment attaches to following node"
-)]
-#[specforge_test_macros::test(
-    invariant = "comment_preservation",
-    verify = "leading comments remain attached to their following node"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
+#[specforge_test_macros::test(requirement = "INVARIANT-006")]
 fn a_leading_comment_stays_directly_above_its_block() {
     let out = fmt(
         "behavior a \"A\" {\n  contract \"c\"\n}\n// doc for b\nbehavior b \"B\" {\n  contract \"c\"\n}\n",
@@ -32,14 +26,8 @@ fn a_leading_comment_stays_directly_above_its_block() {
     assert!(out.contains("}\n\n// doc for b\nbehavior b"), "{out}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "trailing comment attaches to preceding node on same line"
-)]
-#[specforge_test_macros::test(
-    invariant = "comment_preservation",
-    verify = "trailing comments remain attached to their preceding node"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
+#[specforge_test_macros::test(requirement = "INVARIANT-006")]
 fn a_trailing_comment_stays_on_its_line() {
     let out =
         fmt("behavior a \"A\" { // header note\n  contract \"c\" // why\n  status draft\n}\n");
@@ -47,14 +35,7 @@ fn a_trailing_comment_stays_on_its_line() {
     assert!(out.contains("contract \"c\" // why\n"), "{out}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "section header comment attaches to next block group"
-)]
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "standalone comment block between blocks is preserved"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn standalone_and_section_comments_keep_their_separation() {
     let out = fmt(concat!(
         "behavior a \"A\" {\n  contract \"c\"\n}\n\n\n",
@@ -67,14 +48,8 @@ fn standalone_and_section_comments_keep_their_separation() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "no comments are lost after formatting"
-)]
-#[specforge_test_macros::test(
-    invariant = "comment_preservation",
-    verify = "every comment in input appears in formatted output"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
+#[specforge_test_macros::test(requirement = "INVARIANT-006")]
 fn comments_in_every_block_kind_stay_in_place() {
     let source = concat!(
         "spec \"s\" {\n  version \"1\"\n  // spec note\n}\n\n",
@@ -95,10 +70,7 @@ fn comments_in_every_block_kind_stay_in_place() {
         );
 }
 
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "Preserve Comments During Formatting: comment preservation holds — cst_available, all_comments_attached, no_comments_lost"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn comment_text_is_kept_as_written() {
     let out = fmt(
         "/// doc comment\n//   - nested bullet\n//no space\nbehavior a \"A\" {\n  contract \"c\"\n}\n",
@@ -109,10 +81,7 @@ fn comment_text_is_kept_as_written() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "wrapping rules break long reference lists to multi-line"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn wrapping_a_list_never_splits_a_string() {
     let long = "Each kind has correct testable, singleton, and supports_verify flags";
     let source = format!(
@@ -126,10 +95,7 @@ fn wrapping_a_list_never_splits_a_string() {
     assert!(out.contains("  refs [a, b]\n"), "{out}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "statements keep their source order"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn statements_keep_their_order() {
     let out = fmt(
         "event e \"E\" {\n  verify unit \"first\"\n  channel bus\n  method m(x: string)\n  payload order\n}\n",
@@ -140,10 +106,7 @@ fn statements_keep_their_order() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "alignment rules align field values within blocks"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn keys_and_annotations_align_but_verify_does_not() {
     let out = fmt(
         "type task \"T\" {\n  id string @readonly @unique\n  title string\n  completedAt timestamp @optional\n  verify   unit    \"x\"\n}\n",
@@ -154,10 +117,7 @@ fn keys_and_annotations_align_but_verify_does_not() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "apply_format_rules",
-    verify = "a union that does not fit wraps one variant per line"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn a_long_union_wraps() {
     let source = "type verify_kind = unit | contract | integration | property | performance | mutation | load | deadlock_free\n";
     let out = fmt(source);
@@ -193,14 +153,8 @@ const COMMENTS_IN_STATEMENTS: &str = concat!(
     "}\n",
 );
 
-#[specforge_test_macros::test(
-    behavior = "preserve_comments",
-    verify = "a statement holding a comment between its tokens is kept as written"
-)]
-#[specforge_test_macros::test(
-    invariant = "comment_preservation",
-    verify = "every comment in input appears in formatted output"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
+#[specforge_test_macros::test(requirement = "INVARIANT-006")]
 fn a_statement_holding_a_comment_is_kept_as_written() {
     assert_eq!(fmt(COMMENTS_IN_STATEMENTS), COMMENTS_IN_STATEMENTS);
     let result = format_source(
@@ -230,10 +184,7 @@ fn one_line_collapses_whitespace_between_lexemes() {
 
 const UNCLOSED_STRING: &str = "behavior a1 \"A\" {\n  contract \"x\n}\n\nbehavior b1 \"B\" {\n  contract    \"y\"\n}\n\nbehavior c1 \"C\" {\n  contract \"z\"\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "a form the parser could not read whole is kept as written and the forms after it are formatted"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn an_unclosed_string_keeps_only_its_form() {
     let result = format_source(
         UNCLOSED_STRING,
@@ -265,10 +216,7 @@ fn an_unclosed_string_keeps_only_its_form() {
 const UNCLOSED_BODY: &str =
     "behavior a1 \"A\" {\n  contract    \"x\"\n\nbehavior b1 \"B\" {\n  contract    \"y\"\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "the diagnostic spans every line of the form it kept, never past the document"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn a_kept_form_is_reported_at_its_lines() {
     let result = format_source(
         UNCLOSED_BODY,
@@ -290,10 +238,7 @@ fn a_kept_form_is_reported_at_its_lines() {
     assert_eq!((span.start_line, span.end_line), (1, 2));
 }
 
-#[specforge_test_macros::test(
-    behavior = "format_with_parse_errors",
-    verify = "a form the parser could not read whole is kept as written and the forms after it are formatted"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn formatting_a_broken_document_twice_changes_nothing() {
     let texts = [
         // R1: an unclosed body, then two blocks

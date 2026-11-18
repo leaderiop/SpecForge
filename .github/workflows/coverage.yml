@@ -19,7 +19,8 @@ jobs:
         with:
           components: llvm-tools-preview
           targets: wasm32-wasip2
-      - uses: Swatinem/rust-cache@v2
+      # No rust-cache: an instrumented cache would only evict CI's, and no job saves a key this one could restore
+      # (ADR 0375 D1).
       - uses: taiki-e/install-action@nextest
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Install z3 (SMT solver for prove tests)

@@ -16,10 +16,7 @@ fn shared_state_with_document() -> Arc<RwLock<LspState>> {
 
 // -- concurrent_read_safety ------------------------------------------------------
 
-#[spec(
-    invariant = "lsp_state_concurrency_safety",
-    verify = "multiple concurrent readers complete without blocking each other"
-)]
+#[spec(requirement = "INVARIANT-061")]
 #[tokio::test]
 async fn concurrent_reads_complete() {
     let state = shared_state_with_document();
@@ -77,10 +74,7 @@ async fn concurrent_reads_complete() {
     }
 }
 
-#[spec(
-    invariant = "lsp_state_concurrency_safety",
-    verify = "concurrent readers see consistent graph and document state"
-)]
+#[spec(requirement = "INVARIANT-061")]
 #[tokio::test]
 async fn concurrent_reads_see_consistent_state() {
     // Version `v` of the document declares the single entity `entity_v`.
@@ -162,10 +156,7 @@ async fn concurrent_reads_see_consistent_state() {
 
 // -- read_write_interleaving -----------------------------------------------------
 
-#[spec(
-    invariant = "lsp_state_concurrency_safety",
-    verify = "interleaved read and write operations do not deadlock"
-)]
+#[spec(requirement = "INVARIANT-061")]
 #[tokio::test]
 async fn read_write_interleaving_no_deadlock() {
     let state = Arc::new(RwLock::new(LspState::new()));
@@ -211,10 +202,7 @@ async fn read_write_interleaving_no_deadlock() {
 
 // -- rapid_open_close_stress -----------------------------------------------------
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "rapid open and close cycles do not corrupt state"
-)]
+#[spec(requirement = "FEATURE-062")]
 #[tokio::test]
 async fn rapid_open_close_no_corruption() {
     let state = Arc::new(RwLock::new(LspState::new()));
@@ -295,10 +283,7 @@ async fn rapid_open_close_no_corruption() {
     }
 }
 
-#[spec(
-    invariant = "lsp_state_concurrency_safety",
-    verify = "concurrent writes to different documents do not interfere"
-)]
+#[spec(requirement = "INVARIANT-061")]
 #[tokio::test]
 async fn concurrent_writes_to_different_documents() {
     let state = Arc::new(RwLock::new(LspState::new()));

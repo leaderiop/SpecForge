@@ -34,10 +34,7 @@ fn diag_with_suggestion(code: &str, severity: Severity, msg: &str, suggestion: &
 }
 
 // B:print_diagnostics_structured — verify unit "error diagnostic is formatted with file:line:col"
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "error diagnostic is formatted with file:line:col"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn error_diagnostic_formatted_with_file_line_col() {
     let diag = diag_with_span(
         "E001",
@@ -59,10 +56,7 @@ fn error_diagnostic_formatted_with_file_line_col() {
 }
 
 // B:print_diagnostics_structured — verify unit "suggestion is displayed when available"
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "suggestion is displayed when available"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn suggestion_displayed_when_available() {
     let diag = diag_with_suggestion(
         "E001",
@@ -113,10 +107,8 @@ fn print_diagnostics_contract() {
 }
 
 // B:present_diagnostics_as_json — verify unit "diagnostics are presented as one JSON array"
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "diagnostics are presented as one JSON array"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostics_serialized_as_json_array() {
     let diags = vec![
         diag_with_span(
@@ -143,10 +135,8 @@ fn diagnostics_serialized_as_json_array() {
 }
 
 // B:present_diagnostics_as_json — verify unit "each diagnostic carries code, severity, message, file, line and column"
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "each diagnostic carries code, severity, message, file, line and column"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn each_diagnostic_includes_code_severity_message_file_line_column() {
     let diags = vec![diag_with_span(
         "E001",
@@ -171,10 +161,8 @@ fn each_diagnostic_includes_code_severity_message_file_line_column() {
 }
 
 // B:present_diagnostics_as_json — verify unit "suggestion is included when available"
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "suggestion is included when available"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn suggestion_field_included_in_json_when_available() {
     let diags = vec![diag_with_suggestion(
         "E001",
@@ -191,10 +179,8 @@ fn suggestion_field_included_in_json_when_available() {
 }
 
 // B:present_diagnostics_as_json — verify unit "the presented JSON is valid and parseable"
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "the presented JSON is valid and parseable"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn json_diagnostics_output_is_valid_json() {
     let diags = vec![
         diag_with_span("E001", Severity::Error, "bad ref", "test.spec", 1, 0),
@@ -206,10 +192,7 @@ fn json_diagnostics_output_is_valid_json() {
 }
 
 // B:exit_code_reflects_diagnostic_severity — verify unit "exit 0 with no errors"
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "exit 0 with no errors"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn exit_code_zero_no_errors() {
     let diags = vec![
         Diagnostic::untyped("W002", Severity::Warning, "unused entity".to_string()),
@@ -220,10 +203,7 @@ fn exit_code_zero_no_errors() {
 }
 
 // B:exit_code_reflects_diagnostic_severity — verify unit "exit 1 with errors"
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "exit 1 with errors"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn exit_code_one_with_errors() {
     let diags = vec![Diagnostic::new(
         specforge_common::codes::E001,
@@ -233,10 +213,7 @@ fn exit_code_one_with_errors() {
 }
 
 // B:exit_code_reflects_diagnostic_severity — verify contract "requires/ensures consistency for exit code severity mapping"
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn exit_code_contract() {
     // Requires: diagnostics collected (validation_complete)
     // Ensures: exit 0 when no errors, exit 1 when errors present
@@ -316,7 +293,8 @@ fn exit_code_unaffected_by_format_flag() {
 
 // B:present_diagnostics_as_json — suggestion is null, not a string, when
 // there is none (the key stays, as `check` always printed it).
-#[specforge_test(behavior = "present_diagnostics_as_json")]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn suggestion_field_null_in_json_when_none() {
     let diags = vec![diag_with_span(
         "W002",
@@ -332,10 +310,8 @@ fn suggestion_field_null_in_json_when_none() {
 }
 
 // B:present_diagnostics_as_json — verify unit "the span is nested beside the flat location, with its end positions"
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "the span is nested beside the flat location, with its end positions"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn span_is_nested_beside_the_flat_location() {
     let located =
         Diagnostic::new(specforge_common::codes::E003, "unresolved").with_span(SourceSpan {
@@ -424,10 +400,7 @@ fn diagnostics_ext_has_errors() {
 // ============================================================================
 
 // L9: spanless diagnostic uses code as fallback location
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "spanless diagnostic uses code as fallback location"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn spanless_diagnostic_uses_code_as_fallback() {
     let diag = Diagnostic::new(
         specforge_common::codes::W061,
@@ -448,10 +421,7 @@ fn spanless_diagnostic_uses_code_as_fallback() {
     );
 }
 
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "spanless error diagnostic also uses code"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn spanless_error_diagnostic_uses_code() {
     let diag = Diagnostic::new(specforge_common::codes::E001, "unresolved".to_string());
     let formatted = specforge_common::format_diagnostic(&diag);
@@ -462,10 +432,7 @@ fn spanless_error_diagnostic_uses_code() {
     );
 }
 
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "error diagnostic is formatted with file:line:col"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn spanned_diagnostic_ignores_code_fallback() {
     let diag = diag_with_span("E001", Severity::Error, "bad ref", "src/test.spec", 10, 5);
     let formatted = specforge_common::format_diagnostic(&diag);
@@ -475,10 +442,8 @@ fn spanned_diagnostic_ignores_code_fallback() {
 }
 
 // B:present_diagnostics_as_json — verify unit "a typed payload is presented under data, and its absence adds no key"
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "a typed payload is presented under data, and its absence adds no key"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn a_typed_payload_is_presented_under_data_and_its_absence_adds_no_key() {
     let plain = diag_with_suggestion(
         "E003",
@@ -587,10 +552,7 @@ fn the_entity_payloads_are_presented_under_data() {
     }
 }
 
-#[specforge_test(
-    type = "ReferenceCycleData",
-    verify = "ReferenceCycleData schema is valid"
-)]
+#[test]
 fn reference_cycle_data_is_tagged_and_names_its_path() {
     let data = DiagnosticData::ReferenceCycle {
         path: vec!["x".into(), "y".into(), "x".into()],
@@ -602,7 +564,7 @@ fn reference_cycle_data_is_tagged_and_names_its_path() {
     assert_eq!(data.entities(), ["x", "y"]);
 }
 
-#[specforge_test(type = "SubjectData", verify = "SubjectData schema is valid")]
+#[test]
 fn subject_data_is_tagged_and_names_its_entity() {
     let data = DiagnosticData::Subject {
         entity: "bad_one".into(),
@@ -631,10 +593,7 @@ fn subject_data_is_tagged_and_names_its_entity() {
 /// the diagnostic only for the code's owner: a squatted core code is not
 /// titled as core's, an owner's own code is, and the host's carries no
 /// `origin` key.
-#[specforge_test(
-    behavior = "call_extension_exports",
-    verify = "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_squatted_code_is_not_described_as_core() {
     let squatted = Diagnostic::from_extension("@acme/squat", "E001", Severity::Info, "found");
     let own = Diagnostic::from_extension("@specforge/testing", "W004", Severity::Warning, "w");
@@ -682,10 +641,7 @@ fn unresolved_reference_at_39() -> (
     (diagnostic, sources, source)
 }
 
-#[specforge_test(
-    behavior = "format_diagnostics_with_source_context",
-    verify = "diagnostic shows file:line:col"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_shows_file_line_col() {
     let (diagnostic, sources, _) = unresolved_reference_at_39();
     let output = render_diagnostics(&[diagnostic], &sources, false);
@@ -695,10 +651,7 @@ fn diagnostic_shows_file_line_col() {
     assert!(output.contains("╭─[ main.spec:2:39 ]"), "{output}");
 }
 
-#[specforge_test(
-    behavior = "format_diagnostics_with_source_context",
-    verify = "context snippet highlights offending token"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_shows_source_context() {
     let (diagnostic, sources, _) = unresolved_reference_at_39();
     let output = render_diagnostics(&[diagnostic], &sources, false);
@@ -732,10 +685,7 @@ fn diagnostic_shows_source_context() {
     );
 }
 
-#[specforge_test(
-    behavior = "format_diagnostics_with_source_context",
-    verify = "multi-line span shows full range"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_renders_multiline_span() {
     use std::collections::HashMap;
 
@@ -799,10 +749,7 @@ fn render_one(
     render_diagnostics(&[diag], &sources, false)
 }
 
-#[specforge_test(
-    behavior = "format_diagnostics_with_source_context",
-    verify = "a span after a multi-byte character keeps its position"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_after_multibyte_character_keeps_its_position() {
     // `…` and `é` are one character but three and two bytes.
     let source = "a \"x … é\" {\n}\n\nb \"y\" {\n  z\n}\n\nc\n";
@@ -815,10 +762,7 @@ fn diagnostic_after_multibyte_character_keeps_its_position() {
     assert!(!output.contains(" 7 │"), "{output}");
 }
 
-#[specforge_test(
-    behavior = "format_diagnostics_with_source_context",
-    verify = "the message appears once, in the heading"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_message_appears_once() {
     let source = "a {\n}\n\nb \"y\"\n";
     for (start, end) in [((4, 1), (4, 6)), ((1, 1), (2, 2))] {
@@ -835,10 +779,7 @@ fn diagnostic_message_appears_once() {
     }
 }
 
-#[specforge_test(
-    behavior = "format_diagnostics_with_source_context",
-    verify = "no rendered line ends in whitespace"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_lines_have_no_trailing_whitespace() {
     let source = "a {\n}\n\nb \"y\"\n";
     for (start, end) in [((4, 1), (4, 6)), ((1, 1), (2, 2))] {
@@ -849,10 +790,7 @@ fn diagnostic_lines_have_no_trailing_whitespace() {
     }
 }
 
-#[specforge_test(
-    behavior = "format_diagnostics_with_source_context",
-    verify = "consecutive diagnostics are separated by a blank line"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostics_are_separated_by_a_blank_line() {
     let one = render_one("a\n", (1, 1), (1, 2));
     let diag = |code: &str| {
@@ -874,10 +812,7 @@ fn diagnostics_are_separated_by_a_blank_line() {
     assert!(one.ends_with("╯\n"), "{one}");
 }
 
-#[specforge_test(
-    behavior = "format_diagnostics_with_source_context",
-    verify = "Format Diagnostics with Source Context: diagnostic source context formatting holds — valid_source_span, header_present, context_snippet_present, caret_marker_present"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_format_contract_consistency() {
     use std::collections::HashMap;
 
@@ -931,10 +866,7 @@ fn diagnostic_format_contract_consistency() {
 
 // === aggregate_diagnostic_summary (moved from the validator) ===
 
-#[specforge_test(
-    behavior = "aggregate_diagnostic_summary",
-    verify = "summary shows correct counts"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn summary_shows_correct_counts() {
     let diagnostics = vec![
         Diagnostic::new(specforge_common::codes::E001, "error 1".to_string()),
@@ -962,10 +894,7 @@ fn summary_shows_correct_counts() {
     );
 }
 
-#[specforge_test(
-    behavior = "aggregate_diagnostic_summary",
-    verify = "summary matches actual diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn summary_clean_project() {
     // A clean project reports zero of everything, uncoloured, with no
     // codes listed.
@@ -996,10 +925,7 @@ fn summary_clean_project() {
     );
 }
 
-#[specforge_test(
-    behavior = "aggregate_diagnostic_summary",
-    verify = "summary is red when errors exist"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn summary_red_when_errors_exist() {
     let diagnostics = vec![Diagnostic::new(
         specforge_common::codes::E001,
@@ -1015,10 +941,7 @@ fn summary_red_when_errors_exist() {
     );
 }
 
-#[specforge_test(
-    behavior = "aggregate_diagnostic_summary",
-    verify = "Aggregate Diagnostic Summary: diagnostic summary aggregation holds — validation_executed, counts_match"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn summary_contract_consistency() {
     // Requires: validation has completed
     // Ensures: counts match actual diagnostics exactly
@@ -1047,10 +970,7 @@ fn summary_contract_consistency() {
     );
 }
 
-#[specforge_test(
-    behavior = "format_diagnostics_with_source_context",
-    verify = "Format Diagnostics with Source Context: diagnostic source context formatting holds — valid_source_span, header_present, context_snippet_present, caret_marker_present"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn only_a_diagnostic_with_a_span_gets_a_snippet() {
     let source = "line 1\nfeature gamma \"G\" {}\n";
     let sources = std::collections::HashMap::from([("t.spec".to_string(), source.to_string())]);

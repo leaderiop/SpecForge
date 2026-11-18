@@ -66,10 +66,7 @@ fn rolled_back(dir: &TempDir) -> specforge_migrate::RollbackSummary {
     )
 }
 
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "a file edited since the migration is left as it is, its backup kept"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_file_edited_since_the_migration_is_left_as_it_is() {
     let dir = project();
     migrated(&dir);
@@ -90,10 +87,7 @@ fn a_file_edited_since_the_migration_is_left_as_it_is() {
     assert_eq!(rolled.record, RecordChange::Unchanged);
 }
 
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "a rollback with no recorded migration restores nothing"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_rollback_with_no_recorded_migration_restores_nothing() {
     let dir = project();
     let a = dir.path().join("spec/a.spec");
@@ -125,10 +119,7 @@ fn a_full_rollback_removes_the_record() {
     assert!(dir.path().join("spec/a.spec.bak").exists());
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "each file is read once: its backup, its diff and the text its change is staged over are that text"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_migrated_file_is_read_once() {
     use sha2::Digest;
     let dir = project();
@@ -155,10 +146,7 @@ fn a_migrated_file_is_read_once() {
     );
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "the preview and the migration rewrite the same sources, read once"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_project_rewrites_only_the_sources_it_is_given() {
     let dir = project();
     std::fs::write(dir.path().join("spec/b.spec"), OLD).unwrap();

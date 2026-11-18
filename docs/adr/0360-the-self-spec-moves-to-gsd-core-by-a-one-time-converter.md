@@ -1,6 +1,13 @@
 # The self-spec moves to @gsd/core by a one-time converter
 
-**Status:** accepted (2026-11-15). Builds on [ADR 0357](0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)
+**Status:** accepted (2026-11-15). D2, D4, D5, D6, D7, D14 and D16 amended by
+[ADR 0370](0370-gsd-core-holds-exactly-gsd-cores-kinds-and-fields.md) (its D8): a value whose home leaves `@gsd/core`
+is ledgered `dropped`, no home writes a reference, no kept kind holds a proof, and the sample runs no test until the
+swap. D1, D2, D3, D4 and D8 amended by
+[ADR 0372](0372-the-converter-gives-every-old-kind-one-fate-and-writes-gsds-ids.md): ids are GSD's with a map in the
+ledger, the homes are To, Computed or Dropped, the ledger is format 2 with one outcome per entry, a phase's references
+are written through the map and one to an entity the run does not convert is dropped, and nothing waits. Builds on
+[ADR 0357](0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md)
 (the product kinds and their carry-over table), [ADR 0358](0358-a-risk-is-rated-and-an-invariant-is-judged.md) (risk,
 invariant and the word scale), [ADR 0359](0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)
 (the requirement and decision fields and the decision's conversion table),
@@ -14,7 +21,9 @@ the typed edit. The sample and its gate (D10 to D17) **amend**
 arguments a caller's filter adds, a declared variable name may be a prefix, and `@rust/test` takes both; D18 amends
 [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): W061 reads no fact's reference; D14 amends
 [ADR 0068](0068-a-test-binary-records-collect-scores.md) D5: a caller chooses where a test binary's report goes with
-`SPECFORGE_TEST_REPORT_DIR`. Protocol 2.2.0, no bump.
+`SPECFORGE_TEST_REPORT_DIR`. Protocol 2.2.0, no bump. D14 to D17 carried out by
+[ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D7: the sample retired before
+the swap.
 
 ## Context
 

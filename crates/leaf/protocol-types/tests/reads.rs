@@ -83,10 +83,7 @@ fn file_read_round_trips_and_stays_off_the_wire_when_absent() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a call's inputs are one tagged list on the wire, and a descriptor that declares none writes no inputs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn inputs_round_trip_as_one_tagged_list() {
     let pass = CompilerPassDescriptor {
         name: "audit".into(),
@@ -189,10 +186,7 @@ fn inputs_round_trip_as_one_tagged_list() {
     assert_eq!(Inputs(&pass.inputs).files()[0].name, "sources");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a describe item key the protocol does not define produces W138"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_unknown_key_in_an_input_is_w138() {
     let handshake = HandshakeResponse {
         protocol_version: PROTOCOL_VERSION.to_string(),
@@ -240,10 +234,7 @@ fn an_unknown_key_in_an_input_is_w138() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "a describe item key the protocol does not define produces W138"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_unknown_key_in_a_collectors_input_is_w138() {
     let handshake = HandshakeResponse {
         protocol_version: PROTOCOL_VERSION.to_string(),

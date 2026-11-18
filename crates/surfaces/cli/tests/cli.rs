@@ -5,10 +5,7 @@ use std::fs;
 
 // === check_mode_for_ci (self-check) ===
 
-#[specforge_test(
-    behavior = "check_mode_for_ci",
-    verify = "check mode works in CI environment"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn self_check_runs_without_crashing() {
     // The repository's own spec/ directory
     let spec_dir = specforge_repo_root::repo_root().join("spec");
@@ -78,10 +75,7 @@ fn self_check_runs_without_crashing() {
 
 // === graceful_degradation_without_extensions ===
 
-#[specforge_test(
-    behavior = "graceful_degradation_without_extensions",
-    verify = "specforge check with zero extensions exits cleanly with I002"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn check_without_extensions_exits_cleanly_with_i002() {
     let dir = TestProject::new().without_config().files(&[
         (
@@ -107,10 +101,7 @@ fn check_without_extensions_exits_cleanly_with_i002() {
     assert_eq!(diagnostics[0]["severity"], "Info");
 }
 
-#[specforge_test(
-    behavior = "handle_all_extensions_failed_to_load",
-    verify = "specforge check with all extensions unavailable exits cleanly"
-)]
+#[specforge_test(requirement = "FEATURE-140")]
 fn check_with_every_extension_unavailable_exits_cleanly() {
     let dir = TestProject::new().without_config().files(&[
         (
@@ -140,10 +131,7 @@ fn check_with_every_extension_unavailable_exits_cleanly() {
 
 // === registry_build_peer_dependencies ===
 
-#[specforge_test(
-    behavior = "registry_build_peer_dependencies",
-    verify = "specforge check reports a missing required peer dependency"
-)]
+#[specforge_test(requirement = "FEATURE-136")]
 fn check_reports_a_missing_required_peer() {
     // @specforge/cargo-test requires @specforge/testing.
     let dir = TestProject::new().without_config().files(&[
@@ -177,10 +165,7 @@ fn check_reports_a_missing_required_peer() {
 
 // === check_mode_for_ci ===
 
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "exit 0 with no errors"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn check_clean_project_exits_zero() {
     let dir = TestProject::new()
         .without_config()
@@ -191,10 +176,7 @@ fn check_clean_project_exits_zero() {
 
 // === exit_code_reflects_diagnostic_severity ===
 
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "exit 1 with errors"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn check_project_with_errors_exits_one() {
     let dir = TestProject::new().without_config().files(&[(
         "main.spec",
@@ -207,10 +189,7 @@ behavior gamma "G" { features [alpha, nonexistent] }
     Cli::on(&dir).command(&["check"]).assert().code(1);
 }
 
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "exit 1 with warnings in strict mode"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn strict_mode_promotes_warnings_to_errors() {
     // Orphan ref produces W012 (warning) — with --strict it becomes an error → exit 1
     let dir = TestProject::new().without_config().files(&[(
@@ -233,10 +212,8 @@ ref gh.issue:42 "Orphan ref"
 
 // === print_diagnostics_structured ===
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "JSON output is valid and parseable"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn json_format_outputs_valid_json() {
     let dir = TestProject::new().without_config().files(&[(
         "main.spec",
@@ -279,10 +256,7 @@ behavior gamma "G" { features [alpha, nonexistent] }
 
 // === print_diagnostics_structured ===
 
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "error diagnostic is formatted with file:line:col"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn structured_output_includes_file_line_col() {
     let dir = TestProject::new().without_config().files(&[(
         "main.spec",
@@ -303,10 +277,7 @@ behavior gamma "G" { features [alpha, nonexistent] }
     );
 }
 
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "diagnostic includes context snippet"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn structured_output_includes_context_snippet() {
     let dir = TestProject::new().without_config().files(&[(
         "main.spec",
@@ -345,10 +316,7 @@ behavior gamma "G" { features [alpha, nonexistent] }
     );
 }
 
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "suggestion is displayed when available"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn structured_output_includes_suggestion() {
     let dir = TestProject::new().without_config().files(&[(
         "main.spec",
@@ -370,10 +338,7 @@ behavior gamma "G" { features [alpha_parsr] }
 
 // === check_mode_for_ci ===
 
-#[specforge_test(
-    behavior = "check_mode_for_ci",
-    verify = "check mode produces no output files"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn check_mode_produces_no_output_files() {
     let dir = TestProject::new()
         .without_config()
@@ -396,10 +361,7 @@ fn check_mode_produces_no_output_files() {
     assert_eq!(before, after, "check mode should not produce any new files");
 }
 
-#[specforge_test(
-    behavior = "check_mode_for_ci",
-    verify = "check mode prints diagnostics to stderr"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn check_mode_prints_to_stderr() {
     let dir = TestProject::new().without_config().files(&[(
         "main.spec",
@@ -428,10 +390,8 @@ behavior gamma "G" { features [alpha, nonexistent] }
 
 // === export_diagnostics_as_json ===
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "each diagnostic includes code, severity, message, file, line, column"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn json_diagnostics_have_complete_fields() {
     let dir = TestProject::new().without_config().files(&[(
         "main.spec",
@@ -529,10 +489,7 @@ fn strip_sgr(text: &str) -> String {
     out
 }
 
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn print_diagnostics_contract_consistency() {
     let dir = one_of_each_severity();
     // CLICOLOR_FORCE stands in for a terminal, which a test cannot have.
@@ -595,10 +552,7 @@ fn print_diagnostics_contract_consistency() {
     );
 }
 
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "diagnostics are plain when output is not a terminal"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostics_plain_when_not_a_terminal() {
     let dir = one_of_each_severity();
     // stderr is a pipe and nothing forces colour: not one escape byte, the
@@ -630,10 +584,7 @@ fn diagnostics_plain_when_not_a_terminal() {
     assert_eq!(parsed.as_array().unwrap().len(), 3);
 }
 
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "NO_COLOR disables diagnostic colour"
-)]
+#[specforge_test(requirement = "FEATURE-017")]
 fn no_color_disables_diagnostic_colour() {
     let dir = one_of_each_severity();
     let plain = check_stderr(&dir, None, None);
@@ -649,10 +600,7 @@ fn no_color_disables_diagnostic_colour() {
     );
 }
 
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn exit_code_contract_consistency() {
     // Requires: validation_complete fired
     // Ensures: exit 0 on clean, exit 1 on errors, strict promotes warnings
@@ -667,10 +615,7 @@ fn exit_code_contract_consistency() {
     Cli::on(&error_dir).command(&["check"]).assert().code(1);
 }
 
-#[specforge_test(
-    behavior = "check_mode_for_ci",
-    verify = "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn check_mode_contract_consistency() {
     // Requires: validation_complete fired
     // Ensures: no output files, diagnostics to stderr, appropriate exit code
@@ -698,10 +643,8 @@ behavior gamma "G" { features [alpha, nonexistent] }
     assert_eq!(output.status.code(), Some(1), "errors must cause exit 1");
 }
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "diagnostics serialized as JSON array to stdout"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn json_format_outputs_to_stdout() {
     let dir = TestProject::new().without_config().files(&[(
         "main.spec",
@@ -723,10 +666,8 @@ behavior gamma "G" { features [alpha, nonexistent] }
     assert!(parsed.is_array(), "should be a JSON array");
 }
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "exit code unaffected by format flag"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn json_format_exit_code_matches_human_format() {
     // With errors: both human and json format should exit 1
     let dir = TestProject::new().without_config().files(&[(
@@ -754,10 +695,8 @@ behavior gamma "G" { features [alpha, nonexistent] }
     );
 }
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "Export Diagnostics as JSON: JSON diagnostic export holds — validation_complete_fired, json_array_produced, diagnostic_fields_complete, exit_code_unaffected"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn json_diagnostics_contract_consistency() {
     // Requires: validation_complete (diagnostics collected)
     // Ensures: JSON array to stdout, complete fields, exit code unaffected
@@ -854,10 +793,7 @@ fn check_json(dir: &TestProject, args: &[&str]) -> (Option<i32>, Vec<String>, St
     (output.status.code(), codes, stderr)
 }
 
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "an unknown --lint profile fails with a clap error (exit 2), before anything is compiled"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn unknown_lint_profile_is_rejected_by_clap() {
     let dir = project_with_every_severity();
     let (code, codes, stderr) = check_json(&dir, &["--lint", "nonsense"]);
@@ -875,10 +811,8 @@ fn unknown_lint_profile_is_rejected_by_clap() {
     assert!(stderr.contains("invalid value 'errors'"), "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "filter_reported_diagnostics",
-    verify = "check --severity prints only that severity and never changes the exit code"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn check_severity_shows_one_severity_and_keeps_the_exit_code() {
     let dir = project_with_every_severity();
     let (code, all, _) = check_json(&dir, &[]);
@@ -924,10 +858,8 @@ fn check_severity_shows_one_severity_and_keeps_the_exit_code() {
     assert_eq!(stderr, "", "a JSON reader gets no note (ADR 0120)");
 }
 
-#[specforge_test(
-    behavior = "check_diagnostic_policy",
-    verify = "--lint pedantic is accepted and changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn lint_pedantic_is_accepted_and_changes_nothing() {
     let dir = project_with_every_severity();
     let plain = check_json(&dir, &[]);
@@ -939,10 +871,7 @@ fn lint_pedantic_is_accepted_and_changes_nothing() {
     assert_eq!((code, &codes), (plain.0, &plain.1));
 }
 
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn unknown_format_value_is_rejected_by_clap() {
     let dir = TestProject::new()
         .without_config()
@@ -968,10 +897,7 @@ fn unknown_format_value_is_rejected_by_clap() {
 
 // === provide_infer_status_cli: an unusable manifest ===
 
-#[specforge_test(
-    behavior = "provide_infer_status_cli",
-    verify = "an unusable manifest is refused with E071"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn infer_status_refuses_an_unusable_manifest_with_e071() {
     let dir = TestProject::new()
         .without_config()
@@ -996,10 +922,7 @@ fn infer_status_refuses_an_unusable_manifest_with_e071() {
     assert!(stderr.contains("E071"), "{stderr}");
 }
 
-#[specforge_test(
-    behavior = "provide_infer_status_cli",
-    verify = "prints the sessions the manifest records, with their timestamps"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn infer_status_prints_the_session_history() {
     let dir = TestProject::new().without_config().files(&[(
         "specforge-infer.json",
@@ -1026,10 +949,7 @@ fn infer_status_prints_the_session_history() {
 /// A reader that closes stdout early (`specforge stats | head`) ends the
 /// output quietly: no panic, nothing on stderr, and the command's own exit.
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "report_command_outcome",
-    verify = "a closed stdout ends the output quietly and keeps the command's exit"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_closed_stdout_ends_the_output_quietly_in_the_binary() {
     use std::io::Read;
 
@@ -1058,10 +978,8 @@ fn a_closed_stdout_ends_the_output_quietly_in_the_binary() {
     assert_eq!(stderr, "");
 }
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "diagnostics serialized as JSON array to stdout"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn check_json_shows_cross_extension_errors() {
     let dir = TestProject::new().file(
         "main.spec",
@@ -1084,10 +1002,7 @@ decision use_rust "D" {
     );
 }
 
-#[specforge_test(
-    behavior = "check_mode_for_ci",
-    verify = "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn check_full_multi_extension_project_exits_zero() {
     let dir = TestProject::new().file("main.spec", specs::MULTI_EXTENSION);
     let tree = |root: &std::path::Path| {

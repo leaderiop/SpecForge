@@ -1,17 +1,25 @@
 //! The conversion, pure: the old entities through the table into one list of creates, the ledger, and the computed
 //! values to compare once the target is written (ADR 0360 D1-D5). The pre-checks turn what would be an E080 or an
-//! E002 into a listed stop before any write.
+//! E002 into a listed stop before any write. Each create is an entity the old spec held: no entity is created that
+//! it did not (ADR 0372 D6).
+//!
+//! The cross-entity links and the id map come first (ADR 0372 D3, D4): every new id and path is assigned before any
+//! draft, every draft is keyed by its new path, and a reference is written through the map. The plan carries the map,
+//! and the ledger records it as its `ids` section.
 
 use serde_json::{Value, json};
 use specforge_ops::authoring::edit::{Edit, Input};
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::how;
+use super::ids::{self, Ids};
 use super::ledger::{Ledger, Why};
-use super::proof::Proofs;
-use super::read::{Index, OldEntity};
-use super::table::{self, Home, Row, VERIFY};
+use super::links::Links;
+use super::read::OldEntity;
+use super::table::{self, Fate, Home, Row, VERIFY};
 
+#[path = "plan/roadmap.rs"]
+mod roadmap;
 #[path = "plan/to.rs"]
 mod to;
 
@@ -38,8 +46,8 @@ impl std::fmt::Display for Stop {
     }
 }
 
-/// A computed value to read back once the target is written: the old (kind, id, field) and value, the new entity
-/// and field, and the value the old one means (`None`: no new value equals it, so it is always ledgered).
+/// A computed value to read back once the target is written: the old (kind, id, field) and value, the new entity's
+/// path and field, and the value the old one means (`None`: no new value equals it, so it is always ledgered).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Check {
     pub kind: String,
@@ -52,23 +60,28 @@ pub struct Check {
     pub expected: Option<Value>,
 }
 
+/// Why a decision not in force is dropped whole (ADR 0372 D5): its status is not `accepted`, or it names a successor.
+pub const NOT_IN_FORCE: &str = "a decision not in force (its status is not accepted, or it names a successor) no \
+                                longer holds: it converts to nothing, and its ADR under docs/adr/ is its record \
+                                (ADR 0372 D5)";
+
+/// The ledger's field for one `method` member of an entity dropped whole.
+const METHOD: &str = "method";
+/// The ledger's field for an entity's field annotations, dropped whole: one entry, each field to its annotations.
+const ANNOTATIONS: &str = "annotations";
+
 /// What the conversion plans.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Planned {
-    /// One create per converted entity, in the old order, each created entity after the one it comes from.
+    /// One create per converted entity, in the old order.
     pub creates: Vec<Edit>,
+    /// The ledger, its `ids` section the map's.
     pub ledger: Ledger,
     pub checks: Vec<Check>,
-    /// Old entities that became an entity of their own.
+    /// The id map: each converted entity's new id and path.
+    pub ids: Ids,
+    /// Old entities that became an entity of their own: one per create.
     pub converted: usize,
-    /// Entities the converter created that the old project did not hold.
-    pub created: usize,
-    /// The test ids the written proofs name: what a gate runs to hold them.
-    pub cited: BTreeSet<String>,
-    /// For each (new id, new field) a reference was to be written in, the old ids the selection leaves out that it
-    /// would have held, its own references and the inverse writes of entities left out alike (each ledgered
-    /// `out_of_selection`): what a required field lacks because of `--only`, not the old project.
-    pub left_out: BTreeMap<(String, String), BTreeSet<String>>,
 }
 
 impl Planned {
@@ -105,10 +118,11 @@ impl Planned {
     }
 }
 
-/// Every reason the run cannot convert `entities`, all at once: an entity of a kind no row converts, a field with no
-/// row, a value in a refused field, a word a default field does not imply, an obligation with no row, a milestone
-/// that targets a day before it starts (which the target refuses, so the converted project would not check clean),
-/// two creates with one id.
+/// Every reason the run cannot convert `entities`, all at once (ADR 0372 D2): an entity of a kind with no fate; on an
+/// entity of a converting kind, a field with no row, an obligation with no row, a method or a field annotation (no
+/// `@gsd/core` field takes one); a milestone two releases list, a release with no version, two entities given one new
+/// id (the links' and the id map's stops). An entity of a kind dropped whole needs no row: its fate's reason is every
+/// value's.
 pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
     let mut stops = Vec::new();
     let stop = |e: &OldEntity, field: &str, why: String| Stop {
@@ -118,105 +132,52 @@ pub fn prechecks(entities: &[OldEntity]) -> Result<(), Vec<Stop>> {
         why,
     };
     for e in entities {
-        if table::rows_of(&e.kind).next().is_none() {
-            stops.push(stop(e, "", format!("no row converts a {} yet", e.kind)));
-            continue;
-        }
-        for (field, value) in &e.fields {
-            let Some(row) = table::row_of(&e.kind, field) else {
-                stops.push(stop(e, field, format!("no row for {}.{field}", e.kind)));
+        match table::fate(&e.kind) {
+            None => {
+                stops.push(stop(
+                    e,
+                    "",
+                    format!("no fate for kind {} (ADR 0372 D1)", e.kind),
+                ));
                 continue;
-            };
-            for home in row.homes {
-                match *home {
-                    Home::Refused => stops.push(stop(
-                        e,
-                        field,
-                        format!("refused: no kind holds it (value {value})"),
-                    )),
-                    Home::Default(implied) if value.as_str() != Some(implied) => {
-                        let kind = table::new_kind(&e.kind).unwrap_or_default();
-                        stops.push(stop(
-                            e,
-                            field,
-                            format!("no home for {value}: a {kind} implies only \"{implied}\""),
-                        ));
-                    }
-                    _ => {}
-                }
+            }
+            Some(Fate::Dropped(_)) => continue,
+            Some(Fate::To(_)) => {}
+        }
+        for field in e.fields.keys() {
+            if table::row_of(&e.kind, field).is_none() {
+                stops.push(stop(e, field, format!("no row for {}.{field}", e.kind)));
             }
         }
         if !e.obligations.is_empty() && table::row_of(&e.kind, VERIFY).is_none() {
             stops.push(stop(e, VERIFY, format!("no row for {}.{VERIFY}", e.kind)));
         }
-        if table::new_kind(&e.kind) == Some("milestone")
-            && let (Some(starts), Some(targets)) = (day(e, "start_date"), day(e, "target_date"))
-            && targets < starts
-        {
+        if !e.methods.is_empty() {
             stops.push(stop(
                 e,
-                "target_date",
+                METHOD,
+                format!("a {} holds no method: no @gsd/core field takes one", e.kind),
+            ));
+        }
+        for field in e.annotations.keys() {
+            stops.push(stop(
+                e,
+                field,
                 format!(
-                    "{targets} is before its start_date {starts}: the target refuses a milestone that ships \
-                     before it starts (gsd/E537)"
+                    "a field annotation of a {} has no home in @gsd/core",
+                    e.kind
                 ),
             ));
         }
     }
-    let mut by_id: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for e in entities {
-        for (new_id, maker) in new_ids(e) {
-            by_id.entry(new_id).or_default().push(maker);
-        }
-    }
-    for (new_id, makers) in by_id.into_iter().filter(|(_, makers)| makers.len() > 1) {
-        stops.push(Stop {
-            kind: String::new(),
-            id: new_id,
-            field: String::new(),
-            why: format!("two creates with one id, by {}", makers.join(" and ")),
-        });
-    }
+    let (links, linked) = Links::of(entities);
+    stops.extend(linked);
+    stops.extend(ids::assign(entities, &links).1);
     stops.sort();
     if stops.is_empty() { Ok(()) } else { Err(stops) }
 }
 
-/// The `YYYY-MM-DD` day `e` writes in `field`. Two such days compare as calendar days by their text; any other
-/// spelling is the source's own date error, never one the target adds.
-fn day<'e>(e: &'e OldEntity, field: &str) -> Option<&'e str> {
-    let text = e.fields.get(field)?.as_str()?;
-    let shaped = text.len() == 10
-        && text.bytes().enumerate().all(|(at, b)| match at {
-            4 | 7 => b == b'-',
-            _ => b.is_ascii_digit(),
-        });
-    shaped.then_some(text)
-}
-
-/// The ids `e` creates, each with the entity that makes it.
-fn new_ids(e: &OldEntity) -> Vec<(String, String)> {
-    let mut ids = Vec::new();
-    if table::new_kind(&e.kind).is_some() {
-        ids.push((e.id.clone(), format!("{} '{}'", e.kind, e.id)));
-    }
-    if e.fields.contains_key("solution") {
-        ids.push((
-            solution_id(&e.id),
-            format!("{} '{}' (its solution)", e.kind, e.id),
-        ));
-    }
-    ids
-}
-
-/// The id of the decision a feature's solution becomes.
-fn solution_id(id: &str) -> String {
-    format!("{id}_solution")
-}
-
-/// The rating a missing occurrence or detection is filled with: the worst, so an unrated risk is never read as low.
-const UNRATED: u64 = 10;
-
-/// One entity being written: its create's parts.
+/// One entity being written: its create's parts, its id the name within its scope (its scope field among its fields).
 #[derive(Debug, Clone)]
 struct Draft {
     kind: &'static str,
@@ -224,8 +185,6 @@ struct Draft {
     title: String,
     file: String,
     fields: BTreeMap<String, Input>,
-    /// The fields other entities wrote by inversion: sorted by id once every entity is planned.
-    inverted: BTreeSet<String>,
 }
 
 impl Draft {
@@ -233,8 +192,11 @@ impl Draft {
         self.fields.insert(field.to_string(), value);
     }
 
-    /// `text` after the text `field` holds, a blank line between.
+    /// `text` after the text `field` holds, a blank line between; a blank `text` adds nothing.
     fn join(&mut self, field: &str, text: String) {
+        if text.trim().is_empty() {
+            return;
+        }
         match self.fields.get_mut(field) {
             Some(Input::One(held)) if !held.is_empty() => {
                 held.push_str("\n\n");
@@ -244,14 +206,19 @@ impl Draft {
         }
     }
 
-    /// `value` as the member `member` of the block `field`, unless the block holds it already.
-    fn member(&mut self, field: &str, member: &str, value: Input) {
-        let entry = self
-            .fields
-            .entry(field.to_string())
-            .or_insert_with(|| Input::Block(BTreeMap::new()));
-        if let Input::Block(block) = entry {
-            block.entry(member.to_string()).or_insert(value);
+    /// `bound` on the last line of the text `field` holds, after one space; `bound` alone when it holds none; a blank
+    /// `bound` adds nothing.
+    fn bound(&mut self, field: &str, bound: &str) {
+        if bound.trim().is_empty() {
+            return;
+        }
+        match self.fields.get_mut(field) {
+            Some(Input::One(held)) if !held.trim().is_empty() => {
+                held.truncate(held.trim_end().len());
+                held.push(' ');
+                held.push_str(bound);
+            }
+            _ => self.set(field, Input::One(bound.to_string())),
         }
     }
 
@@ -274,51 +241,54 @@ impl Draft {
     }
 }
 
-/// The plan as it is being made.
-struct Planner<'a> {
-    index: &'a Index,
-    proofs: &'a Proofs,
-    cited: BTreeSet<String>,
-    /// The old ids this run converts into an entity of their own.
-    converted: BTreeSet<String>,
+/// The plan as it is being made: drafts keyed by their new path.
+#[derive(Default)]
+struct Planner {
+    links: Links,
+    ids: Ids,
+    /// Each old id of the run and the old kinds that hold it, so a reference the map does not hold says why.
+    known: BTreeMap<String, Vec<(String, bool)>>,
+    /// Each requirement a written phase lists, by its new path, and the phase that keeps it: the first in source
+    /// order that lists it (ADR 0372 D7).
+    listings: BTreeMap<String, String>,
     drafts: BTreeMap<String, Draft>,
     order: Vec<String>,
     ledger: Ledger,
     checks: Vec<Check>,
-    created: usize,
-    left_out: BTreeMap<(String, String), BTreeSet<String>>,
 }
 
-/// Convert `entities` (each passed [`prechecks`]); `left` is every old entity the selection leaves out (none for a
-/// whole run), read only for the inverse writes it makes onto `entities`; `index` names every old entity's kind,
-/// `proofs` what an invariant's obligations are proved by.
-pub fn plan(entities: &[OldEntity], left: &[OldEntity], index: &Index, proofs: &Proofs) -> Planned {
-    let mut planner = Planner {
-        index,
-        proofs,
-        cited: BTreeSet::new(),
-        converted: entities
-            .iter()
-            .filter(|e| table::new_kind(&e.kind).is_some())
-            .map(|e| e.id.clone())
-            .collect(),
-        drafts: BTreeMap::new(),
-        order: Vec::new(),
-        ledger: Ledger::default(),
-        checks: Vec::new(),
-        created: 0,
-        left_out: BTreeMap::new(),
-    };
-    for e in entities {
-        planner.draft(e);
+/// Convert `entities` (each passed [`prechecks`]). The links, the id map and the phases' listings come first; a
+/// reference is written through the map, and one to an entity the run does not convert is ledgered `dropped`, never
+/// stubbed.
+pub fn plan(entities: &[OldEntity]) -> Planned {
+    let links = Links::of(entities).0;
+    let ids = ids::assign(entities, &links).0;
+    let wholes: Vec<Option<&'static str>> =
+        entities.iter().map(|e| dropped_whole(e, &links)).collect();
+    let mut known: BTreeMap<String, Vec<(String, bool)>> = BTreeMap::new();
+    for (e, whole) in entities.iter().zip(&wholes) {
+        known
+            .entry(e.id.clone())
+            .or_default()
+            .push((e.kind.clone(), whole.is_some()));
     }
-    for e in entities {
+    let mut planner = Planner {
+        links,
+        ids,
+        known,
+        ..Planner::default()
+    };
+    planner.listings_of(entities);
+    for (e, whole) in entities.iter().zip(&wholes) {
+        match whole {
+            Some(reason) => planner.drop_whole(e, reason),
+            None => planner.draft(e),
+        }
+    }
+    for (e, _) in entities.iter().zip(&wholes).filter(|(_, w)| w.is_none()) {
         for row in table::rows_of(&e.kind) {
             let values: Vec<Value> = if row.field == VERIFY {
-                e.obligations
-                    .iter()
-                    .map(|(kind, text)| json!({"kind": kind, "text": text}))
-                    .collect()
+                obligations(e)
             } else {
                 e.fields.get(row.field).cloned().into_iter().collect()
             };
@@ -330,18 +300,79 @@ pub fn plan(entities: &[OldEntity], left: &[OldEntity], index: &Index, proofs: &
         }
         planner.fill(e);
     }
-    for e in left {
-        planner.inverses_left_out(e);
-    }
     planner.finish()
 }
 
-impl Planner<'_> {
-    /// The entity `e` converts to, empty but for its header.
+/// Why `e` is dropped whole, if it is (ADR 0372 D1, D4, D5): its kind's fate drops it, it is a decision not in force
+/// (its status is not `accepted`, or it writes `superseded_by`), or it is a milestone no converted release lists. None
+/// for a kind with no fate, which stops the run.
+fn dropped_whole(e: &OldEntity, links: &Links) -> Option<&'static str> {
+    match table::fate(&e.kind)? {
+        Fate::Dropped(reason) => Some(reason),
+        Fate::To(_) if e.kind == super::links::MILESTONE && links.release_of(&e.id).is_none() => {
+            Some(table::NO_RELEASE)
+        }
+        Fate::To(_)
+            if e.kind == "decision"
+                && (e.fields.get("status").and_then(Value::as_str) != Some("accepted")
+                    || e.fields.contains_key("superseded_by")) =>
+        {
+            Some(NOT_IN_FORCE)
+        }
+        Fate::To(_) => None,
+    }
+}
+
+/// The `@gsd/core` kind of the entity `e` converts to under `links`, read from the fate table: none for an entity
+/// dropped whole, and for one of a kind with no fate.
+pub fn converts_to(e: &OldEntity, links: &Links) -> Option<&'static str> {
+    match dropped_whole(e, links) {
+        Some(_) => None,
+        None => table::fate(&e.kind)?.new_kind(),
+    }
+}
+
+/// `e`'s obligations, each as the ledger writes it.
+fn obligations(e: &OldEntity) -> Vec<Value> {
+    e.obligations
+        .iter()
+        .map(|(kind, text)| json!({"kind": kind, "text": text}))
+        .collect()
+}
+
+impl Planner {
+    /// `e`, dropped whole: its title, each of its values, each obligation, each method and its field annotations (one
+    /// entry, each field to its annotations) ledgered `dropped` with `reason`, so an entity with no value still leaves
+    /// one entry (ADR 0372 D2).
+    fn drop_whole(&mut self, e: &OldEntity, reason: &str) {
+        let title = ("title", e.title.clone().map_or(Value::Null, Value::String));
+        let values = e
+            .fields
+            .iter()
+            .map(|(field, value)| (field.as_str(), value.clone()));
+        let obligations = obligations(e).into_iter().map(|value| (VERIFY, value));
+        let methods = e.methods.iter().map(|method| (METHOD, method.clone()));
+        let annotations = (!e.annotations.is_empty()).then(|| {
+            let held = e.annotations.clone().into_iter().collect();
+            (ANNOTATIONS, Value::Object(held))
+        });
+        let all = std::iter::once(title)
+            .chain(values)
+            .chain(obligations)
+            .chain(methods)
+            .chain(annotations);
+        for (field, value) in all {
+            let why = Why::Dropped(reason.to_string());
+            self.ledger.record(&e.kind, &e.id, field, value, why);
+        }
+    }
+
+    /// The entity `e` converts to, empty but for its header, its name and its scope field, keyed by its new path.
     fn draft(&mut self, e: &OldEntity) {
-        let Some(kind) = table::new_kind(&e.kind) else {
+        let Some(new) = self.ids.get(&e.kind, &e.id).cloned() else {
             return;
         };
+        let kind = new.kind;
         let title = match &e.title {
             Some(title) if !title.trim().is_empty() => title.clone(),
             _ => {
@@ -359,38 +390,40 @@ impl Planner<'_> {
             }
         };
         let mut fields = BTreeMap::new();
-        if matches!(kind, "milestone" | "term") {
-            fields.insert("name".to_string(), Input::One(title.clone()));
+        match kind {
+            "milestone" => {
+                fields.insert("name".to_string(), Input::One(title.clone()));
+            }
+            "phase" => {
+                fields.insert("name".to_string(), Input::One(how::phase_name(&title)));
+            }
+            _ => {}
         }
-        self.add(Draft {
-            kind,
-            id: e.id.clone(),
-            title,
-            file: e.file.clone(),
-            fields,
-            inverted: BTreeSet::new(),
-        });
+        if let Some((field, scope)) = &new.scope {
+            fields.insert((*field).to_string(), Input::One(scope.clone()));
+        }
+        self.ledger.rename(&e.kind, &e.id, new.path());
+        self.add(
+            new.path(),
+            Draft {
+                kind,
+                id: new.name,
+                title,
+                file: e.file.clone(),
+                fields,
+            },
+        );
     }
 
-    fn add(&mut self, draft: Draft) {
-        self.order.push(draft.id.clone());
-        self.drafts.insert(draft.id.clone(), draft);
+    fn add(&mut self, path: String, draft: Draft) {
+        self.order.push(path.clone());
+        self.drafts.insert(path, draft);
     }
 
-    /// `draft`, created from the entity `from`, written right after it.
-    fn add_after(&mut self, from: &str, draft: Draft) {
-        let at = self
-            .order
-            .iter()
-            .position(|id| id == from)
-            .map_or(self.order.len(), |at| at + 1);
-        self.order.insert(at, draft.id.clone());
-        self.drafts.insert(draft.id.clone(), draft);
-        self.created += 1;
-    }
-
+    /// The draft `e` converts to.
     fn own(&mut self, e: &OldEntity) -> Option<&mut Draft> {
-        self.drafts.get_mut(&e.id)
+        let path = self.ids.path(&e.kind, &e.id)?;
+        self.drafts.get_mut(&path)
     }
 
     fn home(&mut self, e: &OldEntity, row: &Row, home: &Home, value: &Value) {
@@ -404,134 +437,55 @@ impl Planner<'_> {
                 let expected = match how::expected(compare, value) {
                     how::Expect::Value(expected) => Some(expected),
                     how::Expect::Never => None,
-                    how::Expect::Nothing => return,
+                };
+                let Some(new_id) = self.ids.path(&e.kind, &e.id) else {
+                    return;
                 };
                 self.checks.push(Check {
                     kind: e.kind.clone(),
                     id: e.id.clone(),
                     field: row.field.to_string(),
                     value: value.clone(),
-                    new_id: e.id.clone(),
+                    new_id,
                     new_kind: kind,
                     new_field: field,
                     expected,
                 });
             }
-            // The value the new kind implies: the pre-checks stopped on any other.
-            Home::Default(_) => {}
-            Home::Later(pending) => {
+            Home::Dropped(reason) => {
                 self.ledger.record(
                     &e.kind,
                     &e.id,
                     row.field,
                     value.clone(),
-                    Why::Later(pending),
+                    Why::Dropped(reason.to_string()),
                 );
             }
-            // A refused value stopped the run before planning.
-            Home::Refused => {}
         }
     }
 
-    fn unconverted(&mut self, e: &OldEntity, field: &str, value: Value, why: &str) {
-        self.ledger.record(
-            &e.kind,
-            &e.id,
-            field,
-            value,
-            Why::Unconverted(why.to_string()),
-        );
-    }
-
-    /// The new id a reference to `id` is written as, when this run converts it; otherwise ledgered and none. `into` is
-    /// the new field of `e`'s own entity it is written in (none for an inverse write): one the selection leaves out
-    /// is recorded there.
-    fn resolve(
-        &mut self,
-        e: &OldEntity,
-        field: &str,
-        into: Option<&str>,
-        id: &str,
-    ) -> Option<String> {
-        if self.converted.contains(id) {
-            return Some(id.to_string());
-        }
-        let why = match self.index.kind(id) {
-            Some(kind) if table::new_kind(kind).is_some() => {
-                if let Some(into) = into {
-                    let at = (e.id.clone(), into.to_string());
-                    self.left_out.entry(at).or_default().insert(id.to_string());
-                }
-                Why::OutOfSelection(id.to_string())
-            }
-            Some(kind) => Why::TargetLater {
-                target: id.to_string(),
-                pending: table::pending_of(kind),
-            },
-            None => Why::Unconverted(format!("'{id}' names no entity of the old project")),
-        };
-        self.ledger.record(&e.kind, &e.id, field, json!(id), why);
-        None
-    }
-
-    /// The inverse writes `e`, an entity the selection leaves out, would make onto one it converts: each item the
-    /// converted entity loses is ledgered on it, `out_of_selection` naming `e`, under the new field it would have been
-    /// written in, and recorded there, so a required field it empties stops the run naming the selection.
-    fn inverses_left_out(&mut self, e: &OldEntity) {
-        for row in table::rows_of(&e.kind) {
-            let Some(value) = e.fields.get(row.field) else {
-                continue;
-            };
-            for home in row.homes {
-                let Home::To {
-                    field,
-                    how: table::How::InvertOnto,
-                    ..
-                } = *home
-                else {
-                    continue;
-                };
-                let index = self.index;
-                for id in how::items(value) {
-                    let Some(kind) = index.kind(&id).filter(|_| self.converted.contains(&id))
-                    else {
-                        continue;
-                    };
-                    let why = Why::OutOfSelection(e.id.clone());
-                    self.ledger.record(kind, &id, field, json!(e.id), why);
-                    let at = (id, field.to_string());
-                    self.left_out.entry(at).or_default().insert(e.id.clone());
-                }
-            }
-        }
-    }
-
-    /// The required values the old entity lacks, filled and ledgered.
+    /// The required values the old entity lacks, filled and ledgered. A requirement's category is the one rule's
+    /// ([`ids::category`], ADR 0372 D3), which a constraint's own category word has already written; a constraint's
+    /// and an invariant's tier is `v2` when the run writes a phase that does not list it (ADR 0372 D7), else `v1`.
     fn fill(&mut self, e: &OldEntity) {
-        let Some(kind) = table::new_kind(&e.kind) else {
+        let Some(kind) = self.ids.get(&e.kind, &e.id).map(|new| new.kind) else {
             return;
         };
-        let fills: Vec<(&str, Input)> = match kind {
-            "decision" => vec![("origin", Input::One("project".to_string()))],
-            "requirement" if e.kind == "constraint" => vec![
-                ("area", Input::One("Constraint".to_string())),
-                ("tier", Input::One("v1".to_string())),
-            ],
-            "requirement" => vec![
-                ("area", Input::One("Feature".to_string())),
-                (
-                    "tier",
-                    Input::One(how::feature_tier(how::FEATURE_DEFAULT).to_string()),
-                ),
-            ],
-            "risk" => vec![
-                ("occurrence", how::number(UNRATED)),
-                ("detection", how::number(UNRATED)),
-            ],
+        let requirement = |tier: &str| {
+            vec![
+                ("category", Input::One(ids::category(e))),
+                ("tier", Input::One(tier.to_string())),
+            ]
+        };
+        let fills: Vec<(&str, Input)> = match (kind, e.kind.as_str()) {
+            ("decision", _) => vec![("origin", Input::One("project".to_string()))],
+            ("requirement", "feature") => requirement(how::feature_tier(how::FEATURE_DEFAULT)),
+            ("requirement", _) => requirement(self.unlisted_tier(e, "v1")),
+            ("phase", _) => self.phase_fills(e),
             _ => Vec::new(),
         };
         for (field, value) in fills {
-            let Some(draft) = self.drafts.get_mut(&e.id) else {
+            let Some(draft) = self.own(e) else {
                 return;
             };
             if draft.fields.contains_key(field) {
@@ -554,43 +508,32 @@ impl Planner<'_> {
 
     fn finish(self) -> Planned {
         let Planner {
+            ids,
             mut drafts,
             order,
             ledger,
             checks,
-            created,
-            cited,
-            left_out,
             ..
         } = self;
-        let converted = order.len() - created;
+        let converted = order.len();
         let creates = order
             .iter()
-            .filter_map(|id| drafts.remove(id))
-            .map(|mut draft| {
-                for field in &draft.inverted {
-                    if let Some(Input::Many(list)) = draft.fields.get_mut(field) {
-                        list.sort();
-                    }
-                }
-                Edit::Create {
-                    kind: draft.kind.to_string(),
-                    id: draft.id,
-                    title: draft.title,
-                    file: draft.file,
-                    fields: draft.fields,
-                    verify: Vec::new(),
-                }
+            .filter_map(|path| drafts.remove(path))
+            .map(|draft| Edit::Create {
+                kind: draft.kind.to_string(),
+                id: draft.id,
+                title: draft.title,
+                file: draft.file,
+                fields: draft.fields,
+                verify: Vec::new(),
             })
             .collect();
         Planned {
             creates,
             ledger,
             checks,
+            ids,
             converted,
-            created,
-            cited,
-            left_out,
         }
     }
 }

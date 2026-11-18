@@ -104,10 +104,7 @@ fn assert_agree(name: &str, source: &str, placed: bool) {
 const WHEEL: &str = "shape Wheel \"Wheel\" {\n  size number\n}\n\n";
 const REPO: &str = "port Repo \"Repo\" {\n}\n";
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "the linker and the finder read every block alike"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn the_linker_and_the_finder_agree_on_every_case() {
     let with_wheel = |body: &str| format!("{WHEEL}{body}");
     let rows: Vec<(&str, String, bool)> = vec![
@@ -202,10 +199,7 @@ fn the_linker_and_the_finder_agree_on_every_case() {
 
 /// A default's derived name is held by the blocks that take the default's entry (`note`), whatever they write in
 /// the derived field (`parts`): `Car` takes `note` and writes `parts`; `Bus` writes its own `note` (ADR 0182 D2).
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a default's derived name is held by the blocks that take its entry"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_default_s_derived_name_is_held_by_the_blocks_that_take_its_entry() {
     assert_agree(
         "a default's derived name, the derived field written",

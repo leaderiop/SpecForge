@@ -101,10 +101,7 @@ fn each_declared_type_spells_its_value() {
     }
 }
 
-#[specforge_test(
-    invariant = "typed_edit_canonical_form",
-    verify = "a spelled value reads back and is left as it is by format and W159"
-)]
+#[specforge_test(requirement = "INVARIANT-144")]
 fn a_spelled_value_reads_back_and_is_left_by_rewrite() {
     let types = [
         FieldType::String,

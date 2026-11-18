@@ -72,10 +72,8 @@ fn all_of_kind(items: &[CompletionItem], kind: CompletionItemKind) -> bool {
 
 const TWO_KINDS: &str = "behavior login \"Login\" {\n  \n}\n\ntype token \"Token\" {\n  \n}\n";
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "field name completion uses FieldRegistry for entity kind"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn fields_of_the_enclosing_kind() {
     let found = complete_in_project(TWO_KINDS, 1, 2);
     let names = labels(&found);
@@ -84,10 +82,8 @@ fn fields_of_the_enclosing_kind() {
     assert!(all_of_kind(&found, CompletionItemKind::FIELD));
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "suggestions are filtered by entity kind"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn fields_differ_by_kind() {
     let (_dir, project) = compiled(&[("test.spec", TWO_KINDS)]);
     let view = ProjectView::of(&project);
@@ -97,10 +93,8 @@ fn fields_differ_by_kind() {
     assert!(labels(&token).contains(&"extends"), "{:?}", labels(&token));
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "no field name suggestions outside entity blocks"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn no_fields_outside_entity_blocks() {
     let found = complete_in_project(TWO_KINDS, 3, 0);
     assert!(
@@ -112,10 +106,7 @@ fn no_fields_outside_entity_blocks() {
     );
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "keyword completion includes all registered kinds"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn registered_kinds_at_top_level() {
     let (_dir, project) = compiled(&[("test.spec", TWO_KINDS)]);
     let view = ProjectView::of(&project);
@@ -129,10 +120,7 @@ fn registered_kinds_at_top_level() {
     assert_eq!(behavior.detail.as_deref(), Some("@specforge/software"));
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "use is always suggested and define never is"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn use_is_suggested_and_define_never_is() {
     // With and without extensions.
     let empty = Assembled::over(RegistryBuild::default());
@@ -161,10 +149,8 @@ fn no_keywords_inside_a_block() {
     );
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "a bracket inside a string opens no reference list"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn a_bracket_in_a_string_opens_no_reference_list() {
     let text = "behavior alpha \"Alpha\" {\n  contract \"see [docs\"\n  \n}\n";
     let (site, found) = complete(
@@ -180,10 +166,8 @@ fn a_bracket_in_a_string_opens_no_reference_list() {
     assert!(labels(&found).contains(&"refs"), "{:?}", labels(&found));
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "nothing is suggested inside a string, a comment or a nested block"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn nothing_completes_in_strings_comments_or_nested_blocks() {
     let text = concat!(
         "behavior eps \"Eps\" {\n",
@@ -213,10 +197,7 @@ fn nothing_completes_in_strings_comments_or_nested_blocks() {
     }
 }
 
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "suggestions filtered by target_kind when FieldRegistry has constraint"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn list_items_complete_ids_of_the_target_kind() {
     let text = concat!(
         "type token \"Token\" {}\n",
@@ -335,10 +316,8 @@ impl Fixture {
     }
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "an enum field's value suggests its declared values"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn an_enum_value_suggests_its_declared_values() {
     let fixture = Fixture::new();
     let text = "task t \"T\" {\n  state \n  state d\n}\n";
@@ -354,10 +333,8 @@ fn an_enum_value_suggests_its_declared_values() {
     assert_eq!(labels(&found), ["draft", "done"]);
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "a builtin vocabulary's field completes its values"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn a_builtin_vocabulary_completes_its_values() {
     let text = "feature f \"F\" {\n  status \n}\n";
     let dir = TestProject::new()
@@ -383,10 +360,8 @@ fn a_builtin_vocabulary_completes_its_values() {
     assert!(all_of_kind(&found, CompletionItemKind::ENUM_MEMBER));
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "a boolean field's value suggests true and false"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn a_bool_value_suggests_true_and_false() {
     let fixture = Fixture::new();
     let text = "task t \"T\" {\n  done \n}\n";
@@ -395,10 +370,7 @@ fn a_bool_value_suggests_true_and_false() {
     assert!(all_of_kind(&found, CompletionItemKind::KEYWORD));
 }
 
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "a string list's items suggest no entity IDs but scheme ref IDs"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_string_list_suggests_no_ids() {
     let fixture = Fixture::new();
     let text = "task t \"T\" {\n  tags []\n}\n";
@@ -412,10 +384,7 @@ fn a_string_list_suggests_no_ids() {
     assert_eq!(labels(&found), ["gh.issue:7"]);
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "verify suggests the kinds the entity's kind allows"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn verify_suggests_the_kinds_the_entity_allows() {
     let fixture = Fixture::new();
     let text = "task t \"T\" {\n  verify \n  verify c\n}\nother o \"O\" {\n  verify \n}\n";
@@ -431,10 +400,7 @@ fn verify_suggests_the_kinds_the_entity_allows() {
     assert!(complete(text, 5, 9, &fixture.view()).1.is_empty());
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "nothing is suggested after the kind of a verify statement being typed"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn nothing_is_suggested_after_a_verify_kind_being_typed() {
     let fixture = Fixture::new();
     let text = "task t \"T\" {\n  verify unit \n}\n";
@@ -451,10 +417,7 @@ fn a_single_reference_value_completes_its_target_kinds_ids() {
     assert_eq!(labels(&found), ["alpha"]);
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "a kind keyword's completion documents the kind with its description and inference guide"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_kind_keyword_is_documented_by_its_guide() {
     let (_dir, project) = compiled(&[("test.spec", TWO_KINDS)]);
     let view = ProjectView::of(&project);
@@ -479,10 +442,8 @@ fn a_kind_keyword_is_documented_by_its_guide() {
     assert!(use_keyword.documentation.is_none());
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "a field the block already writes is not suggested, but the one under the cursor is"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn a_field_the_block_writes_is_not_suggested_again() {
     let text = "behavior login \"Login\" {\n  category command\n  \n}\n";
     let names = labels(&complete_in_project(text, 2, 2))

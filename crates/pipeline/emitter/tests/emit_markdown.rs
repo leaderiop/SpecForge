@@ -67,10 +67,7 @@ fn plain(graph: &Graph) -> String {
     markdown(graph, EmitOptions::default())
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "a section is headed by its kind, id and title"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn a_section_is_headed_by_kind_id_and_title() {
     let graph = graph_of(
         vec![
@@ -90,10 +87,7 @@ fn a_section_is_headed_by_kind_id_and_title() {
     assert!(doc.contains("`test.spec:3`"), "{doc}");
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "a normative field is quoted whole"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn a_normative_field_is_quoted_whole() {
     let mut alpha = node("alpha", "behavior", None);
     string(&mut alpha, "contract", "line one\nline two");
@@ -124,10 +118,7 @@ fn a_normative_field_is_quoted_whole() {
     );
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "links name each linked entity's kind and title, outside the selection too"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn links_name_kind_and_title_outside_the_selection() {
     let mut a = node("a", "behavior", Some("A"));
     a.fields.push(
@@ -149,10 +140,7 @@ fn links_name_kind_and_title_outside_the_selection() {
     assert!(doc.contains("| types | `t` | type | T title |"), "{doc}");
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "a reference that does not resolve is listed as unresolved"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn a_reference_that_does_not_resolve_is_listed() {
     let project = specforge_project::testing::TestProject::new()
         .config(|c| c["spec_root"] = "spec".into())
@@ -178,10 +166,7 @@ fn a_reference_that_does_not_resolve_is_listed() {
     assert!(doc.contains("| category | command |"), "{doc}");
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "the entities that reference it are listed"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn the_entities_that_reference_it_are_listed() {
     let graph = graph_of(
         vec![
@@ -215,10 +200,7 @@ fn the_entities_that_reference_it_are_listed() {
     );
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "obligations are numbered in declaration order"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn obligations_are_numbered_in_declaration_order() {
     let mut alpha = node("alpha", "behavior", None);
     alpha.obligations = vec![
@@ -238,10 +220,7 @@ fn obligations_are_numbered_in_declaration_order() {
     );
 }
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "sections are ordered scope first, then by kind and id"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn sections_are_ordered_scope_first_then_kind_and_id() {
     let graph = graph_of(
         vec![

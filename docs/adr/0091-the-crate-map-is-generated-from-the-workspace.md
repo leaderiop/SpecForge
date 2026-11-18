@@ -2,7 +2,9 @@
 
 **Status:** accepted (2026-10-14, structure round, plan 12). Builds on ADR 0084 (the layer rule) and ADR 0066 (one
 check list). Extended by [ADR 0238](0238-the-scaffold-names-the-sdk-this-build-speaks.md) (the version a crate
-publishes is the workspace's, and the scaffold names it).
+publishes is the workspace's, and the scaffold names it). D4 retired by
+[ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D7: the spec no longer models
+crates; `check-modules` and `spec-modules` are gone; the crate map stays on `cargo metadata`.
 
 The workspace's crates sit in `crates/<layer>/<crate>/` (ADR 0083, ADR 0084). Three things described them, and each had
 drifted. `ARCHITECTURE.md` named 3 of the crates. `spec/product/modules.spec` declared 12 of 31, and 12 of its 14

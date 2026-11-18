@@ -1,0 +1,53 @@
+// @specforge/compliance extension features
+
+feature ce_core_entity_kinds "Compliance Entity Kind Registration" {
+  status   accepted
+  problem  """
+    The @specforge/compliance extension must register 4 entity kinds,
+    4 edge types, field definitions, and validation rules. Without this
+    registration, the compiler has zero knowledge of compliance concepts:
+    regulations, the controls that implement them, the evidence for each
+    control, and audits.
+  """
+  solution """
+    A v2 manifest declares the regulation, control, evidence and audit
+    kinds, the Governs, ImplementedBy, ProvidedBy and Audits edge types,
+    typed field definitions with edge mappings, and declarative validation
+    rules. Registration follows the zero-entity core protocol defined in
+    ExtensionDeclaration.
+  """
+}
+
+feature compliance_validation "Compliance Validation" {
+  status   accepted
+  problem  """
+    Regulatory compliance specifications (SOC 2, HIPAA, GDPR, ISO 27001)
+    require traceability from regulations through controls to evidence.
+    Without automated validation, compliance gaps — unreferenced controls,
+    unimplemented regulations, missing evidence — go undetected until
+    audit time.
+  """
+  solution """
+    Declarative validation rules in the @specforge/compliance extension
+    manifest. The core engine's execute_validation_pattern behavior interprets
+    these rules to detect unreferenced controls (W101), regulations without controls
+    (W102), controls without evidence (W103), and expired evidence (W104).
+    Validation runs automatically during specforge check.
+  """
+}
+
+feature compliance_reporting "Compliance Reporting" {
+  status   accepted
+  problem  """
+    Compliance auditors need a visual traceability matrix mapping regulations
+    to controls with maturity status and evidence coverage. Producing this
+    manually is error-prone and always stale.
+  """
+  solution """
+    A renderer contribution in the @specforge/compliance extension produces
+    a regulation-to-control traceability matrix via the emit_file host
+    function. The matrix shows maturity levels and highlights gaps, providing
+    auditors with an always-current compliance view generated directly from
+    the spec graph.
+  """
+}

@@ -287,10 +287,7 @@ fn assert_mcp_coverage_matches_analyze(served: &mut Served) {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "specforge.coverage reports covered exactly for the entities analyze coverage proves"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn mcp_coverage_matches_analyze_coverage() {
     assert_mcp_coverage_matches_analyze(&mut served(project("fx1")));
     assert_mcp_coverage_matches_analyze(&mut served(todo_app()));
@@ -329,19 +326,13 @@ fn assert_mcp_coverage_rows_are_what_stats_counts(served: &mut Served) {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "with no filters the coverage rows are the entities stats counts as testable"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn mcp_coverage_rows_are_what_stats_counts() {
     assert_mcp_coverage_rows_are_what_stats_counts(&mut served(project("fx1")));
     assert_mcp_coverage_rows_are_what_stats_counts(&mut served(todo_app()));
 }
 
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports the declared and proof percentages"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_reports_declared_and_proof_percentages() {
     let tmp = project("fx1");
     let stats = stats(&tmp);
@@ -361,10 +352,7 @@ fn stats_reports_declared_and_proof_percentages() {
     assert_eq!(self::stats(&tmp)["proof_pct"], Value::Null);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_stats_tool",
-    verify = "response includes the declared and proof percentages"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn mcp_stats_reports_declared_and_proof_percentages() {
     let stats = &mcp_calls(
         &mut served(project("fx1")),

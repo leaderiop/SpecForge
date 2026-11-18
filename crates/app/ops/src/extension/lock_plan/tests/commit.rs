@@ -45,10 +45,7 @@ pub(super) fn app() -> PackageName {
     PackageName::parse("@acme/app").unwrap()
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a lock plan pins the keys its fetches decided only when it commits"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_lock_plan_pins_what_its_fetches_decided_only_when_it_commits() {
     let runtime = runtime();
 
@@ -81,10 +78,7 @@ fn a_lock_plan_pins_what_its_fetches_decided_only_when_it_commits() {
     assert_eq!(registry.pins(), [(app(), K1.to_string())].into());
 }
 
-#[specforge_test(
-    invariant = "registry_integrity",
-    verify = "the hash and the key id are recorded in the lock file"
-)]
+#[specforge_test(requirement = "INVARIANT-119")]
 fn a_committed_registry_install_locks_its_hash_and_key_id() {
     let (runtime, registry) = (runtime(), app_registry(Some(K1)));
     let dir = base_project();
@@ -110,10 +104,7 @@ fn a_committed_registry_install_locks_its_hash_and_key_id() {
     assert_eq!(locked.key_id.as_ref().map(|k| k.as_str()), Some(K1));
 }
 
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "a registry package signed by a key that is no publisher key id is refused (E028) before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn a_registry_key_that_is_no_key_id_is_refused_before_anything_is_written() {
     let (runtime, registry) = (runtime(), app_registry(Some("k1")));
     let dir = base_project();
@@ -132,10 +123,7 @@ fn a_registry_key_that_is_no_key_id_is_refused_before_anything_is_written() {
     );
 }
 
-#[specforge_test(
-    invariant = "extension_operation_atomicity",
-    verify = "a pin that cannot be saved puts back everything the install wrote"
-)]
+#[specforge_test(requirement = "INVARIANT-030")]
 fn a_pin_that_cannot_be_saved_puts_back_everything_the_install_wrote() {
     let (runtime, registry) = (runtime(), app_registry(Some(K1)));
     let registry = registry.refusing_pins();
@@ -189,10 +177,7 @@ fn an_already_pinned_or_unsigned_install_pins_nothing() {
     assert!(registry.pins().is_empty());
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add enables the builtins a required builtin peer requires, dependencies first"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn each_ask_is_answered_with_the_builtins_its_extension_required() {
     let builtin = |runtime, name: &'static str, peers| {
         crate::testing::serving_builtin(runtime, name, declaring(name, "1.0.0", peers))
@@ -293,10 +278,7 @@ pub(super) fn staging(at: &Path, text: &'static str) -> Also<'static> {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "uninstall_wasm_extension",
-    verify = "rolls back on failure"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn an_entries_only_plan_accepts_an_unreadable_lock_and_puts_the_config_back() {
     use std::os::unix::fs::PermissionsExt;
     let runtime = crate::testing::serving_builtin(
@@ -345,10 +327,7 @@ fn an_entries_only_plan_accepts_an_unreadable_lock_and_puts_the_config_back() {
     assert_eq!(std::fs::read_to_string(&lock).unwrap(), "{ not a lock");
 }
 
-#[specforge_test(
-    invariant = "extension_operation_atomicity",
-    verify = "a failed change puts back every project file it wrote and removes the directories it created"
-)]
+#[specforge_test(requirement = "INVARIANT-030")]
 fn a_failed_change_puts_back_every_project_file_and_the_directories_it_made() {
     let (runtime, registry) = (runtime(), app_registry(Some(K1)).refusing_pins());
     let dir = base_project();
@@ -389,10 +368,7 @@ fn a_failed_change_puts_back_every_project_file_and_the_directories_it_made() {
     assert!(!installed.module_path(&app()).exists());
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an add over a specforge.json changed since it was read writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_add_over_a_config_changed_since_it_was_read_writes_nothing() {
     let (runtime, registry) = (runtime(), app_registry(Some(K1)));
     let dir = base_project();

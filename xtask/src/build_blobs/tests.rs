@@ -36,6 +36,57 @@ fn a_stage_lock_must_be_a_subset_of_the_extensions() {
     assert_eq!(lock_subset(moved, extension), Err("b 2.1.0".to_string()));
 }
 
+/// `--verify` fails, never skips, on a blob another rustc built, and on a pinned rustc that is not
+/// installed (ADR 0373 D1).
+#[test]
+fn a_blob_another_rustc_built_fails_naming_the_pin() {
+    let pinned = "rustc 1.99.1 (58cf8f9c3 2026-10-13)";
+    assert_eq!(blob_inputs::BLOB_RUSTC, "1.99.1");
+    assert_eq!(rustc_verdict(pinned, pinned), None);
+
+    let old = "rustc 1.98.1 (48a229cea 2026-09-01)";
+    let message = rustc_verdict(old, pinned).expect("another rustc fails");
+    for named in [old, pinned, "BLOB_RUSTC", "rustup toolchain install 1.99.1"] {
+        assert!(message.contains(named), "{named} not in: {message}");
+    }
+
+    let missing = "rustc 1.100.0 (0123456789 2026-12-01)";
+    let message = rustc_verdict(missing, missing).expect("another pin fails");
+    assert!(
+        message.contains("BLOB_RUSTC") && message.contains("rustup toolchain install 1.99.1"),
+        "{message}"
+    );
+    // A version that only shares the pin's prefix is another rustc.
+    assert!(rustc_verdict("rustc 1.99.10 (x)", "rustc 1.99.10 (x)").is_some());
+}
+
+/// The stager's and `revendor`'s cargo and rustc run on the pin: `RUSTUP_TOOLCHAIN` names it and
+/// no `RUSTC` override reaches them (ADR 0373 D1).
+#[test]
+fn the_blob_commands_run_on_the_pinned_rustc() {
+    let mut command = Command::new("cargo");
+    blob_inputs::on_blob_rustc(&mut command);
+    let envs: BTreeMap<String, Option<String>> = command
+        .get_envs()
+        .map(|(key, value)| {
+            (
+                key.to_string_lossy().into_owned(),
+                value.map(|v| v.to_string_lossy().into_owned()),
+            )
+        })
+        .collect();
+    assert_eq!(
+        envs.get("RUSTUP_TOOLCHAIN"),
+        Some(&Some(blob_inputs::BLOB_RUSTC.to_string()))
+    );
+    assert_eq!(envs.get("RUSTC"), Some(&None), "RUSTC is removed");
+    assert_eq!(
+        envs.get("CARGO_BUILD_RUSTC"),
+        Some(&None),
+        "CARGO_BUILD_RUSTC is removed"
+    );
+}
+
 #[test]
 fn a_stage_mirrors_the_repo_layout() {
     let stage = Path::new("/r/target/blob-stage/extensions/product");
@@ -178,4 +229,146 @@ fn a_staged_member_carries_no_workspace_or_profile_table() {
         staged_manifest(manifest),
         "[package]\nname = \"x\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n[dependencies]\nserde = \"1\"\n\n"
     );
+}
+
+/// The stage of a gsd crate builds against the SDK the gsd workspace patches in, read from the
+/// repository's own `gsd/.cargo/config.toml` and re-rooted at the repository (ADR 0366 D2).
+#[test]
+fn the_gsd_stage_replays_the_sdk_patch_from_the_root() {
+    let root = specforge_repo_root::repo_root();
+    let config = blob_inputs::cargo_config_of("gsd/core").expect("a gsd crate reads a config");
+    let table = patch::stage_patch(&root.join(config), blob_inputs::cargo_dir("gsd/core")).unwrap();
+    assert_eq!(
+        table,
+        "[patch.crates-io]\nspecforge-extension-sdk = { path = \"crates/runtime/extension-sdk\" }\n"
+    );
+    assert!(blob_inputs::cargo_config_of("extensions/product").is_none());
+}
+
+/// A config file written to a fresh temporary directory, for the patch reader's refusals.
+fn patch_of(config: &str) -> Result<String, String> {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.toml");
+    std::fs::write(&path, config).unwrap();
+    patch::stage_patch(&path, "gsd")
+}
+
+#[test]
+fn a_patch_path_that_leaves_the_repository_is_refused() {
+    let err =
+        patch_of("[patch.crates-io]\nforeign = { path = \"../../elsewhere/sdk\" }\n").unwrap_err();
+    assert!(
+        err.contains("foreign") && err.contains("leaves the repository"),
+        "{err}"
+    );
+    let err = patch_of("[patch.crates-io]\nrooted = { path = \"/opt/sdk\" }\n").unwrap_err();
+    assert!(
+        err.contains("rooted") && err.contains("leaves the repository"),
+        "{err}"
+    );
+}
+
+#[test]
+fn a_patch_entry_that_is_not_a_path_is_refused() {
+    let err = patch_of(
+        "[patch.crates-io]\nfrom-git = { git = \"https://example.com/sdk\", branch = \"main\" }\n",
+    )
+    .unwrap_err();
+    assert!(
+        err.contains("from-git") && err.contains("not a lone `path`"),
+        "{err}"
+    );
+    let err = patch_of("[patch.crates-io]\npinned = { path = \"../crates/x\", version = \"1\" }\n")
+        .unwrap_err();
+    assert!(
+        err.contains("pinned") && err.contains("not a lone `path`"),
+        "{err}"
+    );
+}
+
+/// The patched name is written as a bare TOML key, so a name that would need quoting (no crate has one) is refused
+/// by name rather than written into a stage manifest that does not parse.
+#[test]
+fn a_patched_name_that_is_no_bare_key_is_refused_naming_it() {
+    for name in ["a.b", "my sdk", "sdk\"x", "ünï"] {
+        let quoted = toml::Value::String(name.to_owned());
+        let err = patch_of(&format!(
+            "[patch.crates-io]\n{quoted} = {{ path = \"../crates/x\" }}\n"
+        ))
+        .unwrap_err();
+        assert!(
+            err.contains(&format!("`{name}`")) && err.contains("not a crate name"),
+            "{name}: {err}"
+        );
+    }
+    let ok = patch_of("[patch.crates-io]\nSdk_2-x = { path = \"../crates/x\" }\n").unwrap();
+    assert_eq!(ok, "[patch.crates-io]\nSdk_2-x = { path = \"crates/x\" }\n");
+}
+
+/// The stage replays `[patch.crates-io]` and nothing else, so any other key of the config (which
+/// the gsd workspace's own build would honour) is refused by name rather than dropped unseen.
+#[test]
+fn a_config_key_other_than_the_patch_is_refused_naming_it() {
+    for (config, key) in [
+        ("[build]\njobs = 2\n", "build"),
+        ("[env]\nRUSTFLAGS = \"-C debuginfo=0\"\n", "env"),
+        (
+            "[patch.crates-io]\nsdk = { path = \"../crates/x\" }\n\n[target.wasm32-wasip2]\nrustflags = []\n",
+            "target",
+        ),
+        ("[source.crates-io]\nreplace-with = \"mirror\"\n", "source"),
+    ] {
+        let err = patch_of(config).unwrap_err();
+        assert!(
+            err.contains(&format!("[{key}]")) && err.contains("not replayed in the stage"),
+            "{key}: {err}"
+        );
+    }
+    assert_eq!(patch_of(""), Ok(String::new()));
+}
+
+fn parsed(args: &[&str]) -> Result<(Mode, Option<&'static str>), String> {
+    parse_args(args).map(|(mode, only)| (mode, only.map(|blob| blob.crate_dir)))
+}
+
+/// `--only <crate dir>` narrows any mode to one committed blob (ADR 0373 D2: the bootstrap job verifies `gsd/core` alone).
+#[test]
+fn only_narrows_a_mode_to_one_committed_crate() {
+    assert_eq!(
+        parsed(&["--verify", "--only", "gsd/core"]),
+        Ok((Mode::Verify, Some("gsd/core")))
+    );
+    assert_eq!(
+        parsed(&["--only", "gsd/core", "--verify"]),
+        Ok((Mode::Verify, Some("gsd/core")))
+    );
+    assert_eq!(
+        parsed(&["--only", "gsd/core"]),
+        Ok((Mode::Missing, Some("gsd/core")))
+    );
+    assert_eq!(parsed(&["--verify"]), Ok((Mode::Verify, None)));
+    assert_eq!(parsed(&[]), Ok((Mode::Missing, None)));
+}
+
+#[test]
+fn an_unknown_crate_dir_is_refused_naming_the_committed_ones() {
+    let message = parsed(&["--verify", "--only", "nowhere"]).expect_err("nowhere is not committed");
+    assert!(message.contains("nowhere"), "{message}");
+    for blob in COMMITTED {
+        assert!(message.contains(blob.crate_dir), "{message}");
+    }
+    assert!(message.contains("gsd/core"), "{message}");
+}
+
+#[test]
+fn two_modes_or_a_dangling_only_are_usage_errors() {
+    for args in [
+        &["--verify", "--check"][..],
+        &["--only"],
+        &["--only", "gsd/core", "--only", "gsd/core"],
+        &["--bogus"],
+    ] {
+        let message = parsed(args).expect_err("a usage error");
+        assert!(message.contains("usage: build-blobs"), "{message}");
+    }
 }

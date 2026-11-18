@@ -44,10 +44,7 @@ fn init_with(
     )
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init enables an extension two of its specifiers name the same way once, and refuses two that add it differently with extension_conflict, as add does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_two_local_files_that_add_one_extension_differently() {
     let scratch = TempDir::new().unwrap();
     let (a, b) = (scratch.path().join("a.wasm"), scratch.path().join("b.wasm"));
@@ -99,10 +96,7 @@ fn init_enables_once_an_extension_two_specifiers_name_the_same_way() {
     assert_eq!(lock.matches("\"@x/a\"").count(), 1, "{lock}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init reads its extension specifiers as add reads them, with add's codes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_reads_its_specifiers_as_add_reads_them() {
     use specforge_ops::authoring::init;
     let scratch = TempDir::new().unwrap();
@@ -169,10 +163,7 @@ fn init_reads_its_specifiers_as_add_reads_them() {
 /// `a/../x.wasm`, `a` a symlink to a directory elsewhere: the file beside `a`'s target, as every
 /// tool on the file system reads it (not the one beside `a`).
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init reads its extension specifiers as add reads them, with add's codes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_reads_a_local_path_through_its_symlinks_as_the_file_system_does() {
     let scratch = TempDir::new().unwrap();
     let dir = scratch.path().join("demo");
@@ -190,10 +181,7 @@ fn init_reads_a_local_path_through_its_symlinks_as_the_file_system_does() {
 }
 
 /// A comma is part of a specifier: `init` names no more extensions for a string than `add` does.
-#[specforge_test_macros::test(
-    behavior = "parse_extension_specifier",
-    verify = "a string holding commas is one extension specifier, for add and init alike"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-134")]
 fn init_reads_each_string_as_one_specifier() {
     let scratch = TempDir::new().unwrap();
     let dir = scratch.path().join("demo");
@@ -218,10 +206,7 @@ fn init_reads_each_string_as_one_specifier() {
 /// `link/../a.wasm`, `link` a symlink to `elsewhere/sub`: `add` and `init` both read the file beside
 /// the link's target, and the lock records it (ADR 0104 D6 made init resolve what it reads).
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init resolves a .. in a relative local path as the file system does, as add resolves it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_reads_a_dot_dot_after_a_symlink_as_add_does() {
     let scratch = TempDir::new().unwrap();
     let elsewhere = scratch.path().join("elsewhere");

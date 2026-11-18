@@ -4,10 +4,7 @@ fn tasks() -> Compiled {
     project(&[("tasks.spec", TASKS)])
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "link appends the target and keeps the items as written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn link_appends_and_keeps_items_as_written() {
     let c = tasks();
     let text = after(
@@ -22,10 +19,7 @@ fn link_appends_and_keeps_items_as_written() {
     assert!(is_canonical(&c, &text));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "link of a target already there writes nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn link_twice_plans_nothing() {
     let c = tasks();
     assert!(
@@ -42,10 +36,7 @@ fn link_twice_plans_nothing() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "unlink of the last item removes the field"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn unlink_of_the_last_item_removes_the_field() {
     let c = tasks();
     let text = after(
@@ -124,10 +115,7 @@ fn a_long_list_is_rewrapped_by_the_formatter() {
 
 const ONE_VALUE: &str = "invariant inv_a \"A\" {\n  guarantee \"x\"\n}\n\ninvariant inv_b \"B\" {\n  guarantee \"y\"\n}\n\nbehavior b4 \"B4\" {\n  category   c\n  invariants inv_a\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "link and unlink read a list written as one value as its one item"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn unlink_reads_a_list_written_as_one_value() {
     let c = project(&[("a.spec", ONE_VALUE)]);
     let text = after(&c, "a.spec", &[unlink("b4", "invariants", "inv_a")]);
@@ -142,10 +130,7 @@ fn link_appends_to_a_list_written_as_one_value() {
     assert!(is_canonical(&c, &text));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "unlink removes a single reference written as a number"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn unlink_removes_a_reference_written_as_a_number() {
     let events =
         "type 10 \"Ten\" {\n  id string\n}\n\nevent task_done \"Task Done\" {\n  payload 10\n}\n";

@@ -138,10 +138,7 @@ pub fn cursor_class(name: &str) -> ToolClass {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "install_into_a_host",
-        verify = "Claude Code names an engine tool class as it names an MCP tool of the specforge server"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-013")]
     fn an_engine_class_is_named_as_claude_code_names_an_mcp_tool() {
         assert_eq!(
             claude_names("specforge:trace"),

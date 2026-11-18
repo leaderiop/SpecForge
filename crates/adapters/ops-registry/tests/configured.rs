@@ -18,10 +18,7 @@ fn project(config: &str) -> TestProject {
     TestProject::new().raw_config(config)
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "an unusable specforge.json is refused with the refusal add gives, before any network call"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unusable_specforge_json_is_refused_as_add_refuses_it() {
     for config in ["{ \"extensions\": [", "[1, 2]", "{\"extensions\": 7}"] {
         let dir = project(config);
@@ -88,10 +85,7 @@ const ACME_AND_MAIN: &str = r#"[
 
 const ACME_ONLY: &str = r#"[{"alias":"acme","url":"https://acme.example","scope_filter":"@acme"}]"#;
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "scope-specific registry queried for matching scope"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_scoped_name_goes_to_the_registry_of_its_scope() {
     let found = configured_with(ACME_AND_MAIN);
 
@@ -101,10 +95,7 @@ fn a_scoped_name_goes_to_the_registry_of_its_scope() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "default registry used when no scope filter matches"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_name_no_scope_matches_goes_to_the_default_registry() {
     let found = configured_with(ACME_AND_MAIN);
     assert_eq!(
@@ -122,10 +113,7 @@ fn a_name_no_scope_matches_goes_to_the_default_registry() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_registry_source",
-    verify = "a name no registry serves is refused with R-OPS-001 before any request"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_name_no_registry_serves_is_refused_with_r_ops_001() {
     let found = configured_with(ACME_ONLY);
 
@@ -170,10 +158,7 @@ fn an_unscoped_name_goes_to_the_default_registry() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "login stores the credential under the root of the registry it validated against"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn named_is_the_alias_given_else_the_default() {
     let found = configured_with(ACME_AND_MAIN);
 
@@ -196,10 +181,7 @@ fn named_is_the_alias_given_else_the_default() {
     );
 }
 
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_configuration_is_reported_once_the_registry_is_asked() {
     let dir = project(
         r#"{"name": "p", "extensions": [], "registries": [
@@ -221,10 +203,7 @@ fn the_configuration_is_reported_once_the_registry_is_asked() {
     assert!(reported.contains(&"W140"), "{reported:?}");
 }
 
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "registries parsed from specforge.json"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_entry_that_cannot_be_read_serves_no_name() {
     let dir = project(
         r#"{"name":"p","version":"0.1.0","extensions":[],"registries":[
@@ -245,10 +224,7 @@ fn an_entry_that_cannot_be_read_serves_no_name() {
     assert!(refused.message.contains("index 0"), "{}", refused.message);
 }
 
-#[specforge_test(
-    behavior = "configure_registries",
-    verify = "a registry operation opens its registry once: the configuration and the credential store are read before any request, and their refusal is the operation's"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn opening_reads_the_configuration_and_the_store_once_before_any_request() {
     use specforge_ops::registry::Registry as _;
     let sdk = name("@acme/a");

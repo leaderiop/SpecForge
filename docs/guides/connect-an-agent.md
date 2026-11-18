@@ -64,8 +64,8 @@ The server exposes 40 core tools, plus the commands of the extensions your proje
 | **Proof and inference** | `specforge.collect` (record what the project's tests prove; it runs a test runner only with `run: true` and your prior approval), `specforge.infer_session`, `specforge.infer_progress`, `specforge.infer_gaps` (guides for writing specs from existing code) |
 
 **Anchors come from a collect.** An anchor is an edge between an entity and a fact a collector placed in source:
-a Rust test whose `#[specforge_test(behavior = "...")]` names the behavior, or an entity that cites an item (a GSD
-task's `items`). Enable a source pack (`@rust/source`, `@javascript/source`; `specforge init` does it for a
+a Rust test whose `#[specforge_test(behavior = "...")]` names the behavior, or an entity that cites an item.
+Enable a source pack (`@rust/source`, `@javascript/source`; `specforge init` does it for a
 `Cargo.toml` or `package.json`) and run `specforge collect` (`specforge collect --no-run` collects the facts
 without asking to run a test runner); until then `find_implementation` answers nothing and says so (I212), and a file edited since the collect keeps its rows with a W198. `specforge anchors` gives the same
 rows on the command line.

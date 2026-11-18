@@ -397,10 +397,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "create_entity",
-        verify = "new's help lists only the fields a person may write; a computed field stays a flag the edit refuses"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-131")]
     fn new_lists_only_the_fields_a_person_may_write() {
         use specforge_protocol_types::FieldWriter;
         let written_by = |name: &str, writer| FieldInfo {
@@ -435,10 +432,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "create_entity",
-        verify = "a kind's field named like one of new's options is no flag of new, and the kind's help says to set it with set"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-131")]
     fn a_field_named_like_an_option_of_new_is_no_flag_of_it() {
         let fields = [field("path"), field("format"), field("body")];
         let mut cmd = command(Some(("doc", &fields)));
@@ -460,10 +454,7 @@ mod tests {
         assert!(help.contains("specforge set"), "{help}");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "create_entity",
-        verify = "a kind's field named like one of new's options is set with --field"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-131")]
     fn a_field_named_like_an_option_is_set_with_field() {
         let fields = [field("path"), field("body")];
         let cmd = command(Some(("doc", &fields)));

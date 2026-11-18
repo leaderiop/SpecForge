@@ -7,10 +7,7 @@ use specforge_test_macros::test as specforge_test;
 
 use crate::migrate::{OLD, files_under, hooked, project, request, run};
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a specforge.json that does not say which files are the project's sources refuses the migration, dry run included, and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_config_that_hides_the_sources_refuses_the_migration() {
     let configs = [
         r#"{"spec_root": "spec", "extensions": ["#,
@@ -48,10 +45,7 @@ fn a_config_that_hides_the_sources_refuses_the_migration() {
     }
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "only the project's sources are migrated: under spec_root, without excluded files"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_reads_the_project_sources() {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();

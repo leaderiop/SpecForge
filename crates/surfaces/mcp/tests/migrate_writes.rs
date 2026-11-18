@@ -16,10 +16,7 @@ fn old_project() -> TestProject {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a read-only source refuses the migration and nothing is written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-122")]
 fn a_read_only_source_refuses_the_migration_over_mcp() {
     use std::os::unix::fs::PermissionsExt as _;
     let project = old_project();
@@ -45,10 +42,7 @@ fn a_read_only_source_refuses_the_migration_over_mcp() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation reads and writes no file through a symlink that leaves the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn a_temporary_name_linked_outside_is_unlinked_not_followed() {
     let project = old_project();
     let outside = TempDir::new().unwrap();
@@ -65,10 +59,7 @@ fn a_temporary_name_linked_outside_is_unlinked_not_followed() {
     assert!(fs::symlink_metadata(&link).is_err(), "the link is gone");
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "a dry run the run would refuse is a failed call, its document the data"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-068")]
 fn a_dry_run_the_run_would_refuse_fails_the_call() {
     let project = TestProject::new().file("old.spec", OLD);
     let mut served = project.serve(&[TestExtension::named("@test/hooked").declaring(|c| {

@@ -238,20 +238,18 @@ if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge que
 
 3. **Requirements emerged?**
    - Any new requirements discovered during building?
-   - Record each as a `v1` requirement of the phase that will build it. A `v1` requirement must be in a phase (`gsd/E101`), so it is recorded `v2`, mapped into the phase, then made `v1`. A category or priority not known yet drops its flag; the other optional flags (personas, metric, source, …) are added as `templates/requirements.md` says:
+   - Record each as a `v1` requirement of the phase that will build it. A `v1` requirement must be in a phase (`gsd/E101`), so it is recorded `v2`, mapped into the phase, then made `v1`:
 
    ```bash
-   REQ_ID="{AREA-NN: the next free id of its area}"
+   REQ_ID="{CATEGORY-NN: the next free id of its category}"
    IFS= read -rd '' TEXT <<'TEXT' || true; TEXT=${TEXT%$'\n'}
    {the requirement: user-centric, testable, atomic}
    TEXT
-   IFS= read -rd '' AREA <<'TEXT' || true; AREA=${AREA%$'\n'}
-   {its area, e.g. Authentication}
+   IFS= read -rd '' CATEGORY <<'TEXT' || true; CATEGORY=${CATEGORY%$'\n'}
+   {its category, e.g. Authentication}
    TEXT
-   CATEGORY="{its quality category, e.g. security}"
-   PRIORITY="{must, should or could}"
    BUILT_BY="{the phase that will build it, e.g. v1.0/03}"
-   specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --area "$AREA" --category "$CATEGORY" --priority "$PRIORITY" --tier v2 || exit 1
+   specforge new requirement "$REQ_ID" "$TEXT" --in spec/requirements.spec --text "$TEXT" --category "$CATEGORY" --tier v2 || exit 1
    specforge link "$BUILT_BY" requirements "$REQ_ID" || exit 1
    specforge set "$REQ_ID" tier v1 || exit 1
    ```
@@ -268,15 +266,10 @@ if [ -n "${_SUMMARIES[0]}" ]; then for s in "${_SUMMARIES[@]}"; do specforge que
    IFS= read -rd '' RATIONALE <<'TEXT' || true; RATIONALE=${RATIONALE%$'\n'}
    {why it was chosen, and its outcome if known}
    TEXT
-   SUPERSEDES="{the earlier project decisions it reverses, comma-separated ids such as D-01, or nothing}"
-   AFFECTS="{the requirements, invariants or code items it shapes, comma-separated ids such as AUTH-01, or nothing}"
-   IFS= read -rd '' ALTERNATIVES <<'TEXT' || true; ALTERNATIVES=${ALTERNATIVES%$'\n'}
-   {the options weighed and not chosen, one JSON list: [{"name": "…", "pros": ["…"], "cons": ["…"], "why_not": "…"}], or nothing}
-   TEXT
    PROJECT=$(specforge export --kinds project --pick '.nodes[0].id') || exit 1
    [ -n "$PROJECT" ] || { echo "no project entity: run /gsd:new-project first" >&2; exit 1; }
    PROJECT_FILE=$(specforge query "$PROJECT" --depth 0 --pick '.nodes[0].file') || exit 1
-   specforge new decision "$DECISION_ID" "$DECISION" --in "$PROJECT_FILE" --origin project --text "$DECISION" --rationale "$RATIONALE" --outcome pending ${SUPERSEDES:+--supersedes "$SUPERSEDES"} ${AFFECTS:+--affects "$AFFECTS"} ${ALTERNATIVES:+--alternatives "$ALTERNATIVES"} || exit 1
+   specforge new decision "$DECISION_ID" "$DECISION" --in "$PROJECT_FILE" --origin project --text "$DECISION" --rationale "$RATIONALE" --outcome pending || exit 1
    specforge link "$PROJECT" key_decisions "$DECISION_ID" || exit 1
    ```
 

@@ -11,10 +11,7 @@ fn scratch() -> TestProject {
 // Behavior: scaffold_new_project
 // ═══════════════════════════════════════════════════════════
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "scaffold creates valid specforge.json"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_creates_valid_specforge_json() {
     let dir = scratch();
 
@@ -36,10 +33,7 @@ fn init_creates_valid_specforge_json() {
     assert!(json["spec_root"].is_string());
 }
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "scaffold includes $schema field in generated config"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_includes_schema_field() {
     let dir = scratch();
 
@@ -61,10 +55,7 @@ fn init_includes_schema_field() {
     );
 }
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "scaffold rejects when specforge.json already exists"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_rejects_existing_project() {
     let dir = scratch();
     fs::write(dir.root().join("specforge.json"), "{}").unwrap();
@@ -76,10 +67,7 @@ fn init_rejects_existing_project() {
         .stderr(predicates::str::contains("already exists"));
 }
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "scaffold inside another project creates a separate project"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_inside_another_project_creates_a_separate_one() {
     let dir = scratch();
     fs::write(dir.root().join("specforge.json"), "{}").unwrap();
@@ -110,10 +98,7 @@ fn init_inside_another_project_creates_a_separate_one() {
     );
 }
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "scaffold in non-empty directory preserves existing files"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_preserves_existing_files() {
     let dir = scratch();
     fs::write(dir.root().join("README.md"), "# Hello").unwrap();
@@ -138,10 +123,7 @@ fn init_preserves_existing_files() {
     assert!(dir.root().join("specforge.json").exists());
 }
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "scaffold in non-empty directory preserves existing files"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_refuses_to_overwrite_a_starter_file() {
     let dir = scratch();
     fs::create_dir_all(dir.root().join("spec")).unwrap();
@@ -168,10 +150,7 @@ fn init_refuses_to_overwrite_a_starter_file() {
 // Behavior: scaffold_starter_spec_file
 // ═══════════════════════════════════════════════════════════
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "starter spec file is created alongside specforge.json"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_creates_starter_spec_file() {
     let dir = scratch();
 
@@ -189,10 +168,7 @@ fn init_creates_starter_spec_file() {
     assert!(!content.is_empty(), "starter spec file should not be empty");
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "a freshly initialised project passes format --check and check"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_fresh_project_is_formatted_and_checks_clean() {
     // No extension, then each builtin alone: init enables the builtins it
     // requires.
@@ -226,10 +202,7 @@ fn a_fresh_project_is_formatted_and_checks_clean() {
     }
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "init with a builtin that requires another passes check"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_with_a_builtin_that_requires_another_passes_check() {
     let dir = scratch();
 
@@ -286,10 +259,7 @@ fn init_help_states_the_default_version_from_the_constant() {
     assert!(text.contains("[default: 0.1.0]"), "{text}");
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "starter spec file passes specforge check with zero errors"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_starter_passes_check() {
     let dir = scratch();
 
@@ -306,10 +276,7 @@ fn init_starter_passes_check() {
         .success();
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "starter file uses only structural syntax when no extensions contribute templates"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_starter_uses_structural_syntax_only() {
     let dir = scratch();
 
@@ -344,10 +311,7 @@ fn init_starter_uses_structural_syntax_only() {
     }
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "starter file content is deterministic for same extension set"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_starter_is_deterministic() {
     let dir1 = scratch();
     let dir2 = scratch();
@@ -373,10 +337,7 @@ fn init_starter_is_deterministic() {
 // Behavior: graceful_zero_extension_init
 // ═══════════════════════════════════════════════════════════
 
-#[specforge_test(
-    behavior = "graceful_zero_extension_init",
-    verify = "zero-extension init creates valid specforge.json with empty extensions"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn zero_ext_init_creates_valid_config() {
     let dir = scratch();
 
@@ -391,10 +352,7 @@ fn zero_ext_init_creates_valid_config() {
     assert_eq!(json["extensions"], serde_json::json!([]));
 }
 
-#[specforge_test(
-    behavior = "graceful_zero_extension_init",
-    verify = "zero-extension config produces empty extensions array []"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn zero_ext_config_has_empty_array() {
     let dir = scratch();
 
@@ -411,10 +369,7 @@ fn zero_ext_config_has_empty_array() {
     );
 }
 
-#[specforge_test(
-    behavior = "graceful_zero_extension_init",
-    verify = "zero-extension starter file passes specforge check"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn zero_ext_starter_passes_check() {
     let dir = scratch();
 
@@ -430,10 +385,7 @@ fn zero_ext_starter_passes_check() {
         .success();
 }
 
-#[specforge_test(
-    behavior = "graceful_zero_extension_init",
-    verify = "zero-extension project produces valid graph via specforge export"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn zero_ext_export_produces_valid_graph() {
     let dir = scratch();
 
@@ -460,10 +412,7 @@ fn zero_ext_export_produces_valid_graph() {
 // Behavior: non_interactive_init
 // ═══════════════════════════════════════════════════════════
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "non-interactive init creates valid specforge.json"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_creates_valid_config() {
     let dir = scratch();
 
@@ -477,10 +426,7 @@ fn non_interactive_creates_valid_config() {
     assert_eq!(json["name"], "ci-project");
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "non-interactive init skips all prompts"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_no_prompts() {
     let dir = scratch();
 
@@ -498,10 +444,7 @@ fn non_interactive_no_prompts() {
     assert!(dir.root().join("specforge.json").exists());
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "non-interactive init with --extensions populates extensions list"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_with_extensions() {
     let dir = scratch();
 
@@ -567,10 +510,7 @@ fn init_enables_the_packs_of_the_detected_project() {
     assert_eq!(init("package.json", vitest), js);
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "non-interactive init with --format=json prints the init document specforge.init answers"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_json_output() {
     let dir = scratch();
 
@@ -595,10 +535,7 @@ fn non_interactive_json_output() {
     );
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "non-interactive init --format=json includes project_root, name, version, config_file, starter_file and extensions_installed"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_json_all_fields() {
     let dir = scratch();
 
@@ -633,10 +570,7 @@ fn non_interactive_json_all_fields() {
     );
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "non-interactive init with --version overrides default version in specforge.json"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_version_override() {
     let dir = scratch();
 
@@ -674,10 +608,7 @@ fn non_interactive_matches_default_name() {
 // Additional coverage: scaffold_new_project
 // ═══════════════════════════════════════════════════════════
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "scaffolded project passes init-check-export cycle"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_check_export_cycle() {
     let dir = scratch();
 
@@ -707,10 +638,7 @@ fn init_check_export_cycle() {
         serde_json::from_str(&stdout).expect("export should produce valid JSON graph");
 }
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "full init-check-export cycle completes in under 60 seconds"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_check_export_performance() {
     let dir = scratch();
     let start = std::time::Instant::now();
@@ -744,10 +672,7 @@ fn init_check_export_performance() {
 // Additional coverage: scaffold_starter_spec_file
 // ═══════════════════════════════════════════════════════════
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "starter file contains no domain-specific keywords from extensions"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_starter_no_domain_keywords() {
     let dir = scratch();
 
@@ -789,10 +714,7 @@ fn init_starter_no_domain_keywords() {
 // Additional coverage: graceful_zero_extension_init
 // ═══════════════════════════════════════════════════════════
 
-#[specforge_test(
-    behavior = "graceful_zero_extension_init",
-    verify = "graceful_zero_extension_init completes full init-check-export cycle in under 60 seconds"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn zero_ext_full_cycle_performance() {
     let dir = scratch();
     let start = std::time::Instant::now();
@@ -829,10 +751,7 @@ fn zero_ext_full_cycle_performance() {
 // Additional coverage: non_interactive_init
 // ═══════════════════════════════════════════════════════════
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "invalid project name is rejected with InitError::invalid_name"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_invalid_name_rejected() {
     let dir = scratch();
 
@@ -862,10 +781,7 @@ fn non_interactive_invalid_name_rejected() {
         .stderr(predicates::str::contains("invalid project name"));
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "non_interactive_init completes full init-check-export cycle in under 60 seconds"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_full_cycle_performance() {
     let dir = scratch();
     let start = std::time::Instant::now();
@@ -901,10 +817,7 @@ fn non_interactive_full_cycle_performance() {
     );
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "non-interactive init with unknown extension rejects with diagnostic and exit code 1"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_unknown_extension_rejected() {
     let dir = scratch();
 
@@ -951,10 +864,7 @@ fn non_interactive_unknown_extension_rejected() {
 // Contract tests (requires/ensures consistency)
 // ═══════════════════════════════════════════════════════════
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "Scaffold New Project: new project scaffolding holds — filesystem_available, no_existing_project, valid_config_created, schema_field_included, project_initialized_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn scaffold_new_project_contract_in_init() {
     // Requires: filesystem available, no existing project
     // Ensures: valid config created, $schema included, project_initialized emitted
@@ -1020,10 +930,7 @@ fn declared_starter(extension: &str) -> Option<String> {
         })
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "extension-contributed starter templates are used when available"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn starter_uses_extension_templates_when_available() {
     let structural = starter_written_for(&[]);
     for extension in ["@specforge/software", "@specforge/product"] {
@@ -1034,10 +941,7 @@ fn starter_uses_extension_templates_when_available() {
     }
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "when several enabled extensions contribute starter templates, the one listed first in specforge.json is used"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn first_listed_extension_template_wins() {
     let software = declared_starter("@specforge/software").unwrap();
     let product = declared_starter("@specforge/product").unwrap();
@@ -1052,10 +956,7 @@ fn first_listed_extension_template_wins() {
     );
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "starter file uses only structural syntax when no extensions contribute templates"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn extensions_without_a_template_get_the_structural_starter() {
     let structural = starter_written_for(&[]);
     assert_eq!(
@@ -1076,10 +977,7 @@ fn extensions_without_a_template_get_the_structural_starter() {
     }
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "extension-contributed starter file passes specforge check with zero errors"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn extension_starter_passes_check() {
     for extension in ["@specforge/software", "@specforge/product"] {
         let dir = scratch();
@@ -1106,10 +1004,7 @@ fn extension_starter_passes_check() {
     }
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "Scaffold Starter Spec File: starter spec file scaffolding holds — config_created, filesystem_available, starter_file_created, structural_syntax_only, zero_diagnostic_pass"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn scaffold_starter_spec_file_contract() {
     // Requires: specforge.json created, filesystem available
     // Ensures: starter file created, structural syntax only (no extensions),
@@ -1138,10 +1033,7 @@ fn scaffold_starter_spec_file_contract() {
         .success();
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "Non-Interactive Init: non-interactive init holds — name_flag_provided, filesystem_available, no_existing_project, config_identical_to_interactive, all_prompts_skipped, json_output_supported, project_initialized_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn non_interactive_init_contract_in_init() {
     // Requires: --name flag provided, filesystem available, no existing project
     // Ensures: config identical to interactive, all prompts skipped,
@@ -1220,10 +1112,7 @@ fn non_interactive_init_contract_in_init() {
     assert_eq!(out["extensions_installed"], serde_json::json!([]));
 }
 
-#[specforge_test(
-    behavior = "graceful_zero_extension_init",
-    verify = "Graceful Zero-Extension Init: zero-extension init holds — zero_extensions_selected, filesystem_available, empty_extensions_list, structural_starter_valid, valid_graph_exportable, project_initialized_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn graceful_zero_extension_init_contract_in_init() {
     // Requires: zero extensions selected, filesystem available
     // Ensures: empty extensions list, structural starter valid,
@@ -1264,10 +1153,7 @@ fn graceful_zero_extension_init_contract_in_init() {
     assert!(graph["edges"].is_array());
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "the software starter passes specforge check with no warnings"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_software_starter_checks_clean() {
     let dir = scratch();
     Cli::on(&dir)
@@ -1286,10 +1172,7 @@ fn init_software_starter_checks_clean() {
         .success();
 }
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "init adds the generated report files to .gitignore without duplicating entries"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_ignores_generated_files() {
     let dir = scratch();
     fs::write(
@@ -1308,10 +1191,7 @@ fn init_ignores_generated_files() {
     );
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "--extensions splits a comma-separated list into its extensions"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn extensions_flag_splits_a_comma_separated_list() {
     let dir = scratch();
 
@@ -1342,10 +1222,7 @@ fn extensions_flag_splits_a_comma_separated_list() {
     Cli::on(&dir).command(&["check"]).assert().success();
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "a one-character project name is rejected before its starter can fail E014"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn one_character_name_is_rejected() {
     let dir = scratch();
 
@@ -1366,10 +1243,7 @@ fn one_character_name_is_rejected() {
 
 use crate::support::written::{changed_since, files_written};
 
-#[specforge_test(
-    behavior = "scaffold_new_project",
-    verify = "init lists every file it wrote, in its human and JSON output"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn init_lists_every_file_it_wrote() {
     let dir = scratch();
     let output = Cli::on(&dir)

@@ -455,10 +455,7 @@ mod tests {
             .map(|flag| format!("`specforge {line}`: no flag `{flag}`"))
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_tools",
-        verify = "every CLI twin the engine-tool catalogue names is a declared command with its flags"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn every_engine_twin_is_a_declared_command() {
         let mut root = declared();
         root.build();
@@ -505,10 +502,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "locate_project_root",
-        verify = "every command that reads a project takes the one --path option, and none takes a project path as a positional argument"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-106")]
     fn every_command_that_reads_a_project_takes_the_project_arg() {
         let mut root = declared();
         root.build();
@@ -581,10 +575,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "every core command with a JSON form takes --format human|json, and none takes --json"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn every_json_output_is_asked_for_with_format() {
         let mut root = declared();
         root.build();

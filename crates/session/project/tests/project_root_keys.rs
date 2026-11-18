@@ -9,10 +9,7 @@ fn behavior(id: &str, extra: &str) -> String {
     )
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a discovered .spec file is a source keyed from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_source_is_keyed_from_the_project_root() {
     let a = format!(
         "use \"sub/b\"\n\n{}",
@@ -71,10 +68,7 @@ fn project_over_a_linked_spec_root() -> (TestProject, tempfile::TempDir, std::pa
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "an import under a spec root outside the project, through a link too, names its source"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_import_under_a_linked_spec_root_outside_the_project_resolves() {
     let (project, outside, _link) = project_over_a_linked_spec_root();
     let session = project.session_bare();
@@ -96,10 +90,7 @@ fn an_import_under_a_linked_spec_root_outside_the_project_resolves() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a change under a spec root outside the project, through a link too, is that source's change"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_change_under_a_linked_spec_root_outside_the_project_is_its_source() {
     let (project, outside, link) = project_over_a_linked_spec_root();
     let mut session = project.session_bare();

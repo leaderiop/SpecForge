@@ -1,8 +1,9 @@
-//! Runs the `specforge` binary on a project that loads the built `@gsd/core`, and with [`Project::with_extension`]
-//! another `@gsd/*` beside it.
+//! Runs the `specforge` binary on a project that loads `@gsd/core` by name, the builtin the binary embeds (ADR 0366
+//! D5), and with [`Project::with_extension`] another `@gsd/*` beside it.
 //!
-//! `SPECFORGE_BIN` is the binary and `GSD_CORE_WASM` the component (`GSD_SECURITY_WASM` for `@gsd/security`); a
-//! missing one fails the test naming the command that builds it.
+//! `SPECFORGE_BIN` is the binary and `GSD_SECURITY_WASM` the `@gsd/security` component; a missing one fails the test
+//! naming the command that builds it. An edit to `gsd/core` reaches these tests once it is re-vendored and the binary
+//! rebuilt.
 
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -18,7 +19,7 @@ pub mod ab;
 pub mod answer_check;
 use answer_check::answers_listed;
 
-pub(crate) const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN, GSD_CORE_WASM and GSD_SECURITY_WASM to the artifacts";
+pub(crate) const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN and GSD_SECURITY_WASM to the artifacts";
 
 fn required(var: &str) -> PathBuf {
     match std::env::var_os(var).map(|value| existing_file(var, &value)) {
@@ -42,7 +43,8 @@ pub fn compile_cache() -> std::ffi::OsString {
 }
 
 /// `value` as the file `var` names. It must be absolute: cargo runs the tests in `gsd/core`, and each test project
-/// resolves `@gsd/core=<path>` from its own temp directory, so a relative path means something else to each.
+/// resolves a component's `<name>=<path>` (`@gsd/security`'s) from its own temp directory, so a relative path means
+/// something else to each. `@gsd/core` is the binary's builtin and has no path.
 fn existing_file(var: &str, value: &std::ffi::OsStr) -> Result<PathBuf, String> {
     let path = Path::new(value);
     if !path.is_absolute() {
@@ -106,26 +108,6 @@ pub fn judged(report: &[(String, String)]) -> Vec<(String, String)> {
     found
 }
 
-/// Whether `node`, an exported graph node of `kind`, is complete in its kind's own sense: the field its declared
-/// `complete_when` names holds one of its values (a judged target that waits for its owner reads its own kind's).
-fn complete(kind: &str, node: &serde_json::Value) -> bool {
-    let host = specforge_extension_sdk::testing::MockHost::new(gsd_core::build());
-    let kinds: serde_json::Value =
-        serde_json::from_str(&host.describe_json("entities").expect("the kinds")).expect("JSON");
-    let when = kinds["items"]
-        .as_array()
-        .and_then(|all| all.iter().find(|k| k["name"] == kind))
-        .map(|k| k["complete_when"].clone())
-        .unwrap_or_else(|| panic!("no kind {kind}"));
-    let field = when["field"]
-        .as_str()
-        .unwrap_or_else(|| panic!("{kind} declares no complete_when"));
-    when["values"]
-        .as_array()
-        .expect("its values")
-        .contains(&node["fields"][field])
-}
-
 /// What a report holds besides the judged rules' diagnostics.
 pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
     report
@@ -135,7 +117,7 @@ pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
         .collect()
 }
 
-/// A copy of `tests/projects/<name>/` in a temp dir, with `@gsd/core` loaded from `GSD_CORE_WASM`.
+/// A copy of `tests/projects/<name>/` in a temp dir, loading `@gsd/core` by name: the builtin `SPECFORGE_BIN` embeds.
 pub struct Project {
     /// The temp dir, removed when the project drops.
     _dir: tempfile::TempDir,
@@ -144,8 +126,6 @@ pub struct Project {
     /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component. A cell:
     /// [`Project::node_tests`] loads the test packs on a shared project.
     extensions: RefCell<Vec<(String, Option<PathBuf>)>>,
-    /// The codes the fixture says by its own design, left out of [`Project::report_all`] ([`Project::quieting`]).
-    quiet: Vec<&'static str>,
 }
 
 pub fn project(name: &str) -> Project {
@@ -184,8 +164,7 @@ pub const RUST_TEST_COLLECTORS: [&str; 2] = ["rust-cargo", "rust-source"];
 
 /// The parity suite's ledger fixture: a Rust project whose CI is red, its `spec/` twin beside its `.planning/`,
 /// loading beside `@gsd/core` the builtins `evaluation/gsd-ab/tasks.json` names as the ledger's `thread` (the code
-/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report); its proofs and items
-/// quiet until collected (`code/W102`), as the taskboard's.
+/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report).
 #[allow(
     dead_code,
     reason = "@gsd/security's tests include this harness and do not use it"
@@ -205,7 +184,6 @@ pub fn ledger() -> Project {
         .collect();
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/ledger"))
         .with_builtins(&thread)
-        .quieting("code/W102")
 }
 
 /// What a twin's `truth` and `summary` entities mirror in the `.planning/` at `planning`: each `must_haves` truth of
@@ -257,7 +235,6 @@ fn from_dir(source: &Path) -> Project {
 
 /// [`from_dir`] with the project `inside` the temp dir (`.claude/worktrees/agent-x`: a subagent's worktree).
 fn from_dir_at(source: &Path, inside: &str) -> Project {
-    let wasm = required("GSD_CORE_WASM");
     let dir = tempfile::tempdir().expect("a temp dir");
     let root = dir.path().join(inside);
     std::fs::create_dir_all(&root).expect("the project's directory");
@@ -267,10 +244,9 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
         root,
         // `@specforge/checks` is a required peer of `@gsd/core`: its `files` fields are read by `@specforge/checks:file`.
         extensions: RefCell::new(vec![
-            ("@gsd/core".to_string(), Some(wasm)),
+            ("@gsd/core".to_string(), None),
             ("@specforge/checks".to_string(), None),
         ]),
-        quiet: Vec::new(),
     };
     p.settings(serde_json::json!({}));
     p
@@ -323,17 +299,9 @@ impl Project {
         self
     }
 
-    /// The taskboard twin's setup: [`TWIN_BUILTINS`] loaded, and its truths' `proof`s quiet until collected: each of
-    /// the three says `code/W102` ("no facts were collected") on a copy no collect has run on, and the tests of the
-    /// other rules are not about facts. `parity_thread.rs` counts it raw.
+    /// The taskboard twin's setup: [`TWIN_BUILTINS`] loaded.
     fn twin(self) -> Self {
-        self.with_builtins(&TWIN_BUILTINS).quieting("code/W102")
-    }
-
-    /// Leaves `code` out of [`Project::report_all`] (and so of every report built on it) for this fixture alone.
-    fn quieting(mut self, code: &'static str) -> Self {
-        self.quiet.push(code);
-        self
+        self.with_builtins(&TWIN_BUILTINS)
     }
 
     /// Loads the builtins `names` too, by name, after `@gsd/core`.
@@ -520,9 +488,8 @@ impl Project {
 
     /// The `(code, entity)` pairs every judged rule reports on a project that records no verdict, sorted: one for each
     /// entity of each kind the rule targets (the graph says which, not the judged diagnostics), except the rules in
-    /// `off` (a gate that is off), an entity that writes a field the target says to skip, an entity still pending when
-    /// the target waits for its kind's `complete_when` to hold, and an entity that already carries a fresh passing
-    /// verdict of the rule.
+    /// `off` (a gate that is off), an entity that writes a field the target says to skip and an entity that already
+    /// carries a fresh passing verdict of the rule.
     pub fn expected_judged(&self, off: &[&str]) -> Vec<(String, String)> {
         let mut out = Vec::new();
         for rule in gsd_core::judged::JUDGED
@@ -534,8 +501,7 @@ impl Project {
                     let skipped = target
                         .unless_set
                         .iter()
-                        .any(|f| node["fields"].get(f).is_some_and(|v| !v.is_null()))
-                        || (target.once_complete && !complete(target.kind, &node));
+                        .any(|f| node["fields"].get(f).is_some_and(|v| !v.is_null()));
                     // A fresh passing verdict on the node (the twin carries its verifier's) answers the rule.
                     let judged = node["judgements"].as_array().is_some_and(|all| {
                         all.iter().any(|j| {
@@ -582,13 +548,11 @@ impl Project {
         );
     }
 
-    /// [`Project::report`] with the judged rules' diagnostics; the fixture's quiet codes left out too
-    /// ([`Project::quieting`]).
+    /// [`Project::report`] with the judged rules' diagnostics.
     pub fn report_all(&self) -> Vec<(String, String)> {
         self.checked()
             .into_iter()
             .filter(|(code, _)| !matches!(code.as_str(), "I204" | "I205" | "I213"))
-            .filter(|(code, _)| !self.quiet.contains(&code.as_str()))
             .collect()
     }
 
@@ -675,6 +639,19 @@ impl Project {
             "`{from}` is not in {relative}:\n{text}"
         );
         self.write(relative, &text.replacen(from, to, 1));
+    }
+
+    /// Writes `lines` at the end of UAT test `name`'s block in `spec/uat.spec`, before its closing brace.
+    pub fn close_uat_test(&self, name: &str, lines: &str) {
+        let text = self.read("spec/uat.spec");
+        let start = text
+            .find(&format!("uat_test {name} "))
+            .unwrap_or_else(|| panic!("no uat_test {name} in spec/uat.spec:\n{text}"));
+        let end = start + text[start..].find("\n}").expect("the test's closing brace") + 1;
+        self.write(
+            "spec/uat.spec",
+            &format!("{}{lines}{}", &text[..end], &text[end..]),
+        );
     }
 
     /// `specforge query <entity> --inputs gsd/<code> --format json`: what the judge reads, and the basis to record.
@@ -774,7 +751,7 @@ mod tests {
 
     #[test]
     fn a_relative_path_is_refused_whether_or_not_the_file_exists() {
-        let why = existing_file("GSD_CORE_WASM", "Cargo.toml".as_ref()).unwrap_err();
+        let why = existing_file("GSD_SECURITY_WASM", "Cargo.toml".as_ref()).unwrap_err();
         assert!(
             why.contains("relative path") && why.contains("absolute"),
             "{why}"

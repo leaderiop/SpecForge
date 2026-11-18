@@ -53,10 +53,7 @@ async fn e2e_did_open_registers_document() {
     assert!(md.contains("foo"), "Hover should mention entity ID 'foo'");
 }
 
-#[spec(
-    behavior = "lsp_shutdown",
-    verify = "requests after shutdown return InvalidRequest"
-)]
+#[spec(requirement = "FEATURE-062")]
 #[tokio::test]
 async fn e2e_requests_after_shutdown_are_invalid() {
     let text = "behavior alpha \"Alpha\" {}\n";

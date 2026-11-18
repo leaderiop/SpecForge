@@ -60,29 +60,20 @@ fn hover(served: &Served, line: u32, character: u32) -> String {
     .expect("a hover")
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "hover on a checked value shows one line per checker"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn hover_on_a_checked_value_shows_one_line_per_checker() {
     let text = hover(&served(), 1, 10);
     assert!(text.contains("`plain` · passed"), "{text}");
     assert!(text.contains("`second` · passed"), "{text}");
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "a check not run says why on the value's hover"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_not_run_check_says_why() {
     let text = hover(&served(), 2, 12);
     assert!(text.contains("`link` · not run ("), "{text}");
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "a field's hover names its checks"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_fields_hover_names_its_checks() {
     let text = hover(&served(), 1, 3);
     assert!(text.contains("checks: plain, second"), "{text}");
@@ -119,10 +110,7 @@ fn owned_hover(line: u32, character: u32) -> String {
     hover(&served, line, character)
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "a planned value's hover says it waits for its owner, and a closed one's that its owner is complete"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_planned_value_says_it_waits_for_its_owner() {
     let planned = owned_hover(2, 11);
     assert!(
@@ -136,10 +124,7 @@ fn a_planned_value_says_it_waits_for_its_owner() {
     );
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "a field's hover names when its owner gate lets its checks run"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn a_fields_hover_names_its_owner_gate() {
     let files = owned_hover(2, 3);
     assert!(

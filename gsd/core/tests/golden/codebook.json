@@ -10,7 +10,7 @@
     {
       "code": "E102",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
-      "explanation": "Phase, plan and milestone depends_on are acyclic; phase and plan ones point at earlier ones only. It is an error.",
+      "explanation": "Phase and plan depends_on are acyclic and point at earlier ones only. It is an error.",
       "title": "Dependency cycle or forward dependency"
     },
     {
@@ -142,7 +142,7 @@
     {
       "code": "E310",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Every trackable decision of a planned phase's context (origin context, superseded by none) is listed in the decisions of one of its plans. It is an error.",
+      "explanation": "Every trackable decision of a planned phase's context (origin context) is cited by its id in the text of one of its plans. It is an error.",
       "title": "Context decision cited by no plan"
     },
     {
@@ -154,7 +154,7 @@
     {
       "code": "E312",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "No task action reduces scope (\"for now\", \"simplified\", \"v1\"). It is an error.",
+      "explanation": "No task action reduces scope (\"for now\", \"simplified\", \"v1\") unless a decision its plan cites says so. It is an error.",
       "title": "Task action reduces scope"
     },
     {
@@ -184,7 +184,7 @@
     {
       "code": "W317",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "The post-planning gap report finds nothing open. It is a warning.",
+      "explanation": "The post-planning gap report finds nothing open: each phase requirement is in a plan's requirements and each context decision is cited by a plan. It is a warning.",
       "title": "Post-planning gaps open"
     },
     {
@@ -274,7 +274,7 @@
     {
       "code": "W407",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "Every task of a complete plan has a recorded commit (a manual task is exempt). It is a warning.",
+      "explanation": "Every task of a complete plan has a recorded commit. It is a warning.",
       "title": "Task has no commit"
     },
     {
@@ -322,7 +322,7 @@
     {
       "code": "W506",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "Every settled decision maps to something shipped. It is a warning.",
+      "explanation": "Every settled decision is cited by something shipped: a complete plan's text, its summary or a commit subject. It is a warning.",
       "title": "Settled decision maps to nothing shipped"
     },
     {
@@ -386,12 +386,6 @@
       "title": "Integration verdict is stale"
     },
     {
-      "code": "E519",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A truth of a phase's plan names one of its plan's requirements. It is an error.",
-      "title": "Truth proves no requirement of its plan"
-    },
-    {
       "code": "W520",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
       "explanation": "A complete plan's commits touched every path it planned, and the files it deletes are gone. It is a warning.",
@@ -406,7 +400,7 @@
     {
       "code": "W522",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A code item a task or a commit names is anchored by a plan that reaches a requirement. It is a warning.",
+      "explanation": "A code item a recorded commit changed is anchored by a plan whose requirements name one. It is a warning.",
       "title": "Item anchored only by plans that reach no requirement"
     },
     {
@@ -420,49 +414,6 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
       "explanation": "A plan's executor pack, recorded by `start-plan`, has moved while the plan is open: its plan, tasks, must-haves, phase, requirements, decisions, the earlier plans' summaries, research items, instructions or settings changed since the executor started, or a checkpoint was answered or a setup confirmed; re-run `specforge gsd start-plan <plan>` (the continuation does) once the executor has read them. It is a warning.",
       "title": "Stale executor pack"
-    },
-    {
-      "code": "E531",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
-      "explanation": "A phase that changes code an invariant guards has the invariant judged again. It is an error.",
-      "reported_while": "complete",
-      "title": "Invariant changed since it was last judged"
-    },
-    {
-      "code": "E537",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
-      "explanation": "A milestone's targets day is on or after its starts day. It is an error.",
-      "title": "Milestone targets a day before it starts"
-    },
-    {
-      "code": "W538",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
-      "explanation": "A term's avoid lists no word the glossary accepts: its own name or aliases, or another term's. It is a warning.",
-      "title": "Term avoids a word the glossary accepts"
-    },
-    {
-      "code": "W532",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
-      "explanation": "A risk whose rpn is at or above specforge.risk_block_on names a mitigation in mitigated_by. It is a warning.",
-      "title": "Risk at the threshold with no mitigation"
-    },
-    {
-      "code": "I536",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#governance",
-      "explanation": "An invariant holds while a fresh verdict of the verify_invariant prompt says so. It is information.",
-      "title": "Invariant without a fresh holds verdict"
-    },
-    {
-      "code": "W534",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
-      "explanation": "Prose the author can still change (each field or block member its kind marks prose: free text written now, never a name, an id, a quote or a copy) writes no word or phrase a term lists in avoid, read outside paths, code spans and the names and aliases the glossary accepts. It is a warning.",
-      "title": "Prose uses an avoided synonym"
-    },
-    {
-      "code": "W530",
-      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#product",
-      "explanation": "Each requirement a journey names is listed by a phase of every milestone the journey lists that has a phase. It is a warning, and an error under gsd-strict.",
-      "title": "Journey requirement outside a listed milestone"
     }
   ]
 }

@@ -9,7 +9,9 @@ detected in any repository the project is in) and D8 (the route gains an `item` 
 [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) D4 (the `specforge:host` imports),
 [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md) (`Fact.at`) and
 [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md) (item ids). Protocol 2.0.0 (unreleased)
-gains the guest `git` interface's `log` and `diff` and `UnheldReference.history`; `@gsd/core` gains gsd/W522.
+gains the guest `git` interface's `log` and `diff` and `UnheldReference.history`; `@gsd/core` gains gsd/W522. D3
+and D7 amended by [ADR 0371](0371-links-come-from-gsds-fields-and-collected-data.md): the item step goes on from the
+commit, and W522 anchors by commits.
 
 ## Context
 

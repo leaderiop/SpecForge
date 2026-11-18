@@ -1,8 +1,9 @@
-TASK-01
+TASK-01 (proven)
   → plan 01-01
     → T1
-      → js:taskboard/src/tasks.js::addTask
-      → js:taskboard/src/tasks.js::createBoard
       → <sha> (Gsd-Task)
-  → js:taskboard/test/tasks.test.js#a task is added with the next id (passed)
-  → TR1 verified, fresh
+        → js:taskboard/src/tasks.js::addTask
+        → js:taskboard/src/tasks.js::completeTask
+        → js:taskboard/src/tasks.js::createBoard
+    → TR1 verified, fresh
+  → deliverable D1 (test/tasks.test.js#a task is added with the next id)

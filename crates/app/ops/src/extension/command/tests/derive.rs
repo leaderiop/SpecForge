@@ -1,9 +1,6 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "the derived input_schema states each arg's default and minimum and accepts no undeclared argument"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn the_input_schema_is_the_declaration() {
     assert_eq!(
         ordered().input_schema(),
@@ -35,10 +32,7 @@ fn the_input_schema_is_the_declaration() {
     assert_eq!(refused.message(), "unknown argument 'format'");
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "a required flag is not required over MCP, as on the command line"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_required_flag_is_a_flag() {
     let strict = strict();
     assert_eq!(
@@ -132,10 +126,7 @@ fn each_arg_has_its_command_line_shape() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "a command declaring an arg named format is refused on the command line"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_arg_taking_a_host_option_or_another_args_name_is_refused() {
     let with = |args: Vec<Value>| {
         declared(
@@ -271,7 +262,7 @@ fn the_routing_table_is_the_registry_builds() {
     assert_eq!(pairs.len(), 2);
 }
 
-#[specforge_test(type = "ExtensionCommand", verify = "ExtensionCommand schema is valid")]
+#[test]
 fn an_extension_command_carries_every_derived_field() {
     let commands = ExtensionCommands::build(&build_of(&[(
         "@specforge/product",
@@ -294,10 +285,7 @@ fn an_extension_command_carries_every_derived_field() {
     assert_eq!(command.export(), "cmd__milestone_completion");
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "auto-promoted tool name follows specforge.{ext}.{cmd} pattern"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_is_named_by_its_extension_short_name_and_dashed_id() {
     // The short name is the declared one (the SDK's `short`, on the wire
     // `ext_short`), else the name's last segment.

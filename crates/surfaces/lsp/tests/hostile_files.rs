@@ -47,10 +47,7 @@ impl Drop for PipeProject {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "lsp_initialize",
-    verify = "the language server ends indexing over a project whose specforge.lock or a .spec file is a named pipe"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-062")]
 #[tokio::test]
 async fn indexing_ends_though_a_source_is_a_named_pipe() {
     let project = PipeProject::new("blocker.spec");
@@ -61,10 +58,7 @@ async fn indexing_ends_though_a_source_is_a_named_pipe() {
         .expect("indexing never ended");
 }
 
-#[specforge_test_macros::test(
-    behavior = "lsp_initialize",
-    verify = "the language server ends indexing over a project whose specforge.lock or a .spec file is a named pipe"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-062")]
 #[tokio::test]
 async fn indexing_ends_though_the_lock_is_a_named_pipe() {
     let project = PipeProject::new("specforge.lock");

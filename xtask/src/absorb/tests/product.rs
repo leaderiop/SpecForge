@@ -1,14 +1,14 @@
-//! Old product kinds become `@gsd/core` requirements, journeys, personas, terms and milestones (ADR 0357, ADR 0359);
-//! a module or a release waits for a kind, and creates nothing.
+//! An old feature becomes a `@gsd/core` requirement (ADR 0359), keeping what gsd-core's requirement holds; an old
+//! deliverable, module, journey, persona, term and channel are dropped whole (ADR 0372 D1). Releases and milestones are
+//! `roadmap.rs`'s.
 
-use serde_json::json;
-use specforge_ops::authoring::edit::{Edit, Input};
-use std::collections::BTreeMap;
+use serde_json::{Value, json};
+use specforge_ops::authoring::edit::Edit;
 
 use super::super::ledger::Why;
 use super::super::plan::Planned;
-use super::super::table::Pending;
-use super::{create, field, ledgered, many, old, one, planned, stops};
+use super::super::table::{self, Fate};
+use super::{create_of, field_of, ledgered, old, one, planned};
 
 fn why_of(planned: &Planned, id: &str, field: &str) -> Vec<Why> {
     ledgered(planned, id)
@@ -37,50 +37,36 @@ fn ids(planned: &Planned) -> Vec<&str> {
         .collect()
 }
 
+/// A feature's text is its problem, its description and its solution (ADR 0372 D6): no entity is created for the
+/// solution, and nothing is ledgered for it.
 #[test]
-fn a_feature_solution_becomes_a_decision_affecting_the_requirement() {
+fn a_feature_solution_joins_its_requirement_text_and_creates_nothing() {
     let planned = planned(&[
-        feature("store", json!({"solution": "Write each entry."})),
-        feature("other", json!({})),
-    ]);
-    assert_eq!(ids(&planned), ["store", "store_solution", "other"]);
-    assert_eq!((planned.converted, planned.created), (2, 1));
-    let (kind, fields) = create(&planned, "store_solution");
-    assert_eq!(kind, "decision");
-    assert_eq!(
-        fields,
-        &BTreeMap::from([
-            ("text".to_string(), one("Write each entry.")),
-            ("origin".to_string(), one("project")),
-            ("affects".to_string(), many(&["store"])),
-        ])
-    );
-    let Edit::Create { title, file, .. } = &planned.creates[1] else {
-        panic!("a create")
-    };
-    assert_eq!(
-        (title.as_str(), file.as_str()),
-        ("The store", "spec/feature.spec")
-    );
-    assert_eq!(
-        why_of(&planned, "store", "solution"),
-        [Why::Created {
-            kind: "decision".to_string(),
-            id: "store_solution".to_string()
-        }]
-    );
-    let clash = stops(&[
-        feature("store", json!({"solution": "S"})),
-        old(
-            "decision",
-            "store_solution",
-            json!({"status": "accepted", "decision": "D"}),
+        feature(
+            "store",
+            json!({"description": "One file per entry.", "solution": "Write each entry."}),
         ),
+        feature("other", json!({"solution": "Only a solution."})),
     ]);
     assert_eq!(
-        clash[0].to_string(),
-        "'store_solution': two creates with one id, by feature 'store' (its solution) and decision \
-         'store_solution'"
+        ids(&planned),
+        ["FEATURE-02", "FEATURE-01"],
+        "store and other, each once, numbered in old-id order (ADR 0372 D3)"
+    );
+    assert_eq!(planned.converted, planned.creates.len());
+    assert_eq!(
+        field_of(&planned, "feature", "store", "text"),
+        Some(&one("P\n\nOne file per entry.\n\nWrite each entry."))
+    );
+    assert_eq!(
+        field_of(&planned, "feature", "other", "text"),
+        Some(&one("P\n\nOnly a solution."))
+    );
+    assert_eq!(why_of(&planned, "store", "solution"), []);
+    assert!(
+        !planned.ledger.counts().contains_key("created"),
+        "{:?}",
+        planned.ledger.counts()
     );
 }
 
@@ -100,11 +86,15 @@ fn feature_status_sets_the_tier_and_compares_the_computed_status() {
         ("deferred", "v2", "pending"),
     ] {
         assert_eq!(
-            field(&planned, status, "tier"),
+            field_of(&planned, "feature", status, "tier"),
             Some(&one(tier)),
             "{status}"
         );
-        assert_eq!(field(&planned, status, "status"), None, "{status}");
+        assert_eq!(
+            field_of(&planned, "feature", status, "status"),
+            None,
+            "{status}"
+        );
         let check = planned.checks.iter().find(|c| c.id == status).unwrap();
         assert_eq!(
             (check.new_field, check.expected.clone()),
@@ -122,7 +112,7 @@ fn feature_status_sets_the_tier_and_compares_the_computed_status() {
     );
     let unwritten = planned_without_status();
     assert_eq!(
-        field(&unwritten, "f", "tier"),
+        field_of(&unwritten, "feature", "f", "tier"),
         Some(&one("v2")),
         "the old default, proposed"
     );
@@ -141,8 +131,14 @@ fn a_deprecated_feature_is_out_of_scope_with_a_reason() {
             json!({"status": "deprecated", "reason": "Replaced by sync"}),
         ),
     ]);
-    assert_eq!(field(&planned, "bare", "tier"), Some(&one("out_of_scope")));
-    assert_eq!(field(&planned, "bare", "reason"), Some(&one("deprecated")));
+    assert_eq!(
+        field_of(&planned, "feature", "bare", "tier"),
+        Some(&one("out_of_scope"))
+    );
+    assert_eq!(
+        field_of(&planned, "feature", "bare", "reason"),
+        Some(&one("deprecated"))
+    );
     assert_eq!(
         why_of(&planned, "bare", "reason"),
         [Why::Filled {
@@ -151,14 +147,16 @@ fn a_deprecated_feature_is_out_of_scope_with_a_reason() {
         }]
     );
     assert_eq!(
-        field(&planned, "told", "reason"),
+        field_of(&planned, "feature", "told", "reason"),
         Some(&one("Replaced by sync"))
     );
     assert_eq!(why_of(&planned, "told", "reason"), []);
 }
 
+/// A feature's effort, priority, tags and sources leave the requirement (ADR 0370 D3): each value is one `dropped`
+/// entry, a scheme reference among the sources too.
 #[test]
-fn feature_effort_and_sources_are_kept() {
+fn feature_effort_priority_tags_and_sources_are_dropped() {
     let planned = planned(&[feature(
         "f",
         json!({
@@ -166,18 +164,26 @@ fn feature_effort_and_sources_are_kept() {
             "refs": ["Design note", "gh.issue:42"], "tags": ["storage"], "priority": "high",
         }),
     )]);
-    assert_eq!(field(&planned, "f", "effort"), Some(&one("s")));
-    assert_eq!(field(&planned, "f", "tags"), Some(&many(&["storage"])));
-    assert_eq!(field(&planned, "f", "priority"), Some(&one("should")));
+    let fields = create_of(&planned, "feature", "f").1;
     assert_eq!(
-        field(&planned, "f", "source"),
-        Some(&many(&["Alice Martin", "Bob Stone", "Design note"])),
-        "owner, contributors, then refs, each once"
+        fields.keys().collect::<Vec<_>>(),
+        ["category", "text", "tier"],
+        "{fields:?}"
     );
-    assert_eq!(
-        why_of(&planned, "f", "refs"),
-        [Why::Unconverted(super::super::how::SCHEME_REF.to_string())]
-    );
+    for name in [
+        "contributors",
+        "effort",
+        "owner",
+        "priority",
+        "refs",
+        "tags",
+    ] {
+        assert!(
+            matches!(why_of(&planned, "f", name).as_slice(), [Why::Dropped(reason)] if reason.contains("ADR 0370")),
+            "{name}: {:?}",
+            why_of(&planned, "f", name)
+        );
+    }
 }
 
 #[test]
@@ -190,309 +196,213 @@ fn a_feature_description_joins_the_text_after_the_problem() {
             json!({"problem": "", "description": "D"}),
         ),
     ]);
-    assert_eq!(field(&planned, "both", "text"), Some(&one("P\n\nD")));
-    assert_eq!(field(&planned, "only", "text"), Some(&one("D")));
-}
-
-fn journey(id: &str, more: serde_json::Value) -> super::super::read::OldEntity {
-    let mut fields = json!({"flow": ["Open", "Save", "See"]});
-    for (k, v) in more.as_object().unwrap() {
-        fields[k] = v.clone();
-    }
-    old("journey", id, fields)
-}
-
-#[test]
-fn a_journey_flow_becomes_its_steps_in_order() {
-    let planned = planned(&[journey("j", json!({}))]);
-    let step = |action: &str| BTreeMap::from([("action".to_string(), one(action))]);
     assert_eq!(
-        field(&planned, "j", "steps"),
-        Some(&Input::Blocks(vec![
-            step("Open"),
-            step("Save"),
-            step("See")
-        ]))
+        field_of(&planned, "feature", "both", "text"),
+        Some(&one("P\n\nD"))
+    );
+    assert_eq!(
+        field_of(&planned, "feature", "only", "text"),
+        Some(&one("D"))
     );
 }
 
+/// A blank part adds nothing to a requirement's text: no blank lines after a problem whose description is empty, and no
+/// trailing space after a metric whose threshold is empty (ADR 0372 D6).
 #[test]
-fn journey_channels_are_written_as_words() {
+fn a_blank_part_adds_nothing_to_a_requirement_text() {
     let planned = planned(&[
-        journey(
-            "j",
-            json!({"channels": ["cli", "web"], "priority": "critical"}),
-        ),
-        old("channel", "cli", json!({"description": "D"})),
-    ]);
-    assert_eq!(
-        field(&planned, "j", "channels"),
-        Some(&many(&["cli", "web"]))
-    );
-    assert_eq!(field(&planned, "j", "priority"), Some(&one("must")));
-}
-
-#[test]
-fn journey_features_become_its_requirements() {
-    let planned = planned(&[
-        journey("j", json!({"features": ["store"], "persona": "writer"})),
-        feature("store", json!({})),
-        old("persona", "writer", json!({"description": "D"})),
-    ]);
-    assert_eq!(
-        field(&planned, "j", "requirements"),
-        Some(&many(&["store"]))
-    );
-    assert_eq!(field(&planned, "j", "persona"), Some(&one("writer")));
-}
-
-#[test]
-fn a_journey_lists_every_deliverable_that_listed_it() {
-    let planned = planned(&[
-        journey("shared", json!({})),
-        journey("one", json!({})),
+        feature("empty", json!({"description": ""})),
+        feature("spaces", json!({"description": "  ", "solution": "S"})),
         old(
-            "deliverable",
-            "web",
-            json!({"artifact_type": "web_app", "journeys": ["shared"]}),
-        ),
-        old(
-            "deliverable",
-            "cli",
-            json!({"artifact_type": "cli", "journeys": ["shared", "one"]}),
+            "constraint",
+            "unbounded",
+            json!({"description": "D", "metric": "throughput", "threshold": ""}),
         ),
     ]);
-    assert_eq!(
-        field(&planned, "shared", "milestones"),
-        Some(&many(&["cli", "web"]))
-    );
-    assert_eq!(field(&planned, "one", "milestones"), Some(&many(&["cli"])));
-    assert_eq!(field(&planned, "cli", "journeys"), None);
-}
-
-#[test]
-fn a_deliverable_becomes_a_milestone_keeping_its_id_and_its_artifact_type_as_a_list() {
-    let planned = planned(&[old(
-        "deliverable",
-        "store_cli",
-        json!({"artifact_type": "cli", "description": "The tool", "status": "deprecated",
-               "owner": "Alice Martin", "modules": ["store_module"]}),
-    )]);
-    let (kind, _) = create(&planned, "store_cli");
-    assert_eq!(kind, "milestone");
-    assert_eq!(
-        field(&planned, "store_cli", "name"),
-        Some(&one("The store_cli"))
-    );
-    assert_eq!(
-        field(&planned, "store_cli", "artifact_types"),
-        Some(&many(&["cli"]))
-    );
-    assert_eq!(field(&planned, "store_cli", "goal"), Some(&one("The tool")));
-    assert_eq!(
-        field(&planned, "store_cli", "owner"),
-        Some(&one("Alice Martin"))
-    );
-    assert_eq!(planned.checks[0].expected, Some(json!("abandoned")));
-    assert_eq!(
-        why_of(&planned, "store_cli", "modules"),
-        [Why::Later(Pending::Package)]
-    );
-}
-
-#[test]
-fn a_milestone_keeps_its_exit_criteria_dates_owner_and_dependencies() {
-    let planned = planned(&[
-        old("milestone", "groundwork", json!({"status": "blocked"})),
-        old(
-            "milestone",
-            "first_cut",
-            json!({
-                "status": "completed", "start_date": "2026-09-01", "target_date": "2026-10-15",
-                "owner": "Alice Martin", "contributors": ["Bob Stone"], "depends_on": ["groundwork"],
-                "exit_criteria": ["Survives a crash"], "features": ["store"], "behaviors": ["write"],
-            }),
-        ),
-    ]);
-    for (name, value) in [
-        ("starts", one("2026-09-01")),
-        ("targets", one("2026-10-15")),
-        ("owner", one("Alice Martin")),
-        ("contributors", many(&["Bob Stone"])),
-        ("depends_on", many(&["groundwork"])),
-        ("exit_criteria", many(&["Survives a crash"])),
-        ("target_features", many(&["store"])),
-        ("name", one("The first_cut")),
+    for (kind, id, text) in [
+        ("feature", "empty", "P"),
+        ("feature", "spaces", "P\n\nS"),
+        ("constraint", "unbounded", "D\n\nthroughput"),
     ] {
-        assert_eq!(field(&planned, "first_cut", name), Some(&value), "{name}");
+        assert_eq!(
+            field_of(&planned, kind, id, "text"),
+            Some(&one(text)),
+            "{id}"
+        );
     }
-    let expected: Vec<_> = planned
-        .checks
-        .iter()
-        .map(|c| (c.id.as_str(), c.expected.clone()))
-        .collect();
-    assert_eq!(
-        expected,
-        [("groundwork", None), ("first_cut", Some(json!("shipped")))],
-        "blocked has no equal state"
-    );
-    assert_eq!(
-        why_of(&planned, "first_cut", "behaviors"),
-        [Why::Later(Pending::Behavior)]
-    );
 }
 
-/// The target refuses a milestone that ships before it starts (gsd/E537), so the run stops on one before any write;
-/// the same day, or a date that is no day, is no stop.
+/// GSD writes acceptance as a plan's truths, which the conversion does not create (ADR 0372 D6): a feature's acceptance
+/// and its tests are each one `dropped` entry.
 #[test]
-fn a_milestone_that_targets_a_day_before_it_starts_stops_the_run() {
-    let dated = |id: &str, starts: &str, targets: &str| {
-        old(
-            "milestone",
-            id,
-            json!({"start_date": starts, "target_date": targets}),
-        )
-    };
-    let stopped = stops(&[
-        dated("late", "2026-10-15", "2026-09-01"),
-        dated("same_day", "2026-10-15", "2026-10-15"),
-    ]);
+fn feature_acceptance_and_tests_are_dropped_with_their_reasons() {
+    let planned = planned(&[feature(
+        "f",
+        json!({"acceptance": ["A saved entry is on disk"], "tests": ["crates/store/tests/save.rs"]}),
+    )]);
     assert_eq!(
-        stopped.iter().map(ToString::to_string).collect::<Vec<_>>(),
-        [
-            "milestone 'late' target_date: 2026-09-01 is before its start_date 2026-10-15: the target refuses a \
-             milestone that ships before it starts (gsd/E537)"
-        ]
+        create_of(&planned, "feature", "f")
+            .1
+            .keys()
+            .collect::<Vec<_>>(),
+        ["category", "text", "tier"]
     );
-    planned(&[dated("on_time", "2026-09-01", "2026-10-15")]);
+    for name in ["acceptance", "tests"] {
+        assert!(
+            matches!(
+                why_of(&planned, "f", name).as_slice(),
+                [Why::Dropped(reason)] if reason.contains("plan's truths") && reason.contains("ADR 0372 D6")
+            ),
+            "{name}: {:?}",
+            why_of(&planned, "f", name)
+        );
+    }
 }
 
+/// Why `kind`'s entities are dropped whole.
+fn reason(kind: &str) -> &'static str {
+    match table::fate(kind) {
+        Some(Fate::Dropped(reason)) => reason,
+        other => panic!("{kind} is dropped whole: {other:?}"),
+    }
+}
+
+/// A deliverable is GSD's coverage item of a plan's summary, and the old spec holds no plan; a module has no kind
+/// (ADR 0372 D1, ADR 0365): each creates nothing, and its title and every value is one `dropped` entry with its fate's
+/// reason.
 #[test]
-fn persona_status_and_key_features_are_kept() {
+fn a_deliverable_and_a_module_are_dropped_whole() {
     let planned = planned(&[
         old(
-            "persona",
-            "writer",
-            json!({"description": "Writes daily", "status": "deprecated", "technical_level": "beginner",
-                   "goals": ["Keep entries"], "key_features": ["store"]}),
+            "deliverable",
+            "store_cli",
+            json!({"artifact_type": "cli", "description": "The tool", "status": "deprecated",
+                   "owner": "Alice Martin", "journeys": ["record"], "modules": ["store_module"],
+                   "version": "1.0", "milestones": ["first_cut"], "reason": "Shipped"}),
         ),
-        feature("store", json!({})),
-    ]);
-    assert_eq!(
-        field(&planned, "writer", "status"),
-        Some(&one("deprecated"))
-    );
-    assert_eq!(
-        field(&planned, "writer", "context"),
-        Some(&one("Writes daily"))
-    );
-    assert_eq!(
-        field(&planned, "writer", "technical_level"),
-        Some(&one("beginner"))
-    );
-    assert_eq!(
-        field(&planned, "writer", "goals"),
-        Some(&many(&["Keep entries"]))
-    );
-    assert_eq!(
-        field(&planned, "store", "personas"),
-        Some(&many(&["writer"]))
-    );
-}
-
-#[test]
-fn a_term_keeps_its_aliases_and_writes_see_also_as_related() {
-    let planned = planned(&[
-        old(
-            "term",
-            "t_entry",
-            json!({"definition": "D", "aliases": ["note"], "see_also": ["t_store", "t_gone"]}),
-        ),
-        old("term", "t_store", json!({"definition": "D"})),
-    ]);
-    assert_eq!(
-        field(&planned, "t_entry", "aliases"),
-        Some(&many(&["note"]))
-    );
-    assert_eq!(
-        field(&planned, "t_entry", "related"),
-        Some(&many(&["t_store"]))
-    );
-    assert_eq!(
-        field(&planned, "t_entry", "name"),
-        Some(&one("The t_entry"))
-    );
-    assert!(matches!(
-        why_of(&planned, "t_entry", "see_also").as_slice(),
-        [Why::Unconverted(_)]
-    ));
-}
-
-#[test]
-fn a_channel_becomes_a_term_of_its_id() {
-    let planned = planned(&[old(
-        "channel",
-        "cli",
-        json!({"description": "The tool", "interaction_model": "request_response", "tags": ["primary"],
-               "status": "active"}),
-    )]);
-    let (kind, fields) = create(&planned, "cli");
-    assert_eq!(kind, "term");
-    assert_eq!(
-        fields,
-        &BTreeMap::from([
-            ("name".to_string(), one("The cli")),
-            ("definition".to_string(), one("The tool")),
-            ("tags".to_string(), many(&["request_response", "primary"])),
-        ])
-    );
-}
-
-#[test]
-fn an_active_channel_is_implied_and_a_deprecated_one_stops_the_run() {
-    let active = planned(&[old(
-        "channel",
-        "cli",
-        json!({"description": "D", "status": "active"}),
-    )]);
-    assert_eq!(field(&active, "cli", "status"), None);
-    assert_eq!(why_of(&active, "cli", "status"), []);
-    let stopped = stops(&[old(
-        "channel",
-        "fax",
-        json!({"description": "D", "status": "deprecated"}),
-    )]);
-    assert_eq!(
-        stopped.iter().map(ToString::to_string).collect::<Vec<_>>(),
-        ["channel 'fax' status: no home for \"deprecated\": a term implies only \"active\""]
-    );
-}
-
-#[test]
-fn a_module_or_release_creates_nothing_and_ledgers_each_value() {
-    let planned = planned(&[
         old(
             "module",
             "store_module",
             json!({"family": "core", "description": "D", "features": ["store"]}),
         ),
-        old(
-            "release",
-            "first",
-            json!({"version": "0.1.0", "status": "planned", "milestones": ["cut"]}),
-        ),
     ]);
-    assert!(planned.creates.is_empty());
-    assert_eq!((planned.converted, planned.created), (0, 0));
-    let module: Vec<_> = ledgered(&planned, "store_module");
+    assert!(planned.creates.is_empty(), "{:?}", planned.creates);
+    assert!(planned.checks.is_empty());
+    assert_eq!(planned.converted, 0);
+    for (kind, id, fields) in [
+        (
+            "deliverable",
+            "store_cli",
+            [
+                "artifact_type",
+                "description",
+                "journeys",
+                "milestones",
+                "modules",
+                "owner",
+                "reason",
+                "status",
+                "title",
+                "version",
+            ]
+            .as_slice(),
+        ),
+        (
+            "module",
+            "store_module",
+            &["description", "family", "features", "title"],
+        ),
+    ] {
+        let dropped = Why::Dropped(reason(kind).to_string());
+        assert_eq!(
+            ledgered(&planned, id),
+            fields
+                .iter()
+                .map(|f| (f.to_string(), dropped.clone()))
+                .collect::<Vec<_>>(),
+            "{kind}"
+        );
+    }
+    assert!(reason("deliverable").contains("plan"));
+}
+
+/// gsd-core has no journey, persona, term or channel kind (ADR 0370 D2): each old one creates no entity, and its
+/// title and each of its values is one `dropped` entry with its fate's reason.
+#[test]
+fn an_old_kind_that_converts_to_nothing_creates_no_entity_and_ledgers_each_value_dropped() {
+    let entities = [
+        old(
+            "journey",
+            "record",
+            json!({"persona": "writer", "flow": ["Open", "Save"]}),
+        ),
+        old(
+            "persona",
+            "writer",
+            json!({"description": "Writes daily", "goals": ["Keep entries"]}),
+        ),
+        old(
+            "term",
+            "t_entry",
+            json!({"definition": "D", "aliases": ["note"]}),
+        ),
+        old(
+            "channel",
+            "cli",
+            json!({"description": "The tool", "status": "deprecated"}),
+        ),
+    ];
+    let planned = planned(&entities);
+    assert!(planned.creates.is_empty(), "{:?}", planned.creates);
+    assert_eq!(planned.converted, 0);
+    assert!(planned.checks.is_empty());
+    for (kind, id, fields) in [
+        ("journey", "record", ["flow", "persona", "title"].as_slice()),
+        ("persona", "writer", &["description", "goals", "title"]),
+        ("term", "t_entry", &["aliases", "definition", "title"]),
+        ("channel", "cli", &["description", "status", "title"]),
+    ] {
+        let reason = reason(kind);
+        assert!(reason.contains("ADR 0370"), "{reason}");
+        let ledger = ledgered(&planned, id);
+        assert_eq!(
+            ledger.iter().map(|(f, _)| f.as_str()).collect::<Vec<_>>(),
+            fields,
+            "{kind}: one entry for the title and one per value"
+        );
+        for (field, why) in ledger {
+            assert_eq!(why, Why::Dropped(reason.to_string()), "{kind}.{field}");
+        }
+    }
+}
+
+/// An entity of a kind that converts to nothing, with no value, is still one `dropped` entry: its title, or `null`
+/// when it has none (ADR 0360 D3: the ledger lists every old value not written as itself).
+#[test]
+fn an_entity_with_no_value_of_a_kind_that_converts_to_nothing_ledgers_its_title() {
+    let mut untitled = old("persona", "p", json!({}));
+    untitled.title = None;
+    let planned = planned(&[old("term", "t", json!({})), untitled]);
+    assert!(planned.creates.is_empty(), "{:?}", planned.creates);
+    let entries: Vec<_> = planned
+        .ledger
+        .entries()
+        .map(|e| {
+            (
+                e.kind.as_str(),
+                e.id.as_str(),
+                e.field.as_str(),
+                e.value.clone(),
+                e.why.clone(),
+            )
+        })
+        .collect();
+    let dropped = |kind: &str| Why::Dropped(reason(kind).to_string());
     assert_eq!(
-        module,
-        ["description", "family", "features"]
-            .map(|f| (f.to_string(), Why::Later(Pending::Package)))
-    );
-    let release: Vec<_> = ledgered(&planned, "first");
-    assert_eq!(
-        release,
-        ["milestones", "status", "version"].map(|f| (f.to_string(), Why::Later(Pending::Release)))
+        entries,
+        [
+            ("persona", "p", "title", Value::Null, dropped("persona")),
+            ("term", "t", "title", json!("The t"), dropped("term")),
+        ]
     );
 }

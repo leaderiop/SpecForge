@@ -17,10 +17,7 @@ fn declaration(name: &str, version: &str) -> ContributionsBuilder {
     c
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "a declaration with an empty name or version produces E030"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_empty_name_or_version_is_e030() {
     let build = build_registries(vec![
         declaration("", "1.0.0").declaration(),
@@ -39,10 +36,7 @@ fn an_empty_name_or_version_is_e030() {
     assert!(build.kinds().contains("report"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "a malformed ext_short produces E030"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_malformed_short_name_is_e030() {
     let mut bad = declaration("@acme/reports", "1.0.0").declaration();
     // A raw handshake can carry any short; the SDK refuses one at build.
@@ -73,10 +67,7 @@ fn with_peer(name: &str, peer: &str, range: &str, optional: bool) -> ExtensionDe
     c.declaration()
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "peer dependencies are checked in the registry build"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn peers_are_checked_by_the_build() {
     // A required peer that is not loaded, one loaded out of range, and an
     // optional one absent (fine).
@@ -106,10 +97,7 @@ fn order(build: &specforge_registry::RegistryBuild) -> Vec<String> {
     build.passes().iter().map(|p| p.full_name()).collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "declared passes are ordered in the registry build"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn passes_are_ordered_in_the_registry_build() {
     let build = build_registries(vec![
         passes("@acme/formal", |c| {
@@ -162,10 +150,7 @@ fn passes_are_ordered_in_the_registry_build() {
     assert!(build.diagnostics().next().is_none());
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "a pass constraint cycle produces W145 and keeps declaration order"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_pass_cycle_is_w145_in_declaration_order() {
     let build = build_registries(vec![passes("@acme/loop", |c| {
         c.pass("a", |p| {
@@ -191,10 +176,7 @@ fn a_pass_cycle_is_w145_in_declaration_order() {
 /// The declarations' own diagnostics come in one fixed order: E030, then
 /// W021, then the peers' E073 and E027, then the cycles' E027, then W145,
 /// each extension by extension.
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "the declarations' own diagnostics come in a fixed order: E030, W021, the peers' E073 and E027, the cycles' E027, W145"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn declaration_diagnostics_come_in_a_fixed_order() {
     let mut cyclic = passes("@acme/z", |c| {
         c.pass("a", |p| {
@@ -248,10 +230,7 @@ fn declaration_diagnostics_come_in_a_fixed_order() {
 
 /// What a field or kind declares reaches its registry entry whole: the
 /// entries embed the descriptor, so nothing declared is dropped on the way.
-#[specforge_test_macros::test(
-    behavior = "registry_build_fields",
-    verify = "a field's declared descriptor reaches its registry entry whole"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-018")]
 fn a_declared_default_value_reaches_the_field_registry() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/tickets", "1.0.0"));
     c.kind("ticket", |k| {
@@ -300,10 +279,7 @@ fn no_findings(_: &PassInput) -> Vec<PassDiagnostic> {
     Vec::new()
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_kind_result",
-    verify = "a result field must be a status enum of a collector-written kind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
 fn a_result_field_must_be_a_status_enum_of_a_collector_written_kind() {
     let statuses = Vocabulary::new(&["passed", "failed", "skipped"]);
     let build = build_registries(vec![crate::support::declare("@acme/code", |c| {
@@ -354,10 +330,7 @@ fn a_result_field_must_be_a_status_enum_of_a_collector_written_kind() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "cc_owner_pending",
-    verify = "complete_when names an enum value of its kind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
 fn complete_when_names_an_enum_value_of_its_kind() {
     let states = Vocabulary::new(&["draft", "complete"]);
     let build = build_registries(vec![crate::support::declare("@acme/plans", |c| {
@@ -414,10 +387,7 @@ fn complete_when_names_an_enum_value_of_its_kind() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_values_by_owner_state",
-    verify = "an owner gate needs a check and a complete_when on its kind or a scope ancestor, else W199"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn an_owner_gate_needs_a_check_and_an_owner_state() {
     let states = Vocabulary::new(&["draft", "complete"]);
     let mut declaration = crate::support::declare("@acme/plans", |c| {
@@ -503,10 +473,7 @@ fn capability_problems_of(declare: impl FnOnce(&mut ContributionsBuilder)) -> Ve
     found
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "a capability that is not sound is W021 and grants nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn capabilities_that_are_not_sound_are_w021_each() {
     let found = capability_problems_of(|c| {
         c.capability(Capability::git("Bad Name").why("read"));
@@ -568,10 +535,7 @@ fn capabilities_that_are_not_sound_are_w021_each() {
     assert_eq!(found.len(), expect.len(), "{found:#?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "a collector whose capability names no process capability it declares is W021"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn capabilities_a_collector_names_must_be_a_process_one() {
     let found = capability_problems_of(|c| {
         c.capability(Capability::git("history").why("read"));
@@ -586,10 +550,7 @@ fn capabilities_a_collector_names_must_be_a_process_one() {
     ));
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "a config file that is not sound is W021 and grants nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn capabilities_with_a_config_that_is_not_sound_are_w021() {
     let collect = |c: Capability| c.call_kinds(&[Operation::Collect]).why("run");
     let found = capability_problems_of(|c| {
@@ -643,10 +604,7 @@ fn capabilities_with_a_config_that_is_not_sound_are_w021() {
     assert_eq!(found.len(), expect.len(), "{found:#?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "a collector that keeps a capture with no command is W021"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_collector_capture_without_a_command_is_w021() {
     let found = capability_problems_of(|c| {
         c.collector("reader", |k| {
@@ -660,10 +618,7 @@ fn a_collector_capture_without_a_command_is_w021() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "a capability that may POST to the hosts values name is W021"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn capabilities_a_post_from_a_from_values_capability_is_w021() {
     let found = capability_problems_of(|c| {
         c.capability(
@@ -691,10 +646,7 @@ fn capabilities_a_post_from_a_from_values_capability_is_w021() {
     assert!(found[1].contains("capability 'wide' grants nothing: its `max_bytes` reaches"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_registries_from_declarations",
-    verify = "a capability keeping more than 16 MiB or a sixteenth of its memory is W021"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn capabilities_max_bytes_over_a_sixteenth_of_memory_is_w021() {
     let mut c = declaration("@acme/caps", "1.0.0");
     for (name, max) in [
@@ -735,10 +687,7 @@ fn capabilities_max_bytes_over_a_sixteenth_of_memory_is_w021() {
     assert_eq!(found.len(), expect.len(), "{found:#?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "auto_detect_collector",
-    verify = "collectors whose facts inputs and answers form a cycle are E119 in the registry build"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_cycle_among_loaded_collectors_is_e119() {
     let mut first = declaration("@acme/first", "1.0.0");
     first.kind("package", |k| {

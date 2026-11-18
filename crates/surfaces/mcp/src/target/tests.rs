@@ -5,10 +5,7 @@ use crate::state::McpState;
 use crate::tool::{ErrorCode, McpError};
 use std::path::PathBuf;
 
-#[specforge_test_macros::test(
-    behavior = "list_mcp_tools",
-    verify = "a tool's path is declared once, by its target"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-066")]
 fn each_input_makes_its_target() {
     let project = |reach, without| TargetSpec::Project { reach, without };
     assert_eq!(NewProject::TARGET, TargetSpec::NewProject);
@@ -30,10 +27,7 @@ fn each_input_makes_its_target() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_mcp_tools",
-    verify = "a tool's path is declared once, by its target"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-066")]
 fn target_arguments_follow_reach() {
     let names = |spec: TargetSpec| -> Vec<String> { spec.properties().keys().cloned().collect() };
     let mut specs = vec![TargetSpec::NewProject];
@@ -96,10 +90,7 @@ fn target_arguments_follow_reach() {
     );
 }
 
-#[specforge_test_macros::test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a no-project refusal names path only for an entry that takes one"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-067")]
 fn no_project_names_path_only_where_the_entry_takes_one() {
     let adopts = |reach| NoProject {
         reach,
@@ -153,10 +144,7 @@ fn no_project_names_path_only_where_the_entry_takes_one() {
     assert_eq!(refused.argument.as_deref(), Some("path"));
 }
 
-#[specforge_test_macros::test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a path that does not exist is a file_not_found error on path"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-067")]
 fn each_target_refusal_names_its_argument() {
     let adopts = |reach| NoProject {
         reach,
@@ -357,10 +345,7 @@ fn a_calls_caller_lends_the_containment_its_view_reads_through() {
     ));
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_mcp_tools",
-    verify = "a tool's path is declared once, by its target"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-066")]
 fn the_target_takes_the_names_no_extension_tool_may_declare() {
     let any = TargetSpec::Project {
         reach: Reach::AnyProject,
@@ -381,10 +366,7 @@ fn the_target_takes_the_names_no_extension_tool_may_declare() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_mcp_tools",
-    verify = "a tool's path is declared once, by its target"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-066")]
 fn the_target_takes_its_names_out_of_the_arguments() {
     let given = serde_json::json!({"path": ".", "limit": 2});
     let any = TargetSpec::Project {

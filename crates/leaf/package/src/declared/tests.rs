@@ -1,5 +1,4 @@
 use super::*;
-use specforge_test_macros::test as specforge_test;
 
 fn declaring(name: &str, version: &str) -> ExtensionDeclaration {
     let mut declaration = ExtensionDeclaration::default();
@@ -8,10 +7,7 @@ fn declaring(name: &str, version: &str) -> ExtensionDeclaration {
     declaration
 }
 
-#[specforge_test(
-    type = "DeclaredPackage",
-    verify = "a declared package is a declaration whose name is a scoped package name and whose version is a full SemVer version"
-)]
+#[test]
 fn a_declared_package_is_its_declarations_scoped_name_and_version() {
     let declaration = declaring("@acme/tool", "2.0.0+build.1");
     let package = DeclaredPackage::of(&declaration).unwrap();

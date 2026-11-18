@@ -6,10 +6,7 @@ use crate::support::*;
 use serde_json::{Value, json};
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "remove_extension with force removes an extension another requires, which it refuses with E027 without it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn remove_extension_refuses_a_builtin_another_requires_with_e027_unless_forced() {
     let mut served = TestProject::new()
         .enabling(&["@specforge/testing", "@specforge/cargo-test"])

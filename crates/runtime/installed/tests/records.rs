@@ -38,10 +38,7 @@ fn record(root: &std::path::Path, version: &str, peers: Vec<PeerDependency>) {
     write_lock_file(&lock, &path).unwrap();
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "an installed extension loads only when its binary declares the version and peers its specforge.lock entry records"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_module_declaring_another_version_or_other_peers_than_its_lock_entry_is_e070() {
     for (case, version, peers, refused) in [
         ("fewer peers", "1.0.0", vec![], true),

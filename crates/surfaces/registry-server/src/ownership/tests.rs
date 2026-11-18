@@ -130,10 +130,7 @@ fn account_names_are_lowercase_words() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "publish_to_registry",
-    verify = "an operator assigns a scope to another account, whose tokens then write into it and the old account's no longer do"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn an_assigned_scope_is_written_by_its_new_account_only() {
     let (_dir, db) = database();
     let old = writer(&db, "old", None);

@@ -21,10 +21,7 @@ fn layers() -> G {
         .edge("cli", "util", "depends_on")
 }
 
-#[specforge_test(
-    behavior = "surface_module_dependency_depth",
-    verify = "product:module-depth returns ModuleDependencyDepthPayload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn module_depth_answers_its_payload() {
     let md = json_of("module_depth", json!({"module": "web"}), &layers());
     assert_eq!(
@@ -37,19 +34,13 @@ fn module_depth_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_module_dependency_depth",
-    verify = "missing module returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn module_depth_of_a_mistyped_module_suggests_the_nearest() {
     let error = not_found_suggesting("module_depth", json!({"module": "utl"}), &layers());
     assert_eq!(error["suggestion"], "util");
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_dependency_depth",
-    verify = "module with no dependencies returns depth=0"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_module_without_dependencies_is_at_depth_zero() {
     let md = json_of("module_depth", json!({"module": "core"}), &layers());
     assert_eq!(
@@ -58,10 +49,7 @@ fn a_module_without_dependencies_is_at_depth_zero() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_dependency_depth",
-    verify = "module depending on two layers returns depth=2"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_module_two_layers_up_is_at_depth_two() {
     let md = json_of("module_depth", json!({"module": "api"}), &layers());
     assert_eq!(
@@ -70,10 +58,7 @@ fn a_module_two_layers_up_is_at_depth_two() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_dependency_depth",
-    verify = "module in a cycle returns depth=-1"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_module_on_a_cycle_is_at_depth_minus_one() {
     let g = layers().edge("core", "api", "depends_on");
     let md = json_of("module_depth", json!({"module": "util"}), &g);
@@ -87,10 +72,7 @@ fn a_module_on_a_cycle_is_at_depth_minus_one() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_dependency_depth",
-    verify = "longest_chain includes all modules in the longest path"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn the_chain_follows_the_longest_path_not_the_shortest() {
     // cli reaches util directly and through api: the chain goes through api.
     let md = json_of("module_depth", json!({"module": "cli"}), &layers());
@@ -98,10 +80,7 @@ fn the_chain_follows_the_longest_path_not_the_shortest() {
     assert_eq!(md["depth"], 3);
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_dependency_depth",
-    verify = "non-existent module returns ENTITY_NOT_FOUND with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn module_depth_of_no_module_is_not_found() {
     let error = not_found_suggesting("module_depth", json!({"module": "cor"}), &layers());
     assert_eq!(
@@ -114,10 +93,7 @@ fn module_depth_of_no_module_is_not_found() {
     assert_eq!(error["message"], "module 'core2' not found");
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_dependency_depth",
-    verify = "result is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn module_depth_is_the_same_every_time_and_in_any_order() {
     for module in ["web", "cli", "iso"] {
         let args = json!({ "module": module });
@@ -127,10 +103,7 @@ fn module_depth_is_the_same_every_time_and_in_any_order() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_module_coupling",
-    verify = "product:module-coupling returns ModuleCouplingPayload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn module_coupling_answers_its_payload() {
     let mc = json_of("module_coupling", json!({}), &layers());
     assert_eq!(
@@ -187,10 +160,7 @@ fn module_coupling_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_module_coupling",
-    verify = "empty graph returns empty modules array"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn module_coupling_of_no_modules_is_empty() {
     let mc = json_of("module_coupling", json!({}), &G::default());
     assert_eq!(
@@ -210,10 +180,7 @@ fn coupling_of(mc: &Value, module: &str) -> Value {
         .clone()
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_coupling",
-    verify = "module with 3 dependents and 1 dependency has fan_in=3 fan_out=1 coupling=4"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_module_with_three_dependents_and_one_dependency_couples_four() {
     let mc = json_of("module_coupling", json!({}), &layers());
     assert_eq!(
@@ -222,10 +189,7 @@ fn a_module_with_three_dependents_and_one_dependency_couples_four() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_coupling",
-    verify = "isolated module has fan_in=0 fan_out=0 coupling=0"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn an_isolated_module_couples_nothing() {
     // A feature's depends_on on it does not couple it.
     let g = layers().n("f1", "feature").edge("f1", "iso", "depends_on");
@@ -236,10 +200,7 @@ fn an_isolated_module_couples_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_coupling",
-    verify = "empty module graph returns empty modules array"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_graph_without_modules_has_no_coupling() {
     let mc = json_of("module_coupling", json!({}), &layered());
     assert_eq!(
@@ -248,10 +209,7 @@ fn a_graph_without_modules_has_no_coupling() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_coupling",
-    verify = "most_coupled_id identifies the highest-coupling module"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn the_most_coupled_module_is_named_first_by_id_on_ties() {
     let mc = json_of("module_coupling", json!({}), &layers());
     assert_eq!(mc["most_coupled_id"], "util");
@@ -267,10 +225,7 @@ fn the_most_coupled_module_is_named_first_by_id_on_ties() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_coupling",
-    verify = "averages are computed correctly across all modules"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn the_averages_are_over_every_module() {
     // Six dependencies among six modules; a duplicate reference counts once.
     let g = layers()
@@ -285,10 +240,7 @@ fn the_averages_are_over_every_module() {
     assert!((fan_out - 6.0 / 7.0).abs() < 1e-9, "{fan_out}");
 }
 
-#[specforge_test(
-    behavior = "pe_query_module_coupling",
-    verify = "result is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn module_coupling_is_the_same_every_time_and_in_any_order() {
     let first = json_of("module_coupling", json!({}), &layers());
     assert_eq!(json_of("module_coupling", json!({}), &layers()), first);

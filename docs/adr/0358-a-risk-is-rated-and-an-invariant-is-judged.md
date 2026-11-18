@@ -1,6 +1,8 @@
 # A risk is rated 1 to 10 and an invariant is judged to hold
 
-**Status:** accepted (2026-11-14). Builds on [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md)
+**Status:** accepted (2026-11-14). Superseded by
+[ADR 0370](0370-gsd-core-holds-exactly-gsd-cores-kinds-and-fields.md): `risk` and `invariant` leave `@gsd/core`; D15
+and D24 are kept, and ADR 0370's table gives each decision its outcome. Builds on [ADR 0285](0285-a-fields-type-may-be-a-list-of-words-a-block-a-union-or-a-range.md)
 (a bounded int, a block, a reference union), [ADR 0287](0287-who-writes-a-field-is-declared.md) (a computed field),
 [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) (a typed setting) and
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (a field that names its reverse).
@@ -42,7 +44,7 @@ its E531 reported once written.
 
 ## Decisions
 
-- **D1. The kind `risk`, in `@gsd/core`** ([spec/governance.md](../../gsd/core/spec/governance.md)), beyond parity and
+- **D1. The kind `risk`, in `@gsd/core`** (`gsd/core/spec/governance.md`, since removed), beyond parity and
   unscoped: a risk outlives a phase, and moving it to another milestone does not rename it. Its writers are the planner
   and the executor, whose tasks and truths control it, so it is a core kind.
   - Authored: `cause` and `effect` (required); `severity`, `occurrence` and `detection` (required, each an int from 1
@@ -112,7 +114,7 @@ its E531 reported once written.
   - `threatens_features` and `affected_behaviors` → `affects`, through the requirement each converts to.
   - The old `risk` string is computed now (`rpn`, `status`).
 
-- **D9. The kind `invariant`, in `@gsd/core`** ([spec/governance.md](../../gsd/core/spec/governance.md#invariant)),
+- **D9. The kind `invariant`, in `@gsd/core`** (`gsd/core/spec/governance.md`, removed with it),
   beyond parity and unscoped: an invariant outlives the phase it starts at, and its name is a word unique in the
   project (`entity_id_uniqueness`), as the old ids are.
   - Authored: `statement` (required), `description`, `scope` (project, milestone), `holds_from` (→ phase), `proof`

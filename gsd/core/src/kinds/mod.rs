@@ -6,11 +6,9 @@ mod audit;
 mod commit;
 mod discuss;
 mod execute;
-mod governance;
 mod learning;
 mod must_haves;
 mod plan;
-mod product;
 mod project;
 mod research;
 mod review;
@@ -21,35 +19,17 @@ mod validation;
 mod verify;
 mod windows;
 
-pub use governance::INVARIANT_IN_FORCE;
 use gsd_kit::dsl::{self, Kind};
 pub use project::PROOF_STATES;
-pub use roadmap::PHASE_COMPLETE;
 use specforge_extension_sdk::prelude::*;
 
-/// An option weighed: a checkpoint's options (GSD `<options>`) and, with why it lost, a decision's alternatives.
-const OPTION: &[dsl::Field] = &[
-    dsl::str("name").r(),
-    dsl::strs("pros").prose(),
-    dsl::strs("cons").prose(),
-];
-
-/// A decision's alternative: the checkpoint's [`OPTION`] record and why it was not chosen. `why_not` is optional, so
-/// an alternative may be a bare name.
-const ALTERNATIVE: &[dsl::Field] = &[
-    OPTION[0],
-    OPTION[1],
-    OPTION[2],
-    dsl::str("why_not").prose().doc("why it was not chosen"),
-];
+/// An option weighed: a checkpoint's options (GSD `<options>`).
+const OPTION: &[dsl::Field] = &[dsl::str("name").r(), dsl::strs("pros"), dsl::strs("cons")];
 
 /// Every kind declared so far, in the order of the model's files.
 pub(crate) const KINDS: &[&Kind] = &[
     &project::PROJECT,
     &project::REQUIREMENT,
-    &product::PERSONA,
-    &product::JOURNEY,
-    &product::TERM,
     &roadmap::MILESTONE,
     &roadmap::PHASE,
     &roadmap::WORKSTREAM,
@@ -109,8 +89,6 @@ pub(crate) const KINDS: &[&Kind] = &[
     &audit::MILESTONE_AUDIT,
     &windows::BROKEN_WINDOW,
     &windows::REFACTOR_PROPOSAL,
-    &governance::RISK,
-    &governance::INVARIANT,
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

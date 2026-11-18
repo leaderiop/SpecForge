@@ -82,10 +82,7 @@ fn hook(id: &str, event: &str, extra: Value) -> Value {
     hook
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "a host name claimed twice is E039 and the later claimant is not rendered"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_host_name_claimed_twice_is_e039() {
     // The slash command of the prompt `plan_phase` is named `t-plan-phase`, as is this skill.
     let build = build_registries(vec![core(json!({
@@ -104,10 +101,7 @@ fn a_host_name_claimed_twice_is_e039() {
     assert_eq!(asked::agents(&build).len(), 1, "an unrelated name is kept");
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "a contribution the registry refuses is W021 and dropped, and the rest is kept"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_contribution_the_registry_refuses_is_w021() {
     let refused = [
         (
@@ -220,10 +214,7 @@ fn a_contribution_the_registry_refuses_is_w021() {
     }
 }
 
-#[specforge_test(
-    behavior = "load_extension_declaration",
-    verify = "an input its call kind is not served, or a second one of a kind served once, is W021 and served empty, and the call is kept"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_input_its_call_kind_is_not_served_is_w021_and_served_empty() {
     let build = build_registries(vec![core(json!({
         "commands": [{"id": "go", "title": "Go", "description": "Go", "export": "cmd__go",
@@ -260,10 +251,7 @@ fn an_input_its_call_kind_is_not_served_is_w021_and_served_empty() {
     assert!(!served(CallKind::Hook, Input::Files(Default::default())));
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "a check outcomes input on anything but a collector is W021 and served empty"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_check_outcomes_input_on_a_pass_is_w021_and_served_empty() {
     use specforge_protocol_types::Input;
     use specforge_registry::{CallKind, served};
@@ -285,10 +273,7 @@ fn a_check_outcomes_input_on_a_pass_is_w021_and_served_empty() {
     assert!(w021[0].contains("the input 'check_outcomes'"), "{w021:#?}");
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "the registry answers an agent by its id, with the extension that declares it"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_registry_answers_an_agent_by_id() {
     let build = build_registries(vec![core(json!({
         "agents": [{"id": "t-plan-checker", "description": "Checks"}],
@@ -300,10 +285,7 @@ fn the_registry_answers_an_agent_by_id() {
     assert!(asked::agent(&build, "t-nobody").is_none());
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "a judged rule whose judge is no agent of its extension or a declared peer is W112"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_judge_naming_no_agent_of_its_extension_is_w112() {
     let rule = |code: &str, judge: &str| {
         json!({"code": code, "severity": "warning", "check": "judged", "message_template": "{id} does not hold",
@@ -337,10 +319,7 @@ fn a_judge_naming_no_agent_of_its_extension_is_w112() {
     );
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "every setting a when names must be a bool setting of the extension"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn each_when_name_is_a_bool_setting() {
     let build = build_registries(vec![core(json!({
         "agents": [
@@ -381,10 +360,7 @@ fn commands() -> Value {
     ])
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "a contribution names SpecForge's engine tools as specforge:<tool>, specforge:<group> or specforge:<short>.<command>, and keeps them"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn an_engine_tool_class_names_a_tool_a_group_or_a_declared_command() {
     let tools = json!([
         "read",
@@ -405,10 +381,7 @@ fn an_engine_tool_class_names_a_tool_a_group_or_a_declared_command() {
     assert_eq!(agent.tools, tools.as_array().unwrap().clone());
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "an engine tool class naming no tool, group or command an agent may run, SpecForge's server through mcp:, or set on a hook is W021 and drops the item"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn an_engine_tool_class_the_registry_refuses_is_w021() {
     let agent =
         |id: &str, class: &str| json!({"id": id, "description": "A", "tools": ["read", class]});
@@ -461,10 +434,7 @@ fn an_engine_tool_class_the_registry_refuses_is_w021() {
     assert_eq!(asked::hooks(&build), ["host_hook"]);
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "an engine tool class naming a command whose args break the one arg rule is W021 and drops the item"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn an_engine_tool_class_naming_a_refused_command_is_w021() {
     // `--format` is the host's own option: no surface serves a command whose arg takes it.
     let refused = json!({"id": "dump", "title": "D", "description": "D", "export": "cmd__dump",

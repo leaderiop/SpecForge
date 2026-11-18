@@ -11,10 +11,7 @@ use crate::support::*;
 
 const KEY: &str = "0123456789abcdef0123456789abcdef01234567";
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "inspect of a fact names where it is written"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_of_a_fact_names_where_it_is_written() {
     let project = TestProject::new()
         .config(|c| c["name"] = "p".into())

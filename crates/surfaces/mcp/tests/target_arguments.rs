@@ -8,10 +8,8 @@ use crate::tool_errors::mcp_error;
 use serde_json::{Value, json};
 use specforge_test::prelude::*;
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "an extension command given its own project's path, or a null one, runs as it does without one, and another project's path is the target's refusal"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_extension_command_given_its_projects_path_runs_as_without_it() {
     let fake = FakeExtension::new().with_output(
         "cmd__report",
@@ -47,10 +45,8 @@ fn an_extension_command_given_its_projects_path_runs_as_without_it() {
     assert_eq!(ext.calls().len(), before);
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "an explicit extension tool's export and its schema check are never handed the call target's path"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn an_explicit_extension_tool_is_never_handed_the_targets_path() {
     let closed = json!({"name": "test.closed_in", "description": "Closed input",
         "export": "mcp__closed_in",
@@ -76,10 +72,7 @@ fn an_explicit_extension_tool_is_never_handed_the_targets_path() {
     }
 }
 
-#[specforge_test(
-    behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "an explicit extension tool whose input schema declares path is not listed, with I017"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_explicit_tool_declaring_path_is_not_served() {
     let file_tool = |name: &str, schema: Value| {
         json!({"name": name, "description": "Reads a file",

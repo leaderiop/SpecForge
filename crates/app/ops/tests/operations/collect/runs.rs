@@ -47,10 +47,7 @@ fn an_approved_command_runs_once_and_its_report_is_merged() {
     assert!(written["results"]["a"].is_object(), "{written}");
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "command line expands the report placeholder"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn the_command_line_expands_the_report_placeholder() {
     let fx = acme();
     let machine = Machine::new().approving_everything().answering(reports());
@@ -65,10 +62,7 @@ fn the_command_line_expands_the_report_placeholder() {
     assert!(!argv.iter().any(|a| a.contains("{report}")), "{argv:?}");
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "file pattern match selects collector"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collector_whose_detection_file_is_present_is_selected() {
     let fx = Fixture::new(vec![
         Runner::new("first").proving("a", "t"),
@@ -84,10 +78,7 @@ fn a_collector_whose_detection_file_is_present_is_selected() {
     assert_eq!(runs[0].argv[0], "first");
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "a single enabled collector is used without detection"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_single_enabled_runner_needs_no_detection() {
     let fx = acme();
     assert!(!fx.exists("acme.cfg"));
@@ -98,10 +89,7 @@ fn a_single_enabled_runner_needs_no_detection() {
     assert_eq!(machine.runs().len(), 1);
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "a collector reading check outcomes is not run by a plain collect"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collector_reading_check_outcomes_is_not_run_by_a_plain_collect() {
     let fx = Fixture::new(vec![
         Runner::new("outcomes")
@@ -160,10 +148,7 @@ fn an_approval_that_cannot_be_remembered_is_an_unsaved_approval() {
     assert_eq!(outcome.unsaved_approvals, ["memory: disk full"]);
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "run ignores stale reports and sets the report env"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_report_file_left_by_an_earlier_run_is_never_read() {
     // A report file is removed before the command starts: a run that writes none has no report.
     let fx = acme();
@@ -206,10 +191,7 @@ fn a_report_file_left_by_an_earlier_run_is_never_read() {
     assert_eq!(paths(&fx.dispatched()[0]), ["out/new.json"]);
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "reads a file or every json file in a directory"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn reads_a_file_or_every_json_file_in_a_directory() {
     let fx = Fixture::new(vec![Runner::new("acme").report("out").proving("a", "t")]);
     fx.write("out/b.json", "{}");
@@ -299,10 +281,7 @@ fn reports_mode_reads_the_named_files_and_runs_nothing() {
     assert_eq!(paths(&fx.dispatched()[0]), ["elsewhere/mine.json"]);
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_ignored, report_path_exported, failing_tests_recorded, refused_before_running"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn the_run_and_approval_contracts_hold() {
     // command_approved: an unapproved command with nobody to ask runs nothing (E059).
     let fx = acme();
@@ -344,10 +323,7 @@ fn the_run_and_approval_contracts_hold() {
 
 /// A hard link at the capture file's name is not written through (ADR 0144): the run creates a new file.
 #[cfg(unix)]
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn collect_capture_is_not_written_through_a_hard_link() {
     let fx = Fixture::new(vec![
         Runner::new("acme")
@@ -385,10 +361,7 @@ fn detected() -> Fixture {
     fx
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "a detected collector with no evidence is skipped and the others are kept"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_detected_collector_with_no_evidence_is_skipped_and_the_others_are_kept() {
     let fx = detected();
     // `first` writes no report; `second` writes one.
@@ -429,10 +402,7 @@ fn a_detected_collector_with_no_evidence_is_skipped_and_the_others_are_kept() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "a named collector with no evidence is still E045"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_named_collector_with_no_evidence_is_still_e045() {
     let fx = detected();
     let machine = Machine::new()
@@ -456,10 +426,7 @@ fn a_named_collector_with_no_evidence_is_still_e045() {
     assert!(outcome.runners.iter().all(|r| r.skip_reason.is_some()));
 }
 
-#[specforge_test(
-    behavior = "approve_capability",
-    verify = "a third-party collector asks again after its blob changes"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_third_party_collector_asks_again_after_its_blob_changes() {
     use specforge_wasm::WasmRuntime;
     let fx = acme();
@@ -572,10 +539,7 @@ fn auto_performs_what_a_grant_approves_and_nothing_else() {
     assert_eq!(served(&approved, &other), not_approved);
 }
 
-#[specforge_test(
-    behavior = "auto_detect_collector",
-    verify = "checks.publish adds a collector reading check outcomes to a plain collect, and never to a reports run"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn publish_never_joins_a_reports_run() {
     let fx = Fixture::configured(
         vec![
@@ -624,10 +588,7 @@ fn configuring() -> Fixture {
 
 const CONFIG: &str = ".specforge/reports/nextest.nextest.toml";
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "a declared config file is written before the run with {report} expanded, and {config} names it"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_declared_config_is_written_before_the_run_with_the_report_path() {
     let fx = configuring();
     // A file an earlier run left is replaced, never appended to or read.
@@ -669,10 +630,7 @@ fn no_run_writes_no_config() {
     assert!(machine.runs().is_empty());
 }
 
-#[specforge_test(
-    behavior = "run_collector_command",
-    verify = "a program that cannot be found names the collector's install line"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_program_not_found_names_the_install_line() {
     let missing = || ScriptedRun {
         fails: Some(specforge_ops::testing::ScriptedFailure::NotFound),

@@ -20,8 +20,8 @@ impl Graph {
     /// Resolve every node's references into edges and report what does not
     /// resolve (`Graph::resolve` decides each, ADR 0117): E003 (with a
     /// fuzzy-match suggestion when there is one), or I004 for a field whose
-    /// target kind no loaded extension declares, naming the extension in
-    /// `inputs.target_owners` that does. A reference in a fact scheme that names no fact is kept on its node as
+    /// target kind no loaded extension declares, naming each extension in
+    /// `inputs.target_owners` that declares it. A reference in a fact scheme that names no fact is kept on its node as
     /// unheld, with no diagnostic (ADR 0327 D6). A fact's own reference resolves from the project, a unique suffix
     /// taken; one that names no entity, one of another kind or several is kept on its node as dangling, with no
     /// diagnostic: the extension declaring the fact's kind judges it (ADR 0346 D4). Then W061 over the authored edges but
@@ -262,10 +262,7 @@ invariant inv_one "Invariant One" {
         crate::build_graph(&[specforge_parser::parse(source, "main.spec")])
     }
 
-    #[specforge_test(
-        behavior = "detect_dangling_references",
-        verify = "a reference to an existing entity without its edge fails the linker's assertion"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     #[should_panic(expected = "without their edge")]
     fn a_reference_without_its_edge_fails_the_assertion() {
         let (mut graph, _) = built(REFERENCING);
@@ -289,10 +286,7 @@ invariant inv_one "Invariant One" {
         assert_eq!(unlinked, [("alpha", "inv_one", "invariants")]);
     }
 
-    #[specforge_test(
-        behavior = "detect_dangling_references",
-        verify = "reference with corresponding graph edge passes"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn a_linked_reference_passes() {
         let (graph, _) = built(REFERENCING);
         graph.assert_linked(&GraphInputs::default());
@@ -303,20 +297,14 @@ invariant inv_one "Invariant One" {
         );
     }
 
-    #[specforge_test(
-        behavior = "detect_dangling_references",
-        verify = "an empty graph passes the linker's assertion"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn an_empty_graph_passes() {
         let (graph, _) = built("");
         assert_eq!(graph.edge_count(), 0);
         graph.assert_linked(&GraphInputs::default());
     }
 
-    #[specforge_test(
-        behavior = "detect_dangling_references",
-        verify = "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
-    )]
+    #[specforge_test(requirement = "FEATURE-124")]
     fn a_missing_target_is_e003_once() {
         // An unresolved id is the linker's E003, once; it names no existing
         // entity, so the assertion has nothing to say.

@@ -46,10 +46,7 @@ fn refused_once(stderr: &str, code: &str) {
     );
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "a refusal of the project's registry configuration or the user's credential store refuses the update once, before any registry is asked"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn update_refuses_an_unreadable_registries_entry_once() {
     let dir = project(serde_json::json!([
         {"alias": "main", "url": format!("{UNREACHABLE}/v1"), "default_registry": true}
@@ -65,10 +62,7 @@ fn update_refuses_an_unreadable_registries_entry_once() {
     refused_once(&Cli::on(&dir).run(&["update"]).stderr, "E067");
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "a refusal of the project's registry configuration or the user's credential store refuses the update once, before any registry is asked"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn update_refuses_an_unreadable_credential_store_once() {
     let dir = project(serde_json::json!([
         {"alias": "main", "url": UNREACHABLE, "default_registry": true}
@@ -85,10 +79,7 @@ fn update_refuses_an_unreadable_credential_store_once() {
     refused_once(&Cli::on(&dir).run(&["update"]).stderr, "R012");
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "a credential store that can't be read refuses the search once, before any request: it is no registry's failure"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn search_refuses_an_unreadable_credential_store_once() {
     let dir = project(serde_json::json!([
         {"alias": "one", "url": UNREACHABLE, "default_registry": true},

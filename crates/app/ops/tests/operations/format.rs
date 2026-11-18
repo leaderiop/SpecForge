@@ -39,10 +39,7 @@ fn format_served(project: &specforge_project::testing::TestProject) {
     format_all(project.root(), Some(runtime));
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "format does not overwrite a concurrent write"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn format_does_not_overwrite_a_concurrent_write() {
     let dir = gsd_project().file("a.spec", MESSY);
     // Another writer holds the lock and changes the file; format waits for it instead of replacing the file.
@@ -69,10 +66,7 @@ fn format_does_not_overwrite_a_concurrent_write() {
     assert!(text.contains("behavior added"), "{text}");
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "format locks a project with a writing extension and not one that merely has a .specforge directory"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn format_locks_only_a_project_whose_writes_are_serialized() {
     // A project with a writing command locks, and makes its `.specforge/` to do it.
     let serialized = gsd_project().file("a.spec", MESSY);

@@ -30,10 +30,8 @@ fn pairs(expected: &[(&str, &str)]) -> Vec<(String, String)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "an exported declaration is public and a local one private"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn an_exported_declaration_is_public_and_a_local_one_private() {
     let facts = collected(&[(
         "src/a.ts",
@@ -66,10 +64,8 @@ namespace M {
     );
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "an export list and module.exports make an item public"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn an_export_list_and_module_exports_make_an_item_public() {
     let facts = collected(&[
         (
@@ -95,10 +91,8 @@ fn an_export_list_and_module_exports_make_an_item_public() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "export default of a name marks it default"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn export_default_of_a_name_marks_it_default() {
     let facts = collected(&[
         ("src/main.js", "function main() {}\nexport default main;\n"),
@@ -112,10 +106,8 @@ fn export_default_of_a_name_marks_it_default() {
     assert_eq!(named.fields["attrs"], json!(["default", "export"]));
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "an export list naming a default marks it default"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn an_export_list_naming_a_default_marks_it_default() {
     let facts = collected(&[(
         "src/a.js",
@@ -129,10 +121,8 @@ fn an_export_list_naming_a_default_marks_it_default() {
     assert_eq!(b.fields.get("attrs"), None, "b is no default export");
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "a private member of a public class is private"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_private_member_of_a_public_class_is_private() {
     let facts = collected(&[(
         "src/a.ts",
@@ -166,10 +156,8 @@ fn a_private_member_of_a_public_class_is_private() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "a member of a private class is private"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_member_of_a_private_class_is_private() {
     let facts = collected(&[(
         "src/a.ts",
@@ -188,10 +176,8 @@ fn a_member_of_a_private_class_is_private() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "a JSDoc comment is the doc of the item below it"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_jsdoc_comment_is_the_doc_of_the_item_below_it() {
     let facts = collected(&[(
         "src/doc.js",
@@ -227,10 +213,8 @@ class K {
     assert_eq!(doc("K.m"), "A method.");
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "a decorated class takes the doc above its decorator, exported or not"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_decorated_class_takes_the_doc_above_its_decorator_exported_or_not() {
     let facts = collected(&[(
         "src/a.ts",
@@ -254,10 +238,8 @@ export default class {}
     assert_eq!(doc("default"), "Default.");
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "a decorated member takes the doc above its first decorator"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_decorated_member_takes_the_doc_above_its_first_decorator() {
     let facts = collected(&[(
         "src/m.ts",
@@ -299,10 +281,8 @@ fn a_decorated_member_takes_the_doc_above_its_first_decorator() {
     assert_eq!(doc("K.three"), Value::Null);
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "a signature holds types and never a value"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_signature_holds_types_and_never_a_value() {
     let signatures = |text: &str| -> Vec<(String, Value)> {
         collected(&[("src/s.ts", text)])
@@ -336,10 +316,8 @@ fn a_signature_holds_types_and_never_a_value() {
     assert_ne!(before[2].1, typed_changed[2].1);
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "a signature's literal keeps its whitespace in the digest"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_signatures_literal_keeps_its_whitespace_in_the_digest() {
     let digest = |text: &str| -> Value {
         let facts = collected(&[("src/t.ts", text)]);
@@ -360,7 +338,8 @@ fn a_signatures_literal_keeps_its_whitespace_in_the_digest() {
     }
 }
 
-#[specforge_test(behavior = "js_mark_item_exports", verify = "modifiers are attrs")]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn modifiers_are_attrs() {
     let facts = collected(&[(
         "src/m.ts",

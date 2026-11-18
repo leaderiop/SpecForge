@@ -65,10 +65,7 @@ fn renamed_outside(served: &mut Served, from: &str, to: &str) {
 
 /// `T1` renamed to `T2`, then text typed after the name on its line (`// covers T2, T5`): nothing typed there can
 /// extend the name, so it still reads and the line holds.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an editor rename's stale line holds while its names read in the source, whatever else changed there"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn text_typed_after_the_name_on_its_line_keeps_the_line() {
     let mut served = fact_named();
     rename(&mut served, 0, "T2");
@@ -84,10 +81,7 @@ fn text_typed_after_the_name_on_its_line_keeps_the_line() {
 /// `T1` renamed to `T2` and saved, the files left open; then the CLI renames `T2` to `T7`, and later back to `T1`. The
 /// editor's tree no longer reads as the ledger: it shows nothing, and the save after the rename back lands no second
 /// move over the CLI's.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "a ledger write from outside the editor ends the editor renames it touches"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_rename_written_outside_while_open_ends_the_tree() {
     let mut served = fact_named();
     rename(&mut served, 0, "T2");
@@ -106,10 +100,7 @@ fn a_rename_written_outside_while_open_ends_the_tree() {
 
 /// `T1` renamed to `T2` and saved, then an entity declared by hand under the old name (`T1`) beside `T2`, in the
 /// declaring file or another: the rename still holds, and no move lands onto the new entity.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an entity declared by hand under the name an editor rename left takes nothing of it"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn an_entity_declared_by_hand_under_the_old_name_takes_nothing() {
     for file in [SPEC, "other.spec"] {
         let mut served = fact_named();
@@ -200,10 +191,7 @@ fn undone_to(served: &mut Served, texts: &[String; 2]) {
 /// The milestone renamed `m1 → m2`, then its workstream `ws → wz`, both saved at once, then each undone in the order
 /// the editor undoes them: what lands is what one rename after the other leaves, the path between kept, and the stale
 /// line follows each step.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "editor renames of a scope and of what it scopes compose as one history"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_milestone_then_its_workstream_renamed_compose_as_one_history() {
     let mut served = scoped();
     let first = texts(&served);
@@ -227,10 +215,7 @@ fn a_milestone_then_its_workstream_renamed_compose_as_one_history() {
 
 /// The workstream renamed `ws → wz`, then its milestone `m1 → m2`, both saved at once, then each undone in the order
 /// the editor undoes them.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "editor renames of a scope and of what it scopes compose as one history"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_workstream_then_its_milestone_renamed_compose_as_one_history() {
     let mut served = scoped();
     let first = texts(&served);

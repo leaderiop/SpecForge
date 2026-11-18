@@ -61,10 +61,7 @@ fn extensions(root: &Path) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "a builtin is enabled with no registry and no network"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn mcp_enables_a_builtin_offline() {
     // No registry configured: the old handler asked one and failed.
     let mut dir = Served::rooted(project(&["@specforge/software"], json!([])));
@@ -85,10 +82,7 @@ fn mcp_enables_a_builtin_offline() {
     );
 }
 
-#[specforge_test(
-    invariant = "init_config_validity",
-    verify = "specforge add or the MCP add_extension tool followed by specforge check produces zero errors"
-)]
+#[specforge_test(requirement = "INVARIANT-058")]
 fn mcp_add_then_check_is_clean() {
     let mut dir = Served::rooted(project(&["@specforge/software"], json!([])));
 
@@ -99,10 +93,7 @@ fn mcp_add_then_check_is_clean() {
     assert!(ok && errors.is_empty(), "{errors:?}");
 }
 
-#[specforge_test(
-    invariant = "init_config_validity",
-    verify = "specforge add or the MCP add_extension tool followed by specforge check produces zero errors"
-)]
+#[specforge_test(requirement = "INVARIANT-058")]
 fn mcp_local_add_then_check_loads_the_extension() {
     let mut dir = Served::rooted(
         project(&["@specforge/software"], json!([]))

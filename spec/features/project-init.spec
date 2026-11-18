@@ -1,18 +1,13 @@
-// Project initialization feature
-
-use "behaviors/init"
-use "behaviors/mcp-operations"
-
-feature project_initialization "Project Initialization" {
-  status   done
-  problem  """
+requirement FEATURE-106 "Project Initialization" {
+  category "Feature"
+  tier     v1
+  text     """
     New users and AI agents need a quick way to scaffold a SpecForge
     project that produces a consumable graph. The correct file structure,
     specforge.json configuration, and optional extension selection must
     work without reading documentation first. CI pipelines and automated
     tooling need a non-interactive path to the same outcome.
-  """
-  solution """
+
     Interactive specforge init command that generates specforge.json
     with project name, version, and selected extensions, plus a starter
     .spec file that validates immediately. Non-interactive mode via

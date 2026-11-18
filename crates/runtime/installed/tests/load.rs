@@ -56,10 +56,7 @@ fn codes(root: &Path, loaded: &specforge_installed::Loaded) -> Vec<String> {
     reported(root, loaded).into_iter().map(|d| d.code).collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "an installed extension loads only when its binary is the one its specforge.lock entry pins"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_installed_extension_loads_from_its_pinned_module() {
     let dir = TempDir::new().unwrap();
     install(dir.path(), &runtime(), &["@acme/a"]);
@@ -77,10 +74,7 @@ fn an_installed_extension_loads_from_its_pinned_module() {
     assert!(loaded.enabled[0].failure.is_none());
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "an installed extension loads only when its binary is the one its specforge.lock entry pins"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_changed_module_is_refused_and_not_loaded() {
     let dir = TempDir::new().unwrap();
     install(dir.path(), &runtime(), &["@acme/a"]);
@@ -122,10 +116,7 @@ fn a_changed_module_is_refused_and_not_loaded() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_wasm_extension",
-    verify = "an extension is installed under the extensions directory of its project, by its package name"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-134")]
 fn an_entry_that_names_no_package_is_e072_and_not_loaded() {
     let dir = TempDir::new().unwrap();
     // A lock cannot name it; even an unreadable lock is not asked about it.
@@ -165,10 +156,7 @@ fn an_entry_that_names_no_package_is_e072_and_not_loaded() {
     ));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "an enabled extension with no installed binary produces E028 naming the command that installs it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_entry_without_a_lock_entry_is_e028_naming_the_command_that_installs_it() {
     let dir = TempDir::new().unwrap();
 
@@ -206,10 +194,7 @@ fn a_locked_extension_without_its_module_is_e028_naming_where_it_should_be() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "an unreadable specforge.lock is reported once (E033) and each installed extension it leaves unloaded is E028 naming it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn an_unreadable_lock_is_reported_once_before_the_first_entry_it_left_unloaded() {
     let dir = TempDir::new().unwrap();
     install(dir.path(), &runtime(), &["@acme/a", "@acme/b"]);
@@ -316,10 +301,7 @@ impl WasmRuntime for Recording {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_wasm_module",
-    verify = "the hash is checked over the bytes the runtime compiles"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
 fn the_bytes_compiled_are_the_bytes_hashed() {
     let dir = TempDir::new().unwrap();
     install(dir.path(), &runtime(), &["@acme/a"]);
@@ -381,10 +363,7 @@ fn a_file_entry_loads_under_the_name_it_declares() {
     ));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "a .wasm file entry that is missing, is not a component, names another extension or repeats a loaded one produces E028 naming the entry"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_file_entry_that_cannot_load_is_e028_naming_it() {
     let dir = TempDir::new().unwrap();
     install(dir.path(), &runtime(), &["@acme/a"]);
@@ -445,10 +424,7 @@ fn a_file_entry_that_cannot_load_is_e028_naming_it() {
     assert!(!runtime.unload("file:again.wasm"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "two extensions loaded and registries populated without collision"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn declarations_come_in_entry_order_once_per_extension() {
     let dir = TempDir::new().unwrap();
     install(dir.path(), &runtime(), &["@acme/a", "@acme/b"]);
@@ -471,10 +447,7 @@ fn declarations_come_in_entry_order_once_per_extension() {
     assert!(loaded.enabled.iter().all(|e| e.failure.is_none()));
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "an installed extension loads only when its binary is the one its specforge.lock entry pins"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_module_declaring_another_extension_is_e070() {
     let dir = TempDir::new().unwrap();
     // The lock names @acme/a; the module installed there is @acme/b's.

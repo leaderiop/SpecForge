@@ -2,10 +2,7 @@
 
 use crate::support::{Cli, TestProject};
 
-#[specforge_test_macros::test(
-    behavior = "collect_harness_ledger",
-    verify = "harness gc leaves a ledger alone when no loaded extension declares a harness field"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn harness_gc_without_a_harness_field_keeps_every_line() {
     let dir = TestProject::new()
         .without_config()

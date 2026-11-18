@@ -21,14 +21,11 @@ fn within_nested_block(node: tree_sitter::Node) -> bool {
     std::iter::successors(node.parent(), |p| p.parent()).any(|p| p.kind() == kind::NESTED_BLOCK)
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "a body line starts a verify or method statement exactly where the grammar reads one, on every spec file of the repository"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn body_statements_are_the_grammars() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "integrations/rust/spec", "examples"] {
+    for corpus in [crate::lex::OLD_SPEC, "integrations/rust/spec", "examples"] {
         crate::lex::spec_files(&root.join(corpus), &mut files);
     }
     // The forms of the language the corpora do not write.
@@ -85,10 +82,7 @@ fn body_statements_are_the_grammars() {
     assert!(checked > 5_000, "checked only {checked} statements");
 }
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "a verify line being typed is told apart from a verify statement and from a field"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_verify_line_being_typed_is_told_apart() {
     use BodyStatement::{Field, Method, Verify, VerifyTyped};
     let rows: [(&str, BodyStatement); 16] = [
@@ -117,10 +111,7 @@ fn a_verify_line_being_typed_is_told_apart() {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_verdict_statement",
-    verify = "a field named verdict stays a field when no rule, outcome and block follow it"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_field_named_verdict_stays_a_field() {
     // `spec/types/wasm.spec` declares one: `verdict ValidatorVerdictKind`.
     let text = "type ValidatorVerdict \"V\" {\n  verdict ValidatorVerdictKind\n  field   string @optional\n  value   string @optional\n}\n";
@@ -133,10 +124,7 @@ fn a_field_named_verdict_stays_a_field() {
 
 const VERDICT: &str = "plan P \"P\" {\n  phase 03\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"2026-10-26T14:02:11Z\"\n    cited [AUTH-07, \"src/http/middleware.ts\"]\n    inputs { plan \"sha256:9f1c\" }\n  }\n}\n";
 
-#[specforge_test(
-    behavior = "parse_verdict_statement",
-    verify = "a verdict statement has a rule, an outcome and members, and a truncated one keeps its block"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_verdict_statement_parses_beside_a_field_named_verdict() {
     let file = specforge_parser::parse(VERDICT, "a.spec");
     assert!(file.errors.is_empty(), "{:?}", file.errors);
@@ -162,10 +150,7 @@ fn a_verdict_statement_parses_beside_a_field_named_verdict() {
     );
 }
 
-#[specforge_test(
-    behavior = "parse_verdict_statement",
-    verify = "a verdict line being typed is told apart from a verdict statement and from a field"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_verdict_line_being_typed_is_told_apart() {
     use BodyStatement::{Field, Verdict};
     let rows: [(&str, BodyStatement); 8] = [

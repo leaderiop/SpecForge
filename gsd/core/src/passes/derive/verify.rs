@@ -458,17 +458,6 @@ pub fn by_phase(input: &PassInput) -> BTreeMap<String, Verified> {
         .collect()
 }
 
-/// The state of each truth, artifact and key link its phase's verifications assess, read as one, by id: an id names
-/// one entity whatever its kind (ADR 0284 D3: a declaration of another kind at the same path is W060 and is not
-/// placed). An item no verification assesses (its phase has none, or defers it) is not here, so it is not verified.
-pub fn items(input: &PassInput) -> BTreeMap<&str, Item> {
-    assess(input)
-        .into_iter()
-        .flat_map(|a| a.group.entities.into_iter().zip(a.now))
-        .map(|(e, item)| (e.id.as_str(), item))
-        .collect()
-}
-
 pub fn values(input: &PassInput, statuses: &Statuses) -> Vec<PassValue> {
     let mut found = Vec::new();
     for a in assess(input) {

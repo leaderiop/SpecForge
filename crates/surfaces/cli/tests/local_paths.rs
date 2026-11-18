@@ -7,10 +7,7 @@ use serde_json::json;
 use specforge_test_macros::test as specforge_test;
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "the reinstall command a local install suggests runs from any directory of the project"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn a_local_install_is_reinstalled_by_its_suggestion_from_a_subdirectory() {
     let project = TestProject::new()
         .config(|c| c["extensions"] = json!([]))

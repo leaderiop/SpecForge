@@ -16,16 +16,16 @@ pub const CONTEXT: Kind = Kind::new(
             .doc("file location; absent for a quick plan's context"),
         rf("plan", "plan")
             .i()
-            .doc("the quick plan of a quick task's context (/gsd-quick --discuss)"),
+            .doc("the quick plan of a quick task's context (a /gsd-quick run with discussion)"),
         date("gathered").i().doc("**Gathered:**"),
-        str("boundary").prose().r().doc("<domain> Phase Boundary"),
-        strs("discretion").prose().doc("Claude's Discretion"),
-        str("specifics").prose().doc("<specifics>"),
+        str("boundary").r().doc("<domain> Phase Boundary"),
+        strs("discretion").doc("Claude's Discretion"),
+        str("specifics").doc("<specifics>"),
         // Not required: `gsd/E201` is the one diagnostic of its absence.
         blocks("canonical_refs", CANONICAL_REF).doc("<canonical_refs>"),
-        strs("reusable_assets").prose().doc("<code_context>"),
-        strs("patterns").prose().doc("<code_context>"),
-        strs("integration_points").prose().doc("<code_context>"),
+        strs("reusable_assets").doc("<code_context>"),
+        strs("patterns").doc("<code_context>"),
+        strs("integration_points").doc("<code_context>"),
         en("status", CONTEXT_STATUS)
             .c()
             .doc("**Status:** ready once canonical_refs and boundary are present and no interview is open"),
@@ -36,9 +36,6 @@ pub const CONTEXT: Kind = Kind::new(
 const OUTCOME: &[&str] = &["good", "revisit", "pending"];
 const REVERSIBILITY: &[&str] = &["reversible", "costly", "one_way"];
 const ORIGIN: &[&str] = &["context", "project", "summary", "checkpoint"];
-/// What a decision shapes. A kind joins this union only in the change that declares the kind: an absent member turns
-/// every unresolved id of the union into I004 (ADR 0359).
-const AFFECTED: &[&str] = &["requirement", "invariant", "item"];
 
 /// `- **D-NN:**` of a CONTEXT, a Key Decisions row; scoped by its phase, or by the project when it has none.
 // A decision of `origin summary` names its summary by the other side: `summary.key_decisions` (a relation is written
@@ -54,35 +51,12 @@ pub const DECISION: Kind = Kind::new(
             .i()
             .doc("owning quick CONTEXT: the quick plan whose context recorded it"),
         str("area").doc("### [Area]"),
-        str("text").prose().r().doc("the decision"),
-        str("context").prose().doc("what prompted it (an ADR's Context)"),
-        blocks("alternatives", super::ALTERNATIVE)
-            .doc("the options weighed and not chosen, each with why it lost"),
-        str("rationale").prose().doc("Key Decisions Rationale"),
-        strs("consequences").prose().doc("what follows from it, good and bad (an ADR's Consequences)"),
+        str("text").r().doc("the decision"),
+        str("rationale").doc("Key Decisions Rationale"),
         en("outcome", OUTCOME).doc("Good, Revisit or Pending"),
         en("reversibility", REVERSIBILITY).doc("planner reversibility rating"),
         bool("settled").doc("locked: a plan contradicting it is refused (judged)"),
         en("origin", ORIGIN).r().i().doc("where it was recorded"),
-        date("decided")
-            .i()
-            .doc("the day it was taken; a change is a new decision that supersedes it"),
-        strs("deciders").doc("who took it"),
-        rfs("supersedes", "decision")
-            .inverse("superseded_by")
-            .doc("the earlier decisions this one reverses; each reads it back as `superseded_by`"),
-        bool("in_force").c().doc(
-            "false once a decision supersedes it with force (one of origin context or project, or a settled one, \
-             only by a decision of origin context or project, and none round a cycle): it no longer holds, so no \
-             plan lists it and no prompt holds it locked",
-        ),
-        rfs_any("affects", AFFECTED)
-            .inverse("affected_by")
-            .doc(
-                "what it shapes: requirements, invariants, code items (`@code/core`); each reads it back as \
-                 `affected_by`",
-            ),
-        strs("tags").doc("words to group decisions by"),
     ],
 )
 .scoped_by("phase");
@@ -95,9 +69,9 @@ pub const DEFERRED_IDEA: Kind = Kind::new(
     "deferred_idea",
     "An idea deferred out of a phase (GSD CONTEXT.md <deferred>)",
     &[
-        str("text").prose().r(),
+        str("text").r(),
         rf("phase", "phase").r(),
-        str("why").prose(),
+        str("why"),
         en("origin", IDEA_ORIGIN).r().i().doc(
             "`discussion`: deferred while the phase's context was set (discuss, the PRD path, the source audit), and served with that context; `execution`: an executor's out-of-scope discovery, which no context serves and the forensic audit lists",
         ),
@@ -111,7 +85,7 @@ pub const DEFERRED_IDEA: Kind = Kind::new(
 const DISCUSSION_MODES: &[&str] = &["interactive", "assumptions", "advisor"];
 const ENTRY: &[Field] = &[
     str("area"),
-    str("question").prose(),
+    str("question"),
     strs("options"),
     str("chosen"),
     en("mode", DISCUSSION_MODES),
@@ -122,7 +96,7 @@ const ENTRY: &[Field] = &[
 ];
 const CHECKPOINT_DECISION: &[Field] = &[
     str("area").r(),
-    str("question").prose().r(),
+    str("question").r(),
     str("answer"),
     strs("options_presented"),
 ];
@@ -131,7 +105,7 @@ const CHECKPOINT: &[Field] = &[
     strs("areas_completed"),
     strs("areas_remaining"),
     blocks("decisions", CHECKPOINT_DECISION),
-    strs("deferred_ideas").prose(),
+    strs("deferred_ideas"),
     strs("canonical_refs"),
 ];
 

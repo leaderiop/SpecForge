@@ -38,10 +38,7 @@ fn typed_fields() -> ExtensionDeclaration {
     })
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "a field's value coercion follows its registered type"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_fields_form_follows_its_registered_type() {
     let build = build([typed_fields()]);
     let inputs = build.graph_inputs();
@@ -81,10 +78,7 @@ fn a_fields_form_follows_its_registered_type() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "a derived reference field is a graph input only with a target kind and a known source"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_derived_reference_needs_a_target_kind_and_a_known_source() {
     let declaration = declare("@t/derived", |c| {
         c.kind("Shape", |k| {
@@ -140,10 +134,7 @@ fn a_derived_reference_needs_a_target_kind_and_a_known_source() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "Registry Build Derives the Graph Inputs: graph inputs hold — registries_populated, every_input_derived, registries_agree, deterministic, graph_built_in_the_build"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn the_graph_inputs_contract_holds() {
     let declared = || {
         [
@@ -190,10 +181,7 @@ fn the_graph_inputs_contract_holds() {
     assert_ne!(inputs, &GraphInputs::default());
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "a reference field's form says whether its target kind is loaded"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn the_field_forms_say_whether_each_target_kind_is_loaded() {
     let forms = build([declare("@t/ext", |c| {
         c.kind("Doc", |k| {
@@ -217,10 +205,7 @@ fn the_field_forms_say_whether_each_target_kind_is_loaded() {
     assert_eq!(forms.target("doc", "title"), None);
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "the graph inputs name the extension that owns each absent target kind"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn the_graph_inputs_name_each_absent_target_kinds_owner() {
     let product = declare("@t/product", |c| {
         c.kind("Feature", |k| {
@@ -243,26 +228,71 @@ fn the_graph_inputs_name_each_absent_target_kinds_owner() {
             });
         });
     });
-    let vocabulary = crate::support::candidates(&[product]);
+    let planning = declare("@t/planning", |c| {
+        c.kind("Feature", |k| {
+            k.keyword("feature");
+        });
+    });
+    let vocabulary = crate::support::candidates(std::slice::from_ref(&product));
 
     // A build never handed a vocabulary names no owner.
     let unhanded = build([software.clone()]);
     assert!(unhanded.graph_inputs().target_owners.is_empty());
 
     // A build handed one names the owners it knows.
-    let handed = crate::support::build_with([software], vocabulary);
+    let handed = crate::support::build_with([software.clone()], vocabulary);
     let inputs = handed.graph_inputs();
     assert_eq!(inputs.target_owners.len(), 1, "{:?}", inputs.target_owners);
-    assert_eq!(inputs.target_owners["feature"], "@t/product");
+    assert_eq!(inputs.target_owners["feature"], ["@t/product"]);
     // `team` is owned by no one; `behavior` is loaded.
     assert!(!inputs.target_owners.contains_key("team"));
     assert!(!inputs.target_owners.contains_key("behavior"));
+
+    // Two declarations declare `feature`: the inputs name both, in the vocabulary's order (ADR 0369).
+    let mut both =
+        crate::support::build_with([software], crate::support::candidates(&[product, planning]));
+    assert_eq!(
+        both.graph_inputs().target_owners["feature"],
+        ["@t/planning", "@t/product"]
+    );
+    let suggestions = |source: &str, code: &str| -> Vec<String> {
+        both.graph_of(
+            [specforge_parser::parse(source, "main.spec")],
+            HashSet::new(),
+        )
+        .diagnostics()
+        .iter()
+        .filter(|d| d.code == code)
+        .map(|d| d.suggestion.clone().unwrap_or_default())
+        .collect()
+    };
+    assert_eq!(
+        suggestions("behavior b1 \"B1\" {\n  features [f_missing]\n}\n", "I004"),
+        [
+            "enable one of the extensions that declare 'feature' with `specforge add @t/planning` or \
+             `specforge add @t/product`, or drop the field"
+        ]
+    );
+    assert_eq!(
+        suggestions(
+            "behavior b1 \"B1\" {\n  features [b2]\n}\nbehavior b2 \"B2\" {\n}\n",
+            "E022"
+        ),
+        [
+            "name a feature here (enable one of the extensions that declare it with `specforge add @t/planning` \
+             or `specforge add @t/product`), or drop the reference"
+        ]
+    );
+    // The build derives its graph inputs again when it refuses provider schemes: the second feed
+    // hands the whole list too.
+    both.refuse_provider_schemes(&HashSet::from(["zz".to_string()]));
+    assert_eq!(
+        both.graph_inputs().target_owners["feature"],
+        ["@t/planning", "@t/product"]
+    );
 }
 
-#[spec(
-    behavior = "registry_build_graph_inputs",
-    verify = "a graph built in the registry build reads its own graph inputs and the provider schemes it is handed"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_graph_built_in_the_registry_build_reads_its_inputs_and_schemes() {
     let build = build([tickets()]);
     let source = "ticket a \"A\" {\n  blocker b\n  urgent \"false\"\n}\nticket b \"B\" {\n}\nref jira.issue:7 \"Seven\"\n";
@@ -307,5 +337,54 @@ fn a_graph_built_in_the_registry_build_reads_its_inputs_and_schemes() {
     });
     let handed = crate::support::build_with([software], crate::support::candidates(&[product]));
     let empty = handed.graph_of([], HashSet::new());
-    assert_eq!(empty.inputs().target_owners["feature"], "@t/product");
+    assert_eq!(empty.inputs().target_owners["feature"], ["@t/product"]);
+}
+
+/// The target owners are the declarers a suggestion offers (ADR 0373 D4): `@t/planning` and
+/// `@t/product` both declare `feature`; a declarer that also declares a loaded kind is left out,
+/// unless every declarer does, and then all are named.
+#[test]
+fn the_target_owners_are_the_declarers_that_collide_with_nothing_loaded() {
+    let software = declare("@t/software", |c| {
+        c.kind("Behavior", |k| {
+            k.keyword("behavior");
+            k.field("features", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .target_kind("feature");
+            });
+        });
+    });
+    // A declarer of `feature`, which also declares `also`.
+    let feature_and = |name: &str, also: &str| {
+        let also = also.to_string();
+        declare(name, move |c| {
+            c.kind("Feature", |k| {
+                k.keyword("feature");
+            });
+            c.kind("Also", |k| {
+                k.keyword(&also);
+            });
+        })
+    };
+    let owners = |planning_also: &str, product_also: &str| -> Vec<String> {
+        let candidates = crate::support::candidates(&[
+            feature_and("@t/planning", planning_also),
+            feature_and("@t/product", product_also),
+        ]);
+        let mut build = crate::support::build_with([software.clone()], candidates);
+        let first = build.graph_inputs().target_owners["feature"].clone();
+        // The second feed (a refused provider scheme derives them again) reads the same rule.
+        build.refuse_provider_schemes(&HashSet::from(["zz".to_string()]));
+        assert_eq!(build.graph_inputs().target_owners["feature"], first);
+        first
+    };
+    // `@t/planning` would declare the loaded `behavior` again: `@t/product` alone.
+    assert_eq!(owners("behavior", "team"), ["@t/product"]);
+    // Nothing loaded collides: both.
+    assert_eq!(owners("plan", "team"), ["@t/planning", "@t/product"]);
+    // Both collide: both, so I004 and E022 still name a remedy.
+    assert_eq!(
+        owners("behavior", "behavior"),
+        ["@t/planning", "@t/product"]
+    );
 }

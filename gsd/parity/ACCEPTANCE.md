@@ -17,7 +17,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | CLI modules | 288 | 170 | 21 | 97 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 93 | 51 | 14 | 13 | `core/tests/parity_rules/cutover.rs` |
-| Codes | 77 | 77 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
+| Codes | 69 | 69 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
 `core/spec/*.md`; they have no inventory family, so no count. They are exercised by every row above.
@@ -48,7 +48,7 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   argument shape); 51 belong to an extension, 14 are the gate engine, and 13 are core codes whose verdict is not reproduced: 10
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
-- Codes: 77 of the 77 codes fire and stay silent in a named test.
+- Codes: 69 of the 69 codes fire and stay silent in a named test.
 
 ## `@gsd/security` 1.0.0 against gsd-core 1.19.0
 
@@ -89,7 +89,6 @@ taskboard goldens (19), the hook cases recorded from the upstream hook files, an
 Not verified:
 
 - Codex and Cursor rendering are drafts. They are golden-tested against our own output, not run in those hosts.
-- The published artefact: `specforge publish` is a user action and was not run.
 - No real project of gsd-core's was run through both sides; the twin is the fixture `taskboard`.
 - The commands the program docs name were checked with `--help` only (`publish` needs the network), not each on a
   temp project.
@@ -195,10 +194,6 @@ Not verified:
   (Cursor's agent terminal, Codex's pty exec) is stopped there. What is left is `script(1)` typed by a person on the
   agent's behalf, a script file or a variable that holds the command, and a host with no shell hook (REVIEW-k20a M2,
   REVIEW-k20c-part2 M1).
-- `/gsd-phase --remove` of a phase whose truth holds a `verification` tier is refused `human_only`, for an agent and for
-  a person's run of the command alike: the tier is a person's (`U`, D-K20a-4), so the person deletes that line in their
-  editor and runs the remove again. Upstream deletes the phase regardless (REVIEW-k20a M3). A human-attested remove is
-  not built.
 - W514 fires on every `check`, once per open deviation window that names a proposal, while `workflow.windows_enforce` is
   off; upstream warns once per triggering `refactor evaluate` (also when broken-windows is absent). The text and the
   remediation match. E515 is SpecForge's own (gsd-plus) and has no upstream.
@@ -209,7 +204,7 @@ Not verified:
   RED before it and is silent otherwise) and `prohibition-enforcement-request-file-judgment-mode` (upstream flags a
   judgment-tier prohibition without evidence; E319 judges the test tier only).
 - The 10 other unreached verdicts are named in `cutover.rs`.
-- The "silent" evidence of 38 of the 77 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
+- The "silent" evidence of 38 of the 69 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 - `[agent-namespace-one-rule]` `workflow_guard` reads the agent namespace as `worktree_path_guard` does, with `worktree-wf_` and the charset; upstream's workflow guard has the two prefixes `agent-` and `worktree-agent-`.
 - `[protected-set]` `branch_check` protects `main`, `master`, `develop`, `trunk`, `release/…`, `git.protected_branches` and `git.base_branch`, and `git.allow_default_branch_commits` changes `blocks_commit`, not `protected`, so ship's and the `none` strategy's warnings still show on `main`. Upstream also reads the real default branch; the git port answers no remotes, so `origin/HEAD` is not read here.
@@ -220,6 +215,21 @@ Not verified:
 - `[gate-uv-lock]` pytest runs through `uv run` when `uv.lock` exists; upstream re-runs a failed suite under uv, so a failing one runs twice.
 - `[gate-build-script]` The build gate's package arm reads `scripts.build`; upstream takes any `"build"` in `package.json`.
 - `[guard-reads-words]` Step 0c asks `gsd automated-guard`, which reads the command as the shell's words and halts on one it cannot read; upstream scans its text with regexes. The words close upstream's stated limits: quoted boundaries, control keywords, `command` and `exec`, a `--` before a directory flag, a relocating launcher's payload and an operand-taking shell option.
+- `[decision-citation-id-only]` A plan cites a decision by its id alone: a whole word of the plan's text, case as written
+  (`gsd/E310`, the decision rows of `gsd/W317`, `gsd/E312`'s exemption, `gsd/W506`; ADR 0371 D2). gsd-core 1.19.0 also
+  counts a decision cited when the first six normalised words of its text appear in the plan's text
+  (`src/decision-coverage-support.cts`, `decisionMentioned`); SpecForge counts no paraphrase. Three smaller differences go
+  with it. SpecForge reads the path written before the id and resolves it from the plan by its scope chain (`01/D-01` is
+  phase 01's decision, a bare `D-01` the plan's own phase's), where upstream matches the id inside any path. A path that
+  names no decision (`src/D-01`) cites nothing; a `/` after an id or after the mark closing one (`D-01/D-02`,
+  `REQ-01/D-02`, `(D-01)/D-02`) joins two words and is no path, so there both read alike. An id inside a fenced block or an HTML comment of a field counts, where
+  upstream's plan gate strips both before it looks. No vendored verdict depends on any of these: every fixture decision's
+  text is under six words.
+- `[decision-shipped-reach]` `gsd/W506` reads the text of a verified phase's complete plans, of their summaries (with the
+  coverage items and deviations they scope) and the subjects of their recorded commits. It reads no file content and no
+  commit body, where upstream's verify gate also reads the files the summaries list and the commits' bodies
+  (`src/gate-decision-coverage-verify.cts`). The gate-cutover verdict `decision-coverage-verify-final` stays unreproduced
+  for that reason (`core/tests/parity_rules/cutover.rs`).
 
 ## Needs a change outside `gsd/`
 
@@ -238,13 +248,17 @@ Each needs a crate, a gate, an ADR, a protocol change or a revendor, so none is 
 | The `specforged` harness | `/gsd-autonomous` unattended, `claude-orchestration`, `external-job` |
 | More host renderers | opencode, copilot, windsurf, kilo, kimi, kimi-code, antigravity, cline, trae, qwen, hermes, codebuddy, augment, zcode, vscode, pi |
 | Running Codex and Cursor | their goldens are the kernel's rendering, cross-checked against upstream's installer only |
-| Publishing | `specforge publish`, done by the user |
+| Publishing | none: `@gsd/core` ships inside `specforge` as a builtin and is not published |
 
 ## Publishing
 
+`@gsd/core` is not published. It ships inside `specforge` as a builtin, vendored in `gsd/core/wasm/`
+([ADR 0366](../../docs/adr/0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md)), and a project
+loads it by name:
+
 ```sh
-specforge publish --help
-specforge publish gsd/target/wasm32-wasip2/release/gsd_core.wasm
+specforge add @gsd/core
 ```
 
-The second line is the user's call: it needs the network and an account, and nothing here runs it.
+`specforge publish` refuses a component that declares a builtin's name
+([ADR 0214](../../docs/adr/0214-a-builtins-name-is-refused-where-extensions-load.md)).

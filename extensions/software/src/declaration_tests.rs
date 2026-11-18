@@ -16,10 +16,7 @@ fn declared(kind: &str, name: &str) -> FieldDescriptor {
 }
 
 /// A tag is one word from an open set (ADR 0147); `risk` and `direction` are closed sets.
-#[specforge_test(
-    behavior = "se_register_field_definitions",
-    verify = "tag fields are identifiers, and risk and direction are enums of their levels"
-)]
+#[specforge_test(requirement = "FEATURE-117")]
 fn software_declares_its_tags_and_levels() {
     for (kind, field) in [
         ("behavior", "category"),
@@ -48,10 +45,7 @@ fn software_declares_its_tags_and_levels() {
 }
 
 /// `invariant` is governance's (ADR 0280); a behavior's `invariants` reach it through an optional peer.
-#[specforge_test(
-    behavior = "se_declare_manifest",
-    verify = "software declares behavior, event, type and port, and governance as an optional peer"
-)]
+#[specforge_test(requirement = "FEATURE-117")]
 fn software_declares_no_invariant() {
     let declaration = crate::specforge_extension_build().declaration();
     let kinds: Vec<&str> = declaration

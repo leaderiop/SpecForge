@@ -336,10 +336,12 @@ fn vscode_client_asks_only_what_the_server_answers() {
 }
 
 /// The init and add pickers offer the builtins that declare kinds a person writes, each with those
-/// kinds, as `builtin-vocabulary.json` groups them (ADR 0268 D5): the client keeps the list because
-/// Initialize Project runs before a project exists, and this pin fails the moment a builtin gains
-/// or loses a kind. A collector-written kind (ADR 0327) is never authored, so a builtin declaring
-/// only those (`@code/core`) is not offered: the runner pack that writes them brings it as a peer.
+/// kinds, as `builtin-vocabulary.json` lists them: every kind keyword there names each builtin that
+/// declares it (ADR 0369), and the kind is credited to all of them (ADR 0268 D5). The client keeps
+/// the list because Initialize Project runs before a project exists, and this pin fails the moment
+/// a builtin gains or loses a kind. A collector-written kind (ADR 0327) is never authored, so a
+/// builtin declaring only those (`@code/core`) is not offered: the runner pack that writes them
+/// brings it as a peer.
 #[test]
 fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
     use std::collections::BTreeMap;
@@ -348,14 +350,15 @@ fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
         .find(|(name, _)| name == "commands.ts")
         .expect("commands.ts")
         .1;
-    // Each `label: "@specforge/…"` and the `description: "…"` that follows it (maybe on the next line).
+    // Each `label: "@…"` and the `description: "…"` that follows it (maybe on the next line): every
+    // builtin that declares authored kinds, `@gsd/core` among them (ADR 0373 D7).
     let quoted_after = |text: &str, key: &str| -> Option<String> {
         let rest = &text[text.find(key)? + key.len()..];
         let rest = rest.trim_start().strip_prefix('"')?;
         Some(rest[..rest.find('"')?].to_string())
     };
     let mut offered: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for (at, _) in commands.match_indices("label: \"@specforge/") {
+    for (at, _) in commands.match_indices("label: \"@") {
         let tail = &commands[at..];
         let label = quoted_after(tail, "label:").expect("a label");
         let description = quoted_after(tail, "description:").expect("a description");
@@ -390,14 +393,19 @@ fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
         );
     }
     let mut declared: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for (kind, builtin) in vocabulary["kinds"].as_object().expect("kinds") {
+    for (kind, builtins) in vocabulary["kinds"].as_object().expect("kinds") {
         if collected.contains(kind) {
             continue;
         }
-        declared
-            .entry(builtin.as_str().expect("builtin name").to_string())
-            .or_default()
-            .insert(kind.clone());
+        for builtin in builtins
+            .as_array()
+            .expect("the builtins that declare the kind")
+        {
+            declared
+                .entry(builtin.as_str().expect("builtin name").to_string())
+                .or_default()
+                .insert(kind.clone());
+        }
     }
     assert_eq!(offered, declared, "the Initialize Project picker");
 
@@ -408,7 +416,7 @@ fn vscode_pickers_offer_the_builtins_that_declare_kinds() {
     let add = &add[..add.find("{ placeHolder").expect("the add picker's options")];
     let listed: BTreeSet<String> = add
         .split('"')
-        .filter(|w| w.starts_with("@specforge/"))
+        .filter(|w| w.starts_with('@'))
         .map(str::to_string)
         .collect();
     assert_eq!(

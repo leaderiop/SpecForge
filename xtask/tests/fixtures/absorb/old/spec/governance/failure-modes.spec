@@ -1,8 +1,8 @@
 // Failure modes: one with every rating, a post_mitigation block, an invariant, a description, refs and an
 // assessment; one without occurrence or detection.
 
-use "governance/invariants"
 use "behaviors/b"
+use "governance/invariants"
 
 failure_mode torn_write "Torn Write" {
   invariant          writes_are_durable

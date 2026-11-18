@@ -1,10 +1,7 @@
 use specforge_test_macros::test as specforge_test;
 
 // B:debounce_file_changes — verify contract "requires/ensures consistency for file change debouncing"
-#[specforge_test(
-    behavior = "debounce_file_changes",
-    verify = "Debounce File Changes: file change debouncing holds — file_changed_fired, coalesced_batch_produced, redundant_recompilation_prevented"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn debounce_file_changes_contract() {
     use specforge_watch::Debouncer;
     use std::sync::mpsc;

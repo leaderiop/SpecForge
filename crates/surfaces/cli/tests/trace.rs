@@ -53,10 +53,7 @@ fn trace_plan(dir: &TestProject, plan: &str, extra: &[&str]) -> (Option<i32>, St
     (Some(output.code), output.stdout, output.stderr)
 }
 
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "specforge trace --plan exits 1 when an entry names no entity or comes before what it depends on"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_plan_exits_by_the_plan_verdict() {
     let dir = TestProject::new().file(
         "main.spec",
@@ -102,10 +99,7 @@ behavior beta "B" { contract "first" features [alpha] }
     assert_eq!(output.code, 2);
 }
 
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "specforge trace --plan passes two mutually recursive types in either order"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_plan_passes_two_mutually_recursive_types_in_either_order() {
     let dir = TestProject::new().enabling(&["@specforge/software"]).file(
         "main.spec",
@@ -139,10 +133,7 @@ type OrderItem "A line of an order" {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "missing link in chain is flagged"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_human_marks_missing_links() {
     let dir = TestProject::new()
         .enabling(&["@specforge/software", "@specforge/product"])
@@ -177,10 +168,7 @@ fn trace_human_marks_missing_links() {
     assert!(!text.contains("MISSING"), "{text}");
 }
 
-#[specforge_test(
-    behavior = "follow_trace_route",
-    verify = "a named route, the reach, and every entity are traced as asked, and a wrong route is refused"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn a_route_no_extension_declares_is_refused() {
     let dir = TestProject::new()
         .without_config()
@@ -198,10 +186,7 @@ fn a_route_no_extension_declares_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "render_trace_thread",
-    verify = "specforge trace prints a route trace's thread, and --reach the generic chain"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn reach_is_the_generic_chain() {
     let dir = TestProject::new()
         .without_config()
@@ -231,10 +216,7 @@ fn partial_and_reach_conflict() {
     assert_eq!(output.code, 2, "{}", output.stderr);
 }
 
-#[specforge_test(
-    behavior = "trace_within_entity",
-    verify = "specforge trace --in prints the thread of each route start within the entity"
-)]
+#[specforge_test(requirement = "FEATURE-129")]
 fn trace_in_prints_each_route_start_within_the_entity() {
     let dir = TestProject::new()
         .without_config()

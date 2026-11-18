@@ -8,7 +8,9 @@ Matt Pocock engineering skills are installed at `~/.agents/skills/` (user scope,
 `diagnosing-bugs`, `handoff`, `pr`, `retro`, and others.
 
 Project skills (the `.spec` DSL authoring skills `specforge-*`, the architecture and diagram
-skills) live in `.claude/skills/`.
+skills) live in `.claude/skills/`. This repository's own `spec/` runs on `@gsd/core` and `@code/core`
+(ADR 0374); the `specforge-*` DSL skills teach the old `@specforge/*` builtins' kinds, which the example
+projects and `integrations/rust/spec` still load.
 
 Configuration (created by `/setup-matt-pocock-skills`):
 

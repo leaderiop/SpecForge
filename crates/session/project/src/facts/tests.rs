@@ -69,10 +69,7 @@ fn diagnostic(read: Read) -> Diagnostic {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a fact store specforge-harness records is served as read-only entities; one it does not is W191, one that does not read W192"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn a_recorded_fact_store_is_served_as_one_spec_file() {
     let bytes = two();
     let Read::Text(text) = read(&disk(&bytes, Some(recording(&bytes))), &root(), KEY, None) else {
@@ -186,10 +183,7 @@ fn place(file: &str, line: usize, from: usize, to: usize) -> FactLocation {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a served fact is located where its collector says it is written, and each name it holds where that name is written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn a_served_fact_is_located_where_it_is_written_and_its_names_where_they_are() {
     let fact = Fact::new("test", "js:a#b")
         .at(place("src/a.rs", 12, 1, 20))
@@ -242,10 +236,7 @@ fn a_served_fact_is_located_where_it_is_written_and_its_names_where_they_are() {
     assert!(unlocated.located.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a served store gives the digest it recorded of each source file its facts are placed in"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn a_store_records_the_digest_of_each_located_file() {
     let fact = Fact::new("test", "js:a#b").at(place("src/a.rs", 12, 1, 20));
     let sources = BTreeMap::from([("src/a.rs".to_string(), "sha256:aa".to_string())]);
@@ -265,10 +256,7 @@ fn a_store_records_the_digest_of_each_located_file() {
 
 /// A store whose fact is placed in a file it records no digest of: no collect writes one, another writer can. Nothing
 /// could judge whether that file is the text its places are in, so it is not served.
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a fact store placing a fact in a file it records no digest of is W192 and not served"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn a_store_placing_a_fact_in_a_file_it_records_no_digest_of_is_w192() {
     let fact = Fact::new("test", "js:a#b")
         .at(place("src/a.rs", 12, 1, 20))
@@ -292,10 +280,7 @@ fn a_store_placing_a_fact_in_a_file_it_records_no_digest_of_is_w192() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a stale store's places are shifted exactly by what the renames wrote, and only the text they left holds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn a_store_served_through_renames_shifts_its_places_by_what_they_wrote() {
     let collected = "// covers T1 T5 and T1\ntest('adds', () => {});\n";
     let fact = Fact::new("test", "js:a.test.js#adds")
@@ -422,10 +407,7 @@ fn every_held_name_read_as_one_is_collected_from() {
     assert_eq!(served.collected("covers", "D"), ["A", "C"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a store whose stale lines rename one name two ways serves none of its renames, W202"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn a_store_whose_ledger_renames_a_name_two_ways_serves_none_of_its_renames() {
     let collected = "// covers T1 T5\n";
     let fact = Fact::new("test", "js:a.test.js#adds")
@@ -497,10 +479,7 @@ fn byte_at(text: &str, line: usize, col: usize) -> usize {
         - 1
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a stale store's places are shifted exactly by what the renames wrote, and only the text they left holds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn places_are_byte_exact_across_multi_byte_names_and_prefixes() {
     // `é` before the names and `Ť` in the name written are two bytes each; `T5 → T1` takes the name `T1 → Ťwo` freed.
     let collected = "x\n// é covers T1 T5 T1 end\n";
@@ -612,10 +591,7 @@ fn read_at<'t>(text: &'t str, place: &FactLocation) -> &'t str {
         ..byte_at(text, place.end_line, place.end_col)]
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "names a store holds one inside another, both renamed, are served exactly where the renames left them"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn names_held_one_inside_another_are_served_exactly() {
     // `v1/T1` held in `covers`, its `T1` in `names`: one rename wrote `v1/Two` there.
     let collected = "// covers v1/T1 end\n";
@@ -649,10 +625,7 @@ fn names_held_one_inside_another_are_served_exactly() {
     assert!(!placed.holds(b"// covers v1/Two end!\n"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_in_memory_graph",
-    verify = "a name inside a name written is served where it stands while the write keeps it, and its file is not the text the places are in when the write changed it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-047")]
 fn a_name_inside_a_name_written_is_kept_only_where_the_write_keeps_it() {
     let collected = "// covers a/T1 x\n";
     let whole = ("covers", "a/T1", place("a.test.js", 1, 11, 15));

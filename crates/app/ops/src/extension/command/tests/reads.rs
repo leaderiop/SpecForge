@@ -14,10 +14,7 @@ fn reading(reads: Value) -> ExtensionCommand {
     }))
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CommandInput carries the format the caller asked for and the host's date"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_with_reads_gets_files_and_one_without_gets_none() {
     let runtime = std::sync::Arc::new(fake());
     let fixture = fixture(&runtime);

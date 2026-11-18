@@ -14,10 +14,7 @@ use crate::ledger::key::in_canonical_dir;
 use crate::ledger::recorded::Recording;
 use crate::ledger::{Ledger, SessionInputs};
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory link on the way to an environment or check input pointed elsewhere is that input's change"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_directory_link_on_the_way_to_an_environment_or_check_input_pointed_elsewhere_is_its_change() {
     for environment in [true, false] {
         let t = tempfile::TempDir::new().unwrap();

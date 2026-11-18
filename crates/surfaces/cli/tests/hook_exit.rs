@@ -2,10 +2,7 @@
 
 use crate::support::{Cli, TestProject};
 
-#[specforge_test_macros::test(
-    behavior = "run_a_hook",
-    verify = "specforge hook never exits 2 on its own refusals: an unknown host, event or usage error exits 1"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_usage_error_under_hook_exits_1() {
     let dir = TestProject::new();
     let run = Cli::on(&dir).run(&[

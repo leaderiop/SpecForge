@@ -3,7 +3,7 @@
 
 ## The Verification's Typed Edits
 
-A phase's verification is its `verification` entity: its `status` (passed, gaps_found, human_needed), `score`, `covered_files` and `re_verification` are computed from the verifier's verdicts, never written. The verifier records one `gsd/E501` verdict per `truth` (and the rules on artifacts and key links the same way): it reads the truth's inputs naming what the verdict will cite, judges, and records the outcome with the `basis` copied verbatim, citing every file it read and every test fact it relied on by its id (the `test` step of `specforge trace --route gsd/requirement-thread --in <phase> --format json`). The citations are part of the basis: read the inputs with `--cite-file <file>` and `--cite-test <test fact id>` for each one `CITED` lists, or the record is refused as stale. `specforge schema --kind verification` (likewise `truth`) lists the fields. Fill the values: free text in its quoted heredoc, as written, and an id or outcome in its assignment. A refusal names its code: read it with `specforge explain <code>`.
+A phase's verification is its `verification` entity: its `status` (passed, gaps_found, human_needed), `score`, `covered_files` and `re_verification` are computed from the verifier's verdicts, never written. The verifier records one `gsd/E501` verdict per `truth` (and the rules on artifacts and key links the same way): it reads the truth's inputs naming what the verdict will cite, judges, and records the outcome with the `basis` copied verbatim, citing every file it read and every test it relied on: a test fact's id, or the `ref` of a coverage check (`file#test name`, which the `deliverable` lines of `specforge trace --route gsd/requirement-thread --in <phase>` print). The citations are part of the basis: read the inputs with `--cite-file <file>` and `--cite-test <test fact id>` for each one `CITED` lists, or the record is refused as stale. `specforge schema --kind verification` (likewise `truth`) lists the fields. Fill the values: free text in its quoted heredoc, as written, and an id or outcome in its assignment. A refusal names its code: read it with `specforge explain <code>`.
 
 ```bash
 TRUTH="{the truth's id, e.g. v1.0/01/01-01/TR1}"
@@ -12,7 +12,7 @@ IFS= read -rd '' BASIS <<'TEXT' || true; BASIS=${BASIS%$'\n'}
 {the basis object of specforge query "$TRUTH" --inputs gsd/E501 --cite-file <file> --cite-test <test fact id> --format json, verbatim}
 TEXT
 IFS= read -rd '' CITED <<'TEXT' || true; CITED=${CITED%$'\n'}
-[{"file": "{an implementation file you read, ROOT-relative}"}, {"test": "{a test fact id the thread's test step prints}"}]
+[{"file": "{an implementation file you read, ROOT-relative}"}, {"test": "{a test fact id, or a check ref the thread's deliverable line prints}"}]
 TEXT
 IFS= read -rd '' FINDINGS <<'TEXT' || true; FINDINGS=${FINDINGS%$'\n'}
 [{"severity": "{error or warning}", "message": "{what is missing or wrong, with its evidence}"}]

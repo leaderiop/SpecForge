@@ -77,10 +77,7 @@ fn told_in(scene: &Scene, mode: EffectsMode) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a POST query to a listed host is performed, kept to its capability's max_bytes, journaled by body and answered again"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_post_query_to_a_listed_host_is_performed_and_journaled_by_body() {
     // Over the host's 1 MiB, within the capability's 4 MiB.
     let http = FakeHttp::new().route(QUERY, 200, vec![b'x'; 2 << 20]);
@@ -114,10 +111,7 @@ fn a_post_query_to_a_listed_host_is_performed_and_journaled_by_body() {
     assert_eq!(scene.http.requests().len(), 2);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a POST query to a host only a value names is E090 and never sent"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_post_query_to_a_host_a_value_names_is_e090() {
     let http = FakeHttp::new().route(QUERY, 200, "{}");
     let spec = "service a \"A\" {\n  named \"serde\"\n}\n";

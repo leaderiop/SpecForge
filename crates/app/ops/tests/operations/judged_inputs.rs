@@ -74,10 +74,7 @@ fn judgements_of(project: &specforge_project::testing::TestProject, entity: &str
     serde_json::to_value(&facts.judgements).unwrap()
 }
 
-#[specforge_test(
-    behavior = "answer_judged_inputs",
-    verify = "the inputs query answers the basis a set_verdict checks"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn query_inputs_answers_the_basis_set_verdict_checks() {
     let project = gsd_judged_project("");
     let answer = inputs_json(&project, PLAN, W311);
@@ -99,10 +96,7 @@ fn query_inputs_answers_the_basis_set_verdict_checks() {
     assert_eq!(record(&project, &edited), "stale_revision");
 }
 
-#[specforge_test(
-    behavior = "answer_judged_inputs",
-    verify = "inspect, query, the graph export and a command's graph list each entity's judgements"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn inspect_export_and_the_command_graph_list_judgements() {
     let project = gsd_judged_project("");
     let listed = judgements_of(&project, PLAN);
@@ -116,10 +110,7 @@ fn inspect_export_and_the_command_graph_list_judgements() {
     assert_eq!(listed[0]["state"], "missing");
 }
 
-#[specforge_test(
-    behavior = "answer_judged_inputs",
-    verify = "a cited file is a relative path inside the project"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_cited_file_is_a_relative_path_inside_the_project() {
     let project = gsd_judged_project("");
     let compiled = project.compile_in(Arc::new(gsd_judged_runtime()) as SharedRuntime);
@@ -157,10 +148,7 @@ fn a_cited_file_is_a_relative_path_inside_the_project() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "answer_judged_inputs",
-    verify = "a cited file that links out of the project is unknown"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_cited_file_through_a_link_out_is_unknown() {
     let project = gsd_judged_project("");
     let outside = tempfile::TempDir::new().unwrap();

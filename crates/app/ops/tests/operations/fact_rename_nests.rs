@@ -107,10 +107,7 @@ fn source(p: &TestProject) -> String {
 
 /// `node` reads `ws/m1` whole, `unit` the `m1` at its end: both name the milestone `ws/m1`, and a rename of it writes
 /// one text, the outer place, the inner reading its name inside it; a second rename composes.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of what two facts name one inside the other writes one text, and renames of it compose"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_of_a_name_two_facts_hold_one_inside_the_other_writes_both() {
     let p = nested();
     assert!(both_hold(&p));
@@ -134,10 +131,7 @@ fn a_rename_of_a_name_two_facts_hold_one_inside_the_other_writes_both() {
 
 /// The workstream renamed: `ws/m1` writes `wz/m1`, and the `m1` nested at its end, which names the milestone that
 /// moved with it, writes itself.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of what two facts name one inside the other writes one text, and renames of it compose"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_of_a_scope_writes_a_nested_name_its_suffix_keeps() {
     let p = nested();
 
@@ -149,10 +143,7 @@ fn a_rename_of_a_scope_writes_a_nested_name_its_suffix_keeps() {
 
 /// `node` reads `ws/m1`, naming the milestone of `ws`; `unit` the `m1` at its end, naming the milestone `m1` of no
 /// workstream. A rename of that one writes inside `node`'s name, which would read `ws/m2`: refused.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename that would write over a name another fact holds for something else is refused as name_shared"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_writing_inside_another_facts_name_is_refused() {
     let specs = format!("{NESTED}\nmilestone m1 \"Alone\" {{}}\n");
     let p = project(
@@ -186,10 +177,7 @@ fn sharing_a_place() -> TestProject {
 
 /// A rename writing at a place another fact holds a name in a field it does not rename would change what that fact
 /// reads: refused, nothing written.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename that would write over a name another fact holds for something else is refused as name_shared"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_writing_where_another_fact_holds_a_name_for_something_else_is_refused() {
     let p = sharing_a_place();
 
@@ -206,10 +194,7 @@ fn a_rename_writing_where_another_fact_holds_a_name_for_something_else_is_refuse
 
 /// `node` reads `ws/m1`, `unit` the `m1/p3` that begins inside it: renaming the milestone writes both, and the two
 /// places cross, so no one text writes them.
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename of names whose places cross one another is refused as places_cross"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_writing_places_that_cross_is_refused() {
     let specs = format!("{NESTED}\nphase p3 \"P\" {{\n  milestone m1\n}}\n");
     let p = project(

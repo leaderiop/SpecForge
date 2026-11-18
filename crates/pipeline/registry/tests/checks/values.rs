@@ -19,10 +19,7 @@ fn e061(body: &str) -> Vec<(String, Option<String>)> {
         .collect()
 }
 
-#[spec(
-    behavior = "check_field_value_types",
-    verify = "a value that is not the declared integer, bool or enum type is an error"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn values_that_are_not_the_declared_integer_bool_or_enum_are_errors() {
     let found = e061("  priority urgent\n  urgent maybe\n  points \"many\"\n");
     let messages: Vec<&str> = found.iter().map(|(m, _)| m.as_str()).collect();
@@ -38,10 +35,7 @@ fn values_that_are_not_the_declared_integer_bool_or_enum_are_errors() {
     assert_eq!(found[1].1.as_deref(), Some("use true or false"));
 }
 
-#[spec(
-    behavior = "check_field_value_types",
-    verify = "a value that is not one word on an identifier field is E061"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_quoted_path_on_an_identifier_field_is_e061() {
     let found = e061("  label \"a/b\"\n");
     assert_eq!(found.len(), 1, "{found:?}");
@@ -52,10 +46,7 @@ fn a_quoted_path_on_an_identifier_field_is_e061() {
     assert!(e061("  label ab\n  label \"ab\"\n").is_empty());
 }
 
-#[spec(
-    behavior = "check_field_value_types",
-    verify = "E061 quotes a string value as a .spec string writes it"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn e061_quotes_a_string_as_the_spec_writes_it() {
     let found = e061("  points \"x\\\"y\"\n  label \"a\\nb\"\n");
     let messages: Vec<&str> = found.iter().map(|(m, _)| m.as_str()).collect();
@@ -78,20 +69,14 @@ fn values_of_the_declared_types_are_no_diagnostic() {
     assert!(found.is_empty(), "{found:?}");
 }
 
-#[spec(
-    behavior = "check_field_value_types",
-    verify = "an enum value suggests the closest declared value"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_enum_value_suggests_the_closest_declared_value() {
     let found = e061("  priority hgh\n");
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(found[0].1.as_deref(), Some("did you mean 'high'?"));
 }
 
-#[spec(
-    behavior = "check_field_value_types",
-    verify = "a list on a field declared as a single value is an error"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_list_on_a_single_value_field_is_an_error() {
     let found = e061("  summary [a]\n  blocker [t2]\n  priority [low]\n");
     assert_eq!(found.len(), 3, "{found:?}");
@@ -174,10 +159,7 @@ fn e061_points_at_the_value_else_the_entity() {
 
 /// Each row is one value written on one field: the field, the text, what the message says was
 /// given, and the remedy E061 suggests.
-#[spec(
-    behavior = "check_field_value_types",
-    verify = "a value of a shape its declared type never takes is an error"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_value_of_a_shape_its_type_never_takes_is_an_error() {
     let block = "{\n    a \"x\"\n  }";
     let refused: [(&str, &str, &str, Option<&str>); 6] = [
@@ -220,10 +202,7 @@ fn a_value_of_a_shape_its_type_never_takes_is_an_error() {
     assert!(admitted.is_empty(), "{admitted:?}");
 }
 
-#[spec(
-    behavior = "check_field_value_types",
-    verify = "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_reference_never_starts_with_a_dash() {
     for word in ["-a", "-0", "-007", "-5-3"] {
         let remedy = Some("a name never starts with '-'".to_string());
@@ -236,10 +215,7 @@ fn a_reference_never_starts_with_a_dash() {
     }
 }
 
-#[spec(
-    behavior = "check_field_value_types",
-    verify = "a date field takes one calendar day, bare or quoted; any other value is E061"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_date_that_is_no_calendar_day_is_e061() {
     let found = e061("  due 2026-02-30\n");
     assert_eq!(

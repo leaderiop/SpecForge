@@ -5,10 +5,7 @@ use specforge_test_macros::test as specforge_test;
 
 use super::{hook, project};
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a hook whose event does not match exits before loading anything"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_that_does_not_match_exits_before_loading() {
     let project = project(json!({}), json!({}));
     let read = json!({"hook_event_name": "PreToolUse", "tool_name": "Read", "session_id": "s1",
@@ -29,10 +26,7 @@ fn a_hook_that_does_not_match_exits_before_loading() {
     assert!(run.out.stderr.is_empty(), "{}", run.out.stderr);
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a guard hook denies in the protocol of Claude Code, and in the draft protocols of Codex and Cursor as their goldens have it"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_guard_hook_denies_on_claude_code_codex_and_cursor() {
     let project = project(json!({}), json!({}));
     let file = project.root().join("m.spec");
@@ -80,10 +74,7 @@ fn a_guard_hook_denies_on_claude_code_codex_and_cursor() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a hook that reads no graph and writes nothing is answered without compiling the project"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_that_reads_no_graph_runs_without_a_compile() {
     let project = project(json!({}), json!({}));
     let write = json!({"hook_event_name": "PreToolUse", "tool_name": "Write", "session_id": "s1",
@@ -113,10 +104,7 @@ fn a_hook_that_reads_no_graph_runs_without_a_compile() {
     assert!(run.passes >= 1, "a graph-reading hook compiles the project");
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "an event over the size limit or not the host's JSON is answered by the hook's failure policy"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn an_unreadable_event_applies_the_failure_policy() {
     let project = project(json!({}), json!({}));
     let over = vec![b' '; crate::hook::STDIN_LIMIT as usize + 1];
@@ -148,10 +136,7 @@ fn an_unreadable_event_applies_the_failure_policy() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a hook is told an outside path's real path, and with the git input its toplevel and whether it is inside a git directory"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_is_told_the_real_path_and_toplevel_of_an_outside_path() {
     let project = project(json!({}), json!({}));
     let root = project.root().to_path_buf();
@@ -202,10 +187,7 @@ fn a_hook_is_told_the_real_path_and_toplevel_of_an_outside_path() {
     assert_eq!(path["in_git_dir"], true, "{path}");
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a file_changed hook fires for the file it names, with what happened to it"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_file_changed_hook_fires_for_its_file_only() {
     let project = project(json!({}), json!({}));
     let args = ["--event", "file_changed", "--paths", "specforge.json"];
@@ -225,10 +207,7 @@ fn a_file_changed_hook_fires_for_its_file_only() {
     assert!(run.exports.is_empty(), "{:?}", run.exports);
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "specforge hook never exits 2 on its own refusals: an unknown host, event or usage error exits 1"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn an_unknown_event_exits_1() {
     let project = project(json!({}), json!({}));
     for (host, event) in [("claude-code", "nope"), ("nope", "pre_tool")] {
@@ -248,10 +227,7 @@ fn an_unknown_event_exits_1() {
     }
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "a writing hook is answered over a compiled project"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_writing_hook_is_answered_over_a_compiled_project() {
     let project = project(json!({}), json!({}));
     let write = json!({"hook_event_name": "PostToolUse", "tool_name": "Write", "session_id": "s1",
@@ -277,10 +253,7 @@ fn a_writing_hook_is_answered_over_a_compiled_project() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "the spec guard compiles before it judges"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_spec_guard_compiles_before_it_judges() {
     let project = project(json!({}), json!({}));
     let write = json!({"hook_event_name": "PreToolUse", "tool_name": "Write", "session_id": "s1",

@@ -9,10 +9,7 @@ use specforge_test::prelude::*;
 
 const SPEC: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n";
 
-#[specforge_test(
-    behavior = "run_guard_passes",
-    verify = "a guard pass refuses a write and is silent on compile"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_guard_pass_refuses_a_write_and_is_silent_on_compile() {
     let project = TestProject::new()
         .config(|c| c["name"] = "p".into())

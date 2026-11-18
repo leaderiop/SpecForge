@@ -56,7 +56,10 @@ pub const ROOT: &[(&str, &str)] = &[
         "extensions",
         "the builtin extensions and their vendored blobs",
     ),
-    ("fixtures", "extension fixtures the tests load"),
+    (
+        "fixtures",
+        "extension fixtures and the frozen pre-swap spec the tests load",
+    ),
     ("gate", "`cargo gate`, the check list"),
     (
         "gsd",

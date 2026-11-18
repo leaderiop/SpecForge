@@ -421,10 +421,7 @@ mod tests {
         build_graph_with_config(&[parse(source, "a.spec")], &GraphConfig::default()).0
     }
 
-    #[specforge_test_macros::test(
-        behavior = "judge_rule_by_fresh_verdict",
-        verify = "a verdict is a value of the ledger: set records it, a respelling keeps it, a move re-keys it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-058")]
     fn a_verdict_is_recorded_rekeyed_and_dropped_with_its_entity() {
         let forms = FieldForms::default();
         let harness = Harness {
@@ -488,10 +485,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "collect_harness_ledger",
-        verify = "a collect records one facts line per collector, replacing its last"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-131")]
     fn a_facts_change_replaces_the_collectors_line() {
         let (graph, forms, harness) = (
             verdict_graph(""),
@@ -565,10 +559,7 @@ mod tests {
         assert_eq!(stale, ["T5"], "{}", back.canonical());
     }
 
-    #[specforge_test_macros::test(
-        behavior = "collect_harness_ledger",
-        verify = "a collect of a collector drops the stale lines a rename wrote for its stores"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-131")]
     fn a_facts_change_drops_its_collectors_stale_line() {
         let (graph, forms, harness) = (
             verdict_graph(""),

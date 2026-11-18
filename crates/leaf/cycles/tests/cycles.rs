@@ -108,10 +108,7 @@ fn every_graph_of_four_nodes() -> impl Iterator<
     })
 }
 
-#[specforge_test(
-    constraint = "product_cycle_detection_correctness",
-    verify = "cycle detection has zero false negatives on every directed graph of four nodes"
-)]
+#[specforge_test(requirement = "RELIABILITY-08")]
 fn every_graph_of_four_nodes_has_every_node_on_a_cycle_reported() {
     for (mask, (edges, reach)) in every_graph_of_four_nodes().enumerate() {
         let found = cycles(&edges);
@@ -136,10 +133,7 @@ fn every_graph_of_four_nodes_has_every_node_on_a_cycle_reported() {
     }
 }
 
-#[specforge_test(
-    constraint = "product_cycle_detection_correctness",
-    verify = "cycle detection has zero false positives on every directed graph of four nodes"
-)]
+#[specforge_test(requirement = "RELIABILITY-08")]
 fn no_graph_of_four_nodes_has_a_node_off_every_cycle_reported() {
     for (mask, (edges, reach)) in every_graph_of_four_nodes().enumerate() {
         for c in cycles(&edges) {

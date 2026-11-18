@@ -148,10 +148,7 @@ mod tests {
         Codebook::default()
     }
 
-    #[specforge_test(
-        behavior = "explain_diagnostic_code",
-        verify = "specforge explain reads the code as specforge.explain does: any case, surrounding whitespace ignored"
-    )]
+    #[specforge_test(requirement = "FEATURE-017")]
     fn explain_answers_the_entry_any_case_and_trimmed() {
         let Explanation::Catalogued(found) = explain(" w018 ", &none()).unwrap() else {
             panic!("W018 is catalogued");
@@ -175,10 +172,7 @@ mod tests {
         assert_eq!(gone, serde_json::json!({"code": "W024", "retired": true}));
     }
 
-    #[specforge_test(
-        behavior = "explain_diagnostic_code",
-        verify = "an uncatalogued code is refused with unknown_code on both surfaces"
-    )]
+    #[specforge_test(requirement = "FEATURE-017")]
     fn an_uncatalogued_code_is_unknown_code() {
         for code in ["Z123", "E901"] {
             let error = explain(code, &none()).unwrap_err();
@@ -201,10 +195,7 @@ mod tests {
         }
     }
 
-    #[specforge_test(
-        behavior = "explain_diagnostic_code",
-        verify = "explain answers a code an extension catalogs, whether a rule or a pass reports it"
-    )]
+    #[specforge_test(requirement = "FEATURE-017")]
     fn explain_answers_a_catalogued_code_no_rule_declares() {
         let answer = explain(" Acme.Audit/w950 ", &book(&[("@acme/audit", &["W950"])])).unwrap();
         let Explanation::Catalogued(found) = answer else {
@@ -217,10 +208,7 @@ mod tests {
         assert_eq!(found.entry.docs, None);
     }
 
-    #[specforge_test(
-        behavior = "explain_diagnostic_code",
-        verify = "explain answers a code an extension catalogs under its namespace, the static catalog first, and a bare code only from the static catalog"
-    )]
+    #[specforge_test(requirement = "FEATURE-017")]
     fn the_static_catalog_answers_a_bare_code_whatever_an_extension_catalogs() {
         let squat = book(&[("@acme/x", &["W041", "E047", "W950"])]);
         let Explanation::Catalogued(found) = explain("W041", &squat).unwrap() else {
@@ -250,10 +238,7 @@ mod tests {
         assert!(!error.error.suggestion.unwrap().contains("did you mean"));
     }
 
-    #[specforge_test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test(requirement = "INVARIANT-067")]
     fn explain_states_which_field_a_refusal_is_about() {
         assert_eq!(
             explain("Z123", &none()).unwrap_err().subject,

@@ -16,10 +16,7 @@ fn edit(hosted: &Hosted, file: &str, old: &str, new: &str) -> Value {
                     "input": {"file_path": format!("{root}/{file}"), "old_string": old, "new_string": new}}})
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "the spec guard denies a raw write of a computed value, naming the field and the tool that writes it"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_spec_guard_denies_a_raw_write_of_a_computed_value() {
     let project = hosts_project(json!({}), json!({}));
     project.write("v.spec", "verification V1 \"One\" {\n  phase 03\n}\n");
@@ -42,10 +39,7 @@ fn the_spec_guard_denies_a_raw_write_of_a_computed_value() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "the spec guard denies a raw write of a human-only value"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_spec_guard_denies_a_raw_write_of_a_human_only_value() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let root = hosted.project.root().display().to_string();
@@ -64,10 +58,7 @@ fn the_spec_guard_denies_a_raw_write_of_a_human_only_value() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "the spec guard allows prose and reports the errors an edit adds as context"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_spec_guard_allows_prose_and_reports_new_errors_as_context() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let prose = run_core_hook(
@@ -110,10 +101,7 @@ fn the_spec_guard_allows_prose_and_reports_new_errors_as_context() {
     let _ = VERIFIED;
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "the spec guard does not read a person's entity as removed from a file the write leaves unparsable"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_spec_guard_waits_for_a_text_that_parses() {
     let project = hosts_project(json!({}), json!({}));
     project.write(
@@ -137,10 +125,7 @@ fn the_spec_guard_waits_for_a_text_that_parses() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_a_hook",
-    verify = "the spec guard compares a person's entity as written, not with the values a pass derived"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_spec_guard_ignores_a_derived_value_on_a_persons_entity() {
     let project = hosts_project(json!({}), json!({}));
     project.write(

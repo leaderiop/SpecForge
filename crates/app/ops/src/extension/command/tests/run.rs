@@ -1,9 +1,6 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "args serialized as JSON to cmd__ export"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn args_reach_the_export_as_json_with_the_graph() {
     let runtime = std::sync::Arc::new(fake());
     let fixture = fixture(&runtime);
@@ -52,10 +49,7 @@ fn run_sends_todays_utc_date() {
     assert_eq!(parsed, chrono::Utc::now().date_naive());
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CommandInput carries the format the caller asked for and the host's date"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn the_input_carries_the_format_and_the_date() {
     let runtime = std::sync::Arc::new(fake());
     let fixture = fixture(&runtime);
@@ -79,10 +73,7 @@ fn the_input_carries_the_format_and_the_date() {
     assert_eq!(CommandFormat::parse("table"), None);
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "one operation runs a command over the project view: it normalizes the args, attaches the evidence, the date and the project root, absolute and canonical, and calls the export"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn one_operation_runs_a_command_over_the_view() {
     let runtime = std::sync::Arc::new(fake());
     let fixture = fixture(&runtime);
@@ -232,10 +223,7 @@ fn a_failure_is_the_error_object_a_command_writes() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "Wasm trap caught and reported as ExtensionError"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_trapping_command_is_an_extension_error() {
     let fixture = fixture(&std::sync::Arc::new(fake()));
     let err = run(
@@ -258,10 +246,7 @@ fn a_trapping_command_is_an_extension_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_whose_output_is_not_a_command_output_is_an_extension_error() {
     for raw in [
         &b"not json at all"[..],
@@ -312,10 +297,7 @@ fn a_command_whose_output_is_not_a_command_output_is_an_extension_error() {
     }
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the command runs in the runtime that read the project's declarations, which loaded only the extensions the project enables"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_runs_in_the_runtime_that_read_the_declarations() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(
@@ -376,10 +358,7 @@ fn a_command_runs_in_the_runtime_that_read_the_declarations() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "a declared export the guest does not route is an ExtensionError when dispatched"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_export_the_guest_does_not_route_is_an_extension_error() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(
@@ -416,10 +395,7 @@ fn an_export_the_guest_does_not_route_is_an_extension_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "call_extension_exports",
-    verify = "every extension call encodes its input as the protocol type the SDK decodes"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_command_input_is_the_wire_golden() {
     let runtime = std::sync::Arc::new(fake());
     let fixture = Assembled::at(Path::new("/p"))

@@ -75,10 +75,7 @@ fn retarget(link: &Path, to: &Path) {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a symlinked source is reached by each hop its read followed"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_sources_middle_hop_pointed_elsewhere_changes_that_source() {
     let (_dir, mut session, chain) = chained(true);
     retarget(&chain.hop, &chain.other);
@@ -90,10 +87,7 @@ fn a_sources_middle_hop_pointed_elsewhere_changes_that_source() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a symlinked source is reached by each hop its read followed"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_hop_that_is_itself_a_source_changes_both() {
     let (dir, _, chain) = chained(true);
     // `b.spec` is a link to the real file and `a.spec` a link to `b.spec`.
@@ -110,10 +104,7 @@ fn a_hop_that_is_itself_a_source_changes_both() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a session's watch roots and the LSP's watchers cover every symlinked source's target"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn each_hop_of_a_symlinked_source_is_watched() {
     let (_dir, session, chain) = chained(false);
     let hops = chain.hop.parent().unwrap().to_path_buf();
@@ -138,10 +129,7 @@ fn each_hop_of_a_symlinked_source_is_watched() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a symlinked source is keyed by its link and changes when its target does"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn stale_sees_a_sources_middle_hop_pointed_elsewhere() {
     let (_dir, session, chain) = chained(true);
     retarget(&chain.hop, &chain.other);
@@ -150,10 +138,7 @@ fn stale_sees_a_sources_middle_hop_pointed_elsewhere() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory created on the way to a missing input's directory outside the root is that input's change, a source hop's included"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_hop_into_a_missing_directory_is_seen_when_it_is_created() {
     let (_dir, mut session, chain) = chained(false);
     let far = chain.real.parent().unwrap().parent().unwrap().join("far");
@@ -188,10 +173,7 @@ fn a_hop_into_a_missing_directory_is_seen_when_it_is_created() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a dangling source link is that source's change when its target appears"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_dangling_source_link_that_comes_alive_is_that_sources_change() {
     let dir = TestProject::new().raw_config(json!({"name": "c", "version": "0.1.0"}).to_string());
     let root = fs::canonicalize(dir.root()).unwrap();

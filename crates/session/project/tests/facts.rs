@@ -57,10 +57,7 @@ fn export(project: &CompiledProject) -> String {
     specforge_emitter::emit(project.graph(), &specforge_emitter::EmitOptions::default()).unwrap()
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a project that loads no collector-written kind reads no fact store and compiles byte-identically"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn with_no_collected_kind_a_fact_store_on_disk_changes_no_output() {
     let p = TestProject::new().config(|c| c["name"] = "p".into()).file(
         "a.spec",
@@ -79,10 +76,7 @@ fn with_no_collected_kind_a_fact_store_on_disk_changes_no_output() {
     assert_eq!(before.source_keys(), after.source_keys());
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a fact store specforge-harness records is served as read-only entities; one it does not is W191, one that does not read W192"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_served_fact_is_an_entity_every_query_reads() {
     let p = collected();
     stored(p.root(), "node", KEY, two_tests());
@@ -106,10 +100,7 @@ fn a_served_fact_is_an_entity_every_query_reads() {
     assert!(codes(&project).is_empty(), "{:?}", project.diagnostics());
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a fact's word is read bare, and a collector's fact is never W159"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_facts_word_is_read_bare_and_no_fact_is_w159() {
     let p = collected();
     // `status` is a word field: its JSON string is the word. `file` is a text field, given a number.
@@ -133,10 +124,7 @@ fn a_facts_word_is_read_bare_and_no_fact_is_w159() {
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a fact's single-value reference to another fact links like a written one"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_facts_single_value_reference_links_like_a_written_one() {
     use specforge_extension_sdk::prelude::{ContributionsBuilder, ExtensionMeta, FieldType};
     use specforge_project::testing::CODE;
@@ -226,10 +214,7 @@ fn a_rewritten_fact_store_is_a_source_change_of_its_key() {
     assert!(session.stale().is_empty(), "{:?}", session.stale());
 }
 
-#[specforge_test(
-    behavior = "watch_file_system_for_changes",
-    verify = "a fact store and the harness ledger are watched inputs when a collector-written kind is loaded"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_changed_harness_ledger_reserves_the_fact_keys() {
     let p = collected();
     stored(p.root(), "node", KEY, two_tests());
@@ -264,10 +249,7 @@ fn a_changed_harness_ledger_reserves_the_fact_keys() {
     assert!(session.stale().is_empty(), "{:?}", session.stale());
 }
 
-#[specforge_test_macros::test(
-    behavior = "dispatch_collector",
-    verify = "the recorded facts of a kind are those of the stores the ledger records, sorted"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn recorded_facts_are_the_ledgers_stores_of_the_kinds_asked() {
     let p = collected();
     stored(p.root(), "node", KEY, two_tests());
@@ -296,10 +278,7 @@ fn place(file: &str, line: usize, from: usize, to: usize) -> Value {
     json!({"file": file, "start_line": line, "start_col": from, "end_line": line, "end_col": to})
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_facts_dangling_reference_is_no_kernel_diagnostic_and_reaches_the_passes() {
     use specforge_extension_sdk::prelude::*;
     use specforge_project::testing::CODE;
@@ -369,10 +348,7 @@ fn a_facts_dangling_reference_is_no_kernel_diagnostic_and_reaches_the_passes() {
     assert_eq!(judged, [("covers nobody unresolved", "a.test.js", 2, 12)]);
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a finding on a fact is placed where it is written, not at its store"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_finding_on_a_fact_is_placed_where_it_is_written() {
     use specforge_extension_sdk::prelude::*;
     use specforge_project::testing::CODE;
@@ -430,10 +406,7 @@ fn a_finding_on_a_fact_is_placed_where_it_is_written() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "a fact id two stores hold is E117 naming both collectors, not E002"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_fact_id_two_stores_hold_is_e117_naming_both_collectors() {
     let p = collected();
     let fact = json!([{"kind": "test", "id": "js:a.test.js#adds"}]);
@@ -531,10 +504,7 @@ fn mark_stale(p: &TestProject) {
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_stale_store_follows_the_moves_and_is_w197() {
     let p = renamed();
     mark_stale(&p);
@@ -637,10 +607,7 @@ fn a_fresh_store_naming_a_moved_id_is_dangling_with_did_you_mean() {
     );
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_fresh_store_naming_a_renamed_id_is_told_the_new_one_from_the_ledger() {
     // A rename to a dissimilar name: no close match, so the suggestion is the ledger's move.
     let p = renamed();
@@ -660,10 +627,7 @@ fn a_fresh_store_naming_a_renamed_id_is_told_the_new_one_from_the_ledger() {
     assert_eq!(record.dangling[0].did_you_mean.as_deref(), Some("sum"));
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a compiled project serves the source digests its fact stores recorded"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_compiled_project_serves_its_stores_source_digests() {
     let p = collected();
     assert!(compiled(&p).fact_sources().is_empty(), "nothing collected");

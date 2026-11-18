@@ -1,5 +1,5 @@
 use specforge_common::Diagnostic;
-use specforge_component::builtins::BUILTINS;
+use specforge_component::builtins::Family;
 use specforge_project::testing::TestProject;
 use specforge_protocol_types::{DeclaredCategory, EntityKindDescriptor, ExtensionDeclaration};
 use specforge_wasm::protocol::load_declaration;
@@ -147,10 +147,7 @@ fn testing_extension_makes_software_kinds_testable() {
     assert_eq!(codes, ["W004", "W009"].into_iter().collect());
 }
 
-#[specforge_test_macros::test(
-    behavior = "se_declare_manifest",
-    verify = "product and governance are its peers, both optional"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-117")]
 fn software_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/software");
     assert_eq!(manifest.name(), "@specforge/software");
@@ -266,10 +263,7 @@ fn proof_role(manifest: &ExtensionDeclaration, kind: &str, field: &str) -> Optio
         .clone()
 }
 
-#[specforge_test_macros::test(
-    behavior = "ge_register_field_definitions",
-    verify = "constraint metric field declares the bound proof role"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-044")]
 fn governance_constraint_metric_is_a_bound() {
     let manifest = load_via_protocol("@specforge/governance");
     assert_eq!(
@@ -279,10 +273,7 @@ fn governance_constraint_metric_is_a_bound() {
     assert_eq!(proof_role(&manifest, "constraint", "threshold"), None);
 }
 
-#[specforge_test_macros::test(
-    behavior = "fa_declare_manifest",
-    verify = "property and invariant expressions are claims and axiom expressions bounds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-037")]
 fn formal_expressions_declare_their_proof_roles() {
     let manifest = load_via_protocol("@specforge/formal");
     let role = |kind| proof_role(&manifest, kind, "expression");
@@ -291,10 +282,7 @@ fn formal_expressions_declare_their_proof_roles() {
     assert_eq!(role("invariant").as_deref(), Some("claim"));
 }
 
-#[specforge_test_macros::test(
-    behavior = "fa_declare_manifest",
-    verify = "manifest declares the 12 formal validation rules"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-037")]
 fn formal_declares_its_validation_rules() {
     let manifest = load_via_protocol("@specforge/formal");
     let mut codes: Vec<&str> = manifest
@@ -312,10 +300,7 @@ fn formal_declares_its_validation_rules() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "fa_declare_manifest",
-    verify = "manifest declares 5 passes in dependency order"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-037")]
 fn formal_declares_four_analyze_passes_and_one_check_pass() {
     let manifest = load_via_protocol("@specforge/formal");
     let mut passes: Vec<(&str, Option<&str>, Option<&str>)> = manifest
@@ -336,10 +321,7 @@ fn formal_declares_four_analyze_passes_and_one_check_pass() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "pe_declare_manifest",
-    verify = "the six lifecycle kinds declare a status field and no lifecycle field"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-080")]
 fn product_lifecycle_kinds_declare_status() {
     let manifest = load_via_protocol("@specforge/product");
     for kind in &manifest.entities {
@@ -361,37 +343,44 @@ fn product_lifecycle_kinds_declare_status() {
     }
 }
 
-/// The nine builtin extensions loaded together, as a project enabling all
-/// of them does: their rules register with no W112 or W147, the custom
-/// ones' functions answer the load probe, and every rule's target kind and
-/// edge type is its extension's or a declared peer's (no W021).
-#[specforge_test_macros::test(
-    behavior = "execute_validation_pattern",
-    verify = "the builtin extensions' rules register with no W112, W147 or W021"
-)]
+/// The builtin extensions of each set loaded together, as a project enabling that set does (one set at
+/// a time: two declarers of one keyword are E026, ADR 0369 D3): their rules register with no W112 or
+/// W147, the custom ones' functions answer the load probe, and every rule's target kind and edge type
+/// is its extension's or a declared peer's (no W021).
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn the_builtin_extensions_rules_register_cleanly() {
-    let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
-        .iter()
-        .map(|(name, _)| *name)
-        .collect();
-    assert_eq!(names.len(), BUILTINS.len(), "{names:?}");
-    let dir = TestProject::new()
-        .config(|c| c["name"] = "all".into())
-        .enabling(&names);
+    for family in Family::ALL {
+        let names: Vec<&str> = family.builtins().map(|builtin| builtin.name).collect();
+        let dir = TestProject::new()
+            .config(|c| c["name"] = "all".into())
+            .enabling(&names);
 
-    let env = specforge_project::Environment::load(&dir.project_root(), Some(dir.runtime()));
+        let env = specforge_project::Environment::load(&dir.project_root(), Some(dir.runtime()));
 
-    assert_eq!(env.registries().declarations().len(), BUILTINS.len());
-    assert!(
-        env.registries().rules().len() > 80,
-        "{}",
-        env.registries().rules().len()
-    );
-    let unworkable: Vec<&Diagnostic> = env
-        .diagnostics()
-        .filter(|d| ["W112", "W147", "W021"].contains(&d.code.as_str()))
-        .collect();
-    assert!(unworkable.is_empty(), "{unworkable:?}");
+        assert_eq!(
+            env.registries().declarations().len(),
+            names.len(),
+            "{family:?}: {names:?}"
+        );
+        // A floor per set, its live count rounded down to a multiple of ten (105 and 230 when set):
+        // a builtin whose rules stop registering drops the set's count under it. The old set's
+        // rules are mostly the product, governance and software builtins'; the gsd set's mostly
+        // `@gsd/core`'s.
+        let floor = match family {
+            Family::Old => 100,
+            Family::Gsd => 230,
+        };
+        let registered = env.registries().rules().len();
+        assert!(
+            registered >= floor,
+            "{family:?}: {registered} rules, under the floor of {floor}"
+        );
+        let unworkable: Vec<&Diagnostic> = env
+            .diagnostics()
+            .filter(|d| ["W112", "W147", "W021"].contains(&d.code.as_str()))
+            .collect();
+        assert!(unworkable.is_empty(), "{family:?}: {unworkable:?}");
+    }
 }
 
 #[test]
@@ -432,10 +421,7 @@ fn product_and_governance_build_clean_alone_and_together() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "pe_declare_manifest",
-    verify = "passes declares lifecycle in the check phase and delivery_evidence under analyze"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-080")]
 fn product_declares_its_lifecycle_passes() {
     let manifest = load_via_protocol("@specforge/product");
     let passes: Vec<(&str, Option<&str>, Option<&str>)> = manifest
@@ -452,14 +438,28 @@ fn product_declares_its_lifecycle_passes() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "ge_validate_unused_invariants",
-    verify = "invariant nothing references produces W003"
-)]
-#[specforge_test_macros::test(
-    behavior = "ge_validate_unused_invariants",
-    verify = "invariant with incoming reference edge passes"
-)]
+/// With the real vocabulary, `decision` has two declarers, `@gsd/core` and `@specforge/governance`.
+/// `@gsd/core` also declares `deliverable` and `milestone`, which the loaded `@specforge/product`
+/// registers, so adding it would be E026: the suggestion offers `@specforge/governance` alone
+/// (ADR 0373 D4).
+#[test]
+fn a_decision_beside_product_is_offered_governance_alone() {
+    let compiled = TestProject::new()
+        .enabling(&["@specforge/software", "@specforge/product"])
+        .file("main.spec", "decision chosen \"Chosen\" {\n}\n")
+        .compile();
+    let diagnostics = compiled.diagnostics();
+    let e024: Vec<&Diagnostic> = diagnostics.iter().filter(|d| d.code == "E024").collect();
+    assert_eq!(e024.len(), 1, "{diagnostics:?}");
+    let suggestion = e024[0].suggestion.as_deref().unwrap_or_default();
+    assert_eq!(
+        suggestion, "install it with: specforge add @specforge/governance",
+        "{diagnostics:?}"
+    );
+    assert!(!suggestion.contains("@gsd/core"), "{suggestion}");
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-045")]
 fn check_reports_an_unreferenced_invariant_as_w003() {
     let compiled = TestProject::new()
         .enabling(&["@specforge/software", "@specforge/governance"])

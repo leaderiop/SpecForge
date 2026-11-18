@@ -55,10 +55,7 @@ fn block(served: &mut Served, label: &str, request: Value, prompt: bool) -> Stri
     redact(text, served.root())
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn validate_analyze_and_trace_refusals_answer_as_pinned() {
     let mut out = String::new();
     let mut p = served_with(

@@ -66,7 +66,6 @@ fn the_planners_typed_edits_write_a_checked_plan() {
             ("FILE_1", "src/index.js"),
             ("FILE_2", "src/cli.js"),
             ("REQUIREMENTS", "STORE-02"),
-            ("DECISIONS", "D-03"),
             ("OBJECTIVE", "Load the board on start"),
             ("PURPOSE", "a restarted board shows its tasks"),
             ("OUTPUT", "`src/index.js` with `loadBoard`"),
@@ -76,11 +75,13 @@ fn the_planners_typed_edits_write_a_checked_plan() {
             ("ESTIMATE", r#"{"tokens": 60000}"#),
             ("TASK_NAME", "Task 1: Load the board"),
             ("TASK_FILE", "src/index.js"),
-            ("TASK_ACTION", "Read `tasks.json` into a board"),
+            (
+                "TASK_ACTION",
+                "Read `tasks.json` into a board, as D-03 says",
+            ),
             ("TASK_VERIFY", "npm test"),
             ("TASK_DONE", "the board loads"),
             ("TRUTH", "A restarted board shows the tasks it had"),
-            ("TRUTH_REQUIREMENT", "STORE-02"),
             ("ARTIFACT_NAME", "The board loader"),
             ("ARTIFACT_PATH", "src/index.js"),
             ("ARTIFACT_PROVIDES", "loadBoard"),
@@ -201,7 +202,6 @@ fn the_convergence_step_counts_the_open_concerns() {
             ("DISPOSITION_ID", "DP1"),
             ("CONCERN_ID", "v1.0/02/RV1/RC1"),
             ("ROUND", "1"),
-            ("REVIEWER", "codex"),
             ("FEEDBACK", "Rename not atomic"),
             ("OUTCOME", "addressed"),
             ("REASON", "Task 1 writes then renames on the same volume"),
@@ -362,8 +362,9 @@ fn the_research_fence_records_the_phase_research() {
     assert!(run.added.is_empty(), "{:?}", run.added);
 }
 
-/// The spec-less lift writes both resolved edges as truths with no tier (a person's field, so the backstop one is never
-/// contradicted by a test), a kept prohibition with no test, and an unresolved row as an assumption in the purpose.
+/// The spec-less lift writes both resolved edges as truths, the backstop one with `verification backstop` as upstream's
+/// planner writes it (so it is never contradicted by a test), a kept prohibition with no test, and an unresolved row as
+/// an assumption in the purpose.
 #[test]
 fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
     let Some(sh) = Shell::only(&[]) else {
@@ -375,7 +376,6 @@ fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
         &typed::typed_fence(&text, "## C. Authoring"),
         &[
             ("PLAN_ID", "v1.0/02/02-01"),
-            ("REQUIREMENT", "STORE-01"),
             ("EXPLICIT_ID", "TR4"),
             (
                 "CRITERION",
@@ -394,19 +394,12 @@ fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
     let run = typed::apply(&sh, &p, &fence);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.added.is_empty(), "{:?}", run.added);
-    for id in ["TR4", "TR5"] {
-        let truth = p.fields_of(&format!("v1.0/02/02-01/{id}"));
-        assert!(truth.is_object(), "{id} is missing");
-        assert!(truth.get("verification").is_none(), "{truth}");
-    }
-    // the backstop edge is proposed; a person confirms it by setting `verification`
+    // the explicit edge is a plain truth; the backstop edge carries its tier
+    let explicit = p.fields_of("v1.0/02/02-01/TR4");
+    assert!(explicit.is_object(), "TR4 is missing");
+    assert!(explicit.get("verification").is_none(), "{explicit}");
     let backstop = p.fields_of("v1.0/02/02-01/TR5");
-    assert_eq!(backstop["proposed_verification"], "backstop", "{backstop}");
-    assert!(
-        p.fields_of("v1.0/02/02-01/TR4")
-            .get("proposed_verification")
-            .is_none()
-    );
+    assert_eq!(backstop["verification"], "backstop", "{backstop}");
     let prohibition = p.fields_of("v1.0/02/02-01/PR1");
     assert_eq!(prohibition["verification"], "judgment", "{prohibition}");
     assert!(prohibition.get("test").is_none(), "{prohibition}");
@@ -520,45 +513,15 @@ fn the_coverage_trace_names_an_uncovered_requirement() {
     p.write(
         "spec/requirements.spec",
         &format!(
-            "{requirements}\nrequirement STORE-03 \"A save survives a crash\" {{\n  text    \"A crash mid-save leaves the board whole\"\n  area    \"Storage\"\n  tier    v1\n  defined 2026-03-02\n}}\n"
+            "{requirements}\nrequirement STORE-03 \"A save survives a crash\" {{\n  text     \"A crash mid-save leaves the board whole\"\n  category \"Storage\"\n  tier     v1\n  defined  2026-03-02\n}}\n"
         ),
     );
     let uncovered = thread(&p);
-    assert!(uncovered.contains("STORE-03 → no plan"), "{uncovered}");
-}
-
-/// The pattern mapper finds an analog from the graph: the store task's search, then the source its facts are anchored
-/// to.
-#[test]
-fn the_analog_lookup_names_the_anchored_task() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
-    let p = taskboard();
-    let run = p.collect(&[]);
-    assert_eq!(run.code, 0, "{}", run.all());
-    for body in [
-        "agents/gsd-pattern-mapper.md",
-        "agents/gsd-pattern-mapper.compact.md",
-    ] {
-        let text = asset(body);
-        let heading = if body.ends_with("compact.md") {
-            "Find the closest existing file"
-        } else {
-            "For each classified file, find the closest"
-        };
-        let lookup = typed::filled(
-            &typed::typed_fence(&text, heading),
-            &[("ROLE_WORDS", "board"), ("TASK_ID", "v1.0/01/01-01/T1")],
-        );
-        let (out, err, code) = sh.run_in(p.root(), &lookup);
-        assert_eq!(code, 0, "{body}: {out}{err}");
-        assert!(out.contains("v1.0/01/01-01/T1"), "{body}: {out}");
-        assert!(out.contains("src/tasks.js"), "{body}: {out}");
-        let (owner, err, code) = sh.run_in(p.root(), "specforge anchors --file src/tasks.js");
-        assert_eq!(code, 0, "{err}");
-        assert!(owner.contains("[task v1.0/01/01-01/T1]"), "{owner}");
-    }
+    // No plan lists it, so its `proof` reads its tests alone: none is collected.
+    assert!(
+        uncovered.contains("STORE-03 (not_run) → no plan"),
+        "{uncovered}"
+    );
 }
 
 /// The code spans of the line of `text` that starts with `start`, in order.
@@ -626,7 +589,7 @@ fn the_plan_checker_spawn_reads_one_pack_per_plan() {
         "{err}"
     );
     let body = asset("agents/gsd-plan-checker.md");
-    let lp = fence_after(&body, "Orchestrator provides the phase's context");
+    let lp = fence_after(&body, "Orchestrator provides CONTEXT.md content");
     let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{lp}"));
     assert_eq!(code, 0, "{out}{err}");
     assert!(
@@ -673,11 +636,15 @@ fn the_decision_coverage_reads_e310_and_discretion_clears_it() {
     };
     let p = taskboard();
     let plans = p.read("spec/plans.spec");
-    let dropped = plans.replace(
-        "decisions        [D-01, D-02, D-03]",
-        "decisions        [D-01, D-02]",
+    // The twin's plan 02-01 cites D-03 in a task and a truth: both go.
+    let dropped = plans
+        .replace(", and a title is stored as typed (D-03)", "")
+        .replace("as it was written (D-03)", "as it was written");
+    assert_eq!(
+        dropped.matches("D-03").count() + 2,
+        plans.matches("D-03").count(),
+        "the twin's plan cites D-03 twice"
     );
-    assert_ne!(dropped, plans, "the twin's plan lists D-03");
     p.write("spec/plans.spec", &dropped);
     let text = asset("gsd-core/workflows/plan-phase.md");
     let step = [span(

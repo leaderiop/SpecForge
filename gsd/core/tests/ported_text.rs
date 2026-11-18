@@ -143,8 +143,8 @@ fn assert_clean(label: &str, text: &str) {
 }
 
 #[test]
-fn forty_five_prompts_are_swept() {
-    assert_eq!(prompts().len(), 45);
+fn forty_four_prompts_are_swept() {
+    assert_eq!(prompts().len(), 44);
 }
 
 #[test]

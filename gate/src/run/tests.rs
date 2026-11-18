@@ -68,7 +68,7 @@ fn no_two_compiling_checks_overlap_and_after_is_respected() {
         let order = simulate(&steps, |running| running[pick.min(running.len() - 1)]);
         let at = |name: &str| order.iter().position(|&k| k == index(name)).unwrap();
         assert!(at("build") < at("tests") && at("build") < at("doctests"));
-        assert!(at("tests") < at("dogfood") && at("guests") < at("dogfood"));
+        assert!(at("tests") < at("dogfood"));
     }
     // clippy never starts while build runs: the first wave holds build or clippy, not both.
     let first = schedule(&steps, &vec![State::Pending; steps.len()]);
@@ -91,7 +91,6 @@ fn a_failed_after_blocks_its_dependents() {
     assert!(wave.blocked.contains(&index("doctests")));
     assert!(!wave.blocked.contains(&index("clippy")));
     states[index("tests")] = State::Blocked;
-    states[index("guests")] = State::Passed;
     let wave = schedule(&steps, &states);
     assert!(wave.blocked.contains(&index("dogfood")));
 }
@@ -129,6 +128,40 @@ fn the_report_names_failures_and_the_fix() {
     report.print(Mode::Hook, &mut hook).unwrap();
     let hook = String::from_utf8(hook).unwrap();
     assert!(hook.starts_with("pre-commit: rustfmt: "), "{hook}");
+}
+
+/// A command that answers on stdout (`specforge … --format json`) prints its reason for a failure there: the error
+/// and the check's log both carry it, the log the command's stderr too. On success stdout comes back.
+#[cfg(unix)]
+#[test]
+fn a_failed_answer_keeps_what_it_printed() {
+    let repo = crate::repo::this_repo();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("check.log");
+    let (specforge, changes) = (OnceLock::new(), ChangeSet::default());
+    let ctx = Ctx {
+        repo: &repo,
+        mode: Mode::Quick,
+        changes: &changes,
+        log: File::create(&path).unwrap(),
+        specforge: &specforge,
+    };
+    let script = "printf '{\\n  \"error\": \"no report\",\\n  \"code\": \"E045\"\\n}\\n'; echo warned >&2; exit 1";
+    let failed = ctx.answer(ctx.cmd("sh").args(["-c", script])).unwrap_err();
+    assert!(
+        failed.starts_with("`sh -c ")
+            && failed.ends_with(r#"exit status: 1: { "error": "no report", "code": "E045" }"#),
+        "{failed}"
+    );
+    let log = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        log.contains("\"code\": \"E045\"") && log.contains("warned"),
+        "{log}"
+    );
+    assert_eq!(
+        ctx.answer(ctx.cmd("sh").args(["-c", "echo '[]'"])),
+        Ok("[]\n".to_string())
+    );
 }
 
 #[test]

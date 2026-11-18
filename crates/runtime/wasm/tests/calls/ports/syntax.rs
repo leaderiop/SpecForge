@@ -75,10 +75,7 @@ fn owned(rows: &[(&str, &[&str])]) -> Vec<(String, Vec<String>)> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "parse_source_through_the_syntax_import",
-    verify = "a collector's syntax request inside its grant is parsed"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_collectors_syntax_request_inside_its_grant_is_parsed() {
     let call = call_over(
         FakeFs::new()
@@ -133,10 +130,7 @@ fn a_glob_is_walked_inside_the_grant() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "parse_source_through_the_syntax_import",
-    verify = "a syntax request outside the grant is answered denied(scope) and reported as E090"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_syntax_request_outside_the_grant_is_denied_scope_and_e090() {
     // An extension whose fs capability stats and nothing else.
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
@@ -178,10 +172,7 @@ fn a_pure_call_asking_syntax_is_denied_call_kind() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "parse_source_through_the_syntax_import",
-    verify = "a missing, a withheld and a too large file are each answered not_parsed"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_missing_a_withheld_and_a_too_large_file_are_each_not_parsed() {
     let huge = vec![b' '; (64 << 20) + 1];
     let call = call_over(
@@ -215,10 +206,7 @@ fn a_missing_a_withheld_and_a_too_large_file_are_each_not_parsed() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "parse_source_through_the_syntax_import",
-    verify = "a revision's files are parsed from the commit's blobs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_revision_is_parsed_from_the_commits_blobs() {
     let dir = std::env::temp_dir();
     let mut git = FakeGit::repo(&dir, SHA, Vec::new());
@@ -284,10 +272,7 @@ fn functions(n: usize) -> String {
     (0..n).map(|i| format!("fn f{i}() {{}}\n")).collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "parse_source_through_the_syntax_import",
-    verify = "a syntax answer past the cap names the rest capped and is not truncated"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn a_syntax_answer_past_the_cap_names_the_rest_capped_and_is_not_truncated() {
     // A 1 MiB guest's answer cap is 256 KiB; each file's matches encode to about 100 KiB.
     let call = call_over(
@@ -326,10 +311,7 @@ fn a_syntax_answer_past_the_cap_names_the_rest_capped_and_is_not_truncated() {
     assert!(call.take_denials().is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "parse_source_through_the_syntax_import",
-    verify = "files past the deadline are one W196 and broken files one I211 per call"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn files_past_the_deadline_are_one_w196_and_broken_files_one_i211_per_call() {
     let reader = SourceReader::new(SyntaxCache::detached()).with_deadline(Deadline::Progress(0));
     let call = call_over(

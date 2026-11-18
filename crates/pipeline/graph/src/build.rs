@@ -13,11 +13,12 @@ use std::sync::Arc;
 /// The default is a project with no extension loaded.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct GraphInputs {
-    /// For each target kind no loaded extension declares, the extension that
-    /// owns it, where the registry build knows one (`kind_owner` of its
-    /// candidate vocabulary, ADR 0117): what I004 and E022 tell the user to
-    /// enable. Plain data: the graph names no registry type.
-    pub target_owners: BTreeMap<String, String>,
+    /// For each target kind no loaded extension declares, the extensions that
+    /// declare it, in the order the registry build hands them (its candidate
+    /// vocabulary's, sorted), where it knows any: what I004 and E022 tell the
+    /// user to enable (ADR 0117, ADR 0369). A kind nothing is known to declare
+    /// has no entry. Plain data: the graph names no registry type.
+    pub target_owners: BTreeMap<String, Vec<String>>,
     /// Every registered field's form, and the kinds that take any field:
     /// the graph build stores each written value as its form coerces it,
     /// before references resolve, so a single reference on a reference_list
@@ -519,10 +520,7 @@ mod tests {
 
     /// A graph that drifted from its sources outside the changed file is
     /// caught: the comparison names the node that differs.
-    #[specforge_test(
-        behavior = "rebuild_affected_subgraph",
-        verify = "debug --verify-incremental performs cold rebuild comparison"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn a_divergence_from_the_cold_build_is_reported() {
         let mut build = build(&[
             ("a.spec", "behavior foo \"Foo\" { contract \"x\" }"),
@@ -572,10 +570,7 @@ mod tests {
     }
 
     /// A node out of place is no change to the delta, but the verification places every node.
-    #[specforge_test(
-        behavior = "rebuild_affected_subgraph",
-        verify = "debug --verify-incremental performs cold rebuild comparison"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn a_node_out_of_place_is_a_divergence_the_delta_ignores() {
         let mut build = build(&[
             ("a.spec", "behavior foo \"Foo\" { contract \"x\" }"),
@@ -601,10 +596,7 @@ mod tests {
     }
 
     /// The diagnostics are compared too, in order.
-    #[specforge_test(
-        behavior = "rebuild_affected_subgraph",
-        verify = "a rebuild whose diagnostics differ from a cold build is reported"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn a_diagnostic_divergence_from_the_cold_build_is_reported() {
         let mut build = build(&[
             ("a.spec", "behavior foo \"Foo\" { contract \"x\" }"),

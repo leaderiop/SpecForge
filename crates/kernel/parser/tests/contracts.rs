@@ -2,10 +2,7 @@ use specforge_parser::{FieldValue, parse};
 use specforge_test_macros::test as specforge_test;
 
 // B:parse_spec_file_to_ast — verify contract "requires/ensures consistency for spec file parsing"
-#[specforge_test(
-    behavior = "parse_spec_file_to_ast",
-    verify = "Parse Spec File to AST: spec file parsing holds — source_parser_available, valid_utf8_input, ast_produced, source_spans_complete, file_parsed_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn parse_spec_file_to_ast_contract() {
     // Requires: valid UTF-8 source string and file path
     // Ensures: entities populated, no errors, path preserved
@@ -44,10 +41,7 @@ behavior beta "Beta" {
 }
 
 // B:recover_from_syntax_errors — verify contract "requires/ensures consistency for syntax error recovery"
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"
-)]
+#[specforge_test(requirement = "FEATURE-023")]
 fn recover_from_syntax_errors_contract() {
     // Requires: source with syntax errors
     // Ensures: partial AST produced + errors collected (no panic)
@@ -104,10 +98,7 @@ behavior last_good "Last Good" {
 }
 
 // B:parse_use_imports — verify contract "requires/ensures consistency for use import parsing"
-#[specforge_test(
-    behavior = "parse_use_imports",
-    verify = "Parse Use Imports: use import parsing holds — source_parser_available, imports_extracted"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn parse_use_imports_contract() {
     // Requires: source with use declarations
     // Ensures: imports list populated with path, kind, and optional bindings
@@ -148,10 +139,7 @@ use { SpecFile, ParseError } from "types/core"
 }
 
 // B:parse_all_block_types — verify contract "requires/ensures consistency for block type parsing"
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "Parse All Block Types: block type parsing holds — source_parser_available, generic_blocks_parsed, unknown_keywords_accepted"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn parse_all_block_types_contract() {
     // Requires: source with behavior, feature, type (different keywords)
     // Ensures: all parsed with correct kind, id, and title
@@ -193,10 +181,7 @@ type AuthToken {
 }
 
 // B:parse_triple_quoted_strings — verify contract "requires/ensures consistency for triple-quoted string parsing"
-#[specforge_test(
-    behavior = "parse_triple_quoted_strings",
-    verify = "Parse Triple-Quoted Strings: triple-quoted string parsing holds — source_parser_available, newlines_preserved, dedent_applied, relative_indent_kept"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn parse_triple_quoted_strings_contract() {
     // Requires: entity with triple-quoted string field
     // Ensures: field preserves content with common indentation stripped
@@ -233,10 +218,7 @@ fn parse_triple_quoted_strings_contract() {
 }
 
 // B:parse_verify_statements — verify contract "requires/ensures consistency for verify statement parsing"
-#[specforge_test(
-    behavior = "parse_verify_statements",
-    verify = "Parse Verify Statements: verify statement parsing holds — source_parser_available, verify_statements_extracted, all_block_types_supported, semantic_validation_deferred"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn parse_verify_statements_contract() {
     // Requires: entity with verify lines
     // Ensures: verify list with kind and description for each
@@ -263,10 +245,7 @@ behavior validate "Validate" {
 }
 
 // B:parse_ref_blocks — verify contract "requires/ensures consistency for ref block parsing"
-#[specforge_test(
-    behavior = "parse_ref_blocks",
-    verify = "Parse Ref Blocks: ref block parsing holds — source_parser_available, ref_components_extracted, both_forms_handled, malformed_refs_rejected"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn parse_ref_blocks_contract() {
     // Requires: ref block with scheme.kind:identifier syntax
     // Ensures: ref entity in AST with decomposed scheme, ref_kind, identifier
@@ -290,10 +269,7 @@ fn parse_ref_blocks_contract() {
 }
 
 // B:parse_define_blocks — verify contract "requires/ensures consistency for define block parsing"
-#[specforge_test(
-    behavior = "parse_define_blocks",
-    verify = "Parse Define Blocks: define block parsing holds — source_parser_available, define_block_parsed, no_extension_knowledge_required"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn parse_define_blocks_contract() {
     // Requires: define block with name and body fields
     // Ensures: define entity in AST with kind="define", no title, fields preserved

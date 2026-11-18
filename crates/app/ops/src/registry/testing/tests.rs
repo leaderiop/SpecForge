@@ -7,7 +7,7 @@ use specforge_installed::hex_sha256;
 use specforge_package::{DeclaredPackage, PackageName, Version};
 use specforge_protocol_types::DeclaredCategory;
 
-#[specforge_test_macros::test(port = "Registry", verify = "Registry contract is satisfied")]
+#[test]
 fn the_memory_registry_keeps_the_registry_contract() {
     let published = contract_packages("memory-key", "memory-denied");
     let registry = published
@@ -45,10 +45,7 @@ fn it_refuses_every_call_when_it_cannot_open() {
     assert!(registry.asked().is_empty());
 }
 
-#[specforge_test_macros::test(
-    type = "RegistryManifest",
-    verify = "RegistryManifest schema is valid"
-)]
+#[test]
 fn the_registry_manifest_is_what_a_dry_run_judges() {
     let published = Published::new(
         b"\0asm tool".to_vec(),
@@ -72,10 +69,7 @@ fn the_registry_manifest_is_what_a_dry_run_judges() {
     );
 }
 
-#[specforge_test_macros::test(
-    type = "RegistryPackage",
-    verify = "RegistryPackage is what a package that passed the fetch policy hands an operation"
-)]
+#[test]
 fn a_fetched_package_carries_its_name_digest_declaration_and_signer() {
     let published = Published::new(
         b"\0asm tool".to_vec(),
@@ -112,10 +106,7 @@ fn it_records_what_it_was_asked() {
     assert_eq!(registry.listed(), [name]);
 }
 
-#[specforge_test_macros::test(
-    type = "RegistryPublished",
-    verify = "RegistryPublished is what the registry that took a publish answers with"
-)]
+#[test]
 fn a_published_version_is_listed_served_and_recorded() {
     let registry = MemoryRegistry::new();
     let name = PackageName::parse("@acme/tool").unwrap();
@@ -133,10 +124,7 @@ fn a_published_version_is_listed_served_and_recorded() {
     assert_eq!(registry.accepted_publishes(), [(name, version)]);
 }
 
-#[specforge_test_macros::test(
-    type = "RegistrySearched",
-    verify = "RegistrySearched is what a search over the configured registries answers with"
-)]
+#[test]
 fn a_search_answers_what_was_found_what_failed_and_how_many_were_asked() {
     let registry = MemoryRegistry::new().serving(Published::new(
         b"\0asm".to_vec(),
@@ -150,10 +138,7 @@ fn a_search_answers_what_was_found_what_failed_and_how_many_were_asked() {
     assert!(!searched.failed());
 }
 
-#[specforge_test_macros::test(
-    behavior = "search_registry",
-    verify = "a registry lists each package at the version add installs from it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_search_lists_the_version_add_installs() {
     let registry = MemoryRegistry::new()
         .serving(Published::new(
@@ -239,10 +224,7 @@ fn it_decides_a_key_change_by_the_policy_and_pins_only_through_pin() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "pin_publisher_key",
-    verify = "the memory registry refuses a denied key and accepts a trusted key's change without asking, as the configured registry does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn it_decides_a_denied_or_trusted_key_as_the_configured_registry_does() {
     let package = |name: &str, key: &str| {
         Published::new(b"\0asm tool".to_vec(), declaration(name, "1.0.0", &[])).signed_by(key)

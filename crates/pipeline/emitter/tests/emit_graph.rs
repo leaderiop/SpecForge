@@ -14,10 +14,7 @@ fn span() -> SourceSpan {
 }
 
 // B:export_agent_graph_format — verify unit "graph format includes all fields and metadata"
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all fields and metadata"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn emit_graph_includes_all_fields_and_metadata() {
     let mut fields = FieldMap::new();
     fields.push(
@@ -63,10 +60,7 @@ fn emit_graph_includes_all_fields_and_metadata() {
 
 // B:export_agent_graph_format — verify unit "graph format includes all nodes and edges"
 // (graph format is identical to full JSON — validates full fidelity)
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all nodes and edges"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn emit_graph_equals_emit_json() {
     let mut graph = Graph::new();
     // Added out of ID order, with a disconnected node.
@@ -131,10 +125,7 @@ fn emit_graph_equals_emit_json() {
 }
 
 // B:export_agent_graph_format — verify unit "output conforms to Graph Protocol schema"
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "output conforms to Graph Protocol schema"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn graph_format_conforms_to_graph_protocol_schema() {
     let mut graph = Graph::new();
     graph.add_node(Node {
@@ -198,10 +189,7 @@ fn graph_format_conforms_to_graph_protocol_schema() {
 }
 
 // B:export_agent_graph_format — verify unit "output includes schema_version field"
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "output includes schema_version field"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn graph_format_includes_schema_version() {
     let mut graph = Graph::new();
     graph.add_node(Node {
@@ -233,10 +221,7 @@ fn graph_format_includes_schema_version() {
 }
 
 // B:export_agent_graph_format — verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn structural_only_graph_exports_raw_keywords() {
     let mut graph = Graph::new();
     // Use non-standard keywords (zero-extension structural-only graph)

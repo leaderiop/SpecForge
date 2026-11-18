@@ -3,41 +3,43 @@
 
 use serde_json::json;
 use specforge_ops::authoring::edit::{Edit, Input};
-use std::collections::BTreeMap;
 
 use super::super::ledger::Why;
 use super::super::plan;
-use super::super::table;
+use super::super::table::{self, Home};
 use super::super::write;
-use super::{create, field, fixture, ledgered, many, old, one, planned, stops};
+use super::{
+    create_of, field_of, fixture, ledgered, link_dir, link_file, old, one, planned, stops,
+};
 
 #[test]
-fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
+fn a_decision_becomes_one_create_keeping_its_title_and_file() {
     let old = fixture();
     let entities = old.entities();
     plan::prechecks(&entities).expect("the fixture converts");
-    let planned = plan::plan(&entities, &[], &old.index(), &Default::default());
-    let headers: Vec<(&str, &str, &str, &str)> = planned
+    let planned = plan::plan(&entities);
+    let headers: Vec<(&str, String, &str, &str)> = planned
         .creates
         .iter()
         .map(|edit| match edit {
             Edit::Create {
-                kind,
-                id,
-                title,
-                file,
-                ..
-            } => (kind.as_str(), id.as_str(), title.as_str(), file.as_str()),
+                kind, title, file, ..
+            } => (
+                kind.as_str(),
+                super::path_of(edit),
+                title.as_str(),
+                file.as_str(),
+            ),
             other => panic!("only creates: {other:?}"),
         })
-        .filter(|header| header.1 != "store_entries_solution")
         .collect();
-    let expected: Vec<(&str, &str, &str, &str)> = entities
+    let expected: Vec<(&str, String, &str, &str)> = entities
         .iter()
         .filter_map(|e| {
+            let new = planned.ids.get(&e.kind, &e.id)?;
             Some((
-                table::new_kind(&e.kind)?,
-                e.id.as_str(),
+                new.kind,
+                new.path(),
                 e.title.as_deref().unwrap(),
                 e.file.as_str(),
             ))
@@ -45,114 +47,126 @@ fn a_decision_becomes_one_create_keeping_its_id_title_and_file() {
         .collect();
     assert_eq!(
         headers, expected,
-        "every converted entity, once, in the old order"
+        "every converted entity, once, in the old order, by its new path"
     );
     let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
-    assert_eq!(decisions.len(), 6, "every fixture decision, once");
+    assert_eq!(
+        decisions.iter().map(|h| h.1.as_str()).collect::<Vec<_>>(),
+        ["D-01", "D-02"],
+        "every fixture decision in force, once, numbered in old-id order (one_parser, second_store): the others are \
+         dropped whole (ADR 0372 D5, D3)"
+    );
     assert_eq!(decisions[0].3, "spec/governance/decisions.spec");
     assert_eq!(
-        (planned.converted, planned.created),
-        (expected.len(), 1),
-        "the module and the release create nothing; one feature's solution is created"
+        (planned.converted, planned.creates.len()),
+        (expected.len(), expected.len()),
+        "no entity is created that the old spec did not hold"
     );
 }
 
+/// Only a decision in force converts (ADR 0372 D5): status `accepted` and no `superseded_by`. It writes `text`,
+/// `rationale`, `settled true` and `origin project`; every other decision is dropped whole, its title and each value
+/// one `dropped` entry whose reason names `docs/adr/` as its record.
 #[test]
-fn decision_status_writes_outcome_or_settled_and_never_status() {
+fn only_a_decision_in_force_converts() {
+    let decision = |id: &str, status: &str, more: serde_json::Value| {
+        let mut fields = json!({"status": status, "decision": "D", "reason": "R"});
+        for (k, v) in more.as_object().unwrap() {
+            fields[k] = v.clone();
+        }
+        old("decision", id, fields)
+    };
     let planned = planned(&[
-        old(
-            "decision",
-            "a",
-            json!({"status": "accepted", "decision": "A"}),
-        ),
-        old(
-            "decision",
-            "p",
-            json!({"status": "proposed", "decision": "P"}),
-        ),
-        old(
-            "decision",
-            "d",
-            json!({"status": "deprecated", "decision": "D"}),
-        ),
-        old(
-            "decision",
-            "s",
-            json!({"status": "superseded", "decision": "S"}),
-        ),
+        decision("a", "accepted", json!({})),
+        decision("p", "proposed", json!({})),
+        decision("d", "deprecated", json!({})),
+        decision("s", "superseded", json!({})),
+        decision("later", "accepted", json!({"superseded_by": "a"})),
     ]);
-    assert_eq!(field(&planned, "a", "settled"), Some(&Input::Bool(true)));
-    assert_eq!(field(&planned, "a", "outcome"), None);
-    assert_eq!(field(&planned, "p", "outcome"), Some(&one("pending")));
-    assert_eq!(field(&planned, "d", "outcome"), Some(&one("revisit")));
-    for id in ["a", "p", "d", "s"] {
-        assert_eq!(field(&planned, id, "status"), None, "{id}");
+    let (kind, fields) = create_of(&planned, "decision", "a");
+    assert_eq!(kind, "decision");
+    assert_eq!(
+        fields,
+        &std::collections::BTreeMap::from([
+            ("origin".to_string(), one("project")),
+            ("rationale".to_string(), one("R")),
+            ("settled".to_string(), Input::Bool(true)),
+            ("text".to_string(), one("D")),
+        ])
+    );
+    assert_eq!(planned.creates.len(), 1);
+    assert_eq!(planned.converted, 1);
+    assert!(
+        planned.checks.is_empty(),
+        "no computed value of a decision is compared: `in_force` left (ADR 0370 D4)"
+    );
+    for (id, fields) in [
+        ("p", ["decision", "reason", "status", "title"].as_slice()),
+        ("d", &["decision", "reason", "status", "title"]),
+        ("s", &["decision", "reason", "status", "title"]),
+        (
+            "later",
+            &["decision", "reason", "status", "superseded_by", "title"],
+        ),
+    ] {
+        let ledger = ledgered(&planned, id);
+        assert_eq!(
+            ledger.iter().map(|(f, _)| f.as_str()).collect::<Vec<_>>(),
+            fields,
+            "{id}"
+        );
+        for (field, why) in ledger {
+            assert!(
+                matches!(&why, Why::Dropped(reason) if reason.contains("docs/adr/") && reason.contains("ADR 0372 D5")),
+                "{id}.{field}: {why:?}"
+            );
+        }
     }
-    assert_eq!(
-        create(&planned, "s").1.keys().collect::<Vec<_>>(),
-        ["origin", "text"]
-    );
-    let in_force: Vec<(&str, Option<bool>)> = planned
-        .checks
-        .iter()
-        .map(|c| {
-            assert_eq!((c.new_kind, c.new_field), ("decision", "in_force"));
-            (c.id.as_str(), c.expected.as_ref().and_then(|v| v.as_bool()))
-        })
-        .collect();
-    assert_eq!(
-        in_force,
-        [
-            ("a", Some(true)),
-            ("p", Some(true)),
-            ("d", Some(true)),
-            ("s", Some(false))
-        ]
-    );
 }
 
+/// A field whose home left `@gsd/core` (ADR 0370 D3 and D4) is one `dropped` entry with its row's reason, and the
+/// decision still converts with what it keeps.
 #[test]
-fn superseded_by_is_written_as_supersedes_on_the_successor() {
-    let planned = planned(&[
-        old(
-            "decision",
-            "first",
-            json!({"status": "superseded", "decision": "1", "superseded_by": "third"}),
-        ),
-        old(
-            "decision",
-            "second",
-            json!({"status": "superseded", "decision": "2", "superseded_by": "third"}),
-        ),
-        old(
-            "decision",
-            "third",
-            json!({"status": "accepted", "decision": "3"}),
-        ),
-    ]);
-    assert_eq!(field(&planned, "first", "supersedes"), None);
-    assert_eq!(field(&planned, "first", "superseded_by"), None);
-    assert_eq!(
-        field(&planned, "third", "supersedes"),
-        Some(&many(&["first", "second"])),
-        "the direction flips, every superseded decision listed, by id"
-    );
-}
-
-#[test]
-fn alternatives_become_options_by_name() {
+fn a_field_whose_home_leaves_is_ledgered_dropped_and_the_entity_still_converts() {
     let planned = planned(&[old(
         "decision",
         "x",
-        json!({"status": "accepted", "decision": "X", "alternatives": ["A hand parser", "Two parsers"]}),
+        json!({
+            "status": "accepted", "decision": "Read with one parser.", "context": "Readers drift.",
+            "alternatives": ["A hand parser", "Two parsers"],
+        }),
     )]);
-    let option = |name: &str| BTreeMap::from([("name".to_string(), one(name))]);
+    assert_eq!(planned.creates.len(), 1);
+    let (kind, fields) = create_of(&planned, "decision", "x");
+    assert_eq!(kind, "decision");
     assert_eq!(
-        field(&planned, "x", "alternatives"),
-        Some(&Input::Blocks(vec![
-            option("A hand parser"),
-            option("Two parsers")
-        ]))
+        fields.keys().collect::<Vec<_>>(),
+        ["origin", "settled", "text"],
+        "of the three fields, only `decision` is written, as `text`"
+    );
+    assert_eq!(
+        field_of(&planned, "decision", "x", "text"),
+        Some(&one("Read with one parser."))
+    );
+    let reason = |field: &str| {
+        let &[Home::Dropped(reason)] = table::row_of("decision", field).unwrap().homes else {
+            panic!("decision.{field} is dropped");
+        };
+        assert!(reason.contains("ADR 0370"), "{reason}");
+        Why::Dropped(reason.to_string())
+    };
+    let dropped: Vec<(String, Why)> = ledgered(&planned, "x")
+        .into_iter()
+        .filter(|(_, why)| matches!(why, Why::Dropped(_)))
+        .collect();
+    assert_eq!(
+        dropped,
+        ["alternatives", "context"].map(|f| (f.to_string(), reason(f))),
+        "one entry per value, each with its row's reason"
+    );
+    assert!(
+        reason("context") != reason("alternatives"),
+        "each reason names the field that leaves"
     );
 }
 
@@ -163,7 +177,10 @@ fn a_required_value_the_old_spec_lacks_is_filled_and_ledgered() {
         "x",
         json!({"status": "accepted", "decision": "X"}),
     )]);
-    assert_eq!(field(&planned, "x", "origin"), Some(&one("project")));
+    assert_eq!(
+        field_of(&planned, "decision", "x", "origin"),
+        Some(&one("project"))
+    );
     assert_eq!(
         ledgered(&planned, "x"),
         [(
@@ -176,32 +193,51 @@ fn a_required_value_the_old_spec_lacks_is_filled_and_ledgered() {
     );
 }
 
+/// No row refuses (ADR 0372 D2): a field the old builtins register that no `@gsd/core` field takes is one `dropped`
+/// entry with its reason, and the run goes on.
 #[test]
-fn a_value_in_a_refused_field_stops_the_run_naming_it() {
-    let stops = stops(&[
+fn a_known_field_with_no_home_is_dropped_and_never_stops_the_run() {
+    let entities = [
         old(
             "decision",
             "x",
-            json!({"status": "accepted", "decision": "X", "refs": ["https://example.org"]}),
+            json!({"status": "accepted", "decision": "X", "refs": ["https://example.org"], "description": "Why"}),
         ),
         old(
-            "decision",
-            "y",
-            json!({"status": "accepted", "decision": "Y", "description": "Why"}),
+            "constraint",
+            "c",
+            json!({"description": "D", "scope": "the store"}),
         ),
-    ]);
-    let named: Vec<String> = stops.iter().map(ToString::to_string).collect();
-    assert_eq!(
-        named,
-        [
-            "decision 'x' refs: refused: no kind holds it (value [\"https://example.org\"])",
-            "decision 'y' description: refused: no kind holds it (value \"Why\")",
-        ]
-    );
+        old(
+            "feature",
+            "f",
+            json!({"problem": "P", "depends_on": ["g"], "features": ["g"]}),
+        ),
+    ];
+    assert_eq!(plan::prechecks(&entities), Ok(()));
+    let planned = planned(&entities);
+    assert_eq!(planned.converted, 3);
+    for (id, name) in [
+        ("x", "refs"),
+        ("x", "description"),
+        ("c", "scope"),
+        ("f", "depends_on"),
+        ("f", "features"),
+    ] {
+        let whys: Vec<Why> = ledgered(&planned, id)
+            .into_iter()
+            .filter(|(f, _)| f == name)
+            .map(|(_, why)| why)
+            .collect();
+        assert!(
+            matches!(whys.as_slice(), [Why::Dropped(reason)] if !reason.trim().is_empty()),
+            "{id}.{name}: {whys:?}"
+        );
+    }
 }
 
 #[test]
-fn two_creates_with_one_id_stop_the_run_naming_them() {
+fn two_entities_given_one_id_stop_the_run_naming_them() {
     let stops = stops(&[
         old(
             "decision",
@@ -211,13 +247,13 @@ fn two_creates_with_one_id_stop_the_run_naming_them() {
         old(
             "decision",
             "same",
-            json!({"status": "proposed", "decision": "B"}),
+            json!({"status": "accepted", "decision": "B"}),
         ),
     ]);
     assert_eq!(stops.len(), 1, "{stops:?}");
     assert_eq!(
         stops[0].to_string(),
-        "'same': two creates with one id, by decision 'same' and decision 'same'"
+        "'D-01': two entities given one decision id, by decision 'same' and decision 'same'"
     );
 }
 
@@ -252,12 +288,19 @@ fn the_ledger_is_sorted_and_identical_across_runs() {
         [
             ("alpha".to_string(), "invariants".to_string()),
             ("alpha".to_string(), "origin".to_string()),
-            ("zeta".to_string(), "origin".to_string()),
+            ("zeta".to_string(), "decision".to_string()),
+            ("zeta".to_string(), "status".to_string()),
+            ("zeta".to_string(), "title".to_string()),
         ]
     );
     let text = first.ledger.to_json("p");
-    assert!(text.starts_with("{\n  \"format\": 1,\n  \"from\": \"p\",\n  \"entries\": ["));
-    assert!(text.ends_with("}\n"));
+    assert!(text.starts_with("{\n  \"format\": 2,\n  \"from\": \"p\",\n  \"entries\": ["));
+    assert!(
+        text.ends_with(
+            "  \"ids\": [\n    {\n      \"kind\": \"decision\",\n      \"old\": \"alpha\",\n      \"new\": \"D-01\"\n    }\n  ]\n}\n"
+        ),
+        "the id map follows the entries, the converted decision alone: {text}"
+    );
 }
 
 /// The spec root most sources keep.
@@ -288,14 +331,19 @@ fn a_target_holding_a_project_is_refused() {
 }
 
 /// A symbolic link where absorb writes is refused, dangling or not, and left where it is: init would write through
-/// it, and a roll back would remove it.
-#[cfg(unix)]
+/// it, and a roll back would remove it. It runs on both OSes, its links made by `link_dir` and `link_file` (ADR 0375
+/// D4).
 #[test]
 fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
     for name in ["spec", ".specforge", ".gitignore"] {
         let dir = tempfile::tempdir().unwrap();
         let link = dir.path().join(name);
-        std::os::unix::fs::symlink(dir.path().join("nowhere"), &link).unwrap();
+        let target = dir.path().join("nowhere");
+        if name == ".gitignore" {
+            link_file(&target, &link);
+        } else {
+            link_dir(&target, &link);
+        }
         let refused = write::check_to(dir.path(), SPEC).unwrap_err();
         assert!(
             refused.ends_with(&format!(
@@ -307,7 +355,7 @@ fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
     }
     let dir = tempfile::tempdir().unwrap();
     let to = dir.path().join("to");
-    std::os::unix::fs::symlink(dir.path(), &to).unwrap();
+    link_dir(dir.path(), &to);
     assert!(
         write::check_to(&to, SPEC)
             .unwrap_err()
@@ -316,8 +364,8 @@ fn a_symbolic_link_where_absorb_writes_is_refused_and_kept() {
 }
 
 /// The ledger is a path absorb writes like any other: a symbolic link there is refused, dangling or not, and kept, and
-/// a write made after the check refuses it too; a ledger already there, a file, is replaced.
-#[cfg(unix)]
+/// a write made after the check refuses it too; a ledger already there, a file, is replaced. It runs on both OSes,
+/// its links made by `link_file` (ADR 0375 D4).
 #[test]
 fn a_symbolic_link_at_the_ledger_path_is_refused_and_never_written_through() {
     let dir = tempfile::tempdir().unwrap();
@@ -325,7 +373,7 @@ fn a_symbolic_link_at_the_ledger_path_is_refused_and_never_written_through() {
     std::fs::write(&outside, "mine\n").unwrap();
     for target in [outside.clone(), dir.path().join("nowhere")] {
         let link = dir.path().join("absorb-ledger.json");
-        std::os::unix::fs::symlink(&target, &link).unwrap();
+        link_file(&target, &link);
         let refused = write::check_output("ledger", &link).unwrap_err();
         assert!(
             refused.ends_with("is a symbolic link: absorb never writes through one; remove it, or name another --ledger"),
@@ -359,11 +407,14 @@ fn the_source_spec_root_decides_what_the_target_may_hold() {
     assert!(write::check_to(dir.path(), Some("specs/main")).is_ok());
     std::fs::write(dir.path().join("crates/a/old.spec"), "").unwrap();
     let held = write::check_to(dir.path(), None).unwrap_err();
+    // The file is named as the OS writes a path: `crates\a\old.spec` on Windows.
+    let named = std::path::Path::new("crates").join("a").join("old.spec");
     assert!(
-        held.ends_with(
-            "holds 1 spec file(s) the target would read as its own (the source's spec root is the \
-                        project's root): crates/a/old.spec"
-        ),
+        held.ends_with(&format!(
+            "holds 1 spec file(s) the target would read as its own (the source's spec root is the project's root): \
+             {}",
+            named.display()
+        )),
         "{held}"
     );
     assert!(write::check_to(dir.path(), Some("specs")).is_ok());
@@ -379,9 +430,10 @@ fn the_source_spec_root_decides_what_the_target_may_hold() {
         .claim(&["Cargo.toml".into(), "crates/a/old.spec".into()])
         .unwrap_err();
     assert!(
-        held.ends_with(
-            "already holds Cargo.toml, crates/a/old.spec: convert into a directory with no project"
-        ),
+        held.ends_with(&format!(
+            "already holds Cargo.toml, {}: convert into a directory with no project",
+            named.display()
+        )),
         "{held}"
     );
 }

@@ -11,41 +11,25 @@ fn load_query(scm: &str) -> Result<tree_sitter::Query, QueryError> {
     tree_sitter::Query::new(&language, scm)
 }
 
-#[specforge_test(
-    behavior = "provide_syntax_highlighting_queries",
-    verify = "highlights.scm loads in Tree-sitter runtime and matches expected captures"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn highlights_scm_loads_without_error() {
     let scm = include_str!("../queries/highlights.scm");
     load_query(scm).expect("highlights.scm failed to load");
 }
 
-#[specforge_test(
-    behavior = "provide_code_folding_queries",
-    verify = "folds.scm loads in Tree-sitter runtime and produces expected fold regions"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn folds_scm_loads_without_error() {
     let scm = include_str!("../queries/folds.scm");
     load_query(scm).expect("folds.scm failed to load");
 }
 
-#[specforge_test(
-    behavior = "provide_indentation_queries",
-    verify = "indents.scm loads in Tree-sitter runtime and produces expected indent/dedent"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn indents_scm_loads_without_error() {
     let scm = include_str!("../queries/indents.scm");
     load_query(scm).expect("indents.scm failed to load");
 }
 
-#[specforge_test(
-    behavior = "provide_syntax_highlighting_queries",
-    verify = "highlights.scm captures generic_entity_block kind as @keyword"
-)]
-#[specforge_test(
-    behavior = "provide_syntax_highlighting_queries",
-    verify = "highlights.scm captures entity IDs as @constant"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn highlights_captures_entity_kind_as_keyword() {
     let scm = include_str!("../queries/highlights.scm");
     let language = tree_sitter_specforge::LANGUAGE.into();
@@ -124,18 +108,7 @@ fn query_captures(scm: &str, source: &str) -> Vec<(String, String)> {
     results
 }
 
-#[specforge_test(
-    behavior = "provide_code_folding_queries",
-    verify = "folds.scm marks generic entity_block as @fold"
-)]
-#[specforge_test(
-    behavior = "provide_code_folding_queries",
-    verify = "folds.scm marks spec and define blocks as @fold"
-)]
-#[specforge_test(
-    behavior = "provide_code_folding_queries",
-    verify = "folds.scm marks all brace-delimited sub-blocks within spec and define blocks as @fold"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn folds_marks_all_brace_delimited_blocks() {
     let source = r#"
 behavior foo "T" {
@@ -199,22 +172,7 @@ define my_kind {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_indentation_queries",
-    verify = "indents.scm indents after opening brace"
-)]
-#[specforge_test(
-    behavior = "provide_indentation_queries",
-    verify = "indents.scm dedents on closing brace"
-)]
-#[specforge_test(
-    behavior = "provide_indentation_queries",
-    verify = "indents.scm indents after opening bracket"
-)]
-#[specforge_test(
-    behavior = "provide_indentation_queries",
-    verify = "indents.scm dedents on closing bracket"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn indents_triggers_on_braces_and_brackets() {
     let source = r#"behavior foo "T" {
   tags [alpha, beta]
@@ -294,10 +252,7 @@ fn highlights_union_block_captures() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_code_folding_queries",
-    verify = "folds.scm marks ref blocks as collapsible regions"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn folds_ref_inline_not_foldable_ref_full_is() {
     let source = r#"
 ref gh.issue:1 "Inline ref"
@@ -406,10 +361,7 @@ type MyType {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_syntax_highlighting_queries",
-    verify = "highlights.scm captures all block keywords as @keyword"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn highlights_captures_structural_keywords() {
     // use, spec, ref, define, verify should all be @keyword
     let source = r#"
@@ -494,10 +446,7 @@ behavior format_diagnostics "Format Diagnostics" {
     assert_eq!(use_count, 7, "expected 7 use_import nodes, got {use_count}");
 }
 
-#[specforge_test(
-    behavior = "provide_syntax_highlighting_queries",
-    verify = "highlights.scm captures strings and triple-quoted strings as @string"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn highlights_captures_triple_quoted_string() {
     let source = "behavior foo \"T\" {\n  contract \"\"\"\n    hello\n  \"\"\"\n}";
     let captures = highlight_captures(source);
@@ -512,10 +461,7 @@ fn highlights_captures_triple_quoted_string() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_syntax_highlighting_queries",
-    verify = "highlights.scm colours a number, a date and a boolean by the shape of the word"
-)]
+#[specforge_test(requirement = "FEATURE-019")]
 fn highlights_colour_a_number_a_date_and_a_boolean_by_shape() {
     let source = "behavior b \"B\" {\n  a 42\n  b -5\n  c 2026-10-26\n  d true\n  e AUTH-01\n  f [03, 2026-10-26, false, v1.0]\n}\n";
     let captures = highlight_captures(source);
@@ -536,10 +482,7 @@ fn highlights_colour_a_number_a_date_and_a_boolean_by_shape() {
     assert!(!colour("v1.0").contains(&"number"), "{captures:?}");
 }
 
-#[specforge_test(
-    behavior = "parse_verdict_statement",
-    verify = "highlights.scm captures a verdict statement's keyword, rule and outcome"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn highlights_captures_a_verdict_statement() {
     let source = "plan P \"P\" {\n  verdict gsd/W311 passed {\n    judge \"j\"\n  }\n}\n";
     let captures = highlight_captures(source);

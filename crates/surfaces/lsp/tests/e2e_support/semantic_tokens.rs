@@ -147,10 +147,7 @@ fn decode_tokens(init: &Value, data: &[Value]) -> Vec<(u64, u64, u64, String)> {
         .collect()
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "entity ID declaration uses its kind's semantic_token from the KindRegistry"
-)]
+#[spec(requirement = "FEATURE-121")]
 #[tokio::test]
 async fn e2e_semantic_tokens_declaration_uses_kind_semantic_token() {
     // @specforge/software declares port -> interface, @specforge/governance

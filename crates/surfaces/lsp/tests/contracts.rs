@@ -99,10 +99,7 @@ pub(crate) fn registries_for(extensions: &[&str]) -> specforge_registry::Registr
 }
 
 // B:lsp_shutdown — verify contract "requires/ensures consistency for LSP shutdown"
-#[specforge_test(
-    behavior = "lsp_shutdown",
-    verify = "LSP Shutdown: LSP shutdown holds — lsp_initialized_fired, resources_released, post_shutdown_rejected, no_disk_persistence, lsp_shutdown_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-062")]
 fn lsp_shutdown_contract() {
     // Requires: active LSP state with open documents
     // Ensures: shutdown releases state, subsequent operations rejected
@@ -125,10 +122,7 @@ fn lsp_shutdown_contract() {
 }
 
 // B:document_open_close — verify contract "requires/ensures consistency for document open/close"
-#[specforge_test(
-    behavior = "document_open_close",
-    verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_file_published, closed_file_from_disk"
-)]
+#[specforge_test(requirement = "FEATURE-062")]
 #[tokio::test]
 async fn document_open_close_contract() {
     // lsp_initialized_fired: the session is initialized.
@@ -166,10 +160,7 @@ async fn document_open_close_contract() {
 /// Formatting a document with a parse error publishes the formatter's
 /// W142 (the error region is kept verbatim) without erasing what compiling
 /// the document reported: the E001 and the dangling reference stay.
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "formatting keeps the document's compile diagnostics published"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn formatting_keeps_the_compile_diagnostics() {
     let (mut session, _) = crate::session::Session::start(None).await;
@@ -263,10 +254,7 @@ pub(crate) fn apply_edits(text: &str, edits: &[serde_json::Value]) -> String {
 /// A behavior indented by 4.
 const FOUR: &str = "behavior login \"Login\" {\n    contract \"The system MUST log in\"\n}\n";
 
-#[specforge_test(
-    behavior = "lsp_respect_editor_config",
-    verify = "the editor formats a project file as specforge format --check expects"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn formatting_uses_the_project_format_config() {
     let (_dir, root) = format_project(&[
@@ -279,10 +267,7 @@ async fn formatting_uses_the_project_format_config() {
     let edits = session.format(&uri).await;
     assert_eq!(edits, serde_json::json!([]));
 }
-#[specforge_test(
-    behavior = "lsp_format_range",
-    verify = "range formatting matches full formatting for affected blocks"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn range_formatting_removes_a_blank_line_in_its_block() {
     let text =
@@ -305,10 +290,7 @@ const CRLF_TWO: &str = "behavior a \"A\" {\r\n  contract \"x\"\r\n}\r\n\r\nbehav
 const UNTERMINATED_TWO: &str =
     "behavior a \"A\" {\n  contract \"x\"\n}\n\nbehavior b \"B\" {\n      contract \"y\"\n}";
 
-#[specforge_test(
-    behavior = "lsp_format_range",
-    verify = "range formatting changes no byte outside the blocks it touches"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn range_formatting_changes_nothing_outside_its_blocks() {
     let (_dir, root) = format_project(&[
@@ -345,10 +327,7 @@ async fn range_formatting_changes_nothing_outside_its_blocks() {
     }
 }
 
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "TextEdit coordinates are 0-indexed lines and columns"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn formatting_edits_are_zero_based_utf16_positions() {
     // `é` is 2 bytes and 1 UTF-16 unit.
@@ -366,10 +345,7 @@ async fn formatting_edits_are_zero_based_utf16_positions() {
     );
 }
 
-#[specforge_test(
-    behavior = "lsp_format_range",
-    verify = "a region left unformatted is reported at its document lines"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn range_formatting_publishes_a_kept_region_at_its_line() {
     let text = "behavior a \"A\" {\n  contract \"a\"\n}\n\nbehavior b \"B\" {\n  contract \"b\"\n}\n\nbehavior c \"C\" {\n      contract \"c\"\n}\n\n}}}\n";
@@ -395,10 +371,7 @@ async fn range_formatting_publishes_a_kept_region_at_its_line() {
     );
 }
 
-#[specforge_test(
-    behavior = "lsp_respect_editor_config",
-    verify = "the editor is told once when the project's configuration overrides its settings"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn precedence_is_logged_once() {
     let two = "behavior login \"Login\" {\n  contract \"The system MUST log in\"\n}\n";
@@ -439,10 +412,7 @@ async fn precedence_is_logged_once() {
 }
 
 // B:autocomplete_entity_ids — verify contract "requires/ensures consistency for entity ID autocomplete"
-#[specforge_test(
-    behavior = "autocomplete_entity_ids",
-    verify = "Autocomplete Entity IDs: entity ID autocomplete holds — graph_available, field_registry_available, matching_ids_suggested, target_kind_filtering_applied"
-)]
+#[specforge_test(requirement = "FEATURE-049")]
 fn autocomplete_entity_ids_contract() {
     // Requires: graph with entities + prefix
     // Ensures: matching IDs returned with kind and title
@@ -479,10 +449,8 @@ fn autocomplete_entity_ids_contract() {
 }
 
 // B:complete_field_names — verify contract "requires/ensures consistency for field name completion"
-#[specforge_test(
-    behavior = "complete_field_names",
-    verify = "Complete Field Names: field name completion holds — field_registry_available, cursor_inside_entity, fields_suggested, snippets_informed"
-)]
+#[specforge_test(requirement = "FEATURE-026")]
+#[specforge_test(requirement = "FEATURE-049")]
 fn complete_field_names_contract() {
     // Requires: entity kind name + populated FieldRegistry
     // Ensures: field names appropriate for that kind returned
@@ -515,10 +483,7 @@ fn complete_field_names_contract() {
 }
 
 // B:complete_keywords — verify contract "requires/ensures consistency for keyword completion"
-#[specforge_test(
-    behavior = "complete_keywords",
-    verify = "Complete Keywords: keyword completion holds — kind_registry_available, cursor_at_top_level, keywords_delegated, structural_keywords_included"
-)]
+#[specforge_test(requirement = "FEATURE-049")]
 fn complete_keywords_contract() {
     // Requires: set of registered extension kinds
     // Ensures: all registered kinds + structural keywords returned, no duplicates
@@ -555,10 +520,7 @@ fn complete_keywords_contract() {
 }
 
 // B:hover_information — verify contract "requires/ensures consistency for hover information"
-#[specforge_test(
-    behavior = "hover_information",
-    verify = "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
-)]
+#[specforge_test(requirement = "FEATURE-049")]
 fn hover_information_contract() {
     // Requires: entity ID exists in graph
     // Ensures: hover returns markdown with kind, id, title; None for missing
@@ -581,10 +543,7 @@ fn hover_information_contract() {
 }
 
 // B:goto_import_definition — verify contract "requires/ensures consistency for import go-to-definition"
-#[specforge_test(
-    behavior = "goto_import_definition",
-    verify = "Go-to-Definition on Imports: import go-to-definition holds — imports_resolved, target_file_navigated"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn goto_import_definition_contract() {
     // Requires: use import paths + the sources the project was compiled from
     // Ensures: resolves to the source's location; None for missing
@@ -622,10 +581,7 @@ fn goto_import_definition_contract() {
 }
 
 // B:prepare_rename — verify contract "requires/ensures consistency for prepare rename"
-#[specforge_test(
-    behavior = "prepare_rename",
-    verify = "Prepare Rename: prepare rename holds — graph_available, token_range_returned, non_renameable_rejected"
-)]
+#[specforge_test(requirement = "FEATURE-111")]
 fn contract_prepare_rename() {
     // Requires: the graph, built from the files' text
     // Ensures: the token under the cursor (declaration or reference) is
@@ -675,10 +631,7 @@ fn contract_prepare_rename() {
 }
 
 // B:rename_entity_id — verify contract "requires/ensures consistency for entity rename"
-#[specforge_test(
-    behavior = "rename_entity_id",
-    verify = "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-111")]
 fn rename_entity_id_contract() {
     // Requires: entity in graph with references from other entities + new name
     // Ensures: edits for the declaration and every reference, nothing
@@ -725,10 +678,7 @@ fn rename_entity_id_contract() {
 }
 
 // B:outline_view — verify contract "requires/ensures consistency for outline view"
-#[specforge_test(
-    behavior = "outline_view",
-    verify = "Outline View: outline view holds — graph_available, kind_registry_available, all_entities_listed, symbol_kind_delegated"
-)]
+#[specforge_test(requirement = "FEATURE-078")]
 fn outline_view_contract() {
     // Requires: graph with entities across files
     // Ensures: the outline of a file is its entities, in line order, each
@@ -773,10 +723,7 @@ fn outline_view_contract() {
 }
 
 // B:workspace_symbol_search — verify contract "requires/ensures consistency for workspace symbol search"
-#[specforge_test(
-    behavior = "workspace_symbol_search",
-    verify = "Workspace Symbol Search: workspace symbol search holds — graph_available, kind_registry_available, matching_entities_returned, symbol_kind_delegated"
-)]
+#[specforge_test(requirement = "FEATURE-078")]
 fn workspace_symbol_search_contract() {
     // Requires: graph with entities + search query
     // Ensures: results match by ID prefix or title fragment with kind
@@ -798,10 +745,7 @@ fn workspace_symbol_search_contract() {
 }
 
 // B:provide_semantic_tokens — verify contract "requires/ensures consistency for semantic tokens"
-#[specforge_test(
-    behavior = "provide_semantic_tokens",
-    verify = "Provide Semantic Tokens: semantic tokens holds — graph_available, kind_registry_available, tokens_classified, structural_keywords_enforced, extension_delegation_applied"
-)]
+#[specforge_test(requirement = "FEATURE-121")]
 fn provide_semantic_tokens_contract() {
     // Requires: source text + registered kinds
     // Ensures: tokens classified with correct types (keyword, property, string for triple-quoted)
@@ -845,10 +789,7 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Regi
     })
 }
 // B:go_to_definition — verify contract "requires/ensures consistency for go-to-definition"
-#[specforge_test(
-    behavior = "go_to_definition",
-    verify = "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn go_to_definition_contract() {
     // Requires: graph with resolved entity declarations
     // Ensures: the declaration site (file, line, column of the block
@@ -893,10 +834,7 @@ fn go_to_definition_contract() {
 }
 
 // B:incremental_document_sync — verify contract "requires/ensures consistency for incremental document sync"
-#[specforge_test(
-    behavior = "incremental_document_sync",
-    verify = "Incremental Document Sync: incremental document sync holds — lsp_initialized_fired, document_open, buffer_consistent, partial_update_applied"
-)]
+#[specforge_test(requirement = "FEATURE-059")]
 fn incremental_document_sync_contract() {
     // Requires: LSP initialized with INCREMENTAL sync, document open
     // Ensures: buffer consistent after partial update; only changed range applied
@@ -921,10 +859,7 @@ fn incremental_document_sync_contract() {
 }
 
 // B:live_diagnostics — verify contract "requires/ensures consistency for live diagnostics"
-#[specforge_test(
-    behavior = "emit_live_diagnostics",
-    verify = "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
-)]
+#[specforge_test(requirement = "FEATURE-059")]
 #[tokio::test]
 async fn live_diagnostics_contract() {
     // lsp_initialized_fired, graph_available: an initialized session with

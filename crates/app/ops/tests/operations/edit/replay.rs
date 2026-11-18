@@ -84,10 +84,7 @@ fn create_of(node: &Node) -> Option<Vec<Edit>> {
     Some(std::iter::once(create).chain(annotated).collect())
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "every block an edit touches is format-clean"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn the_todo_app_replays_through_typed_edits() {
     let todo = TestProject::copy_of(specforge_repo_root::repo_root().join("examples/todo-app"));
     let original = todo.compile();

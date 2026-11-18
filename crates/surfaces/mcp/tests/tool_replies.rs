@@ -130,10 +130,7 @@ fn open_paths<'v>(
     }
 }
 
-#[specforge_test(
-    behavior = "follow_negotiated_mcp_revision",
-    verify = "a core tool's output schema is derived from its typed reply: every object it closes lists its keys, every array its items"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn every_core_output_schema_is_closed() {
     let mut found = BTreeSet::new();
     for spec in specforge_mcp::tools::CORE_TOOLS {
@@ -162,10 +159,7 @@ fn every_core_output_schema_is_closed() {
     );
 }
 
-#[specforge_test(
-    behavior = "state_mcp_messages_as_spec_types",
-    verify = "a sent document's schema closes every object it holds but its listed open values, and repeats no object schema"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn every_sent_document_is_closed() {
     for document in crate::support::documents::sent() {
         let mut paths = BTreeSet::new();
@@ -206,10 +200,7 @@ fn holds_rows(result: &Value, key: &str) {
     assert_eq!(&text, structured, "the text is the structured result");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "the result is an object holding the hits as results, with structuredContent"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_answers_an_object() {
     holds_rows(
         &result_of("specforge.search", json!({"query": "a"})),
@@ -217,26 +208,17 @@ fn search_answers_an_object() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_entities_by_kind",
-    verify = "the result is an object holding the entities"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn list_answers_an_object() {
     holds_rows(&result_of("specforge.list", json!({})), "entities");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "the result is an object holding the rows as entities"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn coverage_answers_an_object() {
     holds_rows(&result_of("specforge.coverage", json!({})), "entities");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "the result is an object holding the outline as entries"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_answers_an_object() {
     holds_rows(
         &result_of("specforge.outline", json!({"file": "test.spec"})),
@@ -244,18 +226,12 @@ fn outline_answers_an_object() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "the result is an object holding the fixes"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn suggest_fixes_answers_an_object() {
     holds_rows(&result_of("specforge.suggest_fixes", json!({})), "fixes");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "an untitled entity's reply has no title"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn an_untitled_entity_has_no_title() {
     let reply = result_of("specforge.inspect", json!({"entity_id": "untitled_one"}));
     let structured = reply["structuredContent"].as_object().expect("an object");
@@ -266,10 +242,7 @@ fn an_untitled_entity_has_no_title() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_inspect_tool",
-    verify = "the entity's diagnostics are in the shape validate reports them"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn inspect_diagnostics_are_validates() {
     let mut served = crate::support::replies::reading();
     let inspected = crate::support::tool(

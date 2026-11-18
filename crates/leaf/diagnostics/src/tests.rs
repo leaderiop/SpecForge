@@ -114,10 +114,7 @@ fn catalog_is_sorted_unique_and_well_formed() {
 
 /// The catalog describes a diagnostic the host reported, or one its
 /// owner reported; ownership decides, not the level it was reported at.
-#[specforge_test(
-    invariant = "diagnostic_code_uniqueness",
-    verify = "an extension reports only its own catalogued codes, at the level the catalog or the letter states"
-)]
+#[specforge_test(requirement = "INVARIANT-017")]
 fn describes_reads_ownership_not_level() {
     let book = Codebook::default();
     let describes = |code: &str, origin: Option<&str>| book.describes(code, origin);
@@ -148,10 +145,7 @@ fn lookup_is_case_insensitive() {
 
 /// The table builds each constant and its catalog entry from the same
 /// tokens, so one constant of every shape stands for all of them.
-#[specforge_test(
-    invariant = "diagnostic_code_uniqueness",
-    verify = "a core code's constant carries its catalogued level and owner"
-)]
+#[specforge_test(requirement = "INVARIANT-017")]
 fn code_constants_are_their_catalog_entries() {
     for (code, level) in [
         (codes::W112, Level::Warning),
@@ -176,10 +170,7 @@ fn code_constants_are_their_catalog_entries() {
 
 /// The `machine` codes are the effects summaries and the links family's transport answers: the constant and the
 /// entry agree, and every other core code is the project's.
-#[specforge_test(
-    invariant = "diagnostic_code_uniqueness",
-    verify = "a core code's constant carries its catalogued machine marker"
-)]
+#[specforge_test(requirement = "INVARIANT-017")]
 fn machine_codes_are_effect_summaries() {
     let machine: Vec<&str> = CATALOG
         .iter()
@@ -381,10 +372,7 @@ fn consumer_references_do_not_count_as_emitting() {
 /// `codes::X` references (a constant exists only for a core code, so the
 /// owner needs no guess); the guests' are string literals, owned by
 /// their directory ([`guest_owners`]).
-#[specforge_test(
-    invariant = "diagnostic_code_uniqueness",
-    verify = "Diagnostic Code Uniqueness guarantee holds"
-)]
+#[specforge_test(requirement = "INVARIANT-017")]
 fn explain_catalog_matches_emitted_codes() {
     let catalog: BTreeMap<&str, &CodeEntry> = CATALOG.iter().map(|e| (e.code, e)).collect();
     let host = host_references();

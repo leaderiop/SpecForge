@@ -22,10 +22,7 @@ fn plant(dir: &Path, names: &[&str]) -> (TempDir, std::path::PathBuf) {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a mutation writes no file through a hard link to a file outside the project"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn export_schema_cache_temp_is_not_written_through_a_hard_link() {
     let dir = TestProject::new().raw_config(
         r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software"]}"#,

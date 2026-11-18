@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schema/specforge.schema.json",
+  "name": "specforge",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": [
+    "@specforge/product",
+    "@specforge/software",
+    "@specforge/testing",
+    "@specforge/cargo-test",
+    "@specforge/governance",
+    "@specforge/formal",
+    "@code/core",
+    "@rust/cargo",
+    "@rust/source"
+  ]
+}

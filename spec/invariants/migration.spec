@@ -1,35 +1,31 @@
-// Migration-specific invariants
-
-invariant migration_idempotency "Migration Idempotency" {
-  guarantee """
+requirement INVARIANT-075 "Migration Idempotency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Running specforge migrate twice on the same .spec files MUST produce
     identical output. A file already at the target version MUST be left
     unchanged. The migration transform MUST be a pure function of the
     source content and version pair — no external state may influence
     the result.
   """
-  risk      medium
-  verify property "running migrate twice produces identical files"
-  verify unit "file already at target version is unchanged"
-  verify unit "a file no migration step changes is skipped as written, unformatted"
 }
 
-invariant migration_backup_safety "Migration Backup Safety" {
-  guarantee """
+requirement INVARIANT-071 "Migration Backup Safety" {
+  category "Invariant"
+  tier     v2
+  text     """
     Before any in-place migration modifies a .spec file, the system MUST
     create a backup copy with a .bak extension unless --no-backup is
     explicitly specified. The backup MUST be a byte-for-byte copy of the
     original file. If backup creation fails (e.g., disk full, permission
     denied), the migration MUST abort without modifying any file.
   """
-  risk      high
-  verify unit "backup created before file modification"
-  verify unit "backup is byte-for-byte copy of original"
-  verify unit "failed backup aborts migration for that file"
 }
 
-invariant migration_atomicity "Migration Atomicity" {
-  guarantee """
+requirement INVARIANT-070 "Migration Atomicity" {
+  category "Invariant"
+  tier     v2
+  text     """
     Each .spec file MUST be written atomically during migration: the system
     MUST write the migrated content to a temporary file in the same directory,
     then rename the temporary file to the target path, keeping the file's
@@ -38,14 +34,12 @@ invariant migration_atomicity "Migration Atomicity" {
     partially written file can exist on disk, even if the process is
     interrupted mid-write.
   """
-  risk      high
-  verify unit "migration writes to temporary file then renames"
-  verify unit "interrupted write leaves original file intact"
-  verify unit "failed rename does not corrupt original file"
 }
 
-invariant migration_event_ordering "Migration Event Ordering" {
-  guarantee """
+requirement INVARIANT-074 "Migration Event Ordering" {
+  category "Invariant"
+  tier     v2
+  text     """
     Migration events MUST be emitted in strict temporal order:
     migration_starting → migration_started → migration_complete →
     extension_migration_hooks_complete. No event in this sequence MAY
@@ -53,15 +47,12 @@ invariant migration_event_ordering "Migration Event Ordering" {
     depend on this ordering (e.g., pre-migration snapshot capture)
     MUST receive events in the guaranteed sequence.
   """
-  risk      high
-  verify property "migration_starting always precedes migration_started"
-  verify property "migration_started always precedes migration_complete"
-  verify property "migration_complete always precedes extension_migration_hooks_complete"
-  verify unit "no event emitted before its predecessor completes"
 }
 
-invariant migration_semantic_preservation "Migration Semantic Preservation" {
-  guarantee """
+requirement INVARIANT-076 "Migration Semantic Preservation" {
+  category "Invariant"
+  tier     v2
+  text     """
     Migration transforms MUST preserve the entity graph structure. After
     migration, the set of nodes (entity IDs, and each node's kind, title,
     field values and methods) and edges (reference relationships) MUST be
@@ -73,13 +64,12 @@ invariant migration_semantic_preservation "Migration Semantic Preservation" {
     migration that adds, removes, or alters a node or edge is a breaking
     change and MUST be flagged by validate_post_migration_integrity.
   """
-  risk      high
-  verify property "pre-migration and post-migration entity graphs are structurally identical"
-  verify unit "migration that only changes formatting preserves graph structure"
 }
 
-invariant migration_canonical_form "Migration Canonical Form" {
-  guarantee """
+requirement INVARIANT-072 "Migration Canonical Form" {
+  category "Invariant"
+  tier     v2
+  text     """
     Every block a migration step adds or changes MUST be format-clean
     afterwards, laid out by the formatter with its file's format
     configuration (looked up through the run's bound) and its project's
@@ -88,20 +78,15 @@ invariant migration_canonical_form "Migration Canonical Form" {
     line break is CR LF is written so (ADR 0266), and a file no step
     changes is left as it is.
   """
-  risk      medium
-  verify property "every block a migration writes is unchanged by format"
-  verify unit "a block no migration step changed is left as written"
-  verify unit "a migration writes a CRLF file in CRLF, as it migrates the same file in LF"
 }
 
-invariant migration_cross_extension_stability "Migration Cross-Extension Reference Stability" {
-  guarantee """
+requirement INVARIANT-073 "Migration Cross-Extension Reference Stability" {
+  category "Invariant"
+  tier     v2
+  text     """
     Migration MUST preserve cross-extension reference resolution.
     References that resolved before migration MUST resolve identically
     after migration. References to entities in uninstalled extensions
     MUST retain their soft-resolution status (I004).
   """
-  risk      medium
-  verify integration "cross-extension references resolve identically after migration"
-  verify unit "soft-resolution I004 references preserved after migration"
 }

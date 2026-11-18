@@ -2,7 +2,7 @@
 @~/.claude/gsd-core/references/response-language-directive.md
 
 <purpose>
-Verify the milestone achieved its definition of done: read its requirements along their threads (requirement → plans → tasks → commits → tests → truths) and the phases' verifications, record the cross-phase integration verdict on the milestone's audit, and record its tech debt. The audit's gaps, Nyquist counts and status are computed from the graph.
+Verify the milestone achieved its definition of done: read its requirements along their threads (requirement → plans → tasks → commits → truths → coverage items) and the phases' verifications, record the cross-phase integration verdict on the milestone's audit, and record its tech debt. The audit's gaps, Nyquist counts and status are computed from the graph.
 </purpose>
 
 <required_reading>
@@ -154,7 +154,7 @@ The milestone's requirements are its phases' `requirements`: each with its id, t
 
 ### 5b. The Threads' Verification State
 
-For each requirement, its thread (step 2) names the plans that claim it, their tests, and the truths with their verdict state; its phase's verification gives the phase's `status`. The audit's computed `gaps` already name each requirement that is `unsatisfied`, `partial` or `orphaned`:
+For each requirement, its thread (step 2) names the plans that claim it, their tasks and commits, the truths with their verdict state, and the coverage items with each check's `ref`; its phase's verification gives the phase's `status`. The audit's computed `gaps` already name each requirement that is `unsatisfied`, `partial` or `orphaned`:
 
 ```bash
 AUDIT=$(specforge query "$MILESTONE" --depth 1 --kinds milestone_audit --pick '.nodes[kind=milestone_audit].id' --last 1) || exit 1

@@ -120,10 +120,7 @@ fn build_graph() -> Graph {
 // === serialize_json_graph contract ===
 
 // B:serialize_json_graph — verify contract "requires/ensures consistency for JSON graph serialization"
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "Serialize JSON Graph: JSON graph serialization holds — validation_complete_fired, all_nodes_serialized, all_edges_serialized, schema_version_present, valid_json_produced, render_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_graph_contract_finalized_graph_produces_valid_output() {
     // Requires: graph is finalized (built with nodes + edges)
     // Ensures: valid JSON with schema_version, all nodes, all edges, source locations
@@ -155,10 +152,7 @@ fn json_graph_contract_finalized_graph_produces_valid_output() {
 // === serialize_dot_visualization contract ===
 
 // B:serialize_dot_visualization — verify contract "requires/ensures consistency for DOT visualization"
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "Serialize DOT Visualization: DOT visualization holds — validation_complete_fired, valid_dot_produced, nodes_labeled, edges_labeled, render_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_contract_finalized_graph_produces_valid_dot() {
     // Requires: graph is finalized
     // Ensures: valid DOT; every node labeled with its ID and title; every
@@ -200,10 +194,7 @@ fn dot_contract_finalized_graph_produces_valid_dot() {
 // === export_agent_context_format contract ===
 
 // B:export_agent_context_format — verify contract "requires/ensures consistency for agent context export"
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "Export Agent Context Format: agent context export holds — validation_complete_fired, token_optimized_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn context_contract_includes_contracts_and_verify_omits_prose() {
     // Requires: finalized graph
     let mut graph = build_graph();
@@ -253,10 +244,7 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
 // === export_agent_graph_format contract ===
 
 // B:export_agent_graph_format — verify contract "requires/ensures consistency for agent graph export"
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "Export Agent Graph Format: agent graph export holds — validation_complete_fired, full_fidelity_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn graph_format_contract_finalized_graph_produces_full_output() {
     // Requires: finalized graph
     let mut graph = build_graph();
@@ -311,10 +299,7 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
 // === enforce_token_budget contract ===
 
 // B:enforce_token_budget — verify contract "requires/ensures consistency for token budget enforcement"
-#[specforge_test(
-    behavior = "enforce_token_budget",
-    verify = "Enforce Token Budget: token budget enforcement holds — validation_complete_fired, budget_respected, truncation_metadata_produced, valid_subgraph_after_truncation, token_budget_applied_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn budget_contract_within_budget_no_truncation() {
     // Requires: graph + budget
     let graph = build_graph(); // a -> b -> c: b is the most central
@@ -359,10 +344,7 @@ fn budget_contract_within_budget_no_truncation() {
 // === deterministic_output contract ===
 
 // B:deterministic_output — verify contract "requires/ensures consistency for deterministic output"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "Deterministic Output: deterministic output holds — validation_complete_fired, byte_identical_output, no_nondeterministic_values"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn deterministic_contract_same_input_identical_output() {
     // Requires: same graph input
     // Ensures: identical output across all formats
@@ -388,10 +370,8 @@ fn deterministic_contract_same_input_identical_output() {
 // === present_diagnostics_as_json contract ===
 
 // B:present_diagnostics_as_json — verify contract
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "Present Diagnostics as JSON: JSON diagnostic presentation holds — diagnostics_collected, one_shape_everywhere, location_both_ways, data_only_when_typed"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_json_contract_complete_fields() {
     let diags = vec![
         Diagnostic::new(specforge_common::codes::E001, "unresolved")
@@ -418,10 +398,8 @@ fn diagnostic_json_contract_complete_fields() {
     assert_eq!(entry["suggestion"], "did you mean 'foo'?");
 }
 
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "diagnostics are presented as one JSON array"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_json_array() {
     let diags = vec![
         Diagnostic::new(specforge_common::codes::E001, "err"),
@@ -433,10 +411,8 @@ fn diagnostic_json_array() {
     assert_eq!(parsed.as_array().unwrap().len(), 2);
 }
 
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "each diagnostic carries code, severity, message, file, line and column"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_json_all_fields() {
     let diags = vec![
         Diagnostic::untyped("E042", Severity::Error, "test msg").with_span(SourceSpan {
@@ -458,10 +434,8 @@ fn diagnostic_json_all_fields() {
     assert_eq!(e["column"], 7);
 }
 
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "the presented JSON is valid and parseable"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_json_valid_parseable() {
     let diags = vec![Diagnostic::new(
         specforge_common::codes::E001,
@@ -483,10 +457,8 @@ fn diagnostic_exit_code_unaffected_by_format() {
     assert!(!json.is_empty());
 }
 
-#[specforge_test(
-    behavior = "present_diagnostics_as_json",
-    verify = "suggestion is included when available"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
+#[specforge_test(requirement = "FEATURE-017")]
 fn diagnostic_suggestion_included() {
     let diags = vec![
         Diagnostic::new(specforge_common::codes::E001, "unresolved")
@@ -501,10 +473,7 @@ fn diagnostic_suggestion_included() {
 // serialize_json_graph — remaining verify statements
 // ============================================================
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "JSON output contains all nodes"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_graph_all_nodes() {
     let graph = build_graph();
     let json = crate::support::emit_json(&graph);
@@ -512,10 +481,7 @@ fn json_graph_all_nodes() {
     assert_eq!(parsed["nodes"].as_array().unwrap().len(), 3);
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "JSON output contains all edges"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_graph_all_edges() {
     let graph = build_graph();
     let json = crate::support::emit_json(&graph);
@@ -523,7 +489,7 @@ fn json_graph_all_edges() {
     assert_eq!(parsed["edges"].as_array().unwrap().len(), 2);
 }
 
-#[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_graph_valid_json() {
     let graph = build_graph();
     let json = crate::support::emit_json(&graph);
@@ -531,10 +497,7 @@ fn json_graph_valid_json() {
     assert!(result.is_ok(), "output must be valid JSON");
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "output includes schema_version field"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_graph_schema_version() {
     let graph = build_graph();
     let json = crate::support::emit_json(&graph);
@@ -542,10 +505,7 @@ fn json_graph_schema_version() {
     assert!(parsed["schema_version"].is_string());
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "empty graph produces valid JSON with empty nodes and edges arrays"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_graph_empty() {
     let graph = Graph::new();
     let json = crate::support::emit_json(&graph);
@@ -554,10 +514,7 @@ fn json_graph_empty() {
     assert_eq!(parsed["edges"].as_array().unwrap().len(), 0);
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "schema is included even for empty graph"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_graph_empty_has_schema() {
     let graph = Graph::new();
     let json = crate::support::emit_json(&graph);
@@ -568,10 +525,7 @@ fn json_graph_empty_has_schema() {
     );
 }
 
-#[specforge_test(
-    behavior = "serialize_json_graph",
-    verify = "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn json_graph_structural_only() {
     let mut graph = Graph::new();
     graph.add_node(node_with_fields("x", "custom_kind", "c", "active"));
@@ -588,10 +542,7 @@ fn json_graph_structural_only() {
 // serialize_dot_visualization — remaining verify statements
 // ============================================================
 
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "DOT output is valid Graphviz syntax"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_valid_syntax() {
     // IDs and titles with quotes, backslashes and newlines must stay inside
     // their quoted strings.
@@ -635,10 +586,7 @@ fn dot_valid_syntax() {
     );
 }
 
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "nodes are labeled with IDs"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_nodes_labeled() {
     let mut graph = build_graph();
     // An untitled node with no edges: labeled with its ID alone.
@@ -664,10 +612,7 @@ fn dot_nodes_labeled() {
     );
 }
 
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "edges are labeled with types"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_edges_labeled() {
     let graph = build_graph();
     let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
@@ -690,10 +635,7 @@ fn dot_node_shapes() {
 
 // C13-00: registry-declared dot_shape/dot_color/dot_fillcolor must reach the
 // emitted DOT; kinds without declarations keep the default.
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "node shapes use extension-defined dot_shape"
-)]
+#[specforge_test(requirement = "FEATURE-057")]
 fn dot_emits_registry_declared_styles() {
     let graph = build_graph();
 

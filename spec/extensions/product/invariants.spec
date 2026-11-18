@@ -1,423 +1,369 @@
-// @specforge/product extension invariants
-//
-// Runtime guarantees specific to the product entity model:
-// entity DAGs, lifecycle consistency, field awareness, and structural properties.
-
-// ════════════════════════════════════════════════════════════════
-// Entity DAG Invariants
-// ════════════════════════════════════════════════════════════════
-
-invariant module_dag "Module DAG" {
-  guarantee """
+requirement INVARIANT-080 "Module DAG" {
+  category "Invariant"
+  tier     v2
+  text     """
     The depends_on edges between module entities MUST form a directed
     acyclic graph. Cycles are detected by E007 and rejected.
   """
-  risk      high
-  verify property "acyclic module dependency graph is accepted"
-  verify unit "circular module dependency produces E007"
 }
 
-invariant milestone_dag "Milestone DAG" {
-  guarantee """
+requirement INVARIANT-077 "Milestone DAG" {
+  category "Invariant"
+  tier     v2
+  text     """
     The depends_on edges between milestone entities MUST form a directed
     acyclic graph. Cycles are detected by E015 and rejected.
   """
-  risk      high
-  verify property "acyclic milestone dependency graph is accepted"
-  verify unit "circular milestone dependency produces E015"
 }
 
-invariant feature_dag "Feature DAG" {
-  guarantee """
+requirement INVARIANT-041 "Feature DAG" {
+  category "Invariant"
+  tier     v2
+  text     """
     The depends_on edges between feature entities MUST form a directed
     acyclic graph. Cycles produce a W045 warning.
   """
-  risk      medium
-  verify property "acyclic feature dependency graph is accepted"
-  verify unit "circular feature dependency produces W045"
 }
 
-invariant deliverable_dag "Deliverable DAG" {
-  guarantee """
+requirement INVARIANT-014 "Deliverable DAG" {
+  category "Invariant"
+  tier     v2
+  text     """
     The depends_on edges between deliverable entities MUST form a
     directed acyclic graph. Cycles are detected by E052 and rejected.
   """
-  risk      high
-  verify property "acyclic deliverable dependency graph is accepted"
-  verify unit "circular deliverable dependency produces E052"
 }
 
-invariant release_dag "Release DAG" {
-  guarantee """
+requirement INVARIANT-122 "Release DAG" {
+  category "Invariant"
+  tier     v2
+  text     """
     The depends_on edges between release entities MUST form a directed
     acyclic graph. Cycles produce a W092 warning.
   """
-  risk      medium
-  verify property "acyclic release dependency graph is accepted"
-  verify unit "circular release dependency produces W092"
 }
 
-// ════════════════════════════════════════════════════════════════
-// Testability Invariants
-// ════════════════════════════════════════════════════════════════
-
-invariant pe_feature_non_testable "Feature Non-Testable" {
-  guarantee """
+requirement INVARIANT-090 "Feature Non-Testable" {
+  category "Invariant"
+  tier     v2
+  text     """
     Feature entities MUST have testable=false in the manifest. Features
     are planning constructs tested indirectly through behavior chains.
   """
-  risk      medium
-  verify unit "feature kind has testable=false"
 }
 
-invariant pe_persona_non_testable "Persona Non-Testable" {
-  guarantee """
+requirement INVARIANT-099 "Persona Non-Testable" {
+  category "Invariant"
+  tier     v2
+  text     """
     Persona entities MUST have testable=false in the manifest. Personas
     are reference entities describing user roles, not testable contracts.
   """
-  risk      medium
-  verify unit "persona kind has testable=false"
 }
 
-invariant pe_channel_non_testable "Channel Non-Testable" {
-  guarantee """
+requirement INVARIANT-085 "Channel Non-Testable" {
+  category "Invariant"
+  tier     v2
+  text     """
     Channel entities MUST have testable=false in the manifest. Channels
     are reference entities describing interaction mediums.
   """
-  risk      medium
-  verify unit "channel kind has testable=false"
 }
 
-invariant pe_release_non_testable "Release Non-Testable" {
-  guarantee """
+requirement INVARIANT-103 "Release Non-Testable" {
+  category "Invariant"
+  tier     v2
+  text     """
     Release entities MUST have testable=false in the manifest. Releases
     are coordination constructs, not testable contracts.
   """
-  risk      medium
-  verify unit "release kind has testable=false"
 }
 
-invariant pe_product_verify_support "Product Verify Support" {
-  guarantee """
+requirement INVARIANT-100 "Product Verify Support" {
+  category "Invariant"
+  tier     v2
+  text     """
     No product entity kind supports verify statements: all 9 kinds have
     supportsVerify=false and declare no verify kinds.
   """
-  risk      medium
-  verify unit "all 9 product kinds have supportsVerify=false"
 }
 
-// ════════════════════════════════════════════════════════════════
-// Lifecycle Consistency Invariants
-// ════════════════════════════════════════════════════════════════
-
-invariant deliverable_lifecycle_consistency "Deliverable Lifecycle Consistency" {
-  guarantee """
+requirement INVARIANT-016 "Deliverable Lifecycle Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Deliverable status transitions MUST follow the declared state machine.
     Shipped deliverables MUST have completed milestones. Deprecated
     deliverables MUST have a documented reason.
   """
-  risk      high
-  verify unit "deliverable status follows valid transitions"
 }
 
-invariant persona_lifecycle_consistency "Persona Lifecycle Consistency" {
-  guarantee """
+requirement INVARIANT-113 "Persona Lifecycle Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Deprecated personas MUST have a documented reason field. Persona
     status transitions MUST follow the declared state machine
     (active->deprecated, deprecated is terminal).
   """
-  risk      medium
-  verify unit "deprecated persona has reason"
-  verify unit "persona status follows valid transitions"
 }
 
-invariant channel_lifecycle_consistency "Channel Lifecycle Consistency" {
-  guarantee """
+requirement INVARIANT-004 "Channel Lifecycle Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Deprecated channels MUST have a documented reason field. Channel
     status transitions MUST follow the declared state machine
     (active->deprecated, deprecated is terminal).
   """
-  risk      medium
-  verify unit "deprecated channel has reason"
-  verify unit "channel status follows valid transitions"
 }
 
-invariant persona_channel_lifecycle "Persona and Channel Lifecycle" {
-  guarantee """
+requirement INVARIANT-112 "Persona and Channel Lifecycle" {
+  category "Invariant"
+  tier     v2
+  text     """
     Persona and channel entities MUST have valid lifecycle states.
     The status field, when present, MUST be a valid enum value.
   """
-  risk      medium
-  verify unit "persona status is valid PersonaStatus enum"
-  verify unit "channel status is valid ChannelStatus enum"
 }
 
-invariant milestone_status_consistency "Milestone Status Consistency" {
-  guarantee """
+requirement INVARIANT-079 "Milestone Status Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Milestone status MUST be a valid MilestoneStatus enum value.
     Completed milestones MUST have exit criteria. Blocked milestones
     SHOULD have dependencies.
   """
-  risk      medium
-  verify unit "milestone status is valid and consistent with exit criteria"
 }
 
-invariant pe_release_lifecycle_consistency "Release Lifecycle Consistency" {
-  guarantee """
+requirement INVARIANT-102 "Release Lifecycle Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Released releases MUST have all deliverables in shipped status.
     Recalled releases MUST have a documented reason.
   """
-  risk      high
-  verify unit "released release has all shipped deliverables"
-  verify unit "recalled release has reason"
 }
 
-invariant pe_release_status_transition "Release Status Transition" {
-  guarantee """
+requirement INVARIANT-104 "Release Status Transition" {
+  category "Invariant"
+  tier     v2
+  text     """
     Release status transitions MUST follow the declared state machine:
     planned->in_progress, in_progress->released, released->recalled.
     Recalled is terminal.
   """
-  risk      medium
-  verify unit "release status follows valid transitions"
 }
 
-// ════════════════════════════════════════════════════════════════
-// Structural Consistency Invariants
-// ════════════════════════════════════════════════════════════════
-
-invariant deliverable_journey_module_consistency "Deliverable Journey-Module Consistency" {
-  guarantee """
+requirement INVARIANT-015 "Deliverable Journey-Module Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Features referenced by a deliverable's journeys MUST be a subset
     of features assigned to the deliverable's modules.
   """
-  risk      medium
-  verify unit "deliverable journey features are covered by module features"
 }
 
-invariant milestone_feature_module_consistency "Milestone Feature-Module Consistency" {
-  guarantee """
+requirement INVARIANT-078 "Milestone Feature-Module Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Features scheduled in a milestone MUST be reachable from the
     milestone's modules via ModuleContainsFeature edges.
   """
-  risk      medium
-  verify unit "milestone features are covered by milestone modules"
 }
 
-invariant module_feature_reachability "Module-Feature Reachability" {
-  guarantee """
+requirement INVARIANT-081 "Module-Feature Reachability" {
+  category "Invariant"
+  tier     v2
+  text     """
     Every module SHOULD have at least one feature assigned via
     ModuleContainsFeature edges.
   """
-  risk      low
-  verify unit "module with features has reachable feature set"
 }
 
-invariant pe_deliverable_chain_integrity "Deliverable Chain Integrity" {
-  guarantee """
+requirement INVARIANT-087 "Deliverable Chain Integrity" {
+  category "Invariant"
+  tier     v2
+  text     """
     The full deliverable->milestone->feature->module chain MUST be
     consistent. Features scheduled in milestones that belong to a
     deliverable MUST be covered by the deliverable's modules.
   """
-  risk      medium
-  verify unit "end-to-end deliverable chain is consistent"
 }
 
-// ════════════════════════════════════════════════════════════════
-// Field Awareness Invariants
-// ════════════════════════════════════════════════════════════════
-
-invariant pe_ownership_field_awareness "Ownership Field Awareness" {
-  guarantee """
+requirement INVARIANT-097 "Ownership Field Awareness" {
+  category "Invariant"
+  tier     v2
+  text     """
     Owner and contributors fields are available on feature, milestone,
     deliverable, and release entity kinds. Other entity kinds
     (module, term, journey, persona, channel) intentionally lack
     ownership fields.
   """
-  risk      low
-  verify unit "owner field exists on feature, milestone, deliverable, release"
-  verify unit "owner field absent on module, term, journey, persona, channel"
 }
 
-invariant pe_owner_string_consistency "Owner String Consistency" {
-  guarantee """
+requirement INVARIANT-096 "Owner String Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Owner strings across entities SHOULD be consistent. Similar owner
     strings within Levenshtein distance 2 produce I085 diagnostics
     suggesting normalization.
   """
-  risk      low
-  verify unit "similar owner strings are detected"
 }
 
-invariant pe_tags_per_entity_kind "Tags Per Entity Kind" {
-  guarantee """
-    Every product entity kind gets the shared tags field (string[] @optional).
-  """
-  risk      low
-  verify unit "all 9 entity kinds have tags field"
+requirement INVARIANT-108 "Tags Per Entity Kind" {
+  text     "Every product entity kind gets the shared tags field (string[] @optional)."
+  category "Invariant"
+  tier     v2
 }
 
-invariant tag_cross_kind_awareness "Tag Cross-Kind Awareness" {
-  guarantee """
+requirement INVARIANT-136 "Tag Cross-Kind Awareness" {
+  category "Invariant"
+  tier     v2
+  text     """
     Tags used on entities of 3 or more different kinds produce I084
     info diagnostics suggesting kind-specific prefixes.
   """
-  risk      low
-  verify unit "cross-kind tag on 3+ kinds produces I084"
 }
 
-invariant term_alias_uniqueness "Term Alias Uniqueness" {
-  guarantee """
+requirement INVARIANT-139 "Term Alias Uniqueness" {
+  category "Invariant"
+  tier     v2
+  text     """
     Term aliases MUST be unique across all terms (case-insensitive).
     Conflicts between aliases or between an alias and a term ID
     produce W086 warnings.
   """
-  risk      medium
-  verify unit "duplicate term aliases produce W086"
 }
 
-// ════════════════════════════════════════════════════════════════
-// Effort and Estimation Invariants
-// ════════════════════════════════════════════════════════════════
-
-invariant pe_effort_weighted_completion "Effort-Weighted Completion" {
-  guarantee """
+requirement INVARIANT-089 "Effort-Weighted Completion" {
+  category "Invariant"
+  tier     v2
+  text     """
     Weighted milestone completion MUST use configured effort weights.
     Default weights: xs=1, s=2, m=3, l=5, xl=8. Features without
     effort default to the weight of m.
   """
-  risk      medium
-  verify unit "effort weights are applied correctly"
-  verify unit "missing effort defaults to m weight"
 }
 
-invariant pe_effort_enum_validity "Effort Enum Validity" {
-  guarantee """
+requirement INVARIANT-088 "Effort Enum Validity" {
+  category "Invariant"
+  tier     v2
+  text     """
     The effort field on features MUST contain a valid Effort enum
     value (xs, s, m, l, xl). Another value is E061.
   """
-  risk      low
-  verify unit "invalid effort value produces E061"
 }
 
-// ════════════════════════════════════════════════════════════════
-// Surface and Query Invariants
-// ════════════════════════════════════════════════════════════════
-
-invariant pe_surface_error_consistency "Surface Error Consistency" {
-  guarantee """
+requirement INVARIANT-107 "Surface Error Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     All product commands MUST use exactly two error codes:
     ENTITY_NOT_FOUND (exit 1) and INVALID_INPUT (exit 2), written to
     stderr with nothing on stdout.
   """
-  risk      high
-  verify unit "command errors use the two defined error codes"
 }
 
-invariant pe_list_pagination_correctness "List Pagination Correctness" {
-  guarantee """
+requirement INVARIANT-091 "List Pagination Correctness" {
+  category "Invariant"
+  tier     v2
+  text     """
     All paged commands (the lists and the matrix queries) MUST return
     correct pagination: total is the count after filters and before
     paging, has_more is total > offset + returned count, limit defaults
     to 100 (clamped to [1, 1000]), offset defaults to 0.
   """
-  risk      high
-  verify unit "pagination metadata is correct"
 }
 
-invariant pe_cross_extension_query_isolation "Cross-Extension Query Isolation" {
-  guarantee """
+requirement INVARIANT-086 "Cross-Extension Query Isolation" {
+  category "Invariant"
+  tier     v2
+  text     """
     Product queries MUST NOT traverse edges owned by other extensions.
     Query results MUST be identical regardless of which other
     extensions are installed.
   """
-  risk      high
-  verify unit "product queries ignore foreign edges"
 }
 
-invariant pe_queries_derived_not_standard "Queries Are Derived, Not Standard" {
-  guarantee """
+requirement INVARIANT-101 "Queries Are Derived, Not Standard" {
+  category "Invariant"
+  tier     v2
+  text     """
     Product queries are a derived convenience layer, NOT part of the
     Graph Protocol standard. Alternative compilers need not implement
     these queries to be compliant.
   """
-  risk      low
-  verify unit "queries are documented as derived convenience"
 }
 
-invariant pe_partial_graph_traversability "Partial Graph Traversability" {
-  guarantee """
+requirement INVARIANT-098 "Partial Graph Traversability" {
+  category "Invariant"
+  tier     v2
+  text     """
     Product queries MUST operate on the structural graph regardless
     of validation state. Entities with validation errors MUST still
     be traversable and appear in query results.
   """
-  risk      medium
-  verify unit "entities with errors appear in query results"
 }
 
-invariant pe_rendering_completeness "Rendering Completeness" {
-  guarantee """
+requirement INVARIANT-106 "Rendering Completeness" {
+  category "Invariant"
+  tier     v2
+  text     """
     All 9 product entity kinds MUST render as standard graph nodes
     in the Graph Protocol JSON output. The core emitter handles all
     entity kinds uniformly.
   """
-  risk      medium
-  verify unit "all 9 entity kinds appear in export output"
 }
 
-// ════════════════════════════════════════════════════════════════
-// Temporal and Blocker Invariants
-// ════════════════════════════════════════════════════════════════
-
-invariant pe_milestone_temporal_consistency "Milestone Temporal Consistency" {
-  guarantee """
+requirement INVARIANT-095 "Milestone Temporal Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     When both start_date and target_date are present on a milestone,
     start_date MUST be on or before target_date. Both fields MUST
     be date fields: E061 otherwise.
   """
-  risk      medium
-  verify unit "start_date <= target_date when both present"
 }
 
-invariant pe_blocker_status_consistency "Blocker-Status Consistency" {
-  guarantee """
+requirement INVARIANT-084 "Blocker-Status Consistency" {
+  category "Invariant"
+  tier     v2
+  text     """
     Blocked milestones SHOULD list blockers entries that document the
     cause of the block; depends_on entries do not replace them. A blocked
     milestone with no blockers produces I060.
   """
-  risk      low
-  verify unit "blocked milestone without blockers produces I060"
 }
 
-// ════════════════════════════════════════════════════════════════
-// Migration and Validation Invariants
-// ════════════════════════════════════════════════════════════════
-
-invariant pe_migration_backward_compat "Migration Backward Compatibility" {
-  guarantee """
+requirement INVARIANT-094 "Migration Backward Compatibility" {
+  category "Invariant"
+  tier     v2
+  text     """
     Minor version bumps (1.x) MUST be backward compatible. New fields
     are always optional. Breaking changes require a major version bump
     with a migration hook.
   """
-  risk      high
-  verify unit "v1 spec files parse under v1.x without errors"
 }
 
-invariant pe_validation_deterministic "Validation Deterministic" {
-  guarantee """
+requirement INVARIANT-109 "Validation Deterministic" {
+  category "Invariant"
+  tier     v2
+  text     """
     Product validation MUST be deterministic: identical inputs (spec
     files + HEAD) always produce identical diagnostic
     output. No time-dependent diagnostics during specforge check.
   """
-  risk      high
-  verify unit "same inputs produce same diagnostics"
 }
 
-invariant pe_release_version_uniqueness "Release Version Uniqueness" {
-  guarantee """
+requirement INVARIANT-105 "Release Version Uniqueness" {
+  category "Invariant"
+  tier     v2
+  text     """
     Release version strings MUST be unique across all release entities.
     Duplicate versions produce I091 info diagnostics.
   """
-  risk      medium
-  verify unit "duplicate release versions produce I091"
 }

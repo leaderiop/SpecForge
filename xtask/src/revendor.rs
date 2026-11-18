@@ -3,45 +3,89 @@
 //! protocol-types, coverage, any `inputs.json` input). See docs/agents/revendor.md.
 //!
 //!   cargo run -p xtask --bin revendor
+//!   cargo run -p xtask --bin revendor -- --vocabulary
 //!
-//! In order: refuse a place it cannot work from; refresh the lockfile of every
+//! With no argument, in order: refuse a place it cannot work from; refresh the lockfile of every
 //! committed blob's crate (`specforge_component::committed::COMMITTED`); rebuild
 //! and vendor every blob with its `inputs.json` (`build-blobs --install`);
 //! rewrite the declaration snapshots of every SDK blob, in process; write the builtins'
-//! candidate vocabulary from those snapshots (ADR 0122); check what it
+//! candidate vocabulary from those snapshots (ADR 0122, ADR 0369); check what it
 //! did not write (`build-blobs --check` and the declarations test) and print
 //! the paths to stage.
+//!
+//! With `--vocabulary`: only write the builtins' candidate vocabulary from the snapshots as
+//! they are committed. It builds nothing, so it works from any checkout. For a change to the
+//! vocabulary's rule or written form that changes no blob input.
 #![expect(
     clippy::print_stdout,
     reason = "a developer tool: its report is its stdout"
 )]
 
+use gate::blob_inputs::{cargo_dir, lock_of};
 use specforge_component::ComponentRuntime;
 use specforge_component::committed::{
     COMMITTED, pinned_builtin_declarations, snapshots, wire_answers,
 };
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::CandidateVocabulary;
 use specforge_wasm::runtime::WasmRuntime;
 use std::path::Path;
 use std::process::Command;
 
+/// The directory of the generated vocabulary, from the repository root: what a run stages.
+const VOCABULARY_DIR: &str = "crates/runtime/component/data";
+/// The generated vocabulary's file name in [`VOCABULARY_DIR`].
+const VOCABULARY_FILE: &str = "builtin-vocabulary.json";
+
 fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let vocabulary_only = match args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        [] => false,
+        ["--vocabulary"] => true,
+        other => {
+            eprintln!("usage: revendor [--vocabulary] (got {other:?})");
+            std::process::exit(2);
+        }
+    };
     let root = specforge_repo_root::repo_root();
-    let env_target = std::env::var_os("CARGO_TARGET_DIR").is_some();
-    if let Err(message) = preflight(root, env_target) {
-        eprintln!("revendor: {message}");
-        std::process::exit(1);
-    }
-    if let Err(message) = run(root) {
+    let done = if vocabulary_only {
+        run_vocabulary(root)
+    } else {
+        let env_target = std::env::var_os("CARGO_TARGET_DIR").is_some();
+        preflight(root, env_target, Command::new("rustc")).and_then(|()| run(root))
+    };
+    if let Err(message) = done {
         eprintln!("revendor: {message}");
         std::process::exit(1);
     }
 }
 
+/// The `--vocabulary` run: the vocabulary step alone, from the pinned declarations as they are
+/// committed. No lockfile, blob, snapshot or check, and no `preflight`, since it builds nothing.
+fn run_vocabulary(root: &Path) -> Result<(), String> {
+    println!("== builtin vocabulary");
+    write_vocabulary(
+        &root.join(VOCABULARY_DIR).join(VOCABULARY_FILE),
+        &pinned_builtin_declarations()?,
+    )?;
+    println!("[ok]     builtin vocabulary written");
+    println!("\nReview `git diff --stat`, then stage:");
+    println!("  git add {VOCABULARY_DIR}");
+    Ok(())
+}
+
 /// Where a re-vendor cannot work: with `CARGO_TARGET_DIR` set (a staged
-/// build and the guest crates would share it), or in a checkout nested in
-/// another Cargo workspace (cargo then reads the outer one).
-fn preflight(root: &Path, target_dir_set: bool) -> Result<(), String> {
+/// build and the guest crates would share it), in a checkout nested in
+/// another Cargo workspace (cargo then reads the outer one), or where `rustc`
+/// (the rustc program) does not run as the pinned rustc: every cargo the run
+/// spawns is on the pin (ADR 0373 D1), so that is refused here, naming the
+/// install, before the lockfile step's first `cargo metadata`.
+fn preflight(root: &Path, target_dir_set: bool, rustc: Command) -> Result<(), String> {
     if target_dir_set {
         return Err(
             "CARGO_TARGET_DIR is set: unset it (`env -u CARGO_TARGET_DIR cargo run -p xtask --bin revendor`); \
@@ -59,7 +103,9 @@ fn preflight(root: &Path, target_dir_set: bool) -> Result<(), String> {
             ));
         }
     }
-    Ok(())
+    gate::blob_inputs::pinned_rustc(rustc).map(drop).map_err(|problem| {
+        format!("{problem}\nnothing was refreshed or built: revendor checks the pin before any cargo")
+    })
 }
 
 fn run(root: &Path) -> Result<(), String> {
@@ -67,7 +113,7 @@ fn run(root: &Path) -> Result<(), String> {
     let mut changed = Vec::new();
     for blob in COMMITTED {
         if refresh_lockfile(root, blob.crate_dir)? {
-            changed.push(format!("{}/Cargo.lock", blob.crate_dir));
+            changed.push(lock_of(blob.crate_dir));
         }
     }
     println!("== blobs");
@@ -76,24 +122,19 @@ fn run(root: &Path) -> Result<(), String> {
     let written = write_snapshots()?;
     println!("[ok]     {written} snapshot files written");
     println!("== builtin vocabulary");
-    write_vocabulary(root)?;
+    write_vocabulary(
+        &root.join(VOCABULARY_DIR).join(VOCABULARY_FILE),
+        &pinned_builtin_declarations()?,
+    )?;
     println!("[ok]     builtin vocabulary written");
     println!("== checks");
     xtask(root, "build-blobs", &["--check"])?;
     declarations_test(root)?;
 
     println!("\nre-vendored. Review `git diff --stat`, then stage:");
-    let paths: Vec<String> = COMMITTED
-        .iter()
-        .flat_map(|blob| {
-            [
-                format!("{}/wasm", blob.crate_dir),
-                format!("{}/Cargo.lock", blob.crate_dir),
-            ]
-        })
-        .collect();
+    let paths = stage_paths(COMMITTED.iter().map(|blob| blob.crate_dir));
     println!(
-        "  git add {} crates/runtime/component/tests/declarations crates/runtime/component/data",
+        "  git add {} crates/runtime/component/tests/declarations {VOCABULARY_DIR}",
         paths.join(" ")
     );
     if !changed.is_empty() {
@@ -102,24 +143,43 @@ fn run(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// The paths a run prints to stage for the committed crates `crate_dirs`, in their order: each
+/// crate's `wasm/` and its lock (`lock_of`), a lock two crates share (`gsd/Cargo.lock`) listed once.
+fn stage_paths<'a>(crate_dirs: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut paths: Vec<String> = Vec::new();
+    for crate_dir in crate_dirs {
+        for path in [format!("{crate_dir}/wasm"), lock_of(crate_dir)] {
+            if !paths.contains(&path) {
+                paths.push(path);
+            }
+        }
+    }
+    paths
+}
+
 /// `cargo metadata --locked` for `guest`; when the lockfile is stale, once
 /// without `--locked` (a stale guest lockfile follows a workspace dependency
-/// change, never a decision). True when the lockfile changed.
+/// change, never a decision). True when the lockfile changed. It runs on the pinned
+/// rustc, so a refreshed lockfile resolves with the rustc that builds the blob (ADR 0373 D1),
+/// and in the guest's cargo directory with its lock (`gsd/` and `gsd/Cargo.lock` for a crate of
+/// the gsd workspace, whose SDK patch only that directory's config holds: ADR 0366 D2).
 fn refresh_lockfile(root: &Path, guest: &str) -> Result<bool, String> {
     let manifest = root.join(guest).join("Cargo.toml");
-    let lock = root.join(guest).join("Cargo.lock");
+    let lock = root.join(lock_of(guest));
     let before = std::fs::read(&lock).ok();
     let metadata = |locked: bool| {
         let mut cmd = Command::new("cargo");
-        cmd.args([
-            "metadata",
-            "--format-version",
-            "1",
-            "--quiet",
-            "--manifest-path",
-        ])
-        .arg(&manifest)
-        .stdout(std::process::Stdio::null());
+        gate::blob_inputs::on_blob_rustc(&mut cmd)
+            .args([
+                "metadata",
+                "--format-version",
+                "1",
+                "--quiet",
+                "--manifest-path",
+            ])
+            .arg(&manifest)
+            .current_dir(root.join(cargo_dir(guest)))
+            .stdout(std::process::Stdio::null());
         if locked {
             cmd.arg("--locked");
         }
@@ -168,12 +228,14 @@ fn write_snapshots() -> Result<usize, String> {
     Ok(written)
 }
 
-/// Write the builtins' candidate vocabulary from their pinned declarations, which
-/// `write_snapshots` just wrote (ADR 0122).
-fn write_vocabulary(root: &Path) -> Result<(), String> {
-    let vocabulary = CandidateVocabulary::of(&pinned_builtin_declarations()?)?;
-    let path = root.join("crates/runtime/component/data/builtin-vocabulary.json");
-    std::fs::write(&path, vocabulary.to_json()).map_err(|e| format!("{}: {e}", path.display()))
+/// Write the candidate vocabulary of `declarations` to `path` (ADR 0122, ADR 0369). A keyword
+/// several of them declare is listed with each; a field two of them add to one kind stops it,
+/// with an error that names both. The file is replaced whole, by a rename of a file written beside
+/// it, so a write that fails leaves the tracked file as it was.
+fn write_vocabulary(path: &Path, declarations: &[ExtensionDeclaration]) -> Result<(), String> {
+    let vocabulary = CandidateVocabulary::of(declarations)?;
+    specforge_common::fresh::replace_file(path, vocabulary.to_json().as_bytes())
+        .map_err(|e| format!("{}: {e}", path.display()))
 }
 
 /// The cargo arguments of the declarations test: the `declarations` module of the component's `suite` target.
@@ -273,9 +335,39 @@ mod tests {
         );
     }
 
+    /// The printed `git add` line stages each crate's `wasm/` and its lock, and the lock of the gsd
+    /// workspace once however many of its crates commit a blob (ADR 0366 D2).
+    #[test]
+    fn the_stage_line_names_a_shared_lock_once() {
+        let paths = stage_paths(["extensions/product", "gsd/core", "gsd/security"]);
+        assert_eq!(
+            paths,
+            [
+                "extensions/product/wasm",
+                "extensions/product/Cargo.lock",
+                "gsd/core/wasm",
+                "gsd/Cargo.lock",
+                "gsd/security/wasm",
+            ]
+        );
+    }
+
+    /// A rustc the refusals below never reach: they refuse before any rustc runs.
+    fn unreached_rustc() -> Command {
+        Command::new("revendor-test-rustc-never-runs")
+    }
+
+    /// A stand-in for the rustc program that runs `script` (Unix `sh`) in place of `rustc --version`.
+    #[cfg(unix)]
+    fn rustc_running(script: &str) -> Command {
+        let mut sh = Command::new("sh");
+        sh.args(["-c", script]);
+        sh
+    }
+
     #[test]
     fn refuses_when_cargo_target_dir_is_set() {
-        let err = preflight(Path::new("/nowhere/repo"), true).unwrap_err();
+        let err = preflight(Path::new("/nowhere/repo"), true, unreached_rustc()).unwrap_err();
         assert!(err.contains("CARGO_TARGET_DIR"), "{err}");
     }
 
@@ -285,18 +377,210 @@ mod tests {
         let inner = outer.join("worktrees/repo");
         std::fs::create_dir_all(&inner).unwrap();
         std::fs::write(outer.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
-        let err = preflight(&inner, false).unwrap_err();
+        let err = preflight(&inner, false, unreached_rustc()).unwrap_err();
         std::fs::remove_dir_all(&outer).unwrap();
         assert!(err.contains("inside the Cargo workspace"), "{err}");
     }
 
-    #[test]
-    fn accepts_a_standalone_checkout() {
-        let dir = std::env::temp_dir().join(format!("revendor-alone-{}", std::process::id()));
+    /// Runs `preflight` from a standalone directory (/tmp has no enclosing workspace manifest).
+    fn preflight_alone(name: &str, rustc: Command) -> Result<(), String> {
+        let dir = std::env::temp_dir().join(format!("revendor-{name}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let ok = preflight(&dir, false);
+        let done = preflight(&dir, false, rustc);
         std::fs::remove_dir_all(&dir).unwrap();
-        // /tmp has no enclosing workspace manifest
+        done
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn accepts_a_standalone_checkout_on_the_pinned_rustc() {
+        let pinned = format!("echo 'rustc {} (stand-in)'", gate::blob_inputs::BLOB_RUSTC);
+        let ok = preflight_alone("alone", rustc_running(&pinned));
         assert!(ok.is_ok(), "{ok:?}");
+    }
+
+    /// Every cargo the lockfile step spawns runs on the pin, so a missing pin is caught up front, naming the
+    /// install, rather than as a bare `cargo metadata failed` for the first crate (ADR 0373 D1).
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_missing_pinned_rustc_naming_the_install() {
+        let missing = "echo 'error: toolchain is not installed' >&2; exit 1";
+        let err = preflight_alone("missing", rustc_running(missing)).unwrap_err();
+        assert!(
+            err.contains(&gate::blob_inputs::blob_rustc_install())
+                && err.contains("not installed")
+                && err.contains("before any cargo"),
+            "{err}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_another_rustc_naming_the_pin() {
+        let other = "echo 'rustc 1.98.1 (stand-in)'";
+        let err = preflight_alone("other", rustc_running(other)).unwrap_err();
+        assert!(
+            err.contains("rustc 1.98.1")
+                && err.contains("not the pinned")
+                && err.contains(&gate::blob_inputs::blob_rustc_install()),
+            "{err}"
+        );
+    }
+
+    /// The kinds `@gsd/core` declares, as a declaration named `@gsd/core` with nothing else in it.
+    /// They are read from `gsd/core/tests/golden/kinds.json`, which the gsd suite's own golden test
+    /// keeps equal to the extension's declaration, so this follows every later change to those
+    /// kinds with no edit here.
+    fn gsd_core_kinds_golden() -> ExtensionDeclaration {
+        let path = specforge_repo_root::repo_root().join("gsd/core/tests/golden/kinds.json");
+        let text =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let golden: serde_json::Value =
+            serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let entities: Vec<specforge_protocol_types::EntityKindDescriptor> =
+            serde_json::from_value(golden["entities"]["items"].clone())
+                .unwrap_or_else(|e| panic!("{}: .entities.items: {e}", path.display()));
+        assert!(!entities.is_empty(), "{}: no kind", path.display());
+        ExtensionDeclaration {
+            handshake: specforge_protocol_types::HandshakeResponse {
+                name: "@gsd/core".to_string(),
+                version: "0.0.0".to_string(),
+                protocol_version: specforge_protocol_types::PROTOCOL_VERSION.to_string(),
+                ..Default::default()
+            },
+            entities,
+            ..Default::default()
+        }
+    }
+
+    /// The `fields` map of a written vocabulary.
+    fn written_fields(text: &str) -> serde_json::Value {
+        let written: serde_json::Value = serde_json::from_str(text).unwrap();
+        written["fields"].clone()
+    }
+
+    /// What the vocabulary step does with `gsd_core`, a declaration of `@gsd/core`, beside the
+    /// pinned builtins (ADR 0369 D1): it does not stop and it writes one vocabulary. The keywords
+    /// `@gsd/core` shares with the old builtins are computed from the declarations with the
+    /// vocabulary's own keyword rule, never listed here; `decision`, `deliverable` and `milestone`
+    /// are among them, and stay shared when later changes remove kinds from `@gsd/core`.
+    fn the_step_takes_gsd_core_beside_the_builtins(gsd_core: ExtensionDeclaration) {
+        assert_eq!(gsd_core.name(), "@gsd/core");
+        let mut declarations = pinned_builtin_declarations().unwrap();
+        // Once `@gsd/core` is a builtin itself, the declaration under test replaces its pinned one.
+        declarations.retain(|declaration| declaration.name() != "@gsd/core");
+        let old = CandidateVocabulary::of(&declarations).unwrap();
+        let staged = CandidateVocabulary::of(std::slice::from_ref(&gsd_core)).unwrap();
+        let shared: Vec<&str> = staged
+            .kind_keywords()
+            .filter(|keyword| !old.kind_owners(keyword).is_empty())
+            .collect();
+        println!(
+            "shared kind keywords ({}): {}",
+            shared.len(),
+            shared.join(", ")
+        );
+        for keyword in ["decision", "deliverable", "milestone"] {
+            assert!(
+                shared.contains(&keyword),
+                "'{keyword}' is not shared: {shared:?}"
+            );
+        }
+
+        declarations.push(gsd_core);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("builtin-vocabulary.json");
+        write_vocabulary(&path, &declarations).expect("the step does not stop");
+        assert_eq!(
+            std::fs::read_dir(dir.path()).unwrap().count(),
+            1,
+            "one vocabulary"
+        );
+        let text = std::fs::read_to_string(&path).unwrap();
+        let written = CandidateVocabulary::from_json(&text);
+
+        for keyword in staged.kind_keywords() {
+            let owners = written.kind_owners(keyword);
+            if shared.contains(&keyword) {
+                // `@gsd/core` first, then the old builtins that declare it.
+                let mut expected = vec!["@gsd/core"];
+                expected.extend(old.kind_owners(keyword));
+                assert_eq!(owners, expected, "the shared keyword '{keyword}'");
+            } else {
+                assert_eq!(owners, ["@gsd/core"], "the keyword '{keyword}'");
+            }
+        }
+        for keyword in old.kind_keywords().filter(|k| !shared.contains(k)) {
+            assert_eq!(
+                written.kind_owners(keyword),
+                old.kind_owners(keyword),
+                "the old builtins' keyword '{keyword}'"
+            );
+        }
+        // `@gsd/core` declares no enhancement: the fields are the old builtins'.
+        assert_eq!(written_fields(&text), written_fields(&old.to_json()));
+    }
+
+    /// The step takes `@gsd/core`'s kinds, read from the tracked golden, beside the pinned builtins.
+    /// It runs in every test run; the vocabulary drift test of `specforge-project` holds the step's
+    /// output over the fifteen pinned builtins, the vendored `@gsd/core` among them.
+    #[test]
+    fn the_vocabulary_step_takes_gsd_cores_kinds_golden_beside_the_builtins() {
+        the_step_takes_gsd_core_beside_the_builtins(gsd_core_kinds_golden());
+    }
+
+    /// A field two builtins add to one kind still stops the step, naming both and the field
+    /// (ADR 0369 D4): a copy of `@specforge/formal` under another name adds every field it adds.
+    #[test]
+    fn the_vocabulary_step_still_stops_on_a_field_two_builtins_add_to_one_kind() {
+        let mut declarations = pinned_builtin_declarations().unwrap();
+        let mut copy = declarations
+            .iter()
+            .find(|declaration| declaration.name() == "@specforge/formal")
+            .expect("@specforge/formal is a builtin")
+            .clone();
+        copy.handshake.name = "@staged/formal".to_string();
+        let (kind, field) = copy
+            .enhancements
+            .iter()
+            .find_map(|enhancement| {
+                let field = enhancement.fields.first()?;
+                Some((enhancement.target_kind.clone(), field.name.clone()))
+            })
+            .expect("@specforge/formal adds a field to another extension's kind");
+        declarations.push(copy);
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("builtin-vocabulary.json");
+        let err = write_vocabulary(&path, &declarations).unwrap_err();
+        assert!(
+            err.contains("@specforge/formal and @staged/formal both add")
+                && err.contains(&format!("'{field}'"))
+                && err.contains(&format!("'{kind}'")),
+            "{err}"
+        );
+        assert!(!path.exists(), "a step that stops writes nothing");
+    }
+
+    /// The tracked file is replaced by a rename of a file written beside it: the old text is there until
+    /// the new one is, no temporary file is left, and a name that cannot be replaced is left as it was.
+    #[test]
+    fn the_vocabulary_step_replaces_the_tracked_file_whole() {
+        let declarations = pinned_builtin_declarations().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("builtin-vocabulary.json");
+        std::fs::write(&path, "{\"truncated\"").unwrap();
+        write_vocabulary(&path, &declarations).expect("the step does not stop");
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            CandidateVocabulary::of(&declarations).unwrap().to_json()
+        );
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1, "no temp");
+
+        let blocked = dir.path().join("blocked");
+        std::fs::create_dir(&blocked).unwrap();
+        write_vocabulary(&blocked, &declarations).unwrap_err();
+        assert!(blocked.is_dir(), "a name that cannot be replaced stays");
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 2, "no temp");
     }
 }

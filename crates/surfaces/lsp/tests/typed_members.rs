@@ -62,10 +62,7 @@ fn labels(served: &Served, at: Position) -> Vec<String> {
     }
 }
 
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "completion inside a typed block offers its unwritten members, a member's values and an enum list's unwritten words"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn completion_and_hover_inside_a_typed_block() {
     let served = served(SOURCE);
     // After `{ phase 03 ` the member left to write is `provides`.
@@ -97,10 +94,7 @@ fn completion_and_hover_inside_a_typed_block() {
     );
 }
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "go-to-definition and the semantic token of a reference inside a block reach the entity it names"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn navigation_and_tokens_reach_a_block_member_reference() {
     let served = served(SOURCE);
     let uri = served.uri("main.spec");
@@ -131,10 +125,7 @@ measure m2 \"N\" {
 }
 ";
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a number field's word is a number token"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn a_number_fields_word_is_a_number_token() {
     let project = Assembled::typed().sources(&[("main.spec", MEASURES)]);
     let view = ProjectView::of(project.compiled());
@@ -148,10 +139,8 @@ fn a_number_fields_word_is_a_number_token() {
     }
 }
 
-#[spec(
-    behavior = "provide_extension_entity_hover",
-    verify = "hover shows a number field's value beside the word it was written as when they differ"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 fn hover_shows_a_numbers_value_and_the_word_it_was_read_from() {
     let served = served(MEASURES);
     let m1 = served.hover_on("main.spec", "m1").expect("a hover on m1");

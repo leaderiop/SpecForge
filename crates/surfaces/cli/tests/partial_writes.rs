@@ -28,10 +28,7 @@ fn warm(project: &TestProject) {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename that cannot put a file back names it in files_written"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn a_rename_that_cannot_put_a_file_back_names_it_in_files_written() {
     use std::os::unix::fs::PermissionsExt;
     let old = referencing_source(ID);
@@ -85,10 +82,7 @@ fn a_rename_that_cannot_put_a_file_back_names_it_in_files_written() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "a file whose write fails part-way is left whole and is not in files_written"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_format_whose_write_fails_part_way_leaves_the_source_whole() {
     let mut source = String::new();
     for n in 1..=60 {

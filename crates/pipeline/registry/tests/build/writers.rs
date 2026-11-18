@@ -26,10 +26,7 @@ fn compute(name: &str, computes: Value) -> Value {
     json!({"name": name, "phase": "compute", "computes": computes})
 }
 
-#[spec(
-    behavior = "judge_field_history",
-    verify = "a field declares its writer and history, and the registry refuses a contradiction with W021"
-)]
+#[spec(requirement = "FEATURE-124")]
 fn a_field_declares_its_writer_and_history() {
     let good = build([wire(
         thing(json!([
@@ -85,10 +82,7 @@ fn a_field_declares_its_writer_and_history() {
     }
 }
 
-#[spec(
-    behavior = "judge_field_history",
-    verify = "a kind is append-only and a pass computes fields and names the baseline it reads, or W021"
-)]
+#[spec(requirement = "FEATURE-124")]
 fn a_kind_and_a_pass_declare_history() {
     let kinds = json!([
         {"name": "log", "keyword": "log", "append_only": true},
@@ -124,10 +118,7 @@ fn a_kind_and_a_pass_declare_history() {
     }
 }
 
-#[spec(
-    behavior = "judge_field_history",
-    verify = "lifecycle_field is read and ignored: a kind that sends it loads without W138"
-)]
+#[spec(requirement = "FEATURE-124")]
 fn lifecycle_field_is_read_and_ignored() {
     let kinds = json!([{"name": "thing", "keyword": "thing", "lifecycle_field": "nosuch",
         "fields": [{"name": "status", "field_type": "string"}]}]);
@@ -136,10 +127,7 @@ fn lifecycle_field_is_read_and_ignored() {
     assert!(build.fields().contains("thing", "status"));
 }
 
-#[spec(
-    behavior = "judge_field_history",
-    verify = "a kind and a field may be human-only and a pass a guard, or W021"
-)]
+#[spec(requirement = "FEATURE-124")]
 fn a_kind_and_a_field_may_be_human_and_a_pass_a_guard() {
     let kinds = json!([
         {"name": "override", "keyword": "override", "writer": "human", "fields": [
@@ -187,10 +175,7 @@ fn a_kind_and_a_field_may_be_human_and_a_pass_a_guard() {
     }
 }
 
-#[spec(
-    behavior = "record_harness_values",
-    verify = "a context-written field is a block of route, digest and max_tokens, or it is W021 and its writer dropped"
-)]
+#[spec(requirement = "FEATURE-006")]
 fn a_context_field_must_be_a_route_digest_budget_block() {
     let record = |members: Value| json!({"name": "pack", "field_type": "block", "writer": "context", "members": members});
     let shape = json!([

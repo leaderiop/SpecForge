@@ -101,10 +101,7 @@ mod tests {
         OpErrorKind::Internal,
     ];
 
-    #[specforge_test_macros::test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test_macros::test(requirement = "INVARIANT-067")]
     fn a_refusal_of_a_value_is_about_its_field() {
         for kind in KINDS {
             let refusal = OpError::coded(kind, codes::E027, "x").about(Field::One);
@@ -122,10 +119,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test_macros::test(requirement = "INVARIANT-067")]
     fn an_operation_maps_another_operations_subject() {
         let error = OpError::new(OpErrorKind::InvalidInput, "x", "x");
         let to_byte = |f: Field| match f {
@@ -143,10 +137,7 @@ mod tests {
         assert_eq!(two.subject, None);
     }
 
-    #[specforge_test_macros::test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test_macros::test(requirement = "INVARIANT-067")]
     fn an_op_error_is_a_refusal_about_nothing() {
         let error = OpError::new(OpErrorKind::InvalidInput, "x", "boom");
         let refusal: Refusal<Field> = error.clone().into();
@@ -156,10 +147,7 @@ mod tests {
         assert_eq!(refusal.into_error(), error);
     }
 
-    #[specforge_test_macros::test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test_macros::test(requirement = "INVARIANT-067")]
     fn a_refusal_stays_small_enough_to_return_whole() {
         // clippy.toml's `large-error-threshold` is 153 bytes.
         assert!(std::mem::size_of::<Refusal<Field>>() <= 153);

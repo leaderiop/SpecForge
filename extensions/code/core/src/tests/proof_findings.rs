@@ -87,10 +87,7 @@ fn naming(holder: PassEntity, name: &str, reason: DanglingReason, line: usize) -
     }
 }
 
-#[specforge_test(
-    behavior = "cc_declare_code_facts",
-    verify = "a test or item naming no entity is code/I402"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
 fn a_test_naming_no_entity_is_i402() {
     let input = PassInput {
         entities: vec![

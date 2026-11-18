@@ -1,4 +1,6 @@
-//! A hard link at a held name or its temporary name: replace unlinks, never writes through (ADR 0144).
+//! A hard link at a held name or its temporary name: replace unlinks, never writes through (ADR 0144). Every case
+//! links the unix way: unix only.
+#![cfg(unix)]
 use super::*;
 
 fn scene() -> (tempfile::TempDir, PathBuf) {
@@ -14,7 +16,6 @@ fn held_in(dir: &Path, name: &str) -> Held {
     Containment::within(dir).resolve(Path::new(name)).unwrap()
 }
 
-#[cfg(unix)]
 #[test]
 fn replace_unlinks_the_temp_name_a_hard_link_sits_at() {
     let (_dir, base) = scene();
@@ -27,7 +28,6 @@ fn replace_unlinks_the_temp_name_a_hard_link_sits_at() {
     assert_eq!(std::fs::read_to_string(root.join("x.json")).unwrap(), "new");
 }
 
-#[cfg(unix)]
 #[test]
 fn replace_keeps_the_other_name_of_a_hard_link() {
     let (_dir, base) = scene();
@@ -40,7 +40,6 @@ fn replace_keeps_the_other_name_of_a_hard_link() {
     assert_eq!(std::fs::read_to_string(root.join("x.json")).unwrap(), "new");
 }
 
-#[cfg(unix)]
 #[test]
 fn create_new_refuses_an_existing_hard_link() {
     let (_dir, base) = scene();

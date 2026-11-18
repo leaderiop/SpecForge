@@ -6,10 +6,7 @@ use specforge_test::prelude::*;
 
 // ── project-wide ──────────────────────────────────────────────────────────
 
-#[specforge_test(
-    behavior = "surface_bulk_status",
-    verify = "bulk-status counts each kind's entities by status"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn bulk_status_counts_each_kind_by_status() {
     let bs = json_of("bulk_status", json!({}), &plan());
     assert_eq!(
@@ -40,10 +37,7 @@ fn bulk_status_counts_each_kind_by_status() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_format_conventions",
-    verify = "human table output has header and aligned columns"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn bulk_status_is_a_table_for_people() {
     let out = human_of("bulk_status", json!({}), &plan());
     assert_eq!(
@@ -71,10 +65,7 @@ fn bulk_status_is_a_table_for_people() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_health",
-    verify = "health reports the score, counts and unreferenced entities"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn health_reports_the_score_counts_and_unreferenced_entities() {
     let h = json_of("health", json!({}), &plan());
     let mut keys: Vec<&str> = h.as_object().unwrap().keys().map(String::as_str).collect();

@@ -58,10 +58,7 @@ fn b() -> QueryRequest<'static> {
     }
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_export_and_a_query_carry_the_records_notices() {
     let project = unreadable();
     let view = project.view();
@@ -82,10 +79,7 @@ fn an_export_and_a_query_carry_the_records_notices() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_schema_and_its_publication_carry_the_records_notices() {
     use specforge_ops::read::export::Format;
     use specforge_ops::read::schema::{SchemaRequest, json_schema, schema};
@@ -102,10 +96,7 @@ fn the_schema_and_its_publication_carry_the_records_notices() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "every reader of the schema reports the notices export reports for the same record"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_trace_and_the_model_carry_the_records_notices() {
     use specforge_ops::read::model::{ModelOptions, model};
     use specforge_ops::read::trace::{Follow, Target, trace};

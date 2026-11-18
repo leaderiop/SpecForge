@@ -176,10 +176,7 @@ const LIMIT_AND_LOGIN: &str = "invariant session_limit \"Limit\" {\n  guarantee 
                                behavior login \"Login\" {\n  invariants [session_limit]\n}\n\
                                behavior audit \"Audit\" {\n  invariants [session_limit]\n}\n";
 
-#[spec(
-    behavior = "find_all_references",
-    verify = "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
-)]
+#[spec(requirement = "FEATURE-046")]
 #[tokio::test]
 async fn find_all_references_contract() {
     // Requires: the project's graph is built, with the entity's references.
@@ -214,10 +211,7 @@ async fn find_all_references_contract() {
     assert!(login["result"].is_null(), "{login}");
 }
 
-#[spec(
-    behavior = "find_all_references",
-    verify = "reference ranges are UTF-16 after multi-byte text"
-)]
+#[spec(requirement = "FEATURE-046")]
 #[tokio::test]
 async fn e2e_reference_ranges_are_utf16() {
     let text = "invariant cap \"é→\" { guarantee \"x\" }\nbehavior b \"é→\" { invariants [cap] }\n";
@@ -236,10 +230,7 @@ async fn e2e_reference_ranges_are_utf16() {
     );
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename on entity ID returns token range"
-)]
+#[spec(requirement = "FEATURE-111")]
 #[tokio::test]
 async fn e2e_prepare_rename_answers_the_token() {
     let (mut client, uri, _dir) = Session::with_extensions(
@@ -258,10 +249,7 @@ async fn e2e_prepare_rename_answers_the_token() {
     assert_eq!(lsp_range(&reference["result"]), "4:14-4:27", "{reference}");
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename on non-renameable token returns not available"
-)]
+#[spec(requirement = "FEATURE-111")]
 #[tokio::test]
 async fn e2e_prepare_rename_outside_an_id_is_not_available() {
     let (mut client, uri, _dir) = Session::with_extensions(

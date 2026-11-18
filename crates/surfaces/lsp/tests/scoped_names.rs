@@ -51,10 +51,7 @@ fn at(line_has: &str, needle: &str, offset: usize) -> Position {
     Position::new(n as u32, (line.find(needle).unwrap() + offset) as u32)
 }
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "go-to-definition, prepare rename and rename take a path one segment at a time"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn navigation_takes_a_path_one_segment_at_a_time() {
     let served = served();
     let uri = served.uri("main.spec");
@@ -86,10 +83,7 @@ fn navigation_takes_a_path_one_segment_at_a_time() {
     );
 }
 
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "completion offers an entity by its name, shows its path and inserts the shortest spelling from the cursor's block"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn completion_inserts_the_shortest_spelling() {
     let text = SOURCE.replace("decisions [03/D-01]", "decisions []");
     let served = Served::new(&[("main.spec", &text)])
@@ -125,10 +119,7 @@ fn completion_inserts_the_shortest_spelling() {
     assert_eq!(inserted(in_phase_three).as_deref(), Some("03/D-01"));
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "hover and workspace symbols show an entity's full path"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn hover_and_symbols_show_the_path() {
     let served = served();
     let hover = served.hover("main.spec", 11, 10).expect("a hover");

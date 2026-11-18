@@ -9,14 +9,7 @@ const SPEC: &str = "invariant inv \"I\" {\n  guarantee \"g\"\n  risk low\n}\n\n\
 behavior alpha \"A\" {\n  contract \"a\"\n}\n\n\
 behavior beta \"B\" {\n  contract \"b\"\n  invariants [inv]\n}\n";
 
-#[specforge_test(
-    behavior = "report_entities_without_contract_obligations",
-    verify = "an entity of a contract-bearing kind that references no contract target is A010, an info"
-)]
-#[specforge_test(
-    behavior = "report_entities_without_contract_obligations",
-    verify = "the contracts pass's suggestion names the kind's contract fields, sorted"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn an_entity_without_obligations_is_a010() {
     let project = TestProject::new()
         .enabling(&["@specforge/software", "@specforge/governance"])

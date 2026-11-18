@@ -1,10 +1,7 @@
 use super::*;
 use crate::containment::Containment;
 
-#[specforge_test_macros::test(
-    behavior = "discover_format_targets",
-    verify = "a named path that names nothing refuses the run about paths before any file is read"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn a_named_path_that_names_nothing_is_refused_on_paths() {
     let dir = project_with(r#"{"spec_root": "spec"}"#, &[("spec/a.spec", MESSY)]);
     let bound = Containment::within(dir.path());

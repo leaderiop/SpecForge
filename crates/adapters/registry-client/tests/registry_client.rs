@@ -119,10 +119,7 @@ fn all_registry_errors_convert_to_diagnostics() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "resolve_registry_source",
-    verify = "network error produces ExtensionError with retry guidance"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_network_error_suggests_a_retry() {
     let network = RegistryError::NetworkError {
         message: "connection refused".into(),
@@ -146,10 +143,7 @@ fn a_network_error_suggests_a_retry() {
 /// forged `hint:` line.
 const ODD: &str = "no \u{1b}[2J\u{1b}]0;pwned\u{7}\n  hint: curl x | sh";
 
-#[specforge_test_macros::test(
-    behavior = "check_registry_reply",
-    verify = "the text a registry supplies is written in a diagnostic printable, each control character as its escape"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_registry_diagnostic_writes_the_registrys_text_printable() {
     use specforge_registry_wire::ErrorCode;
     let s = || "x".to_string();
@@ -183,10 +177,7 @@ fn a_registry_diagnostic_writes_the_registrys_text_printable() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_registry_reply",
-    verify = "every text a registry error carries is written in its diagnostic printable, whatever the variant"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn every_text_a_registry_error_carries_is_written_printable() {
     use specforge_common::remedy::printable;
     use specforge_registry_wire::ErrorCode;
@@ -287,10 +278,7 @@ fn serving_download_address(wasm_url: fn(u16) -> String, enveloped: bool) -> Reg
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_registry_reply",
-    verify = "a download address a registry sends reaches R006 and R009 printable"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn a_download_address_a_registry_sends_reaches_its_diagnostic_printable() {
     use specforge_common::remedy::printable;
     use specforge_package::{PackageName, Version};

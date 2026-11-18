@@ -1,9 +1,6 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "the add document lists what the add did for each specifier by action, with source always and key_id only for a signed package"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn add_document_names_what_the_add_did() {
     use specforge_installed::LockSource;
 

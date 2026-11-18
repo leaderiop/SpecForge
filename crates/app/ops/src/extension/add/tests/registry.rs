@@ -40,10 +40,7 @@ fn package(name: &str) -> Source {
     Source::Registry(PackageRef::parse(name).unwrap())
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add judges the project's peer set as the add leaves it: its builtins, installed extensions and .wasm file entries"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_install_requiring_a_builtin_out_of_range_is_refused_from_any_source() {
     use crate::config::testing::files_under;
     let files = tempfile::tempdir().unwrap();
@@ -89,10 +86,7 @@ fn an_install_requiring_a_builtin_out_of_range_is_refused_from_any_source() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an install whose required peer is not installed is refused with E027 before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_install_whose_required_peer_is_not_installed_is_refused() {
     use crate::config::testing::files_under;
     let files = tempfile::tempdir().unwrap();
@@ -123,10 +117,7 @@ fn an_install_whose_required_peer_is_not_installed_is_refused() {
     }
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an install whose required peer is installed but whose module is missing is refused with E027 before anything is written"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_install_whose_required_peer_has_no_module_is_refused() {
     use crate::config::testing::files_under;
     let files = tempfile::tempdir().unwrap();
@@ -149,10 +140,7 @@ fn an_install_whose_required_peer_has_no_module_is_refused() {
     assert_eq!(files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "enabling a builtin that an enabled extension's peer range does not accept is refused with E027"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn enabling_a_builtin_an_enabled_extension_rejects_is_refused() {
     use crate::config::testing::files_under;
     // `@probe/needs-software` installed by hand, requiring software ^9.
@@ -195,10 +183,7 @@ fn enabling_a_builtin_an_enabled_extension_rejects_is_refused() {
     assert_eq!(files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an install that breaks a .wasm file entry, or that a .wasm file entry does not satisfy, is refused with E027"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_install_that_breaks_a_file_entry_or_that_a_file_entry_does_not_satisfy_is_refused() {
     use crate::config::testing::files_under;
     let files = tempfile::tempdir().unwrap();
@@ -235,10 +220,7 @@ fn an_install_that_breaks_a_file_entry_or_that_a_file_entry_does_not_satisfy_is_
     assert_eq!(files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an install enables the builtins it requires first, whatever its source"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_install_enables_the_builtins_it_requires_first() {
     let files = tempfile::tempdir().unwrap();
     let local = Source::Local(wasm_file(
@@ -302,10 +284,7 @@ fn with_peer(
     declaration
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "add refuses a package whose binary declares other than its published declaration"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_binary_that_declares_other_than_its_published_declaration_is_refused() {
     // R4/R5: the published declaration differs from the binary's, in
     // its handshake (another description) or in a category (no kinds).
@@ -341,10 +320,7 @@ fn a_binary_that_declares_other_than_its_published_declaration_is_refused() {
     add_greet(dir.path(), &registry).unwrap();
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "the diamond gate decides on the published declaration's peers"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_diamond_gate_reads_the_published_declarations_peers() {
     // R4: the published declaration names a peer @acme/x ^2 that the
     // lock holds at 1.0.0. The gate refuses before the binary (which
@@ -387,10 +363,7 @@ fn adding_an_installed_exact_version_asks_the_registry_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "an add that upgrades a locked package judges its peers against the lock as the add leaves it"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_add_that_upgrades_a_locked_package_judges_its_peers_without_its_previous_entry() {
     let dir = add_project(vec![
         entry("@x/b", "1.0.0", "registry", &[]),
@@ -445,10 +418,7 @@ fn an_add_that_upgrades_a_locked_package_judges_its_peers_without_its_previous_e
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a version diamond names each requirer once"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_version_diamond_names_each_requirer_once() {
     let dir = add_project(vec![entry(
         "@acme/app",
@@ -483,10 +453,7 @@ fn a_version_diamond_names_each_requirer_once() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_fetched_binary_that_is_not_what_was_published_is_a_schema_mismatch() {
     // A binary that loads as no extension (E028), and one that declares another name than
     // the registry published it under (E028): the registry's fault, not a value the caller
@@ -526,10 +493,7 @@ fn a_fetched_binary_that_is_not_what_was_published_is_a_schema_mismatch() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_registry_reply",
-    verify = "add refuses another version served with the bytes the lock already pins"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn another_version_served_as_the_installed_bytes_is_refused() {
     use crate::config::testing::files_under;
     let dir = add_project(Vec::new());
@@ -555,10 +519,7 @@ fn another_version_served_as_the_installed_bytes_is_refused() {
 
 /// `add @acme/base` and `add @acme/app` (which needs base ^2.0) meet one fact, "the registry
 /// publishes no @acme/base", and refuse it alike.
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a peer its registry publishes no version of fails R-RES-002, as an add of that peer does"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_peer_published_nowhere_is_refused_as_an_add_of_it_is() {
     let dir = add_project(vec![
         entry("@acme/base", "1.0.0", "registry", &[]),

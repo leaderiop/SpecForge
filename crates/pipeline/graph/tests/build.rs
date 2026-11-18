@@ -69,10 +69,7 @@ fn assert_is_the_build_of(build: &GraphBuild, files: &BTreeMap<&str, &str>) {
 const ALPHA: &str = "behavior alpha \"A\" { contract \"a\" }\n";
 const BETA_ON_ALPHA: &str = "behavior beta \"B\" { invariants [alpha] }\n";
 
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "incremental rebuild equals cold rebuild"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn applying_every_file_at_once_is_the_cold_build() {
     let files = [
         ("a.spec", ALPHA),
@@ -98,10 +95,7 @@ fn applying_every_file_at_once_is_the_cold_build() {
     assert!(!cold.diagnostics().is_empty(), "the fixture reports things");
 }
 
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "incremental rebuild equals cold rebuild"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn each_apply_leaves_the_build_of_the_same_files() {
     let mut files: BTreeMap<&str, &str> = BTreeMap::new();
     let mut build = GraphBuild::new(GraphConfig::default());
@@ -148,10 +142,7 @@ fn each_apply_leaves_the_build_of_the_same_files() {
     }
 }
 
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "stale nodes are removed"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn removing_a_file_takes_its_entities_and_their_edges() {
     let mut build = GraphBuild::of(
         [file("a.spec", ALPHA), file("b.spec", BETA_ON_ALPHA)],
@@ -177,7 +168,7 @@ fn removing_a_file_takes_its_entities_and_their_edges() {
     assert!(build.file_diagnostics("a.spec").is_empty());
 }
 
-#[specforge_test(behavior = "rebuild_affected_subgraph", verify = "new nodes are added")]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_new_file_adds_its_entities() {
     let mut build = GraphBuild::of([file("b.spec", BETA_ON_ALPHA)], GraphConfig::default());
     assert_eq!(build.graph().node_count(), 1);
@@ -204,10 +195,7 @@ fn a_new_file_adds_its_entities() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "cross-file duplicate entity ID produces E002 naming the first declaration"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_duplicate_in_an_unchanged_file_takes_over_when_the_first_goes() {
     let first = "behavior alpha \"First\" { contract \"one\" }\n";
     let second = "behavior alpha \"Second\" { contract \"two\" }\n";
@@ -307,10 +295,7 @@ fn a_format_version_header_is_a_diagnostic_of_its_file() {
     assert!(build.file_diagnostics("a.spec").is_empty());
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "an entity that only moved is a moved node, not a modification"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_node_that_only_moved_is_listed_apart_from_the_delta() {
     let mut build = GraphBuild::of([file("a.spec", ALPHA)], GraphConfig::default());
 
@@ -328,10 +313,7 @@ fn a_node_that_only_moved_is_listed_apart_from_the_delta() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "an entity that only moved is a moved node, not a modification"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_node_moved_to_another_file_is_listed_where_it_is_now() {
     let mut build = GraphBuild::of([file("a.spec", ALPHA)], GraphConfig::default());
 
@@ -346,10 +328,7 @@ fn a_node_moved_to_another_file_is_listed_where_it_is_now() {
     assert_eq!(applied.moved[0].file, "b.spec");
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "a change of column or content alone moves no node"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_column_or_content_change_is_no_move() {
     let mut build = GraphBuild::of([file("a.spec", ALPHA)], GraphConfig::default());
 
@@ -365,10 +344,7 @@ fn a_column_or_content_change_is_no_move() {
     assert_eq!(edited.delta.modified_nodes[0].id, "alpha");
 }
 
-#[specforge_test(
-    behavior = "compute_graph_delta",
-    verify = "an entity that only moved is a moved node, not a modification"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn replacing_a_graph_lists_the_nodes_whose_place_changed() {
     let before = GraphBuild::of(
         [file(
@@ -400,10 +376,7 @@ fn replacing_a_graph_lists_the_nodes_whose_place_changed() {
     assert!(specforge_graph::moved_nodes(after.graph(), after.graph()).is_empty());
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a declaration's graph-build diagnostics name its entity in their data"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_declarations_diagnostics_name_its_entity_whether_or_not_it_is_placed() {
     // a.spec places `alpha`; b.spec's `alpha` is dropped (E002), owes a title (E076) and writes a
     // key twice (E081); c.spec's invariant `alpha` is W060; the second `ref gh.issue:42` is E002
@@ -465,10 +438,7 @@ fn a_declarations_diagnostics_name_its_entity_whether_or_not_it_is_placed() {
     assert_eq!(named(&build), expected);
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a second spec block is E002 whatever its name, and is not placed"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_second_spec_block_is_e002_whatever_its_name() {
     let two_files = [
         file("a.spec", "spec \"two\" {\n}\n"),

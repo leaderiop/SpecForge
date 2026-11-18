@@ -44,10 +44,7 @@ fn at(id: &str, file: &str, line: usize) -> Value {
     )
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "find_implementation lists every anchor of the entity, by file and line"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_implementation_lists_every_anchor_of_the_entity() {
     let mut server = served(vec![
         naming(at("rust:p::net::serve", "src/net.rs", 4), &["alpha"]),
@@ -82,10 +79,7 @@ fn find_implementation_lists_every_anchor_of_the_entity() {
     assert_eq!(error["diagnostic"]["code"], "E003", "{error}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_spec_for_source_tool",
-    verify = "find_spec_for_source lists the anchors of every located fact the path names"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_spec_for_source_lists_the_entities_anchored_in_the_file() {
     let mut server = served(vec![
         naming(at("rust:p::net::serve", "src/net.rs", 4), &["beta"]),
@@ -118,10 +112,7 @@ fn find_spec_for_source_lists_the_entities_anchored_in_the_file() {
     assert_eq!(found["match_mode"], "exact", "{found}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "an answer with no located fact served carries I212"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_implementation_says_when_nothing_was_collected() {
     let mut server = served(vec![]);
     let reply = call_tool(
@@ -158,10 +149,7 @@ fn collected_crate() -> (TestProject, specforge_mcp::McpServer) {
     (project, server)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_implementation_tool",
-    verify = "find_implementation answers a Rust test's file and line after a real collect"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_implementation_answers_a_collected_rust_item() {
     let (_project, mut server) = collected_crate();
     let reply = call_tool(

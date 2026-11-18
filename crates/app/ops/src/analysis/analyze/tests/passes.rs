@@ -39,10 +39,7 @@ fn json_shape_is_ok_and_passes() {
     );
 }
 
-#[specforge_test(
-    behavior = "call_extension_exports",
-    verify = "an analyze pass that traps is reported as an E028 finding of that pass"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn an_analyze_pass_that_traps_is_an_e028_finding_and_the_analysis_fails() {
     for answer in [
         WasmCallResult::Trap(WasmTrapInfo {
@@ -134,10 +131,7 @@ fn unknown_and_check_phase_passes_are_refused_with_the_available_ones() {
     }
 }
 
-#[specforge_test(
-    behavior = "call_extension_exports",
-    verify = "an analyze pass runs in the view's runtime whether or not the view has a root"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn extension_passes_run_without_a_root() {
     let project = Project::new();
     let options = AnalyzeOptions::default();
@@ -197,10 +191,7 @@ fn claiming() -> ContributionsBuilder {
     c
 }
 
-#[specforge_test(
-    behavior = "prove_declared_bounds_and_claims",
-    verify = "a claim the bounds entail reaches the extension passes as a proved claim"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_claim_the_solver_entails_reaches_the_extension_passes() {
     let mut project = Project::serving(InProcessRuntime::new().with(claiming), &[EXT]);
     add_entity_with(
@@ -230,10 +221,7 @@ fn a_claim_the_solver_entails_reaches_the_extension_passes() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn analyze_states_which_field_a_refusal_is_about() {
     let project = Project::new();
     let subject = |options: AnalyzeOptions| project.run(&options).unwrap_err().subject;

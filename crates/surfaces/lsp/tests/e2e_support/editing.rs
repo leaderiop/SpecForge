@@ -259,10 +259,7 @@ async fn next_published_codes(client: &mut Session, uri: &str) -> Vec<String> {
     }
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "diagnostics update after file change"
-)]
+#[spec(requirement = "FEATURE-059")]
 #[tokio::test]
 async fn e2e_diagnostics_follow_each_edit() {
     let clean = "invariant token_unique \"T\" {\n  guarantee \"g\"\n}\n\nbehavior login \"L\" {\n  invariants [token_unique]\n}\n";
@@ -291,10 +288,7 @@ async fn e2e_diagnostics_follow_each_edit() {
     assert!(!codes.contains(&"E003".to_string()), "{codes:?}");
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "cycle_detection finds cycles in edge type"
-)]
+#[spec(requirement = "FEATURE-016")]
 #[tokio::test]
 async fn e2e_extension_cycle_rule_reports_its_own_code() {
     // Two modules that depend on each other: product's cycle rule is E007.
@@ -311,10 +305,7 @@ async fn e2e_extension_cycle_rule_reports_its_own_code() {
     assert!(codes.contains(&"E007".to_string()), "{codes:?}");
 }
 
-#[spec(
-    invariant = "lsp_survives_its_faults",
-    verify = "a request after a handler's panic is answered and the server keeps serving"
-)]
+#[spec(requirement = "INVARIANT-062")]
 #[tokio::test]
 async fn e2e_an_edit_at_the_largest_column_keeps_the_server_serving() {
     let (mut client, uri) = Session::with_doc(None, "test.spec", "éé\n").await;
@@ -342,10 +333,7 @@ async fn e2e_an_edit_at_the_largest_column_keeps_the_server_serving() {
     assert!(shutdown["error"].is_null(), "{shutdown}");
 }
 
-#[spec(
-    behavior = "incremental_document_sync",
-    verify = "an edit at any column past its line's end applies at the line's end"
-)]
+#[spec(requirement = "FEATURE-059")]
 #[tokio::test]
 async fn e2e_an_edit_at_the_largest_column_applies_at_the_line_end_e2e() {
     let (mut client, uri) = Session::with_doc(None, "test.spec", "éé\n").await;

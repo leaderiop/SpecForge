@@ -24,10 +24,8 @@ fn definitions(text: &str) -> Vec<Definition> {
     crate::items::read(&workspace.packages()[0], "src/a.ts", "src/a.ts", &matches)
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "a dotted namespace name is one segment per identifier, whatever is written between them"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_dotted_namespace_name_is_one_segment_per_identifier() {
     let facts = collected(&[(
         "src/a.ts",
@@ -38,10 +36,8 @@ fn a_dotted_namespace_name_is_one_segment_per_identifier() {
     assert_eq!(paths(&facts, "src/a.ts"), ["A.B.C", "A.B.C.x"]);
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "a string member name is its value, escapes decoded"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_string_member_name_is_its_value_escapes_decoded() {
     let facts = collected(&[(
         "src/a.ts",
@@ -72,10 +68,8 @@ fn a_string_member_name_is_its_value_escapes_decoded() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_mark_item_exports",
-    verify = "a signature is its parts' text in one spelling, a literal's whitespace kept"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_signature_is_its_parts_text_in_one_spelling_a_literals_whitespace_kept() {
     let read = definitions("export function f(a: 'a  b',\n  c: number = /x  y/):  void {}\n");
     let [f] = &read[..] else {

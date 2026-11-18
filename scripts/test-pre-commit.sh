@@ -26,14 +26,15 @@ touch crates/kernel/common/pending.snap.new
 git add -f crates/kernel/common/pending.snap.new
 expect refused "a staged .snap.new"
 
-printf 'invariant   unformatted_one   "X"   {\n guarantee "g"\n}\n' >spec/zz_unformatted.spec
+printf 'requirement   ZZ-01   "X"   {\n category "Feature"\n tier v2\n text "t"\n}\n' >spec/zz_unformatted.spec
 git add spec/zz_unformatted.spec
 expect refused "an unformatted .spec"
 
-f=$(grep -rl 'verify = "' crates/pipeline/registry/tests | head -1)
-perl -0pi -e 's/verify = "/verify = "NOT DECLARED /' "$f"
+f=$(grep -rl 'requirement = "' crates/pipeline/registry/tests | head -1)
+[ -n "$f" ] || f=$(grep -rl --include='*.rs' 'requirement = "' crates/*/*/tests | head -1)
+perl -0pi -e 's/requirement = "/requirement = "NOPE-/' "$f"
 git add "$f"
-expect refused "a verify text the spec does not declare"
+expect refused "a test that names no requirement of the spec"
 
 echo "// touched" >>crates/kernel/common/src/lib.rs
 cargo fmt --all

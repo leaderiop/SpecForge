@@ -73,10 +73,7 @@ fn enabled(root: &Path) -> Value {
     config["extensions"].clone()
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "installed extension manifest is loaded"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_local_install_loads_through_check() {
     let dir = greeting_project();
     let (_, before) = check(&dir);
@@ -93,10 +90,7 @@ fn a_local_install_loads_through_check() {
     }
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a local .wasm install is locked at its declared version with source local:<path> and enabled by its bare name"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_local_install_is_locked_at_its_declared_version() {
     let dir = greeting_project();
 
@@ -112,10 +106,7 @@ fn a_local_install_is_locked_at_its_declared_version() {
     );
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "an extension installed from a registry loads through check"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_registry_install_loads_through_check() {
     let registry = serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
     let dir = project_on(&registry);
@@ -171,10 +162,7 @@ fn add_json_names_its_source_and_a_key_only_when_signed() {
     assert_eq!(remote["added"][0]["publisher"], "unsigned", "{remote}");
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "tampered installed binary refused via lockfile hash pin (E070)"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_tampered_installed_binary_is_refused_with_e070() {
     let dir = greeting_project();
     add_local_greet(&dir);
@@ -195,10 +183,7 @@ fn a_tampered_installed_binary_is_refused_with_e070() {
     assert!(message.contains("@sdk/greet"), "{message}");
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "an enabled extension with no installed binary produces E028 naming the command that installs it"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn an_enabled_extension_that_is_not_installed_is_e028_with_a_remedy() {
     let dir = greeting_project();
     add_local_greet(&dir);
@@ -216,10 +201,7 @@ fn an_enabled_extension_that_is_not_installed_is_e028_with_a_remedy() {
     assert!(suggestion.contains("specforge add"), "{suggestion}");
 }
 
-#[specforge_test(
-    invariant = "init_config_validity",
-    verify = "specforge init followed by specforge check produces zero config errors"
-)]
+#[specforge_test(requirement = "INVARIANT-058")]
 fn init_installs_a_local_extension_check_loads() {
     let dir = TestProject::new()
         .without_config()
@@ -260,10 +242,7 @@ fn a_legacy_versioned_entry_still_loads() {
     assert!(!codes(&found).contains(&"E024"), "{found:?}");
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "update never replaces a locally installed extension from a registry"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn update_never_replaces_a_local_install() {
     // The registry publishes a newer package under the same name.
     let registry = serve(vec![Package::new("@sdk/greet", "9.9.9", greet_wasm())]);
@@ -287,10 +266,7 @@ fn update_never_replaces_a_local_install() {
     );
 }
 
-#[specforge_test(
-    behavior = "batch_update_completed",
-    verify = "emits batch_update_completed with correct updatedCount after bulk update"
-)]
+#[test]
 fn a_bulk_update_reports_batch_update_completed() {
     // greet is locked from the registry one version behind; a local build
     // sits beside it, which a registry never replaces.
@@ -371,10 +347,7 @@ fn redact_hashes(text: &str) -> String {
     out
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "update --format json prints every locked extension's status and the batch_update_completed payload"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn update_json_lists_every_locked_extension() {
     let local = json!({"name": "@acme/local", "version": "1.0.0", "source": "local:local.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"});
     let (ok, document, dir) = update_json(local);
@@ -394,10 +367,7 @@ fn update_json_lists_every_locked_extension() {
     );
 }
 
-#[specforge_test(
-    behavior = "extension_upgrade_completed",
-    verify = "emits extension_upgrade_completed with correct previousVersion and newVersion"
-)]
+#[test]
 fn an_applied_upgrade_reports_extension_upgrade_completed() {
     let local = json!({"name": "@acme/local", "version": "1.0.0", "source": "local:local.wasm", "wasm_hash": "0000000000000000000000000000000000000000000000000000000000000000"});
     let (ok, document, _dir) = update_json(local);
@@ -459,10 +429,7 @@ fn a_failed_update_prints_its_document() {
     );
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "update --major on a pre-release lock never installs a lower release"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn update_major_on_a_pre_release_lock_installs_nothing_lower() {
     // 0.1.0 is a release below the locked 0.2.0-beta.1: --major admits only newer versions.
     let registry = serve(vec![
@@ -532,10 +499,7 @@ fn finding<'a>(report: &'a Value, code: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("no {code} finding: {report}"))
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor reports an extension that fails to load (E028, E070) as an error"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_reports_an_extension_that_fails_to_load() {
     // A binary that no longer matches its lock entry: check refuses it (E070).
     let tampered = greeting_project();
@@ -627,10 +591,7 @@ fn wasm_entry_forms(root: &Path) -> Vec<String> {
     ]
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "an entry naming a .wasm file loads that component from disk under the name it declares"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_wasm_file_entry_loads_through_check() {
     let probe = greet_file_project();
     for entry in wasm_entry_forms(probe.root()) {
@@ -652,10 +613,7 @@ fn a_wasm_file_entry_loads_through_check() {
     }
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "a .wasm file entry is listed under the name it declares, loaded, with source file:<path>"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_wasm_file_entry_is_listed_by_its_declared_name() {
     let dir = greet_file_project();
     enable(&dir, json!(["@specforge/software", "greet.wasm"]));
@@ -682,10 +640,7 @@ fn a_wasm_file_entry_is_listed_by_its_declared_name() {
     assert_eq!(greet["entity_count"], 1, "{greet}");
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "a .wasm file entry that is missing, is not a component, names another extension or repeats a loaded one produces E028 naming the entry"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_wasm_file_entry_that_cannot_load_is_e028_naming_it() {
     let cases = [
         ("missing.wasm", "does not exist"),
@@ -739,10 +694,7 @@ fn remove(project: &TestProject, name: &str, extra: &[&str]) -> (bool, Value) {
     (out.status.success(), output)
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_wasm_file_entry_is_removed_by_its_declared_name_or_its_entry() {
     let cases = [
         ("greet.wasm", "@sdk/greet"),
@@ -791,10 +743,7 @@ fn a_wasm_file_entry_is_removed_by_its_declared_name_or_its_entry() {
     assert_eq!(enabled(dir.root()), json!(["@specforge/software"]));
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a name more than one specforge.json entry enables is refused as ambiguous, naming the entries"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_name_two_entries_enable_is_refused_as_ambiguous() {
     let cases = [
         // Not installed, so the file is what loads `@sdk/greet`.
@@ -826,10 +775,7 @@ fn a_name_two_entries_enable_is_refused_as_ambiguous() {
     }
 }
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a locked extension no specforge.json entry enables does not keep its peer from being removed"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn removing_a_wasm_file_entry_a_disabled_lock_entry_requires_is_accepted() {
     let dir = greet_file_project();
     // `@acme/uses-greet` is locked and requires `@sdk/greet`, but no entry enables it.
@@ -877,10 +823,7 @@ fn removing_a_wasm_file_no_entry_names_is_not_found() {
 
 // Doctor names a `.wasm` file entry by its file, as the
 // extensions listing does (it used to call it "builtin").
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor lists the extensions the extensions listing lists, each with its version, source and status"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_lists_a_wasm_file_entry_with_its_file_source() {
     let dir = greet_file_project();
     enable(&dir, json!(["@specforge/software", "greet.wasm"]));
@@ -914,10 +857,7 @@ fn doctor_lists_a_wasm_file_entry_with_its_file_source() {
 // A removal with an unreadable specforge.json refuses before
 // it writes anything (it used to uninstall the binary and empty the lock
 // first). Fixed, the same removal finishes cleanly.
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_removal_with_an_unreadable_config_changes_nothing() {
     let dir = greeting_project();
     add_local_greet(&dir);
@@ -978,10 +918,7 @@ fn tree(root: &Path) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> 
     files
 }
 
-#[specforge_test(
-    invariant = "dry_run_side_effect_freedom",
-    verify = "--dry-run produces output without modifying files"
-)]
+#[specforge_test(requirement = "INVARIANT-021")]
 fn add_dry_run_prints_the_plan_and_writes_nothing() {
     let dir = greet_file_project();
     enable(&dir, json!([]));
@@ -1023,10 +960,7 @@ fn add_dry_run_prints_the_plan_and_writes_nothing() {
     assert_eq!(tree(dir.root()), before, "a dry run writes nothing");
 }
 
-#[specforge_test(
-    invariant = "dry_run_side_effect_freedom",
-    verify = "--dry-run produces output without modifying files"
-)]
+#[specforge_test(requirement = "INVARIANT-021")]
 fn remove_dry_run_prints_the_plan_and_writes_nothing() {
     let dir = greet_file_project();
     enable(&dir, json!(["@specforge/software", "greet.wasm"]));

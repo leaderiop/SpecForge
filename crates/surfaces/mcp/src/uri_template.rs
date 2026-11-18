@@ -174,10 +174,7 @@ pub(crate) fn probe(template: &str) -> String {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "dispatch_surface_mcp_resource",
-        verify = "a URI names a core or extension resource by one rule: a template's text before its first placeholder and anything after it, a plain URI alone or followed by a query"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-125")]
     fn a_template_names_every_uri_after_its_head() {
         let template = "specforge://graph/{entity_id}";
         assert!(names(template, "specforge://graph/a"));
@@ -187,10 +184,7 @@ mod tests {
         assert!(!names(template, "specforge://grap"));
     }
 
-    #[specforge_test_macros::test(
-        behavior = "dispatch_surface_mcp_resource",
-        verify = "a URI names a core or extension resource by one rule: a template's text before its first placeholder and anything after it, a plain URI alone or followed by a query"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-125")]
     fn a_plain_uri_names_itself_and_its_queries() {
         let uri = "specforge://diagnostics";
         assert!(names(uri, "specforge://diagnostics"));
@@ -199,19 +193,13 @@ mod tests {
         assert!(!names(uri, "specforge://diagnosticsx"));
     }
 
-    #[specforge_test_macros::test(
-        behavior = "dispatch_surface_mcp_resource",
-        verify = "a URI names a core or extension resource by one rule: a template's text before its first placeholder and anything after it, a plain URI alone or followed by a query"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-125")]
     fn a_probe_fills_each_placeholder() {
         assert_eq!(probe("acme://{a}/b/{c}"), "acme://x/b/x");
         assert_eq!(probe("specforge://graph"), "specforge://graph");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_resources",
-        verify = "a core resource template reads each placeholder as one non-empty, percent-decoded path segment and refuses any other value as invalid input naming it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn a_placeholder_reads_one_segment() {
         let graph = "specforge://graph/{entity_id}";
         let plain = read(graph, "specforge://graph/a").unwrap();
@@ -221,10 +209,7 @@ mod tests {
         assert_eq!(queried.query(), "depth=2");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_resources",
-        verify = "a core resource template reads each placeholder as one non-empty, percent-decoded path segment and refuses any other value as invalid input naming it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn an_empty_placeholder_is_malformed() {
         let err = read("specforge://graph/{entity_id}", "specforge://graph/").unwrap_err();
         assert_eq!(err.placeholder, "entity_id");
@@ -233,10 +218,7 @@ mod tests {
         assert_eq!(err.placeholder, "kind");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_resources",
-        verify = "a core resource template reads each placeholder as one non-empty, percent-decoded path segment and refuses any other value as invalid input naming it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn a_placeholder_of_two_segments_is_malformed() {
         let err = read("specforge://graph/{entity_id}", "specforge://graph/alpha/x").unwrap_err();
         assert_eq!(err.placeholder, "entity_id");
@@ -246,10 +228,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_resources",
-        verify = "a core resource template reads each placeholder as one non-empty, percent-decoded path segment and refuses any other value as invalid input naming it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn a_placeholder_is_percent_decoded() {
         let kind = read(
             "specforge://entities/{kind}",
@@ -262,20 +241,14 @@ mod tests {
         assert!(err.message.contains("percent-encoded"), "{}", err.message);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_resources",
-        verify = "a core resource template reads each placeholder as one non-empty, percent-decoded path segment and refuses any other value as invalid input naming it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn a_plain_uri_reads_its_query() {
         let matched = read("specforge://graph", "specforge://graph?scope=a").unwrap();
         assert_eq!(matched.value("scope"), None);
         assert_eq!(matched.query(), "scope=a");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_resources",
-        verify = "a core resource template reads each placeholder as one non-empty, percent-decoded path segment and refuses any other value as invalid input naming it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn two_placeholders_read_in_order() {
         let template = "acme://{a}/b/{c}";
         let matched = read(template, "acme://x/b/y").unwrap();
@@ -285,10 +258,7 @@ mod tests {
         assert_eq!(err.placeholder, "a");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_resources",
-        verify = "a core template's reserved placeholder reads the rest of the path, decoded whole, with no empty segment, and is the template's last part"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn a_reserved_placeholder_reads_the_rest_of_the_path() {
         let graph = "specforge://graph/{+entity_id}";
         let written = read(graph, "specforge://graph/v1.0/03/D-01?depth=2").unwrap();
@@ -301,10 +271,7 @@ mod tests {
         assert_eq!(probe(graph), "specforge://graph/x");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_resources",
-        verify = "a core template's reserved placeholder reads the rest of the path, decoded whole, with no empty segment, and is the template's last part"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn a_reserved_placeholder_refuses_an_empty_segment() {
         let graph = "specforge://graph/{+entity_id}";
         for uri in [
@@ -325,10 +292,7 @@ mod tests {
         assert!(err.message.contains("percent-encoded"), "{}", err.message);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_resources",
-        verify = "a core template's reserved placeholder reads the rest of the path, decoded whole, with no empty segment, and is the template's last part"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn a_reserved_placeholder_is_the_last_part_of_every_core_template() {
         let mut reserved = Vec::new();
         for resource in crate::resources::CORE_RESOURCES {

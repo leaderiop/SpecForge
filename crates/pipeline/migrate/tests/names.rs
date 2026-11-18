@@ -30,10 +30,7 @@ fn project() -> TempDir {
     dir
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "the migrate document names each file and backup from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn the_record_names_each_file_and_its_backup_from_the_root() {
     let dir = project();
     let root = ProjectRoot::of(dir.path()).unwrap();

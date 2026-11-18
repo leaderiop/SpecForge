@@ -643,10 +643,7 @@ fn multi_extension_schema() -> GraphProtocolSchema {
 // Filter: extension filter keeps only matching entities
 // =========================================================================
 
-#[specforge_test_macros::test(
-    behavior = "filter_model",
-    verify = "extension filter includes only matching entities"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-075")]
 fn filter_by_extension() {
     let m = json_of(
         &multi_extension_schema(),
@@ -666,10 +663,7 @@ fn filter_by_extension() {
 // Filter: kind filter with known kinds
 // =========================================================================
 
-#[specforge_test_macros::test(
-    behavior = "filter_model",
-    verify = "kind filter includes only listed kinds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-075")]
 fn filter_by_kinds() {
     let m = json_of(
         &multi_extension_schema(),
@@ -691,10 +685,7 @@ fn filter_by_kinds() {
 // Filter: unknown kind silently ignored
 // =========================================================================
 
-#[specforge_test_macros::test(
-    behavior = "filter_model",
-    verify = "a listed kind the project does not know selects nothing in the export"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-075")]
 fn filter_unknown_kind_ignored() {
     let m = json_of(
         &multi_extension_schema(),
@@ -712,10 +703,7 @@ fn filter_unknown_kind_ignored() {
 // Filter: root+depth=0 keeps only root
 // =========================================================================
 
-#[specforge_test_macros::test(
-    behavior = "filter_model",
-    verify = "root+depth=0 includes only the root kind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-075")]
 fn filter_root_depth_zero() {
     let m = json_of(
         &multi_extension_schema(),
@@ -736,10 +724,7 @@ fn filter_root_depth_zero() {
 // Filter: root+depth=1 keeps root + direct neighbors
 // =========================================================================
 
-#[specforge_test_macros::test(
-    behavior = "filter_model",
-    verify = "root+depth=1 includes root and directly connected kinds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-075")]
 fn filter_root_depth_one() {
     let m = json_of(
         &multi_extension_schema(),
@@ -762,10 +747,7 @@ fn filter_root_depth_one() {
 // Filter: intersection of extension + kind filter
 // =========================================================================
 
-#[specforge_test_macros::test(
-    behavior = "filter_model",
-    verify = "multiple filters compose as intersection"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-075")]
 fn filter_intersection_extension_and_kind() {
     let m = json_of(
         &multi_extension_schema(),
@@ -979,10 +961,7 @@ fn render_dot_empty() {
 
 // --- JSON ---
 
-#[specforge_test_macros::test(
-    behavior = "render_model_json",
-    verify = "output carries the schema_version specforge schema prints for the project"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-076")]
 fn render_json_keys() {
     let output = exported(
         &multi_extension_schema(),
@@ -1256,20 +1235,14 @@ fn rendered(schema: &GraphProtocolSchema, fields: FieldLevel, format: ModelForma
     )
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_model_mermaid",
-    verify = "declared text with a quote, markup or a line break stays inside its Mermaid string"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-076")]
 fn a_quote_or_line_break_in_a_description_stays_inside_the_er_string() {
     let schema = with_text("behavior", "the \"body\"\nnext");
     let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
     assert!(output.contains("\"the #quot;body#quot; next\""), "{output}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_model_mermaid",
-    verify = "an entity or attribute name that is not a Mermaid name is written as one"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-076")]
 fn a_kind_name_that_is_not_an_identifier_is_made_one() {
     let schema = with_text("no\"te", "the contract");
     let output = rendered(&schema, FieldLevel::All, ModelFormat::Mermaid);
@@ -1277,10 +1250,7 @@ fn a_kind_name_that_is_not_an_identifier_is_made_one() {
     assert!(!output.contains("no\"te"), "{output}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_model_markdown",
-    verify = "declared text with a pipe or a line break stays in its table cell"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-076")]
 fn a_pipe_in_any_cell_stays_in_its_cell() {
     let mut schema = multi_extension_schema();
     for entity in &mut schema.entity_kinds {
@@ -1301,10 +1271,7 @@ fn a_pipe_in_any_cell_stays_in_its_cell() {
     assert_eq!(row.replace("\\|", "").matches('|').count(), 7, "{row}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_model_dbml",
-    verify = "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-076")]
 fn an_apostrophe_or_line_break_stays_inside_a_dbml_note() {
     let schema = with_text("behavior", "this event's shape");
     let output = rendered(&schema, FieldLevel::All, ModelFormat::Dbml);
@@ -1315,10 +1282,7 @@ fn an_apostrophe_or_line_break_stays_inside_a_dbml_note() {
     assert!(output.contains("note: 'first\\nsecond'"), "{output}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_model_dbml",
-    verify = "each reference is one named Ref between columns the output writes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-076")]
 fn a_reference_is_one_named_ref() {
     let output = rendered(
         &multi_extension_schema(),
@@ -1339,10 +1303,7 @@ fn a_reference_is_one_named_ref() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_model_dbml",
-    verify = "each reference is one named Ref between columns the output writes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-076")]
 fn a_ref_joins_only_columns_the_output_writes() {
     let schema = multi_extension_schema();
     let output = rendered(&schema, FieldLevel::None, ModelFormat::Dbml);
@@ -1362,10 +1323,7 @@ fn a_ref_joins_only_columns_the_output_writes() {
     assert!(!output.contains("Table feature"), "{output}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_model_dbml",
-    verify = "a name or note with a quote, an apostrophe or a line break stays one DBML name or string"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-076")]
 fn a_name_that_is_not_a_dbml_identifier_is_quoted() {
     let mut schema = multi_extension_schema();
     for info in &mut schema.extensions {
@@ -1386,10 +1344,7 @@ fn a_name_that_is_not_a_dbml_identifier_is_quoted() {
     assert!(output.contains("Table \"no\\\"te\" {"), "{output}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_model_dot",
-    verify = "header row colored by extension"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-076")]
 fn an_extensions_declared_theme_color_draws_its_cluster() {
     let schema = multi_extension_schema();
     let grey = exported(&schema, default_options(ModelFormat::Dot));
@@ -1403,10 +1358,7 @@ fn an_extensions_declared_theme_color_draws_its_cluster() {
     assert!(themed.contains("#2ecc71"), "product's colour: {themed}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "filter_model",
-    verify = "an empty kind list selects every kind"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-075")]
 fn an_empty_kind_list_selects_every_kind() {
     let schema = multi_extension_schema();
     let all = json_of(&schema, ModelOptions::default());
@@ -1421,10 +1373,7 @@ fn an_empty_kind_list_selects_every_kind() {
     assert!(!names(&all["entities"]).is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "build_model_intermediate",
-    verify = "an extension's edge count is the edge types the model draws"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-060")]
 fn an_extension_counts_the_edge_types_the_model_draws() {
     let kind = |name: &str| SchemaEntityKind {
         name: name.to_string(),

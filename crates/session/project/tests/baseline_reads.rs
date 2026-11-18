@@ -69,10 +69,7 @@ fn paths(input: &Value, read: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a compute pass at the baseline reads the commit's files"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_compute_pass_at_the_baseline_reads_the_commits_files() {
     let input = baseline_input();
     let facts = input["files"]["modified"]["facts"].as_array().unwrap();
@@ -86,10 +83,7 @@ fn a_compute_pass_at_the_baseline_reads_the_commits_files() {
     assert_eq!(lib["digest"], file_digest(b"pub fn old() {}\n").as_str());
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a glob read at the baseline lists the commit's tree"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_glob_read_at_the_baseline_lists_the_commits_tree() {
     let input = baseline_input();
     assert_eq!(
@@ -99,10 +93,7 @@ fn a_glob_read_at_the_baseline_lists_the_commits_tree() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a baseline asks for the commit's tree only when a compute pass reads, and runs each compute pass once"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_baseline_asks_no_tree_without_a_reading_compute_pass() {
     let project = crate::computed::project("verification V \"V\" {\n  phase 03\n}\n");
     let runtime = Arc::new(gsd_history_runtime(json!([])));
@@ -117,10 +108,7 @@ fn a_baseline_asks_no_tree_without_a_reading_compute_pass() {
 }
 
 /// Guards the prefetch: it passes before the fix too, it is not a red-first pin.
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a baseline asks for the commit's tree only when a compute pass reads, and runs each compute pass once"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn each_compute_pass_runs_once_at_the_baseline() {
     let project = gsd_facts_project();
     let runtime = Arc::new(scan_runtime());
@@ -136,10 +124,7 @@ fn each_compute_pass_runs_once_at_the_baseline() {
     assert_eq!(fake.blobs_asked(), 1);
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a file git cannot give or a file over the cap is not absent at the baseline"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_file_git_cannot_give_is_unreadable_at_the_baseline() {
     let project = gsd_facts_project();
     let spec = project.read("a.spec").replace(
@@ -182,10 +167,7 @@ fn a_file_git_cannot_give_is_unreadable_at_the_baseline() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a compute pass at the baseline reads the commit's files"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_baseline_compiles_to_the_same_bytes_twice() {
     let project = gsd_facts_project();
     let runtime = Arc::new(scan_runtime());
@@ -260,10 +242,7 @@ fn at(
     .map(|_| ())
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a baseline git could not fully read is used and not cached, and a tree error is not cached"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_baseline_git_could_not_fully_read_is_not_cached() {
     let project = gsd_facts_project();
     let spec = project.read("a.spec").replace(
@@ -294,10 +273,7 @@ fn a_baseline_git_could_not_fully_read_is_not_cached() {
     assert_eq!(fake.trees_asked(), 1);
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a baseline whose listed file git then gives no bytes for is not cached"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_sized_file_without_bytes_makes_the_baseline_uncached() {
     let project = gsd_facts_project();
     let spec = project.read("a.spec").replace(
@@ -314,10 +290,7 @@ fn a_sized_file_without_bytes_makes_the_baseline_uncached() {
     assert_eq!(fake.trees_asked(), 2, "read again: the blob may come later");
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a file git can never be asked for is permanently unreadable and the baseline is cached"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_name_git_cannot_be_asked_for_is_cached() {
     let project = gsd_facts_project();
     let spec = project.read("a.spec").replace(
@@ -333,10 +306,7 @@ fn a_name_git_cannot_be_asked_for_is_cached() {
     assert_eq!(fake.trees_asked(), 1, "no later fetch can give that name");
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a spec a compute pass reads at the baseline is not asked of git again"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_spec_a_pass_reads_is_not_fetched_again() {
     let project = gsd_facts_project();
     let spec = project.read("a.spec").replace(
@@ -357,10 +327,7 @@ fn a_spec_a_pass_reads_is_not_fetched_again() {
     assert!(!asked.contains(&PathBuf::from("a.spec")), "{asked:?}");
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a project in a subdirectory of the repository reads its own files at the baseline"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_subdirectory_project_reads_its_own_files() {
     let project = gsd_facts_project();
     let top = project.root().parent().unwrap().to_path_buf();
@@ -381,10 +348,7 @@ fn a_subdirectory_project_reads_its_own_files() {
     assert_eq!(lib["text"], "pub fn old() {}\n", "{lib}");
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a path only a computed value names is read in a later run, and a short answer ends the loop"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_path_only_a_computed_value_names_is_read_in_a_later_run() {
     let project = gsd_facts_project();
     let wire = json!([
@@ -434,10 +398,7 @@ fn a_path_only_a_computed_value_names_is_read_in_a_later_run() {
     assert_eq!(fake.blobs_asked(), 1);
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a path only a computed value names is read in a later run, and a short answer ends the loop"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_short_answer_from_git_ends_the_loop() {
     let project = gsd_facts_project();
     let runtime = Arc::new(scan_runtime());

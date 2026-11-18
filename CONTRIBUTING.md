@@ -27,6 +27,7 @@ Run `scripts/setup-hooks.sh` once per clone: the tracked pre-commit hook runs th
 Run `cargo gate` (what the working tree changed) before a PR and `cargo gate full` before a merge; CI runs `cargo gate ci`, the same list. `cargo gate list` prints every check, the run it joins and the paths that trigger it.
 
 The prove tests ask the real SMT solver: install z3 (`brew install z3`, `apt-get install z3`); CI installs it. Every other test chooses the solver it sees.
+The gate's cache-prune test runs jq: install jq (`brew install jq`, `apt-get install jq`); CI's Linux runner has it.
 
 Lints are one table in the root `Cargo.toml` (`[workspace.lints]`), inherited by every crate. No `unwrap()` outside
 tests: use `expect("...")` naming the invariant, or return an error for anything a user controls. An exception is
@@ -42,8 +43,8 @@ shrink, split or move one, run `cargo gate baseline --only file-size` and commit
 ## Tests
 
 A test that crosses a surface (a CLI exit code, an MCP `isError`, an LSP reply) moves below it only when one surface
-test still covers the mapping, or the commit says why none can. The `verify` links do not see the loss: they count per
-obligation, not per surface.
+test still covers the mapping, or the commit says why none can. The requirement links do not see the loss: they count
+per requirement, not per surface.
 
 A test builds its project with `specforge_project::testing::TestProject` (feature `testing`) and exercises it
 through one driver: `compile()`/`session()` in process, `specforge_mcp::testing::Served` over MCP, or
@@ -51,10 +52,15 @@ through one driver: `compile()`/`session()` in process, `specforge_mcp::testing:
 only the binary's contract (arguments, exit codes, streams, environment) and cross-surface comparisons are CLI
 tests ([ADR 0078](docs/adr/0078-a-tests-project-is-one-fixture.md)).
 
-SpecForge's own project loads the Rust source packs: `specforge collect --no-run` at the root runs rust-cargo, then
-rust-source, and skips cargo-test (a plain `specforge collect` would ask to run the whole test suite first). It stores
-the facts of every crate's items in `.specforge/` (ignored, as the rename ledger `specforge-harness` is), and
-`specforge anchors <behavior>` then lists the tests whose `#[specforge_test]` names it.
+A test of this repository names the requirement it proves, `#[specforge_test(requirement = "<id>")]`, one attribute
+per requirement and no verify text; `check-links` (the `links` check) reports one that names no requirement of `spec/`
+([ADR 0374](docs/adr/0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md)).
+
+SpecForge's own project loads the Rust packs: `specforge collect --no-run` at the root runs rust-cargo, then
+rust-source, and skips rust-test (whose nextest report `cargo gate`'s `dogfood` hands it; a plain `specforge collect`
+would ask to run the whole test suite first). It stores the facts of every crate's items in `.specforge/` (ignored, as
+the rename ledger `specforge-harness` is), and `specforge anchors <requirement>` then lists the tests whose attribute
+names it.
 Nothing it writes is committed: the one line the ledger's first write would add to `.gitattributes` is committed
 already, so the file stays unchanged.
 
@@ -65,7 +71,7 @@ under `crates/` ([ADR 0081](docs/adr/0081-the-repository-root-is-found-not-count
 ## Adding a crate
 
 Follow [crates/README.md](crates/README.md#adding-or-moving-a-crate): pick its layer, give it a `description` and a
-crate doc, model it in `spec/product/modules.spec`, then run `cargo gate crate-map`.
+crate doc, add it to the root `members`, then run `cargo gate crate-map`.
 
 ## Coverage
 
@@ -124,7 +130,9 @@ What documents it:
 
 - [`docs/`](docs/): guides, references, [ADRs](docs/adr/), the [vision](docs/vision/README.md),
   [agent conventions](docs/agents/) and the round reports in `docs/research/`.
-- [`spec/`](spec/): SpecForge's own specification, written in SpecForge; `specforge.json` is its project file.
+- [`spec/`](spec/): SpecForge's own specification, written in `@gsd/core`'s kinds
+  ([ADR 0374](docs/adr/0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md)); `specforge.json` is
+  its project file.
 - [`examples/`](examples/): worked example projects, checked by the gate.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md), [`CONTEXT.md`](CONTEXT.md) (the domain glossary), this file and
   [`AGENTS.md`](AGENTS.md).
@@ -133,8 +141,8 @@ What builds and checks it:
 
 - [`gate/`](gate/) (`cargo gate`, the check list), [`xtask/`](xtask/) (build-blobs, revendor, check-links, perf-report, absorb),
   [`scripts/`](scripts/) (shell helpers the gate and the release run).
-- [`fixtures/`](fixtures/): extension fixtures the tests load; [`evaluation/`](evaluation/): the first-attempt
-  accuracy eval.
+- [`fixtures/`](fixtures/): extension fixtures and the frozen pre-swap spec the tests load (`fixtures/old-spec/`,
+  never edited); [`evaluation/`](evaluation/): the first-attempt accuracy eval.
 - `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `clippy.toml`, `.cargo/`, `.config/` (nextest),
   `.github/` (CI, release), `.githooks/` (the pre-commit hook), `.gitignore`, and `.gitattributes` (the rename
   ledger `specforge-harness` merges by union, the line `specforge collect` would otherwise add).

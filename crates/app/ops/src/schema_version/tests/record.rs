@@ -4,10 +4,7 @@ use super::*;
 // Slice 7: Schema Cache Persistence
 // ===========================================================================
 
-#[specforge_test(
-    behavior = "persist_schema_cache",
-    verify = "schema-cache.json written after schema generation"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn cache_write_read_round_trip() {
     let dir = tempfile::tempdir().unwrap();
     let schema = sample_schema();
@@ -21,20 +18,14 @@ fn cache_write_read_round_trip() {
     assert!(!record.content_hash.is_empty());
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "missing schema cache yields no previous schema"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn cache_missing_returns_none() {
     let dir = tempfile::tempdir().unwrap();
     let loaded = SchemaCache::in_dir(dir.path()).load(&PlainDisk).unwrap();
     assert!(loaded.is_none());
 }
 
-#[specforge_test(
-    behavior = "persist_schema_cache",
-    verify = "cache file overwritten atomically via temp+rename"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn cache_atomic_overwrite() {
     let dir = tempfile::tempdir().unwrap();
     let schema1 = GraphProtocolSchema::empty();
@@ -70,7 +61,7 @@ fn cache_atomic_overwrite() {
     assert_eq!(names, vec!["previous-cache.json", "schema-cache.json"]);
 }
 
-#[specforge_test(behavior = "persist_schema_cache", verify = "content hash changes")]
+#[specforge_test(requirement = "FEATURE-048")]
 fn cache_content_hash_changes() {
     let dir = tempfile::tempdir().unwrap();
     let cache = SchemaCache::in_dir(dir.path());
@@ -99,10 +90,7 @@ fn cache_independent_of_export() {
     assert_eq!(record.schema.entity_kinds.len(), 2);
 }
 
-#[specforge_test(
-    behavior = "persist_schema_cache",
-    verify = "persisted cache feeds breaking change detection in the next compilation"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn cache_load_diff_version_pipeline() {
     let dir = tempfile::tempdir().unwrap();
     let cache = SchemaCache::in_dir(dir.path());
@@ -120,10 +108,7 @@ fn cache_load_diff_version_pipeline() {
 // Detect breaking changes through the record
 // ===========================================================================
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "a missing schema cache emits no diagnostic"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_missing_record_reports_nothing() {
     let dir = tempfile::tempdir().unwrap();
 
@@ -132,10 +117,7 @@ fn a_missing_record_reports_nothing() {
     assert!(versioned.notices().is_empty());
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "previous schema is read from .specforge/schema-cache.json"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn detect_breaking_with_cached_schema() {
     let dir = tempfile::tempdir().unwrap();
     // The cached schema has a kind the current one lacks. Without the
@@ -195,10 +177,9 @@ fn persist_cache_contract() {
 
 // The view's cache is the one at the root it was compiled from: a view of
 // a sub-path never versions against (or records into) its ancestor's.
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "the schema cache is the view root's, never an ancestor's"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn the_view_versions_against_its_root_cache() {
     use crate::testing::Viewed;
     use specforge_project::testing::Assembled;
@@ -252,10 +233,7 @@ const CACHE_AN_OLDER_HOST_WROTE: &str = r#"{
   "content_hash": "0"
 }"#;
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "a cache an older host wrote reads its field types unchanged"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_cache_an_older_host_wrote_reads_its_bool_field_unchanged() {
     use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
 
@@ -290,10 +268,7 @@ fn a_cache_an_older_host_wrote_reads_its_bool_field_unchanged() {
     assert_eq!(versioned.version(), &SchemaVersion::new(1, 0, 0));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "an unreadable schema cache restarts the version at 1.0.0 with I016"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_unreadable_record_restarts_at_1_0_0_with_i016() {
     let invalid_json = r#"{"schema": {"#;
     let no_schema_key = r#"{"content_hash": "0"}"#;
@@ -351,10 +326,7 @@ fn an_unreadable_record_restarts_at_1_0_0_with_i016() {
     }
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "the W053 message names the change and the versions"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_w053_message_names_the_change_and_the_versions() {
     let dir = tempfile::tempdir().unwrap();
     let cache = SchemaCache::in_dir(dir.path());
@@ -379,10 +351,7 @@ fn the_w053_message_names_the_change_and_the_versions() {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "one schema version names one document: equal versions have equal content hashes"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_version_names_the_document_the_record_holds() {
     let dir = tempfile::tempdir().unwrap();
     let cache = SchemaCache::in_dir(dir.path());

@@ -21,10 +21,27 @@ slow-timeout = { period = "60s", terminate-after = 3 }
 status-level = "fail"
 final-status-level = "slow"
 
+# The JUnit report the gate's `dogfood` reads (ADR 0374 D5): nextest writes it under
+# `<workspace root>/target/nextest/<profile>/` (its store is relative to the workspace root,
+# not `CARGO_TARGET_DIR`), and `@rust/test` turns it into `test` facts.
+[profile.gate.junit]
+path = "junit.xml"
+
+[profile.ci.junit]
+path = "junit.xml"
+
 # Builds a scaffolded extension crate from cold, in a fresh directory: a
 # real `cargo build --release --target wasm32-wasip2` of the SDK and its
 # dependencies, which takes minutes on a loaded machine. Inherited by every
 # profile.
 [[profile.default.overrides]]
 filter = "package(specforge-cli) & test(=extension_authoring::a_scaffolded_extension_builds_and_validates)"
+slow-timeout = { period = "60s", terminate-after = 10 }
+
+# absorb's end-to-end tests load `@gsd/core` and the old builtins cold on a
+# Windows runner, where a compile takes longer than the default kill bound
+# allows (ADR 0375 D4). Windows only: the Linux and macOS bounds are unchanged.
+[[profile.default.overrides]]
+platform = 'cfg(windows)'
+filter = "binary_id(xtask::absorb_e2e)"
 slow-timeout = { period = "60s", terminate-after = 10 }

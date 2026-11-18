@@ -4,10 +4,7 @@ use std::path::Path;
 
 use specforge_common::{ConfigProblem, parse_project_config};
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "settings that is not an object in specforge.json is E069 and the rest of the file is kept"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_settings_value_that_is_not_an_object_is_e069() {
     let read = parse_project_config(
         Path::new("specforge.json"),

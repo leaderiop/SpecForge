@@ -32,10 +32,8 @@ const BASE: &str = "[package]\nname = \"base\"\nversion = \"0.1.0\"\nedition = \
 const APP: &str = "[package]\nname = \"app\"\nversion = \"0.2.0\"\nedition = \"2021\"\n\n\
                    [dependencies]\nbase = { path = \"../base\" }\nserde = \"1\"\n";
 
-#[specforge_test(
-    behavior = "rc_declare_cargo_collector",
-    verify = "rust-cargo declares its collector, its reads and its peer"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn rust_cargo_declares_its_collector_its_reads_and_its_peer() {
     let declaration = crate::specforge_extension_build().declaration();
     assert_eq!(declaration.handshake.name, "@rust/cargo");
@@ -88,10 +86,8 @@ fn rust_cargo_declares_its_collector_its_reads_and_its_peer() {
     )));
 }
 
-#[specforge_test(
-    behavior = "rc_map_manifests_to_package_facts",
-    verify = "every package becomes a package fact"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn every_package_becomes_a_package_fact() {
     let facts = facts(
         &[
@@ -112,10 +108,8 @@ fn every_package_becomes_a_package_fact() {
     );
 }
 
-#[specforge_test(
-    behavior = "rc_map_manifests_to_package_facts",
-    verify = "depends_on names the project packages only"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn depends_on_names_the_project_packages_only() {
     let facts = facts(
         &[
@@ -131,10 +125,8 @@ fn depends_on_names_the_project_packages_only() {
     );
 }
 
-#[specforge_test(
-    behavior = "rc_map_manifests_to_package_facts",
-    verify = "a name two workspaces share keeps the nearest plain and the other its directory"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn a_name_two_workspaces_share_keeps_the_nearest_plain() {
     let facts = facts(
         &[
@@ -155,10 +147,8 @@ fn a_name_two_workspaces_share_keeps_the_nearest_plain() {
     );
 }
 
-#[specforge_test(
-    behavior = "rc_map_manifests_to_package_facts",
-    verify = "a withheld or truncated read is the collector's error"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn a_withheld_or_truncated_read_is_the_collectors_error() {
     let withheld: CollectInput = serde_json::from_value(json!({
         "files": {MANIFESTS: {"facts": [
@@ -182,10 +172,8 @@ fn a_withheld_or_truncated_read_is_the_collectors_error() {
     assert!(unreadable.starts_with("bad/Cargo.toml: "), "{unreadable}");
 }
 
-#[specforge_test(
-    behavior = "rc_map_manifests_to_package_facts",
-    verify = "a package fact is located at its package table"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
 fn a_package_fact_is_located_at_its_package_table() {
     let text = format!("# the base\n\n{BASE}");
     let facts = facts(&[("crates/base/Cargo.toml", &text)], &[]);

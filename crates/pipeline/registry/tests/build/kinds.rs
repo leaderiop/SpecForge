@@ -17,10 +17,9 @@ fn other_behavior() -> ExtensionDeclaration {
     })
 }
 
-#[spec(
-    behavior = "registry_build_kinds",
-    verify = "every declared kind is registered under its keyword, naming the extension that declared it"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-022")]
+#[spec(requirement = "FEATURE-029")]
 fn every_declared_kind_is_registered_under_its_keyword() {
     let unkeyworded = declare("@test/plain", |c| {
         c.kind("widget", |k| {
@@ -51,10 +50,9 @@ fn every_declared_kind_is_registered_under_its_keyword() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_kinds",
-    verify = "a kind's declared flags and presentation reach its registry entry"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-022")]
+#[spec(requirement = "FEATURE-029")]
 fn a_kinds_declared_flags_and_presentation_reach_its_entry() {
     let flagged = declare("@test/ext", |c| {
         c.kind("Project", |k| {
@@ -95,10 +93,9 @@ fn a_kinds_declared_flags_and_presentation_reach_its_entry() {
     assert_eq!(task.declared.lsp_icon, None);
 }
 
-#[spec(
-    behavior = "registry_build_kinds",
-    verify = "a kind is testable only when its declaration says so"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-022")]
+#[spec(requirement = "FEATURE-029")]
 fn a_kind_is_testable_only_when_declared_so() {
     let undeclared = declare("@test/ext", |c| {
         c.kind("Thing", |k| {
@@ -121,10 +118,9 @@ fn a_kind_is_testable_only_when_declared_so() {
     assert!(thing.allowed_verify_kinds.is_empty());
 }
 
-#[spec(
-    behavior = "registry_build_kinds",
-    verify = "a kind's verify kinds are exactly the ones it declares"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-022")]
+#[spec(requirement = "FEATURE-029")]
 fn a_kinds_verify_kinds_are_exactly_the_declared_ones() {
     let declared = declare("@test/ext", |c| {
         c.kind("Scenario", |k| {
@@ -155,10 +151,9 @@ fn a_kinds_verify_kinds_are_exactly_the_declared_ones() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_kinds",
-    verify = "a keyword a later extension declares again is E026 and the first in load order keeps it"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-022")]
+#[spec(requirement = "FEATURE-029")]
 fn a_keyword_declared_twice_is_e026_and_the_first_keeps_it() {
     let alone = build([software()]);
     assert!(coded(&alone, "E026").is_empty());
@@ -188,10 +183,9 @@ fn a_keyword_declared_twice_is_e026_and_the_first_keeps_it() {
     assert_eq!(coded(&swapped, "E026").len(), 1);
 }
 
-#[spec(
-    behavior = "registry_build_kinds",
-    verify = "a testable kind without verify support is W017"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-022")]
+#[spec(requirement = "FEATURE-029")]
 fn a_testable_kind_without_verify_support_is_w017() {
     let build = build([declare("@test/ext", |c| {
         c.kind("Thing", |k| {
@@ -223,10 +217,9 @@ fn a_testable_kind_without_verify_support_is_w017() {
     assert!(coded(&crate::support::build([software()]), "W017").is_empty());
 }
 
-#[spec(
-    behavior = "registry_build_kinds",
-    verify = "a kind that accepts verify statements but is not testable produces no diagnostic"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-022")]
+#[spec(requirement = "FEATURE-029")]
 fn a_kind_supporting_verify_without_being_testable_is_not_reported() {
     let build = build([declare("@test/ext", |c| {
         c.kind("Property", |k| {
@@ -238,10 +231,9 @@ fn a_kind_supporting_verify_without_being_testable_is_not_reported() {
     assert!(!property.testable && property.supports_verify);
 }
 
-#[spec(
-    behavior = "registry_build_kinds",
-    verify = "Registry Build Registers Kinds: kind registration holds — declarations_in_load_order, kinds_registered, first_wins, flags_consistent"
-)]
+#[spec(requirement = "FEATURE-018")]
+#[spec(requirement = "FEATURE-022")]
+#[spec(requirement = "FEATURE-029")]
 fn kind_registration_holds() {
     // declarations_in_load_order: software, then product (its peer), then
     // an extension declaring `behavior` again and a testable kind without

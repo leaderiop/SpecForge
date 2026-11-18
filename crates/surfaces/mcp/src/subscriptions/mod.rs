@@ -286,10 +286,7 @@ impl Subscriptions {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "listen_for_mcp_resource_updates",
-        verify = "both eras decide what a change touches by one rule"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-072")]
     fn watched_follows_the_uri() {
         let expected = [
             ("specforge://graph", Watched::Graph),
@@ -309,10 +306,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "listen_for_mcp_resource_updates",
-        verify = "both eras decide what a change touches by one rule"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-072")]
     fn a_move_touches_what_writes_a_place_and_a_delta_touches_both() {
         use specforge_project::NodeChange;
         let none = GraphDelta::default();

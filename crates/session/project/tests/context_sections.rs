@@ -49,10 +49,7 @@ fn listed(sections: &[SectionRead], left_out: &str) -> Vec<(String, String, Stri
         .collect()
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "a section digests as the judged input of the same selector does"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_section_digests_as_the_judged_input_of_its_selector() {
     // The project's directory lives as long as the reads: they read its files.
     let project = gsd_context_project();
@@ -87,10 +84,7 @@ fn a_section_digests_as_the_judged_input_of_its_selector() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "a files section lists paths and digests and a settings section the values of its settings"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_files_section_lists_paths_and_digests_and_a_settings_section_its_values() {
     let project = gsd_context_project();
     let compiled = compile(&project);
@@ -136,10 +130,7 @@ fn a_files_section_lists_paths_and_digests_and_a_settings_section_its_values() {
     assert!(settings.digest.starts_with("sha256:"), "{settings:?}");
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "the pack digest covers the sections served and recomputes from the pack"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn the_pack_digest_covers_what_is_served() {
     let project = gsd_context_project();
     let compiled = compile(&project);
@@ -179,10 +170,7 @@ fn the_pack_digest_covers_what_is_served() {
     assert_eq!(pack(&before, "decisions"), pack(&after, "decisions"));
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "the pack digest covers the sections served and recomputes from the pack"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn the_pack_digest_moves_with_its_subject_when_no_section_serves_it() {
     let project = gsd_context_project();
     let compiled = compile(&project);

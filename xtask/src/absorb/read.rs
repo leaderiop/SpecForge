@@ -1,23 +1,24 @@
-//! The old project, compiled in-process with its own builtins (ADR 0360 D1): its entities of the absorbed kinds,
-//! each value in the one wire form every output writes (ADR 0064).
+//! The old project, compiled in-process with its own builtins (ADR 0360 D1): every authored entity, whatever its
+//! kind, each value in the one wire form every output writes (ADR 0064). Nothing is filtered by the kind an extension
+//! declares (ADR 0372 D1): an entity of a kind with no fate stops the run, never passes unread. A `ref` declaration
+//! is read as one too, and dropped whole by its fate. Only the project's `spec` block, which the target scaffolds
+//! fresh, and the collected facts are left out ([`authored`]).
 
 use serde_json::Value;
-use specforge_common::{ProjectConfig, ProjectRoot, Severity, read_project_config};
+use specforge_common::facts::is_fact_store;
+use specforge_common::{ProjectConfig, ProjectRoot, Severity, codes, read_project_config};
 use specforge_component::ComponentRuntime;
-use specforge_graph::field_form;
+use specforge_graph::{Members, field_form};
 use specforge_project::CompiledProject;
-use specforge_registry::PlainDisk;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::proof::{self, Item};
-use super::table::OLD_KINDS;
+/// The core grammar's structural block absorb does not read as an entity: the project's `spec` block, which the target
+/// scaffolds fresh and the project module ledgers. A `ref` declaration is read, and dropped whole by its fate.
+const SCAFFOLDED: &str = "spec";
 
-/// The extension whose recorded `item` facts are the test items a proof names.
-const RUST_SOURCE: &str = "@rust/source";
-
-/// How many of a refused source's errors are printed.
+/// How many of a refused source's errors, and of its dropped declarations, are printed.
 const ERRORS_SHOWN: usize = 10;
 
 /// The compiled old project.
@@ -25,8 +26,6 @@ pub struct Old {
     /// Its name (`specforge.json`'s `name`, else its directory's).
     pub name: String,
     pub project: CompiledProject,
-    /// Its recorded test items, when it loads `@rust/source`.
-    pub items: Vec<Item>,
 }
 
 /// The source's project block as the target keeps it: its name (`specforge.json`'s, else its directory's), its
@@ -64,7 +63,7 @@ impl Project {
     }
 }
 
-/// One old entity of an absorbed kind.
+/// One old authored entity.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OldEntity {
     pub kind: String,
@@ -77,124 +76,124 @@ pub struct OldEntity {
     pub fields: BTreeMap<String, Value>,
     /// Its `verify` statements in written order: (kind, text).
     pub obligations: Vec<(Option<String>, String)>,
+    /// Its `method` members in written order, each as the graph export writes one (`name`, `params` with `name` and
+    /// `type`, `returns`).
+    pub methods: Vec<Value>,
+    /// Each annotated field's annotations, by the field's path, each list as the graph export writes it.
+    pub annotations: BTreeMap<String, Value>,
 }
 
-/// Every old entity's kind by id, whatever its kind: what a reference's target is.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Index(pub BTreeMap<String, String>);
-
-impl Index {
-    pub fn kind(&self, id: &str) -> Option<&str> {
-        self.0.get(id).map(String::as_str)
-    }
+/// Whether a graph node of `kind` whose span names `file` is an authored entity absorb reads: any kind but the `spec`
+/// block, a `ref` declaration among them, from any source but a fact store (a collected fact, which the graph tells by
+/// the same test).
+pub fn authored(kind: &str, file: &str) -> bool {
+    kind != SCAFFOLDED && !is_fact_store(file)
 }
 
-/// Compile the project at `from` with the builtins it names; refused when it reports an error, naming the first, or
-/// when it loads `@rust/source` and holds no recorded item, so a proof is never silently missing.
+/// Compile the project at `from` with the builtins it names; refused when it reports an error, or a declaration its
+/// graph drops (W060: an id another kind declared first), which absorb could neither convert nor ledger (ADR 0372
+/// D2). Each refusal names the first [`ERRORS_SHOWN`] of its kind. No recorded item is required: no kept kind holds a
+/// proof (ADR 0370 D8).
 pub fn compile(from: &Path) -> Result<Old, String> {
     let root = ProjectRoot::of(from).map_err(|e| format!("{}: {e:?}", from.display()))?;
     let project =
         CompiledProject::compile(&root, Some(Arc::new(ComponentRuntime::with_user_cache())));
-    let errors: Vec<String> = project
-        .diagnostics()
-        .into_iter()
-        .filter(|d| d.severity == Severity::Error)
-        .map(|d| {
-            let at = d
-                .span
-                .as_ref()
-                .map(|s| format!("{}:{}: ", s.file, s.start_line))
-                .unwrap_or_default();
-            format!("{at}{} {}", d.code, d.message)
-        })
-        .collect();
-    if !errors.is_empty() {
-        let shown: Vec<&str> = errors
+    let (mut errors, mut dropped) = (Vec::new(), Vec::new());
+    for d in project.diagnostics() {
+        let at = d
+            .span
+            .as_ref()
+            .map(|s| format!("{}:{}: ", s.file, s.start_line))
+            .unwrap_or_default();
+        let line = format!("{at}{} {}", d.code, d.message);
+        if d.severity == Severity::Error {
+            errors.push(line);
+        } else if codes::W060.matches(&d.code) {
+            dropped.push(line);
+        }
+    }
+    let listed = |lines: &[String]| {
+        let shown: Vec<&str> = lines
             .iter()
             .take(ERRORS_SHOWN)
             .map(String::as_str)
             .collect();
-        return Err(format!(
+        shown.join("\n  ")
+    };
+    let mut refusals = Vec::new();
+    if !errors.is_empty() {
+        refusals.push(format!(
             "the source reports {} error(s); fix them first:\n  {}",
             errors.len(),
-            shown.join("\n  ")
+            listed(&errors)
         ));
     }
+    if !dropped.is_empty() {
+        refusals.push(format!(
+            "the source holds {} declaration(s) its graph drops, each an id another kind declared first, which absorb \
+             would lose; rename them first:\n  {}",
+            dropped.len(),
+            listed(&dropped)
+        ));
+    }
+    if !refusals.is_empty() {
+        return Err(refusals.join("\n"));
+    }
     let name = Project::of(from, project.environment().config()).name;
-    let items = if project
-        .environment()
-        .config()
-        .extensions
-        .iter()
-        .any(|e| e == RUST_SOURCE)
-    {
-        let facts = specforge_project::facts::recorded_facts(&PlainDisk, root.dir(), &["item"]);
-        if facts.is_empty() {
-            return Err(format!(
-                "it loads {RUST_SOURCE} and holds no recorded item: collect the source first \
-                 (`specforge collect`), so its invariants' proofs can name their tests"
-            ));
-        }
-        proof::items(&facts)
-    } else {
-        Vec::new()
-    };
-    Ok(Old {
-        name,
-        project,
-        items,
-    })
+    Ok(Old { name, project })
 }
 
 impl Old {
-    /// Its entities of the absorbed kinds, by file, then line.
+    /// Its authored entities ([`authored`]), by file, then line.
     pub fn entities(&self) -> Vec<OldEntity> {
         let mut entities: Vec<OldEntity> = self
             .project
             .graph()
             .nodes()
             .into_iter()
-            .filter(|node| OLD_KINDS.contains(&node.kind.raw.as_str()))
-            .map(|node| OldEntity {
-                kind: node.kind.raw.to_string(),
-                id: node.id.raw.to_string(),
-                title: node.title.clone(),
-                file: node.source_span.file.to_string(),
-                line: node.source_span.start_line,
-                fields: node
-                    .fields
-                    .entries()
-                    .iter()
-                    .map(|entry| {
-                        (
-                            entry.key.to_string(),
-                            field_form::write(&entry.value).as_value().clone(),
-                        )
-                    })
-                    .collect(),
-                obligations: node
-                    .obligations
-                    .iter()
-                    .map(|o| {
-                        let kind = (!o.kind.is_empty()).then(|| o.kind.clone());
-                        (kind, o.description.clone())
-                    })
-                    .collect(),
+            .filter(|node| authored(node.kind.raw.as_str(), node.source_span.file.as_str()))
+            .map(|node| {
+                let members = Members::of(node);
+                OldEntity {
+                    kind: node.kind.raw.to_string(),
+                    id: node.id.raw.to_string(),
+                    title: node.title.clone(),
+                    file: node.source_span.file.to_string(),
+                    line: node.source_span.start_line,
+                    fields: node
+                        .fields
+                        .entries()
+                        .iter()
+                        .map(|entry| {
+                            (
+                                entry.key.to_string(),
+                                field_form::write(&entry.value).as_value().clone(),
+                            )
+                        })
+                        .collect(),
+                    obligations: node
+                        .obligations
+                        .iter()
+                        .map(|o| {
+                            let kind = (!o.kind.is_empty()).then(|| o.kind.clone());
+                            (kind, o.description.clone())
+                        })
+                        .collect(),
+                    methods: members.methods.iter().map(json).collect(),
+                    annotations: members
+                        .annotations
+                        .iter()
+                        .map(|(field, annotations)| (field.clone(), json(annotations)))
+                        .collect(),
+                }
             })
             .collect();
         entities.sort_by(|a, b| (&a.file, a.line, &a.id).cmp(&(&b.file, b.line, &b.id)));
         entities
     }
+}
 
-    /// Every entity's kind by id.
-    pub fn index(&self) -> Index {
-        Index(
-            self.project
-                .graph()
-                .nodes()
-                .into_iter()
-                .map(|node| (node.id.raw.to_string(), node.kind.raw.to_string()))
-                .collect(),
-        )
-    }
+/// `value` as the graph export writes it.
+fn json(value: &impl serde::Serialize) -> Value {
+    serde_json::to_value(value).unwrap_or(Value::Null)
 }

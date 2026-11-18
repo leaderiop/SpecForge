@@ -38,10 +38,7 @@ fn coded(diagnostics: &[Diagnostic], code: &str) -> Vec<Diagnostic> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_formats_family",
-    verify = "a format that refuses a value reports E103 on the part of the value's span the kit points at"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_formats_report_e103_on_the_value_span() {
     let project = feature("ada at example.com", json!(["@specforge/checks:email"])).compile();
     let diagnostics = project.diagnostics();
@@ -64,10 +61,7 @@ fn checks_formats_report_e103_on_the_value_span() {
     assert_eq!(span.end_col, 9 + 10 + 1, "{span:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_digits_family",
-    verify = "a digit checker needs no scope and asks no approval"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_digits_need_no_scope_and_no_approval() {
     let project = feature("79927398710", json!(["@specforge/checks:luhn"])).compile();
     let diagnostics = project.diagnostics();
@@ -81,10 +75,7 @@ fn checks_digits_need_no_scope_and_no_approval() {
     assert!(coded(&clean, "E103").is_empty(), "{clean:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_family_switches",
-    verify = "a family whose switch is off reports nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_a_family_switched_off_reports_nothing() {
     let project = feature("79927398710", json!(["@specforge/checks:luhn"]))
         .config(|c| c["settings"] = json!({ CHECKS: { "families.digits": false } }))
@@ -93,10 +84,7 @@ fn checks_a_family_switched_off_reports_nothing() {
     assert!(coded(&diagnostics, "E103").is_empty(), "{diagnostics:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_files_family",
-    verify = "a missing file in a list reports E016 on that item's span, not the entity's"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_files_e016_sits_on_the_values_span() {
     let refs = r#"  refs ["here.md", "missing.md"]"#;
     let project = TestProject::new()
@@ -135,10 +123,7 @@ fn refs_project(refs: &[&str], checker: &str, args: Value) -> TestProject {
         )
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_files_family",
-    verify = "a sibling is suggested only from inside the root"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_files_suggest_a_sibling_inside_the_root_only() {
     let file = "@specforge/checks:file";
     let inside = refs_project(&["guid.md"], file, json!({ "root": "spec" }))
@@ -162,10 +147,7 @@ fn checks_files_suggest_a_sibling_inside_the_root_only() {
     assert_eq!(found[0].suggestion, None, "{outside:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_files_family",
-    verify = "a file whose digest differs from its pin is E096"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_files_digest_pin_mismatch_is_e096() {
     let digest = "@specforge/checks:digest";
     // The SHA-256 of `abc`.
@@ -186,10 +168,7 @@ fn checks_files_digest_pin_mismatch_is_e096() {
     assert_eq!(span.start_col, 9 + 16 + 1, "{span:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_files_family",
-    verify = "a line range past the end of the file is W176"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_files_line_range_past_the_end_is_w176() {
     let range = "@specforge/checks:line_range";
     let lines = |value: &str| {
@@ -237,10 +216,7 @@ fn links_scene(refs: &[&str], owner: &str, checks: Value, http: FakeHttp) -> Sce
 const URL: &str = "@specforge/checks:url";
 const GONE: &str = "https://gone.example/";
 
-#[specforge_test_macros::test(
-    behavior = "ck_links_family",
-    verify = "a URL that answers 404 is E093, and W183 on a field whose check lowers it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_links_404_is_e093_and_a_lowered_field_is_w183() {
     let http = || FakeHttp::new().route(GONE, 404, "");
     let plain = links_scene(&[GONE], "o", json!({ "feature.refs": [URL] }), http());
@@ -257,10 +233,7 @@ fn checks_links_404_is_e093_and_a_lowered_field_is_w183() {
     assert_eq!(coded(&found, "W183").len(), 1, "{found:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_links_family",
-    verify = "without approval only the links scope is asked for"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_links_unapproved_asks_only_the_links_scope() {
     let scene = links_scene(
         &[GONE],
@@ -282,10 +255,7 @@ fn checks_links_unapproved_asks_only_the_links_scope() {
     assert!(scene.http.requests().is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_links_family",
-    verify = "a links family switched off sends no request"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_links_off_switch_sends_no_probe() {
     let dir = links_project(&[GONE], "o", json!({ "feature.refs": [URL] }))
         .config(|c| c["settings"] = json!({ CHECKS: { "families.links": false } }));
@@ -299,10 +269,7 @@ fn checks_links_off_switch_sends_no_probe() {
     assert!(scene.http.asked().is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_links_family",
-    verify = "the remote's answers are machine-decided warnings, the project's own are not"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_links_transport_warnings_are_machine() {
     let (down, moved, broken, closed, own) = (
         "https://down.example/",
@@ -347,10 +314,7 @@ fn checks_links_transport_warnings_are_machine() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_links_family",
-    verify = "a HEAD answered 405 or 501 is asked once more as a GET"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_links_head_405_retries_as_get() {
     let refs = json!({ "feature.refs": [URL] });
     for refused in [405, 501] {
@@ -406,10 +370,7 @@ fn repo(scene: &Scene, files: &[&str]) -> FakeGit {
     git
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_git_family",
-    verify = "a commit, ref or file at a revision the repository lacks is E106"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_git_unknown_commit_is_e106() {
     let checks = json!({ "feature.refs": ["@specforge/checks:commit"] });
     let scene = links_scene(&["v1", "abcdef1234"], "o", checks, FakeHttp::new());
@@ -444,10 +405,7 @@ fn checks_git_unknown_commit_is_e106() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_git_family",
-    verify = "a path the commit at HEAD does not hold is W180"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_git_ignored_path_is_w180() {
     let checks = json!({ "feature.refs": ["@specforge/checks:tracked"] });
     let dir = links_project(&["a.spec", "ignored.md"], "o", checks).file("ignored.md", "x");
@@ -462,10 +420,7 @@ fn checks_git_ignored_path_is_w180() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_git_family",
-    verify = "a git question about a withheld path is denied, as a read of it is"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_git_withheld_path_is_denied() {
     let checks = json!({ "feature.refs": ["@specforge/checks:file_at"] });
     let scene = links_scene(
@@ -500,10 +455,7 @@ fn shallow(mut git: FakeGit) -> FakeGit {
     git
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_git_family",
-    verify = "no repository, a shallow clone's missing history and a tag a clone did not fetch leave the check unchecked"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_git_a_miss_git_cannot_decide_is_unchecked() {
     // No repository: a source tarball.
     let checks = json!({ "feature.refs": ["@specforge/checks:commit"] });
@@ -557,10 +509,7 @@ fn checks_git_a_miss_git_cannot_decide_is_unchecked() {
     assert_eq!(coded(&found, "E106").len(), 1, "{found:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "ck_outcome_facts",
-    verify = "two runs over the same tree give equal check outcomes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn checks_outcomes_of_a_tree_are_the_same_run_after_run() {
     let checks = json!({ "feature.refs": ["@specforge/checks:file"] });
     let dir = links_project(&["a.md", "gone.md"], "o", checks).file("a.md", "x");

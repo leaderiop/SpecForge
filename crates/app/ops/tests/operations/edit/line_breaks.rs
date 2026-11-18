@@ -6,10 +6,7 @@ fn crlf(text: &str) -> String {
     text.replace('\n', "\r\n")
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "a typed edit of a CRLF block holding a multi-line quoted text is planned, its text kept"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_typed_edit_of_a_crlf_block_holding_a_multi_line_text_is_planned() {
     let text = crlf("behavior b \"B\" {\n  category query\n  contract \"a\nb\"\n}\n");
     let c = project(&[("tasks.spec", &text)]);
@@ -36,10 +33,7 @@ fn a_typed_edit_of_a_crlf_block_holding_a_multi_line_text_is_planned() {
     }
 }
 
-#[specforge_test_macros::test(
-    invariant = "typed_edit_canonical_form",
-    verify = "a typed edit writes a CRLF file in CRLF, as it writes the same file in LF"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-144")]
 fn every_typed_edit_writes_a_crlf_file_as_it_writes_its_lf_reading() {
     let lf_project = project(&[("tasks.spec", TASKS)]);
     let crlf_project = project(&[("tasks.spec", &crlf(TASKS))]);
@@ -91,10 +85,7 @@ fn every_typed_edit_writes_a_crlf_file_as_it_writes_its_lf_reading() {
     }
 }
 
-#[specforge_test_macros::test(
-    invariant = "typed_edit_canonical_form",
-    verify = "a typed edit of a file mixing CRLF and LF changes no byte outside the blocks it touches"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-144")]
 fn a_typed_edit_of_a_mixed_file_changes_no_line_outside_its_block() {
     let (head, tail) = TASKS.split_once("behavior complete_task").unwrap();
     let mixed = format!("{}behavior complete_task{tail}", crlf(head));

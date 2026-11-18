@@ -137,10 +137,8 @@ fn places(fact: &Fact) -> Vec<(&str, usize, usize, usize, usize)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "rs_declare_source_collector",
-    verify = "rust-source declares its collector, its input, its capability and its peers"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn rust_source_declares_its_collector_its_input_and_its_peers() {
     let declaration = crate::specforge_extension_build().declaration();
     assert_eq!(declaration.handshake.name, "@rust/source");
@@ -183,10 +181,7 @@ fn rust_source_declares_its_collector_its_input_and_its_peers() {
     assert!(SourceQuery::compile(Language::Rust, QUERY).is_ok());
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "the tree follows mod declarations from each target's root"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn the_tree_follows_mod_declarations_from_each_root() {
     let facts = collected(&[
         ("src/lib.rs", "mod a;\npub mod b;\n"),
@@ -209,10 +204,7 @@ fn the_tree_follows_mod_declarations_from_each_root() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "a non-mod-rs file keeps its children in a directory of its stem"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_non_mod_rs_file_keeps_its_children_in_its_own_directory() {
     let facts = collected(&[
         ("src/lib.rs", "mod a;\nmod b;\n"),
@@ -235,10 +227,7 @@ fn a_non_mod_rs_file_keeps_its_children_in_its_own_directory() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "a path attribute is relative to the declaring file's directory"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_path_attribute_is_relative_to_the_declaring_file() {
     let facts = collected(&[
         ("src/lib.rs", "mod a;\n"),
@@ -259,10 +248,7 @@ fn a_path_attribute_is_relative_to_the_declaring_file() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "a path inside an inline module is relative to the inline module's directory"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_path_inside_an_inline_module_is_relative_to_its_directory() {
     let facts = collected(&[
         (
@@ -284,10 +270,7 @@ fn a_path_inside_an_inline_module_is_relative_to_its_directory() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "an inline module's directory is its own path, else its name without r#"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn an_inline_modules_directory_is_its_own_path_else_its_unraw_name() {
     let (out, asked) = collected_with(
         &[
@@ -325,10 +308,7 @@ fn an_inline_modules_directory_is_its_own_path_else_its_unraw_name() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "a path attribute looping back to a file already in the tree keeps its mod item and ends there"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_path_looping_back_to_a_file_in_the_tree_ends_there() {
     let (out, asked) = collected_with(
         &[
@@ -357,10 +337,7 @@ fn a_path_looping_back_to_a_file_in_the_tree_ends_there() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "every path a cfg_attr names is followed and its twins merge into one item"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_cfg_attr_path_is_followed_and_its_twins_merge() {
     let facts = collected(&[
         (
@@ -380,10 +357,7 @@ fn a_cfg_attr_path_is_followed_and_its_twins_merge() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "a file two targets reach mints items in each crate"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_file_two_targets_reach_mints_items_in_each() {
     let (facts, asked) = collected_with(
         &[
@@ -412,10 +386,8 @@ fn a_file_two_targets_reach_mints_items_in_each() {
     assert_eq!(shared, 1, "a file is parsed once: {asked:?}");
 }
 
-#[specforge_test(
-    behavior = "rs_mint_item_facts",
-    verify = "an item carries its kind, visibility, signature, doc and location"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn items_carry_kind_visibility_signature_and_location() {
     let facts = collected(&[(
         "src/lib.rs",
@@ -460,10 +432,8 @@ fn items_carry_kind_visibility_signature_and_location() {
         .contains_key("signature"));
 }
 
-#[specforge_test(
-    behavior = "rs_mint_item_facts",
-    verify = "impl and trait items are named by their owner"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn impl_and_trait_items_are_named_by_their_owner() {
     let facts = collected(&[(
         "src/lib.rs",
@@ -489,10 +459,8 @@ fn impl_and_trait_items_are_named_by_their_owner() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_mint_item_facts",
-    verify = "an item inside a function body or another item's block is not minted"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn items_inside_a_function_body_are_not_minted() {
     let facts = collected(&[(
         "src/lib.rs",
@@ -502,10 +470,7 @@ fn items_inside_a_function_body_are_not_minted() {
     assert_eq!(ids(&facts), ["rust:toy::C", "rust:toy::outer"]);
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "a module whose file is absent or outside the project keeps its mod item only"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn an_absent_module_file_keeps_the_mod_item_only() {
     let (facts, asked) = collected_with(
         &[(
@@ -526,10 +491,7 @@ fn an_absent_module_file_keeps_the_mod_item_only() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_resolve_module_tree",
-    verify = "the files an answer's cap left unparsed are asked again"
-)]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_capped_answer_is_asked_again() {
     let files = [
         ("src/lib.rs", "mod a;\nmod b;\nmod c;\n"),
@@ -551,10 +513,8 @@ fn a_capped_answer_is_asked_again() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_mint_item_facts",
-    verify = "attributes and doc comments belong to the item directly below them"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn attributes_belong_to_the_item_directly_below_them() {
     let facts = collected(&[(
         "src/lib.rs",
@@ -579,10 +539,8 @@ fn marks(facts: &[Fact], id: &str) -> (Option<serde_json::Value>, Option<serde_j
     )
 }
 
-#[specforge_test(
-    behavior = "rs_mark_tests",
-    verify = "a test function carries the id nextest gives it"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_test_function_carries_the_id_nextest_gives_it() {
     let facts = collected(&[(
         "src/lib.rs",
@@ -599,10 +557,8 @@ fn a_test_function_carries_the_id_nextest_gives_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_mark_tests",
-    verify = "the same test path in three binaries is three ids"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn the_same_test_path_in_three_binaries_is_three_ids() {
     let tests = "#[cfg(test)]\nmod tests {\n    #[test]\n    fn adds() {}\n}\n";
     let (facts, _) = collected_with(
@@ -636,10 +592,8 @@ fn the_same_test_path_in_three_binaries_is_three_ids() {
     );
 }
 
-#[specforge_test(
-    behavior = "rs_mark_tests",
-    verify = "an ignored test is marked ignore"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn an_ignored_test_is_marked() {
     let facts = collected(&[(
         "src/lib.rs",
@@ -652,10 +606,8 @@ fn an_ignored_test_is_marked() {
     assert_eq!(marks(&facts, "rust:toy::not_a_test"), (None, None));
 }
 
-#[specforge_test(
-    behavior = "rs_mark_tests",
-    verify = "a spec-link attribute names its entity at the id's string"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_specforge_test_attribute_names_its_entity() {
     let facts = collected(&[(
         "src/lib.rs",
@@ -682,10 +634,22 @@ fn a_specforge_test_attribute_names_its_entity() {
     assert_eq!(three.fields["attrs"], json!(["test"]));
 }
 
-#[specforge_test(
-    behavior = "rs_mark_tests",
-    verify = "a runner attribute whose path ends in ::test marks a test"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
+fn two_stacked_requirement_attributes_name_both_requirements() {
+    // One attribute takes one `<kind> = "<id>"` pair (ADR 0374 D3): a test that proves two requirements carries two.
+    let facts = collected(&[(
+        "src/lib.rs",
+        "#[specforge_test(requirement = \"A-01\")]\n#[specforge_test(requirement = \"B-01\")]\nfn adds() {}\n",
+    )]);
+    assert_eq!(
+        item(&facts, "rust:toy::adds").fields["names"],
+        json!(["A-01", "B-01"])
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_runner_attribute_ending_in_test_marks_a_test() {
     let facts = collected(&[(
         "src/lib.rs",
@@ -700,10 +664,8 @@ fn a_runner_attribute_ending_in_test_marks_a_test() {
     assert_eq!(tests, ["rust:toy::a", "rust:toy::b"]);
 }
 
-#[specforge_test(
-    behavior = "rs_mark_tests",
-    verify = "a test in an inline module keeps its module path"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_test_in_an_inline_module_keeps_its_module_path() {
     let facts = collected(&[
         ("src/lib.rs", "mod x;\n"),

@@ -14,8 +14,6 @@ use crate::tool::Category;
 /// the variant's (snake_case, the serialized `event` tag), its payload the
 /// variant's fields under the spec's names. The `timestamp` every payload
 /// declares is the keeping sink's, not the producer's.
-/// `tests/event_spec.rs` holds each variant's derived schema to its spec
-/// payload.
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum McpEvent {

@@ -102,10 +102,7 @@ fn codes(session: &ProjectSession) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_source_the_handed_disk_refuses_is_unreadable_and_not_in_the_graph() {
     let (_dir, _outside, session) = linked_outside(bounded);
     assert!(
@@ -131,10 +128,7 @@ fn a_source_the_handed_disk_refuses_is_unreadable_and_not_in_the_graph() {
     assert!(session.project().graph().node("beta_one").is_some());
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_one_shot_compile_reads_its_sources_through_the_disk_it_is_handed() {
     let (dir, _outside, root) = scene();
     let project_root = dir.project_root();
@@ -156,10 +150,7 @@ fn a_one_shot_compile_reads_its_sources_through_the_disk_it_is_handed() {
     assert!(plain.graph().node("alpha_one").is_some());
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn a_refused_source_keeps_its_stamp_and_hops() {
     let (dir, _outside, mut session) = linked_outside(bounded);
     let a = dir.root().join("a.spec");
@@ -173,10 +164,7 @@ fn a_refused_source_keeps_its_stamp_and_hops() {
     assert!(!codes(&session).contains(&"E025".to_string()));
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn the_handed_disk_does_not_read_the_environment_or_the_checks() {
     let (_dir, _outside, session) = linked_outside(|_| Arc::new(Refusing));
     assert_eq!(
@@ -186,10 +174,7 @@ fn the_handed_disk_does_not_read_the_environment_or_the_checks() {
     assert!(session.project().graph().node("beta_one").is_none());
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn an_environment_reload_keeps_the_handed_disk() {
     let (dir, _outside, mut session) = linked_outside(bounded);
     let config = dir.root().join("specforge.json");

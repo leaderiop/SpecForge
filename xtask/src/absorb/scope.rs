@@ -1,12 +1,11 @@
-//! Which old entities a run converts (ADR 0360 D4): every one of the absorbed kinds, or the ids `--only ids:<file>`
-//! names. A reference or an inverse write onto an entity outside the scope is ledgered, never stubbed, and so is an
-//! inverse write from one outside it onto one inside.
+//! Which old entities a run converts (ADR 0360 D4): every authored entity of the source, or the ids `--only ids:<file>`
+//! names. A reference to an entity outside the scope is ledgered `dropped` and never stubbed (ADR 0372 D4).
 
 use std::collections::BTreeSet;
 use std::path::Path;
 
 use super::read::OldEntity;
-use super::{select, table};
+use super::select;
 
 /// The ids a run converts.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,25 +31,21 @@ impl Scope {
         Ok(Scope::Only(ids.into_iter().collect()))
     }
 
-    /// The entities of `all` (every old entity of the absorbed kinds) this scope converts, in their order; refused
-    /// when it names an id that is no such entity, or one whose rows create nothing (a module, a release).
+    /// The entities of `all` (every authored entity of the source) this scope converts, in their order; refused when
+    /// it names an id that is no such entity. An entity of any kind may be named (ADR 0372 D1): one dropped whole
+    /// leaves its values in the ledger, and one of a kind with no fate stops the run's pre-checks.
     pub fn select(&self, all: Vec<OldEntity>) -> Result<Vec<OldEntity>, String> {
         let Scope::Only(ids) = self else {
             return Ok(all);
         };
-        let mut refused = Vec::new();
-        for id in ids {
-            match all.iter().find(|e| &e.id == id) {
-                None => refused.push(format!("'{id}' names no entity of the absorbed kinds")),
-                Some(e) if table::new_kind(&e.kind).is_none() => {
-                    refused.push(format!("'{id}' is a {}, which creates no entity", e.kind));
-                }
-                Some(_) => {}
-            }
-        }
+        let refused: Vec<String> = ids
+            .iter()
+            .filter(|id| !all.iter().any(|e| &e.id == *id))
+            .map(|id| format!("'{id}'"))
+            .collect();
         if !refused.is_empty() {
             return Err(format!(
-                "--only names {} id(s) that do not convert:\n  {}",
+                "--only names {} id(s) that name no entity of the source:\n  {}",
                 refused.len(),
                 refused.join("\n  ")
             ));

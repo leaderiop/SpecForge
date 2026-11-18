@@ -17,10 +17,7 @@ fn paths(found: Vec<Sym>) -> Vec<String> {
     found.iter().map(|p| p.to_string()).collect()
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "a gate is scoped to its subject"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn within_names_the_members_of_a_scope_at_any_depth() {
     let scopes = placed(&[
         ("v1.0", "milestone", None),

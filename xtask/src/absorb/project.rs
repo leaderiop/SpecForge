@@ -1,5 +1,7 @@
-//! The project block (ADR 0360 D1): the target's `specforge.json` and `spec` block are what `ops init` writes, with
-//! the source's name, version and spec root. Whatever else the source's hold, the target's do not, is ledgered.
+//! The project block (ADR 0360 D1, ADR 0372 D8): the target's `specforge.json` and `spec` block are init's, written
+//! fresh with the source's name, version and spec root. The entries this module records are the source's values that
+//! scaffold replaces: each is `unconverted`, with the one outcome [`WRITTEN_FRESH`], and they are the only
+//! `unconverted` entries a run ledgers. A version the target was given because the source had none is `filled`.
 
 use serde_json::Value;
 use specforge_graph::field_form;
@@ -13,6 +15,8 @@ const CONFIG: &str = "specforge.json";
 const SPEC: &str = "spec";
 /// What a `specforge.json` member is written as: `$schema` names the format, never the project.
 const SCHEMA: &str = "$schema";
+/// The outcome of every source value the target's scaffold, written fresh, does not hold (ADR 0372 D8).
+pub const WRITTEN_FRESH: &str = "written fresh by absorb";
 
 /// Ledger what `old`'s project block (named `name`) holds that `new`'s does not: each `specforge.json` member but
 /// `$schema` whose value differs or is not there (an `exclude`, a setting), each item of a list the target's does not
@@ -28,7 +32,6 @@ pub fn ledger(old: &CompiledProject, new: &CompiledProject, name: &str, ledger: 
             .unwrap_or(Value::Null)
     };
     let (was, now) = (config(old), config(new));
-    let kept = "the target's specforge.json is init's: the source's name, version and spec_root carry over";
     for (key, value) in was.as_object().into_iter().flatten() {
         let held = now.get(key);
         // A list (the extensions) is compared item by item: the target may load some of the old ones.
@@ -41,7 +44,7 @@ pub fn ledger(old: &CompiledProject, new: &CompiledProject, name: &str, ledger: 
             _ => Vec::new(),
         };
         for value in lost {
-            let why = Why::Unconverted(kept.to_string());
+            let why = Why::Unconverted(WRITTEN_FRESH.to_string());
             ledger.record(CONFIG, name, key, value.clone(), why);
         }
     }
@@ -60,21 +63,13 @@ pub fn ledger(old: &CompiledProject, new: &CompiledProject, name: &str, ledger: 
             Some((new_id, new_fields)) => (new_id.as_str(), Some(new_fields)),
             None => ("", None),
         };
+        let fresh = || Why::Unconverted(WRITTEN_FRESH.to_string());
         if new_id != id {
-            let why = format!("the target's spec block is '{new_id}', named after the project");
-            ledger.record(
-                SPEC,
-                &id,
-                "id",
-                Value::String(id.clone()),
-                Why::Unconverted(why),
-            );
+            ledger.record(SPEC, &id, "id", Value::String(id.clone()), fresh());
         }
         for (field, value) in fields {
             if new_fields.and_then(|f| f.get(&field)) != Some(&value) {
-                let why =
-                    "the target's spec block is init's starter: the project's name and version";
-                ledger.record(SPEC, &id, &field, value, Why::Unconverted(why.to_string()));
+                ledger.record(SPEC, &id, &field, value, fresh());
             }
         }
     }

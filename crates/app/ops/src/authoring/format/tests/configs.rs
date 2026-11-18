@@ -21,10 +21,7 @@ fn load(dir: &Path, root: &Path) -> (FormatConfig, Vec<Diagnostic>) {
     (document.config, document.diagnostics)
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "config file in project root is loaded"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_configuration_at_the_project_root_is_loaded() {
     let tmp = tempfile::TempDir::new().unwrap();
     let root = tmp.path();
@@ -42,10 +39,7 @@ fn a_configuration_at_the_project_root_is_loaded() {
     assert_eq!(config.max_width, 80);
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "config file in parent directory is discovered"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_configuration_in_a_parent_directory_is_found() {
     let tmp = tempfile::TempDir::new().unwrap();
     let root = tmp.path();
@@ -60,10 +54,7 @@ fn a_configuration_in_a_parent_directory_is_found() {
     assert_eq!(config.indent_width, 3);
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "config outside project root is not discovered"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_configuration_above_the_project_root_is_not_found() {
     let tmp = tempfile::TempDir::new().unwrap();
     let root = tmp.path();
@@ -79,10 +70,7 @@ fn a_configuration_above_the_project_root_is_not_found() {
     assert_eq!(config.indent_width, 2, "the defaults");
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "invalid indent_width produces diagnostic and uses default"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn an_invalid_indent_width_is_a_w141_and_the_default() {
     let tmp = tempfile::TempDir::new().unwrap();
     let root = tmp.path();
@@ -100,10 +88,7 @@ fn an_invalid_indent_width_is_a_w141_and_the_default() {
     assert_eq!(diags[0].code, "W141");
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "missing config file uses defaults"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_project_without_a_configuration_uses_the_defaults() {
     let tmp = tempfile::TempDir::new().unwrap();
     let root = tmp.path();
@@ -115,10 +100,7 @@ fn a_project_without_a_configuration_uses_the_defaults() {
     assert_eq!(config, FormatConfig::default());
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "Load Format Configuration: format config loading holds — project_root_available, filesystem_accessible, config_resolved, walk_bounded, invalid_values_diagnosed"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn the_load_format_config_contract_holds() {
     let tmp = tempfile::TempDir::new().unwrap();
     let root = tmp.path();
@@ -157,10 +139,7 @@ fn the_load_format_config_contract_holds() {
     assert!(!inv_diags.is_empty(), "an invalid value is diagnosed");
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "config discovery walks from formatted file directory up to specforge.json parent then stops"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn the_lookup_walks_from_the_files_directory_up_to_its_project_root_then_stops() {
     let tmp = tempfile::TempDir::new().unwrap();
     let root = tmp.path();
@@ -180,10 +159,7 @@ fn the_lookup_walks_from_the_files_directory_up_to_its_project_root_then_stops()
     assert_eq!(above, FormatConfig::default());
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "a configuration file is read once per lookup, whichever directories share it"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_configuration_file_is_read_once_per_lookup_whichever_directories_share_it() {
     let file = "/specforge-memory/p/.specforgefmt.toml";
     let disk = MemoryDisk::new().with_file(file, b"indent_width = 4\n");
@@ -206,10 +182,7 @@ fn a_configuration_file_is_read_once_per_lookup_whichever_directories_share_it()
     assert_eq!(reads, 1, "{:?}", disk.asked());
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "a configuration the disk cannot read is a W141 naming why, and its defaults apply"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_configuration_the_disk_cannot_read_is_a_w141_and_the_walk_stops() {
     let tmp = tempfile::TempDir::new().unwrap();
     let root = tmp.path();
@@ -267,10 +240,7 @@ fn check_a(proj: &Path, caller: crate::Caller<'_>) -> (String, Vec<Diagnostic>) 
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "a bounded caller's configuration that leaves the bound or has more than one name is a W141 naming where it lands or how many names it has, never its content"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_bounded_run_reports_a_configuration_linked_outside_naming_where_it_lands() {
     let (_scene, proj, outside) = scene();
     std::fs::write(outside.join("c.toml"), "indent_width = 4\nSECRET = = x\n").unwrap();
@@ -298,10 +268,7 @@ fn a_bounded_run_reports_a_configuration_linked_outside_naming_where_it_lands() 
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "a bounded caller's configuration that leaves the bound or has more than one name is a W141 naming where it lands or how many names it has, never its content"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_bounded_run_reports_a_hard_linked_configuration_by_its_count() {
     let (_scene, proj, outside) = scene();
     std::fs::write(outside.join("c.toml"), "indent_width = 4\nSECRET = = x\n").unwrap();
@@ -317,10 +284,7 @@ fn a_bounded_run_reports_a_hard_linked_configuration_by_its_count() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "an unbounded caller follows a linked configuration"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn an_unbounded_run_follows_a_linked_configuration() {
     let (_scene, proj, outside) = scene();
     std::fs::write(outside.join("c.toml"), "indent_width = 4\nSECRET = = x\n").unwrap();

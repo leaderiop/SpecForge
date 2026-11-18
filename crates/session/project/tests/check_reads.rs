@@ -38,10 +38,7 @@ fn e016(session: &ProjectSession) -> usize {
 /// target, created or deleted, must re-run the checks. The target lies in the
 /// project: a link out of it is E094 (ADR 0335).
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a check input that is a symlink is followed to its target"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_symlinked_check_inputs_target_reruns_the_checks() {
     let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"link.md\"]\n}\n");
     let root = fs::canonicalize(dir.root()).unwrap();
@@ -69,10 +66,7 @@ fn a_symlinked_check_inputs_target_reruns_the_checks() {
 /// A path a files check reads that is a symlink and is pointed elsewhere is
 /// its own change: the link is keyed by its name, not by its old target.
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an input that is a symlink pointed elsewhere is its change"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_check_input_link_pointed_elsewhere_reruns_the_checks() {
     let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"link.md\"]\n}\n");
     let root = fs::canonicalize(dir.root()).unwrap();
@@ -94,10 +88,7 @@ fn a_check_input_link_pointed_elsewhere_reruns_the_checks() {
 
 /// A files check's missing file lists its directory for the close-sibling help, so a file created beside it
 /// re-runs the checks and changes that help.
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a file beside a missing file a files check names changes its suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_file_beside_a_missing_checked_file_changes_its_suggestion() {
     let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"guide.md\"]\n}\n");
     let root = dir.root();
@@ -129,10 +120,7 @@ fn a_file_beside_a_missing_checked_file_changes_its_suggestion() {
 
 /// The inputs are the reads: each path as written, and the directories `Contained` listed on its way
 /// (ADR 0335), the missing one among them.
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a session's check inputs are the paths its checks read"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn the_check_inputs_are_the_paths_the_checks_asked() {
     let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"a.md\", \"missing/b.md\"]\n}\n");
     let root = fs::canonicalize(dir.root()).unwrap();

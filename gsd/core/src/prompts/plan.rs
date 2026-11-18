@@ -136,7 +136,7 @@ const CONVERGENCE_ARGS: &[Arg] = &[
 const CONVERGENCE_STEPS: &[Step] = &[
     Step {
         id: "replan",
-        title: "Replan with the reviewers' feedback (the prompt plan_phase, --reviews)",
+        title: "Replan with the reviewers' feedback (the prompt plan_phase, with the reviewers' concerns)",
         does: Do::Prompt("plan_phase"),
     },
     Step {

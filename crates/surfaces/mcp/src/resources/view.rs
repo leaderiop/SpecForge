@@ -257,10 +257,8 @@ pub(super) fn exported(view: ProjectView<'_>, query: &ViewQuery, format: Format)
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        behavior = "read_mcp_arguments_as_declared",
-        verify = "a prompt's or a resource read's refusal names the argument or query key it is about"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-064")]
+    #[specforge_test_macros::test(requirement = "FEATURE-071")]
     fn a_graph_view_names_the_query_key_its_refusal_is_about() {
         let key = |template: &'static str, uri: &str, scope: Option<&'static str>| {
             let matched = crate::uri_template::read(template, uri).unwrap();
@@ -292,10 +290,8 @@ mod tests {
         assert_eq!(query.argument(ExportField::SchemaVersion), None);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "serve_graph_resource",
-        verify = "a graph view's kinds query is a kinds list: the items between commas, each trimmed, an empty item kept"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-001")]
+    #[specforge_test_macros::test(requirement = "FEATURE-073")]
     fn a_graph_views_kinds_are_a_kinds_list() {
         let kinds = |uri: &str| {
             let matched = crate::uri_template::read("specforge://brief", uri).unwrap();

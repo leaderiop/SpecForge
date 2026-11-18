@@ -7,10 +7,7 @@ use specforge_parser::{FieldValue, parse, parse_incremental};
 use specforge_test_macros::test as specforge_test;
 use std::path::{Path, PathBuf};
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "optional and annotated parameters, nested arrays, unit and function types, and string-literal unions parse"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn type_syntax_used_by_the_corpus_parses() {
     let source = r#"
 type t "T" {
@@ -54,10 +51,7 @@ port p "P" {
     assert_eq!(b.returns.as_deref(), Some("Result<float[][], E>"));
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a type may declare a field named verify next to verify statements"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_field_named_verify_is_not_a_verify_statement() {
     let source = r#"
 type result "R" {
@@ -92,14 +86,11 @@ fn spec_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "every spec in the repository parses without a syntax error"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn every_repository_spec_parses_cleanly() {
     let root = specforge_repo_root::repo_root();
     let mut files = Vec::new();
-    for corpus in ["spec", "examples", "integrations/rust/spec"] {
+    for corpus in [crate::lex::OLD_SPEC, "examples", "integrations/rust/spec"] {
         spec_files(&root.join(corpus), &mut files);
     }
     assert!(files.len() > 150, "found only {} spec files", files.len());
@@ -122,10 +113,7 @@ fn every_repository_spec_parses_cleanly() {
     assert!(broken.is_empty(), "syntax errors in: {broken:#?}");
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "a syntax error inside a method signature is reported"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn a_malformed_parameter_is_reported() {
     let source = r#"
 port p "P" {

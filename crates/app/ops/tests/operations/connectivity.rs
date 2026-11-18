@@ -36,10 +36,9 @@ fn node(id: &str, kind: &str) -> Node {
     }
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "an entity is unconnected when no edge links it to another entity: a reference that does not resolve or names the entity itself links nothing"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn an_unresolved_or_self_reference_links_nothing() {
     let project = Assembled::over(RegistryBuild::default()).source(R1_SOURCE);
     let connectivity = project.view().connectivity();
@@ -67,10 +66,9 @@ fn an_unresolved_or_self_reference_links_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "the entities of each kind are counted once, for every kind an entity is written with"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn entities_are_counted_by_kind() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior"));

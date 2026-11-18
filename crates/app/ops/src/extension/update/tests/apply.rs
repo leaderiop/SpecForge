@@ -1,9 +1,6 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "an upgrade whose required peer no entry enables is refused, and update enables nothing"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn an_upgrade_whose_required_peer_no_entry_enables_is_refused() {
     let dir = enabled_project(vec![entry("@x/a", "1.0.0", "registry", &[])]);
     let (lock_before, config_before) = (
@@ -43,10 +40,7 @@ fn an_upgrade_whose_required_peer_no_entry_enables_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "lock file records new binary hashes after update"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn an_update_installs_the_newer_binary_and_locks_its_hash() {
     let dir = enabled_project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
     let registry = MemoryRegistry::new()
@@ -85,10 +79,7 @@ fn an_update_installs_the_newer_binary_and_locks_its_hash() {
     assert_eq!(std::fs::read(installed).unwrap(), greet());
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "failed upgrade rolls back all changes"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn one_failed_upgrade_applies_none() {
     let dir = enabled_project(vec![
         entry("@sdk/greet", "0.0.9", "registry", &[]),
@@ -136,10 +127,7 @@ fn one_failed_upgrade_applies_none() {
     assert_eq!(std::fs::read(installed).unwrap(), greet_before);
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "peer dependency conflicts detected before applying"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn an_update_that_breaks_a_dependent_is_refused() {
     let dir = enabled_project(vec![
         entry("@sdk/greet", "0.0.9", "registry", &[]),
@@ -176,10 +164,7 @@ fn an_update_that_breaks_a_dependent_is_refused() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "failed upgrade rolls back all changes"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn a_lock_that_cannot_be_written_puts_the_old_binaries_back() {
     use std::os::unix::fs::PermissionsExt;
     let dir = enabled_project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
@@ -213,10 +198,7 @@ fn a_lock_that_cannot_be_written_puts_the_old_binaries_back() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "a write that fails while applying fails the update, naming what it could not write, and nothing is applied"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn a_write_that_fails_while_applying_fails_the_update() {
     use std::os::unix::fs::PermissionsExt;
     let dir = enabled_project(vec![
@@ -283,10 +265,7 @@ fn coupled(a_first: bool) -> tempfile::TempDir {
     enabled_project(if a_first { vec![a, b] } else { vec![b, a] })
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "every upgrade is judged against the lock as the whole update leaves it, whatever order the lock lists them in"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn an_update_is_judged_against_the_lock_it_leaves_in_any_lock_order() {
     let runtime = coupled_runtime();
     for a_first in [true, false] {
@@ -391,10 +370,7 @@ fn an_update_writes_nothing_outside_its_project_whatever_bound_its_caller_lends(
     assert!(registry.pins().is_empty());
 }
 
-#[specforge_test(
-    behavior = "update_all_extensions",
-    verify = "an upgrade served with the bytes the lock already pins is refused, never reported updated"
-)]
+#[specforge_test(requirement = "FEATURE-135")]
 fn an_upgrade_served_as_the_locked_bytes_is_refused_not_reported_updated() {
     // Locked at 0.1.0 with greet's bytes, which declare 0.1.0; the registry serves them as 0.2.0.
     let dir = enabled_project(vec![LockFileEntry {

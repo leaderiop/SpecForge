@@ -22,10 +22,7 @@ fn failed_run(exit_code: i32, stdout: &str, stderr: &str) -> (Value, Logged) {
     (mcp_error(&resp), server)
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "over MCP an argument the command's declaration refuses is invalid_input on that argument, with the message the CLI writes (a missing one in the sentence every MCP tool uses), and the export is not called"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
     let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new().with_command(
         json!({"id": "pair", "title": "Pair", "description": "Two required args",
@@ -115,10 +112,8 @@ fn a_commands_refused_argument_is_invalid_input_on_that_argument() {
     assert!(events(&server, "surface_command_dispatched").is_empty());
 }
 
-#[specforge_test(
-    behavior = "read_mcp_arguments_as_declared",
-    verify = "a missing required argument is refused in one sentence on every tool, a core tool's and an extension command's alike"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_missing_argument_is_refused_in_one_sentence_on_every_tool() {
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_command(
         json!({"id": "pair", "title": "Pair", "description": "Two required args",
@@ -144,10 +139,7 @@ fn a_missing_argument_is_refused_in_one_sentence_on_every_tool() {
     }
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "over MCP a command's own error object is the McpError its code names, its entity and suggestion kept"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_commands_own_error_object_is_the_mcp_error_its_code_names() {
     let not_found = json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found",
         "entity_id": "m2", "suggestion": "m1"});
@@ -173,10 +165,7 @@ fn a_commands_own_error_object_is_the_mcp_error_its_code_names() {
     assert_eq!(error["data"]["code"], "OVERDUE");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "over MCP a command that fails without one error object is internal_error carrying its exit code, stdout and stderr"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_that_fails_without_an_error_object_is_internal_error_with_its_output() {
     let (error, _) = failed_run(2, "", "no tests found");
     assert_eq!(error["code"], "internal_error", "{error}");
@@ -198,10 +187,7 @@ fn a_command_that_fails_without_an_error_object_is_internal_error_with_its_outpu
     assert_eq!(error["code"], "internal_error", "{error}");
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "every refusal of every MCP tool kind is an isError result carrying one McpError that names the tool"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn every_tool_kind_refuses_with_an_mcp_error() {
     // The twelve slugs of `McpErrorCode` (spec/types/mcp.spec).
     const CODES: [&str; 12] = [

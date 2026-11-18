@@ -26,10 +26,7 @@ fn project() -> TempDir {
     dir
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "each entry records where the load takes its extension from and whether it loaded"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_load_records_each_entrys_origin_and_whether_it_loaded() {
     let dir = project();
     let runtime = InProcessRuntime::new()
@@ -103,10 +100,7 @@ fn without_a_runtime_each_entry_records_its_origin() {
     assert!(unloaded.declarations.is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "list_installed_extensions",
-    verify = "an extension's source is where the extension load takes it from, whatever order its entries are in"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_loader_is_the_entry_that_loaded_else_the_first_tried() {
     let entry = |origin: Origin, loaded: bool| EnabledExtension {
         origin: origin.clone(),
@@ -149,10 +143,7 @@ fn the_loader_is_the_entry_that_loaded_else_the_first_tried() {
     assert_eq!(loader(&[]), None);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_manifests",
-    verify = "a builtin loads as a builtin, and an installed or file entry with the digest of its bytes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_builtin_loads_as_builtin_and_a_file_entry_with_its_digest() {
     let dir = project();
     let runtime = InProcessRuntime::new()

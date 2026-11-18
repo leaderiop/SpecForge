@@ -11,10 +11,7 @@ use crate::writes::files_under;
 
 const BROKEN: &[u8] = b"\0asm in-process @x/broken 1.0.0";
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "init writes the project's version into its starter as one string the starter reads back, whatever the version holds"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_writes_any_version_as_the_one_string_its_starter_reads_back() {
     let scratch = TempDir::new().unwrap();
     let runtime = specforge_project::testing::component_runtime();
@@ -71,10 +68,7 @@ fn init_writes_any_version_as_the_one_string_its_starter_reads_back() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "init refuses a starter that does not parse, naming the extension whose template it is, before anything is written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_a_starter_template_that_does_not_parse_writing_nothing() {
     let scratch = TempDir::new().unwrap();
     let wasm = scratch.path().join("broken.wasm");

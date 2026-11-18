@@ -597,10 +597,7 @@ fn pair(label: &str) -> (Outcome, Outcome) {
     (cli, mcp)
 }
 
-#[specforge_test_macros::test(
-    behavior = "parse_extension_specifier",
-    verify = "a string holding commas is one extension specifier, for add and init alike"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-134")]
 fn add_reads_one_string_with_commas_as_one_specifier() {
     assert_eq!(pair("add_one_string_with_commas").0, Outcome::Refused);
 }
@@ -621,26 +618,17 @@ fn collect_with_a_named_runner_is_one_request() {
     assert!(matches!(cli, Outcome::Answered(_)), "{cli:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "specforge.collect reads runner as specforge collect --runner reads it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-070")]
 fn collect_runner_auto_is_one_request() {
     assert_eq!(pair("collect_runner_auto").0, Outcome::Refused);
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_agent_plan",
-    verify = "specforge trace and specforge.trace both refuse an entity with a plan"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn trace_entity_and_plan_is_one_request() {
     assert_eq!(pair("trace_entity_and_plan").0, Outcome::Refused);
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_export_tool",
-    verify = "specforge export and specforge.export both refuse with_schema with no_schema"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn export_both_schema_flags_is_one_request() {
     assert_eq!(pair("export_with_and_without_schema").0, Outcome::Refused);
 }
@@ -673,10 +661,7 @@ fn answered(label: &str) -> Value {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_export_tool",
-    verify = "with_schema embeds the schema in a context, brief or budgeted export, and no_schema leaves it out of a graph export"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn export_schema_flags_select_the_same_export() {
     for label in ["export_context_with_schema", "export_brief_with_schema"] {
         let with = answered(label);
@@ -694,10 +679,7 @@ fn export_schema_flags_select_the_same_export() {
     assert!(budgeted["schema"].is_object(), "{budgeted}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_schema_resource",
-    verify = "--no-edges and --validation-rules select what include_edges and include_validation_rules select"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-120")]
 fn schema_flags_select_the_same_document() {
     let no_edges = answered("schema_no_edges");
     assert!(no_edges.get("edge_types").is_none(), "{no_edges}");
@@ -709,18 +691,12 @@ fn schema_flags_select_the_same_document() {
     assert!(both.get("validation_rules").is_some(), "{both}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_agent_plan",
-    verify = "specforge trace --plan and specforge.trace answer the same document for a plan"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-130")]
 fn a_plan_check_is_one_document() {
     assert_eq!(answered("trace_plan")["ok"], false);
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "a preview refuses what the write would"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn every_edit_verb_is_one_request_on_both_surfaces() {
     for label in [
         "edit_new",
@@ -741,10 +717,7 @@ fn every_edit_verb_is_one_request_on_both_surfaces() {
     assert_eq!(pair("edit_delete_referenced").0, Outcome::Refused);
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "specforge link --verify and specforge.edit add_verify write one obligation from one text"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_verify_text_with_a_colon_is_one_obligation_on_both_surfaces() {
     let document = answered("edit_link_verify_colon_text");
     let diff = document["diff"].as_str().unwrap();
@@ -765,10 +738,7 @@ fn kinds_of(label: &str) -> std::collections::BTreeSet<String> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "export_agent_graph_format",
-    verify = "a kinds list written as text names the same kinds on the command line and in a graph resource's query: the items between commas, each trimmed, an empty item a kind the project does not know"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
 fn a_kinds_list_written_as_text_is_one_filter_on_every_surface() {
     assert_eq!(
         kinds_of("export_kinds_list_spaced"),
@@ -780,10 +750,7 @@ fn a_kinds_list_written_as_text_is_one_filter_on_every_surface() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "query_graph_multi_resolution",
-    verify = "specforge query --kinds reads a kinds list as specforge export --kinds does, and answers what specforge.query answers for its items"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
 fn query_kinds_is_a_kinds_list_as_exports_is() {
     let ids: Vec<String> = answered("query_kinds_list")["nodes"]
         .as_array()

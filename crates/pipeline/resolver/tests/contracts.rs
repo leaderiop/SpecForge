@@ -12,10 +12,7 @@ fn resolve(files: &[(&str, &str)]) -> Vec<Diagnostic> {
 }
 
 // B:resolve_use_imports — verify contract "requires/ensures consistency for use import resolution"
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "Resolve Use Imports: use import resolution holds — registries_populated_fired, sources_held, imports_resolved, missing_files_diagnosed, dependency_graph_built"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn resolve_use_imports_contract() {
     // Requires sources_held: the compile holds its sources by key. main.spec
     // imports two of them, one nested, and one that is none.
@@ -83,10 +80,7 @@ fn resolve_use_imports_contract() {
 }
 
 // B:detect_import_cycles — verify contract "requires/ensures consistency for import cycle detection"
-#[specforge_test(
-    behavior = "detect_import_cycles",
-    verify = "Detect Import Cycles: import cycle detection holds — import_graph_available, cycles_detected, cycle_diagnostic_emitted, non_cyclic_unaffected"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn detect_import_cycles_contract() {
     // Requires: project with circular imports
     // Ensures: W113 cycle diagnostic produced as warning (not error)

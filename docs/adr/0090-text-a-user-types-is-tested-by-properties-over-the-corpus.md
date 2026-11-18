@@ -1,6 +1,7 @@
 # Text a user types is tested by properties over the repository's corpus
 
-**Status:** accepted (2026-10-14, structure round, plan 11).
+**Status:** accepted (2026-10-14, structure round, plan 11). The corpus also lists the frozen pre-swap spec:
+[ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D8.
 
 At `0113232f` the parser and formatter had 245 tests, all over fixed strings or the valid corpus. The formatter's
 "random valid inputs" test formatted 8 fixed strings. The parser's fuzz target had never been buildable: it was

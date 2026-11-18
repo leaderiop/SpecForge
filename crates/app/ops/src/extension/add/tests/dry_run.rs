@@ -5,10 +5,7 @@ const K1: &str = "1111111111111111";
 const K2: &str = "2222222222222222";
 const K3: &str = "3333333333333333";
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a dry run of an extension already present answers as the add would, whatever its source"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_dry_run_of_a_present_extension_answers_as_the_add_would() {
     fn dry(root: &specforge_common::ProjectRoot, source: Source) -> AddRequest<'_> {
         AddRequest {
@@ -105,10 +102,7 @@ fn a_dry_run_of_a_present_extension_answers_as_the_add_would() {
     assert_eq!(crate::config::testing::files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a dry run of several specifiers previews each and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_dry_run_of_several_specifiers_previews_each() {
     use crate::config::testing::files_under;
     let dir = project_with(EMPTY_PROJECT);
@@ -171,10 +165,7 @@ fn a_dry_run_of_several_specifiers_previews_each() {
     assert_eq!(files_under(dir.path()), before);
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a dry run of several specifiers previews each and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_dry_run_reports_the_builtins_it_would_enable() {
     let dir = project_with(EMPTY_PROJECT);
     let chain = serving_builtin(
@@ -212,10 +203,7 @@ fn a_dry_run_reports_the_builtins_it_would_enable() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a dry run judges a registry package by the declaration it was published with, downloading nothing"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_dry_run_judges_a_registry_package_by_its_published_declaration() {
     let published = || {
         MemoryRegistry::new()
@@ -268,10 +256,7 @@ fn a_dry_run_judges_a_registry_package_by_its_published_declaration() {
     );
 }
 
-#[specforge_test(
-    behavior = "verify_publisher_signature",
-    verify = "a dry run refuses what the add's trust decision refuses, downloading nothing"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_dry_run_refuses_what_the_trust_decision_refuses() {
     let registry = || {
         MemoryRegistry::new()

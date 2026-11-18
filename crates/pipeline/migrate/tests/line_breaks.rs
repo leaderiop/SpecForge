@@ -39,10 +39,7 @@ fn migrated(text: &str) -> String {
 
 const OLD: &str = "// specforge-format: 0.9\n// The first.\nfeature f1 {\n  status proposed\n  problem \"p\"\n}\n\nbehavior a \"T\" {\n  ports [R]\n  features [F]\n}\n\nbehavior b \"T\" {\n  ports [R]\n  features [F]\n}\n\nbehavior c \"T\" {\n  ports [R]\n  features [F]\n}\n";
 
-#[specforge_test(
-    invariant = "migration_canonical_form",
-    verify = "a migration writes a CRLF file in CRLF, as it migrates the same file in LF"
-)]
+#[specforge_test(requirement = "INVARIANT-072")]
 fn a_migration_writes_a_crlf_file_as_it_migrates_its_lf_reading() {
     let (lf, crlf) = (migrated(OLD), migrated(&OLD.replace('\n', "\r\n")));
     assert_ne!(lf, OLD, "the LF file is migrated");

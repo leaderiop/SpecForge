@@ -53,10 +53,7 @@ fn registries() -> RegistryBuild {
     build
 }
 
-#[specforge_test_macros::test(
-    behavior = "snapshot_entities_once",
-    verify = "an unheld reference of a field the harness writes once is history"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn a_harness_immutable_reference_is_history() {
     let registries = registries();
     let source = "record r \"R\" {\n  once [\"js:a.js::f\"]\n  rewritten [\"js:a.js::g\"]\n  \

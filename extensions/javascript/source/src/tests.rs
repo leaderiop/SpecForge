@@ -193,10 +193,8 @@ fn asked_paths(asked: &[(String, SyntaxFiles)]) -> Vec<(&str, Vec<&str>)> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "js_declare_source_collector",
-    verify = "javascript-source declares its collector, its inputs, its capability and its peer"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn javascript_source_declares_its_collector_its_inputs_and_its_peer() {
     let declaration = crate::specforge_extension_build().declaration();
     assert_eq!(declaration.handshake.name, "@javascript/source");
@@ -251,10 +249,7 @@ fn javascript_source_declares_its_collector_its_inputs_and_its_peer() {
     }
 }
 
-#[specforge_test(
-    behavior = "js_select_source_files",
-    verify = "a file is read by the grammar its extension names"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_file_is_read_by_the_grammar_its_extension_names() {
     let files = [
         APP,
@@ -306,10 +301,7 @@ fn a_file_is_read_by_the_grammar_its_extension_names() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_select_source_files",
-    verify = "a test file is never parsed"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_test_file_is_never_parsed() {
     let files = [
         APP,
@@ -342,10 +334,7 @@ fn a_test_file_is_never_parsed() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_select_source_files",
-    verify = "generated output is never parsed"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
 fn generated_output_is_never_parsed() {
     let files = [
         APP,
@@ -367,10 +356,7 @@ fn generated_output_is_never_parsed() {
     assert_eq!(items(&out.unwrap()), ["js:app/src/builder.js::builder"]);
 }
 
-#[specforge_test(
-    behavior = "js_select_source_files",
-    verify = "a file under no named package is not read"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_file_under_no_named_package_is_not_read() {
     let files = [
         ("package.json", r#"{"private":true}"#),
@@ -390,10 +376,7 @@ fn a_file_under_no_named_package_is_not_read() {
     assert_eq!(out.unwrap(), Vec::<Fact>::new());
 }
 
-#[specforge_test(
-    behavior = "js_select_source_files",
-    verify = "a truncated listing parses its glob and filters the answer"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_truncated_listing_parses_its_glob_and_filters_the_answer() {
     let files = [
         APP,
@@ -443,10 +426,7 @@ fn a_truncated_listing_parses_its_glob_and_filters_the_answer() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_select_source_files",
-    verify = "the files an answer's cap left unparsed are asked again"
-)]
+#[specforge_test(requirement = "FEATURE-056")]
 fn the_files_an_answers_cap_left_unparsed_are_asked_again() {
     let files = [
         APP,
@@ -485,10 +465,8 @@ fn the_files_an_answers_cap_left_unparsed_are_asked_again() {
     );
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "items are named after their package and file"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn items_are_named_after_their_package_and_file() {
     let facts = collected(&[
         ("packages/core/package.json", r#"{"name":"@acme/core"}"#),
@@ -513,10 +491,8 @@ fn items_are_named_after_their_package_and_file() {
     assert_eq!(places(run_), [("src/main.js", 1, 10, 1, 27)]);
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "a member is named by its class and a namespace member by its namespace"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_member_is_named_by_its_class_and_a_namespace_member_by_its_namespace() {
     let facts = collected(&[(
         "src/shapes.ts",
@@ -577,10 +553,8 @@ namespace A.B {
     assert_eq!(item(&facts, &id("A.B")).title.as_deref(), Some("B"));
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "a local declaration is not an item"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_local_declaration_is_not_an_item() {
     let facts = collected(&[(
         "src/locals.js",
@@ -602,10 +576,8 @@ export const api = { get() {}, value: 1 };
     );
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "a declare module block mints no item"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_declare_module_block_mints_no_item() {
     let facts = collected(&[(
         "src/amb.d.ts",
@@ -622,10 +594,8 @@ export declare function real(): void;
     assert_eq!(items(&facts), ["js:app/src/amb.d.ts::real"]);
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "an unnamed default export is the item default"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn an_unnamed_default_export_is_the_item_default() {
     let facts = collected(&[
         ("src/f.js", "export default function () {}\n"),
@@ -652,10 +622,8 @@ fn an_unnamed_default_export_is_the_item_default() {
     assert_eq!(kind("js:app/src/o.js::default"), json!(["const"]));
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "function-valued variables are functions"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn function_valued_variables_are_functions() {
     let facts = collected(&[(
         "src/vars.js",
@@ -693,10 +661,8 @@ let counter = 0;
     assert_eq!(kinds, expected);
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "definitions of one name are one item with every place"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn definitions_of_one_name_are_one_item_with_every_place() {
     let facts = collected(&[(
         "src/one.ts",
@@ -724,10 +690,8 @@ export const Id = "id";
     assert_eq!(fact("Id").fields["kind"], json!(["type", "const"]));
 }
 
-#[specforge_test(
-    behavior = "js_mint_item_facts",
-    verify = "each named package is a package fact its items point at"
-)]
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-056")]
 fn each_named_package_is_a_package_fact_its_items_point_at() {
     let facts = run(
         host(&[

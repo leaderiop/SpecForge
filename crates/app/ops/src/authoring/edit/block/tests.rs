@@ -4,10 +4,7 @@ use specforge_project::testing::Assembled;
 
 const SPEC: &str = "spec \"p\" {\n  version \"0.1.0\"\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "a block an edit leaves unreadable is refused edit_unreadable; one unreadable before it, block_unreadable"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_block_the_edit_leaves_unreadable_is_the_edits_defect() {
     let fixture = Assembled::new();
     let view = fixture.view();

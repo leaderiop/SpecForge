@@ -1,6 +1,6 @@
 # GSD in SpecForge (`@gsd/*`)
 
-**Status: the kernel changes are built (protocol 1.15.0); `@gsd/core` 1.1.0 is built and tracks gsd-core 1.19.0: its model, checks, 15 agents, 48 commands, 45 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: hooks are 16 of 29, the `specforged` harness is later, Codex and Cursor are unrun). `@gsd/security` 1.0.0 is built on it (the threat model, `/gsd-secure-phase`, the auditor and the ship gate; [security/](security/)). The other `@gsd/*` extensions are not built. Tracking stays at gsd-core 1.19.0 while the extensions are redesigned; upgrades resume afterwards, each as its own round.** This folder holds the model, the contribution rosters and the parity
+**Status: the kernel changes are built (protocol 1.15.0); `@gsd/core` 1.1.0 is built and tracks gsd-core 1.19.0: its model, checks, 15 agents, 48 commands, 44 prompts, 50 slash commands and 15 hooks, installed for Claude Code (verified) and Codex and Cursor (drafts), and three of the parity suite's four checks run in the gate; the fourth (upgrade) is a procedure ([acceptance checklist](parity/ACCEPTANCE.md), which lists the named gaps: hooks are 16 of 29, the `specforged` harness is later, Codex and Cursor are unrun). `@gsd/security` 1.0.0 is built on it (the threat model, `/gsd-secure-phase`, the auditor and the ship gate; [security/](security/)). The other `@gsd/*` extensions are not built. Tracking stays at gsd-core 1.19.0 while the extensions are redesigned; upgrades resume afterwards, each as its own round.** This folder holds the model, the contribution rosters and the parity
 plan for bringing the whole GSD framework ([open-gsd](https://github.com/open-gsd)) into SpecForge. It lives in this
 monorepo for now and moves to its own repository later; nothing in it may depend on a path outside `gsd/`.
 
@@ -13,8 +13,7 @@ project state is a `.spec` entity, there is no `.planning/` folder and no Markdo
 ```
 ┌────────────────────────── @gsd/core (the unified meta-model) ──────────────────────────┐
 │ project · requirement · milestone · phase · plan · task · decision · research ·        │
-│ summary · verification · uat · validation · handoff · settings ·                       │
-│ persona · journey · term (beyond GSD)                                                  │
+│ summary · verification · uat · validation · handoff · settings                         │
 └───────────┬──────────────────────────────┬──────────────────────────────┬──────────────┘
    profiles │                capabilities  │                       tooling│
 ┌───────────┴───────────┐  ┌───────────────┴──────────────┐  ┌────────────┴─────────────┐
@@ -26,12 +25,11 @@ project state is a `.spec` entity, there is no `.planning/` folder and no Markdo
 
 The stack is complete on its own: a GSD project loads only `@gsd/*`, never `@specforge/product`, `governance`,
 `testing`, `cargo-test` or `vitest`. That is policy, not kernel-enforced: `@specforge/product` (`milestone`,
-`deliverable`, `persona`, `journey`, `term`) and `@specforge/governance` (`decision`) declare kinds `@gsd/core` also
-declares, and loading both is E026 (the first registration wins), so `specforge check` fails on a real clash
-([ADR 0357](../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D11). Tests are the
-one thing GSD does not collect: a project that records them loads `@code/core` and a runner pack
-(`@javascript/node-test`, `@rust/test`), whose test facts `@gsd/core` reads; a `[gsd:<id>]` tag in a test's name names
-its entity.
+`deliverable`) and `@specforge/governance` (`decision`) declare kinds `@gsd/core` also declares, and
+loading both is E026 (the first registration wins), so `specforge check` fails on a real clash
+([ADR 0370](../docs/adr/0370-gsd-core-holds-exactly-gsd-cores-kinds-and-fields.md)). Tests are the one thing GSD does
+not collect: a project that records them loads `@code/core` and a runner pack (`@javascript/node-test`, `@rust/test`),
+whose test facts `@gsd/core` reads; a `[gsd:<id>]` tag in a test's name names its entity.
 
 ## Decisions
 
@@ -113,8 +111,7 @@ list fields as items, **K14** a writing call knows the time (`now`), **K15** a j
 ```
 spec/gsd/
 ├── project.spec                      project, settings that are not flags
-├── requirements/<area>.spec          AUTH-01, AUTH-02 …
-├── product/                          personas, journeys, glossary (beyond GSD)
+├── requirements/<category>.spec      AUTH-01, AUTH-02 …
 ├── milestones/<v>/
 │   ├── milestone.spec
 │   └── phases/<NN-slug>/
@@ -167,8 +164,17 @@ Each extension builds to `wasm32-wasip2` on its own; the Cargo workspace exclude
 
 ## Build order
 
-The packaging (one Cargo workspace, built on demand, tested through the `specforge` binary) is
-[ADR gsd/0001](adr/0001-one-cargo-workspace-built-on-demand.md).
+The packaging is one Cargo workspace, [ADR gsd/0001](adr/0001-one-cargo-workspace-built-on-demand.md). `@gsd/core` is
+vendored as a builtin: its blob is committed in `gsd/core/wasm/` and embedded in the `specforge` binary
+([ADR 0366](../docs/adr/0366-gsd-core-is-vendored-as-a-builtin-with-a-size-allowance-of-its-own.md),
+[ADR 0373](../docs/adr/0373-gsd-core-is-vendored-on-a-pinned-rustc-with-its-load-and-size-measured.md)), and it is
+tested through that binary.
+
+An edit to `gsd/core` reaches the black-box suite only after `cargo run -p xtask --bin revendor` (about five minutes,
+on the pinned rustc of ADR 0373 D1) and a CLI rebuild. Until then the suite tests the last vendored component, and the
+native tests test the working tree. `gsd/Cargo.lock` is one input of the blob, hashed whole, so a dependency change that
+only touches `gsd-security` still re-vendors `@gsd/core`. `@gsd/security` is not vendored: the gate's `gsd` step builds
+its wasm from `gsd/`, and the suite reads it through `GSD_SECURITY_WASM`.
 
 1. The kernel changes, in order: K1 identifiers, K2 scoped identifiers, K10 namespaced codes, K3 field types,
    K4 field flags, K5 edit plans, K6 settings, K7 judged rules, K8 contributed prompts, K9 contributed
@@ -184,7 +190,7 @@ and a context's `digest`, and `record_research`, `record_spec`, `record_validati
 report are built. K17 closed the E080 treatment of a judged rule's finding, a collector's plan judged before its own report, and the
 human-only guarantee on existing entities and deletes (ADR 0297, ADR 0298), and `gsd/E502` is built on top of them.
 ADR 0300 serves a commit's source files to the baseline, so `re_verification` reports `previous_status` and
-`previous_score` and compares scan states (r39 T13 is built). K20a, K20b and K20c are built (protocol 1.14.0), and so is R1 (protocol 1.15.0): the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). One divergence from upstream: a truth's `verification` tier is a person's, so `/gsd-phase --remove` of a phase whose truth holds one is refused `human_only` until the person deletes that line in their editor (upstream deletes regardless; REVIEW-k20a M3). What still waits for kernel work:
+`previous_score` and compares scan states (r39 T13 is built). K20a, K20b and K20c are built (protocol 1.14.0), and so is R1 (protocol 1.15.0): the six answer commands are a person's (human-attested), a verdict is trusted against its tests and its files, install and uninstall are safe, and the SDK, the wire and the prompts carry what `@gsd/core` asked for (ADRs 0310-0319). What still waits for kernel work:
 
 - **`--ws` is text.** A command or prompt reads its extension's state (`call.state()`, ADR 0310), so `/gsd-workstreams
   status` and `list`, `/gsd-progress` and `/gsd-resume-work` name the active workstream; the `--ws` argument stays free
@@ -213,7 +219,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 | The `specforged` harness | `/gsd-autonomous` unattended; `claude-orchestration` and `external-job` have settings keys only | the capability table above |
 | The other extensions' commands and agents | 21 commands and 37 agents are owned by them | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 | Codex and Cursor verified in the host | drafts until run there | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
-| Publishing | `specforge publish` is a user action | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
+| Publishing | `@gsd/core` ships inside `specforge` as a builtin and is not published | [ACCEPTANCE.md](parity/ACCEPTANCE.md) |
 
 ## Credit
 

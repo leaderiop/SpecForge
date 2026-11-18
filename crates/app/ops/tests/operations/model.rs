@@ -12,10 +12,7 @@ use specforge_test::prelude::*;
 
 use crate::view_support::{Assembled, Viewed};
 
-#[specforge_test(
-    behavior = "build_model_intermediate",
-    verify = "a field's type is named as its extension declares it; DBML writes its own column type"
-)]
+#[specforge_test(requirement = "FEATURE-060")]
 fn the_model_names_a_field_type_as_declared() {
     // As `@specforge/formal` declares `abstract`, through the registry build
     // (the model groups kinds by the extensions that declared them).
@@ -147,10 +144,7 @@ fn counts_of(project: &Assembled, options: ModelOptions) -> Vec<(String, u64, u6
         .collect()
 }
 
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "a root no loaded extension declares is refused with unknown_kind naming the closest declared kind"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn a_root_the_project_does_not_declare_is_refused() {
     let project = two_extensions();
     let root = |kind: &str| ModelOptions {
@@ -173,10 +167,7 @@ fn a_root_the_project_does_not_declare_is_refused() {
     assert_eq!(error.error.suggestion, None);
 }
 
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "an extension the project does not load is refused, naming the loaded one meant"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn an_extension_the_project_does_not_load_is_refused() {
     let project = two_extensions();
     let extension = |name: &str| ModelOptions {
@@ -205,10 +196,7 @@ fn an_extension_the_project_does_not_load_is_refused() {
     assert!(kinds_of(&project, extension("@t/test")).is_empty());
 }
 
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "a listed kind the project does not know is reported as I020 and selects nothing"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn a_listed_kind_the_project_does_not_know_is_reported() {
     let project = two_extensions();
     let outcome = outcome_of(
@@ -232,10 +220,7 @@ fn a_listed_kind_the_project_does_not_know_is_reported() {
     );
 }
 
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "Filter Model by Extension, Kind, or Depth: model filtering holds — model_ir_built, extension_filter_applied, kind_filter_applied, depth_filter_applied, edges_pruned, filters_compose, unknown_names_answered"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn model_filtering_contract() {
     let project = two_extensions();
     // model_ir_built: both kinds, one relationship.
@@ -323,10 +308,7 @@ fn model_filtering_contract() {
 }
 
 // P2 - kept.
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "multiple filters compose as intersection"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn the_model_filters_compose_as_an_intersection() {
     let project = two_extensions();
     // The root's kind is not kept when `kinds` omits it.
@@ -368,10 +350,7 @@ fn the_model_filters_compose_as_an_intersection() {
     );
 }
 
-#[specforge_test(
-    behavior = "filter_model",
-    verify = "a selection recounts each extension's entities and drawn edge types"
-)]
+#[specforge_test(requirement = "FEATURE-075")]
 fn an_extensions_counts_after_a_filter_are_what_the_selection_draws() {
     let project = two_extensions();
     // `Triggers` joins behavior to event, which this selection drops: nothing is drawn.
@@ -407,10 +386,7 @@ fn an_extensions_counts_after_a_filter_are_what_the_selection_draws() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn model_states_which_field_a_refusal_is_about() {
     use specforge_ops::read::model::ModelField;
     let project = two_extensions();

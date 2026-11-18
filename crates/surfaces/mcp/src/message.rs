@@ -2,9 +2,7 @@
 //! definition (ADR 0058): `initialize`'s and `server/discover`'s results,
 //! the listing descriptors, the SpecForge notifications' params and the
 //! McpError a refusal carries. Each serializes as what is sent and names the
-//! spec type that states it; `tests/message_spec.rs` holds them together, as
-//! it holds every core tool's reply (ADR 0048 D8) and every core prompt's
-//! payload.
+//! spec type that states it.
 
 use serde::Serialize;
 use serde_json::Value;

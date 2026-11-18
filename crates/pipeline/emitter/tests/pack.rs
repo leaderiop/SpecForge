@@ -110,10 +110,7 @@ fn node_ids(pack: &str) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_context_pack",
-    verify = "core sections are never cut, and a budget below them is E062 naming the route"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
 fn core_sections_are_never_cut_and_a_budget_below_them_is_e062_naming_the_route() {
     let graph = graph();
     let at = floor(&graph);
@@ -128,10 +125,7 @@ fn core_sections_are_never_cut_and_a_budget_below_them_is_e062_naming_the_route(
     assert!(cut.estimated_tokens <= at);
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_context_pack",
-    verify = "enrich sections fill the budget whole in declared order, and inside the first that does not fit its most central entities are kept"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
 fn enrich_sections_fill_the_budget_whole_in_declared_order() {
     let graph = graph();
     let cut = fit(&graph, &plan_at(100_000)).unwrap();
@@ -159,10 +153,7 @@ fn enrich_sections_fill_the_budget_whole_in_declared_order() {
     panic!("no budget served `late`");
 }
 
-#[specforge_test_macros::test(
-    behavior = "serve_context_pack",
-    verify = "enrich sections fill the budget whole in declared order, and inside the first that does not fit its most central entities are kept"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
 fn the_first_enrich_section_that_does_not_fit_keeps_its_most_central_entities_and_later_ones_are_dropped()
  {
     let graph = graph();

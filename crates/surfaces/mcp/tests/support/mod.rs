@@ -16,13 +16,11 @@ pub mod extension;
 pub mod nothing_served;
 pub mod project;
 pub mod replies;
-pub mod spec;
 
 pub use disk::{changed_files, files_under};
 pub use events::*;
 pub use extension::TestExtension;
 pub use project::{Serve, TestProject};
-pub use spec::spec_files;
 pub use specforge_mcp::resource::ResourceSpec;
 pub use specforge_mcp::testing::Served;
 pub use specforge_mcp::testing::rpc::*;

@@ -27,10 +27,7 @@ fn verify(id: &str, text: &str) -> (Edit, Edit) {
     )
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "every verb's graph change is what it declares"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn every_verb_over_the_tasks_project_is_accepted() {
     let c = project(&[("tasks.spec", TASKS)]);
     let (_, remove) = verify("complete_task", "completing sets the status");
@@ -98,10 +95,7 @@ fn every_block_of_the_todo_app_is_retitled_and_given_a_verify_line_without_a_str
 }
 
 /// A block holding a padded value, which format keeps, takes every verb.
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "a block holding a padded value takes a typed edit"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_block_holding_a_padded_value_takes_a_typed_edit() {
     const PADDED: &str = "invariant done_stamped \"Done Stamped\" {\n  guarantee \"done tasks carry a time\"\n}\n\n\
         invariant extra_rule \"Extra Rule\" {\n  guarantee \"something else\"\n}\n\n\

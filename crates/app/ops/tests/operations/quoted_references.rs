@@ -24,10 +24,7 @@ fn quoted() -> Compiled {
     compile(SOFTWARE, &[("main.spec", QUOTED)])
 }
 
-#[specforge_test(
-    behavior = "rename_entity_id",
-    verify = "rename edits a quoted reference inside its quotes"
-)]
+#[specforge_test(requirement = "FEATURE-111")]
 fn rename_edits_a_quoted_reference_inside_its_quotes() {
     let p = quoted();
     let plan = rename::plan(&p.navigator(), "user", "account").unwrap();
@@ -43,10 +40,7 @@ fn rename_edits_a_quoted_reference_inside_its_quotes() {
     assert!(text.contains("produces [\"ev_first\", ev_two]"), "{text}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_references_tool",
-    verify = "find_references answers a quoted reference at its ID, token-precise"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn references_answer_a_quoted_reference_at_its_id() {
     let p = quoted();
     let nav = p.navigator();
@@ -72,10 +66,7 @@ fn references_answer_a_quoted_reference_at_its_id() {
     );
 }
 
-#[specforge_test(
-    behavior = "prepare_rename",
-    verify = "prepare rename answers on a quoted reference, inside its quotes"
-)]
+#[specforge_test(requirement = "FEATURE-111")]
 fn the_token_at_a_quoted_reference_is_its_id() {
     let p = quoted();
     let nav = p.navigator();
@@ -86,10 +77,8 @@ fn the_token_at_a_quoted_reference_is_its_id() {
     assert!(nav.occurrence_at("main.spec", 5, 11).is_none());
 }
 
-#[specforge_test(
-    behavior = "code_action_replace_unresolved",
-    verify = "a quoted unresolved reference with a close match is replaced inside its quotes"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn a_quoted_unresolved_reference_is_replaced_inside_its_quotes() {
     let p = quoted();
     let query = FixQuery {

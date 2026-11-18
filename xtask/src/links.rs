@@ -1,7 +1,6 @@
 //! The spec-link attributes of Rust tests (`#[spec(..)]`, `#[specforge_test(..)]`,
-//! `#[specforge_test_macros::test(..)]`), read with `syn` without building or running a test. One reader for
-//! check-links, which compares each `verify` text with what its entity declares, and absorb, which turns an
-//! invariant's obligations into proofs of the tests that state them.
+//! `#[specforge_test_macros::test(..)]`), read with `syn` without building or running a test, for check-links,
+//! which checks that each names a requirement of the spec and carries no `verify` text (ADR 0374 D4).
 
 use std::path::{Path, PathBuf};
 use syn::ext::IdentExt;
@@ -20,6 +19,8 @@ pub struct Link {
     pub line: usize,
     /// The line of the entity id's string: where a source reader places the name the attribute gives.
     pub id_line: usize,
+    /// The attribute's kind word, before the `=`: `requirement`, or an old builtin's `behavior`, `invariant`, ...
+    pub kind: String,
     pub id: String,
     pub verify: Option<String>,
 }
@@ -34,7 +35,8 @@ pub struct Read {
 
 /// Every link in the `.rs` files under each of `scan` (directories relative to `root`), in file order. A file that
 /// does not parse is in [`Read::unparsed`] wherever it is; one that does, whose path from `root` starts with one of
-/// `skip`, gives no link.
+/// `skip` or lies in a crate below a `tests/fixtures/` directory, gives no link: that crate is another project's,
+/// its tests linked to that project's spec (ADR 0374 D4).
 pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
     let mut read = Read::default();
     for dir in scan {
@@ -58,7 +60,9 @@ pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
                 continue;
             };
             let relative = path.strip_prefix(root).unwrap_or(path);
-            if skip.iter().any(|prefix| relative.starts_with(prefix)) {
+            if skip.iter().any(|prefix| relative.starts_with(prefix))
+                || in_fixture_crate(root, relative)
+            {
                 continue;
             }
             let mut visitor = Links {
@@ -71,6 +75,23 @@ pub fn read(root: &Path, scan: &[String], skip: &[&str]) -> Read {
     read
 }
 
+/// Whether the file `relative` (to `root`) lies in a fixture crate: a directory below a `tests/fixtures/` directory
+/// that holds its own `Cargo.toml`. Any other file there is a helper of the enclosing crate's own tests.
+fn in_fixture_crate(root: &Path, relative: &Path) -> bool {
+    relative
+        .ancestors()
+        .skip(1)
+        .any(|dir| below_fixtures(dir) && root.join(dir).join("Cargo.toml").is_file())
+}
+
+/// Whether `dir` sits below a `tests` directory's `fixtures` directory (not that directory itself).
+fn below_fixtures(dir: &Path) -> bool {
+    let parts: Vec<_> = dir.components().map(|c| c.as_os_str()).collect();
+    parts
+        .windows(3)
+        .any(|parts| parts[0] == "tests" && parts[1] == "fixtures")
+}
+
 struct Links<'a> {
     file: String,
     links: &'a mut Vec<Link>,
@@ -81,13 +102,14 @@ impl<'ast> Visit<'ast> for Links<'_> {
         if !is_test_attribute(attr) {
             return;
         }
-        let Ok((id, verify)) = attr.parse_args_with(parse_args) else {
+        let Ok((kind, id, verify)) = attr.parse_args_with(parse_args) else {
             return;
         };
         self.links.push(Link {
             file: self.file.clone(),
             line: attr.pound_token.spans[0].start().line,
             id_line: id.span().start().line,
+            kind,
             id: id.value(),
             verify,
         });
@@ -116,8 +138,8 @@ fn is_test_attribute(attr: &Attribute) -> bool {
 }
 
 /// `<kind> = "<id>" [, verify = "<text>"] [, __guard_only]`.
-fn parse_args(input: syn::parse::ParseStream) -> syn::Result<(LitStr, Option<String>)> {
-    let _kind = Ident::parse_any(input)?;
+fn parse_args(input: syn::parse::ParseStream) -> syn::Result<(String, LitStr, Option<String>)> {
+    let kind = Ident::parse_any(input)?.unraw().to_string();
     let _eq: Token![=] = input.parse()?;
     let id: LitStr = input.parse()?;
     let mut verify = None;
@@ -133,7 +155,7 @@ fn parse_args(input: syn::parse::ParseStream) -> syn::Result<(LitStr, Option<Str
             verify = Some(text.value());
         }
     }
-    Ok((id, verify))
+    Ok((kind, id, verify))
 }
 
 #[cfg(test)]
@@ -178,6 +200,7 @@ mod tests {
                     file: "src/lib.rs".to_string(),
                     line: 2,
                     id_line: 3,
+                    kind: "invariant".to_string(),
                     id: "writes_are_durable".to_string(),
                     verify: Some("a killed writer leaves the old entry".to_string()),
                 },
@@ -185,10 +208,42 @@ mod tests {
                     file: "src/lib.rs".to_string(),
                     line: 7,
                     id_line: 7,
+                    kind: "behavior".to_string(),
                     id: "write_entry".to_string(),
                     verify: None,
                 },
             ]
+        );
+    }
+
+    /// A crate below a `tests/fixtures/` directory (a directory there holding its own `Cargo.toml`) is another
+    /// project's; any other Rust file under `tests/fixtures/`, a helper of this crate's own tests, is read.
+    #[test]
+    fn a_crate_under_tests_fixtures_gives_no_link_and_a_helper_there_does() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = "#[specforge_test(requirement = \"TRACER-01\")]\nfn adds() {}\n";
+        for file in [
+            "x/tests/fixtures/y/Cargo.toml",
+            "x/tests/fixtures/y/src/lib.rs",
+            "x/tests/fixtures/y/tests/api.rs",
+            "x/tests/fixtures/helper.rs",
+            "x/tests/fixtures/data/mod.rs",
+            "x/src/lib.rs",
+        ] {
+            let path = dir.path().join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, source).unwrap();
+        }
+        let read = read(dir.path(), &["x".to_string()], &[]);
+        let files: Vec<&str> = read.links.iter().map(|l| l.file.as_str()).collect();
+        assert_eq!(
+            files,
+            [
+                "x/src/lib.rs",
+                "x/tests/fixtures/data/mod.rs",
+                "x/tests/fixtures/helper.rs"
+            ],
+            "another project's tests, in a crate under tests/fixtures/, are not this one's; its helpers are"
         );
     }
 }

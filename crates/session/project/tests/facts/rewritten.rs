@@ -65,10 +65,7 @@ fn unit_placed(session: &ProjectSession, p: &TestProject) -> (usize, bool) {
     )
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a store placed in a file another store's renames rewrote is served shifted by them, and read again with it"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_store_in_a_file_another_stores_rename_rewrote_is_served_shifted_and_read_again_with_it() {
     let p = renamed();
     let mut session = p.session_in(Arc::new(Collected::new().runtime()));

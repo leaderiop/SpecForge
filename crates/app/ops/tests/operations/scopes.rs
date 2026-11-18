@@ -78,10 +78,7 @@ fn after(project: &Assembled, edits: &[Edit]) -> String {
         .expect("a.spec changes")
 }
 
-#[specforge_test(
-    behavior = "inspect_entity_facts",
-    verify = "a surface takes an entity by its path or a unique short form, reports its path, and refuses a short form naming several"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_surface_takes_a_short_form_and_reports_the_path() {
     let project = project(TWO_PHASES);
     let view = project.view();
@@ -101,10 +98,7 @@ fn a_surface_takes_a_short_form_and_reports_the_path() {
     }
 }
 
-#[specforge_test(
-    behavior = "edit_entity_link",
-    verify = "a typed edit writes the shortest spelling that resolves from its holder, and a scope field as a full path"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_typed_link_writes_the_shortest_spelling() {
     let project = project(TWO_PHASES);
     let link = |target: &str| Edit::Link {
@@ -137,10 +131,7 @@ fn a_typed_link_writes_the_shortest_spelling() {
     );
 }
 
-#[specforge_test(
-    behavior = "rename_entity_id",
-    verify = "a rename keeps the scope and edits every segment naming the entity"
-)]
+#[specforge_test(requirement = "FEATURE-111")]
 fn a_rename_edits_every_segment_naming_it() {
     let source = format!(
         "{TWO_PHASES}\nplan 04-01 \"Next\" {{\n  phase v1.0/04\n  decisions [03/D-01]\n}}\n"
@@ -155,10 +146,7 @@ fn a_rename_edits_every_segment_naming_it() {
     assert_eq!(text.matches("phase v1.0/04").count(), 2, "{text}");
 }
 
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "setting a scope field moves the entity and respells every reference to it, and a capture is refused"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_move_keeps_every_reference_target() {
     let source = "\
 milestone v1.0 \"One\" {
@@ -194,10 +182,7 @@ plan 03-02 \"Plan\" {
     assert_eq!(refused.error.code, "name_captured");
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "a create that would shadow a target or make a short scope field ambiguous respells the tokens to keep their targets"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_create_keeps_every_reference_target() {
     // A project decision D-07, named from a plan of phase 05; a phase-05 D-07 would shadow it.
     let project = project(
@@ -279,10 +264,7 @@ fn retitle(id: &str, title: &str) -> Edit {
     }
 }
 
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "a plan's edits read the project as the edits before them leave it"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn two_scope_edits_of_one_plan_respell_against_each_other() {
     let project = project(REFERRED);
     // The decision moves to phase 04, then phase 04 to milestone v2.0: the plan's link follows both.
@@ -308,10 +290,7 @@ fn two_scope_edits_of_one_plan_respell_against_each_other() {
     assert!(!text.contains("[/v2.0"), "{text}");
 }
 
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "a plan's edits read the project as the edits before them leave it"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_later_edit_addresses_a_moved_entity_by_its_new_path() {
     let project = project(REFERRED);
     let text = after(
@@ -327,10 +306,7 @@ fn a_later_edit_addresses_a_moved_entity_by_its_new_path() {
     );
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new spells each reference from the new entity's own scope chain, as link writes it, so a rooted id its scope would read as another entity keeps its slash"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_create_spells_a_reference_from_its_own_scope_chain() {
     // A project decision D-01 beside phase 03's: from a plan of phase 03, `D-01` names the phase's.
     let project = project(&format!("decision D-01 \"Project\" {{\n}}\n\n{TWO_PHASES}"));
@@ -363,10 +339,7 @@ fn a_create_spells_a_reference_from_its_own_scope_chain() {
     assert!(linked.contains("decisions [D-01, /D-01]"), "{linked}");
 }
 
-#[specforge_test(
-    behavior = "create_entity",
-    verify = "new spells each reference from the new entity's own scope chain, as link writes it, so a rooted id its scope would read as another entity keeps its slash"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_comma_list_reference_value_is_spelled_per_item() {
     let project = project(&format!("decision D-01 \"Project\" {{\n}}\n\n{TWO_PHASES}"));
     let created = |decisions: Input| {
@@ -406,10 +379,7 @@ fn a_comma_list_reference_value_is_spelled_per_item() {
     assert_eq!(set_to(Input::One("/v1.0/03/D-02,/D-01".into())), items);
 }
 
-#[specforge_test(
-    behavior = "edit_entity_link",
-    verify = "a plan's edits read the project as the edits before them leave it"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_link_after_a_create_writes_the_shortest_spelling() {
     let project = project(REFERRED);
     let text = after(
@@ -426,10 +396,7 @@ fn a_link_after_a_create_writes_the_shortest_spelling() {
     assert!(text.contains("decisions [D-02, D-09]"), "{text}");
 }
 
-#[specforge_test(
-    behavior = "edit_entity_field",
-    verify = "a typed edit finds its block by its declared path, so an E002 duplicate never shifts the target"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_e002_duplicate_does_not_shift_the_edited_block() {
     // The compile reports the duplicate (the fixture reports what it is given), as an edit's baseline.
     let duplicate = specforge_common::Diagnostic::new(

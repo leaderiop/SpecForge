@@ -94,10 +94,8 @@ const ORDER: [&str; 9] = [
 /// E022 first, the linker's, reported with the graph build's diagnostics (ADR 0117); then every
 /// structural check, then the rules: W012, E024, E013, E014, W020, W158, E061, W159, then the extension's
 /// rule.
-#[specforge_test(
-    behavior = "check_entities_in_one_order",
-    verify = "a compile reports the structural checks in the order the registry build runs them"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
+#[specforge_test(requirement = "FEATURE-141")]
 fn structural_checks_report_in_one_order() {
     let dir = project(&["@test/shapes"], ONE_OF_EACH);
 
@@ -220,10 +218,7 @@ fn docs_project(root: &str, spec: &str) -> TestProject {
 }
 
 /// `note.paths` is not checked: the check is attached to `doc.paths` only.
-#[specforge_test(
-    behavior = "ck_files_family",
-    verify = "a field of the same name on another kind is not checked"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_field_named_like_another_kinds_checked_field_is_not_checked() {
     let dir = docs_project("project", "note n1 { paths [\"alpha\"] }\n");
 
@@ -233,10 +228,7 @@ fn a_field_named_like_another_kinds_checked_field_is_not_checked() {
 }
 
 /// A single path on a `string` field is checked like a one-item list.
-#[specforge_test(
-    behavior = "ck_files_family",
-    verify = "a single path on a string field is checked like a one-item list"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_single_path_is_checked() {
     let dir = docs_project("project", "doc d1 { guide \"missing.md\" }\n");
 
@@ -248,10 +240,7 @@ fn a_single_path_is_checked() {
 
 /// A bare word on a `string` field is a path; the graph stores it as an identifier, which the checker reads as the
 /// one word it is.
-#[specforge_test(
-    behavior = "ck_files_family",
-    verify = "a compile checks a bare word as a path"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_bare_word_is_checked() {
     let dir = docs_project("project", "doc d1 { guide README }\n");
 
@@ -268,10 +257,7 @@ fn a_bare_word_is_checked() {
 
 /// With `spec_root: spec` and a check whose `root` is `spec`, the paths start at the spec root, and a close sibling
 /// there is the suggestion.
-#[specforge_test(
-    behavior = "ck_files_family",
-    verify = "a path is read from the root its check names and suggests a close sibling there"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn a_file_is_read_from_its_checks_root_and_suggests_a_sibling() {
     let dir = docs_project("spec", "")
         .config(|c| c["spec_root"] = "spec".into())

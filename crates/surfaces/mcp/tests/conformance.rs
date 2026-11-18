@@ -24,10 +24,7 @@ fn unknown_name_error(resp: &Value) -> Option<String> {
     (error["code"] == -32601 || message.starts_with("Unknown ")).then(|| error.to_string())
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "every listed core tool dispatches to its handler"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn every_listed_core_tool_dispatches_to_its_handler() {
     let mut server = server_over_scratch_project();
     let tools = crate::support::core_tools();
@@ -58,10 +55,7 @@ fn every_listed_core_tool_dispatches_to_its_handler() {
     );
 }
 
-#[specforge_test(
-    behavior = "list_mcp_prompts",
-    verify = "every listed core prompt resolves to a handler"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn every_listed_core_prompt_resolves_to_a_handler() {
     let mut server = server_over_scratch_project();
     let listed = call(&mut server, "prompts/list", json!({}));
@@ -86,10 +80,7 @@ fn every_listed_core_prompt_resolves_to_a_handler() {
     );
 }
 
-#[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "every listed core resource is readable"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn every_listed_core_resource_is_readable() {
     let mut server = server_over_scratch_project();
     // Plain resources, then the templated ones.
@@ -153,10 +144,7 @@ fn tools_over(ext: crate::fake_extension::FakeExtension) -> (Served, Vec<Value>)
     (server, tools)
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "every listed tool has a spec category and a source"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn every_listed_tool_has_a_spec_category_and_a_source() {
     let (_server, tools) = tools_with_an_extension();
     let core: Vec<&str> = specforge_mcp::tools::CORE_TOOLS
@@ -190,10 +178,7 @@ fn every_listed_tool_has_a_spec_category_and_a_source() {
     assert_eq!(listed("specforge.cmds.check")["source"], "@test/cmds");
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn core_tool_annotations_follow_what_each_tool_does() {
     use specforge_mcp::tool::{Category, Effect, read_only_annotations};
     let (_server, tools) = tools_with_an_extension();
@@ -232,10 +217,7 @@ fn core_tool_annotations_follow_what_each_tool_does() {
     assert_eq!(hint("specforge.infer_session", "readOnlyHint"), false);
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "a mutation's outputSchema declares files_written, derived from its effect"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn a_mutations_output_schema_lists_files_written() {
     for spec in specforge_mcp::tools::CORE_TOOLS {
         let Some(schema) = spec.output_schema() else {
@@ -258,10 +240,7 @@ fn a_mutations_output_schema_lists_files_written() {
     }
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "an extension tool is listed once across recompiles"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn an_extension_tool_is_listed_once_across_recompiles() {
     let (mut server, _) = tools_with_an_extension();
     for _ in 0..2 {
@@ -280,10 +259,7 @@ fn an_extension_tool_is_listed_once_across_recompiles() {
     }
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "an extension tool is annotated read-only and is never listed as a mutation"
-)]
+#[specforge_test(requirement = "FEATURE-066")]
 fn an_extension_tool_is_annotated_read_only_and_never_a_mutation() {
     use crate::fake_extension::FakeExtension;
     let ext = FakeExtension::new().with_tool(json!({

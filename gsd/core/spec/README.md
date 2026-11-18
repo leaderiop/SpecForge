@@ -1,26 +1,24 @@
 # `@gsd/core` model
 
-**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the sixteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/W205` is judged by the phase researcher and `gsd/E202` and `gsd/W203` by the `spec_phase` prompt (r40)) the nine kinds of [plan.md](plan.md) with their non-judged rules (r37) and the seven kinds of [execute.md](execute.md) with `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408` and the two collectors (r38); the fourteen kinds of [verify.md](verify.md) with their computed values, the scan pass and the rules and gate guards listed in [rules.md](rules.md) (r39; E501 is judged by the verifier (r40)); the product kinds of [product.md](product.md) and the risk and the invariant of [governance.md](governance.md), beyond GSD; the rest is being designed. Tracks gsd-core 1.19.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
+**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the eighteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/W205` is judged by the phase researcher and `gsd/E202` and `gsd/W203` by the `spec_phase` prompt (r40)) the twelve kinds of [plan.md](plan.md) with their non-judged rules (r37) and the nine kinds of [execute.md](execute.md) with `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408` and the two collectors (r38); the fourteen kinds of [verify.md](verify.md) with their computed values, the scan pass and the rules and gate guards listed in [rules.md](rules.md) (r39; E501 is judged by the verifier (r40)); the rest is being designed. Tracks gsd-core 1.19.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
 file of `.planning/` maps to kinds here or in a capability extension ([the file table](#every-gsd-file-maps-to-a-kind));
 nothing is kept as Markdown.
 
 | File | Kinds |
 |---|---|
 | [project.md](project.md) | project, requirement, milestone, phase, workstream, retrospective, lesson, methodology |
-| [product.md](product.md) | persona, journey, term |
-| [governance.md](governance.md) | risk, invariant |
-| [discuss.md](discuss.md) | context, decision, deferred_idea, phase_spec, locked_req, interview, discussion, research and its items |
-| [plan.md](plan.md) | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |
-| [execute.md](execute.md) | summary, deliverable, deviation, commit, handoff, pause, blocker; the session state |
+| [discuss.md](discuss.md) | context, decision, deferred_idea, phase_spec, locked_req, interview, edge, spec_prohibition, discussion, research and its items |
+| [plan.md](plan.md) | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup, review, review_concern, revision_conflict |
+| [execute.md](execute.md) | plan_start, summary, deliverable, deviation, commit, pause, handoff, blocker, quick_batch; the session state |
 | [verify.md](verify.md) | verification, verify_gap, override, human_item, uat_session, uat_test, uat_gap, validation, validation_row, wave0_item, manual_check, milestone_audit, broken_window, refactor_proposal |
 | [settings.md](settings.md) | the settings and profiles that replace `config.json` |
 | [rules.md](rules.md) | every GSD check as a rule, with its code, kind and profile |
+| [provenance.md](provenance.md) | where each authored field comes from |
 
 ## Notation
 
 ```
  str     quoted string            text   triple-quoted prose          int     integer        int{1..4}  bounded
- num     number (a decimal)       num{a..b}  bounded, decimal bounds allowed
  bool    true/false               date   YYYY-MM-DD                   ts      RFC 3339 UTC string (a `str` that `matches`, gsd/E107)
  enum{}  one closed value         enums{} list of closed values       id      bare identifier
  strs    list of strings          path<mode>  path                    paths<mode>  list of paths (mode planned | present | open | history)
@@ -28,7 +26,7 @@ nothing is kept as Markdown.
  {..}    repeatable typed block, its own fields inside
 ```
 
-`enums{}`, `{..}`, `→ A|B`, `int{a..b}` and `num` are kernel field types (ADRs 0285 and 0361).
+`enums{}`, `{..}`, `→ A|B` and `int{a..b}` are kernel field types (ADR 0285).
 
 ## Who writes a field
 
@@ -45,6 +43,8 @@ nothing is kept as Markdown.
 | `U` | human-only: refused in every extension's plan and every MCP write when it is created, deleted or retitled (an agent also cannot set, unset or link an existing one, nor delete an entity holding a person's value: ADR 0298); the CLI writes it only from an interactive terminal; hand edits stay free (a field the host must also refuse an agent's direct edit of is `H`, written by a command that takes a reason) | K5 |
 
 The rule this table carries: an agent may author a plan, but it may not author `status passed`.
+
+No field carries a prose mark: nothing has read one since the vocabulary left `@gsd/core` (ADR 0370).
 
 Rename or renumber an entity that holds an `H` value through SpecForge (`/gsd-phase`, `specforge.rename`, the editor's
 rename): its ledger lines follow, and a move record (`<new> moved:<old>`) lets the `I` and `+` checks follow it to the baseline. A rename by hand leaves its `H` values unrecorded and its history unmatched.
@@ -72,8 +72,6 @@ while it is unique.
 | uat_gap | `G-03-1` | uat_test | `03/03-UAT/U1/G-03-1` |
 | deliverable | `D1` | summary | `03-02-SUMMARY/D1` |
 | broken_window | `BW1` | project | `BW1` |
-| risk | `RK1` | project | `RK1` |
-| invariant | `entity_id_uniqueness` | project | `entity_id_uniqueness` |
 | refactor_proposal | `RP1` | phase | `03/RP1` |
 
 ### Names of every kind
@@ -84,10 +82,9 @@ takes GSD's own file stem; every other kind takes a letter prefix and a number, 
 | Name | Kinds |
 |---|---|
 | any word | project (by convention the slug of its name) |
-| a word | persona `developer`, journey `sign_in`, term `spec_root`, invariant `entity_id_uniqueness` |
 | the GSD id | requirement `AUTH-01`, milestone `v1.0`, phase `03`, workstream `auth-rework`, plan `03-02` (a quick plan: its quick id, `260321-a1b`), quick_batch `260321-batch`, decision `D-01`, uat_gap `G-03-1` |
 | the GSD file stem | context `03-CONTEXT`, phase_spec `03-SPEC`, discussion `03-DISCUSSION-LOG`, research `03-RESEARCH` (project research: `RESEARCH`), summary `03-02-SUMMARY`, verification `03-VERIFICATION`, uat_session `03-UAT`, validation `03-VALIDATION`, retrospective `v1.0-RETROSPECTIVE` |
-| a letter prefix and a number | task `T1`, checkpoint `C1`, truth `TR1`, artifact `AR1`, key_link `KL1`, prohibition `PR1`, disposition `DSP1`, review `RV1`, review_concern `RC1`, revision_conflict `CF1`, user_setup `US1`, deliverable `D1`, deviation `DV1`, pause `PS1`, handoff `HO1`, blocker `BL1`, deferred_idea `DI1`, locked_req `LR1`, interview `IV1`, edge `EC1`, spec_prohibition `SP1`, finding `F1`, stack_choice `SC1`, pattern `P1`, pitfall `PF1`, dont_hand_roll `DH1`, open_question `OQ1`, source `SRC1`, package_audit `PA1`, verify_gap `VG1`, override `OV1`, human_item `HI1`, uat_test `U1`, validation_row `VR1`, wave0_item `W0-1`, manual_check `MC1`, milestone_audit `A1`, broken_window `BW1`, refactor_proposal `RP1`, lesson `L1`, methodology `M1`, risk `RK1` |
+| a letter prefix and a number | task `T1`, checkpoint `C1`, truth `TR1`, artifact `AR1`, key_link `KL1`, prohibition `PR1`, disposition `DSP1`, review `RV1`, review_concern `RC1`, revision_conflict `CF1`, user_setup `US1`, deliverable `D1`, deviation `DV1`, pause `PS1`, handoff `HO1`, blocker `BL1`, deferred_idea `DI1`, locked_req `LR1`, interview `IV1`, edge `EC1`, spec_prohibition `SP1`, finding `F1`, stack_choice `SC1`, pattern `P1`, pitfall `PF1`, dont_hand_roll `DH1`, open_question `OQ1`, source `SRC1`, package_audit `PA1`, verify_gap `VG1`, override `OV1`, human_item `HI1`, uat_test `U1`, validation_row `VR1`, wave0_item `W0-1`, manual_check `MC1`, milestone_audit `A1`, broken_window `BW1`, refactor_proposal `RP1`, lesson `L1`, methodology `M1` |
 | the first 12 hex digits of the hash | commit |
 
 Each prefix-numbered kind is scoped (`scoped_by`) by its parent reference: plan for task, checkpoint, truth, artifact,
@@ -95,7 +92,7 @@ key_link, prohibition, disposition, user_setup and summary; summary for delivera
 deferred_idea, the one-per-phase kinds, review, revision_conflict, refactor_proposal and (optionally) pause and handoff; research for its items;
 phase_spec for locked_req, interview, edge and spec_prohibition; verification for verify_gap, override and human_item; review for review_concern; uat_session for
 uat_test; uat_test for uat_gap; validation for validation_row, wave0_item and manual_check; retrospective for lesson;
-milestone for milestone_audit and retrospective. A blocker, a broken_window, a methodology, a commit, a risk and an invariant are in the
+milestone for milestone_audit and retrospective. A blocker, a broken_window, a methodology and a commit are in the
 project scope. A one-per-parent kind's name is unique within its parent, so `03-CONTEXT` of phase `03` and of phase `04` coexist
 as `v1.0/03/03-CONTEXT`; a kind without an entry above is named by the same rule.
 A workstream is a scope too: `auth-rework/v1.0/03` names phase 03 of milestone v1.0 of the workstream `auth-rework`.
@@ -155,32 +152,38 @@ the plan's summary, written by the executor at the end, lands in the same file.
 
 ## Route
 
-`@gsd/core` declares one route, `gsd/requirement-thread` (ADR 0331 D8, ADR 0352 D3): `specforge trace <requirement>`
-follows it and prints the requirement's thread on one line, or as a tree when a step has several matches.
+`@gsd/core` declares one route, `gsd/requirement-thread` (ADR 0331 D8, ADR 0352 D3, ADR 0371 D7): `specforge trace
+<requirement>` follows it and prints the requirement's thread on one line, or as a tree when a step has several
+matches. It reads GSD's own fields and collected data alone: no truth names a requirement for it, and no truth's
+`proof` is read.
 
 | Step | From | Via | Prints |
 |---|---|---|---|
+| (start) | | | the requirement and its computed `proof` (`(proven)`, `(failed)`, …); then the `(status)` of each test whose tag names it (`<test.names`), nothing when none does |
 | plan | the requirement | `<plan.requirements` | `plan <id>` |
 | task | each plan | `<task.plan` | `<id>` |
-| item | each task | `.items` | the item's id |
 | commit | each task | `<commit.task` | the short hash and `(linked_by)`: `(Gsd-Task)` or `(title)` |
-| test | the requirement | `<truth.requirement.proof` | the test fact and `(status)`, else `(not run)` |
-| truth | the requirement | `<truth.requirement` | `<id>` and its E501 judgement: outcome and freshness |
+| item | each commit | `.items_changed` | the id of each code item the commit changed |
+| truth | each plan | `<truth.plan` | `<id>` and its E501 judgement: outcome and freshness |
+| deliverable | the requirement | `<deliverable.requirement` | `deliverable <id>` and each check's `(ref)` |
 
-The `item` and `test` steps read `@code/core`'s `item` and `test` facts; without that optional peer both are skipped
-(I210), never a failure. The `item` step is required otherwise: a task that names no held item leaves the thread
-incomplete, which `--partial` shows. A task naming two items is two matches, so the thread of the taskboard twin, traced
-through every step, prints as a tree:
+A check's computed status is not printed: a route annotation reads a field's written value first, and a written
+`checks` block holds no `status`. The requirement's `proof`, which reads the coverage checks through the test facts
+they name, carries it on the first line. Every step is required, so a tagged test is an annotation of the start, not a
+step. The `item` step and the tests' annotation read `@code/core`'s `item` and `test` facts; without that optional
+peer both are skipped (I210), never a failure. A task with no recorded commit, or a commit that changed no held item,
+leaves its branch unkept, which `--partial` shows. The thread of the taskboard twin, collected, prints as a tree:
 
 ```text
-TASK-01
+TASK-01 (proven)
   → plan 01-01
     → T1
-      → js:taskboard/src/tasks.js::addTask
-      → js:taskboard/src/tasks.js::createBoard
       → <sha> (Gsd-Task)
-  → js:taskboard/test/tasks.test.js#a task is added with the next id (passed)
-  → TR1 verified, fresh
+        → js:taskboard/src/tasks.js::addTask
+        → js:taskboard/src/tasks.js::completeTask
+        → js:taskboard/src/tasks.js::createBoard
+    → TR1 verified, fresh
+  → deliverable D1 (test/tasks.test.js#a task is added with the next id)
 ```
 
 ## Every GSD file maps to a kind

@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 77] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 69] = [
     (
         "E101",
         Evidence::Tests {
@@ -385,7 +385,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 77] = [
         "W506",
         Evidence::Tests {
             fires: "a_decision_nothing_shipped_is_w506_on_the_decision",
-            silent: "w506_a_complete_plan_listing_the_decision_covers_it",
+            silent: "w506_a_complete_plan_citing_the_decision_covers_it",
         },
     ),
     (
@@ -459,13 +459,6 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 77] = [
         },
     ),
     (
-        "E519",
-        Evidence::Tests {
-            fires: "a_truth_without_a_requirement_is_e519",
-            silent: "truth_without_requirement_is_e519_only_when_truth_requirements_is_on",
-        },
-    ),
-    (
         "W520",
         Evidence::Tests {
             fires: "an_untouched_planned_path_is_w520",
@@ -483,7 +476,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 77] = [
         "W522",
         Evidence::Tests {
             fires: "an_item_of_a_plan_with_no_requirement_is_w522",
-            silent: "an_item_reached_by_a_truths_requirement_is_not_w522",
+            silent: "an_item_changed_by_a_commit_of_a_plan_with_a_requirement_is_not_w522",
         },
     ),
     (
@@ -498,55 +491,6 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 77] = [
         Evidence::Tests {
             fires: "a_plan_whose_executor_pack_moved_is_w524_while_it_is_open",
             silent: "a_recorded_executor_pack_in_step_with_its_plan_is_silent",
-        },
-    ),
-    (
-        "E531",
-        Evidence::Tests {
-            fires: "a_change_after_the_last_judgement_makes_the_invariant_due",
-            silent: "a_change_judged_since_makes_nothing_due",
-        },
-    ),
-    (
-        "E537",
-        Evidence::Tests {
-            fires: "a_milestone_targeting_before_it_starts_is_e537",
-            silent: "a_milestone_targeting_on_or_after_its_start_is_not_e537",
-        },
-    ),
-    (
-        "W538",
-        Evidence::Tests {
-            fires: "a_term_that_avoids_its_own_alias_is_w538",
-            silent: "a_glossary_whose_avoided_words_are_accepted_nowhere_is_not_w538",
-        },
-    ),
-    (
-        "W532",
-        Evidence::Tests {
-            fires: "a_risk_at_the_threshold_with_no_mitigation_is_w532",
-            silent: "a_mitigated_or_low_risk_is_not_w532",
-        },
-    ),
-    (
-        "I536",
-        Evidence::Tests {
-            fires: "an_invariant_without_a_fresh_holds_verdict_is_i536",
-            silent: "a_passing_verdict_silences_each_judged_code",
-        },
-    ),
-    (
-        "W534",
-        Evidence::Tests {
-            fires: "an_avoided_synonym_in_a_requirement_is_w534",
-            silent: "prose_without_an_avoided_word_is_not_w534",
-        },
-    ),
-    (
-        "W530",
-        Evidence::Tests {
-            fires: "a_step_whose_requirement_no_phase_of_the_milestone_holds_is_w530",
-            silent: "a_journey_with_no_milestone_is_not_w530",
         },
     ),
 ];

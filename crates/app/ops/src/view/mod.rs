@@ -308,10 +308,9 @@ mod tests {
     use specforge_project::testing::Assembled;
     use specforge_test_macros::test as specforge_test;
 
-    #[specforge_test(
-        behavior = "read_views_over_the_project_view",
-        verify = "over MCP, a recorded report that leads outside the project is the same refusal on every view"
-    )]
+    #[specforge_test(requirement = "FEATURE-025")]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn a_view_reads_through_the_containment_it_is_bounded_by() {
         let dir = tempfile::tempdir().unwrap();
         let project = Assembled::new();
@@ -328,10 +327,7 @@ mod tests {
         ));
     }
 
-    #[specforge_test(
-        behavior = "snapshot_entities_once",
-        verify = "the checks, the check passes and the coverage of one compile read one snapshot"
-    )]
+    #[specforge_test(requirement = "FEATURE-016")]
     fn a_view_reads_the_snapshot_its_compile_took() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("specforge.json"), r#"{"name": "v"}"#).unwrap();
@@ -367,10 +363,8 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "management_operations_over_the_project_view",
-        verify = "an operation that reads or writes the project on disk refuses a view without a root"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
+    #[specforge_test(requirement = "FEATURE-070")]
     fn a_view_of_a_session_is_the_view_of_its_compiled_project() {
         // A detached session: no root, nothing reported, no project on disk.
         let detached = ProjectSession::detached();
@@ -404,10 +398,9 @@ mod tests {
         assert_eq!(held.entities().len(), of.entities().len());
     }
 
-    #[specforge_test(
-        behavior = "read_views_over_the_project_view",
-        verify = "the recorded test report is read at the view's root, never an ancestor's"
-    )]
+    #[specforge_test(requirement = "FEATURE-025")]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn the_report_is_read_at_the_view_root_not_an_ancestor() {
         let dir = tempfile::tempdir().unwrap();
         let project = dir.path();
@@ -436,10 +429,9 @@ mod tests {
         diagnostics.iter().map(|d| d.code.as_str()).collect()
     }
 
-    #[specforge_test(
-        behavior = "read_views_over_the_project_view",
-        verify = "a view reports what its compile reported, then what its surface adds"
-    )]
+    #[specforge_test(requirement = "FEATURE-025")]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn a_view_reports_what_its_compile_reported_then_what_its_surface_adds() {
         // A compile reports what `specforge check` reports for it.
         let dir = tempfile::tempdir().unwrap();
@@ -477,10 +469,8 @@ mod tests {
         assert_eq!(of.also_reporting(&i017).reported(), expected);
     }
 
-    #[specforge_test(
-        behavior = "management_operations_over_the_project_view",
-        verify = "an operation that reads or writes the project on disk refuses a view without a root"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
+    #[specforge_test(requirement = "FEATURE-070")]
     fn a_view_without_a_root_has_no_project_root() {
         let fixture = Assembled::new();
 

@@ -8,10 +8,7 @@ use specforge_test_macros::test as spec;
 
 use super::{constraint, entity, one, rule, rules};
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "parses no_incoming_edges pattern from manifest"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn parses_no_incoming_edges_pattern_from_manifest() {
     let built = one(rule("W100", "no_incoming_edges"));
     assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
@@ -20,10 +17,7 @@ fn parses_no_incoming_edges_pattern_from_manifest() {
     assert_eq!(rule.code(), "test/W100");
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "parses missing_field_when_flag_set pattern from manifest"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn parses_missing_field_when_flag_set_pattern_from_manifest() {
     let mut declared = rule("W101", "missing_field_when_flag_set");
     declared.field = Some("contract".to_string());
@@ -33,10 +27,7 @@ fn parses_missing_field_when_flag_set_pattern_from_manifest() {
     assert_eq!(rule.describe()["field"], "contract");
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "unrecognized pattern kind produces warning"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn unrecognized_pattern_kind_produces_warning() {
     let built = one(rule("W102", "invalid_check_kind"));
     assert!(built.rules.is_empty());
@@ -49,10 +40,7 @@ fn unrecognized_pattern_kind_produces_warning() {
     );
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "a declared file_exists rule is W112 naming the checker that replaced it"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_file_exists_rule_names_the_checker_that_replaced_it() {
     let mut declared = rule("W102", "file_exists");
     declared.field = Some("docs".to_string());
@@ -64,10 +52,7 @@ fn a_file_exists_rule_names_the_checker_that_replaced_it() {
     );
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "all required fields validated on each rule"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn misconfigured_one_of_with_empty_values_produces_warning() {
     let mut declared = rule("W107", "field_value_constraint");
     declared.field = Some("status".to_string());
@@ -84,10 +69,7 @@ fn misconfigured_one_of_with_empty_values_produces_warning() {
     );
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "all required fields validated on each rule"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn field_requiring_check_without_field_produces_warning() {
     for (check, declared_constraint) in [
         ("missing_field_when_flag_set", None),
@@ -114,10 +96,7 @@ fn field_requiring_check_without_field_produces_warning() {
     }
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "parses field_value_constraint pattern from manifest"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn valid_one_of_rule_still_parses() {
     let mut declared = rule("W109", "field_value_constraint");
     declared.field = Some("status".to_string());
@@ -149,10 +128,7 @@ fn a_rule_keeps_its_declared_head() {
     assert_eq!(rule.target_kind(), None);
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned, ignored_warned"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn parse_validation_rule_pattern_contract() {
     // requires: manifest rules available
     let mut ignoring = rule("W300", "no_edges");
@@ -294,10 +270,7 @@ fn a_conditional_rule_reads_the_condition_field_and_values() {
     assert_eq!(super::check(&built, &[deferred]).len(), 1);
 }
 
-#[spec(
-    behavior = "register_custom_validation_patterns",
-    verify = "custom rule without a wasm_function produces warning and is not registered"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_custom_rule_without_a_wasm_function_is_w112() {
     let built = one(rule("E200", "custom"));
     assert!(built.rules.is_empty());
@@ -307,10 +280,7 @@ fn a_custom_rule_without_a_wasm_function_is_w112() {
     );
 }
 
-#[spec(
-    behavior = "register_custom_validation_patterns",
-    verify = "custom pattern registered with wasm_function reference"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_custom_rule_is_registered_with_its_wasm_function() {
     let mut declared = rule("E200", "custom");
     declared.wasm_function = Some("validate_custom".to_string());
@@ -321,10 +291,7 @@ fn a_custom_rule_is_registered_with_its_wasm_function() {
     assert_eq!(rule.origin().name(), "@test");
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "a verify_kind_allowlist rule without values produces W112 and is not registered"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_verify_kind_allowlist_without_values_is_w112() {
     for declared_constraint in [None, Some(constraint("one_of", None, &[]))] {
         let mut declared = rule("W009", "verify_kind_allowlist");
@@ -338,10 +305,7 @@ fn a_verify_kind_allowlist_without_values_is_w112() {
     }
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "a rule that reads verify statements on a kind that accepts none produces W112 and is not registered"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_rule_reading_verify_statements_on_a_kind_without_verify_is_w112() {
     use crate::support::declare;
 
@@ -403,10 +367,7 @@ type UnreadCase = (
     &'static [&'static str],
 );
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "a property its check does not read produces W147 and the rule is registered without it"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_property_its_check_does_not_read_is_w147() {
     // (check, edge_type, constraint, wasm_function, the properties W147 names)
     let edge = Some("enforces");
@@ -556,10 +517,7 @@ fn a_property_its_check_does_not_read_is_w147() {
     }
 }
 
-#[spec(
-    behavior = "parse_validation_rule_pattern",
-    verify = "a conditional_field_required constraint of another kind produces W147 and is read as when_field_equals"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_conditional_constraint_of_another_kind_is_w147_and_read_as_when_field_equals() {
     let mut declared = rule("I905", "conditional_field_required");
     declared.field = Some("reason".to_string());

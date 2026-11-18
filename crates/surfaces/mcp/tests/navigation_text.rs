@@ -8,10 +8,7 @@ use specforge_test::prelude::*;
 
 /// A file that is not one of the project's sources is `file_not_found`
 /// though it exists: a config file, the root, a directory, an excluded file.
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "a file that is not one of the project's sources is file_not_found, though it exists"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn outline_answers_only_the_projects_sources() {
     let mut server = TestProject::new()
         .config(|c| c["exclude"] = json!(["drafts/**"]))
@@ -82,10 +79,7 @@ fn unseen_edit(served: &Served, file: &str, text: &str) {
     set_mtime(&path);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_definition_tool",
-    verify = "a definition is a position in the text the project was compiled from, not the file on disk now"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn a_definition_is_a_position_in_the_compiled_text() {
     let mut server = served_old(&[("limit.spec", LIMIT)]);
     unseen_edit(
@@ -114,10 +108,7 @@ fn a_definition_is_a_position_in_the_compiled_text() {
     assert_eq!(parsed["column"], 11, "{parsed}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a rename whose file changed on disk since the compile is refused as conflict, and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn rename_refuses_a_file_changed_since_the_compile() {
     let padded = format!("{LOGIN}//{}\n", "c".repeat(46));
     let mut server = served_old(&[("limit.spec", LIMIT), ("login.spec", &padded)]);
@@ -186,10 +177,7 @@ fn rename_edits_are_the_spans_find_references_answers() {
 }
 
 /// A reference written in a duplicate declaration (E002) is a token rename edits and find_references lists (ADR 0176).
-#[specforge_test(
-    behavior = "provide_mcp_find_references_tool",
-    verify = "find_references lists a reference written in a duplicate declaration"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn find_references_and_rename_agree_on_a_duplicate_declaration() {
     let duplicate = "behavior a \"A\" {\n  ports [Repo]\n}\n\nbehavior a \"Again\" {\n  ports [Repo]\n}\n\n\
                      port Repo \"Repo\" {\n  direction inbound\n}\n";
@@ -228,10 +216,7 @@ fn find_references_and_rename_agree_on_a_duplicate_declaration() {
 }
 
 /// A quoted reference is a reference: find_references lists it and rename edits it, at its ID inside the quotes (ADR 0218).
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "a quoted reference is renamed inside its quotes, where find_references answers it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn find_references_and_rename_agree_on_a_quoted_reference() {
     let quoted = "behavior a \"A\" {\n  ports [\"Repo\"]\n}\n\nport Repo \"Repo\" {\n}\n";
     let extension = TestExtension::named("@specforge/quoted").declaring(|c| {

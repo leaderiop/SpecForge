@@ -17,10 +17,7 @@ fn init_server() -> Logged {
 }
 
 // B:mcp_subscription_cleanup — verify unit "subscribe adds subscription"
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "clients can subscribe and unsubscribe from delta notifications"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn subscribe_adds_subscription() {
     let mut server = init_server();
     let reply = call(
@@ -50,10 +47,7 @@ fn subscribing_twice_records_one_subscription() {
 }
 
 // B:mcp_subscription_cleanup — verify unit "unsubscribe removes subscription"
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "clients can subscribe and unsubscribe from delta notifications"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn unsubscribe_removes_subscription() {
     let mut server = init_server();
     call(
@@ -72,10 +66,7 @@ fn unsubscribe_removes_subscription() {
 }
 
 // B:mcp_subscription_cleanup — verify unit "shutdown clears all subscriptions"
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown unsubscribes all active subscriptions"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn shutdown_clears_subscriptions() {
     let mut server = init_server();
     call(
@@ -141,10 +132,7 @@ fn evolve_project(root: &TempDir, entity: &str) {
 
 /// C9-01 acceptance: subscribe → recompile with changed content →
 /// notification delivered to the captured client sink.
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "graph_changed notification sent after incremental rebuild"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn subscribe_recompile_delivers_graph_notification() {
     let dir = project();
     let mut server = init_with_project(&dir);
@@ -182,10 +170,7 @@ fn subscribe_recompile_delivers_graph_notification() {
     assert!(!events(&server, "mcp_delta_notified").is_empty());
 }
 
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown flushes pending notifications"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn shutdown_keeps_pending_notifications_for_the_host() {
     let dir = project();
     let mut server = init_with_project(&dir);
@@ -208,10 +193,7 @@ fn shutdown_keeps_pending_notifications_for_the_host() {
     assert_eq!(notifications[1]["method"], "specforge/graphChanged");
 }
 
-#[specforge_test(
-    behavior = "mcp_server_shutdown",
-    verify = "emits mcp_server_shutdown with correct counts when MCP server shuts down"
-)]
+#[test]
 fn shutdown_event_counts_what_it_released() {
     let dir = project();
     let mut server = init_with_project(&dir);
@@ -239,10 +221,7 @@ fn shutdown_event_counts_what_it_released() {
     assert_eq!(event["wasm_engines_released"], 1);
 }
 
-#[specforge_test(
-    behavior = "mcp_subscription_cleanup",
-    verify = "client disconnect removes all subscriptions for that client"
-)]
+#[specforge_test(requirement = "INVARIANT-068")]
 fn disconnect_ends_every_subscription_and_stream() {
     let mut server = init_server();
     for uri in ["specforge://graph", "specforge://diagnostics"] {
@@ -256,10 +235,7 @@ fn disconnect_ends_every_subscription_and_stream() {
     assert_eq!(events(&server, "mcp_subscription_removed").len(), 3);
 }
 
-#[specforge_test(
-    behavior = "mcp_subscription_cleanup",
-    verify = "rapid connect/disconnect cycles leave zero subscriptions"
-)]
+#[specforge_test(requirement = "INVARIANT-068")]
 fn rapid_connect_disconnect_cycles_leave_nothing_behind() {
     let mut server = init_server();
     for i in 0..50 {
@@ -428,10 +404,7 @@ fn schema_extensions(server: &mut McpServer) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "an environment reload is heard by the schema, the graph views and the extension resources"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn an_environment_reload_is_heard_by_the_schema_and_the_graph_views() {
     let mut server = TestProject::new()
         .enabling(&["@specforge/software"])
@@ -489,10 +462,7 @@ fn an_environment_reload_is_heard_by_the_schema_and_the_graph_views() {
     assert!(server.take_notifications().is_empty());
 }
 
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "unsubscribing one resource keeps the client's other subscriptions"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn unsubscribing_one_resource_keeps_the_others() {
     let mut server = alpha();
     for uri in ["specforge://graph", "specforge://context"] {
@@ -513,10 +483,7 @@ fn unsubscribing_one_resource_keeps_the_others() {
     assert_eq!(sent[1]["params"]["added_nodes"][0]["id"], "beta");
 }
 
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "a subscribed resource hears notifications/resources/updated when a rebuild changes it"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn a_subscribed_resource_hears_notifications_resources_updated() {
     let mut server = alpha();
     call(
@@ -538,10 +505,7 @@ fn a_subscribed_resource_hears_notifications_resources_updated() {
     assert_eq!(sent.len(), 2);
 }
 
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown ends every listen stream and records its removal"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn shutdown_ends_every_listen_stream_and_records_it() {
     let mut server = alpha();
     call(
@@ -564,10 +528,7 @@ fn shutdown_ends_every_listen_stream_and_records_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "a resource a listen names twice is honoured once"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_resource_a_listen_names_twice_is_honoured_once() {
     let mut server = alpha();
     let ack = listen(
@@ -586,10 +547,7 @@ fn a_resource_a_listen_names_twice_is_honoured_once() {
     assert_eq!(sent[0]["params"]["uri"], "specforge://graph");
 }
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "a listen stream's subscription events name its request id"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn a_listen_streams_events_name_its_id() {
     let mut server = alpha();
     listen(&mut server, json!("abc"), &["specforge://graph"]);
@@ -684,10 +642,7 @@ fn enqueue_suppresses_unsubscribed_and_unchanged() {
 }
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "no notification when diagnostics are unchanged"
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "no notification when diagnostics are unchanged"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn diagnostics_no_notification_when_unchanged() {
     // A subscribed client gets nothing when a compile leaves the
     // diagnostics as they were (an entity added, broken.spec's E003 kept)
@@ -719,10 +674,7 @@ fn node_change(id: &str) -> NodeChange {
     }
 }
 
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "notification includes GraphDelta payload"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn graph_changed_sends_the_whole_delta() {
     use specforge_project::{EdgeChange, ModifiedNodeChange};
     let mut subscriptions = Subscriptions::new();
@@ -763,10 +715,7 @@ fn graph_changed_sends_the_whole_delta() {
     );
 }
 
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "payload includes added and removed diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn diagnostics_changed_sends_whole_diagnostics() {
     let warning = Diagnostic::untyped("W001", Severity::Warning, "test warning")
         .with_span(SourceSpan {
@@ -807,10 +756,7 @@ fn diagnostics_changed_sends_whole_diagnostics() {
     );
 }
 
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "each added or removed diagnostic is presented as every surface presents diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-065")]
 fn a_notified_diagnostic_is_presented_as_check_presents_it() {
     use specforge_common::DiagnosticData;
     let unresolved = Diagnostic::new(
@@ -939,10 +885,7 @@ fn reopening_a_listen_id_ends_the_old_stream() {
     assert!(drained(&mut subscriptions).is_empty());
 }
 
-#[specforge_test(
-    behavior = "listen_for_mcp_resource_updates",
-    verify = "both eras decide what a change touches by one rule"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn one_update_is_heard_in_one_order() {
     let mut subscriptions = Subscriptions::new();
     let mut events = EventLog::new();

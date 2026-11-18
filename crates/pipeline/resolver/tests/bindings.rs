@@ -21,10 +21,7 @@ fn w027(files: &[(&str, &str)]) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "resolve_use_imports",
-    verify = "a selective use of a name its target does not export is W027"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_selective_use_of_a_name_its_target_does_not_export_is_w027() {
     let found = w027(&[
         ("a.spec", "behavior f1 \"F1\" { contract \"c\" }"),

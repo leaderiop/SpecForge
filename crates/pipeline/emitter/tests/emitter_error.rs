@@ -49,10 +49,7 @@ fn build_graph() -> Graph {
     graph
 }
 
-#[specforge_test_macros::test(
-    behavior = "export_agent_graph_format",
-    verify = "an export failure carries its code as a constant, never in its message"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
 fn a_failure_carries_its_code_and_its_message_has_none() {
     let err = EmitterError::BudgetTooSmall {
         reason: "the budget of 5 cannot hold an export".to_string(),

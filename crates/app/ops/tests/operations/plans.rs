@@ -168,10 +168,7 @@ fn record_one(project: &TestProject) -> Vec<(&'static str, &'static str, i32, Va
     vec![(CORE, "cmd__record", 0, ops)]
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a writing command receives the revision of every source and its plan is applied"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_writing_command_gets_revisions_and_answers_a_plan() {
     let p = project();
     let runtime = serving(&record_one(&p));
@@ -203,10 +200,7 @@ fn a_writing_command_gets_revisions_and_answers_a_plan() {
     assert_eq!(codes(&p, &runtime, "E083"), 0);
 }
 
-#[specforge_test(
-    behavior = "refuse_stale_revision",
-    verify = "a plan naming a stale revision is refused and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_plan_naming_a_stale_revision_is_refused() {
     let p = project();
     let runtime = serving(&record_one(&p));
@@ -224,10 +218,7 @@ fn a_plan_naming_a_stale_revision_is_refused() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a plan is all or nothing, the ledger included"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_plan_is_all_or_nothing() {
     use std::os::unix::fs::PermissionsExt;
     let p = project();
@@ -255,10 +246,7 @@ fn a_plan_is_all_or_nothing() {
     assert!(ledger(&p).is_empty());
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "two plans on disjoint files both land with their ledger lines"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn two_plans_on_disjoint_files_both_land() {
     let p = project();
     let rev = |file| revision(&p, file);
@@ -313,10 +301,7 @@ fn two_plans_on_disjoint_files_both_land() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a plan compiled before another landed keeps the other's ledger line"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_plan_compiled_before_another_landed_keeps_the_others_ledger_line() {
     let p = project();
     let first = serving(&[(
@@ -358,10 +343,7 @@ fn a_plan_compiled_before_another_landed_keeps_the_others_ledger_line() {
     );
 }
 
-#[specforge_test(
-    behavior = "refuse_stale_revision",
-    verify = "two plans whose union adds an error refuse the later"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn two_plans_whose_union_adds_an_error_refuse_the_later() {
     let p = project();
     let create = |file: &str| {
@@ -393,10 +375,7 @@ pub(crate) fn refused(
         .map(|(code, _)| code)
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a plan may not write a computed value"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_plan_may_not_write_a_computed_value() {
     let p = project();
     let ops = json!([set(
@@ -411,10 +390,7 @@ fn a_plan_may_not_write_a_computed_value() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a harness value is set only by a plan of its extension or of a peer"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_harness_value_is_set_only_by_its_extension_or_a_peer() {
     let p = project();
     let one = |p: &TestProject| {
@@ -452,10 +428,7 @@ fn a_harness_value_is_set_only_by_its_extension_or_a_peer() {
     assert_eq!(error.error.code, "harness_field");
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a plan from a command that does not declare writes, or that failed, is not applied"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_plan_from_a_command_that_does_not_declare_writes_is_refused() {
     let p = project();
     let ops = |p: &TestProject| {
@@ -481,10 +454,7 @@ fn a_plan_from_a_command_that_does_not_declare_writes_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a plan renames in order and re-keys the ledger once"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_plan_renames_in_order() {
     let uat = |phase: &str, name: &str| {
         format!("uat_test {name} \"U\" {{\n  phase {phase}\n  result pass\n}}\n")
@@ -530,10 +500,7 @@ fn a_plan_renames_in_order() {
     assert_eq!(codes(&p, &runtime, "E083"), 0, "{ledger}");
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "a malformed plan is invalid_plan and names the operation"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_malformed_plan_is_invalid_plan() {
     let p = project();
     let rev = revision(&p, "03-01.spec");
@@ -558,10 +525,7 @@ fn a_malformed_plan_is_invalid_plan() {
     }
 }
 
-#[specforge_test(
-    behavior = "run_guard_passes",
-    verify = "a plan a guard pass finds an error in is refused with E080 and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_plan_a_guard_pass_refuses_writes_nothing() {
     let p = project();
     let ops = json!([set(
@@ -581,10 +545,7 @@ fn a_plan_a_guard_pass_refuses_writes_nothing() {
     assert!(ran.wrote.is_empty(), "{:?}", ran.wrote);
 }
 
-#[specforge_test(
-    behavior = "run_guard_passes",
-    verify = "a guard that already objects to the project does not refuse the write that fixes it"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_guard_that_already_objects_does_not_refuse_the_write_that_fixes_it() {
     // The project already holds the entity the guard objects to; renaming another entity changes nothing about it.
     let p = project().file(
@@ -608,10 +569,7 @@ fn a_guard_that_already_objects_does_not_refuse_the_write_that_fixes_it() {
     assert_eq!(ran.wrote, ["m.spec"]);
 }
 
-#[specforge_test(
-    behavior = "apply_edit_plan",
-    verify = "an edit naming a revision for an entity the compile does not hold is refused"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_edit_naming_a_revision_for_an_entity_the_compile_does_not_hold_is_refused() {
     use specforge_ops::authoring::edit::{Edit, Revised, run_revised};
     let p = project();

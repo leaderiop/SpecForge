@@ -13,6 +13,7 @@ binds), [ADR 0079](0079-the-smt-solver-is-one-port-that-analyze-and-doctor-take.
 [ADR 0326](0326-a-host-refuses-a-guest-of-a-newer-protocol-minor.md) D1a/D1b (the load seam).
 Amended by [ADR 0345](0345-the-syntax-import-and-collectors-that-read-answer-and-are-served-facts.md) (D4: a fifth port, `syntax`, granted on the fs and git read scopes; D5: a `syntax` import is backed by an `fs` or a `git` capability).
 Amended by [ADR 0348](0348-a-collector-declares-a-config-file-and-the-rust-packs.md) (D2.1: a `process` capability may carry one config file the host writes before the run, and its argv the `{config}` placeholder).
+The Windows leg of CI also runs a named subset beside the effect plane's tests ([ADR 0375](0375-ci-caches-are-keyed-once-each-job-has-a-time-budget-and-windows-runs-a-named-subset.md) D4).
 
 ## Context
 

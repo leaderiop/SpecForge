@@ -3,10 +3,7 @@
 use super::{declared, graph_of};
 use crate::snapshot::EntitySnapshot;
 
-#[specforge_test_macros::test(
-    behavior = "snapshot_entities_once",
-    verify = "an entity's edge counts leave out an edge from it to itself, as its degree does, and the pass input carries those counts"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-016")]
 fn an_entitys_edge_counts_leave_out_an_edge_to_itself() {
     let registries = declared(&[("behavior", true, true)], false, vec![]);
     let source = "behavior loop \"Loop\" {\n  features [loop, other]\n}\n\n\

@@ -7,7 +7,7 @@
 )]
 mod common;
 
-use common::{describe, field_of, fields_of};
+use common::{describe, fields_of};
 
 #[test]
 fn project_and_requirement_declare_the_fields_of_the_model() {
@@ -39,19 +39,10 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
         fields_of("requirement"),
         [
             "text",
-            "area",
+            "category",
             "tier",
             "reason",
             "defined",
-            "category",
-            "priority",
-            "metric",
-            "source",
-            "personas",
-            "constrains",
-            "protects",
-            "tags",
-            "effort",
             "status",
             "satisfied_by",
             "proof",
@@ -63,9 +54,8 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
 
 #[test]
 fn milestone_and_phase_declare_the_fields_of_the_model() {
-    let milestone = "name delivered accomplishments whats_next goal target_features exit_criteria starts targets \
-        depends_on owner contributors artifact_types tags abandoned workstream completion state first_commit shipped \
-        stats git_range progress branch risk_level journeys_covered";
+    let milestone = "name delivered accomplishments whats_next goal target_features abandoned workstream completion \
+        state first_commit shipped stats git_range progress branch";
     let milestone: Vec<&str> = milestone.split_whitespace().collect();
     assert_eq!(fields_of("milestone"), milestone);
     assert_eq!(
@@ -79,16 +69,13 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "requirements",
             "success_criteria",
             "mode",
-            "tag",
             "inserted",
             "backlog",
             "branch",
             "frontend",
             "status",
             "plans_complete",
-            "completed",
-            "risk_level",
-            "invariants_due"
+            "completed"
         ]
     );
 }
@@ -125,7 +112,6 @@ fn the_learning_kinds_declare_the_fields_of_the_model() {
         [
             "retrospective",
             "text",
-            "milestone",
             "top",
             "kind",
             "graduated",
@@ -134,20 +120,13 @@ fn the_learning_kinds_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("methodology"),
-        [
-            "name",
-            "diagnoses",
-            "recommends",
-            "apply_when",
-            "status",
-            "superseded_by"
-        ]
+        ["name", "diagnoses", "recommends", "apply_when"]
     );
 }
 
-/// `project.md` lists 8 kinds and 72 top-level fields. The fixes of the model add the milestone's `workstream` and
+/// `project.md` lists 8 kinds and 68 top-level fields. The fixes of the model add the milestone's `workstream` and
 /// the lesson's `retrospective`; the milestone's computed `progress` (r38) is a third addition; two fields are read back from their inverse, not declared (the requirement's
-/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`): 72 + 3 - 2.
+/// `phase` from `phase.requirements`, the retrospective's `lessons` from `lesson.retrospective`): 68 + 3 - 2.
 #[test]
 fn the_roadmap_kinds_declare_every_field_of_project_md() {
     let kinds = [
@@ -163,40 +142,10 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
     // + 2: the requirement's `shapes` and `text_en`, which the spec-less edge probe reads (ADR 0333).
     // + 2: the lesson's `graduated` and `status`; + 2: the milestone's `goal` and `target_features`.
-    // + 8: the milestone's fields beyond GSD (ADR 0357); + 2: the milestone's and the phase's `risk_level`.
-    // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks name).
-    // + 5: the requirement's quality `category`, `priority`, `metric`, `source` and `tags` (beyond GSD).
-    // + 3: the requirement's `personas`, `constrains` and `protects`, each naming its reverse (ADR 0354).
-    // + 1: the requirement's `effort`, a T-shirt size (beyond GSD).
-    // + 1: the phase's `invariants_due`; + 1: the milestone's `journeys_covered` (ADR 0357).
+    // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks' commits changed).
     assert_eq!(
         total,
-        72 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 8 + 2 + 2 + 5 + 3 + 1 + 1 + 1,
+        68 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2,
         "the kinds' fields"
     );
-}
-
-/// The milestone's planning fields beyond GSD (ADR 0357): typed, authored, none required or write-once, and
-/// `depends_on` a list of milestones that names no reverse (a milestone reads its dependents by query).
-#[test]
-fn the_milestone_fields_beyond_gsd_are_optional() {
-    for (field, field_type) in [
-        ("exit_criteria", "string_list"),
-        ("starts", "date"),
-        ("targets", "date"),
-        ("depends_on", "reference_list"),
-        ("owner", "string"),
-        ("contributors", "string_list"),
-        ("artifact_types", "string_list"),
-        ("tags", "string_list"),
-    ] {
-        let declared = field_of("milestone", field);
-        assert_eq!(declared["field_type"], field_type, "{declared}");
-        assert_ne!(declared["required"], true, "{declared}");
-        assert_ne!(declared["immutable"], true, "{declared}");
-        assert!(declared["writer"].is_null(), "{declared}");
-    }
-    let depends_on = field_of("milestone", "depends_on");
-    assert_eq!(depends_on["target_kind"], "milestone", "{depends_on}");
-    assert!(depends_on["inverse_of"].is_null(), "{depends_on}");
 }

@@ -227,10 +227,7 @@ fn help(commands: &[&ExtensionCommand], argv: &[&str]) -> String {
     error.render().to_string()
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the command line shows each declared arg by its shape, with its values, default and description, beside the host's --path and --format"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn the_command_line_help_is_derived_from_the_declaration() {
     let commands: Vec<ExtensionCommand> = every_shape().into_iter().map(declared).collect();
     assert_eq!(
@@ -286,10 +283,7 @@ fn an_extension_command_named_help_is_parsed() {
     ));
 }
 
-#[specforge_test(
-    behavior = "locate_project_root",
-    verify = "every command that reads a project takes the one --path option, and none takes a project path as a positional argument"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn the_host_path_option_is_the_project_arg() {
     let command = ExtensionCommand::new("@acme/x", "x", &contribution());
     let line = command_line("x", &[&command]);
@@ -318,10 +312,7 @@ fn declared_args_become_typed_values() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_format_conventions",
-    verify = "default format is human"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn every_command_takes_the_hosts_format_human_by_default() {
     let (args, format) = parse_with_format(&["milestone-completion", "m1"]).unwrap();
     assert_eq!(format, CommandFormat::Human);
@@ -423,10 +414,7 @@ fn a_usage_error_names_an_arg_as_it_is_declared() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "under --format json a command whose export trapped prints one JSON error object"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_trapped_command_reports_what_it_was_refused_in_either_format() {
     let mut trap = CallError::new(
         Operation::Command,
@@ -454,10 +442,7 @@ fn a_trapped_command_reports_what_it_was_refused_in_either_format() {
     assert_eq!(error["data"]["denials"][0]["code"], "E090", "{json}");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "under --format json a command whose export trapped prints one JSON error object"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_trapped_command_reports_in_the_format_asked_for() {
     let trap = CallError::new(
         Operation::Command,
@@ -512,10 +497,7 @@ fn a_refused_arg_ends_with_invalid_input_and_exit_2() {
     );
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_answering_no_command_output_exits_1_with_e028() {
     let c = contribution();
     for format in CommandFormat::ALL {
@@ -563,10 +545,7 @@ fn sent(declared: Value, argv: &[&str]) -> Value {
 /// `crates/surfaces/mcp/tests/surface_wiring.rs` sends over MCP
 /// (`ordered_command`, `strict_command`): `ExtensionCommand::normalize`
 /// of what was typed, as MCP sends `normalize` of its arguments.
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn the_cli_sends_the_args_the_derivation_normalizes() {
     let ordered = serde_json::json!({"id": "ordered", "title": "Ordered",
             "description": "List in order", "export": "cmd__ordered",
@@ -747,10 +726,7 @@ fn pick_fails_a_command_whose_answer_is_not_json() {
 
 mod shapes;
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "an extension command with no title is listed by its description, and a titled one by its title"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_untitled_command_is_listed_by_its_description() {
     let listed = |command: &ExtensionCommand, summary: &str| {
         let text = help(&[command], &["--help"]);

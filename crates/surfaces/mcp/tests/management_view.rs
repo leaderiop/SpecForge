@@ -109,10 +109,7 @@ fn project_codes(report: &Value) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_extensions_tool",
-    verify = "specforge.extensions lists all installed extensions"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn extensions_lists_the_lock_entries_and_the_kinds_in_the_graph() {
     let config = json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/software"]});
 
@@ -160,10 +157,9 @@ fn extensions_lists_the_lock_entries_and_the_kinds_in_the_graph() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "specforge stats --format json and specforge.stats answer the same document"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn stats_and_validate_count_the_served_projects_surface_conflicts() {
     let (mut server, _ext, _dir) = fake_extension::initialized(
         FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
@@ -216,10 +212,7 @@ fn validate_reports_the_served_projects_notices() {
 // remove_extension with an unreadable specforge.json refuses
 // before it writes anything (it used to uninstall the binary and empty the
 // lock first).
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_extension_with_an_unreadable_config_changes_nothing() {
     let (mut server, root) = server_with_greet_installed();
     std::fs::write(
@@ -250,10 +243,8 @@ fn remove_extension_with_an_unreadable_config_changes_nothing() {
 // One refusal for an unusable specforge.json: add_extension and
 // remove_extension (MCP has no update tool) answer the same schema_mismatch
 // with the reason E069 gives, and change nothing.
-#[specforge_test(
-    behavior = "management_operations_over_the_project_view",
-    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
+#[specforge_test(requirement = "FEATURE-070")]
 fn add_and_remove_extension_refuse_an_unusable_config_alike() {
     for config in [
         r#"{ "extensions": ["@specforge/product",  }"#,
@@ -326,18 +317,12 @@ fn assert_no_project_refusal(tool: &str) {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_progress_tool",
-    verify = "with no project served, infer_progress is the no-project refusal"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn infer_progress_without_a_project_is_refused() {
     assert_no_project_refusal("specforge.infer_progress");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "with no project served, infer_gaps is the no-project refusal"
-)]
+#[specforge_test(requirement = "FEATURE-052")]
 fn infer_gaps_without_a_project_is_refused() {
     assert_no_project_refusal("specforge.infer_gaps");
 }
@@ -345,10 +330,7 @@ fn infer_gaps_without_a_project_is_refused() {
 // An unusable specforge.json is E069 on MCP too: validate's
 // verdict fails, and doctor lists it as an error finding. It used to be
 // served as "no extensions configured", and doctor found nothing.
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "specforge.doctor reports an unusable specforge.json (E069) as a finding"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn validate_and_doctor_report_an_unusable_config() {
     let (mut server, _root) = server_over_text(r#"{ "extensions": ["#);
 
@@ -380,10 +362,7 @@ fn validate_and_doctor_report_an_unusable_config() {
 // A lock file that is there and cannot be read: the served project's
 // environment reads it (and reloads when it changes), and doctor lists it
 // as an error finding naming E033.
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "a lock file that cannot be read is an error finding naming E033"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_reports_a_corrupt_lock_as_an_error_finding() {
     let (mut server, root) =
         server_over(json!({"name": "t", "version": "0.1.0", "extensions": []}));
@@ -439,10 +418,7 @@ fn doctor_over_a_directory_that_is_no_project_is_refused_as_no_project() {
     assert_eq!(error["code"], "precondition_failed", "{error}");
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor lists the extensions the extensions listing lists, each with its version, source and status"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_names_a_wasm_file_entry_by_its_file() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::copy(greet_blob(), dir.path().join("greet.wasm")).unwrap();

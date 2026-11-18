@@ -37,10 +37,7 @@ fn refused(report: &PublishReport) -> &specforge_ops::OpError {
     report.result.as_ref().expect_err("the publish is refused")
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "publish refuses in one order, each refusal before anything after it is read or asked"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn publish_refuses_in_one_order() {
     let dir = tempfile::tempdir().unwrap();
     let registry = MemoryRegistry::new();
@@ -101,10 +98,7 @@ fn publish_refuses_in_one_order() {
     assert!(registry.asked().is_empty());
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "publish and extension validate refuse a binary that declares a builtin's name, as add refuses to install it"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_binary_declaring_a_builtins_name_is_refused_as_add_refuses_it() {
     let dir = tempfile::tempdir().unwrap();
     let wasm = bytes("@specforge/product 9.0.0");
@@ -127,10 +121,7 @@ fn a_binary_declaring_a_builtins_name_is_refused_as_add_refuses_it() {
     assert!(registry.asked().is_empty());
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "publish refuses a binary whose declaration has errors before any network call"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_declaration_with_errors_is_refused_before_the_registry_is_asked() {
     let dir = tempfile::tempdir().unwrap();
     let registry = MemoryRegistry::new();
@@ -175,10 +166,7 @@ fn a_declaration_with_errors_is_refused_before_the_registry_is_asked() {
     assert!(refused(&refusal).message.contains("can't be published"));
 }
 
-#[specforge_test(
-    behavior = "publish_wasm_extension",
-    verify = "publish refuses a declaration whose name or version is not publishable before it uploads"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn an_unpublishable_name_or_version_is_refused_before_the_registry_is_asked() {
     let dir = tempfile::tempdir().unwrap();
     let registry = MemoryRegistry::new();
@@ -204,10 +192,7 @@ fn an_unpublishable_name_or_version_is_refused_before_the_registry_is_asked() {
     assert!(registry.asked().is_empty());
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "the declaration's warnings are reported even when publish is refused"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_declarations_warnings_are_reported_even_when_publish_is_refused() {
     let dir = tempfile::tempdir().unwrap();
     let wasm = bytes("warns, unscoped");
@@ -229,10 +214,7 @@ fn the_declarations_warnings_are_reported_even_when_publish_is_refused() {
     assert_eq!(refused(&refusal).code, "E072");
 }
 
-#[specforge_test(
-    behavior = "publish_wasm_extension",
-    verify = "publish uploads the .wasm binary and the declaration derived from it"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn a_publish_uploads_the_binary_and_the_declaration_read_from_it() {
     let dir = tempfile::tempdir().unwrap();
     let wasm = bytes("@acme/x 1.0.0");
@@ -263,10 +245,7 @@ fn a_publish_uploads_the_binary_and_the_declaration_read_from_it() {
     assert_eq!(held.declaration, declared);
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "the declaration is validated before publish"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_declaration_is_validated_before_publish() {
     let dir = tempfile::tempdir().unwrap();
     let wasm = specforge_ops::testing::GREET;
@@ -278,10 +257,7 @@ fn the_declaration_is_validated_before_publish() {
     assert!(published.result.is_ok(), "{published:?}");
 }
 
-#[specforge_test(
-    behavior = "install_wasm_extension",
-    verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn publish_reads_the_binary_in_the_runtime_it_is_given() {
     let dir = tempfile::tempdir().unwrap();
     let runtime = specforge_ops::testing::candidates();
@@ -300,10 +276,7 @@ fn publish_reads_the_binary_in_the_runtime_it_is_given() {
     assert_eq!(handshakes, 1);
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "what publish uploads is what add installs"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn what_publish_uploads_is_what_add_installs() {
     use specforge_installed::{Installed, read_lock_file};
     use specforge_ops::extension::{AddOutcome, AddRequest, add};
@@ -366,10 +339,7 @@ fn what_publish_uploads_is_what_add_installs() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_wasm_extension_locally",
-    verify = "specforge extension validate reports the declaration's registry build diagnostics"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn validate_reads_and_declares_the_binary_publish_reads() {
     let dir = tempfile::tempdir().unwrap();
     let good = bytes("v");
@@ -403,10 +373,7 @@ fn validate_reads_and_declares_the_binary_publish_reads() {
     assert_eq!(refused(&published).code, first_error.code, "{published:?}");
 }
 
-#[specforge_test(
-    behavior = "validate_wasm_extension_locally",
-    verify = "specforge extension validate reports a declared name that is no package name (E072), as add and the extension load refuse it"
-)]
+#[specforge_test(requirement = "FEATURE-133")]
 fn validate_reports_a_declared_name_that_is_no_package_name() {
     let dir = tempfile::tempdir().unwrap();
     let wasm = bytes("Greet 0.1.0");
@@ -428,10 +395,7 @@ fn validate_reports_a_declared_name_that_is_no_package_name() {
     assert_eq!(refused(&published).code, "E072");
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "publish refuses in one order, each refusal before anything after it is read or asked"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn validate_and_publish_refuse_a_missing_binary_alike() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("missing.wasm");
@@ -445,10 +409,7 @@ fn validate_and_publish_refuse_a_missing_binary_alike() {
     assert_eq!(validate_error.message, refused(&published).message);
 }
 
-#[specforge_test(
-    behavior = "publish_to_registry",
-    verify = "publish refuses in one order, each refusal before anything after it is read or asked"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn the_publish_document_names_the_extension_and_what_was_done() {
     let dir = tempfile::tempdir().unwrap();
     let wasm = bytes("@acme/x 1.0.0");

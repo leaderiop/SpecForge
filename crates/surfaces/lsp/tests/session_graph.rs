@@ -23,10 +23,7 @@ fn node_ids(reply: &Value) -> Vec<&str> {
         .collect()
 }
 
-#[spec(
-    behavior = "session_graph_request",
-    verify = "the graph request answers the session's graph, an unsaved buffer's entities included, with each kind's symbol kind"
-)]
+#[spec(requirement = "FEATURE-078")]
 #[tokio::test]
 async fn the_graph_request_answers_the_session_graph() {
     let (mut client, uri, _dir) =
@@ -59,10 +56,7 @@ async fn the_graph_request_answers_the_session_graph() {
     );
 }
 
-#[spec(
-    behavior = "session_graph_request",
-    verify = "the graph request answers each entity's degree, an entity naming only itself at 0"
-)]
+#[spec(requirement = "FEATURE-078")]
 #[tokio::test]
 async fn the_graph_request_counts_no_self_edge() {
     let (mut client, _uri, _dir) =
@@ -82,10 +76,7 @@ async fn the_graph_request_counts_no_self_edge() {
     );
 }
 
-#[spec(
-    behavior = "session_graph_request",
-    verify = "the entity request answers the node the cursor names, and nothing for a word in a string"
-)]
+#[spec(requirement = "FEATURE-078")]
 #[tokio::test]
 async fn the_entity_request_names_what_the_cursor_names() {
     let (mut client, uri, _dir) =
@@ -108,10 +99,7 @@ async fn the_entity_request_names_what_the_cursor_names() {
     assert_eq!(reply["result"]["id"], "login", "{reply}");
 }
 
-#[spec(
-    behavior = "session_graph_request",
-    verify = "a rebuild notifies only a client that declared specforgeGraphChanged"
-)]
+#[spec(requirement = "FEATURE-078")]
 fn a_rebuild_notifies_only_a_client_that_declared_it() {
     let grown = "behavior login \"Login\" {\n  contract \"x\"\n}\nbehavior b \"B\" {\n  depends_on [login]\n}\n";
     for declared in [true, false] {
@@ -130,10 +118,7 @@ fn a_rebuild_notifies_only_a_client_that_declared_it() {
     }
 }
 
-#[spec(
-    behavior = "session_graph_request",
-    verify = "a rebuild sends specforge/graphChanged to a client that declared it"
-)]
+#[spec(requirement = "FEATURE-078")]
 #[tokio::test]
 async fn a_rebuild_sends_the_notification_over_the_wire() {
     let (mut client, uri, _dir, _) = Session::with_extensions_as(

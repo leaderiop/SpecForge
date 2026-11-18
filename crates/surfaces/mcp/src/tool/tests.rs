@@ -19,10 +19,7 @@ const ALL: [ErrorCode; 12] = [
     ErrorCode::PreconditionFailed,
 ];
 
-#[specforge_test_macros::test(
-    behavior = "state_mcp_messages_as_spec_types",
-    verify = "an McpError is serialized from its type, the isError content and a JSON-RPC error's data alike"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-072")]
 fn an_error_serializes_as_its_type() {
     let mut error = McpError::new(ErrorCode::InvalidInput, "no")
         .with_argument("scope")

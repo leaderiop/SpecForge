@@ -1,9 +1,6 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a peer locked outside the new extension's range fails R-RES-006 naming a version that satisfies every requirer"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn a_unifiable_diamond_is_refused_with_the_version_that_unifies() {
     let installed = nowhere(base_and_other(">=1.0.0"));
     let (registry, runtime) = (base_registry(), runtime());
@@ -34,10 +31,7 @@ fn a_unifiable_diamond_is_refused_with_the_version_that_unifies() {
     );
 }
 
-#[specforge_test(
-    behavior = "add_extension_to_existing_project",
-    verify = "a peer no single version satisfies for every requirer fails R-RES-005"
-)]
+#[specforge_test(requirement = "FEATURE-106")]
 fn an_impossible_diamond_is_refused_naming_each_requirer() {
     let installed = nowhere(base_and_other("^1.0"));
     let registry = base_registry().serving(Published::new(

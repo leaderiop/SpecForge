@@ -76,18 +76,12 @@ fn ids(document: &Value) -> Vec<&str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 0 returns only the target entity"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn depth_0_returns_only_target_entity() {
     assert_eq!(ids(&document(&linear(), "b", 0, &[])), ["b"]);
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth 1 returns direct neighbors"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn depth_1_returns_direct_neighbors() {
     let project = linear();
     assert_eq!(ids(&document(&project, "b", 1, &[])), ["a", "b", "c"]);
@@ -104,20 +98,14 @@ fn depth_1_returns_direct_neighbors() {
     assert_eq!(default, document(&project, "b", 1, &[]));
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "depth N returns all entities within N hops"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn depth_n_returns_all_within_n_hops() {
     let project = linear();
     assert_eq!(ids(&document(&project, "a", 3, &[])), ["a", "b", "c", "d"]);
     assert_eq!(ids(&document(&project, "a", 2, &[])), ["a", "b", "c"]);
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "kind filter restricts results to specified entity kinds"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn kind_filter_restricts_results() {
     let document = document(&linear(), "b", 2, &["invariant"]);
     // The root is always kept; an edge is kept when both ends are.
@@ -128,10 +116,7 @@ fn kind_filter_restricts_results() {
     );
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "multiple kind filters combine as union"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn multiple_kind_filters_combine_as_union() {
     let project = linear();
     assert_eq!(
@@ -142,10 +127,7 @@ fn multiple_kind_filters_combine_as_union() {
     assert_eq!(ids(&document(&project, "b", 2, &["event"])), ["b", "d"]);
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "output conforms to Graph Protocol schema"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn query_conforms_to_graph_protocol_schema() {
     let document = document(&linear(), "b", 1, &[]);
     assert!(document["schema_version"].is_string());
@@ -155,10 +137,7 @@ fn query_conforms_to_graph_protocol_schema() {
     }
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "output includes schema_version field"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn query_includes_schema_version() {
     let project = linear();
     let document = document(&project, "b", 1, &[]);
@@ -172,10 +151,7 @@ fn query_includes_schema_version() {
     assert!(document["schema_ref"]["content_hash"].is_string());
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "querying same entity at same depth produces identical subgraph"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn query_same_entity_same_depth_is_deterministic() {
     let project = linear();
     assert_eq!(
@@ -184,10 +160,7 @@ fn query_same_entity_same_depth_is_deterministic() {
     );
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "a non-existent entity is E003 naming the closest entity"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn query_of_a_missing_entity_is_e003() {
     let project = linear();
     let mut graph = Graph::new();
@@ -222,10 +195,7 @@ fn query_of_a_missing_entity_is_e003() {
     assert_eq!(error.error.suggestion, None);
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "an unknown kind of --kinds is reported with I020 and the closest kind"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn query_reports_an_unknown_kind() {
     let project = Assembled::over(registries(&["behavior"], &[])).graph({
         let mut graph = Graph::new();
@@ -253,10 +223,7 @@ fn query_reports_an_unknown_kind() {
     assert_eq!(ids(&document), ["login"]);
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "--include-coverage gives each entity its coverage status"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn query_with_coverage_marks_each_node() {
     let project = Assembled::over(registries(&["behavior"], &[])).source("behavior login \"Login\" {\n  verify unit \"logs in\"\n}\n\nbehavior logout \"Logout\" {\n  verify unit \"logs out\"\n}\n");
     project.record_passing(&[("login", "logs in")]);
@@ -304,10 +271,7 @@ fn queried(project: &Assembled, entity: &str, format: Format, include_coverage: 
     .unwrap()
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "a query with --include-coverage validates against the published schema of its format"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn a_query_with_coverage_conforms_to_the_published_schema() {
     use specforge_common::shape::{unchecked_keywords, violations};
     let project = covered();
@@ -328,10 +292,7 @@ fn a_query_with_coverage_conforms_to_the_published_schema() {
     }
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "--include-coverage gives each entity its coverage status"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn a_query_with_coverage_is_the_export_with_one_key_per_node() {
     let project = covered();
     for format in [Format::Graph, Format::Context, Format::Brief] {
@@ -344,10 +305,7 @@ fn a_query_with_coverage_is_the_export_with_one_key_per_node() {
     }
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "a non-existent entity is E003 naming the closest entity"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn an_unknown_entity_is_refused_before_the_report_is_read() {
     let project = Assembled::over(registries(&["behavior"], &[])).source(COVERED_SOURCE);
     std::fs::write(project.root().join("specforge-report.json"), "{").unwrap();
@@ -371,10 +329,7 @@ fn an_unknown_entity_is_refused_before_the_report_is_read() {
     assert_eq!(ask("login").error.code, "E045");
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "an unknown format is refused naming the expected formats"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn query_refuses_dot() {
     let error = query(
         &linear().view(),
@@ -404,10 +359,7 @@ fn listed(project: &Assembled, request: &ListRequest) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "list pages the entities of a kind sorted by id, from offset, at most limit"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn list_pages_sorted_by_id() {
     let project = behaviors();
     let page = |offset, limit| {
@@ -438,10 +390,7 @@ fn list_pages_sorted_by_id() {
     assert!(all(Some("")).is_empty());
 }
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "list keeps the entities whose fields hold every where value"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn list_matches_where_values() {
     let project = behaviors();
     let wanted = |value: Value| value.as_object().unwrap().clone();
@@ -480,10 +429,7 @@ fn list_reports_an_unknown_kind() {
     );
 }
 
-#[specforge_test(
-    behavior = "select_entities_over_the_view",
-    verify = "a search returns at most limit hits, twenty when no limit is given"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn search_defaults_to_twenty() {
     let mut graph = Graph::new();
     for i in 0..30 {
@@ -541,10 +487,7 @@ fn search_filters_by_a_field_pair_and_snippets_the_match() {
 
 // The contract of query_graph_multi_resolution, over a view: a(feature) ->
 // b(behavior) -> c(behavior) -> x(invariant).
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "Query Graph at Multiple Resolutions: multi-resolution graph query holds — validation_complete_fired, depth_respected, kind_filter_applied, graph_protocol_conformance, graph_queried_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn query_contract_valid_entity_returns_subgraph() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature"));
@@ -588,10 +531,7 @@ fn query_contract_valid_entity_returns_subgraph() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn query_states_which_field_a_refusal_is_about() {
     use specforge_ops::read::query::QueryField;
     let project = linear();
@@ -625,10 +565,7 @@ mod compiled {
     use specforge_test_macros::test as specforge_test;
     // --- Query depth tests, over a compiled project ---
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "depth 0 returns only the target entity"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_depth_0_returns_only_root() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -638,10 +575,7 @@ mod compiled {
         assert_eq!(nodes[0]["id"], "beh_middle");
     }
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "depth 0 returns only the target entity"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_depth_0_edges_behavior() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -651,10 +585,7 @@ mod compiled {
         assert_eq!(edges.len(), 0, "depth 0 single node should have no edges");
     }
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "multiple kind filters combine as union"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_multiple_kind_filters() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -672,10 +603,7 @@ mod compiled {
         assert!(nodes.len() >= 2, "should include at least root + inv_deep");
     }
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "kind filter restricts results to specified entity kinds"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_kind_filter_no_match_returns_root_only() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -689,10 +617,7 @@ mod compiled {
         assert_eq!(nodes[0]["id"], "beh_middle");
     }
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "kind filter restricts results to specified entity kinds"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_kind_filter_prunes_edges() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -733,10 +658,7 @@ mod compiled {
         }
     }
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "an unknown kind of --kinds is reported with I020 and the closest kind"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_reports_an_unknown_kind() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -771,10 +693,7 @@ mod compiled {
         assert_eq!(ids, ["beh_middle"], "{parsed}");
     }
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "depth 1 returns direct neighbors"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_isolated_entity_depth_1() {
         let spec = format!("{}\n{}", specs::DEEP_CHAIN, specs::ISOLATED);
         let (_project, compiled) = built(&[("main.spec", &spec)]);
@@ -798,10 +717,7 @@ mod compiled {
         assert_eq!(query("isolated_node"), ["isolated_node"]);
     }
 
-    #[specforge_test(
-        invariant = "graph_traversal_integrity",
-        verify = "traversal from any node visits every reachable node exactly once"
-    )]
+    #[specforge_test(requirement = "INVARIANT-054")]
     fn query_handles_cycles() {
         let (_project, compiled) = built(&[("main.spec", specs::CYCLE)]);
 
@@ -823,10 +739,7 @@ mod compiled {
         );
     }
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "depth N returns all entities within N hops"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_large_depth_on_small_graph() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 
@@ -840,10 +753,7 @@ mod compiled {
         );
     }
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "output includes schema_version field"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_output_has_schema_version() {
         let (_project, compiled) = built(&[("main.spec", specs::ISOLATED)]);
 
@@ -854,10 +764,7 @@ mod compiled {
         );
     }
 
-    #[specforge_test(
-        behavior = "query_graph_multi_resolution",
-        verify = "output conforms to Graph Protocol schema"
-    )]
+    #[specforge_test(requirement = "FEATURE-001")]
     fn query_nodes_have_required_fields() {
         let (_project, compiled) = built(&[("main.spec", specs::DEEP_CHAIN)]);
 

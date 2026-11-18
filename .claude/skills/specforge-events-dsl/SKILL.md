@@ -10,6 +10,9 @@ description: "Write event blocks in .spec files (the event kind is declared by t
 > `specforge add @specforge/software`, or write the kinds the project's own extensions declare). `verify` needs
 > `@specforge/testing`; `sync`, `follows_protocol` and `participates_in` need `@specforge/formal`.
 > `specforge infer-guide event` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `event` blocks in a project that does, such as the
+> example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Events make reactive behavior explicit: a behavior emits an event (`produces`), other behaviors react to it
 (`consumes`).

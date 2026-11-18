@@ -131,10 +131,7 @@ fn refused(list: &str, args: Value) -> (i64, Value) {
     (exit, out.error())
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "filter by status returns only matching entities"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_list_filtered_by_status_has_only_that_status() {
     let g = catalog();
     assert_eq!(
@@ -162,10 +159,7 @@ fn a_list_filtered_by_status_has_only_that_status() {
     assert!(ids_of("personas", json!({"status": "deprecated"}), &g).is_empty());
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "filter by priority returns only matching entities"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_list_filtered_by_priority_has_only_that_priority() {
     let g = catalog();
     assert_eq!(
@@ -175,10 +169,7 @@ fn a_list_filtered_by_priority_has_only_that_priority() {
     assert_eq!(ids_of("journeys", json!({"priority": "high"}), &g), ["j1"]);
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "combined status+priority filter uses AND logic"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn list_filters_combine_with_and() {
     let g = catalog();
     let args = json!({"status": "done", "priority": "high"});
@@ -187,10 +178,7 @@ fn list_filters_combine_with_and() {
     assert!(ids_of("features", args, &g).is_empty());
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "invalid status filter returns INVALID_INPUT"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_status_outside_the_kinds_enum_is_invalid_input() {
     // `draft` is a deliverable's status, not a feature's.
     let (exit, error) = refused("features", json!({"status": "draft"}));
@@ -207,10 +195,7 @@ fn a_status_outside_the_kinds_enum_is_invalid_input() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_error_handling",
-    verify = "invalid filter value returns INVALID_INPUT code"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn every_closed_filter_refuses_a_value_outside_its_enum() {
     for (list, arg) in [
         ("features", "status"),
@@ -243,10 +228,7 @@ fn every_closed_filter_refuses_a_value_outside_its_enum() {
     );
 }
 
-#[specforge_test(
-    behavior = "accept_a_projects_own_words",
-    verify = "an open field's list filter matches any word it is given"
-)]
+#[specforge_test(requirement = "FEATURE-097")]
 fn an_open_filter_matches_any_word_it_is_given() {
     let g = G::default()
         .node("kit", "deliverable", json!({"artifact_type": "press_kit"}))
@@ -266,10 +248,7 @@ fn an_open_filter_matches_any_word_it_is_given() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "sort by priority with tie-break by ID is deterministic"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_list_sorted_by_priority_ties_by_id() {
     let g = catalog();
     let asc = json!({"sort_by": "priority"});
@@ -286,10 +265,7 @@ fn a_list_sorted_by_priority_ties_by_id() {
     assert_eq!(ids_of("releases", by_version, &g), ["r1", "r2"]);
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "invalid sort_by field returns INVALID_INPUT"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_sort_field_the_kind_lacks_is_invalid_input() {
     let (exit, error) = refused("terms", json!({"sort_by": "priority"}));
     assert_eq!(exit, 2);
@@ -304,10 +280,7 @@ fn features(n: usize) -> G {
     (0..n).fold(G::default(), |g, i| g.n(&format!("f{i:02}"), "feature"))
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "limit=0 is clamped to 1"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_limit_of_zero_is_one() {
     let page = json_of("features", json!({"limit": 0}), &features(3));
     assert_eq!(page["limit"], 1);
@@ -315,10 +288,7 @@ fn a_limit_of_zero_is_one() {
     assert_eq!(page["has_more"], true);
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "limit=5000 is clamped to 1000"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_limit_past_a_thousand_is_a_thousand() {
     let page = json_of("features", json!({"limit": 5000}), &features(1001));
     assert_eq!(page["limit"], 1000);
@@ -333,10 +303,7 @@ fn a_limit_past_a_thousand_is_a_thousand() {
     assert_eq!(page["features"].as_array().unwrap().len(), 100);
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "offset beyond total returns empty list"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn an_offset_past_the_end_is_an_empty_page() {
     let page = json_of("features", json!({"offset": 10}), &features(3));
     assert_eq!(
@@ -345,10 +312,7 @@ fn an_offset_past_the_end_is_an_empty_page() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "empty graph returns total=0 and has_more=false"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn every_list_over_an_empty_graph_is_empty() {
     let runtime = runtime();
     for list in LISTS {
@@ -378,10 +342,7 @@ fn every_page() -> Vec<(&'static str, usize, usize, Value)> {
     pages
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "for all list commands: entities.length <= limit"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn no_page_is_longer_than_its_limit() {
     for (list, _, limit, page) in every_page() {
         assert!(
@@ -392,10 +353,7 @@ fn no_page_is_longer_than_its_limit() {
     }
 }
 
-#[specforge_test(
-    behavior = "surface_list_command_contract",
-    verify = "for all list commands: has_more == (offset + entities.length < total)"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_page_has_more_iff_entries_remain_after_it() {
     for (list, offset, _, page) in every_page() {
         let shown = page[list].as_array().unwrap().len();
@@ -405,10 +363,7 @@ fn a_page_has_more_iff_entries_remain_after_it() {
     }
 }
 
-#[specforge_test(
-    behavior = "product_pagination_sort_stability",
-    verify = "page 0 + page 1 concatenation equals unpaginated result"
-)]
+#[specforge_test(requirement = "RELIABILITY-18")]
 fn two_pages_are_the_whole_list() {
     let g = features(7);
     let args = |offset: usize| json!({"offset": offset, "limit": 4, "sort_by": "title"});
@@ -417,10 +372,7 @@ fn two_pages_are_the_whole_list() {
     assert_eq!(paged, ids_of("features", json!({"sort_by": "title"}), &g));
 }
 
-#[specforge_test(
-    behavior = "product_pagination_sort_stability",
-    verify = "entities with same priority sorted alphabetically by ID"
-)]
+#[specforge_test(requirement = "RELIABILITY-18")]
 fn entities_of_one_priority_are_by_id() {
     let g = ["c", "a", "b"].iter().fold(G::default(), |g, id| {
         g.node(id, "feature", json!({"priority": "medium"}))
@@ -431,10 +383,7 @@ fn entities_of_one_priority_are_by_id() {
     }
 }
 
-#[specforge_test(
-    behavior = "product_pagination_sort_stability",
-    verify = "union of all pages equals full result set with no duplicates"
-)]
+#[specforge_test(requirement = "RELIABILITY-18")]
 fn the_pages_of_a_list_are_its_entries_once_each() {
     let g = catalog();
     for list in LISTS {

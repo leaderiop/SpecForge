@@ -201,7 +201,7 @@
       {
         "id": "replan",
         "prompt": "specforge.gsd.plan_phase",
-        "title": "Replan with the reviewers' feedback (the prompt plan_phase, --reviews)"
+        "title": "Replan with the reviewers' feedback (the prompt plan_phase, with the reviewers' concerns)"
       },
       {
         "agent": "gsd-plan-checker",

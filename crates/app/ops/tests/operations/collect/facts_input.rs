@@ -112,10 +112,7 @@ fn served(log: &Log) -> Vec<(String, Vec<String>)> {
     log.lock().unwrap().clone()
 }
 
-#[specforge_test_macros::test(
-    behavior = "auto_detect_collector",
-    verify = "a collector whose facts input names a kind another answers runs after it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_consumer_declared_first_runs_after_its_producer() {
     static LOG: Log = Mutex::new(Vec::new());
     let (project, runtime) = chained(&LOG, two_packages, false);
@@ -128,10 +125,7 @@ fn a_consumer_declared_first_runs_after_its_producer() {
     assert_eq!(order, ["packages", "items"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "dispatch_collector",
-    verify = "a facts input is served the admitted facts of its kinds that earlier collectors answered, sorted"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_consumer_receives_exactly_the_admitted_facts_of_its_kinds() {
     static LOG: Log = Mutex::new(Vec::new());
     let (project, runtime) = chained(&LOG, two_packages, false);
@@ -165,10 +159,7 @@ fn a_consumer_receives_exactly_the_admitted_facts_of_its_kinds() {
     assert_eq!(served(&REFUSED)[1], ("items".to_string(), vec![]));
 }
 
-#[specforge_test_macros::test(
-    behavior = "dispatch_collector",
-    verify = "a facts input no collector of the collect answers is served the recorded stores"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_consumer_run_alone_is_served_the_recorded_stores() {
     static LOG: Log = Mutex::new(Vec::new());
     let (project, runtime) = chained(&LOG, two_packages, false);
@@ -194,10 +185,7 @@ fn a_consumer_run_alone_is_served_the_recorded_stores() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "auto_detect_collector",
-    verify = "collectors whose facts inputs form a cycle are E119 before any of them runs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn collectors_whose_facts_inputs_form_a_cycle_are_e119_before_anything_runs() {
     static LOG: Log = Mutex::new(Vec::new());
     let (project, runtime) = chained(&LOG, two_packages, true);
@@ -213,10 +201,7 @@ fn collectors_whose_facts_inputs_form_a_cycle_are_e119_before_anything_runs() {
     assert!(!project.root().join("specforge-report.json").exists());
 }
 
-#[specforge_test_macros::test(
-    behavior = "dispatch_collector",
-    verify = "a facts input served no fact of a kind is W201 naming the collectors that answer it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_consumer_run_alone_with_nothing_recorded_is_w201_naming_the_producer() {
     static LOG: Log = Mutex::new(Vec::new());
     let (project, runtime) = chained(&LOG, two_packages, false);

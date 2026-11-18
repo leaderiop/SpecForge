@@ -696,10 +696,7 @@ mod tests {
         hits[0].version.clone()
     }
 
-    #[specforge_test_macros::test(
-        behavior = "search_registry",
-        verify = "a registry lists each package at the version add installs from it"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn search_lists_the_version_add_installs() {
         assert_eq!(listed(&["9.0.0", "10.0.0"]), "10.0.0");
         // The highest release, not a pre-release of a higher version.
@@ -709,10 +706,7 @@ mod tests {
         assert_eq!(listed(&["2.0.0-beta.9", "2.0.0-beta.10"]), "2.0.0-beta.10");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "publish_to_registry",
-        verify = "a publish the registry refuses claims no scope"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-030")]
     fn a_refused_publish_leaves_the_scope_unclaimed() {
         let dir = tempfile::tempdir().unwrap();
         let db = Database::open(&dir.path().join("t.db")).unwrap();

@@ -100,10 +100,7 @@ fn moved(project: &TestProject) {
     project.write("a.spec", renamed);
 }
 
-#[specforge_test(
-    behavior = "report_stale_context_record",
-    verify = "a record whose pack has moved raises its route's stale code at the record"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn an_unchanged_record_is_silent_and_a_moved_pack_raises_the_stale_code() {
     let digest = digest_at(&gsd_context_project(), 6000);
     let project = recording(
@@ -154,10 +151,7 @@ fn an_unchanged_record_is_silent_and_a_moved_pack_raises_the_stale_code() {
     );
 }
 
-#[specforge_test(
-    behavior = "report_stale_context_record",
-    verify = "a record is checked only when its field's owner gate admits it"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_pending_gate_checks_a_record_only_while_its_owner_is_open() {
     let digest = digest_at(&gsd_context_project(), 6000);
     let project = recording(
@@ -171,10 +165,7 @@ fn a_pending_gate_checks_a_record_only_while_its_owner_is_open() {
     assert!(stale(&project.compile_in(runtime(&[CONTEXT_PLAN]))).is_empty());
 }
 
-#[specforge_test(
-    behavior = "report_stale_context_record",
-    verify = "a record with no subject, or whose core no longer fits its budget, is stale"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_record_whose_subject_is_gone_or_whose_core_outgrew_its_budget_is_stale() {
     // Over its budget: the core of the executor's pack is far above ten tokens.
     let project = recording(
@@ -220,10 +211,7 @@ fn a_record_whose_subject_is_gone_or_whose_core_outgrew_its_budget_is_stale() {
     );
 }
 
-#[specforge_test(
-    behavior = "report_stale_context_record",
-    verify = "a check evaluates one pack per held record and none for a project without one"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_check_evaluates_one_pack_per_record_and_none_without_records() {
     let bare = gsd_context_project();
     let digest = digest_at(&bare, 6000);

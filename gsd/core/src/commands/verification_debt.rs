@@ -125,7 +125,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.command("verification_debt", |cmd| {
         cmd.description("Count the UAT tests still open (pending or missing, blocked, an issue with an open gap, a skip without a `Deferred follow-up` reason) in a milestone and in the shipped ones, and list a phase's")
             .arg("milestone", |a| {
-                a.description("the milestone to count (default: --phase's, else the one in progress, else the last)");
+                a.description("the milestone to count (default: the given phase's, else the one in progress, else the last)");
             })
             .arg("phase", |a| {
                 a.description("the phase whose open tests `blockers` lists (default: the milestone's)");

@@ -109,7 +109,7 @@ fn corpus_parses_clean_end_to_end() {
     // errors. The historical baselines (port `method` signatures, union
     // types with `|`) are fully supported since the method and type_union
     // grammar slices - the tolerated-error era is over.
-    let root = specforge_repo_root::repo_root().join("spec");
+    let root = specforge_repo_root::repo_root().join(crate::lex::OLD_SPEC);
 
     let mut files = Vec::new();
     let mut stack = vec![root];

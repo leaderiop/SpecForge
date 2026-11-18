@@ -15,10 +15,7 @@ pub(crate) fn git_repo(root: &Path) {
     specforge_git::testing::Repo::init(root).commit_all("c");
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_git_baseline",
-    verify = "check reports the same inside and outside a git repository when nothing declares history"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn check_reports_the_same_inside_and_outside_a_repository() {
     let plain = fixture();
     let repo = fixture();
@@ -29,10 +26,7 @@ fn check_reports_the_same_inside_and_outside_a_repository() {
     assert_eq!(outside.stdout, inside.stdout);
 }
 
-#[specforge_test_macros::test(
-    behavior = "run_check_phase_passes",
-    verify = "check --cache is a usage error and a specforge-cache.json is not read"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn check_cache_is_gone() {
     let dir = fixture();
     dir.write("specforge-cache.json", "not json");
@@ -41,10 +35,7 @@ fn check_cache_is_gone() {
     assert!(!plain.stdout.contains("W144"), "{}", plain.stdout);
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_git_baseline",
-    verify = "check since reads history with no git program on PATH"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn check_since_reads_history_with_no_git_on_path() {
     let repo = fixture();
     git_repo(repo.root());
@@ -66,10 +57,7 @@ fn check_since_reads_history_with_no_git_on_path() {
     assert!(!head.stdout.contains("W164"), "{}", head.stdout);
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_git_baseline",
-    verify = "check since judges history against the merge-base and refuses an unknown revision"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn check_since_judges_against_the_merge_base() {
     let repo = fixture();
     git_repo(repo.root());

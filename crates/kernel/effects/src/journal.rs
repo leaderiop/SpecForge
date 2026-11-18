@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use specforge_common::ProjectRoot;
+use specforge_common::home::user_home;
 use specforge_package::Sha256;
 
 use crate::{EffectRequest, Outcome, OutcomeClass, UnixMillis};
@@ -476,19 +477,11 @@ pub struct EffectJournal {
 }
 
 /// The directory whose `.specforge` holds `root`'s host state (its journal, the verbs' `temp` root): `root` when it
-/// holds `specforge.json`, the user's home (`HOME`, `USERPROFILE` on Windows) for a loose root, none with no home.
+/// holds `specforge.json`, the user's home ([`user_home`]) for a loose root, none with no home.
 pub fn state_base(root: &ProjectRoot) -> Option<PathBuf> {
     root.configured_dir()
         .map(Path::to_path_buf)
         .or_else(user_home)
-}
-
-/// The user's home directory (`HOME`, else `USERPROFILE`); none when it is unset or relative.
-pub fn user_home() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-        .filter(|home| home.is_absolute())
 }
 
 impl EffectJournal {

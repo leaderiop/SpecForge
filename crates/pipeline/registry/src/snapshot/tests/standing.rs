@@ -6,10 +6,7 @@ use crate::snapshot::Standing;
 use crate::snapshot::wire::pass_entity;
 use specforge_protocol_types::ValidationRuleDescriptor;
 
-#[specforge_test(
-    behavior = "te_validate_unverified_testable",
-    verify = "a union type never produces W004"
-)]
+#[specforge_test(requirement = "FEATURE-127")]
 fn a_union_type_owes_no_obligations() {
     let ids = w004_ids(
         "type Status = active | inactive\n\ntype Plain \"Plain\" {\n  id string\n}\n",
@@ -28,10 +25,7 @@ fn an_enum_values_list_is_not_a_union() {
     assert_eq!(ids, ["Feature", "Priority"]);
 }
 
-#[specforge_test(
-    behavior = "te_validate_unverified_testable",
-    verify = "an abstract entity never produces W004"
-)]
+#[specforge_test(requirement = "FEATURE-127")]
 fn an_abstract_entity_owes_no_obligations_when_its_kind_declares_the_flag() {
     let source = "behavior base \"Base\" {\n  contract \"The system MUST work\"\n  abstract true\n}\n\n\
                       behavior concrete \"Concrete\" {\n  contract \"The system MUST work\"\n  abstract false\n}\n";
@@ -69,20 +63,14 @@ fn testable_ids(source: &str, kinds: &[(&str, bool, bool)]) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    invariant = "testable_entity_classification",
-    verify = "no default testability assumed by core"
-)]
+#[specforge_test(requirement = "INVARIANT-140")]
 fn no_kind_is_testable_unless_an_extension_says_so() {
     let source = "behavior login \"Login\" {\n}\n";
     assert!(testable_ids(source, &[]).is_empty());
     assert!(testable_ids(source, &[("behavior", false, false)]).is_empty());
 }
 
-#[specforge_test(
-    invariant = "testable_entity_classification",
-    verify = "testable=false entity excluded from coverage"
-)]
+#[specforge_test(requirement = "INVARIANT-140")]
 fn only_kinds_declared_testable_count() {
     let kinds = [
         ("behavior", true, true),
@@ -96,10 +84,7 @@ fn only_kinds_declared_testable_count() {
     assert_eq!(testable_ids(source, &kinds), ["b", "t"]);
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "an entity owes obligations when a no_verify_statements rule applies to its kind and neither a union body nor an exempting flag exempts it"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn an_entity_owes_obligations_when_a_rule_applies_and_nothing_exempts_it() {
     let kinds = [
         ("behavior", true, true),
@@ -161,10 +146,7 @@ fn an_entity_owes_obligations_when_a_rule_applies_and_nothing_exempts_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "the standing counts an entity toward coverage exactly as the coverage rule counts the pass entity it sends"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn standing_counts_as_the_coverage_rule_does() {
     let span = specforge_common::SourceSpan {
         file: specforge_common::Sym::new("t.spec"),
@@ -210,10 +192,7 @@ fn standing_counts_as_the_coverage_rule_does() {
     assert_eq!(combinations, 32);
 }
 
-#[specforge_test(
-    behavior = "snapshot_entities_once",
-    verify = "the coverage rule reads each entity as the pass input carries it"
-)]
+#[specforge_test(requirement = "FEATURE-016")]
 fn coverage_entities_are_the_pass_entities_as_the_rule_reads_them() {
     let registries = declared(
         &[

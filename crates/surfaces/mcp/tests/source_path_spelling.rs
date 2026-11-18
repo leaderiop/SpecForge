@@ -65,14 +65,8 @@ fn assert_leaves(error: &Value, argument: &str, named: &str) {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a path an MCP request names resolves inside the served project, whatever its spelling"
-)]
-#[specforge_test(
-    behavior = "read_a_named_source_path",
-    verify = "infer_session, find_spec_for_source and the infer file scope read one table of spellings alike"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn every_source_path_argument_reads_one_table_of_spellings() {
     let mut server = served();
     let root = server.root().to_path_buf();
@@ -124,10 +118,7 @@ fn every_source_path_argument_reads_one_table_of_spellings() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_find_spec_for_source_tool",
-    verify = "a file_path outside the project root is refused as invalid_input on file_path"
-)]
+#[specforge_test(requirement = "FEATURE-069")]
 fn a_file_path_outside_the_project_is_refused_on_file_path() {
     let mut server = served();
     let other = tempfile::TempDir::new().unwrap();

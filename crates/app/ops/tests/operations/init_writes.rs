@@ -72,10 +72,7 @@ fn init_writes_include_gitignore_only_when_it_changed() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "the starter spec's version is the project's"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn the_starter_states_the_project_version() {
     use specforge_ops::authoring::init;
     let scratch = TempDir::new().unwrap();
@@ -144,10 +141,7 @@ fn init_with_a_local_extension_writes_its_module_and_lock() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "init refuses a directory whose starter file exists, writing nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_a_directory_whose_starter_file_exists() {
     use specforge_ops::{OpErrorKind, authoring::init};
     let scratch = TempDir::new().unwrap();
@@ -171,10 +165,7 @@ fn init_refuses_a_directory_whose_starter_file_exists() {
     assert_eq!(files_under(&dir), before, "the file is byte-identical");
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init refuses local extensions the lock plan refuses before it writes anything"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_local_extensions_over_an_unreadable_lock_before_writing() {
     use specforge_ops::authoring::init;
     let blobs = Blobs::new();
@@ -199,10 +190,7 @@ fn init_refuses_local_extensions_over_an_unreadable_lock_before_writing() {
     assert_eq!(files_under(&dir), before);
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "a failed init leaves the directory as it was, files that were there included"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn a_failed_init_puts_back_what_was_there() {
     use specforge_ops::authoring::init;
     let blobs = Blobs::new();
@@ -245,10 +233,7 @@ fn a_failed_init_puts_back_what_was_there() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "a failed init leaves the directory as it was, files that were there included"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn a_failed_init_leaves_an_empty_directory_empty() {
     use specforge_ops::authoring::init;
     let blobs = Blobs::new();
@@ -282,10 +267,7 @@ fn a_failed_init_leaves_an_empty_directory_empty() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init enables a builtin after the builtins it requires, as add does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_enables_a_builtin_after_the_builtins_it_requires() {
     use specforge_ops::authoring::init;
     let scratch = TempDir::new().unwrap();
@@ -307,10 +289,7 @@ fn init_enables_a_builtin_after_the_builtins_it_requires() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_new_project",
-    verify = "init enables @code/core, @rust/cargo and @rust/source for a Cargo.toml and @code/core and @javascript/source for a package.json"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_enables_the_code_packs_of_a_cargo_project() {
     use specforge_ops::authoring::init;
     let runtime = runtime();
@@ -342,10 +321,7 @@ fn init_enables_the_code_packs_of_a_cargo_project() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init enables a builtin after the builtins it requires, as add does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_enables_each_builtin_after_the_builtins_it_requires() {
     use specforge_ops::authoring::init;
     let scratch = TempDir::new().unwrap();
@@ -419,10 +395,7 @@ fn init_refuses_a_local_binary_that_claims_a_builtins_name_before_writing() {
     assert!(!dir.exists());
 }
 
-#[specforge_test_macros::test(
-    behavior = "install_wasm_extension",
-    verify = "add, init and publish read a candidate's declaration in the runtime their surface passes"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-134")]
 fn init_reads_a_local_file_once() {
     use specforge_ops::authoring::init;
     let blobs = Blobs::new();
@@ -454,10 +427,7 @@ fn init_reads_a_local_file_once() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "add_extension_to_existing_project",
-    verify = "add extension appends to extensions list"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn add_from_a_subdirectory_adds_to_the_project_it_is_in() {
     let dir = project(&[], &[]);
     let root = dir.path();
@@ -477,10 +447,7 @@ fn add_from_a_subdirectory_adds_to_the_project_it_is_in() {
     assert!(!sub.join("specforge.json").exists());
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init refuses local extensions the lock plan refuses before it writes anything"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_a_local_file_the_embedded_builtin_does_not_satisfy() {
     use specforge_ops::authoring::init;
     let scratch = TempDir::new().unwrap();
@@ -514,10 +481,7 @@ fn init_refuses_a_local_file_the_embedded_builtin_does_not_satisfy() {
     assert!(!dir.join("specforge.json").exists());
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init enables the builtins a local file requires before it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_enables_the_builtins_a_local_file_requires() {
     use specforge_ops::authoring::init;
     let scratch = TempDir::new().unwrap();
@@ -738,10 +702,7 @@ fn starter_with_a_linked_configuration(
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "load_format_config",
-    verify = "a typed edit and init lay out with the defaults when their bound refuses the configuration"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn a_bounded_init_lays_its_starter_out_with_the_defaults_when_the_configuration_links_outside() {
     let scratch = TempDir::new().unwrap();
 
@@ -755,10 +716,7 @@ fn a_bounded_init_lays_its_starter_out_with_the_defaults_when_the_configuration_
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "load_format_config",
-    verify = "an unbounded caller follows a linked configuration"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-009")]
 fn an_unbounded_init_lays_its_starter_out_with_a_linked_configuration() {
     let scratch = TempDir::new().unwrap();
 

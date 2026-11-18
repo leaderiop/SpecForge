@@ -465,10 +465,9 @@ mod tests {
         )
     }
 
-    #[specforge_test(
-        behavior = "read_views_over_the_project_view",
-        verify = "coverage is computed once per compile and report content, and again after the report changes"
-    )]
+    #[specforge_test(requirement = "FEATURE-025")]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn recorded_coverage_is_memoized_per_report_content() {
         const FILE: &str = "/p/specforge-report.json";
         let project = Scored::new();
@@ -537,10 +536,7 @@ mod tests {
         ));
     }
 
-    #[specforge_test(
-        behavior = "ingest_collector_report",
-        verify = "the recorded test report speaks the collect vocabulary, and a status outside it is a report that cannot be used"
-    )]
+    #[specforge_test(requirement = "FEATURE-128")]
     fn the_report_speaks_the_collect_vocabulary() {
         let project = Scored::new();
         let verdict_of = |status: &str| {
@@ -571,10 +567,9 @@ mod tests {
         assert!(detail.contains("missing field `name`"), "{detail}");
     }
 
-    #[specforge_test(
-        behavior = "read_views_over_the_project_view",
-        verify = "an entity is unverified when it counts toward coverage and is not proven"
-    )]
+    #[specforge_test(requirement = "FEATURE-025")]
+    #[specforge_test(requirement = "FEATURE-064")]
+    #[specforge_test(requirement = "FEATURE-130")]
     fn every_entity_has_a_standing_and_unverified_reads_it() {
         let project = Scored::new();
         let tests: TestReport = serde_json::from_str(&report("passed")).unwrap();

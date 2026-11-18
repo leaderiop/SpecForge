@@ -13,10 +13,8 @@ fn entity(kind: &str, id: &str) -> String {
     format!("{kind} {id} \"E\" {{\n}}\n\n")
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_kinds",
-    verify = "unregistered keyword produces E024"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn detect_unknown_kinds_e024() {
     let build = build([software()]);
     let diags = checked(&build, &[("test.spec", &entity("unknown_thing", "u1"))]);
@@ -24,10 +22,8 @@ fn detect_unknown_kinds_e024() {
     assert_eq!(diags[0].code, "E024");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_kinds",
-    verify = "E024 includes keyword name and source span"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn detect_unknown_kinds_e024_includes_info() {
     let build = build([software()]);
     let text = format!("{}{}", "\n".repeat(41), entity("unknown_thing", "u1"));
@@ -37,20 +33,16 @@ fn detect_unknown_kinds_e024_includes_info() {
     assert_eq!(diags[0].span.as_ref().unwrap().start_line, 42);
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_kinds",
-    verify = "registered keyword does not produce E024"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn detect_unknown_kinds_registered_no_e024() {
     let build = build([software()]);
     let diags = checked(&build, &[("test.spec", &entity("behavior", "b1"))]);
     assert!(diags.is_empty(), "{diags:?}");
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_kinds",
-    verify = "define-block keywords not checked against KindRegistry"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn detect_unknown_kinds_define_not_checked() {
     // A `define` block is no node (the parser reports W143), and a `spec` block is no extension's
     // kind: neither is E024.
@@ -61,10 +53,8 @@ fn detect_unknown_kinds_define_not_checked() {
     assert!(checked(&build([]), &[("test.spec", text)]).is_empty());
 }
 
-#[spec(
-    behavior = "detect_unknown_entity_kinds",
-    verify = "Detect Unknown Entity Kinds: unknown entity kind detection holds — registries_populated_fired, structural_parse_ready, unknown_kinds_diagnosed, registered_kinds_accepted"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn detect_unknown_kinds_contract() {
     let build = build([software()]);
     let unknown = checked(&build, &[("t.spec", &entity("xyzzy", "x1"))]);
@@ -73,10 +63,8 @@ fn detect_unknown_kinds_contract() {
     assert!(known.is_empty(), "registered → no E024");
 }
 
-#[spec(
-    behavior = "suggest_missing_extensions",
-    verify = "E024 for keyword in index suggests the providing extension"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn suggest_missing_ext_known_keyword() {
     // `feature` is a keyword the vocabulary the build is handed knows.
     let diags = checked(
@@ -94,10 +82,8 @@ fn suggest_missing_ext_known_keyword() {
     );
 }
 
-#[spec(
-    behavior = "suggest_missing_extensions",
-    verify = "E024 for keyword not in index suggests specforge extensions search"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn suggest_missing_ext_unknown_keyword() {
     let diags = checked(
         &build([software()]),
@@ -114,10 +100,8 @@ fn suggest_missing_ext_unknown_keyword() {
     );
 }
 
-#[spec(
-    behavior = "suggest_missing_extensions",
-    verify = "Suggest Missing Extensions: missing extension suggestions holds — e024_diagnostic_emitted, suggestion_provided, no_network"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn suggest_missing_ext_contract() {
     let build = build_with([software()], candidates(&[product()]));
     // ensures: a keyword the vocabulary knows gets the extension suggestion.
@@ -140,10 +124,8 @@ fn suggest_missing_ext_contract() {
     );
 }
 
-#[spec(
-    behavior = "two_phase_validate_semantic",
-    verify = "known keyword passes semantic validation"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn a_known_keyword_passes_semantic_validation() {
     let diags = checked(
         &build([software()]),
@@ -152,10 +134,8 @@ fn a_known_keyword_passes_semantic_validation() {
     assert!(diags.is_empty(), "{diags:?}");
 }
 
-#[spec(
-    behavior = "two_phase_validate_semantic",
-    verify = "unknown keyword produces E024"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn an_unknown_keyword_produces_e024() {
     let diags = checked(
         &build([software()]),
@@ -169,10 +149,8 @@ fn an_unknown_keyword_produces_e024() {
     );
 }
 
-#[spec(
-    behavior = "two_phase_validate_semantic",
-    verify = "Phase 2 starts only after registries populated"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn phase_2_starts_only_after_registries_populated() {
     let files = [("test.spec", entity("behavior", "my_beh"))];
     let files: Vec<(&str, &str)> = files.iter().map(|(p, t)| (*p, t.as_str())).collect();
@@ -195,10 +173,8 @@ fn phase_2_starts_only_after_registries_populated() {
     assert!(checked(&build([software()]), &files).is_empty());
 }
 
-#[spec(
-    behavior = "two_phase_validate_semantic",
-    verify = "Two-Phase Validate: Semantic: semantic validation holds — unknown_keywords_diagnosed"
-)]
+#[spec(requirement = "FEATURE-140")]
+#[spec(requirement = "FEATURE-141")]
 fn two_phase_validate_semantic_contract() {
     let build = build([software()]);
     // ensures: all blocks checked — known passes, unknown diagnosed.
@@ -222,10 +198,8 @@ fn two_phase_validate_semantic_contract() {
 
 /// With no entity kind registered, E024, E013, E014, W020, W158 and E061 do
 /// not run; W012 and the rules still do (and W151 says what is unchecked).
-#[spec(
-    behavior = "check_entities_in_one_order",
-    verify = "with no entity kind registered, E024, E013, E014, W020, W158 and E061 do not run, and W012 and the rules still do"
-)]
+#[spec(requirement = "FEATURE-124")]
+#[spec(requirement = "FEATURE-141")]
 fn a_build_with_no_kind_checks_no_kind() {
     let records = "wibble x \"X\" {\n  bogus \"\"\n}\n\nbehavior define \"B\" {\n}\n\n";
     // Nothing declared: nothing reported.
@@ -263,10 +237,8 @@ fn a_build_with_no_kind_checks_no_kind() {
     );
 }
 
-#[spec(
-    behavior = "check_entities_in_one_order",
-    verify = "extensions that load but declare no entity kind report one W151 naming the unchecked entities"
-)]
+#[spec(requirement = "FEATURE-124")]
+#[spec(requirement = "FEATURE-141")]
 fn kindless_extensions_report_one_w151() {
     let kindless = build_with(
         [declare("@test/kindless", |_| {})],

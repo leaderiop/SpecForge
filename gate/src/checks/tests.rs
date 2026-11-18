@@ -256,19 +256,29 @@ fn quick_runs_the_guests_and_the_specs_when_a_rule_crate_changes() {
 }
 
 #[test]
-fn a_test_file_or_a_verify_attribute_or_a_spec_runs_links() {
+fn a_test_file_or_a_spec_link_attribute_or_a_spec_runs_links() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(dir.path().join("crates/a/src")).unwrap();
-    std::fs::write(
-        dir.path().join("crates/a/src/linked.rs"),
-        "#[test(verify   = \"x\")]\nfn t() {}\n",
-    )
-    .unwrap();
-    std::fs::write(
-        dir.path().join("crates/a/src/plain.rs"),
-        "fn verified() {}\nlet verify_all = 1;\n",
-    )
-    .unwrap();
+    for (file, text) in [
+        (
+            "linked.rs",
+            "#[specforge_test(requirement = \"X-01\")]\nfn t() {}\n",
+        ),
+        (
+            "spaced.rs",
+            "#[ spec (requirement = \"X-01\")]\nfn t() {}\n",
+        ),
+        (
+            "pathed.rs",
+            "#[specforge_test_macros::test(requirement = \"X-01\")]\nfn t() {}\n",
+        ),
+        (
+            "plain.rs",
+            "#[test]\nfn specforge_test() {}\n#[spec_helper(x)]\nfn f() {}\nlet verify = 1;\n",
+        ),
+    ] {
+        std::fs::write(dir.path().join("crates/a/src").join(file), text).unwrap();
+    }
     let repo = Repo {
         root: dir.path().to_path_buf(),
         target_dir: dir.path().join("target"),
@@ -279,7 +289,13 @@ fn a_test_file_or_a_verify_attribute_or_a_spec_runs_links() {
             .selection(Mode::Hook, &repo, &ChangeSet::of(paths.iter().copied()))
             .unwrap()
     };
-    assert_eq!(run(&["crates/a/src/linked.rs"]), Selection::Everything);
+    for linked in ["linked.rs", "spaced.rs", "pathed.rs"] {
+        assert_eq!(
+            run(&[&format!("crates/a/src/{linked}")]),
+            Selection::Everything,
+            "{linked}"
+        );
+    }
     assert_eq!(run(&["crates/a/src/plain.rs"]), Selection::Skip);
     assert_eq!(run(&["crates/a/tests/t.rs"]), Selection::Everything);
     assert_eq!(run(&["tests/t.rs"]), Selection::Everything);
@@ -320,6 +336,120 @@ fn packages_map_changed_paths_to_members_and_manifests_to_everything() {
             &["extensions/governance/src/lib.rs", "README.md"]
         ),
         Selection::Skip
+    );
+}
+
+#[test]
+fn a_file_outside_the_workspace_that_a_member_tests_read_selects_that_member() {
+    let golden = "gsd/core/tests/golden/kinds.json";
+    // `gsd/` is its own workspace: the golden belongs to no member, yet two members' tests read it.
+    assert!(this_repo().member_of(golden).is_none());
+    for check in ["build", "tests"] {
+        assert_eq!(
+            selection(check, Mode::Quick, &[golden]),
+            only(&["specforge-component", "xtask"]),
+            "{check}"
+        );
+    }
+    assert_eq!(
+        selection(
+            "tests",
+            Mode::Quick,
+            &[golden, "crates/surfaces/lsp/src/lib.rs"]
+        ),
+        only(&["specforge-component", "specforge-lsp", "xtask"])
+    );
+    // Another file of `gsd/` is read by no member's test.
+    assert_eq!(
+        selection("tests", Mode::Quick, &["gsd/core/src/lib.rs"]),
+        Selection::Skip
+    );
+    // A fixture inside one member that other members' tests read (ADR 0374 D5's chain: the CLI's proof test and the
+    // gate's JUnit merge) selects them beside its own member; another fixture of the same member selects only it.
+    for fixture in [
+        "xtask/tests/fixtures/requirement-links/spec/project.spec",
+        "xtask/tests/fixtures/requirement-links/junit/part-1.xml",
+    ] {
+        assert_eq!(
+            selection("tests", Mode::Quick, &[fixture]),
+            only(&["gate", "specforge-cli", "xtask"]),
+            "{fixture}"
+        );
+    }
+    assert_eq!(
+        selection(
+            "tests",
+            Mode::Quick,
+            &["xtask/tests/fixtures/absorb/specforge.json"]
+        ),
+        only(&["xtask"])
+    );
+    // The file or directory exists and the readers it names are members of the real workspace (`this_repo` lists a
+    // few).
+    let repo = Repo::discover().unwrap();
+    for (path, readers) in READ_FROM_OUTSIDE {
+        let there = match path.strip_suffix("/**") {
+            Some(dir) => repo.root.join(dir).is_dir(),
+            None => repo.root.join(path).is_file(),
+        };
+        assert!(there, "{path}");
+        for reader in *readers {
+            assert!(repo.members.iter().any(|m| &m.name == reader), "{reader}");
+        }
+    }
+}
+
+/// The gate's tests read the workflows (their jobs' timeouts and budgets, ADR 0375 D3): a pull request that only
+/// edits a workflow runs them.
+#[test]
+fn a_change_to_a_workflow_selects_the_gates_tests() {
+    assert_eq!(
+        selection("tests", Mode::Quick, &[".github/workflows/ci.yml"]),
+        only(&["gate"])
+    );
+}
+
+/// The root spec, its project file and the frozen pre-swap spec (ADR 0374 D8) belong to no member: a change to one
+/// selects the members whose tests read it, and another project's spec selects none.
+#[test]
+fn a_change_to_the_root_spec_or_its_frozen_copy_selects_the_tests_that_read_it() {
+    let (live, frozen) = (
+        "spec/specforge.spec",
+        "fixtures/old-spec/spec/glossary.spec",
+    );
+    for path in [live, "specforge.json", frozen] {
+        assert!(this_repo().member_of(path).is_none(), "{path}");
+    }
+    assert_eq!(
+        selection("tests", Mode::Quick, &[live]),
+        only(&[
+            "specforge-cli",
+            "specforge-formatter",
+            "specforge-ops",
+            "specforge-parser",
+            "specforge-project",
+        ])
+    );
+    assert_eq!(
+        selection("tests", Mode::Quick, &["specforge.json"]),
+        only(&["specforge-cli", "specforge-ops"])
+    );
+    assert_eq!(
+        selection("tests", Mode::Quick, &[frozen]),
+        only(&[
+            "specforge-component",
+            "specforge-formatter",
+            "specforge-lsp",
+            "specforge-ops",
+            "specforge-parser",
+            "specforge-project",
+            "tree-sitter-specforge",
+        ])
+    );
+    assert_eq!(
+        selection("tests", Mode::Quick, &["integrations/rust/spec/a.spec"]),
+        Selection::Skip,
+        "another project's spec is not the root's"
     );
 }
 
@@ -530,92 +660,4 @@ fn the_crate_map_runs_when_what_it_is_drawn_from_changes() {
         selection("crate-map", Mode::Hook, &["docs/guide.md"]),
         Selection::Skip
     );
-}
-
-#[test]
-fn spec_modules_runs_when_the_module_file_or_a_manifest_changes() {
-    let repo = this_repo();
-    let manifest = crate::crate_map::manifest_of(&repo.members[0]);
-    for path in ["spec/product/modules.spec", "Cargo.toml", manifest.as_str()] {
-        assert_eq!(
-            selection("spec-modules", Mode::Quick, &[path]),
-            Selection::Everything,
-            "{path}"
-        );
-    }
-    assert_eq!(
-        selection("spec-modules", Mode::Quick, &["spec/product/features.spec"]),
-        Selection::Skip
-    );
-    assert_eq!(
-        selection("spec-modules", Mode::Hook, &["spec/product/modules.spec"]),
-        Selection::Skip
-    );
-}
-
-/// The sample check's selection for `paths` in this repository as cargo describes it: its trigger reads the
-/// workspace's dependency graph, which the literal [`this_repo`] does not hold.
-fn sample(mode: Mode, paths: &[&str]) -> Selection {
-    static REPO: std::sync::OnceLock<Repo> = std::sync::OnceLock::new();
-    let repo = REPO.get_or_init(|| Repo::discover().unwrap());
-    check("self-spec-sample")
-        .selection(mode, repo, &ChangeSet::of(paths.iter().copied()))
-        .unwrap()
-}
-
-#[test]
-fn the_sample_check_runs_when_its_source_converter_kinds_tests_or_goldens_change() {
-    for path in [
-        "spec/governance/constraints.spec",
-        "specforge.json",
-        "xtask/src/absorb/select.rs",
-        "xtask/src/absorb.rs",
-        "xtask/Cargo.toml",
-        "xtask/src/lib.rs",
-        "xtask/src/links.rs",
-        "integrations/rust/specforge-test/src/atexit.rs",
-        "gsd/core/src/kinds/project.rs",
-        "crates/app/ops/src/lib.rs",
-        "crates/runtime/component/tests/sandbox_limits.rs",
-        "extensions/rust/test/src/lib.rs",
-        "extensions/governance/wasm/specforge_ext_governance.wasm",
-        ".config/nextest.toml",
-        "gate/src/checked_tree.rs",
-        "gate/golden/self-spec-sample/ledger.json",
-    ] {
-        assert_eq!(
-            sample(Mode::Quick, &[path]),
-            Selection::Everything,
-            "{path}"
-        );
-    }
-    for path in [
-        "docs/guide.md",
-        "xtask/src/revendor.rs",
-        "examples/shop/spec/a.spec",
-        "evaluation/tasks.json",
-    ] {
-        assert_eq!(sample(Mode::Quick, &[path]), Selection::Skip, "{path}");
-    }
-}
-
-/// The sample runs where its cost is paid only for a change that can break it: a quick run, and CI's `ci --since` on a
-/// pull request (which chooses as quick), each when a path it watches changed; full and ci runs always; the
-/// pre-commit hook never.
-#[test]
-fn the_sample_runs_in_quick_and_a_pull_requests_ci_on_its_paths_and_never_in_the_hook() {
-    for path in [
-        "spec/a.spec",
-        "crates/leaf/cycles/src/lib.rs",
-        "gsd/core/src/lib.rs",
-    ] {
-        assert_eq!(sample(Mode::Hook, &[path]), Selection::Skip, "{path}");
-        assert_eq!(
-            sample(Mode::Quick, &[path]),
-            Selection::Everything,
-            "{path}"
-        );
-    }
-    assert_eq!(sample(Mode::Quick, &["docs/guide.md"]), Selection::Skip);
-    assert_eq!(sample(Mode::Ci, &[]), Selection::Everything);
 }

@@ -69,7 +69,7 @@ pub const GROUPS: &[(&str, &str)] = &[
     ("review", "a line that told the agent something false"),
     (
         "thread",
-        "decisions, items and the `Gsd-Task` trailer (ADR 0351, ADR 0352)",
+        "the `Gsd-Task` trailer, a decision of another phase written by its path, and the computed `wave` and `autonomous` (ADR 0351, ADR 0352, ADR 0371)",
     ),
     ("wait", "a `specforge wait` call"),
     (

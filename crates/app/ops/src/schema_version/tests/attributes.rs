@@ -376,10 +376,7 @@ fn rows() -> Vec<Row> {
     ]
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "every attribute of the schema is compared: a change to any one moves the version"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn every_attribute_change_moves_the_version() {
     for row in rows() {
         let recorded = rich_schema();
@@ -414,10 +411,7 @@ fn every_attribute_change_moves_the_version() {
     }
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "identical schemas no changes"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_record_in_another_order_is_no_change() {
     let mut generated = rich_schema();
     generated.edge_types.push(SchemaEdgeType {
@@ -491,10 +485,7 @@ fn a_type_change_does_not_also_report_the_enum_values() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "an enum field losing a value is breaking; gaining one is an addition"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_enum_field_losing_a_value_is_breaking_and_gaining_one_is_an_addition() {
     let recorded = rich_schema();
 
@@ -516,10 +507,7 @@ fn an_enum_field_losing_a_value_is_breaking_and_gaining_one_is_an_addition() {
     assert!(breaking(&swapped));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "a field's edge type or target kind changing is breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_fields_edge_type_or_target_kind_changing_is_breaking() {
     let recorded = rich_schema();
 
@@ -537,10 +525,7 @@ fn a_fields_edge_type_or_target_kind_changing_is_breaking() {
     assert!(breaking(&diff(&recorded, &set)));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "a field's required flag changing either way is breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_required_flag_changing_either_way_is_breaking() {
     let recorded = rich_schema();
 
@@ -553,10 +538,7 @@ fn a_required_flag_changing_either_way_is_breaking() {
     assert!(breaking(&diff(&recorded, &required)));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "an edge type losing a source or target kind is breaking; gaining one is an addition"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_edge_type_losing_an_end_is_breaking_and_gaining_one_is_an_addition() {
     let recorded = rich_schema();
 
@@ -594,10 +576,7 @@ fn with_members(members: serde_json::Value, targets: serde_json::Value) -> Graph
     serde_json::from_value(wire).unwrap()
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "a required member or a bound tightened is major, a member or a target kind added is minor"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_schema_change_to_members_is_classified() {
     let source = "@specforge/software";
     let optional = serde_json::json!({"name": "x", "field_type": "string", "required": false, "source_extension": source});
@@ -624,10 +603,7 @@ fn a_schema_change_to_members_is_classified() {
     assert_eq!(bump(&fewer_kinds), Some(Bump::Major));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "a bound removed or loosened is minor and one set or tightened major, compared by value"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_bound_is_compared_by_value() {
     let number = |text: &str| -> serde_json::Number { serde_json::from_str(text).unwrap() };
     let bounded = |field_type: FieldType, minimum: Option<&str>, maximum: Option<&str>| {
@@ -689,10 +665,7 @@ fn a_bound_is_compared_by_value() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "an added check or changed args is major, and a removed check minor"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn an_added_check_is_major_and_a_removed_one_minor() {
     let check = |level: i64| specforge_emitter::SchemaCheck {
         checker: Some("@acme/checks:url".to_string()),
@@ -722,10 +695,7 @@ fn an_added_check_is_major_and_a_removed_one_minor() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "a gained owner gate is minor, and a lost or changed one major"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_gained_owner_gate_is_minor_and_a_lost_one_major() {
     let version = |before: Option<&str>, after: Option<&str>| {
         let mut recorded = rich_schema();

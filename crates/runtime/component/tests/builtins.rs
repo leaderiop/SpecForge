@@ -3,6 +3,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+use specforge_component::builtins::Family;
 use specforge_component::{ComponentRuntime, builtins};
 use specforge_protocol_types::DeclaredCategory;
 use specforge_test_macros::test as specforge_test;
@@ -10,7 +11,7 @@ use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 /// The builtins that call a `specforge:host` port, and the interfaces each imports (the port and its types).
-const HOST_IMPORTS: [(&str, &[&str]); 2] = [
+const HOST_IMPORTS: [(&str, &[&str]); 3] = [
     (
         "@rust/source",
         &["specforge:host/syntax@0.1.0", "specforge:host/types@0.1.0"],
@@ -18,6 +19,14 @@ const HOST_IMPORTS: [(&str, &[&str]); 2] = [
     (
         "@javascript/source",
         &["specforge:host/syntax@0.1.0", "specforge:host/types@0.1.0"],
+    ),
+    (
+        "@gsd/core",
+        &[
+            "specforge:host/fs@0.1.0",
+            "specforge:host/git@0.1.0",
+            "specforge:host/types@0.1.0",
+        ],
     ),
 ];
 
@@ -48,6 +57,8 @@ fn every_committed_builtin_imports_only_wasi_and_the_ports_it_calls() {
     }
 }
 
+/// This one loads all: it proves every embedded component loads into one runtime. It builds no
+/// registry, and E026 is a registry build's, so no two declarers of a keyword meet here (ADR 0369 D3).
 #[test]
 fn load_all_builtins() {
     let runtime = ComponentRuntime::new();
@@ -57,7 +68,7 @@ fn load_all_builtins() {
 #[test]
 fn product_handshake() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let result = runtime.call_export("@specforge/product", "__handshake", &[]);
     let WasmCallResult::Ok(bytes) = result else {
@@ -70,7 +81,7 @@ fn product_handshake() {
 #[test]
 fn software_describe_entities() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let input = br#"{"category":"entities"}"#;
     let result = runtime.call_export("@specforge/software", "__describe", input);
@@ -85,7 +96,7 @@ fn software_describe_entities() {
 #[test]
 fn governance_handshake() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let result = runtime.call_export("@specforge/governance", "__handshake", &[]);
     let WasmCallResult::Ok(bytes) = result else {
@@ -98,7 +109,7 @@ fn governance_handshake() {
 #[test]
 fn formal_describe_edges() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let input = br#"{"category":"edges"}"#;
     let result = runtime.call_export("@specforge/formal", "__describe", input);
@@ -114,7 +125,7 @@ fn formal_describe_edges() {
 #[test]
 fn formal_handshake_from_sdk_authored_twin() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let result = runtime.call_export("@specforge/formal", "__handshake", &[]);
     let WasmCallResult::Ok(bytes) = result else {
@@ -140,7 +151,7 @@ fn formal_handshake_from_sdk_authored_twin() {
 #[test]
 fn builtin_handshakes_survive_sdk_migration() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let expectations = [
         (
@@ -198,13 +209,11 @@ fn builtin_handshakes_survive_sdk_migration() {
     }
 }
 
-#[specforge_test(
-    behavior = "pe_declare_surface_contributions",
-    verify = "manifest surfaces declares the specforge product commands, each answered by its export"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
+#[specforge_test(requirement = "FEATURE-104")]
 fn product_declares_its_commands_and_exports_them() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
 
     let input = br#"{"category":"surfaces"}"#;
     let WasmCallResult::Ok(bytes) = runtime.call_export("@specforge/product", "__describe", input)
@@ -282,13 +291,11 @@ fn product_declares_its_commands_and_exports_them() {
     }
 }
 
-#[specforge_test(
-    behavior = "pe_declare_surface_contributions",
-    verify = "manifest surfaces declares the 40 commands surfaces-cli.spec specifies"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
+#[specforge_test(requirement = "FEATURE-104")]
 fn product_declares_the_commands_its_cli_surface_specifies() {
     let runtime = ComponentRuntime::new();
-    builtins::load_builtins(&runtime).unwrap();
+    builtins::load_family(&runtime, Family::Old).unwrap();
     let input = br#"{"category":"surfaces"}"#;
     let WasmCallResult::Ok(bytes) = runtime.call_export("@specforge/product", "__describe", input)
     else {
@@ -302,9 +309,10 @@ fn product_declares_the_commands_its_cli_surface_specifies() {
         .map(|c| c["export"].as_str().unwrap().to_string())
         .collect();
     declared.sort();
-    // Each surface behavior in surfaces-cli.spec names its export once.
+    // Each surface behavior in surfaces-cli.spec, frozen with the pre-swap spec (ADR 0374 D8), names its export once.
     let spec = std::fs::read_to_string(
-        specforge_repo_root::repo_root().join("spec/extensions/product/surfaces-cli.spec"),
+        specforge_repo_root::repo_root()
+            .join("fixtures/old-spec/spec/extensions/product/surfaces-cli.spec"),
     )
     .unwrap();
     let mut specified: Vec<String> = spec
@@ -317,10 +325,7 @@ fn product_declares_the_commands_its_cli_surface_specifies() {
     assert_eq!(declared, specified);
 }
 
-#[specforge_test_macros::test(
-    behavior = "link_host_ports",
-    verify = "every instance links the five ports, and a guest that calls none imports none"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn the_probe_imports_the_ports_it_calls_and_builtins_only_theirs() {
     let engine = wasmtime::Engine::default();
     let blob = std::fs::read(specforge_component::committed::PROBE.path()).unwrap();

@@ -55,10 +55,7 @@ fn w021(build: &RegistryBuild) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "a prompt the registry accepts is routed with its arguments, gates, steps and attribution, and no W021"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_sound_prompt_is_routed_whole() {
     let sound = prompt(
         "plan_phase",
@@ -87,10 +84,7 @@ fn a_sound_prompt_is_routed_whole() {
     );
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "a prompt declaration the registry refuses is W021 and the rest of the declaration is kept"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn each_refused_prompt_is_dropped_whole_and_the_rest_is_kept() {
     let defects = [
         ("Bad-Id", json!({"id": "Bad-Id"})),
@@ -170,10 +164,7 @@ fn each_refused_prompt_is_dropped_whole_and_the_rest_is_kept() {
     assert_eq!(build.commands().routed().len(), 1, "the commands are kept");
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "a step's agent and an empty attribution are dropped alone, with a W021 each"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn an_agent_step_and_an_empty_attribution_are_dropped_alone() {
     let p = prompt(
         "plan_phase",
@@ -189,10 +180,7 @@ fn an_agent_step_and_an_empty_attribution_are_dropped_alone() {
     assert_eq!(kept.attribution, None);
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "a command whose gate the extension does not catalog, or whose subject is no arg, is W021 and not routed"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_command_with_a_gate_it_cannot_evaluate_is_not_routed() {
     let mut declaration = core(json!([]));
     declaration.surfaces.commands[0].gates = vec!["E999".into()];
@@ -218,10 +206,7 @@ fn a_command_with_a_gate_it_cannot_evaluate_is_not_routed() {
     assert!(build.commands().routed().is_empty());
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "two prompts of one route are E039 and the later is not routed"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn the_later_of_two_prompts_of_one_route_is_e039() {
     let build = build_registries(vec![core(json!([
         prompt("plan_phase", json!({})),
@@ -248,10 +233,7 @@ fn the_later_of_two_prompts_of_one_route_is_e039() {
     assert_eq!(build.prompts()[0].extension(), "@t/core");
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "a prompt whose step names a command the registry dropped is dropped too, with a W021"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_step_naming_a_dropped_command_drops_its_prompt() {
     let mut declaration = core(json!([prompt(
         "plan_phase",

@@ -59,10 +59,7 @@ fn decide(row: &Row) -> Result<Publisher, OpError> {
     )
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a publisher is decided once, by the trust policy, from the signer and the user's keys"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_publisher_is_decided_from_the_signer_and_the_users_keys() {
     let rows = [
         // Unsigned: refused, or allowed.
@@ -226,10 +223,7 @@ fn a_trusted_key_is_accepted_without_asking_and_a_change_asks_once() {
     );
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "a refused key change names the commands that can consent"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn a_refused_key_change_names_the_commands_that_can_consent() {
     let error = decide(&Row {
         pin: Some("k1"),
@@ -269,10 +263,7 @@ fn a_change_from_the_locked_key_names_specforge_lock() {
     );
 }
 
-#[specforge_test(
-    behavior = "pin_publisher_key",
-    verify = "an unsigned package is refused for a name with an expected key, whatever --allow-unsigned and consent"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn an_unsigned_package_is_refused_for_a_name_with_an_expected_key() {
     let unsigned = |pin, locked, asking| Row {
         signer: Signer::Unsigned,

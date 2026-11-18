@@ -1,22 +1,26 @@
 //! The tests of an entity, read one way from `@code/core`'s test facts (kind `test`, its `status`) and the graph's
-//! edges (ADR 0331 D5, amended): the test facts that name an entity (an edge `names`, from a `[<ns>:<id>]` tag in the
-//! test's name), its proof's facts (a truth's `proof`), and the facts a check or a verdict names (a deliverable
-//! check's `ref`, a verdict's `cited_tests`: a fact's id, or `[file#]name`, ADR 0304). No report is read.
+//! edges (ADR 0331 D5, amended by ADR 0371 D5): the test facts that name an entity (an edge `names`, from a
+//! `[<ns>:<id>]` tag in the test's name), and the facts a check or a verdict names (a deliverable check's `ref`, a
+//! verdict's `cited_tests`: a fact's id, or `[file#]name`, ADR 0304). No authored link names a test, and no report is
+//! read.
 //!
 //! "No test" has one meaning: test facts are collected and none links a passed or failed one to the entity. With no
 //! test fact at all the evidence is `NotRun`, and each caller maps it once.
 //!
-//! A requirement's thread runs plan → task → commit → test: the tasks of the plans that list it, the commits that name
-//! those tasks, and the tests linked to a committed task, to the requirement, or named in the `proof` of a truth that
-//! names it. [`requirement_proof`] is its one reading: the derive pass writes it as the requirement's `proof`, and
-//! `gsd/E515` reads that value through [`requirement_proven`].
+//! A requirement is read one of two ways (ADR 0371 D5). When a plan lists it, its thread runs plan → task → commit →
+//! test: the tasks of the plans that list it, the commits that name those tasks, and the tests linked to a committed
+//! task or to the requirement, or named by a check of a summary's coverage item (a `deliverable`) whose `requirement`
+//! is it. When no plan lists it, it has no task to look for and
+//! reads its tests alone: those that name it and those its coverage items' checks name. [`requirement_proof`] is the
+//! one reading: the derive pass writes it as the requirement's `proof`, and `gsd/E515` reads that value through
+//! [`requirement_proven`].
 
 use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
 use super::commits::Commit;
-use super::plans::{of_kind, text};
+use super::plans::{of_kind, rows};
 
 #[cfg(test)]
 pub(crate) mod fixture;
@@ -36,8 +40,8 @@ pub enum Evidence {
     Failed,
 }
 
-/// The kind of `@code/core`'s test facts, which a truth's `proof` names: every pass that reads the thread declares it
-/// in its `facts` input (ADR 0353), and the fields a deliverable check's `ref` is matched on.
+/// The kind of `@code/core`'s test facts: every pass that reads the thread declares it in its `facts` input (ADR 0353),
+/// and the fields a deliverable check's `ref` is matched on.
 pub(crate) const TEST: &str = "test";
 const NAME: &str = "name";
 const FILE: &str = "file";
@@ -45,12 +49,19 @@ const FILE: &str = "file";
 /// entities, not their kinds' declarations (protocol 1.15), so the pass cannot read it from the registry; it names the
 /// peer's declared field once, here.
 const STATUS: &str = "status";
-/// A truth's fields the thread reads (`kinds/must_haves.rs`): the requirement it proves and the tests it cites.
-const TRUTH: &str = "truth";
+/// The field of a coverage item naming the requirement it covers.
 const REQUIREMENT: &str = "requirement";
-pub(crate) const PROOF: &str = "proof";
 /// The label of the edge from a test fact to each entity its `names` holds (`@code/core`).
-pub(crate) const NAMES: &str = "names";
+const NAMES: &str = "names";
+/// A summary's coverage item (`kinds/execute.rs`): the one kind whose `requirement` brings checks to a requirement's
+/// proof. A `validation_row`, a `manual_check` and a `spec_prohibition` also write a `requirement`, and are not read.
+const DELIVERABLE: &str = "deliverable";
+/// A coverage item's checks, and the member of a check naming the test it runs.
+const CHECKS: &str = "checks";
+const REF: &str = "ref";
+/// The kind whose `requirements` lists a requirement for its thread: a plan (a phase's `requirements` does not count).
+const PLAN: &str = "plan";
+const REQUIREMENTS: &str = "requirements";
 
 /// Whether `reference` names the test fact `fact`: it is the fact's id, or `[file#]name`, where the first `#` ends
 /// the file (a test name may hold one) and the fact's `name` is `name` and, when `file` is not empty, its `file` is
@@ -97,43 +108,9 @@ impl<'a> Thread<'a> {
         self.facts().next().is_some()
     }
 
-    /// `(fact id, status)` of each test fact linked to `id`: those that name it, then its proof's.
-    pub fn linked(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
-        let mut linked = self.naming(id);
-        linked.extend(self.proof(id));
-        linked
-    }
-
     /// `(fact id, status)` of each test fact whose `names` holds `id`.
     pub fn naming(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
         self.facts_at_ends(|e| e.target == id && e.label == NAMES, |e| &e.source)
-    }
-
-    /// Every test fact linked to `id`, run or not: those whose `names` holds it and those its `proof` names. What an
-    /// invariant guards reads its tests so (`passes::invariants`): a proof test's function is guarded before it runs.
-    pub fn tests(&self, id: &str) -> BTreeSet<&'a str> {
-        self.facts_any_status(|e| match e.label.as_str() {
-            NAMES if e.target == id => Some(e.source.as_str()),
-            PROOF if e.source == id => Some(e.target.as_str()),
-            _ => None,
-        })
-    }
-
-    /// Every test fact whose `names` holds `id`, run or not: the `names` half of [`Thread::tests`]. A journey lists
-    /// its tagged tests so (`journey.tests`): a fact with no recorded status is still tagged.
-    pub fn named_by(&self, id: &str) -> BTreeSet<&'a str> {
-        self.facts_any_status(|e| (e.label == NAMES && e.target == id).then_some(e.source.as_str()))
-    }
-
-    /// The test facts, run or not, at the end `end` reads of each edge it keeps.
-    fn facts_any_status(&self, end: impl Fn(&'a PassEdge) -> Option<&'a str>) -> BTreeSet<&'a str> {
-        let linked: BTreeSet<&str> = self.input.edges.iter().filter_map(end).collect();
-        self.input
-            .entities
-            .iter()
-            .filter(|e| e.kind == TEST && linked.contains(e.id.as_str()))
-            .map(|e| e.id.as_str())
-            .collect()
     }
 
     /// `(fact id, status)` of the test fact at the chosen end of each edge `edge` keeps.
@@ -153,25 +130,23 @@ impl<'a> Thread<'a> {
             .collect()
     }
 
-    /// `(fact id, status)` of each test fact `id`'s `proof` names (a truth's, ADR 0331 D2).
-    pub fn proof(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
-        self.facts_at_ends(|e| e.source == id && e.label == PROOF, |e| &e.target)
-    }
-
-    /// `(fact id, status)` of each test fact the `proof` of a truth whose `requirement` is `requirement` names: what
-    /// proves a requirement besides the facts linked to it and its tasks (ADR 0331 D1, D5).
-    pub fn requirement_proofs(&self, requirement: &str) -> Vec<(&'a str, TestStatus)> {
+    /// The status of each test fact a check of a coverage item names, for every `deliverable` whose `requirement` is
+    /// `requirement` (ADR 0371 D5): a check counts only through the collected fact its `ref` names, never by what the
+    /// summary wrote, and a `ref` that names no fact gives nothing.
+    pub fn coverage(&self, requirement: &str) -> Vec<TestStatus> {
         self.input
             .edges
             .iter()
             .filter(|e| e.label == REQUIREMENT && e.target == requirement)
-            .filter(|e| {
+            .filter_map(|e| {
                 self.input
                     .entities
                     .iter()
-                    .any(|t| t.kind == TRUTH && t.id == e.source)
+                    .find(|d| d.kind == DELIVERABLE && d.id == e.source)
             })
-            .flat_map(|e| self.proof(&e.source))
+            .flat_map(|deliverable| rows(deliverable, CHECKS))
+            .filter_map(|check| check.get(REF).cloned())
+            .flat_map(|reference| self.named(&reference))
             .collect()
     }
 
@@ -226,27 +201,29 @@ impl<'a> Thread<'a> {
         }
     }
 
-    /// The evidence of the test facts linked to `id`.
+    /// The evidence of the test facts that name `id`.
     pub fn of_entity(&self, id: &str) -> Evidence {
-        self.evidence(self.linked(id).into_iter().map(|(_, status)| status))
+        self.evidence(self.naming(id).into_iter().map(|(_, status)| status))
     }
 }
 
-/// How far a requirement's thread reaches: the first missing link of plan → task → commit → test, then what its
-/// tests say.
+/// How far a requirement's thread reaches: for a requirement a plan lists, the first missing link of plan → task →
+/// commit → test, then what its tests say; for one no plan lists, what its tests alone say (it never reads `NoTask`
+/// or `NoCommit`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Proof {
-    /// No task of a plan that lists it, `manual` ones aside.
+    /// A plan lists it, and no plan that does has a task.
     NoTask,
     /// Its tasks have no recorded commit.
     NoCommit,
-    /// A task is committed and no test fact is collected.
+    /// No test fact is collected: a task is committed, or no plan lists it.
     NotRun,
-    /// Test facts are collected, and none linked to a committed task passed or failed.
+    /// Test facts are collected, and none of its tests (those of a committed task, or, when no plan lists it, its own)
+    /// passed or failed.
     NoTest,
-    /// A linked test failed, and none of a committed task's passed.
+    /// One of its tests failed, and, when a plan lists it, no committed task's tests passed.
     Failed,
-    /// A committed task's linked tests hold a passed one and no failed one.
+    /// Its tests hold a passed one and no failed one (a plan lists it: those of one committed task).
     Proven,
 }
 
@@ -270,12 +247,13 @@ impl Proof {
         Self::ALL.into_iter().find(|p| p.as_str() == text)
     }
 
-    /// The first missing link, as `gsd/E515` names it; `None` when the thread is whole.
+    /// The first missing link, as `gsd/E515` names it; `None` when the thread is whole. A missing test is "no passing
+    /// test" whichever reading gave it: a requirement no plan lists has no tasks to name.
     pub fn missing(self) -> Option<&'static str> {
         match self {
             Proof::NoTask => Some("no task of its plans"),
             Proof::NoCommit => Some("no commit of its tasks"),
-            Proof::NotRun | Proof::NoTest | Proof::Failed => Some("no passing test of its tasks"),
+            Proof::NotRun | Proof::NoTest | Proof::Failed => Some("no passing test"),
             Proof::Proven => None,
         }
     }
@@ -283,12 +261,12 @@ impl Proof {
 
 /// Every task, of any type, whose `plan` resolves to a plan that lists `requirement` in its `requirements`: the
 /// route's `<plan.requirements` then `<task.plan`. A task's `plan` resolves to a plan only, so the sources of the
-/// `requirements` edges need no kind check: a phase or a journey that lists the requirement is no task's plan.
+/// `requirements` edges need no kind check: a phase that lists the requirement is no task's plan.
 pub fn requirement_tasks<'a>(input: &'a PassInput, requirement: &str) -> Vec<&'a PassEntity> {
     let listing: BTreeSet<&str> = input
         .edges
         .iter()
-        .filter(|e| e.label == "requirements" && e.target == requirement)
+        .filter(|e| e.label == REQUIREMENTS && e.target == requirement)
         .map(|e| e.source.as_str())
         .collect();
     let tasks: BTreeSet<&str> = input
@@ -302,15 +280,36 @@ pub fn requirement_tasks<'a>(input: &'a PassInput, requirement: &str) -> Vec<&'a
         .collect()
 }
 
-/// The requirement's thread state: its non-`manual` tasks (none: `NoTask`), those a recorded commit names (none:
-/// `NoCommit`), then, with test facts collected (else `NotRun`), the evidence of each committed task: the facts linked
-/// to it, those linked to the requirement and the proofs of the truths that name the requirement (ADR 0331 D5). One
-/// committed task whose evidence passed makes it `Proven`; else a failed one `Failed`; else `NoTest`.
+/// Whether a plan lists `requirement` in its `requirements`: an edge `requirements` to it from an entity of kind
+/// `plan`. A phase's `requirements` edge does not count, unlike in [`requirement_tasks`], where a task's `plan` already
+/// keeps the plans only.
+fn plan_lists(input: &PassInput, requirement: &str) -> bool {
+    input
+        .edges
+        .iter()
+        .filter(|e| e.label == REQUIREMENTS && e.target == requirement)
+        .any(|e| of_kind(input, PLAN).any(|plan| plan.id == e.source))
+}
+
+/// The requirement's thread state (ADR 0331 D5, ADR 0371 D5). A requirement no plan lists reads its tests alone: with
+/// test facts collected (else `NotRun`), the facts that name it and those its coverage items' checks name, `Proven`
+/// when one passed and none failed, `Failed` when one failed, else `NoTest`. A requirement a plan lists reads its
+/// thread: its tasks (none: `NoTask`), those a recorded commit names (none: `NoCommit`), then, with test facts
+/// collected (else `NotRun`), the evidence of each committed task: the facts that name it, those that name the
+/// requirement, and those its coverage items' checks name. One committed task whose evidence passed makes it `Proven`;
+/// else a failed one `Failed`; else `NoTest`.
 pub fn requirement_proof(input: &PassInput, commits: &[Commit], requirement: &str) -> Proof {
-    let tasks: Vec<&PassEntity> = requirement_tasks(input, requirement)
-        .into_iter()
-        .filter(|t| text(t, "type") != Some("manual"))
-        .collect();
+    if !plan_lists(input, requirement) {
+        let thread = Thread::of(input);
+        let own = thread.naming(requirement).into_iter().map(|(_, s)| s);
+        return match thread.evidence(own.chain(thread.coverage(requirement))) {
+            Evidence::NotRun => Proof::NotRun,
+            Evidence::NoTest => Proof::NoTest,
+            Evidence::Passed => Proof::Proven,
+            Evidence::Failed => Proof::Failed,
+        };
+    }
+    let tasks = requirement_tasks(input, requirement);
     if tasks.is_empty() {
         return Proof::NoTask;
     }
@@ -330,16 +329,16 @@ pub fn requirement_proof(input: &PassInput, commits: &[Commit], requirement: &st
         return Proof::NotRun;
     }
     let shared: Vec<TestStatus> = thread
-        .linked(requirement)
+        .naming(requirement)
         .into_iter()
-        .chain(thread.requirement_proofs(requirement))
         .map(|(_, status)| status)
+        .chain(thread.coverage(requirement))
         .collect();
     let evidence: Vec<Evidence> = committed
         .iter()
         .map(|task| {
-            let linked = thread.linked(&task.id).into_iter().map(|(_, s)| s);
-            thread.evidence(linked.chain(shared.iter().copied()))
+            let naming = thread.naming(&task.id).into_iter().map(|(_, s)| s);
+            thread.evidence(naming.chain(shared.iter().copied()))
         })
         .collect();
     if evidence.contains(&Evidence::Passed) {

@@ -30,10 +30,7 @@ fn bare(kind: &str, id: &str) -> Edit {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new writes each field as set writes it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_writes_each_field_as_set_writes_it() {
     for toml in [
         "",
@@ -67,10 +64,7 @@ fn new_writes_each_field_as_set_writes_it() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new writes each field as set writes it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_leaves_out_a_field_equal_to_the_default_as_set_does() {
     let file = format!("defaults behavior {{\n  invariants [done_stamped]\n}}\n\n{TASKS}");
     let c = project(&[("tasks.spec", &file)]);
@@ -99,10 +93,7 @@ fn new_leaves_out_a_field_equal_to_the_default_as_set_does() {
     assert!(!block.contains("invariants"), "{created}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new writes each field as set writes it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_ranks_an_open_kinds_members_by_name_as_set_in_key_order_does() {
     let c = project(&[("tasks.spec", TASKS)]);
     let fields: Vec<(&str, Input)> = vec![
@@ -157,10 +148,7 @@ behavior empty_requires "Empty Requires" {
 }
 "#;
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set of an entry into a block field written as none writes it inside"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_of_an_entry_into_a_block_field_written_as_none_writes_it_inside() {
     let c = compile(BOTH, &[("g.spec", NONE)]);
     let rows: [(&str, Vec<Edit>); 2] = [
@@ -211,10 +199,7 @@ behavior bare "Bare" {
 }
 "#;
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set of a new entry writes its annotations"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_of_a_new_entry_writes_its_annotations() {
     let c = compile(BOTH, &[("g.spec", REQUIRING_AND_BARE)]);
     for id in ["check_graph", "bare"] {
@@ -232,10 +217,7 @@ fn set_of_a_new_entry_writes_its_annotations() {
         assert!(line.ends_with("@since \"1.2\""), "{id}: {text}");
     }
 }
-#[specforge_test_macros::test(
-    behavior = "create_entity",
-    verify = "new writes an equal verify obligation once"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn new_writes_an_equal_obligation_once() {
     let c = project(&[("tasks.spec", TASKS)]);
     let Edit::Create {

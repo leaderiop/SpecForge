@@ -93,10 +93,7 @@ fn call(export: &str, input: serde_json::Value) -> Result<serde_json::Value, Str
         })
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "a pass, collector, custom rule or migration hook is declared with its handler, and its export answers through it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn every_operation_answers_through_its_declared_handler() {
     let declaration = extension().declaration();
     // The declarations name the exports the handlers answer.
@@ -215,10 +212,7 @@ fn an_operation_and_a_surface_cannot_share_an_export() {
     });
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn answer_export_names_a_bad_input_as_a_declared_handler_does() {
     let mut handled = false;
     let by_hand = answer_export::<CollectInput, CollectOutput>("collect", b"nope", |_| {
@@ -243,10 +237,7 @@ fn answer_export_names_a_bad_input_as_a_declared_handler_does() {
     assert!(ok.is_ok(), "{ok:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "the SDK routes a compiler pass at the export the host calls it by"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_pass_is_routed_at_the_export_the_host_calls() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/pass", "1.0.0"));
     b.pass("audit", |p| {
@@ -258,10 +249,7 @@ fn a_pass_is_routed_at_the_export_the_host_calls() {
     assert!(b.dispatch_export("__pass_other", b"{}").is_none());
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "the SDK reads a call's settings or the declared defaults and a tool handler never sees settings"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_sdk_reads_a_setting_or_its_declared_default() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/set", "1.0.0"));
     c.setting("level", |s| {
@@ -327,10 +315,7 @@ fn the_sdk_reads_a_setting_or_its_declared_default() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "answer_judged_inputs",
-    verify = "inspect, query, the graph export and a command's graph list each entity's judgements"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-058")]
 fn a_command_graph_node_lists_its_judgements() {
     let node: specforge_protocol_types::GraphNode = serde_json::from_value(json!({
         "id": "v1.0/03/03-02", "kind": "plan", "title": "T", "fields": {},
@@ -342,10 +327,7 @@ fn a_command_graph_node_lists_its_judgements() {
     assert_eq!(wire["judgements"][0]["state"], "missing", "{wire}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "the SDK reads a number setting as a decimal, a whole number included"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_sdk_reads_a_number_setting() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/num", "1.0.0"));
     c.setting("ratio", |s| {

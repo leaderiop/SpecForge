@@ -46,10 +46,7 @@ fn assert_matches_a_fresh_compile(session: &ProjectSession, root: &Path) {
 
 const TERM: &str = "term alpha_one \"A\" {}\n";
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory created, moved or deleted under the spec root changes every source under it"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_directory_moved_inside_the_spec_root_moves_its_sources() {
     let (dir, mut session) = open(plain(), &[("r.spec", ""), ("old/a.spec", TERM)]);
     let root = fs::canonicalize(dir.root()).unwrap();
@@ -64,10 +61,7 @@ fn a_directory_moved_inside_the_spec_root_moves_its_sources() {
     assert_matches_a_fresh_compile(&session, &root);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory created, moved or deleted under the spec root changes every source under it"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_directory_moved_in_from_outside_adds_its_sources() {
     let (dir, session) = open(plain(), &[("r.spec", "")]);
     let root = fs::canonicalize(dir.root()).unwrap();
@@ -79,10 +73,7 @@ fn a_directory_moved_in_from_outside_adds_its_sources() {
     assert_eq!(changes.sources(), vec!["pkg/g.spec"]);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory created, moved or deleted under the spec root changes every source under it"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_directory_moved_out_removes_its_sources() {
     let (dir, session) = open(plain(), &[("r.spec", ""), ("d/e/x.spec", TERM)]);
     let root = fs::canonicalize(dir.root()).unwrap();
@@ -93,10 +84,7 @@ fn a_directory_moved_out_removes_its_sources() {
     assert_eq!(changes.sources(), vec!["d/e/x.spec"]);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory created, moved or deleted under the spec root changes every source under it"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_directory_reported_alone_brings_the_sources_written_in_it() {
     let (dir, session) = open(plain(), &[("r.spec", "")]);
     let root = fs::canonicalize(dir.root()).unwrap();
@@ -110,10 +98,7 @@ fn a_directory_reported_alone_brings_the_sources_written_in_it() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a symlinked source is keyed by its link and changes when its target does"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_symlink_inside_the_spec_root_is_keyed_by_its_own_name() {
     let (dir, mut session) = open(
         plain(),
@@ -132,10 +117,7 @@ fn a_symlink_inside_the_spec_root_is_keyed_by_its_own_name() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a symlinked source is keyed by its link and changes when its target does"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_edit_to_a_symlinked_sources_target_changes_that_source() {
     let (_dir, session, outside) = linked_project();
     fs::write(
@@ -166,10 +148,7 @@ fn linked_project() -> (TestProject, ProjectSession, PathBuf) {
     (dir, session, outside_dir)
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a path whose file is as the session last read it changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_path_whose_file_is_as_read_changes_nothing() {
     let (dir, session) = open(plain(), &[("a.spec", TERM)]);
     let root = fs::canonicalize(dir.root()).unwrap();
@@ -182,10 +161,7 @@ fn a_path_whose_file_is_as_read_changes_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a detached session takes no change from disk"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_detached_session_takes_no_change_from_disk() {
     let session = ProjectSession::detached();
     let dir = TestProject::new().without_config().file("b.spec", TERM);
@@ -198,10 +174,7 @@ fn a_detached_session_takes_no_change_from_disk() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a session's watch roots and the LSP's watchers cover every symlinked source's target"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_symlinked_sources_target_directory_is_watched() {
     let (_dir, session, outside) = linked_project();
 
@@ -223,10 +196,7 @@ fn a_symlinked_sources_target_directory_is_watched() {
     );
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory created, moved or deleted under the spec root changes every source under it"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_held_file_under_a_moved_directory_is_left_out() {
     let (dir, mut session) = open(
         plain(),
@@ -249,10 +219,7 @@ fn a_held_file_under_a_moved_directory_is_left_out() {
     );
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a directory created, moved or deleted under the spec root changes every source under it"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_batch_of_many_file_events_is_one_update() {
     let files: Vec<String> = (0..40).map(|n| format!("feat/f{n:02}.spec")).collect();
     let dir = files.iter().enumerate().fold(
@@ -282,10 +249,7 @@ fn a_batch_of_many_file_events_is_one_update() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a symlinked source is keyed by its link and changes when its target does"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn stale_sees_an_edit_to_a_symlinked_sources_target() {
     let (_dir, session, outside) = linked_project();
     fs::write(
@@ -297,10 +261,7 @@ fn stale_sees_an_edit_to_a_symlinked_sources_target() {
     assert_eq!(session.stale().sources(), vec!["link.spec"]);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a discovered .spec file is a source change keyed from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_discovered_spec_file_is_a_source_keyed_from_the_project_root() {
     let (dir, session) = open(
         json!({"name": "c", "version": "0.1.0", "spec_root": "spec"}),
@@ -355,10 +316,7 @@ fn a_discovered_spec_file_is_a_source_keyed_from_the_project_root() {
     assert!(changes.environment().is_empty() && changes.check_inputs().is_empty());
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a .wasm file no extension loads changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_unloaded_wasm_changes_nothing() {
     let (dir, session) = open(
         json!({"name": "c", "version": "0.1.0", "extensions": ["@acme/local=ext/local.wasm"]}),
@@ -375,10 +333,7 @@ fn an_unloaded_wasm_changes_nothing() {
     }
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a file a files check names re-runs the checks"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_referenced_file_reruns_the_checks() {
     let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"docs/guide.md\"]\n}\n");
     let root = dir.root();
@@ -402,10 +357,7 @@ fn a_referenced_file_reruns_the_checks() {
     assert_eq!(e016(&session), 0, "{:?}", session.project().diagnostics());
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an update that names a new file the checks read changes the session's inputs"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn an_update_that_names_a_new_file_changes_the_inputs() {
     let dir = docs_project("gadget doc \"Doc\" {\n}\n");
     let root = dir.root();
@@ -454,10 +406,7 @@ fn an_update_that_names_a_new_file_changes_the_inputs() {
     assert!(session.reload_environment().inputs_changed);
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "an excluded or undiscovered .spec file changes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn excluded_and_undiscovered_spec_files_change_nothing() {
     let (dir, session) = open(
         json!({"name": "c", "version": "0.1.0", "spec_root": "spec", "exclude": ["drafts"]}),
@@ -482,10 +431,7 @@ fn excluded_and_undiscovered_spec_files_change_nothing() {
 
 /// A session with no project has no inputs: it takes no change from disk,
 /// and the environment has nothing to reload.
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a detached session takes no change from disk"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_detached_session_has_no_inputs() {
     let mut session = ProjectSession::detached();
 
@@ -558,10 +504,7 @@ fn inputs_layout() -> InputsLayout {
 
 /// Every input the session reaches lies under a directory a watcher
 /// watches.
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a session's watch roots cover every input it classifies"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn every_input_lies_under_a_watch_root() {
     let layout = inputs_layout();
     let root = layout.project.root();
@@ -603,10 +546,7 @@ fn every_input_lies_under_a_watch_root() {
 /// A source that becomes a symlink, or stops being one, moves what a
 /// session watches: its update says the inputs changed.
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a session's watch roots and the LSP's watchers cover every symlinked source's target"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn relinking_a_source_changes_the_inputs() {
     let (dir, mut session) = open(plain(), &[("a.spec", TERM)]);
     let outside = TempDir::new().unwrap();
@@ -634,10 +574,7 @@ fn relinking_a_source_changes_the_inputs() {
     assert!(!session.inputs().watch_roots().contains(&outside_root));
 }
 
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a nested project's specforge.json appearing or going changes every source under its directory"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_nested_projects_marker_changes_the_sources_under_it() {
     let (dir, mut session) = open(
         plain(),

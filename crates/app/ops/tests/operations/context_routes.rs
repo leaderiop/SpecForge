@@ -133,10 +133,7 @@ fn a_route_serves_its_sections_for_a_subject_of_its_kind() {
     assert_eq!(nodes(&document), served_ids);
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "a budgeted context read of a plan for its executor keeps every core member and cuts only enrich sections"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_budgeted_pack_keeps_its_core_and_cuts_in_declared_order() {
     let project = gsd_context_project();
     let compiled = compile(&project);
@@ -173,10 +170,7 @@ fn a_budgeted_pack_keeps_its_core_and_cuts_in_declared_order() {
     }
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "a route no loaded extension declares, or a subject of another kind, is invalid input"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn a_route_no_extension_declares_or_of_another_kind_is_refused() {
     let project = gsd_context_project();
     let compiled = compile(&project);
@@ -208,10 +202,7 @@ fn a_route_no_extension_declares_or_of_another_kind_is_refused() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_context_pack",
-    verify = "the pack digest covers the sections served and recomputes from the pack"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn the_pack_digest_recomputes_and_covers_only_what_is_served() {
     let project = gsd_context_project();
     let compiled = compile(&project);
@@ -241,10 +232,7 @@ fn the_pack_digest_recomputes_and_covers_only_what_is_served() {
     assert_ne!(pack(&recompiled, "gsd/executor", None).digest, whole.digest);
 }
 
-#[specforge_test(
-    behavior = "render_context_section",
-    verify = "an installed agent a context route names gets a Context section naming the route, its sections and how to read it"
-)]
+#[specforge_test(requirement = "FEATURE-012")]
 fn an_agent_a_route_names_gets_a_context_section_and_others_none() {
     use specforge_ops::host::{Host, render};
     let body = json!({"body": "# The agent\n"}).to_string().into_bytes();

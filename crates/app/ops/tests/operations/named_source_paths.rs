@@ -69,10 +69,7 @@ fn start(
 
 const LEAVES: &str = "a source file is named from the project root";
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_source_path",
-    verify = "every spelling of a source-code path under the project root reads as its key"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn an_absolute_source_path_under_the_root_is_its_key() {
     let project = project();
     let file = project.root().join("src/tiny.rs");
@@ -88,10 +85,7 @@ fn an_absolute_source_path_under_the_root_is_its_key() {
     assert_eq!(manifest["source_roots"], json!(["src"]));
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_source_path",
-    verify = "a source-code path whose key lies outside the project root is refused in the named spec file's sentence"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn a_source_path_that_leaves_the_root_is_refused_in_one_sentence() {
     let project = project();
     for named in ["../x.rs", "/elsewhere/x.rs"] {
@@ -111,10 +105,7 @@ fn a_source_path_that_leaves_the_root_is_refused_in_one_sentence() {
     ));
 }
 
-#[specforge_test_macros::test(
-    behavior = "mark_source_file_analyzed",
-    verify = "mark refuses a directory as invalid input on source_file"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-054")]
 fn a_marked_directory_is_invalid_input_on_source_file() {
     let project = project();
     let refusal = mark(&project, "src").unwrap_err();
@@ -149,10 +140,7 @@ fn a_marked_file_behind_a_link_that_leaves_is_refused_where_it_lands() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "read_a_named_source_path",
-    verify = "every spelling of a source-code path under the project root reads as its key"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-064")]
 fn the_anchors_read_their_query_from_the_project_root() {
     use specforge_project::testing::{ITEM_EXTENSIONS, item, items_runtime, naming, stored_items};
     let project = specforge_project::testing::TestProject::new()
@@ -192,10 +180,7 @@ fn the_anchors_read_their_query_from_the_project_root() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "mark_source_file_analyzed",
-    verify = "mark replaces the entry of its file whatever spelling recorded it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-054")]
 fn marking_a_file_replaces_its_entry_recorded_absolute() {
     let project = project();
     let recorded = project.root().join("src/tiny.rs");

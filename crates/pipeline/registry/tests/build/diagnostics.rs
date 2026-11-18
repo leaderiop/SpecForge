@@ -52,10 +52,7 @@ fn failing(_: CustomCall<'_>) -> Result<Verdict, VerdictError> {
     Err(VerdictError::Failed("no export".into()))
 }
 
-#[spec(
-    behavior = "build_registries_from_declarations",
-    verify = "the registry build reports its diagnostics in one order: the declarations', the registries', the custom rules' probes, the surfaces'"
-)]
+#[spec(requirement = "FEATURE-028")]
 fn the_build_reports_its_diagnostics_in_one_order() {
     let mut build = build([
         colliding("@t/a", true),
@@ -69,10 +66,7 @@ fn the_build_reports_its_diagnostics_in_one_order() {
     assert_eq!(codes(&build), ["E030", "W021", "E026", "W112", "E039"]);
 }
 
-#[spec(
-    behavior = "build_registries_from_declarations",
-    verify = "probing the build reports each custom rule whose function cannot answer once, as W112 after the registries' diagnostics"
-)]
+#[spec(requirement = "FEATURE-028")]
 fn a_probe_is_w112_after_the_registries_and_probing_again_reports_it_once() {
     let mut build = build([colliding("@t/a", true), colliding("@t/b", false)]);
     assert_eq!(codes(&build), ["W021", "E026", "E039"]);
@@ -98,10 +92,7 @@ fn a_probe_is_w112_after_the_registries_and_probing_again_reports_it_once() {
     assert_eq!(codes(&build), ["W021", "E026", "E039"]);
 }
 
-#[spec(
-    behavior = "build_registries_from_declarations",
-    verify = "the registry build says what each of its diagnostics is about: a declaration, the peers, the registries, a rule, a surface or a collision"
-)]
+#[spec(requirement = "FEATURE-028")]
 fn the_build_says_what_each_diagnostic_is_about() {
     let mut build = build([
         colliding("@t/a", true),

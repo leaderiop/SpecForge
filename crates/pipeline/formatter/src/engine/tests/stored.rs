@@ -100,14 +100,8 @@ fn clearable(text: &str, forms: &FieldForms) -> Vec<String> {
     out
 }
 
-#[specforge_test(
-    invariant = "formatting_semantic_preservation",
-    verify = "format(spec) under the project's field forms stores the same values and references as spec"
-)]
-#[specforge_test(
-    behavior = "apply_format_rules",
-    verify = "format writes a value in another form exactly where W159's rule names one"
-)]
+#[specforge_test(requirement = "INVARIANT-049")]
+#[specforge_test(requirement = "FEATURE-009")]
 fn formatting_keeps_every_stored_value_and_reference() {
     let forms = forms();
     let config = FormatConfig::default();

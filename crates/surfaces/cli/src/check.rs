@@ -216,10 +216,7 @@ mod tests {
         dir
     }
 
-    #[specforge_test(
-        behavior = "run_check_phase_passes",
-        verify = "a check pass's diagnostics are reported by specforge check"
-    )]
+    #[specforge_test(requirement = "FEATURE-013")]
     fn check_reports_a_check_pass_and_exits_on_its_errors() {
         let clean = project("gadget good \"Good\" {\n}\n");
         let failing = project("gadget good \"Good\" {\n}\n\ngadget bad_one \"Bad\" {\n}\n");

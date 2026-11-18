@@ -583,62 +583,6 @@ fn a_quick_plans_research_named_research_is_e206() {
     );
 }
 
-fn milestone(id: &str) -> PassEntity {
-    PassEntity {
-        id: id.into(),
-        kind: "milestone".into(),
-        ..Default::default()
-    }
-}
-
-#[test]
-fn a_milestone_on_a_dependency_cycle_is_e102() {
-    let found = check(&input(
-        vec![milestone("v1.0"), milestone("v1.1"), milestone("v2.0")],
-        vec![
-            edge("v1.0", "v1.1", "depends_on"),
-            edge("v1.1", "v1.0", "depends_on"),
-            edge("v2.0", "v2.0", "depends_on"),
-        ],
-    ));
-    assert_eq!(ids(&found, "E102"), ["v1.0", "v1.1", "v2.0"], "{found:?}");
-    assert_eq!(found.len(), 3, "{found:?}");
-    assert_eq!(
-        found[0].message,
-        "milestone 'v1.0' is on a dependency cycle"
-    );
-    assert_eq!(
-        found[0].suggestion.as_deref(),
-        Some("break the cycle: remove one depends_on")
-    );
-}
-
-#[test]
-fn a_milestone_depending_on_another_is_clean() {
-    // A chain in either direction of the names: milestone names carry no order GSD defines.
-    let found = check(&input(
-        vec![milestone("v1.0"), milestone("v1.1"), milestone("v2.0")],
-        vec![
-            edge("v1.1", "v1.0", "depends_on"),
-            edge("v1.0", "v2.0", "depends_on"),
-        ],
-    ));
-    assert!(found.is_empty(), "{found:?}");
-}
-
-#[test]
-fn a_milestone_cycle_is_read_from_depends_on_only() {
-    // Two milestones linked both ways by another field are no dependency cycle.
-    let found = check(&input(
-        vec![milestone("v1.0"), milestone("v1.1")],
-        vec![
-            edge("v1.0", "v1.1", "depends_on"),
-            edge("v1.1", "v1.0", "supersedes"),
-        ],
-    ));
-    assert!(found.is_empty(), "{found:?}");
-}
-
 /// An entity of another kind sharing an id, listed before or after its namesake (E002 forbids a second id within one
 /// kind only).
 fn namesake(id: &str, kind: &str) -> PassEntity {
@@ -650,123 +594,20 @@ fn namesake(id: &str, kind: &str) -> PassEntity {
 }
 
 #[test]
-fn a_term_or_journey_sharing_a_milestones_id_hides_no_cycle() {
-    for kind in ["term", "journey", "persona"] {
-        for after in [true, false] {
-            let mut entities = vec![milestone("mvp"), milestone("beta")];
-            let other = namesake("mvp", kind);
-            if after {
-                entities.push(other);
-            } else {
-                entities.insert(0, other);
-            }
-            let found = check(&input(
-                entities,
-                vec![
-                    edge("mvp", "beta", "depends_on"),
-                    edge("beta", "mvp", "depends_on"),
-                ],
-            ));
-            assert_eq!(
-                ids(&found, "E102"),
-                ["beta", "mvp"],
-                "{kind} after: {after}: {found:?}"
-            );
-        }
-    }
-}
-
-#[test]
-fn a_term_sharing_a_requirements_id_hides_no_phase_of_it() {
-    // The phase lists the requirement; a term of the same id, before or after it, is not what it lists.
+fn a_workstream_sharing_a_requirements_id_hides_no_phase_of_it() {
+    // The phase lists the requirement; a workstream of the same id, before or after it, is not what it lists.
     for after in [true, false] {
         let mut entities = vec![requirement("AUTH-01", "v1"), phase("v1.0/01")];
-        let term = namesake("AUTH-01", "term");
+        let workstream = namesake("AUTH-01", "workstream");
         if after {
-            entities.push(term);
+            entities.push(workstream);
         } else {
-            entities.insert(0, term);
+            entities.insert(0, workstream);
         }
         let found = check(&input(
             entities,
             vec![edge("v1.0/01", "AUTH-01", "requirements")],
         ));
-        assert!(found.is_empty(), "term after: {after}: {found:?}");
-    }
-}
-
-/// A milestone with the dates it writes, `(field, day)`.
-fn dated(id: &str, dates: &[(&str, &str)]) -> PassEntity {
-    PassEntity {
-        fields: dates
-            .iter()
-            .map(|(field, day)| (field.to_string(), day.to_string()))
-            .collect(),
-        ..milestone(id)
-    }
-}
-
-#[test]
-fn a_milestone_targeting_before_it_starts_is_e537() {
-    let found = check(&input(
-        vec![dated(
-            "v1.1",
-            &[("starts", "2026-03-01"), ("targets", "2026-02-01")],
-        )],
-        vec![],
-    ));
-    assert_eq!(codes(&found), [("E537", "v1.1")]);
-    assert_eq!(
-        found[0].message,
-        "milestone 'v1.1' targets 2026-02-01 before it starts 2026-03-01"
-    );
-    assert_eq!(found[0].severity, PassSeverity::Error);
-    assert_eq!(
-        found[0].suggestion.as_deref(),
-        Some("move `targets` on or after `starts`, or correct `starts`")
-    );
-    // A day earlier in a later month and year is still compared as a day.
-    let found = check(&input(
-        vec![dated(
-            "v2.0",
-            &[("starts", "2027-01-01"), ("targets", "2026-12-31")],
-        )],
-        vec![],
-    ));
-    assert_eq!(codes(&found), [("E537", "v2.0")]);
-}
-
-#[test]
-fn a_milestone_targeting_on_or_after_its_start_is_not_e537() {
-    for dates in [
-        &[("starts", "2026-03-01"), ("targets", "2026-03-01")][..],
-        &[("starts", "2026-03-01"), ("targets", "2026-03-02")],
-        &[("starts", "2026-12-31"), ("targets", "2027-01-01")],
-        &[("starts", "2026-03-01")],
-        &[("targets", "2026-03-01")],
-        &[],
-    ] {
-        let found = check(&input(vec![dated("v1.1", dates)], vec![]));
-        assert!(found.is_empty(), "{dates:?}: {found:?}");
-    }
-}
-
-#[test]
-fn a_milestone_date_that_is_no_calendar_day_is_left_to_e061() {
-    // The kernel reports each of these texts as E061 and still passes it on; E537 judges two calendar days only.
-    for (starts, targets) in [
-        ("2026-3-1", "2026-10-01"),
-        ("2026-3-1", "2026-02-01"),
-        ("2026-03-01T09:00:00Z", "2026-03-01"),
-        ("2026-03-01T09:00:00Z", "2026-02-01"),
-        ("", "2026-01-01"),
-        ("2026-03-01", ""),
-        ("2026-02-30", "2026-02-01"),
-        ("+2026-03-01", "2026-02-01"),
-        ("2026-03-01", "soon"),
-    ] {
-        let dates = [("starts", starts), ("targets", targets)];
-        let found = check(&input(vec![dated("v1.1", &dates)], vec![]));
-        assert!(found.is_empty(), "{dates:?}: {found:?}");
+        assert!(found.is_empty(), "workstream after: {after}: {found:?}");
     }
 }

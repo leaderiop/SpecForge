@@ -139,10 +139,7 @@ fn check_calls(runtime: &InProcessRuntime) -> usize {
 
 const POINTED: &str = "service a \"A\" {\n  pointed \"a.bin\"\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a second round reads the span the first named"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_second_round_reads_the_span_the_first_named() {
     let (scene, runtime) = scene(POINTED);
     scene.dir.write("a.bin", "abcdef0002");
@@ -159,10 +156,7 @@ fn a_second_round_reads_the_span_the_first_named() {
     assert_eq!(check_calls(&runtime), 3);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a fourth round of probes is E028 naming the checker, and its value is not judged"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_fourth_round_is_e028() {
     let (scene, _) = scene("service a \"A\" {\n  forever \"a.bin\"\n}\n");
     scene.dir.write("a.bin", "abcdef");
@@ -185,10 +179,7 @@ fn a_fourth_round_is_e028() {
     assert_eq!(rows[0].status, CheckStatus::NotRun, "{rows:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a cached check replays every round without calling the guest"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_cached_check_replays_every_round_without_the_guest() {
     let (scene, runtime) = scene(POINTED);
     scene.dir.write("a.bin", "abcdef0002");

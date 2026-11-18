@@ -57,10 +57,7 @@ fn assert_refused(reply: &Value, argument: &str) {
     assert_eq!(error["argument"], argument, "{error}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "a local extension path in specifiers that resolves outside the project is refused as invalid_input on specifiers"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_refuses_a_local_file_outside_the_project() {
     let scene = Scene::new();
     let mut server = scene.serve();
@@ -79,10 +76,7 @@ fn add_extension_refuses_a_local_file_outside_the_project() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "a local extension path in specifiers that resolves outside the project is refused as invalid_input on specifiers"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_refuses_a_symlink_that_leaves_the_project() {
     let scene = Scene::new();
     #[cfg(unix)]
@@ -103,10 +97,7 @@ fn add_extension_refuses_a_symlink_that_leaves_the_project() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "a local extension path in extensions that resolves outside the served project is refused as invalid_input on extensions"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_refuses_a_local_file_outside_the_servers_root() {
     // Nothing is served, so the server's root bounds the call.
     let scene = Scene::new();
@@ -134,10 +125,7 @@ fn workspace_server(scene: &Scene) -> (McpServer, PathBuf) {
     (server, root)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "each local specifier in extensions is held to the server's root as init reads it, a crate directory included"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_refuses_a_local_file_named_after_a_comma() {
     let scene = Scene::new();
     let (mut server, root) = workspace_server(&scene);
@@ -154,10 +142,7 @@ fn init_refuses_a_local_file_named_after_a_comma() {
     assert!(!root.join("created").exists());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "each local specifier in extensions is held to the server's root as init reads it, a crate directory included"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_refuses_a_crate_directory_named_after_a_comma() {
     let scene = Scene::new();
     let ext = scene.dir.path().join("outside/ext");
@@ -179,10 +164,7 @@ fn init_refuses_a_crate_directory_named_after_a_comma() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "each local specifier in extensions is held to the server's root as init reads it, a crate directory included"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_refuses_a_local_file_reached_through_a_symlink_and_dot_dots() {
     let scene = Scene::new();
     fs::copy(scene.outside_blob(), scene.dir.path().join("greet.wasm")).unwrap();
@@ -206,10 +188,7 @@ fn init_refuses_a_local_file_reached_through_a_symlink_and_dot_dots() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "a crate directory in specifiers whose built component resolves outside the project is refused as invalid_input on specifiers"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_refuses_a_crate_directory_whose_build_leaves_the_project() {
     let scene = Scene::new();
     let proj = scene.dir.path().join("proj");

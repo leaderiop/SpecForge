@@ -50,10 +50,7 @@ pub(crate) fn token<'a>(tokens: &'a [SemanticToken], text: &str) -> &'a Semantic
 
 // -- provide_semantic_tokens --------------------------------------------------
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "the forms after an unclosed triple-quoted string are classified as the parser reads them"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn the_forms_after_an_unclosed_triple_quoted_string_are_classified() {
     let text = concat!(
         "behavior login \"Log in\" {\n",
@@ -86,10 +83,7 @@ fn the_forms_after_an_unclosed_triple_quoted_string_are_classified() {
     assert_eq!(keywords, ["type", "type"]);
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a union and an inline ref after an unclosed body are classified as top-level forms"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn a_union_and_an_inline_ref_after_an_unclosed_body_are_classified_as_forms() {
     let tokens = tokens_of(
         concat!(
@@ -109,10 +103,7 @@ fn a_union_and_an_inline_ref_after_an_unclosed_body_are_classified_as_forms() {
     assert_ne!(status.modifiers & MOD_DECLARATION, 0);
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "entity keywords classified as 'type'"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn entity_keywords_classified_as_type() {
     // A kind's semantic_token classifies its IDs, never its keyword.
     let tokens = tokens_of(
@@ -122,10 +113,7 @@ fn entity_keywords_classified_as_type() {
     assert_eq!(token(&tokens, "port").token_type, "type");
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "entity ID declaration uses its kind's semantic_token from the KindRegistry"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn entity_id_declaration_uses_kind_semantic_token() {
     let tokens = tokens_of(
         "port repo \"Repo\" {\n}\ninvariant always \"Always\" {\n}\n",
@@ -135,19 +123,13 @@ fn entity_id_declaration_uses_kind_semantic_token() {
     assert_eq!(token(&tokens, "always").token_type, "property");
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "entity ID declaration without a declared semantic_token is 'function'"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn entity_id_declaration_without_semantic_token_is_function() {
     let tokens = tokens_of("gizmo thing \"Thing\" {\n}\n", kinds(&[("gizmo", None)]));
     assert_eq!(token(&tokens, "thing").token_type, "function");
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "entity ID declaration whose semantic_token is not in the legend is 'function'"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn entity_id_declaration_with_unknown_semantic_token_is_function() {
     // "constant" is no standard LSP token type, so no client could color it.
     let tokens = tokens_of(
@@ -158,10 +140,7 @@ fn entity_id_declaration_with_unknown_semantic_token_is_function() {
     assert_eq!(token(&tokens, "excluded_middle").token_type, "function");
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "semantic token legend lists every standard LSP token type"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn legend_lists_every_standard_token_type() {
     let standard = [
         "namespace",
@@ -197,10 +176,8 @@ fn legend_lists_every_standard_token_type() {
 
 // -- provide_extension_entity_semantic_tokens ---------------------------------
 
-#[spec(
-    behavior = "provide_extension_entity_semantic_tokens",
-    verify = "extension kind's semantic_token classifies its entity ID declaration"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-121")]
 fn extension_kind_semantic_token_classifies_declaration() {
     let tokens = tokens_of(
         "feature checkout \"Checkout\" {\n}\n",
@@ -211,19 +188,15 @@ fn extension_kind_semantic_token_classifies_declaration() {
     assert_ne!(id.modifiers & MOD_DECLARATION, 0);
 }
 
-#[spec(
-    behavior = "provide_extension_entity_semantic_tokens",
-    verify = "entity ID declaration falls back to 'function' when semantic_token is not specified"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-121")]
 fn extension_kind_without_semantic_token_falls_back_to_function() {
     let tokens = tokens_of("widget knob \"Knob\" {\n}\n", kinds(&[("widget", None)]));
     assert_eq!(token(&tokens, "knob").token_type, "function");
 }
 
-#[spec(
-    behavior = "provide_extension_entity_semantic_tokens",
-    verify = "semantic_token outside the static legend falls back to 'function'"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-121")]
 fn extension_semantic_token_outside_legend_falls_back_to_function() {
     let tokens = tokens_of(
         "release v1 \"V1\" {\n}\n",
@@ -232,10 +205,7 @@ fn extension_semantic_token_outside_legend_falls_back_to_function() {
     assert_eq!(token(&tokens, "v1").token_type, "function");
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "structural keywords are classified as keyword"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn structural_keywords_classified() {
     let tokens = tokens_of("use \"behaviors/core\"\n", RegistryBuild::default());
     assert!(
@@ -245,10 +215,7 @@ fn structural_keywords_classified() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "triple-quoted strings are classified as strings"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn triple_quoted_strings_classified() {
     let tokens = tokens_of(
         "behavior foo \"Foo\" {\n  contract \"\"\"\n    hello\n  \"\"\"\n}\nbehavior bar \"Bar\" {\n}\n",
@@ -282,10 +249,7 @@ fn triple_quoted_strings_classified() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a string spanning lines is one string, holding no other token"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn a_multi_line_string_is_one_string_token_per_line() {
     let tokens = tokens_of(
         "behavior login \"Log in\" {\n  contract \"first line\n  second line mentions login and ends\"\n}\n\nbehavior logout \"Log out\" {\n  contract \"x\"\n}\n",
@@ -304,10 +268,7 @@ fn a_multi_line_string_is_one_string_token_per_line() {
     assert_eq!((first.line, first.col, first.token_type), (1, 11, "string"));
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "entity ID declarations carry the declaration modifier"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn entity_id_declarations_carry_declaration_modifier() {
     let tokens = tokens_of(
         "behavior foo \"Foo\" {\n}\nport repo \"Repo\" {\n}\n",
@@ -322,10 +283,7 @@ fn entity_id_declarations_carry_declaration_modifier() {
     }
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "enhanced fields are classified as property"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn fields_classified_as_property() {
     let tokens = tokens_of(
         "behavior foo \"Foo\" {\n  contract \"x\"\n}\n",
@@ -338,10 +296,7 @@ fn fields_classified_as_property() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "reference list items classified as 'variable' with reference modifier"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn reference_list_items_classified_as_variable() {
     let tokens = tokens_of(
         "behavior foo \"Foo\" {\n  invariants [inv_a, inv_b]\n}\n",
@@ -359,10 +314,7 @@ fn reference_list_items_classified_as_variable() {
     assert_eq!(inv_b.token_type, "variable");
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "structural keywords are classified as keyword"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn verify_keyword_classified() {
     let tokens = tokens_of(
         "behavior foo \"Foo\" {\n  verify unit \"it works\"\n}\n",
@@ -375,10 +327,7 @@ fn verify_keyword_classified() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "verify kind classified as enumMember"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn verify_kind_classified_as_enum_member() {
     let tokens = tokens_of(
         "behavior foo \"Foo\" {\n  verify unit \"it works\"\n}\n",
@@ -388,19 +337,13 @@ fn verify_kind_classified_as_enum_member() {
     assert_eq!(kind.token_type, "enumMember");
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "comments classified as comment"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn comments_classified() {
     let tokens = tokens_of("// this is a comment\n", RegistryBuild::default());
     assert!(tokens.iter().any(|t| t.token_type == "comment"));
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "structural keywords are classified as keyword"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn define_block_classified() {
     let tokens = tokens_of("define MyType {\n}\n", RegistryBuild::default());
     assert!(
@@ -410,10 +353,7 @@ fn define_block_classified() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a define block's name is not a declaration"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn a_define_blocks_name_is_not_a_declaration() {
     // W143: a define block registers nothing, so its name declares nothing
     // and its body holds no fields.
@@ -428,10 +368,7 @@ fn a_define_blocks_name_is_not_a_declaration() {
     assert_eq!(texts, [("define", "keyword")]);
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "reference list items classified as 'variable' with reference modifier"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn multiline_reference_list() {
     let tokens = tokens_of(
         "behavior foo \"Foo\" {\n  types [\n    type_a,\n    type_b\n  ]\n}\n",
@@ -445,10 +382,7 @@ fn multiline_reference_list() {
     assert_eq!(type_b.token_type, "variable");
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "enhanced fields are classified as property"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn field_name_before_list_classified() {
     let tokens = tokens_of(
         "behavior foo \"Foo\" {\n  invariants [inv_a]\n}\n",
@@ -461,10 +395,7 @@ fn field_name_before_list_classified() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "number values classified as number"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn number_values_classified() {
     let tokens = tokens_of(
         "behavior foo \"Foo\" {\n  risk 5\n}\n",
@@ -474,10 +405,7 @@ fn number_values_classified() {
     assert_eq!(num.token_type, "number");
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "entity title strings classified as string"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn entity_title_classified_as_string() {
     let tokens = tokens_of(
         "behavior foo \"My Title\" {\n}\n",
@@ -490,10 +418,7 @@ fn entity_title_classified_as_string() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "use path classified as string"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn use_path_classified_as_string() {
     let tokens = tokens_of("use \"core/types\"\n", RegistryBuild::default());
     assert!(
@@ -503,10 +428,7 @@ fn use_path_classified_as_string() {
     );
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "initialize response includes semantic token legend"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn token_types_constant_complete() {
     let types = specforge_lsp::TOKEN_TYPES;
     assert!(types.contains(&"keyword"));
@@ -520,10 +442,7 @@ fn token_types_constant_complete() {
     assert!(types.contains(&"enumMember"));
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "initialize response includes semantic token legend"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn token_modifiers_constant_complete() {
     let mods = specforge_lsp::TOKEN_MODIFIERS;
     assert!(mods.contains(&"declaration"));
@@ -542,10 +461,7 @@ const AFTER_A_NESTED_BLOCK: &str = concat!(
     "}\n",
 );
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "every field of an entity body is classified, after a nested block too"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn fields_after_a_nested_block_are_classified() {
     let tokens = tokens_of(AFTER_A_NESTED_BLOCK, kinds(&[("behavior", None)]));
     let on = |line: u32| {
@@ -565,10 +481,7 @@ fn fields_after_a_nested_block_are_classified() {
     assert_eq!(on(5)[0], (2, "features", "property"));
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a comment after code on its line is classified as comment"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn a_trailing_comment_is_a_comment() {
     let tokens = tokens_of(AFTER_A_NESTED_BLOCK, kinds(&[("behavior", None)]));
     let comment = tokens
@@ -596,10 +509,7 @@ fn node(id: &str, kind: &str) -> Node {
     )
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a reference is classified as the kind of the entity it names"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn a_reference_takes_its_targets_kind_token() {
     let registries = registries("@test/ext", |c| {
         c.kind("feature", |k| {
@@ -640,10 +550,7 @@ fn a_reference_takes_its_targets_kind_token() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "an enum field's value is an enumMember and a boolean field's value a keyword"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn enum_and_bool_values_are_classified() {
     let registries = registries("@test/ext", |c| {
         c.kind("task", |k| {
@@ -677,10 +584,7 @@ fn enum_and_bool_values_are_classified() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a checked value has the checked modifier"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn a_checked_value_has_the_checked_modifier() {
     let build = registries("@test/ext", |c| {
         c.checker("plain", |k| {

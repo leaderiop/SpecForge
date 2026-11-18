@@ -110,10 +110,7 @@ fn opening_a_workspace_watches_indexes_and_announces() {
     );
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "a workspace root inside a project opens the enclosing project"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn a_workspace_root_inside_a_project_opens_the_enclosing_project() {
     let served = Served::new(&[
         ("spec/a.spec", "behavior alpha \"Alpha\" {}\n"),
@@ -133,10 +130,7 @@ fn a_workspace_root_inside_a_project_opens_the_enclosing_project() {
     assert_eq!(found, ["alpha", "beta"]);
 }
 
-#[spec(
-    behavior = "locate_project_root",
-    verify = "a workspace root in a spec root holding specforge.spec opens the project around it"
-)]
+#[spec(requirement = "FEATURE-106")]
 fn a_workspace_root_in_a_spec_root_holding_specforge_spec_opens_the_project_around_it() {
     let served = Served::new(&[
         ("spec/specforge.spec", "spec \"p\" {}\n"),
@@ -201,10 +195,7 @@ fn a_workspace_with_no_root_is_done_at_once() {
 }
 
 // B:lsp_initialize — verify contract "requires/ensures consistency for LSP initialization"
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "LSP Initialize: LSP initialization holds — extensions_loaded, capabilities_reflect_extensions, semantic_legend_populated, incremental_sync_advertised, lsp_initialized_emitted"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn lsp_initialize_contract() {
     let extensions = ["@specforge/software", "@specforge/testing"];
     let capabilities = initialize_result().capabilities;
@@ -338,10 +329,7 @@ fn validator_warnings_are_published() {
 /// A reference cycle has no one place: the project locates it at the first entity its data names,
 /// on that entity's block, and the LSP points at the others as related information (ADR 0016, D8), not on
 /// line 1 of the document last edited.
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "a diagnostic about entities is published at the first one's block, with related information at each other's name"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_diagnostic_about_entities_is_published_at_its_block() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(
@@ -381,10 +369,7 @@ fn a_diagnostic_about_entities_is_published_at_its_block() {
 /// The session's W061 has no span and does not change when only its entities move (ADR 0074 D6),
 /// yet the editor sees it on another line: what the LSP publishes is not a function of the
 /// diagnostics delta, so it publishes every file each time.
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "a diagnostic about entities follows its entity's block when only the entity moved"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_spanless_diagnostic_follows_its_entity() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(
@@ -644,10 +629,7 @@ fn a_closed_document_is_not_answered_for() {
 
 // -- reloads ------------------------------------------------------------------
 
-#[spec(
-    invariant = "lsp_extension_reload_consistency",
-    verify = "removing an extension while LSP is running removes kinds from KindRegistry atomically"
-)]
+#[spec(requirement = "INVARIANT-059")]
 fn removing_every_extension_clears_the_kinds() {
     let dir = project_with(&["@specforge/software", "@specforge/governance"]);
     std::fs::write(
@@ -679,10 +661,7 @@ fn removing_every_extension_clears_the_kinds() {
     );
 }
 
-#[spec(
-    invariant = "lsp_extension_reload_consistency",
-    verify = "a specforge.lock change while the LSP is running reloads the environment"
-)]
+#[spec(requirement = "INVARIANT-059")]
 fn a_lock_change_reloads_the_environment() {
     let dir = project_with(&["@specforge/software", "@acme/missing"]);
     std::fs::write(
@@ -713,10 +692,7 @@ fn a_lock_change_reloads_the_environment() {
 
 // -- watchers -----------------------------------------------------------------
 
-#[spec(
-    invariant = "lsp_extension_reload_consistency",
-    verify = "the LSP watches every file its environment is loaded from"
-)]
+#[spec(requirement = "INVARIANT-059")]
 fn the_watchers_cover_the_environment_inputs() {
     let dir = tempfile::TempDir::new().unwrap();
     let config = serde_json::json!({
@@ -756,10 +732,7 @@ fn docref(spec: &str, files: &[&str]) -> Served {
 
 const PLAIN: &str = "gadget gadget_one \"G\" {\n}\n";
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP's watchers follow an edit that names a new file the checks read"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn the_watchers_follow_an_edit_that_names_a_file() {
     let mut served = docref(PLAIN, &["spec/a.spec"]);
     let root = served.root().to_str().unwrap().to_string();
@@ -783,10 +756,7 @@ fn the_watchers_follow_an_edit_that_names_a_file() {
     assert!(!codes.contains(&"E016".to_string()), "{codes:?}");
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP watches a missing referenced file and its directory, spelled under the project root"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_referenced_file_is_watched_under_its_root() {
     let served = docref(NAMES_GUIDE, &[]);
     let root = served.root().to_str().unwrap();
@@ -798,10 +768,7 @@ fn a_referenced_file_is_watched_under_its_root() {
     assert!(!globs.iter().any(|g| g.contains("/../")), "{globs:?}");
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP watches a missing referenced file and its directory, spelled under the project root"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_missing_files_directory_is_watched() {
     let served = docref(NAMES_GUIDE, &[]);
     let root = served.root().to_str().unwrap();
@@ -812,10 +779,7 @@ fn a_missing_files_directory_is_watched() {
 /// An edit that names a file moves the editor's watchers, and the session catches up on what
 /// changed on disk while they moved (ADR 0035). The file is written while the watchers move,
 /// before the editor answers, so no event can report it: only the catch-up can.
-#[spec(
-    behavior = "bring_session_up_to_date",
-    verify = "after the LSP's watchers move, the session catches up on what changed while they did"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn an_edit_naming_a_file_registers_it_and_catches_up() {
     let mut served = docref(PLAIN, &["spec/a.spec"]);
     let guide = served.root().join("docs/guide.md");
@@ -845,10 +809,7 @@ fn an_edit_naming_a_file_registers_it_and_catches_up() {
     assert!(!codes.contains(&"E016".to_string()), "{codes:?}");
 }
 
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "the LSP's watchers follow an edit that names a new file the checks read"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_disk_change_naming_a_file_registers_it() {
     let mut served = docref(PLAIN, &[]);
     let root = served.root().to_str().unwrap().to_string();
@@ -864,10 +825,7 @@ fn a_disk_change_naming_a_file_registers_it() {
 
 /// The catch-up after the watchers move reads what changed on disk, but an open document's
 /// buffer is the truth for its file: its file, rewritten meanwhile, does not replace it.
-#[spec(
-    behavior = "bring_session_up_to_date",
-    verify = "the LSP's catch-up keeps an open buffer"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_catch_up_keeps_an_open_buffer() {
     let mut served = docref(PLAIN, &["spec/a.spec"]);
     let root = served.root().to_path_buf();
@@ -940,10 +898,7 @@ fn refreshing(refresh: bool) -> Served {
     served
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a recompile that changes the graph asks the client to refresh semantic tokens"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn graph_changing_recompile_requests_token_refresh() {
     let mut served = refreshing(true);
     // Opening compiled `login` into an empty graph: that is a change too.
@@ -961,10 +916,7 @@ fn graph_changing_recompile_requests_token_refresh() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "a recompile that changes nothing token-relevant sends no semantic token refresh"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn whitespace_only_recompile_sends_no_token_refresh() {
     let mut served = refreshing(true);
     served.sent();
@@ -985,10 +937,7 @@ fn whitespace_only_recompile_sends_no_token_refresh() {
     );
 }
 
-#[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "no semantic token refresh is sent to a client without refreshSupport"
-)]
+#[spec(requirement = "FEATURE-121")]
 fn client_without_refresh_support_never_gets_token_refresh() {
     let mut served = refreshing(false);
     let grown = format!("{LOGIN}\ninvariant quota \"Quota\" {{\n}}\n");

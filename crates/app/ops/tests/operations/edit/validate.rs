@@ -5,10 +5,7 @@ fn tasks() -> Compiled {
     project(&[("tasks.spec", TASKS)])
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "an edit that adds an error is E080 and writes nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_dangling_link_is_e080_with_the_e003_in_its_data() {
     let c = tasks();
     let error = plan(&c, &[link("complete_task", "invariants", "nope_rule")])
@@ -30,10 +27,7 @@ fn a_dangling_link_is_e080_with_the_e003_in_its_data() {
     assert_eq!(data["diagnostics"][0]["code"], "E003");
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "a value holding a control character is refused not_editable and writes nothing"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_value_holding_a_control_character_is_not_editable() {
     let c = tasks();
     let error = plan(&c, &[set("complete_task", "contract", one("a\u{1b}[2Jb"))])
@@ -88,10 +82,7 @@ fn an_inserted_block_does_not_count_moved_errors_as_new() {
     assert!(!planned.change().is_empty());
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "an edit that adds a warning is written and reports it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn an_added_warning_is_written_and_reported() {
     let c = tasks();
     let planned = plan(&c, &[unset("list_tasks", "category")]).unwrap();
@@ -106,10 +97,7 @@ fn an_added_warning_is_written_and_reported() {
     assert_eq!(added, vec!["W006"]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "a preview refuses what the write would"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_preview_refuses_what_the_write_would() {
     let c = tasks();
     // The plan is the preview and the write's input: one validation, one answer.
@@ -122,10 +110,7 @@ fn a_preview_refuses_what_the_write_would() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "every block an edit touches is format-clean"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn every_planned_file_is_format_clean() {
     let c = tasks();
     let planned = plan(
@@ -143,10 +128,7 @@ fn every_planned_file_is_format_clean() {
 
 /// The editor's typing fast path skipped the checks (ADR 0136 D4): a plan is not refused for the error another file
 /// already had.
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "an edit planned while the checks are skipped is compared with the checked report"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn an_edit_planned_while_the_checks_are_skipped_is_not_refused_for_an_error_the_project_had() {
     use specforge_project::testing::TestProject;
     use specforge_project::{Buffer, CheckMode};
@@ -203,10 +185,7 @@ fn with_duplicate_id() -> String {
     format!("{TASKS}\n{}", &TASKS[last..])
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "an error whose message names a position is the same error after an edit moves it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn an_edit_above_a_duplicate_id_does_not_count_it_as_new() {
     let c = project(&[("tasks.spec", &with_duplicate_id())]);
     assert!(c.project.diagnostics().iter().any(|d| d.code == "E002"));

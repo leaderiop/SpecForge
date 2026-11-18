@@ -4,10 +4,7 @@ use specforge_test_macros::test as spec;
 
 // -- document_open_close ------------------------------------------------------
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "didOpen registers document and triggers compilation"
-)]
+#[spec(requirement = "FEATURE-062")]
 #[tokio::test]
 async fn did_open_registers_document() {
     let (mut session, _) = Session::start(None).await;
@@ -38,10 +35,7 @@ async fn did_open_registers_document() {
     assert!(session.format(uri).await.is_array());
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "didClose removes document and clears diagnostics"
-)]
+#[spec(requirement = "FEATURE-062")]
 #[tokio::test]
 async fn did_close_removes_document() {
     let (mut session, _) = Session::start(None).await;
@@ -84,10 +78,7 @@ fn only_open_documents_tracked() {
 
 // -- handle_text_document_change ----------------------------------------------
 
-#[spec(
-    behavior = "handle_text_document_change",
-    verify = "didChange applies incremental edits to buffer"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn did_change_applies_edits() {
     let mut state = specforge_lsp::LspState::new();
     let uri = crate::url("file:///a.spec");
@@ -117,20 +108,14 @@ fn load_patterns_for(ext_names: &[&str]) -> specforge_registry::RegistryBuild {
     specforge_registry::build_registries(declarations)
 }
 
-#[spec(
-    invariant = "zero_domain_knowledge_core",
-    verify = "core with zero extensions installed has zero entity kinds in KindRegistry"
-)]
+#[spec(requirement = "INVARIANT-149")]
 fn state_starts_with_empty_registries() {
     let state = specforge_lsp::LspState::new();
     assert!(state.kind_registry().is_empty());
     assert!(state.registries().rules().is_empty());
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "extensions produce E006 rules for required fields"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn extensions_produce_e006_rules() {
     let build = load_patterns_for(&[
         "@specforge/software",
@@ -150,10 +135,7 @@ fn extensions_produce_e006_rules() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_rules",
-    verify = "E006 covers all required fields from builtin extensions"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn e006_covers_all_required_fields() {
     let build = load_patterns_for(&[
         "@specforge/software",

@@ -76,10 +76,7 @@ fn plan_payload(server: &mut McpServer, arguments: Value) -> Value {
 
 /// Kinds are keywords, matched exactly: `kind:Behavior` is refused, and the
 /// suggestion names the kind (ADR 0015 "Query" Q3).
-#[specforge_test(
-    behavior = "provide_infer_kind_scope",
-    verify = "the kind scope renders the kind's guide; an undeclared kind is refused on scope with the closest declared kind"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn kind_scope_is_exact_and_suggests_the_kind() {
     let mut state = state_with_my_behavior();
     let resp = infer(&mut state, json!({"scope": "kind:Behavior"}));
@@ -93,10 +90,7 @@ fn kind_scope_is_exact_and_suggests_the_kind() {
 /// An extension keyword written with a capital is listed as declared: the
 /// entities of that kind are found and the example is written with the
 /// keyword the language accepts.
-#[specforge_test(
-    behavior = "provide_infer_kind_scope",
-    verify = "the kind scope renders the kind's guide; an undeclared kind is refused on scope with the closest declared kind"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn a_capitalized_keyword_is_kept_as_declared() {
     let mut state = TestProject::new()
         .file("d.spec", "ADR pick_db {\n}\n")
@@ -138,10 +132,7 @@ fn the_overview_renders_the_guide() {
 }
 
 /// A scope the prompt does not know is refused on `scope`, naming the five it knows.
-#[specforge_test(
-    behavior = "read_infer_prompt_scope",
-    verify = "a scope the prompt does not know is refused on scope, naming the scopes it knows"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn an_unknown_scope_is_refused_on_scope() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     for scope in [
@@ -168,10 +159,7 @@ fn an_unknown_scope_is_refused_on_scope() {
 }
 
 /// No scope, an empty scope and `overview` each answer every kind's guide.
-#[specforge_test(
-    behavior = "read_infer_prompt_scope",
-    verify = "no scope, an empty scope or scope overview renders every kind's guide"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn the_overview_is_no_scope_or_its_own_name() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     for arguments in [
@@ -224,10 +212,7 @@ fn empty_file_scope_returns_error() {
     assert_eq!(resp["error"]["data"]["argument"], "scope");
 }
 
-#[specforge_test(
-    behavior = "read_a_named_source_path",
-    verify = "a source-code path that names nothing is refused in one sentence, the infer prompt's file scope included"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn an_empty_file_scope_is_refused_as_an_empty_source_path_is() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let data = &infer(&mut state, json!({"scope": "file:"}))["error"]["data"];
@@ -290,14 +275,7 @@ fn plan_scope_without_item_facts_says_how_to_get_them() {
     assert_eq!(prompt_payload(&resp)["progress"]["files_total"], 0);
 }
 
-#[specforge_test(
-    behavior = "provide_infer_workflow_scope",
-    verify = "workflow returns step-by-step protocol"
-)]
-#[specforge_test(
-    behavior = "provide_infer_workflow_scope",
-    verify = "workflow documents retry pattern"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn workflow_scope_returns_protocol() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "workflow"}));
@@ -314,10 +292,7 @@ fn workflow_scope_returns_protocol() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_infer_workflow_scope",
-    verify = "the infer prompt has the agent create entities with specforge.edit, never write .spec text"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn the_infer_prompt_creates_entities_with_the_edit_tool() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     for arguments in [
@@ -350,10 +325,7 @@ fn the_infer_prompt_creates_entities_with_the_edit_tool() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_infer_workflow_scope",
-    verify = "the workflow lists the tools it names, as the tool table names them"
-)]
+#[specforge_test(requirement = "FEATURE-054")]
 fn workflow_scope_lists_tools_and_kinds() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "workflow"}));
@@ -374,10 +346,7 @@ fn workflow_scope_lists_tools_and_kinds() {
     assert!(kinds.contains(&Value::from("behavior")));
 }
 
-#[specforge_test(
-    behavior = "provide_infer_plan_scope",
-    verify = "plan pages the file lists 50 at a time from the cursor"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn plan_scope_caps_file_lists_at_50() {
     let mut state = plan_state_with_sources(60);
     let content = plan_payload(&mut state, json!({"scope": "plan"}));
@@ -391,10 +360,7 @@ fn plan_scope_caps_file_lists_at_50() {
     assert_eq!(content["next_cursor"], 50);
 }
 
-#[specforge_test(
-    behavior = "provide_infer_plan_scope",
-    verify = "the last page of a plan has no next cursor, and a page lists only files"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn the_last_plan_page_has_no_next_cursor() {
     let mut state = plan_state_with_sources(60);
     let first = plan_payload(&mut state, json!({"scope": "plan"}));
@@ -541,10 +507,7 @@ fn entity_ids(entities: &Value) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_infer_file_scope",
-    verify = "file scope lists the entities find_spec_for_source finds for the same file"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn infer_file_scope_agrees_with_find_spec_for_source() {
     let (mut server, _dir) = anchored_project();
     for spelling in [
@@ -573,10 +536,7 @@ fn infer_file_scope_agrees_with_find_spec_for_source() {
     assert_eq!(alpha["fact_id"], "rust:probe::login");
 }
 
-#[specforge_test(
-    behavior = "provide_infer_file_scope",
-    verify = "an unanchored file lists no existing entities"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn infer_file_scope_lists_nothing_for_an_unanchored_file() {
     let (mut server, _dir) = anchored_project();
     // main.spec declares alpha, but a spec file anchors no source.
@@ -597,10 +557,7 @@ fn infer_file_scope_lists_nothing_for_an_unanchored_file() {
 /// Over a `specforge-infer.json` that cannot be used, the plan refuses with
 /// E071 instead of listing every source file as unanalyzed,
 /// which every `mark_analyzed` would then refuse.
-#[specforge_test(
-    behavior = "provide_infer_plan_scope",
-    verify = "plan refuses a specforge-infer.json it cannot use with E071"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn the_plan_refuses_an_unusable_manifest() {
     let mut state = TestProject::new()
         .file("src/lib.rs", "fn stub() {}\n")
@@ -623,10 +580,7 @@ fn the_plan_refuses_an_unusable_manifest() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_infer_file_scope",
-    verify = "with no project served, the file scope is the no-project refusal"
-)]
+#[specforge_test(requirement = "FEATURE-053")]
 fn infer_file_scope_with_no_project_served_is_no_project() {
     let mut server = McpServer::new();
     let init = call(&mut server, "initialize", json!({}));

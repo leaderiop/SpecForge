@@ -9,9 +9,9 @@ project taskboard "Taskboard" {
 }
 
 requirement TASK-01 "Add a task" {
-  text "A user can add a task with a title"
-  area "Tasks"
-  tier v1
+  text     "A user can add a task with a title"
+  category "Tasks"
+  tier     v1
 }
 
 workstream auth "Auth" {

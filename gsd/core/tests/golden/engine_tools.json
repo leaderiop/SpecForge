@@ -3,17 +3,17 @@
   "graph_tools": {
     "collect": 20,
     "context": 12,
-    "edit": 52,
+    "edit": 51,
     "explain": 11,
     "export": 10,
-    "find_implementation": 2,
+    "find_implementation": 1,
     "find_references": 1,
-    "find_spec_for_source": 5,
-    "query": 54,
+    "find_spec_for_source": 4,
+    "query": 53,
     "schema": 11,
-    "search": 6,
+    "search": 3,
     "trace": 7,
-    "validate": 52,
+    "validate": 51,
     "verdict_inputs": 5
   },
   "unprompted": {
@@ -85,8 +85,11 @@
       "context",
       "edit",
       "explain",
+      "find_implementation",
+      "find_spec_for_source",
       "inspect",
       "schema",
+      "search",
       "trace"
     ],
     "gsd-phase-researcher": [

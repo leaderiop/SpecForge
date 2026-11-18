@@ -15,7 +15,6 @@ task T1 "The entry model" {
   plan        v1.0/01/01-01
   type        auto
   files       ["Cargo.toml", "Cargo.lock", "src/lib.rs"]
-  items       ["rust:ledger::Entry", "rust:ledger::add"]
   action      "Create the `ledger` package (no dependencies) and `src/lib.rs` with `Entry { cents: i64, memo: String }` and `add(entries, cents, memo)`, which refuses a memo holding a tab or a line break; `line` and `parse` write and read the store's `<cents>\t<memo>` lines."
   verify_text "cargo build"
   done        "add appends an entry and refuses a memo with a tab"
@@ -31,41 +30,37 @@ task T2 "Tests for entries" {
 }
 
 truth TR1 "An added entry keeps its cents and its memo" {
-  plan        v1.0/01/01-01
-  text        "An added entry keeps its cents and its memo"
-  requirement LEDG-01
-  proof       ["rust:ledger::entries#an_entry_keeps_its_cents_and_memo"]
+  plan v1.0/01/01-01
+  text "An added entry keeps its cents and its memo"
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T06:00:38Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       files "sha256:63d673c5b9c5ee157fd066b43f3744e2226855c8b52cdeaa0b245c1608bf249a"
       phase "sha256:84aaf6320ed2bbd8075c56f2f02c954c7956acff131015d4eee3bcfe6c61a2a5"
       plan  "sha256:fc63a9fa2a8e09fb34f9f285adebef3eb37a13c03085efc69b57269e0154be43"
-      tests "sha256:5c2d9d8a9cfbb76aed16b13e75873114240d3d6e472d81899486b4a9763dead7"
-      truth "sha256:5c0dcbf3d62cfedfc2a027192a00d991874c13a143d96d6c04643a3842855d02"
+      tests "none"
+      truth "sha256:c86d96a51c86b58f8cf68be094c1a9f9d1c78e6ac9eb553f638d48f68ecf2976"
     }
   }
 }
 
 truth TR2 "A memo with a tab or a line break is refused" {
-  plan        v1.0/01/01-01
-  text        "A memo with a tab or a line break is refused"
-  requirement LEDG-01
-  proof       ["rust:ledger::entries#a_memo_with_a_tab_is_refused"]
+  plan v1.0/01/01-01
+  text "A memo with a tab or a line break is refused"
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T06:00:38Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       files "sha256:63d673c5b9c5ee157fd066b43f3744e2226855c8b52cdeaa0b245c1608bf249a"
       phase "sha256:84aaf6320ed2bbd8075c56f2f02c954c7956acff131015d4eee3bcfe6c61a2a5"
       plan  "sha256:fc63a9fa2a8e09fb34f9f285adebef3eb37a13c03085efc69b57269e0154be43"
-      tests "sha256:7b48111f72c3e52917163d195dcbd433e0f505cbd000ca11770c50b7fa935bd8"
-      truth "sha256:1d94ca3dd70a14e2a0898a0da2632877c6af6e4ab0073ef94a5caef6f19beff2"
+      tests "none"
+      truth "sha256:0b08cbb8ca3fa0d3951e1ca3cd4316628ac2163fd927c664865c8b6424e4cc17"
     }
   }
 }
@@ -78,7 +73,7 @@ artifact AR1 "Entry and add" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T06:00:37Z"
     inputs {
       artifact "sha256:8ebd47d01e81cc35b478dbacf6145ce45ed675719044f750c5a37c93c61e4e53"
       cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
@@ -96,7 +91,7 @@ key_link KL1 "The tests use the entries" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T06:00:37Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       from  "sha256:85bd846176bf7d526981cd2346f7cedcb481ca2d439329d82c3a3512e78e8997"
@@ -125,7 +120,6 @@ task T1 "The total" {
   plan        v1.0/01/01-02
   type        auto
   files       ["src/lib.rs", "tests/totals.rs"]
-  items       ["rust:ledger::total"]
   action      "Add `total(entries)`: the sum of every entry's cents as an `i64`, so no realistic ledger overflows it. Test a mixed sum and a sum beyond `i32::MAX`."
   verify_text "cargo test --test totals"
   done        "The total tests pass"
@@ -141,41 +135,37 @@ task T2 "The command line" {
 }
 
 truth TR1 "The total is the sum of every entry" {
-  plan        v1.0/01/01-02
-  text        "The total is the sum of every entry"
-  requirement LEDG-02
-  proof       ["rust:ledger::totals#the_total_sums_every_entry"]
+  plan v1.0/01/01-02
+  text "The total is the sum of every entry"
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T06:00:39Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       files "sha256:1459840987fb0a16372fced22c100dc52fc96150a5d085f426b6788f3d407748"
       phase "sha256:84aaf6320ed2bbd8075c56f2f02c954c7956acff131015d4eee3bcfe6c61a2a5"
       plan  "sha256:241622c4d942d74ac5cc08d6342c247077ac968e0b2c156ae47f973f54c4911e"
-      tests "sha256:8c006cc312715af6d0612ab43b38d36b0b6352efa3b6413d5b3121eaf16f9f88"
-      truth "sha256:9942605a77ab24e353738562d77037c4398c5e001c973169b2d5cb858380e819"
+      tests "none"
+      truth "sha256:061ad3a412efd9bdbc230a2fcd74bc658ce7ab317750b1f39824b05cc29b699d"
     }
   }
 }
 
 truth TR2 "A total beyond the range of an i32 is exact" {
-  plan        v1.0/01/01-02
-  text        "A total beyond the range of an i32 is exact"
-  requirement LEDG-02
-  proof       ["rust:ledger::totals#total_beyond_i32_is_exact"]
+  plan v1.0/01/01-02
+  text "A total beyond the range of an i32 is exact"
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T06:00:39Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       files "sha256:1459840987fb0a16372fced22c100dc52fc96150a5d085f426b6788f3d407748"
       phase "sha256:84aaf6320ed2bbd8075c56f2f02c954c7956acff131015d4eee3bcfe6c61a2a5"
       plan  "sha256:241622c4d942d74ac5cc08d6342c247077ac968e0b2c156ae47f973f54c4911e"
-      tests "sha256:d7a733503fd25fda5b3eb75939b2f918e4ee63f1916697245e68eb2b73e143cb"
-      truth "sha256:067a5adefa18d3967bfa42380f67001823ecdc5922571050d4962ae947651578"
+      tests "none"
+      truth "sha256:921c9b02fd8892671461c808fec33466cc5a3defab925cc766b6b1e65e8f87d2"
     }
   }
 }
@@ -188,7 +178,7 @@ artifact AR1 "ledger add and ledger total" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T06:00:38Z"
     inputs {
       artifact "sha256:7de8537a704d13adb5a6fb269e0b6aba85ce72bb143aa74d9a153fcd7c82c141"
       cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
@@ -206,7 +196,7 @@ key_link KL1 "The command line totals through the library" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-10"
+    at    "2026-11-17T06:00:39Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       from  "sha256:46c00d71d061cb6854c44001f4941db663cac3b28065dd4cffd10acd38e2bac2"
@@ -249,15 +239,13 @@ task T2 "The command line saves" {
 }
 
 truth TR1 "An added entry is written to ledger.tsv" {
-  plan        v1.0/02/02-01
-  text        "An added entry is written to ledger.tsv"
-  requirement LEDG-03
+  plan v1.0/02/02-01
+  text "An added entry is written to ledger.tsv"
 }
 
 truth TR2 "A restarted ledger shows the entries it had" {
-  plan        v1.0/02/02-01
-  text        "A restarted ledger shows the entries it had"
-  requirement LEDG-03
+  plan v1.0/02/02-01
+  text "A restarted ledger shows the entries it had"
 }
 
 artifact AR1 "load and save of ledger.tsv" {

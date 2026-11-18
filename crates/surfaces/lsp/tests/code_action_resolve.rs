@@ -98,10 +98,8 @@ fn a_resolving_client_gets_a_stub_without_its_edits() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "a client that resolves code actions gets a stub's edits on resolve"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-008")]
+#[specforge_test_macros::test(requirement = "FEATURE-024")]
 fn resolving_a_stub_gives_the_edits_an_eager_client_gets() {
     let lazy = served(resolving());
     let resolved =
@@ -148,10 +146,7 @@ fn a_client_without_resolve_support_gets_edits_at_once() {
 }
 
 /// The request's file is not the compiled text: nothing is listed, typed or not (ADR 0023 D3).
-#[specforge_test_macros::test(
-    invariant = "lsp_utf16_positions",
-    verify = "no code action is listed over a buffer typed since the compile, to a client that resolves them or not"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-064")]
 fn an_eager_client_is_listed_nothing_over_a_buffer_typed_since() {
     let mut served = served(ClientSupport::default());
     assert!(titles(&listed(&served)).contains(&VERIFY));
@@ -159,10 +154,7 @@ fn an_eager_client_is_listed_nothing_over_a_buffer_typed_since() {
     assert_eq!(titles(&listed(&served)), Vec::<&str>::new());
 }
 
-#[specforge_test_macros::test(
-    invariant = "lsp_utf16_positions",
-    verify = "no code action is listed over a buffer typed since the compile, to a client that resolves them or not"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-064")]
 fn a_resolving_client_is_listed_nothing_over_a_buffer_typed_since() {
     let mut served = served(resolving());
     assert!(titles(&listed(&served)).contains(&VERIFY));
@@ -172,10 +164,8 @@ fn a_resolving_client_is_listed_nothing_over_a_buffer_typed_since() {
 
 /// A check-phase error in `b.spec` (E006) and a dangling feature in `c.spec` (E003): while `a.spec` does not parse the
 /// session skips its checks, and the stub for `c.spec` is still offered (ADR 0167).
-#[specforge_test_macros::test(
-    behavior = "code_action_create_entity_stub",
-    verify = "a stub is offered while another open buffer does not parse"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-008")]
+#[specforge_test_macros::test(requirement = "FEATURE-024")]
 fn a_stub_is_offered_while_another_buffer_does_not_parse() {
     let dir = tempfile::tempdir().unwrap();
     let files = [

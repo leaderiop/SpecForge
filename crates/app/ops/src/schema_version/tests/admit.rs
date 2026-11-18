@@ -15,10 +15,7 @@ fn parsed(text: &str) -> SchemaVersion {
     text.parse().unwrap()
 }
 
-#[specforge_test(
-    behavior = "negotiate_schema_version",
-    verify = "a requested version of the same major, not newer, is admitted and the export carries the current version"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_reader_of_an_earlier_minor_is_admitted() {
     let versioned = versioned_at(1, 3, 2);
 
@@ -29,19 +26,13 @@ fn a_reader_of_an_earlier_minor_is_admitted() {
     assert_eq!(versioned.version(), &SchemaVersion::new(1, 3, 2));
 }
 
-#[specforge_test(
-    behavior = "negotiate_schema_version",
-    verify = "a requested version of the same major, not newer, is admitted and the export carries the current version"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_current_version_is_admitted() {
     let versioned = versioned_at(1, 3, 2);
     assert_eq!(versioned.admits(&parsed("1.3.2")), Ok(()));
 }
 
-#[specforge_test(
-    behavior = "negotiate_schema_version",
-    verify = "a requested version of another major, or a newer one, is refused as incompatible_schema_version naming the readable range"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn another_major_is_not_admitted() {
     let versioned = versioned_at(1, 3, 0);
 
@@ -58,10 +49,7 @@ fn another_major_is_not_admitted() {
     }
 }
 
-#[specforge_test(
-    behavior = "negotiate_schema_version",
-    verify = "a requested version of another major, or a newer one, is refused as incompatible_schema_version naming the readable range"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_newer_version_is_not_admitted() {
     let versioned = versioned_at(1, 3, 0);
 
@@ -79,10 +67,7 @@ fn a_pre_release_of_the_current_version_is_admitted() {
     assert!(versioned.admits(&parsed("1.3.1-beta")).is_err());
 }
 
-#[specforge_test(
-    behavior = "negotiate_schema_version",
-    verify = "a requested version of another major, or a newer one, is refused as incompatible_schema_version naming the readable range"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_refusal_names_the_readable_range() {
     let versioned = versioned_at(1, 3, 0);
 

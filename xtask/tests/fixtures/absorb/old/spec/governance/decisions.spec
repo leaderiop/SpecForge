@@ -1,4 +1,5 @@
-// Four decisions: accepted, proposed, deprecated, and superseded with and without a successor.
+// Decisions: two in force; one proposed, one deprecated, two superseded (with and without a successor), and one
+// accepted with a successor. Only the two in force convert.
 
 decision one_parser "One Parser" {
   status       accepted
@@ -7,7 +8,7 @@ decision one_parser "One Parser" {
   decision     "Read the format with one parser."
   consequences ["One grammar to keep", "A hand parser is refused in review"]
   alternatives ["A hand parser", "A parser combinator"]
-  tags         [parsing, format]
+  tags         ["parsing", "format"]
   reason       "Drift cost more than the parser."
   deciders     ["Alice Martin"]
 }
@@ -41,4 +42,11 @@ decision old_format "Old Format" {
   status   superseded
   context  "The first format had no versions."
   decision "Write the format without a version line."
+}
+
+decision stale_choice "Stale Choice" {
+  status        accepted
+  context       "The store had one writer."
+  decision      "Lock the whole store on each write."
+  superseded_by second_store
 }

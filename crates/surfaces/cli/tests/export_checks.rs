@@ -4,10 +4,7 @@
 use crate::support::{Cli, TestProject};
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "--with-checks on a project with no checked value is the plain export"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn with_checks_on_a_project_with_no_checked_value_is_the_plain_export() {
     let project = TestProject::new()
         .without_config()

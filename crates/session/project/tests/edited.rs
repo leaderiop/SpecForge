@@ -138,10 +138,7 @@ impl Disk for RefusesLeak {
 
 const LEAK: &str = "use \"SECRETWORD_IMPORT\"\nbehavior alpha \"SECRETWORD_TITLE\" {\n}\n";
 
-#[specforge_test(
-    invariant = "mcp_served_project_consistency",
-    verify = "a source of the served project is read only from inside the project"
-)]
+#[specforge_test(requirement = "INVARIANT-066")]
 fn an_edited_compile_reads_no_source_the_project_could_not_read() {
     let dir = TestProject::new().files(&[
         ("a.spec", "behavior alpha \"Alpha\" {\n}\n"),
@@ -183,10 +180,7 @@ fn an_edited_compile_reports_what_holding_its_texts_reports() {
     assert_eq!(edited.diagnostics(), session.project().diagnostics());
 }
 
-#[specforge_test_macros::test(
-    behavior = "validate_typed_edit",
-    verify = "an edit planned while the checks are skipped is compared with the checked report"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn the_checked_report_runs_the_checks_an_update_skipped() {
     let lonely = "behavior lonely \"Lonely\" {\n  category query\n}\n";
     let dir = project().files(&[("lonely.spec", lonely)]);

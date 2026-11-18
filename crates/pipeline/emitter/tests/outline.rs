@@ -133,10 +133,7 @@ fn single_extension_maps_basic_metadata() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_extension_outline",
-    verify = "each extension's card names the describe categories it declares, and providers when its handshake says so"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-027")]
 fn an_outline_card_names_the_categories_its_extension_declares() {
     let mut provider = ExtensionDeclaration::default();
     provider.handshake.name = "@acme/provider".to_string();
@@ -896,10 +893,7 @@ fn deps_full_shows_everything() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_extension_outline",
-    verify = "the dependencies every format shows, json included, are the ones --deps selects"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-027")]
 fn the_json_outline_lists_the_dependencies_deps_selects() {
     let manifests = load_all_manifests();
     let kinds = |deps| -> Vec<String> {
@@ -1003,10 +997,7 @@ fn mermaid_renders_enhancement_edges() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "deterministic_output",
-    verify = "same input produces identical output across runs"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-006")]
 fn transitive_dependencies_are_the_same_on_every_run() {
     let manifests = load_all_manifests();
     let options = OutlineOptions {
@@ -1046,10 +1037,7 @@ fn quoted(version: &str) -> Vec<ExtensionDeclaration> {
     }]
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_extension_outline",
-    verify = "declared text with a quote, markup or a line break stays inside its Mermaid label"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-027")]
 fn a_quote_in_a_version_or_keyword_stays_inside_the_mermaid_label() {
     let opts = OutlineOptions {
         format: OutlineFormat::Mermaid,
@@ -1064,10 +1052,7 @@ fn a_quote_in_a_version_or_keyword_stays_inside_the_mermaid_label() {
     assert!(output.contains("<br>no#quot;te\"]"), "{output}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_extension_outline",
-    verify = "declared text with a pipe or a line break stays in its Markdown table cell"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-027")]
 fn a_pipe_in_a_version_stays_in_its_markdown_cell() {
     let opts = OutlineOptions {
         format: OutlineFormat::Markdown,
@@ -1078,10 +1063,7 @@ fn a_pipe_in_a_version_stays_in_its_markdown_cell() {
     assert!(output.contains("| @t/q | 1.0\\|rc |"), "{output}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_extension_outline",
-    verify = "the builtins' outline is unchanged in every format"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-027")]
 fn outline_of_the_builtins_in_every_format() {
     let manifests = load_all_manifests();
     for (format, name) in [
@@ -1098,10 +1080,7 @@ fn outline_of_the_builtins_in_every_format() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "render_extension_outline",
-    verify = "Render the Extension Outline: outline rendering holds — declarations_loaded, one_card_per_extension, declared_text_contained, deps_selected"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-027")]
 fn outline_rendering_contract() {
     // declarations_loaded: the four builtins load.
     let manifests = load_all_manifests();

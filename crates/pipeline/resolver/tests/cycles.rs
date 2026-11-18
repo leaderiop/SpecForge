@@ -4,10 +4,7 @@ use specforge_parser::parse;
 use specforge_resolver::resolve_imports;
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "detect_import_cycles",
-    verify = "W113 names every file of an import cycle, one whose cycle closes through a file already walked included"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn w113_names_every_file_of_an_import_cycle() {
     let files = [
         ("aa.spec", "use \"bb\"\nuse \"dd\"\nterm a \"A\" { }"),

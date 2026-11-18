@@ -1,8 +1,8 @@
 //! The ledger fixture: a Rust project whose CI is red. Phase 01 was verified (`01-VERIFICATION.md` says 4/4) before
 //! quick task 261105-tcl folded the total in an `i32`, which fails `total_beyond_i32_is_exact`. The twin carries the
-//! verifier's verdicts, recorded over the run before the quick task (`goldens/ledger/rust-test-before-quick.xml`);
-//! over the red run (`goldens/ledger/rust-test.xml`) exactly the truth that test proves goes stale, where the
-//! Markdown still says passed.
+//! verifier's verdicts, recorded over the run before the quick task (`goldens/ledger/rust-test-before-quick.xml`).
+//! Over the red run (`goldens/ledger/rust-test.xml`) the verdicts stay fresh, since no truth names a test, and the
+//! failing test shows in the check of the coverage item that names it, where the Markdown still says passed.
 
 use std::path::{Path, PathBuf};
 
@@ -96,20 +96,19 @@ fn the_twin_holds_its_verifier_verdicts() {
     assert_eq!(unjudged(&green.report_all()), Vec::new());
 }
 
-/// Over the red run, one verdict is no longer fresh: phase 01's truth that `total_beyond_i32_is_exact` proves, its
-/// tests changed. The failing test is also named on that truth (`code/W401`) and on the deliverable of the summary
-/// that claimed it passes (`gsd/W408`), and nothing else is reported.
+/// Over the red run, the failing `total_beyond_i32_is_exact` is reported on the coverage item that names it: the
+/// deliverable of the summary that claimed it passes (`gsd/W408`), and nothing else. No verdict goes stale: no
+/// truth names the failing test (a truth writes no `proof`, and no test is tagged with a truth), so each truth's
+/// verdict cites no test and its tests input is the same over the red run as over the run before the quick task
+/// (ADR 0371 D10). A verdict of a truth stales over a red run only through a test that names the truth. The
+/// verification is computed from the verdicts, all fresh, so it says what `.planning/` says; the red run is read in
+/// the coverage item's check. The A/B corpus's ground truth still holds `01-02/TR2` not verified: a correct run
+/// finds the failing test and says so.
 #[test]
-fn the_red_run_stales_exactly_the_truth_its_failing_test_proves() {
+fn the_red_run_fails_the_check_of_its_coverage_item() {
     let p = collected("rust-test.xml");
     let stale = judged_not_pending(&p);
-    assert_eq!(stale.len(), 1, "{stale:#?}");
-    let (_, message) = &stale[0];
-    assert!(
-        message.starts_with("truth 'v1.0/01/01-02/TR2' ")
-            && message.ends_with("stale: tests changed"),
-        "{message}"
-    );
+    assert_eq!(stale, Vec::new(), "no verdict goes stale");
     let others: Vec<String> = unjudged(&p.report_all())
         .into_iter()
         .map(|(code, message)| {
@@ -122,41 +121,46 @@ fn the_red_run_stales_exactly_the_truth_its_failing_test_proves() {
         .collect();
     assert_eq!(
         others,
-        [
-            "code/W401 v1.0/01/01-02/TR2",
-            "gsd/W408 v1.0/01/01-02/01-02-SUMMARY/D1"
-        ],
+        ["gsd/W408 v1.0/01/01-02/01-02-SUMMARY/D1"],
         "{:#?}",
         p.report_all()
     );
-    // Where 01-VERIFICATION.md still says passed, 4/4.
     let verification = p.fields_of("v1.0/01/01-VERIFICATION");
     assert_eq!(
         (
             verification["status"].clone(),
             verification["score"].clone()
         ),
-        ("pending".into(), "3/4".into())
+        ("passed".into(), "4/4".into()),
+        "as 01-VERIFICATION.md says"
     );
 }
 
-/// `specforge trace LEDG-02 --partial` (the fixture has no commit) follows the requirement to the failing test: its
-/// run shows `(failed)`.
+/// `specforge trace LEDG-02 --partial` (the fixture has no commit) follows the requirement to its summary's coverage
+/// item, whose check names the failing test, and `gsd/W408` reports that check (ADR 0371 D7).
 #[test]
-fn the_trace_of_ledg_02_reaches_the_failed_test() {
+fn the_trace_of_ledg_02_reaches_the_check_of_its_failing_test() {
     let p = collected("rust-test.xml");
     let trace = p.run(&["trace", "LEDG-02", "--partial"]);
     assert_eq!(trace.code, 0, "{}", trace.all());
-    let failed: Vec<&str> = trace
+    let deliverables: Vec<&str> = trace
         .stdout
         .lines()
-        .filter(|l| l.contains("(failed)"))
+        .filter(|l| l.trim_start().starts_with("→ deliverable "))
         .collect();
-    assert_eq!(failed.len(), 1, "{}", trace.stdout);
+    assert_eq!(deliverables.len(), 1, "{}", trace.stdout);
     assert!(
-        failed[0].contains("total_beyond_i32_is_exact"),
+        deliverables[0].contains("tests/totals.rs#total_beyond_i32_is_exact"),
         "{}",
         trace.stdout
+    );
+    let d1 = "deliverable 'v1.0/01/01-02/01-02-SUMMARY/D1'";
+    assert!(
+        p.report_all()
+            .iter()
+            .any(|(code, message)| code == "gsd/W408" && message.contains(d1)),
+        "{:#?}",
+        p.report_all()
     );
 }
 

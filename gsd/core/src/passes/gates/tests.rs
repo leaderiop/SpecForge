@@ -386,16 +386,16 @@ fn e515_is_silent_outside_a_gate() {
 
 #[test]
 fn e515_names_the_first_missing_link_of_the_proof() {
-    let suggestion = "link a passing test to the task with [gsd:<task id>], or name it in the `proof` of a truth \
-        that names the requirement, and record the commit";
+    let suggestion = "tag a passing test with the task or the requirement ([gsd:<id>]), or name it in a check of the \
+        summary's coverage item for the requirement, and record the commit";
     for (proof, missing) in [
         (Some("no_task"), "no task of its plans"),
         // The derive pass writes a proof for every requirement: none reads as a thread with no task.
         (None, "no task of its plans"),
         (Some("no_commit"), "no commit of its tasks"),
-        (Some("not_run"), "no passing test of its tasks"),
-        (Some("no_test"), "no passing test of its tasks"),
-        (Some("failed"), "no passing test of its tasks"),
+        (Some("not_run"), "no passing test"),
+        (Some("no_test"), "no passing test"),
+        (Some("failed"), "no passing test"),
     ] {
         let refused = e515(&traced(Some("v1.0/01"), "complete", proof));
         assert_eq!(codes(refused.clone()), ["E515"], "{proof:?}");

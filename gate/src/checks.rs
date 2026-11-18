@@ -5,6 +5,7 @@ use crate::blob_inputs;
 use crate::blob_size;
 use crate::change_set::{ChangeSet, Pattern};
 use crate::crate_map;
+use crate::dogfood;
 use crate::judge;
 use crate::layers;
 use crate::repo::Repo;
@@ -177,7 +178,7 @@ pub static CHECKS: &[Check] = &[
         proves: concat!(
             "every committed .wasm blob (the staged one, at the hook) is at most ",
             blob_size::cap!(),
-            " B (ADR 0338 D8)"
+            " B, or the allowance `gate/src/blob_size.rs` names for it (ADR 0338 D8, ADR 0366 D3)"
         ),
         reach: Reach::Hook,
         trigger: Trigger::Paths(&["**/*.wasm", "gate/src/blob_size.rs"]),
@@ -201,15 +202,15 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "links",
-        proves: "every test's verify text and entity is declared by the spec (A016, static)",
+        proves: "every spec-link attribute of the repository's tests names a requirement of the spec and carries no verify text (ADR 0374 D4)",
         reach: Reach::Hook,
         trigger: Trigger::Computed(
-            "a .spec file; a test file or one with a `verify =` attribute",
+            "a .spec file; a test file or one with a spec-link attribute",
             link_sources,
         ),
         compiles: false,
         after: &[],
-        fix: "edit the test's verify text to match the spec entity (or the spec), then re-stage",
+        fix: "cargo run -q -p xtask --bin check-links names each finding (and <target>/gate/links.log holds them): UNKNOWN (no such entity), KIND (not `requirement = \"<id>\"` of a requirement), VERIFY (drop the verify text); fix the attribute or the spec, then re-stage",
         run: steps::links,
     },
     Check {
@@ -283,7 +284,7 @@ pub static CHECKS: &[Check] = &[
         proves: "every workspace test binary and the CLI build",
         reach: Reach::Quick,
         trigger: Trigger::Computed(
-            "a workspace member; the root manifest, lockfile or nextest config",
+            "a workspace member, or a file outside it that a member's tests read; the root manifest, lockfile or nextest config",
             packages,
         ),
         compiles: true,
@@ -292,24 +293,11 @@ pub static CHECKS: &[Check] = &[
         run: steps::build,
     },
     Check {
-        name: "self-spec-sample",
-        proves: "the WASM-host sample of the self-spec, absorbed into @gsd/core kinds with its invariants' proofs, runs exactly its cited tests on the gate's own test build and checks with no error and no warning; its infos, ledger and selection equal their goldens",
-        reach: Reach::Quick,
-        trigger: Trigger::Computed(
-            "the spec, @gsd, the builtins, the toolchain and build configuration; a source cargo builds into the CLI, absorb, the gate or a cited test",
-            crate::self_spec_sample::reach::reached,
-        ),
-        compiles: true,
-        after: &["build"],
-        fix: "read <target>/gate/self-spec-sample.log. An error or warning is fixed at the source (spec/, a test's attribute) or in absorb's table, never blessed. A compiled unit: the copy or the cargo environment differs from the gate's build (the log names the unit). An intended info, ledger or selection change: SPECFORGE_BLESS=1 cargo gate full --only self-spec-sample, then read the golden diff",
-        run: crate::self_spec_sample::run,
-    },
-    Check {
         name: "tests",
         proves: "the workspace tests pass (quick: the changed crates and their dependents)",
         reach: Reach::Quick,
         trigger: Trigger::Computed(
-            "a workspace member; the root manifest, lockfile or nextest config",
+            "a workspace member, or a file outside it that a member's tests read; the root manifest, lockfile or nextest config",
             packages,
         ),
         compiles: false,
@@ -368,7 +356,7 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "specs",
-        proves: "every project, as tracked, checks with no error and no warning above the baseline",
+        proves: "every project, as tracked (collected by @rust/cargo and @rust/source first when it loads them), checks with no error and no warning above the baseline",
         reach: Reach::Quick,
         trigger: Trigger::Paths(&[
             "**/*.spec",
@@ -384,27 +372,14 @@ pub static CHECKS: &[Check] = &[
         run: steps::specs,
     },
     Check {
-        name: "spec-modules",
-        proves: "spec/product/modules.spec models every crate: one module each, with its manifest's description and dependencies",
-        reach: Reach::Quick,
-        trigger: Trigger::Computed(
-            "spec/product/modules.spec, the root manifest or a member's manifest",
-            module_sources,
-        ),
-        compiles: false,
-        after: &[],
-        fix: "edit the module each line names in spec/product/modules.spec (or the manifest it disagrees with)",
-        run: steps::spec_modules,
-    },
-    Check {
         name: "dogfood",
-        proves: "the tests' reports leave no unknown entity (W115), failing proof (A014) or undeclared obligation (A016)",
+        proves: "the tests' nextest reports, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5)",
         reach: Reach::Full,
         trigger: Trigger::Always,
         compiles: false,
-        after: &["tests", "guests"],
-        fix: "fix the test or the spec entity the finding names",
-        run: steps::dogfood,
+        after: &["tests"],
+        fix: "<target>/gate/dogfood.log names each failed requirement: specforge anchors <id> --path <target>/gate/dogfood lists the tests that name it; run them (cargo nextest run --workspace --profile gate -E 'test(<name>)') and fix the one that fails; none proven: the tests did not run or named none. Then cargo gate full --only tests,dogfood",
+        run: dogfood::run,
     },
     Check {
         name: "builtins-verify",
@@ -413,7 +388,7 @@ pub static CHECKS: &[Check] = &[
         trigger: Trigger::Always,
         compiles: false,
         after: &[],
-        fix: "cargo run -p xtask --bin revendor with this rustc",
+        fix: "install the pinned rustc gate::blob_inputs::BLOB_RUSTC names (docs/agents/revendor.md), then cargo run -p xtask --bin revendor",
         run: steps::builtins_verify,
     },
 ];
@@ -466,23 +441,6 @@ fn crate_map_sources(repo: &Repo, changes: &ChangeSet) -> Result<Selection, Stri
     })
 }
 
-/// What can change how the spec's modules should read: the module file, the member list, or a member's manifest.
-fn module_sources(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
-    let read = |path: &str| {
-        path == crate_map::MODULES_SPEC
-            || path == "Cargo.toml"
-            || repo
-                .members
-                .iter()
-                .any(|member| crate_map::manifest_of(member) == path)
-    };
-    Ok(if changes.paths().any(read) {
-        Selection::Everything
-    } else {
-        Selection::Skip
-    })
-}
-
 /// The `.spec` files a hook or quick run formats: those inside a project's spec directory (the set CI checks), or
 /// every project's when the formatter, the parser or the grammar changed.
 fn spec_files(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
@@ -509,15 +467,15 @@ fn spec_files(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     Ok(only(files))
 }
 
-/// A `.spec` file, a Rust file under a `tests/` directory, or a Rust file that holds a `verify =` attribute: what can
-/// change a test's link to its spec entity.
+/// A `.spec` file, a Rust file under a `tests/` directory, or a Rust file that holds a spec-link attribute: what can
+/// change a test's link to its requirement (ADR 0374 D4).
 fn link_sources(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     let links = changes.paths().any(|path| {
         path.ends_with(".spec")
             || (path.ends_with(".rs")
                 && (path.starts_with("tests/")
                     || path.contains("/tests/")
-                    || holds_verify(&repo.root.join(path))))
+                    || holds_spec_link(&repo.root.join(path))))
     });
     Ok(if links {
         Selection::Everything
@@ -526,15 +484,26 @@ fn link_sources(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     })
 }
 
-/// Whether the file's text has `verify`, optional spaces, then `=`.
-fn holds_verify(file: &Path) -> bool {
+/// The paths the spec-link attribute goes by (the macro's own `registration`).
+const SPEC_LINK_PATHS: [&str; 5] = [
+    "spec",
+    "specforge_test",
+    "specforge_test_macros::test",
+    "specforge_test::test",
+    "specforge::test",
+];
+
+/// Whether the file's text has `#[`, then one of [`SPEC_LINK_PATHS`], then `(` (spaces allowed between them).
+fn holds_spec_link(file: &Path) -> bool {
     let Ok(text) = std::fs::read_to_string(file) else {
         return false;
     };
-    text.match_indices("verify").any(|(at, word)| {
-        text[at + word.len()..]
-            .trim_start_matches(' ')
-            .starts_with('=')
+    text.match_indices("#[").any(|(at, open)| {
+        let rest = text[at + open.len()..].trim_start();
+        SPEC_LINK_PATHS.iter().any(|path| {
+            rest.strip_prefix(path)
+                .is_some_and(|after| after.trim_start().starts_with('('))
+        })
     })
 }
 
@@ -548,9 +517,67 @@ fn blobs_fed(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     ))
 }
 
+/// Paths that tests of a member read and `member_of` does not map to it, each a file or a `<dir>/**` pattern with the
+/// members whose tests read it. Most lie outside every member (`gsd/` is a workspace of its own): a change there is
+/// no change to any member. The root spec is read by the corpus (`specforge_parser::testing`), the CLI's self-check
+/// and format corpus and the published-schema test, the root's project file by the last three; the frozen pre-swap
+/// spec (ADR 0374 D8) by the corpus and the tests that need the old kinds. `xtask`'s `requirement-links` fixture is
+/// `xtask`'s, yet the CLI's proof test and the gate's JUnit merge read it too (ADR 0374 D5). The gate's tests read
+/// the workflows, whose jobs' timeouts and build-time budgets they hold (ADR 0375 D3).
+const READ_FROM_OUTSIDE: &[(&str, &[&str])] = &[
+    (".github/workflows/**", &["gate"]),
+    (
+        "fixtures/old-spec/**",
+        &[
+            "specforge-component",
+            "specforge-formatter",
+            "specforge-lsp",
+            "specforge-ops",
+            "specforge-parser",
+            "specforge-project",
+            "tree-sitter-specforge",
+        ],
+    ),
+    (
+        "gsd/core/tests/golden/kinds.json",
+        &["specforge-component", "xtask"],
+    ),
+    (
+        "spec/**",
+        &[
+            "specforge-cli",
+            "specforge-formatter",
+            "specforge-ops",
+            "specforge-parser",
+            "specforge-project",
+        ],
+    ),
+    ("specforge.json", &["specforge-cli", "specforge-ops"]),
+    (
+        "xtask/tests/fixtures/requirement-links/**",
+        &["gate", "specforge-cli"],
+    ),
+];
+
+/// The members holding a changed path, and the members that read a changed file outside the workspace
+/// ([`READ_FROM_OUTSIDE`]); a change to the root manifest, the lockfile or nextest's config reaches every member.
+fn packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
+    let reached = member_packages(repo, changes)?;
+    let readers: BTreeSet<String> = READ_FROM_OUTSIDE
+        .iter()
+        .filter(|(file, _)| !changes.matching(&[file]).is_empty())
+        .flat_map(|(_, members)| members.iter().map(|m| m.to_string()))
+        .collect();
+    Ok(match reached {
+        Selection::Only(names) => only(names.into_iter().chain(readers).collect()),
+        Selection::Skip => only(readers),
+        Selection::Everything => Selection::Everything,
+    })
+}
+
 /// The members holding a changed path; a change to the root manifest, the lockfile or nextest's config reaches every
 /// member.
-fn packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
+fn member_packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     if !changes
         .matching(&["Cargo.toml", "Cargo.lock", ".config/nextest.toml"])
         .is_empty()
@@ -565,9 +592,9 @@ fn packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
     Ok(only(names))
 }
 
-/// `packages`, narrowed to the members whose sources hold a runnable doctest.
+/// `member_packages`, narrowed to the members whose sources hold a runnable doctest.
 fn doctest_packages(repo: &Repo, changes: &ChangeSet) -> Result<Selection, String> {
-    let reached = packages(repo, changes)?;
+    let reached = member_packages(repo, changes)?;
     let Selection::Only(names) = reached else {
         return Ok(reached);
     };

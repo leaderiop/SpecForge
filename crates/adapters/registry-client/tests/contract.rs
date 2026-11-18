@@ -13,10 +13,7 @@ use specforge_registry_client::{
 use specforge_registry_server::testing::LocalRegistry;
 use specforge_registry_wire::{RegistryRoot, SearchQuery};
 
-#[specforge_test_macros::test(
-    port = "RegistryClient",
-    verify = "RegistryClient contract is satisfied"
-)]
+#[test]
 fn the_http_client_keeps_the_client_contract() {
     let server = LocalRegistry::start();
     let registry = RegistryConfig {
@@ -33,10 +30,7 @@ fn the_http_client_keeps_the_client_contract() {
     );
 }
 
-#[specforge_test_macros::test(
-    port = "RegistryClient",
-    verify = "RegistryClient contract is satisfied"
-)]
+#[test]
 fn the_memory_client_keeps_the_client_contract() {
     let registry = RegistryConfig {
         alias: "memory".to_string(),
@@ -52,10 +46,7 @@ fn the_memory_client_keeps_the_client_contract() {
     );
 }
 
-#[specforge_test_macros::test(
-    port = "RegistryClient",
-    verify = "RegistryClient contract is satisfied"
-)]
+#[test]
 fn the_http_client_keeps_the_scope_contract() {
     let server = LocalRegistry::start();
     let registry = RegistryConfig {
@@ -74,10 +65,7 @@ fn the_http_client_keeps_the_scope_contract() {
     );
 }
 
-#[specforge_test_macros::test(
-    port = "RegistryClient",
-    verify = "RegistryClient contract is satisfied"
-)]
+#[test]
 fn the_memory_client_keeps_the_scope_contract() {
     let registry = RegistryConfig {
         alias: "memory".to_string(),
@@ -99,10 +87,7 @@ fn the_memory_client_keeps_the_scope_contract() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "support_private_registries",
-    verify = "a private registry refuses an anonymous read and answers an authenticated one"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn the_private_contract_holds_over_http() {
     let server = LocalRegistry::start_private();
     let registry = RegistryConfig {
@@ -119,10 +104,7 @@ fn the_private_contract_holds_over_http() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "support_private_registries",
-    verify = "a private registry refuses an anonymous read and answers an authenticated one"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn the_private_contract_holds_in_memory() {
     let registry = RegistryConfig {
         alias: "memory".to_string(),
@@ -137,10 +119,7 @@ fn the_private_contract_holds_in_memory() {
     assert_private_client_contract(&client, &registry, &credential);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_registry_reply",
-    verify = "a reply that is not the protocol's JSON is refused with R009, even with --allow-unsigned"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-030")]
 fn an_address_no_registry_serves_is_not_a_registry() {
     let server = LocalRegistry::start();
     let root = format!("{}/elsewhere", server.root());

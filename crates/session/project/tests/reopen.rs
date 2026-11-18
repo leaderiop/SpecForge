@@ -50,10 +50,7 @@ fn a_session_parses_within_the_deadline_it_was_given_across_reloads() {
     assert_eq!(deadline(&session), PARSE_DEADLINE, "a reload keeps it");
 }
 
-#[specforge_test(
-    behavior = "validate_delta_correctness",
-    verify = "an environment reload keeps whether the session verifies its updates"
-)]
+#[specforge_test(requirement = "FEATURE-051")]
 fn a_reload_keeps_whether_the_session_verifies() {
     let dir = TestProject::new().file("a.spec", ALPHA);
     let mut session = dir.session_bare();
@@ -71,10 +68,7 @@ fn a_reload_keeps_whether_the_session_verifies() {
     assert_eq!(update.verification, Some(Ok(())), "verification stayed on");
 }
 
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "a project opened in a session's place keeps its buffers and whether it verifies"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_project_opened_in_a_sessions_place_keeps_its_buffers_and_whether_it_verifies() {
     let a = TestProject::new().file("a.spec", ALPHA);
     let b = TestProject::new()
@@ -96,10 +90,7 @@ fn a_project_opened_in_a_sessions_place_keeps_its_buffers_and_whether_it_verifie
     assert_eq!(update.verification, None, "verification stayed off");
 }
 
-#[specforge_test_macros::test(
-    behavior = "complete_keywords",
-    verify = "the registered kinds are handed to keyword completion before any .spec file is read"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-049")]
 fn a_reopen_hands_over_the_environment_before_it_reads_a_source() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);

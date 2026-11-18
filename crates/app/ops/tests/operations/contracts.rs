@@ -92,10 +92,7 @@ fn build_graph() -> Graph {
 
 // No event bus exists in the codebase: like the other emitter contracts,
 // the *_emitted clause is not observable here.
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_contract_entity_in_graph_produces_chain() {
     // Requires (validation_complete_fired): a finalized graph.
     // Ensures (full_chain_traversed): the full chain, both directions,
@@ -200,10 +197,7 @@ fn trace_contract_entity_in_graph_produces_chain() {
 // === compute_project_statistics contract ===
 
 // B:compute_project_statistics — verify contract "requires/ensures consistency for project statistics computation"
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
     // Requires: graph + diagnostics collected
     // Ensures: all stat fields populated correctly
@@ -259,10 +253,7 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
 // === validate_agent_plan contract ===
 
 // B:validate_agent_plan — verify contract "requires/ensures consistency for agent plan validation"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "Validate Agent Implementation Plan: agent plan validation holds — validation_complete_fired, unresolvable_ids_diagnosed, missing_entries_warned, ordering_validated, structured_report_produced, plan_validated_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn plan_contract_validates_ids_coverage_ordering() {
     // Requires: finalized graph + plan JSON
     // Ensures: unresolvable IDs → errors, missing testable → warnings, wrong order → violations
@@ -292,10 +283,7 @@ fn plan_contract_validates_ids_coverage_ordering() {
 
 // No event bus exists in the codebase: like the other emitter contracts,
 // the *_emitted clause is not observable here.
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "Serialize Traceability Data: traceability data serialization holds — validation_complete_fired, full_trace_serialized, gaps_included, graph_protocol_conformance, render_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_data_contract_all_entities_traced() {
     // Requires (validation_complete_fired): a finalized graph.
     let graph = build_graph();
@@ -373,10 +361,7 @@ fn trace_data_contract_all_entities_traced() {
     );
 }
 
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "full trace covers all root entities across registered edge types"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_data_full_trace_covers_all_roots() {
     let graph = build_graph();
     let traces = crate::view_support::every_chain_list(&graph, Default::default());
@@ -386,10 +371,7 @@ fn trace_data_full_trace_covers_all_roots() {
     assert!(ids.contains(&"c"), "leaf entity c must be traced");
 }
 
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "gaps in chain are highlighted"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_data_gaps_highlighted() {
     // A behavior linked to nothing: both edges its kind expects are gaps
     // in the full trace, with the registered edge type each would be.
@@ -429,10 +411,7 @@ fn trace_data_gaps_highlighted() {
     assert!(bare[0].missing.is_empty());
 }
 
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "output conforms to Graph Protocol schema"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn trace_data_output_conforms_to_schema() {
     let graph = build_graph();
     let traces = crate::view_support::every_chain(&graph, Default::default());

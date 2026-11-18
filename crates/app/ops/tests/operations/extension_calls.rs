@@ -92,10 +92,7 @@ fn reports() -> Vec<CollectReportFile> {
     }]
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
     let answer = json!({"entity_results": [{"entity_id": "a", "test_results": [
         {"name": "t", "status": "passed", "verify": "v", "duration_ms": 2.0}
@@ -160,10 +157,7 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
     );
 }
 
-#[specforge_test(
-    invariant = "collector_output_conformance",
-    verify = "a test status outside passed, failed and skipped is an error naming the collector, never a skipped test"
-)]
+#[specforge_test(requirement = "INVARIANT-005")]
 fn a_status_outside_the_vocabulary_is_not_a_collect_output() {
     let answers = [
         json!({"entity_results": [{"entity_id": "a", "test_results": [
@@ -222,10 +216,7 @@ fn hook_input() -> MigrationInput {
     }
 }
 
-#[specforge_test(
-    behavior = "call_extension_exports",
-    verify = "every extension call encodes its input as the protocol type the SDK decodes"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_migration_hook_input_and_any_answer() {
     for answer in [&b"garbage"[..], b"", b"{}"] {
         let runtime = answering("migrate__x", WasmCallResult::Ok(answer.to_vec()));
@@ -318,10 +309,7 @@ mod evidence {
     const SOURCE: &str = "behavior proven \"Proven\" {\n  verify unit \"a\"\n  verify unit \"b\"\n}\n\
                           behavior half \"Half\" {\n  verify unit \"a\"\n  verify unit \"b\"\n}\n";
 
-    #[specforge_test(
-        behavior = "dispatch_surface_command",
-        verify = "the CommandInput carries what the recorded tests prove, per entity that counts toward coverage"
-    )]
+    #[specforge_test(requirement = "FEATURE-125")]
     fn the_input_carries_each_counted_entitys_proof() {
         let runtime = probe_runtime();
         let project =
@@ -360,10 +348,7 @@ mod evidence {
         assert_eq!(entities.len(), 2, "only what counts toward coverage");
     }
 
-    #[specforge_test(
-        behavior = "dispatch_surface_command",
-        verify = "a command's input says when the recorded test report cannot be read, and carries no evidence without one"
-    )]
+    #[specforge_test(requirement = "FEATURE-125")]
     fn no_report_is_no_evidence_and_a_broken_one_says_why() {
         let runtime = probe_runtime();
         let project =
@@ -428,10 +413,7 @@ mod the_views_runtime {
         dir
     }
 
-    #[specforge_test(
-        invariant = "extensions_run_in_their_loading_runtime",
-        verify = "an operation over a project view calls its extensions in the runtime the view's environment loaded them in"
-    )]
+    #[specforge_test(requirement = "INVARIANT-031")]
     fn operations_over_a_view_call_extensions_in_its_runtime() {
         let dir = project();
         let rt = Arc::new(extension());

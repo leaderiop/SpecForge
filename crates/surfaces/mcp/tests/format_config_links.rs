@@ -26,10 +26,7 @@ fn outside(text: &str) -> (TempDir, std::path::PathBuf) {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "no format configuration a call reads leaves the project, and none with more than one name is read"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn format_reports_a_configuration_linked_outside_without_its_content() {
     let project = project();
     let (_keep, file) = outside("SECRET-TOKEN = = oops\n");
@@ -48,10 +45,7 @@ fn format_reports_a_configuration_linked_outside_without_its_content() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "no format configuration a call reads leaves the project, and none with more than one name is read"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn format_reports_a_hard_linked_configuration_without_its_content() {
     let project = project();
     let (_keep, file) = outside("SECRET-TOKEN = = oops\n");
@@ -69,10 +63,7 @@ fn format_reports_a_hard_linked_configuration_without_its_content() {
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "no format configuration a call reads leaves the project, and none with more than one name is read"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn edit_lays_a_block_out_with_the_defaults_when_the_configuration_links_outside() {
     let project = project();
     let (_keep, file) = outside("indent_width = 8\n");
@@ -90,10 +81,7 @@ fn edit_lays_a_block_out_with_the_defaults_when_the_configuration_links_outside(
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "no format configuration a call reads leaves the project, and none with more than one name is read"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn init_formats_its_starter_with_the_defaults_when_the_configuration_links_outside() {
     let workspace = TestProject::new().without_config();
     fs::create_dir_all(workspace.root().join("created")).unwrap();
@@ -113,10 +101,7 @@ fn init_formats_its_starter_with_the_defaults_when_the_configuration_links_outsi
 }
 
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    invariant = "mcp_served_project_consistency",
-    verify = "format reads no file with more than one name: it is a failed file, named, without its content"
-)]
+#[specforge_test_macros::test(requirement = "INVARIANT-066")]
 fn format_names_a_hard_linked_source_a_failed_file_without_its_content() {
     let project = project();
     let (_keep, file) = outside("spec \"p\" {\n      version \"SECRET-SRC\"\n}\n");

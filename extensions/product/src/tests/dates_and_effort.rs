@@ -50,10 +50,7 @@ fn ids_flagged(order: &[(&str, bool)]) -> Vec<(String, bool)> {
     order.iter().map(|(id, o)| (id.to_string(), *o)).collect()
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_timeline",
-    verify = "milestone-timeline returns MilestoneTimelinePayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn milestone_timeline_answers_its_payload() {
     let t = json_of("milestone_timeline", json!({}), &timeline());
     assert_eq!(
@@ -78,10 +75,7 @@ fn milestone_timeline_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_timeline",
-    verify = "as-of flag overrides current date for overdue calculation"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn as_of_overrides_the_hosts_today() {
     let t = json_of(
         "milestone_timeline",
@@ -129,10 +123,7 @@ fn as_of_overrides_the_hosts_today() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_timeline",
-    verify = "human format marks overdue milestones"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_human_timeline_marks_the_overdue() {
     let human = human_of("milestone_timeline", json!({}), &timeline());
     assert_eq!(
@@ -148,10 +139,7 @@ fn the_human_timeline_marks_the_overdue() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_timeline",
-    verify = "milestones sorted by target_date ascending"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn the_timeline_is_earliest_first() {
     let t = json_of("milestone_timeline", json!({}), &timeline());
     let dates: Vec<&str> = t["milestones"]
@@ -165,10 +153,7 @@ fn the_timeline_is_earliest_first() {
     assert_eq!(dates, sorted);
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_timeline",
-    verify = "undated milestones appear after dated milestones"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn undated_milestones_come_last() {
     let g =
         timeline()
@@ -179,19 +164,13 @@ fn undated_milestones_come_last() {
     assert_eq!(&order[5..], ["aaa", "bad", "undated"]);
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_timeline",
-    verify = "overdue milestone with status=in_progress is flagged in query result"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn an_in_progress_milestone_past_its_date_is_overdue() {
     let t = json_of("milestone_timeline", json!({}), &timeline());
     assert_eq!(timeline_order(&t)[1], ("late".to_string(), true));
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_timeline",
-    verify = "completed milestone past target_date is not flagged overdue"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_completed_milestone_is_never_overdue() {
     let t = json_of(
         "milestone_timeline",
@@ -202,10 +181,7 @@ fn a_completed_milestone_is_never_overdue() {
     assert_eq!(t["overdue_count"], 4);
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_timeline",
-    verify = "empty milestone set returns empty timeline"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn no_milestones_is_an_empty_timeline() {
     assert_eq!(
         json_of("milestone_timeline", json!({}), &G::default()),
@@ -213,10 +189,7 @@ fn no_milestones_is_an_empty_timeline() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_timeline",
-    verify = "same as_of_date produces identical timeline across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn one_as_of_date_is_one_timeline() {
     let args = json!({"as_of": "2026-11-15"});
     let first = json_of("milestone_timeline", args.clone(), &timeline());
@@ -237,10 +210,7 @@ fn one_as_of_date_is_one_timeline() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_timeline",
-    verify = "milestone timeline is deterministic across repeated queries"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn the_timeline_is_the_same_every_time_and_in_any_order() {
     let first = json_of("milestone_timeline", json!({}), &timeline());
     let mut g = timeline();
@@ -276,10 +246,7 @@ fn velocity() -> G {
         .edge("due", "f5", "features")
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_velocity",
-    verify = "milestone-velocity returns MilestoneVelocityPayload JSON"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn milestone_velocity_answers_its_payload() {
     let v = json_of(
         "milestone_velocity",
@@ -320,10 +287,7 @@ fn milestone_velocity_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_milestone_velocity",
-    verify = "missing milestone ID returns error with suggestion"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn milestone_velocity_of_a_mistyped_milestone_suggests_the_nearest() {
     let error = not_found_suggesting(
         "milestone_velocity",
@@ -333,10 +297,7 @@ fn milestone_velocity_of_a_mistyped_milestone_suggests_the_nearest() {
     assert_eq!(error["suggestion"], "ms");
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_velocity",
-    verify = "milestone with 3 done and 2 remaining returns correct counts"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn three_done_of_five_are_counted_by_status() {
     let v = json_of(
         "milestone_velocity",
@@ -357,10 +318,7 @@ fn three_done_of_five_are_counted_by_status() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_velocity",
-    verify = "milestone with no done features returns null velocity"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_milestone_with_nothing_done_has_no_velocity() {
     // due's date is the start: 10 days elapsed, nothing done.
     let v = json_of(
@@ -378,10 +336,7 @@ fn a_milestone_with_nothing_done_has_no_velocity() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_velocity",
-    verify = "milestone without target_date returns null days_elapsed"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn a_milestone_without_dates_has_no_days() {
     let v = json_of(
         "milestone_velocity",
@@ -399,10 +354,7 @@ fn a_milestone_without_dates_has_no_days() {
     assert_eq!(v["completion_ratio"], 0.5);
 }
 
-#[specforge_test(
-    behavior = "pe_query_milestone_velocity",
-    verify = "velocity calculation is mathematically correct"
-)]
+#[specforge_test(requirement = "FEATURE-092")]
 fn velocity_is_done_over_elapsed_and_paces_what_is_left() {
     for (as_of, elapsed) in [
         ("2026-09-04", 1),
@@ -458,10 +410,7 @@ fn efforts() -> G {
         .edge("ms_all", "e6", "features")
 }
 
-#[specforge_test(
-    behavior = "surface_weighted_milestone_completion",
-    verify = "weighted-milestone-completion returns effort breakdown"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn weighted_completion_answers_its_breakdown() {
     let w = json_of(
         "weighted_milestone_completion",
@@ -494,10 +443,7 @@ fn weighted_completion_answers_its_breakdown() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_weighted_milestone_completion",
-    verify = "weighted-milestone-completion with unknown ID returns ENTITY_NOT_FOUND"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn weighted_completion_of_no_milestone_is_not_found() {
     let error = not_found_suggesting(
         "weighted_milestone_completion",
@@ -507,10 +453,7 @@ fn weighted_completion_of_no_milestone_is_not_found() {
     assert_eq!(error["suggestion"], "ms_all");
 }
 
-#[specforge_test(
-    behavior = "pe_query_weighted_milestone_completion",
-    verify = "milestone with xs(done) + xl(pending) returns ratio 1/9"
-)]
+#[specforge_test(requirement = "FEATURE-082")]
 fn xs_done_and_xl_pending_is_one_ninth() {
     let w = json_of(
         "weighted_milestone_completion",
@@ -524,10 +467,7 @@ fn xs_done_and_xl_pending_is_one_ninth() {
     assert_eq!(w["completion_ratio"], 1.0 / 9.0);
 }
 
-#[specforge_test(
-    behavior = "pe_query_weighted_milestone_completion",
-    verify = "feature without effort defaults to m=3 weight"
-)]
+#[specforge_test(requirement = "FEATURE-082")]
 fn a_feature_without_effort_weighs_three() {
     let g = G::default()
         .feature("f", "done")
@@ -546,10 +486,7 @@ fn a_feature_without_effort_weighs_three() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_weighted_milestone_completion",
-    verify = "empty milestone returns null completion_ratio"
-)]
+#[specforge_test(requirement = "FEATURE-082")]
 fn an_empty_milestone_has_no_weighted_ratio() {
     assert_eq!(
         json_of(
@@ -562,10 +499,7 @@ fn an_empty_milestone_has_no_weighted_ratio() {
     );
 }
 
-#[specforge_test(
-    behavior = "product_effort_weight_correctness",
-    verify = "each effort level maps to its Fibonacci weight"
-)]
+#[specforge_test(requirement = "RELIABILITY-12")]
 fn each_effort_level_weighs_its_fibonacci_number() {
     for (effort, weight) in [("xs", 1), ("s", 2), ("m", 3), ("l", 5), ("xl", 8)] {
         let g = G::default()
@@ -581,10 +515,7 @@ fn each_effort_level_weighs_its_fibonacci_number() {
     }
 }
 
-#[specforge_test(
-    behavior = "product_effort_weight_correctness",
-    verify = "missing effort defaults to m weight"
-)]
+#[specforge_test(requirement = "RELIABILITY-12")]
 fn a_missing_or_unknown_effort_weighs_as_m() {
     for fields in [json!({}), json!({"effort": "huge"})] {
         let g = G::default()

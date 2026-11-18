@@ -14,7 +14,7 @@ const PLAN_STATUS: &[&str] = &[
     "halted",
     "blocked",
 ];
-const COUPLING: &[Field] = &[rf("peer", "plan").r(), str("reason").prose().r()];
+const COUPLING: &[Field] = &[rf("peer", "plan").r(), str("reason").r()];
 const ESTIMATE: &[Field] = &[int("tokens")];
 
 /// `NN-MM-PLAN.md`, named `03-02` and scoped by its phase; a quick plan has no phase and is named by its quick id.
@@ -38,21 +38,15 @@ pub const PLAN: Kind = Kind::new(
             .doc("`gap_closure: true` and `gap_ids:`; the gaps this plan closes"),
         rfs("requirements", "requirement")
             .doc("`requirements:` (non-empty: gsd/E302 is the one diagnostic of its absence)"),
-        rfs("decisions", "decision")
-            .inverse("implemented_by")
-            .doc(
-                "`decisions:` the context decisions this plan implements (`D-NN`, resolved in its phase), read back \
-                 as `implemented_by`; gsd/E310, W317, W506 and E312 read it",
-            ),
         bool("wave0").doc("`wave: 0`: the plan builds the phase's wave-0 items"),
         str("agent_hint").doc("`agent_hint:`"),
         block("estimate", ESTIMATE).doc("`estimate:`"),
-        str("objective").prose().r().doc("`<objective>`"),
-        str("purpose").prose().doc("`Purpose:`"),
-        str("output").prose().doc("`Output:`"),
+        str("objective").r().doc("`<objective>`"),
+        str("purpose").doc("`Purpose:`"),
+        str("output").doc("`Output:`"),
         paths("context_refs", Mode::Present).doc("`<context>` @-refs (paths that exist now: E016)"),
-        strs("verification").prose().doc("`<verification>`"),
-        strs("success_criteria").prose().doc("`<success_criteria>`"),
+        strs("verification").doc("`<verification>`"),
+        strs("success_criteria").doc("`<success_criteria>`"),
         str("slug").doc("a quick plan's slug: the one `quick-init` answered"),
         int("wave")
             .c()
@@ -79,17 +73,18 @@ pub const PLAN: Kind = Kind::new(
 .scoped_by("phase")
 .complete_when("status", &["complete"]);
 
-const TASK_TYPE: &[&str] = &["auto", "tdd", "tracer", "manual"];
+const TASK_TYPE: &[&str] = &["auto", "tdd", "tracer"];
 const RATING: &[&str] = &["reversible", "costly", "one_way"];
 const REVERSIBILITY: &[Field] = &[
     en("rating", RATING).r(),
-    str("why").prose(),
+    str("why"),
     rf("settled_by", "decision"),
 ];
-const VERIFY: &[Field] = &[str("automated").r(), str("fails_when").prose()];
+const VERIFY: &[Field] = &[str("automated").r(), str("fails_when")];
 const TASK_STATUS: &[&str] = &["pending", "done"];
 
-/// `<task type="auto|tdd">`, named `T1` within its plan; the order is the name's number.
+/// `<task type="auto|tdd|tracer">`, gsd-core's task types (a `checkpoint:*` task is a `checkpoint`), named `T1` within
+/// its plan; the order is the name's number.
 // `commits` is not a field of the task: it is the inverse of `commit.task` (`commit`, round r38).
 pub const TASK: Kind = Kind::new(
     "task",
@@ -102,24 +97,21 @@ pub const TASK: Kind = Kind::new(
         ),
         paths("read_first", Mode::Planned)
             .doc("`<read_first>` (paths, checked once the task is done: E016)"),
-        rfs("items", "item").doc(
-            "the code items the task targets: `@code/core` item facts, quoted; a pending task may name one not written yet",
-        ),
-        str("precondition").prose().doc("`<precondition>`"),
+        str("precondition").doc("`<precondition>`"),
         block("reversibility", REVERSIBILITY)
             .doc("`<reversibility>`; `settled_by` names the decision that already settles a one-way door (gsd/W308)"),
-        str("action").prose().r().doc("`<action>`"),
+        str("action").r().doc("`<action>`"),
         blocks("verify", VERIFY).doc(
             "`<verify><automated>` and its `<fails_when>`: one item per command (gsd/E303, gsd/E507)",
         ),
-        str("verify_text").prose()
+        str("verify_text")
             .doc("a bare `<verify>` body: not an `<automated>` command, so no probe reads it"),
-        str("verify_human").prose().doc("`<verify><human-check>`: harvested into UAT"),
-        strs("acceptance").prose().doc("`<acceptance_criteria>`"),
-        str("done").prose().r().doc("`<done>`"),
+        str("verify_human").doc("`<verify><human-check>`: harvested into UAT"),
+        strs("acceptance").doc("`<acceptance_criteria>`"),
+        str("done").r().doc("`<done>`"),
         strs("verify_paths")
             .c()
-            .doc("the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320; each distinct path is listed once, on the first task (by id) that names it, so the host reads it once"),
+            .doc("the directory and the manifest each `automated` command runs in (a `cd`, or a tool's prefix option), read by gsd/E320; each distinct path is listed once, on the first task (by id) that names it, so the host reads it once"),
         en("status", TASK_STATUS)
             .c()
             .doc("done when its plan's summary lists it complete"),
@@ -141,15 +133,15 @@ pub const CHECKPOINT: Kind = Kind::new(
         rf("after", "task").doc("position in the task order"),
         en("kind", CHECKPOINT_KIND).r().doc("`type=`"),
         en("gate", GATE).doc("`gate=` (blocking when absent)"),
-        str("what_built").prose().doc("`<what-built>`: required for `human_verify` (gsd/E307)"),
-        str("how_to_verify").prose().doc("`<how-to-verify>`: required for `human_verify` (gsd/E307)"),
-        str("decision").prose().doc("`<decision>`: required for `decision` (gsd/E307)"),
+        str("what_built").doc("`<what-built>`: required for `human_verify` (gsd/E307)"),
+        str("how_to_verify").doc("`<how-to-verify>`: required for `human_verify` (gsd/E307)"),
+        str("decision").doc("`<decision>`: required for `decision` (gsd/E307)"),
         blocks("options", super::OPTION)
             .doc("`<options>`: required for `decision`; names unique within the checkpoint (gsd/E307)"),
         str("auto_select").doc("`auto_select=`: names one of `options` (gsd/E307)"),
-        str("instructions").prose().doc("`<instructions>`: required for `human_action` (gsd/E307)"),
-        str("action").prose().doc("`<action>`: required for `human_action` (gsd/E307)"),
-        str("verification").prose().doc("`<verification>`: required for `human_action` (gsd/E307)"),
+        str("instructions").doc("`<instructions>`: required for `human_action` (gsd/E307)"),
+        str("action").doc("`<action>`: required for `human_action` (gsd/E307)"),
+        str("verification").doc("`<verification>`: required for `human_action` (gsd/E307)"),
         str("resume_signal").r().doc("`<resume-signal>`"),
         block("answer", ANSWER)
             .h()
@@ -168,10 +160,9 @@ pub const DISPOSITION: Kind = Kind::new(
     &[
         rf("plan", "plan").r().i().doc("parent"),
         int("round").r().i().doc("the review round"),
-        str("reviewer").r().i().doc("who raised it"),
         str("feedback").r().i().doc("the finding"),
         en("outcome", OUTCOME).r().i().doc("addressed or deferred"),
-        str("reason").prose().i().doc("why it was deferred"),
+        str("reason").i().doc("why it was deferred"),
         rf("concern", "review_concern")
             .i()
             .doc("the review concern it rules on; the concern's status reads the highest round"),
@@ -181,7 +172,7 @@ pub const DISPOSITION: Kind = Kind::new(
 .scoped_by("plan");
 
 const ENV_VAR: &[Field] = &[str("name").r(), str("source")];
-const DASHBOARD: &[Field] = &[str("task").prose(), str("location"), str("details").prose()];
+const DASHBOARD: &[Field] = &[str("task"), str("location"), str("details")];
 const SETUP_DONE: &[Field] = &[ts("at"), str("by")];
 
 /// `user_setup:` of a plan, named `US1`: what a human must do outside the code.
@@ -191,10 +182,10 @@ pub const USER_SETUP: Kind = Kind::new(
     &[
         rf("plan", "plan").r().i().doc("parent"),
         str("service").r().doc("`service:`"),
-        str("why").prose().r().doc("`why:`"),
+        str("why").r().doc("`why:`"),
         blocks("env_vars", ENV_VAR).doc("`env_vars:`"),
         blocks("dashboard", DASHBOARD).doc("`dashboard_config:`"),
-        strs("local_dev").prose().doc("`local_dev:`"),
+        strs("local_dev").doc("`local_dev:`"),
         block("done", SETUP_DONE)
             .h()
             .doc("written when the human confirms (`confirm_setup`)"),

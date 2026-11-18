@@ -4,10 +4,8 @@ use crate::served::Served;
 use specforge_test_macros::test as specforge_test;
 
 // B:code_action_create_entity_stub — verify contract "requires/ensures consistency for create entity stub"
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "Code Action: Create Entity Stub: create entity stub holds — graph_available, field_registry_available, stub_created, kind_inferred, no_code_generated"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn code_action_create_entity_stub_contract() {
     // Requires: an E003 for an id no entity has + the enclosing field's
     // target kind in the FieldRegistry
@@ -71,10 +69,8 @@ fn invariants_field(
     }
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "Code Actions for Missing Verify: missing verify code actions holds — kind_registry_available, graph_available, quickfix_offered, verify_stubs_produced, no_code_generated"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn code_actions_for_missing_verify_contract() {
     // Requires: testable entity without verify statements
     // Ensures: quickfix code action with verify stub targeting the .spec file

@@ -60,10 +60,7 @@ fn has_edge(edges: &[(String, String, String)], source: &str, label: &str, targe
     edges.contains(&(source.into(), label.into(), target.into()))
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a string list's items reference nothing but scheme ref IDs"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn numbers_on_a_string_list_reference_nothing() {
     let (_p, compiled) = product(
         "term t1 \"T1\" { definition \"one\" see_also [t2] }\n\
@@ -73,10 +70,7 @@ fn numbers_on_a_string_list_reference_nothing() {
     assert_eq!(with_code(&diags, "E003"), Vec::<&Value>::new(), "{diags:?}");
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a string list's items reference nothing but scheme ref IDs"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_bare_word_on_a_string_list_references_nothing() {
     let (_p, compiled) = product(
         "term t1 \"T1\" { definition \"one\" see_also [t4] }\n\
@@ -102,10 +96,7 @@ fn a_bare_word_on_a_string_list_references_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a string list's items reference nothing but scheme ref IDs"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn booleans_and_bare_words_on_a_string_list_reference_nothing() {
     let (_p, compiled) = product(
         "feature f1 \"F1\" { status proposed contributors [alice, bob] }\n\
@@ -115,10 +106,7 @@ fn booleans_and_bare_words_on_a_string_list_reference_nothing() {
     assert_eq!(with_code(&diags, "E003"), Vec::<&Value>::new(), "{diags:?}");
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a quoted id on a reference list field is a reference"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_quoted_id_on_a_reference_list_links() {
     let (_p, compiled) = product(
         "term t1 \"T1\" { definition \"one\" }\n\
@@ -134,10 +122,7 @@ fn a_quoted_id_on_a_reference_list_links() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a quoted id on a reference list field is a reference"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn quoted_unknown_ids_on_a_reference_list_are_e003() {
     let (_p, compiled) = product(
         "persona dev \"Dev\" { description \"d\" }\n\
@@ -152,10 +137,7 @@ fn quoted_unknown_ids_on_a_reference_list_are_e003() {
     }
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a string list's items reference nothing but scheme ref IDs"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_mixed_list_on_a_string_list_is_no_error() {
     let (_p, compiled) = product("term t1 \"T1\" { definition \"one\" aliases [\"a\", b] }\n");
     let diags = diagnostics(&compiled);
@@ -171,10 +153,7 @@ fn a_mixed_list_on_a_string_list_is_no_error() {
     assert_eq!(node["fields"]["aliases"], serde_json::json!(["a", "b"]));
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "an open-fields kind's undeclared field references nothing"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_open_kinds_undeclared_list_references_nothing() {
     let (_p, compiled) = product(
         "type Level \"Level\" { levels [critical, high] }\n\
@@ -184,10 +163,7 @@ fn an_open_kinds_undeclared_list_references_nothing() {
     assert_eq!(with_code(&diags, "E003"), Vec::<&Value>::new(), "{diags:?}");
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a single reference that resolves to nothing is E003"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_unresolved_single_reference_is_e003() {
     for spec in [
         "channel cli \"CLI\" { description \"c\" }\n\
@@ -213,10 +189,7 @@ fn an_unresolved_single_reference_is_e003() {
     }
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a quoted single reference is a reference"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_quoted_single_reference_links() {
     let (_p, compiled) = product(
         "persona dev \"Dev\" { description \"d\" }\n\
@@ -233,10 +206,7 @@ fn a_quoted_single_reference_links() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a single reference to an existing entity of another kind than its field's target kind is E022 at the reference"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_single_reference_to_the_wrong_kind_is_e022() {
     let (_p, compiled) = product(
         "channel cli \"CLI\" { description \"c\" }\n\
@@ -252,10 +222,7 @@ fn a_single_reference_to_the_wrong_kind_is_e022() {
     }
 }
 
-#[specforge_test(
-    behavior = "report_entities_without_contract_obligations",
-    verify = "a single contract reference is a contract obligation"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_single_contract_reference_is_a_contract_obligation() {
     let (_p, compiled) = compile(
         &["@specforge/governance", "@specforge/software"],
@@ -302,10 +269,7 @@ fn an_undeclared_fields_bare_list_links() {
     assert!(has_edge(&edges(&compiled), "t1", "foo", "t2"));
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a single reference to an existing entity of another kind than its field's target kind is E022 at the reference"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_wrong_kind_reference_is_e022_at_the_reference_with_help() {
     let (_p, compiled) = product(
         "channel cli \"CLI\" { description \"c\" }\n\

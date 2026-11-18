@@ -61,10 +61,7 @@ fn refused_about_the_name(result: Result<init::Outcome, Refusal<InitField>>, dir
     assert!(files_under(dir).is_empty(), "nothing was written");
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init refuses a project name whose starter spec ID a kind of an extension it enables reserves, before anything is written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_a_name_a_kind_it_enables_reserves() {
     let scratch = TempDir::new().unwrap();
     let runtime = specforge_project::testing::component_runtime();
@@ -79,10 +76,7 @@ fn init_refuses_a_name_a_kind_it_enables_reserves() {
     refused_about_the_name(init_with(&dir, None, &product, &*runtime), &dir);
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init refuses a structural keyword as the starter's spec ID, whatever it enables"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_a_structural_keyword_as_the_starter_id_whatever_it_enables() {
     let scratch = TempDir::new().unwrap();
     let runtime = specforge_project::testing::component_runtime();
@@ -92,10 +86,7 @@ fn init_refuses_a_structural_keyword_as_the_starter_id_whatever_it_enables() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "non_interactive_init",
-    verify = "init refuses a project name whose starter spec ID a kind of an extension it enables reserves, before anything is written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_refuses_a_name_a_local_extensions_kind_reserves() {
     let scratch = TempDir::new().unwrap();
     let wasm = scratch.path().join("tpl.wasm");
@@ -112,10 +103,7 @@ fn init_refuses_a_name_a_local_extensions_kind_reserves() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "init writes the starter's values in the forms of the fields the extensions it enables declare"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-106")]
 fn init_writes_a_templates_values_in_their_fields_forms() {
     let scratch = TempDir::new().unwrap();
     let wasm = scratch.path().join("tpl.wasm");

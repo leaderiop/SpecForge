@@ -653,10 +653,7 @@ mod tests {
         assert_eq!(schema["additionalProperties"], false);
     }
 
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_tools",
-        verify = "what the pipeline adds to a mutation's reply is declared once, beside its reply: files_written, and rename's diagnostics"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-066")]
     fn fresh_diagnostics_ride_beside_files_written() {
         let fresh = output_schema::<FreshProbe>();
         assert_eq!(

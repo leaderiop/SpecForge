@@ -80,10 +80,7 @@ fn next_json(lines: &mpsc::Receiver<String>) -> serde_json::Value {
     serde_json::from_str(&line).unwrap_or_else(|e| panic!("not JSON ({e}): {line}"))
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "a client that names no projectRoot is served the project at or above the path specforge mcp was started with"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn mcp_serves_the_project_at_or_above_its_path() {
     let dir = TestProject::new()
         .raw_config(r#"{"name":"t","version":"0.1.0","extensions":[],"spec_root":"spec"}"#)
@@ -109,10 +106,7 @@ fn mcp_serves_the_project_at_or_above_its_path() {
     }
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "specforge mcp serves its standard input and output and exits 0 when its input ends"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn mcp_answers_each_request_on_stdout_and_exits_0_at_the_end_of_its_input() {
     let dir = alpha_project();
     let initialized = serde_json::json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
@@ -145,10 +139,7 @@ fn mcp_answers_each_request_on_stdout_and_exits_0_at_the_end_of_its_input() {
 /// A stdio client subscribed to the graph gets `specforge/graphChanged` on
 /// stdout once the project changed: each reply arrives before the client's
 /// next request, a response before the notifications it queued.
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "a client reading specforge mcp's output line by line gets each response before it sends its next request, the notifications it queued after it"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn mcp_writes_each_response_before_the_next_request_and_its_notifications_after_it() {
     let dir = TestProject::new().file("spec/base.spec", r#"behavior base "B" { contract "b" }"#);
     let mut child = Cli::on(&dir).start(&["mcp", dir.root().to_str().unwrap()]);
@@ -204,10 +195,7 @@ fn mcp_writes_each_response_before_the_next_request_and_its_notifications_after_
 
 /// A line that is not UTF-8 is not JSON: answered with -32700, and the
 /// session goes on.
-#[specforge_test(
-    behavior = "serve_mcp_over_stdio",
-    verify = "specforge mcp answers a line that is not UTF-8 instead of ending the session"
-)]
+#[specforge_test(requirement = "FEATURE-072")]
 fn mcp_answers_a_line_that_is_not_utf8_and_keeps_serving() {
     let dir = alpha_project();
     let ping = |id: u64| mcp_request(id, "ping", serde_json::json!({}));

@@ -150,10 +150,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "validate_agent_plan",
-        verify = "an entity and a plan together are invalid input about the plan, on every surface"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-130")]
     fn an_entity_with_a_plan_is_refused_about_the_plan() {
         let plan = plan();
         let refusal = Ask::of(request(Some("login"), None, Some(&plan))).unwrap_err();
@@ -187,10 +184,7 @@ mod tests {
         ));
     }
 
-    #[specforge_test_macros::test(
-        behavior = "trace_within_entity",
-        verify = "in beside an entity or a plan is refused about in"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-129")]
     fn in_beside_an_entity_or_a_plan_is_refused_about_in() {
         let plan = plan();
         let refusal = Ask::of(request(Some("login"), Some("v1.0"), None)).unwrap_err();
@@ -214,10 +208,7 @@ mod tests {
         ));
     }
 
-    #[specforge_test_macros::test(
-        behavior = "follow_trace_route",
-        verify = "a named route, the reach, and every entity are traced as asked, and a wrong route is refused"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-129")]
     fn a_plan_with_a_route_or_the_reach_is_refused_about_the_plan() {
         let plan = plan();
         for (route, reach) in [(Some("shop/order-thread"), false), (None, true)] {

@@ -27,10 +27,7 @@ impl Drop for Reaped {
     }
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "check reports a .wasm file entry that is a named pipe as E028 at once"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn check_reports_a_wasm_file_entry_that_is_a_named_pipe_as_e028_at_once() {
     let project = TestProject::new().raw_config(
         r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","x.wasm"]}"#,
@@ -70,10 +67,7 @@ fn check_reports_a_wasm_file_entry_that_is_a_named_pipe_as_e028_at_once() {
     );
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "specforge mcp answers initialize over a project whose specforge.lock is a named pipe, and doctor reports the lock"
-)]
+#[specforge_test(requirement = "FEATURE-067")]
 fn mcp_answers_initialize_over_a_project_whose_lock_is_a_named_pipe() {
     let project = TestProject::new()
         .raw_config(r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#);

@@ -7,10 +7,7 @@ use super::{UI_EXTENSION, hook, install, project, tree, uninstall};
 
 const HOSTS: [&str; 3] = ["claude-code", "codex", "cursor"];
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "install writes the tree and a second install writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn install_writes_the_tree_and_a_second_install_writes_nothing() {
     let project = project(json!({}), json!({}));
     let before = tree(&project);
@@ -39,10 +36,7 @@ fn install_writes_the_tree_and_a_second_install_writes_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "install refuses a file it did not write and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn install_refuses_a_foreign_file_and_writes_nothing() {
     let project = project(json!({}), json!({}));
     project.write(
@@ -66,10 +60,7 @@ fn install_refuses_a_foreign_file_and_writes_nothing() {
     assert_eq!(tree(&project), before);
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "install refuses a marked file edited since unless forced"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn install_refuses_an_edited_file_unless_forced() {
     let project = project(json!({}), json!({}));
     assert_eq!(install(&project, &["claude-code"], &[]).code, 0);
@@ -90,10 +81,7 @@ fn install_refuses_an_edited_file_unless_forced() {
     assert_eq!(project.read(path), original);
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "install removes what no extension contributes any more and keeps a foreign sibling"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn install_removes_what_is_no_longer_contributed() {
     let project = project(json!({}), json!({"workflow.ui_phase": true}));
     assert_eq!(install(&project, &["claude-code"], &[]).code, 0);
@@ -127,10 +115,7 @@ fn install_removes_what_is_no_longer_contributed() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "install --check exits 1 on drift and names what would change, per host"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn install_check_exits_1_on_drift() {
     let project = project(json!({}), json!({}));
     assert_eq!(install(&project, &HOSTS, &[]).code, 0);
@@ -154,10 +139,7 @@ fn install_check_exits_1_on_drift() {
     assert_eq!(install(&project, &["cursor"], &["--check"]).code, 0);
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "uninstall removes exactly what install wrote"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn uninstall_removes_exactly_what_install_wrote() {
     let project = project(json!({}), json!({}));
     project.write(
@@ -182,10 +164,7 @@ fn uninstall_removes_exactly_what_install_wrote() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "install merges its entries without touching a user's hooks or servers"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn install_merges_without_touching_foreign_entries() {
     let project = project(json!({}), json!({}));
     project.write(
@@ -219,10 +198,7 @@ fn install_merges_without_touching_foreign_entries() {
     assert!(settings.to_string().contains("mine.sh"));
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "the next install rolls back an install killed between two writes before it plans"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_install_killed_between_two_writes_is_rolled_back_by_the_next_writer() {
     let project = project(json!({}), json!({}));
     assert_eq!(install(&project, &["claude-code"], &[]).code, 0);
@@ -254,10 +230,7 @@ fn an_install_killed_between_two_writes_is_rolled_back_by_the_next_writer() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "a hook that names its hosts is installed on those only, and is a no-op on another"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_hook_names_its_hosts() {
     let project = project(json!({}), json!({}));
     let lines = |host: &str, file: &str| {
@@ -284,10 +257,7 @@ fn a_hook_names_its_hosts() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "no human guard is installed while no command is human-attested"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn no_human_guard_is_installed_without_a_human_command() {
     let with = project(json!({}), json!({}));
     install(&with, &["claude-code"], &[]);

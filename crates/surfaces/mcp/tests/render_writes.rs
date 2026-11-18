@@ -45,10 +45,7 @@ fn refusal(reply: &Value) -> (String, Option<String>) {
 
 /// A file outside the project that is a hard link at the output's name is not written through.
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "render replaces its file and writes no file through a hard link to a file outside"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn render_writes_no_file_through_a_hard_link_to_a_file_outside() {
     let project = plain_project();
     let outside = TempDir::new().unwrap();
@@ -74,10 +71,7 @@ fn render_writes_no_file_through_a_hard_link_to_a_file_outside() {
 
 /// A directory the user cannot write is `permission_denied`, and nothing is left in it.
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "an out_dir the user cannot write is permission_denied"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn render_into_a_directory_it_cannot_write_is_permission_denied() {
     use std::os::unix::fs::PermissionsExt;
     let project = plain_project();
@@ -146,10 +140,7 @@ fn render_over_a_read_only_output_file_is_permission_denied() {
 }
 
 /// An `out_dir` that is, or goes through, a file is invalid input about `out_dir`.
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "an out_dir that names a file is invalid input on out_dir"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn render_into_an_out_dir_that_is_a_file_is_invalid_input_on_out_dir() {
     let project = plain_project();
     let source = project.path().join("spec/main.spec");

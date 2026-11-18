@@ -152,12 +152,8 @@ fn four_overrides_is_w504() {
 }
 
 /// Records the answer to UAT test `name`, with `extra` lines (a reason, a report) beside it.
-fn answer(p: &Project, name: &str, criterion: u8, result: &str, extra: &str) {
-    p.edit(
-        "spec/uat.spec",
-        &format!("  criterion {criterion}\n}}"),
-        &format!("  criterion {criterion}\n  result {result}\n{extra}}}"),
-    );
+fn answer(p: &Project, name: &str, result: &str, extra: &str) {
+    p.close_uat_test(name, &format!("  result {result}\n{extra}"));
     assert_eq!(p.run(&["format", "spec"]).code, 0);
     p.record_harness(
         &format!("v1.0/01/01-UAT/{name}"),
@@ -169,13 +165,12 @@ fn answer(p: &Project, name: &str, criterion: u8, result: &str, extra: &str) {
 #[test]
 fn a_skip_without_reason_is_e509() {
     let p = verify();
-    answer(&p, "U1", 1, "skipped", "");
+    answer(&p, "U1", "skipped", "");
     assert_eq!(p.codes(), ["gsd/E509"], "{:?}", p.report());
     let p = verify();
     answer(
         &p,
         "U1",
-        1,
         "skipped",
         "  reason \"Deferred follow-up: needs a device\"\n",
     );
@@ -185,10 +180,10 @@ fn a_skip_without_reason_is_e509() {
 #[test]
 fn an_issue_without_a_report_is_e509() {
     let p = verify();
-    answer(&p, "U2", 2, "issue", "");
+    answer(&p, "U2", "issue", "");
     assert_eq!(p.codes(), ["gsd/E509"], "{:?}", p.report());
     let p = verify();
-    answer(&p, "U2", 2, "issue", "  reported \"The list ignores it\"\n");
+    answer(&p, "U2", "issue", "  reported \"The list ignores it\"\n");
     assert_eq!(p.codes(), Vec::<String>::new(), "{:?}", p.report());
 }
 

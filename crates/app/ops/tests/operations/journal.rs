@@ -15,10 +15,7 @@ fn digest(text: &str) -> String {
     format!("sha256:{}", Sha256::of(text.as_bytes()))
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "an interrupted write is rolled back by the next writer"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn an_interrupted_write_is_rolled_back_by_the_next() {
     let p = project();
     // A write was killed after its first file: `03-01.spec` holds the text the write gave it, `03-02.spec` was not
@@ -57,10 +54,7 @@ fn an_interrupted_write_is_rolled_back_by_the_next() {
     assert!(!p.root().join(".specforge/write-journal.json").exists());
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "a typed edit of a project with a writing command and no harness field takes the write lock"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_typed_edit_in_a_project_with_a_writing_command_and_no_ledger_is_locked() {
     use specforge_project::testing::{OTHER, TestProject};
     let p = TestProject::new()
@@ -87,10 +81,7 @@ fn a_typed_edit_in_a_project_with_a_writing_command_and_no_ledger_is_locked() {
     );
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "a journal marked done is removed by the next writer and rolls nothing back"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_journal_marked_done_is_removed_and_rolls_nothing_back() {
     let p = project();
     // The write committed both files and died before it removed its record.
@@ -120,10 +111,7 @@ fn a_journal_marked_done_is_removed_and_rolls_nothing_back() {
     assert!(!p.root().join(".specforge/write-journal.json").exists());
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "a journal naming a path outside the project root or a malformed digest is refused and restores nothing"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn a_journal_naming_a_path_outside_the_project_is_refused() {
     let p = project();
     let outside = tempfile::tempdir().unwrap();

@@ -9,6 +9,9 @@ description: "Write type definitions in .spec files (the type kind is declared b
 > run `specforge extensions` first, and if it is not listed, do not write `type` blocks (add it with
 > `specforge add @specforge/software`, or write the kinds the project's own extensions declare). `verify` needs
 > `@specforge/testing`. `specforge infer-guide type` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `type` blocks in a project that does, such as the
+> example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Types define the data vocabulary: domain entities, commands, errors, value objects and event payloads. A type's body
 is open: each line is a member, `name Type [annotations]`.

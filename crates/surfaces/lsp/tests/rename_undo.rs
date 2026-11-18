@@ -110,10 +110,7 @@ pub(crate) fn said(stale: &[(&str, &str)], moved: &[(&str, &str)]) -> Said {
 
 /// The declaring file undone twice (back to `T1`), the source file left at `T3`: no move (the entity is `T1` again),
 /// and the store's `T1` written `T3` in the source.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "composed editor renames show and land, file by file, what the buffers hold however they were undone"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn undone_in_the_declaring_file_only() {
     let (mut served, steps) = composed();
     served.edit(SPEC, &steps.spec[0]);
@@ -125,10 +122,7 @@ fn undone_in_the_declaring_file_only() {
 
 /// The source file undone twice (back to `T1`), the declaring file left at `T3`: the entity moved, and the source
 /// holds what was collected: no stale line.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "composed editor renames show and land, file by file, what the buffers hold however they were undone"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn undone_in_the_source_file_only() {
     let (mut served, steps) = composed();
     served.edit(SOURCE, &steps.source[0]);
@@ -139,10 +133,7 @@ fn undone_in_the_source_file_only() {
 }
 
 /// The source file undone once (back to `T2`), the declaring file left at `T3`: the first rename's line.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "composed editor renames show and land, file by file, what the buffers hold however they were undone"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn undone_once_in_the_source_file() {
     let (mut served, steps) = composed();
     served.edit(SOURCE, &steps.source[1]);
@@ -154,10 +145,7 @@ fn undone_once_in_the_source_file() {
 
 /// The declaring file undone once (back to `T2`), the source file left at `T3`: the first rename's move, the second's
 /// line.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "composed editor renames show and land, file by file, what the buffers hold however they were undone"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn undone_once_in_the_declaring_file() {
     let (mut served, steps) = composed();
     served.edit(SPEC, &steps.spec[1]);
@@ -168,10 +156,7 @@ fn undone_once_in_the_declaring_file() {
 }
 
 /// Both files undone to `T1`, then redone to `T3`: nothing shows while undone, and redone, both show and land again.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "composed editor renames undone and redone show and land again"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn undone_then_redone() {
     let (mut served, steps) = composed();
     served.edit(SOURCE, &steps.source[0]);
@@ -188,10 +173,7 @@ fn undone_then_redone() {
 
 /// The declaring file typed to a third name by hand, the source file left at `T3`: no rename wrote that name, so no
 /// move; the source's line stands.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "composed editor renames show and land, file by file, what the buffers hold however they were undone"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_third_name_typed_by_hand() {
     let (mut served, steps) = composed();
     served.edit(SPEC, &steps.spec[2].replacen("truth T3 ", "truth T9 ", 1));
@@ -203,10 +185,7 @@ fn a_third_name_typed_by_hand() {
 
 /// The declaring file saved and the source file not: nothing lands while a buffer holds what the disk does not. The
 /// source closed unsaved, its disk text (collected) is what it says: the moves land, and no stale line.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "composed editor renames land once no file of theirs holds an unsaved buffer, what the disk says"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_source_closed_unsaved_lands_the_moves_alone() {
     let (mut served, _) = composed();
     served.write(SPEC, &buffer(&served, SPEC));
@@ -226,10 +205,7 @@ fn a_source_closed_unsaved_lands_the_moves_alone() {
 
 /// The declaring file undone once (back to `T2`), then `T2` renamed to `T9`: the chain goes on from the first rename,
 /// and the second's text, which the source file still holds, keeps its line.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "composed editor renames show and land, file by file, what the buffers hold however they were undone"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_rename_after_an_undo_in_one_file_keeps_what_the_other_holds() {
     let (mut served, steps) = composed();
     served.edit(SPEC, &steps.spec[1]);
@@ -248,10 +224,7 @@ fn a_rename_after_an_undo_in_one_file_keeps_what_the_other_holds() {
 
 /// The declaring file closed unsaved (its disk text declares `T1`), the source buffer left at `T3`: the checks read
 /// the source's line alone. The source closed unsaved too, nothing lands, and the renames are over.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "composed editor renames land once no file of theirs holds an unsaved buffer, what the disk says"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn the_declaring_file_closed_unsaved_shows_what_the_source_holds() {
     let (mut served, _) = composed();
     served.close(SPEC);

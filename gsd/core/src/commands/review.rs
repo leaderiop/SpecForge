@@ -573,7 +573,7 @@ fn resolve_conflict(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("record_review", |cmd| {
-        cmd.description("Record a cross-AI review round of a phase's plans (GSD NN-REVIEWS.md): its reviewers, lanes, coverage and consensus, and one concern each; with --round, more unchecked symbols and concerns of a round")
+        cmd.description("Record a cross-AI review round of a phase's plans (GSD NN-REVIEWS.md): its reviewers, lanes, coverage and consensus, and one concern each; with a round named, more unchecked symbols and concerns of that round")
             .writes()
             .arg("phase", |a| {
                 a.required().description("the phase whose plans were reviewed");
@@ -607,16 +607,16 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .handler(|call| run(call, record_conflict));
     });
     c.command("resolve_conflict", |cmd| {
-        cmd.description("Resolve a revision conflict: one with --conflict, or every open one of a plan with --plan")
+        cmd.description("Resolve a revision conflict: the one conflict named, or every open one of a named plan")
             .writes()
             .arg("how", |a| {
                 a.required().description("how the replan resolved it");
             })
             .arg("conflict", |a| {
-                a.description("the open conflict to resolve (exactly one of --conflict, --plan)");
+                a.description("the open conflict to resolve (exactly one of a conflict or a plan)");
             })
             .arg("plan", |a| {
-                a.description("the plan whose open conflicts all resolve (exactly one of --conflict, --plan)");
+                a.description("the plan whose open conflicts all resolve (exactly one of a conflict or a plan)");
             })
             .handler(|call| run(call, resolve_conflict));
     });

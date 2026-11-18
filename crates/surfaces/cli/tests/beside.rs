@@ -31,10 +31,7 @@ fn bare(source: &str) -> TestProject {
         .file("spec/main.spec", source)
 }
 
-#[specforge_test(
-    behavior = "te_stray_test_records",
-    verify = "under --format json a stray test record is the document's alone: nothing on stderr"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn analyze_writes_a_stray_record_only_in_its_document() {
     let p = TestProject::new()
         .raw_config(
@@ -61,10 +58,7 @@ fn analyze_writes_a_stray_record_only_in_its_document() {
     assert_eq!(doc.stderr, "");
 }
 
-#[specforge_test(
-    behavior = "report_command_outcome",
-    verify = "under --format json a note is never written and a notice is written once: in the document when it carries it, else on stderr"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn check_writes_no_note_beside_its_document() {
     let failing = bare("behavior parse_input \"A\" {\n}\nbehavior parse_input \"B\" {\n}\n");
     let run = Cli::on(&failing).run(&["check", "--format", "json"]);
@@ -86,10 +80,7 @@ fn check_tells_a_person_its_notes() {
     assert_eq!(run.stderr.matches(note).count(), 1, "{}", run.stderr);
 }
 
-#[specforge_test(
-    behavior = "search_registry",
-    verify = "under --format json a failed registry is reported once, in the document's diagnostics, and not on stderr"
-)]
+#[specforge_test(requirement = "FEATURE-030")]
 fn search_reports_a_failed_registry_once() {
     let p = with_registries(serde_json::json!([
         {"alias": "down", "url": "http://127.0.0.1:9", "default_registry": true}
@@ -128,10 +119,7 @@ fn search_keeps_the_registry_configuration_beside_its_document() {
     assert!(!run.stdout.contains("W140"), "{}", run.stdout);
 }
 
-#[specforge_test(
-    behavior = "provide_explore_cli",
-    verify = "under --format json the notices are the document's alone: nothing on stderr"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn explore_writes_its_notices_only_in_its_document() {
     let p = software();
 
@@ -156,10 +144,7 @@ fn a_notice_no_document_carries_stays_beside_it() {
     assert!(run.json().get("notices").is_none(), "{}", run.stdout);
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "a kind of kinds the project does not know matches nothing and is reported as I020, on every surface"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn export_writes_an_unknown_kind_beside_its_document() {
     let p = software();
 

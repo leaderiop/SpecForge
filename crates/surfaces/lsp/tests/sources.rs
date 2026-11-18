@@ -50,10 +50,7 @@ fn citing_in(dir: tempfile::TempDir, covered: &str, file: &str) -> Served {
     Served::served_by(dir, Collected::new().runtime(), &COLLECTED_EXTENSIONS).open(&["truths.spec"])
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "a source file opened or typed in is held and rebuilds nothing"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn a_source_document_edit_rebuilds_nothing() {
     let mut served = citing("T1");
     let uri = served.uri("a.test.js");
@@ -114,10 +111,7 @@ fn rust_naming(named: &str) -> Served {
     Served::at(dir).open(&["main.spec"])
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "a diagnostic at a source span is published on the source file"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_dangling_fact_reference_is_published_on_its_source_file() {
     let served = rust_naming("ghost");
     let uri = served.uri("src/lib.rs");
@@ -135,10 +129,7 @@ fn fact_place() -> Range {
     Range::new(Position::new(2, 0), Position::new(4, 3))
 }
 
-#[spec(
-    behavior = "go_to_implementation",
-    verify = "implementation on an entity lists its anchors' source ranges"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn implementation_lists_an_entitys_anchors() {
     let served = citing("T1");
     let truths = served.uri("truths.spec");
@@ -154,10 +145,7 @@ fn implementation_lists_an_entitys_anchors() {
     );
 }
 
-#[spec(
-    behavior = "go_to_definition",
-    verify = "go-to-def navigates to entity declaration"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn definition_on_a_name_a_fact_holds_in_a_source_file_opens_the_entity() {
     let served = citing("T1");
     let source = served.uri("a.test.js");
@@ -192,10 +180,7 @@ fn placed(found: Option<Vec<Location>>) -> Vec<(String, Range)> {
         .collect()
 }
 
-#[spec(
-    behavior = "find_all_references",
-    verify = "references to an entity include where a source fact names it"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn references_include_the_source_token_naming_the_entity() {
     let served = citing("T1");
     let truths = served.uri("truths.spec");
@@ -209,10 +194,7 @@ fn references_include_the_source_token_naming_the_entity() {
     assert_eq!(placed(found), [("a.test.js".to_string(), named())]);
 }
 
-#[spec(
-    behavior = "find_all_references",
-    verify = "references from a located fact list its citations and its entities"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn references_from_a_source_fact_list_citations_and_entities() {
     let served = citing("T1");
     let source = served.uri("a.test.js");
@@ -239,10 +221,7 @@ fn references_from_a_source_fact_list_citations_and_entities() {
     assert_eq!(found, None);
 }
 
-#[spec(
-    behavior = "entity_code_lens",
-    verify = "a source file has a lens per anchored fact naming its entity, which finds its references"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn a_source_fact_has_a_lens_per_anchored_entity() {
     let served = citing("T1");
     let source = served.uri("a.test.js");
@@ -262,10 +241,7 @@ fn a_source_fact_has_a_lens_per_anchored_entity() {
     );
 }
 
-#[spec(
-    behavior = "entity_code_lens",
-    verify = "a source file changed since collect has one stale lens"
-)]
+#[spec(requirement = "FEATURE-046")]
 fn a_stale_source_file_has_one_lens() {
     let mut served = citing("T1");
     let source = served.uri("a.test.js");
@@ -286,10 +262,7 @@ fn a_stale_source_file_has_one_lens() {
     assert_eq!(lenses[0].command.as_ref().unwrap().title, "truth T1");
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "hover on a source token naming an entity shows the entity"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn hover_on_a_source_token_naming_an_entity_shows_it() {
     let served = citing("T1");
     served.hold("a.test.js");
@@ -322,10 +295,7 @@ fn renamed(
     Ok(edits)
 }
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename rewrites the source token of every fact naming the entity"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_rewrites_the_source_token_naming_the_entity() {
     let served = citing("T1");
     let expected = vec![
@@ -351,10 +321,7 @@ fn rename_rewrites_the_source_token_naming_the_entity() {
     assert_eq!(none.unwrap(), None);
 }
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename refuses while a source file it edits changed since collect"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_refuses_a_stale_source_file() {
     let mut served = citing("T1");
     // Typed in since the collect, the disk as collected: the buffer is no text the store places in, so refused.
@@ -391,10 +358,7 @@ fn rename_refuses_a_stale_source_file() {
     );
 }
 
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename answers a source token naming an entity"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn prepare_rename_answers_a_source_token() {
     let served = citing("T1");
     let source = served.uri("a.test.js");
@@ -442,10 +406,7 @@ fn refused_and_untouched(served: &Served, outer: &tempfile::TempDir, from_source
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename refuses a source file it edits that is a link or lies outside the project"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_refuses_a_symlinked_source_file() {
     let (outer, dir) = beside_an_outside_file();
     std::os::unix::fs::symlink(outer.path().join("x.js"), dir.path().join("a.test.js")).unwrap();
@@ -453,10 +414,7 @@ fn rename_refuses_a_symlinked_source_file() {
     refused_and_untouched(&served, &outer, true);
 }
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename refuses a source file it edits that is a link or lies outside the project"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_refuses_a_hard_linked_source_file() {
     let (outer, dir) = beside_an_outside_file();
     fs::hard_link(outer.path().join("x.js"), dir.path().join("a.test.js")).unwrap();
@@ -464,10 +422,7 @@ fn rename_refuses_a_hard_linked_source_file() {
     refused_and_untouched(&served, &outer, true);
 }
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename refuses a source file it edits that is a link or lies outside the project"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn rename_refuses_a_fact_placed_outside_the_project() {
     let (outer, dir) = beside_an_outside_file();
     let served = citing_in(dir, "T1", "../x.js");

@@ -46,10 +46,7 @@ fn server_with_delta() -> Served {
 // --- specforge://prompts/context ---
 
 // B:provide_mcp_context_prompt — verify unit "returns entity context with instructional framing"
-#[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "specforge://prompts/context returns structured entity context"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn context_prompt_returns_context() {
     let mut server = test_server();
     let resp = get_prompt(
@@ -95,10 +92,7 @@ fn context_prompt_returns_context() {
 }
 
 // B:provide_mcp_context_prompt — verify unit "unknown entity returns error"
-#[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "non-existent entity returns error"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn context_prompt_unknown_entity() {
     let mut server = test_server();
     let resp = get_prompt(
@@ -110,10 +104,7 @@ fn context_prompt_unknown_entity() {
 }
 
 // B:provide_mcp_context_prompt — verify unit "includes upstream and downstream"
-#[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "response includes contract and related entities"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn context_prompt_includes_edges() {
     let mut server = test_server();
     let resp = get_prompt(
@@ -144,10 +135,7 @@ fn reviewed_ids(review: &Value) -> Vec<&str> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "specforge://prompts/review returns coverage analysis"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn review_prompt_returns_coverage_analysis() {
     let mut server = test_server();
 
@@ -199,10 +187,7 @@ fn trace_prompt_identifies_unverified() {
     assert_eq!(parsed["unverified_entities"], json!(["alpha"]), "{parsed}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "unverified entities are the ones the trace reaches that count toward coverage and are not proven"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn trace_unverified_is_counted_and_not_proven() {
     let mut server = test_server();
     let t = trace_plan(&mut server, agent_plan(&["beta"]));
@@ -219,10 +204,7 @@ fn trace_unverified_is_counted_and_not_proven() {
     assert_eq!(t["unverified_entities"], json!([]), "{t}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "response returns identified gaps with gap context"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn trace_entity_mode_reports_the_chains_missing_links() {
     // A behavior is expected to reference an invariant: alpha does not.
     // A dangling reference elsewhere (gamma_orphan `refines [nowhere]`) is
@@ -303,10 +285,7 @@ fn gap_triples(result: &Value) -> Vec<(String, String, String)> {
     gaps
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "specforge://prompts/trace identifies gaps in plan"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn trace_prompt_finds_the_gaps_in_a_plan() {
     let mut server = test_server();
 
@@ -330,10 +309,7 @@ fn trace_prompt_finds_the_gaps_in_a_plan() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "response returns identified gaps with gap context"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn trace_prompt_explains_each_gap() {
     let mut server = test_server();
 
@@ -351,10 +327,7 @@ fn trace_prompt_explains_each_gap() {
     assert_eq!(result, again, "gap context is deterministic");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "affected entities are listed"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn trace_prompt_lists_the_entities_a_plan_affects() {
     let mut server = test_server();
 
@@ -370,10 +343,7 @@ fn trace_prompt_lists_the_entities_a_plan_affects() {
     assert_eq!(result["unverified_entities"], json!(["alpha"]), "{result}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "malformed plan JSON returns validation error"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn trace_prompt_rejects_a_malformed_plan() {
     let mut server = test_server();
     let error = |server: &mut McpServer, plan: &str| {
@@ -401,10 +371,7 @@ fn trace_prompt_rejects_a_malformed_plan() {
 // --- specforge://prompts/explore ---
 
 // B:provide_mcp_explore_prompt — verify unit "returns exploration data"
-#[specforge_test(
-    behavior = "provide_mcp_explore_prompt",
-    verify = "specforge://prompts/explore returns exploration starting points"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn explore_prompt_returns_data() {
     let mut server = test_server();
     let resp = get_prompt(&mut server, "specforge://prompts/explore", json!({}));
@@ -417,10 +384,7 @@ fn explore_prompt_returns_data() {
 }
 
 // Unknown prompt
-#[specforge_test(
-    behavior = "mcp_structured_error_responses",
-    verify = "no MCP endpoint returns a plain string error"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn unknown_prompt_returns_error() {
     let mut server = test_server();
     // A failing call on every endpoint family: prompts, tools, resources,
@@ -482,10 +446,7 @@ fn prompt_not_initialized() {
 }
 
 // B:provide_mcp_context_prompt — verify unit "context prompt works with zero extensions installed"
-#[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "context prompt works with zero extensions installed"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn context_zero_extensions() {
     // A project that enables no extension: `behavior` is no declared kind.
     let mut server = TestProject::new()
@@ -509,10 +470,7 @@ fn context_zero_extensions() {
 }
 
 // B:provide_mcp_context_prompt — verify unit "context includes contract text"
-#[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "response includes contract and related entities"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn context_includes_contract() {
     let mut server = project().serve(&[extension().headline("behavior")]);
     let resp = get_prompt(
@@ -526,10 +484,7 @@ fn context_includes_contract() {
     assert!(parsed["contract_text"].as_str().unwrap().contains("MUST"));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "context includes every field, like an invariant's guarantee"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn context_includes_every_field() {
     let mut server = project()
         .file(
@@ -549,10 +504,7 @@ fn context_includes_every_field() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "review coverage matches specforge.coverage obligation by obligation"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn review_coverage_matches_the_coverage_tool() {
     let mut server = project()
         .file(
@@ -619,10 +571,7 @@ fn listed_prompts(server: &mut McpServer) -> Vec<(String, Vec<(String, bool)>)> 
         .collect()
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "a listed required argument is exactly one the prompt cannot render without"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn listed_required_arguments_are_exactly_the_unrenderable_omissions() {
     let mut server = test_server();
     for (prompt, arguments) in listed_prompts(&mut server) {
@@ -673,14 +622,8 @@ fn listed_required_arguments_are_exactly_the_unrenderable_omissions() {
     }
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "a prompt refusal is a JSON-RPC error whose data is an McpError naming the prompt"
-)]
-#[specforge_test(
-    behavior = "mcp_structured_error_responses",
-    verify = "a failed prompts/get carries its McpError as the error's data"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn every_prompt_refusal_carries_an_mcp_error() {
     let mut server = test_server();
     for (name, args) in [
@@ -723,10 +666,7 @@ fn every_prompt_refusal_carries_an_mcp_error() {
     assert_eq!(data["diagnostic"]["code"], "E003");
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "a missing required prompt argument is -32602 naming the argument"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn missing_required_prompt_argument_names_it() {
     let mut server = test_server();
     let resp = get_prompt(&mut server, "specforge://prompts/context", json!({}));
@@ -741,10 +681,7 @@ fn missing_required_prompt_argument_names_it() {
     assert_eq!(data["prompt"], "specforge://prompts/context");
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "prompt arguments that are not an object produce -32602 Invalid params"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn prompt_arguments_must_be_an_object() {
     let mut server = test_server();
     for arguments in [json!("x"), json!(["entity_id"]), json!(3)] {
@@ -764,10 +701,7 @@ fn prompt_arguments_must_be_an_object() {
     assert!(resp["error"].is_null(), "{resp}");
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "a numeric prompt argument is read from a string, as MCP sends it"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn review_reads_depth_from_a_string() {
     // alpha <- beta -> delta: delta, testable, is two hops from alpha.
     let mut server = server_with_delta();
@@ -777,10 +711,7 @@ fn review_reads_depth_from_a_string() {
     assert_eq!(reviewed_ids(&as_string), ["alpha", "delta"]);
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "a numeric prompt argument is read from a string, as MCP sends it"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn infer_plan_reads_cursor_from_a_string() {
     let mut server = test_server();
     let plan = |server: &mut McpServer, cursor: Value| {
@@ -795,10 +726,7 @@ fn infer_plan_reads_cursor_from_a_string() {
     assert_eq!(plan(&mut server, json!(50)), 50);
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "an unknown prompt records no mcp_prompt_invoked event"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn unknown_prompt_records_no_invocation() {
     let mut server = test_server();
     let invoked = |server: &Served| events(server, "mcp_prompt_invoked").len();
@@ -811,10 +739,7 @@ fn unknown_prompt_records_no_invocation() {
     assert_eq!(invoked(&server), 1);
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "every prompt result is an instruction then a JSON payload, both user messages"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn every_prompt_renders_an_instruction_then_a_json_payload() {
     let mut server = test_server();
     let mut cases: Vec<(&str, Value)> = vec![
@@ -866,10 +791,7 @@ fn every_prompt_renders_an_instruction_then_a_json_payload() {
 
 const EXPLORE: &str = "specforge://prompts/explore";
 
-#[specforge_test(
-    behavior = "provide_mcp_explore_prompt",
-    verify = "unknown entity_id returns error"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn explore_unknown_entity_is_an_error() {
     let mut server = test_server();
     let resp = get_prompt(&mut server, EXPLORE, json!({"entity_id": "ghost"}));
@@ -908,10 +830,7 @@ fn tool_names_in(text: &str) -> Vec<String> {
     names
 }
 
-#[specforge_test(
-    behavior = "serve_mcp_prompt",
-    verify = "every tool a prompt or the server's instructions name is a core tool, named as tools/list names it"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn every_tool_a_prompt_names_is_a_core_tool() {
     let mut server = test_server();
     let mut replies = vec![

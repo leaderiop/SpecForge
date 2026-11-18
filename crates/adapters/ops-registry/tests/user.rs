@@ -11,10 +11,7 @@ use specforge_project::testing::TestProject;
 use specforge_registry_client::testing::MemoryClient;
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "authenticate_registry_request",
-    verify = "a kept token whose secret is missing is R-AUTH-021 before any request"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_kept_token_whose_secret_is_gone_refuses_the_read() {
     let project = TestProject::new().config(|c| {
         c["name"] = "p".into();
@@ -42,10 +39,7 @@ fn a_kept_token_whose_secret_is_gone_refuses_the_read() {
     assert!(calls.is_empty(), "{calls:?}");
 }
 
-#[specforge_test(
-    behavior = "support_private_registries",
-    verify = "a read carries the credential kept for its registry's root, and none kept for another root"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_read_carries_the_credential_kept_for_its_root_only() {
     // Two entries with one alias and two roots (W140): they do not share a credential.
     let project = TestProject::new().config(|c| {
@@ -78,10 +72,7 @@ fn a_read_carries_the_credential_kept_for_its_root_only() {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "support_private_registries",
-    verify = "a user store another user could have written counts as missing"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_user_store_another_user_could_have_written_counts_as_missing() {
     use std::os::unix::fs::PermissionsExt;
     let project = TestProject::new().config(|c| {
@@ -113,10 +104,7 @@ fn a_user_store_another_user_could_have_written_counts_as_missing() {
     assert_eq!(sent, [false], "a group-writable store gives no credential");
 }
 
-#[specforge_test(
-    behavior = "support_private_registries",
-    verify = "a user store the git worktree it lies in tracks is refused before any request"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_user_store_a_git_worktree_tracks_is_refused_before_any_request() {
     use specforge_effects::testing::FakeGit;
     let project = TestProject::new().config(|c| {
@@ -190,10 +178,7 @@ fn kept_roots(project: &TestProject) -> Vec<String> {
     roots
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "login stores the credential under the root of the registry it validated against"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_keeps_the_credential_under_the_registrys_root() {
     let (project, client) = project_on_main();
 
@@ -206,10 +191,7 @@ fn login_keeps_the_credential_under_the_registrys_root() {
     assert_eq!(kept_roots(&project), ["https://main.invalid"]);
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "raw token never stored in specforge.json"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_with_a_token_keeps_the_secret_out_of_the_store() {
     let (project, client) = project_on_main();
 
@@ -243,10 +225,7 @@ fn login_with_a_token_keeps_the_secret_out_of_the_store() {
     assert_eq!(sent.token(), "t");
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "login refuses an unreadable credential store before any request, and keeps it"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn login_refuses_an_unreadable_store_before_any_request_and_keeps_it() {
     let (project, client) = project_on_main();
     std::fs::create_dir_all(project.home()).unwrap();
@@ -265,10 +244,7 @@ fn login_refuses_an_unreadable_store_before_any_request_and_keeps_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "invalid credentials produce error with guidance"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn a_token_the_registry_refuses_writes_nothing() {
     let (project, client) = project_on_main();
 
@@ -280,10 +256,7 @@ fn a_token_the_registry_refuses_writes_nothing() {
     assert!(!project.home().join("credentials.json").exists());
 }
 
-#[specforge_test(
-    behavior = "validate_registry_credentials",
-    verify = "two registries with one alias keep two credentials, one per root"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn two_entries_with_one_alias_keep_two_credentials() {
     let (project, client) = project_on_main();
     registry_for(&project, &client, "login")
@@ -308,10 +281,7 @@ fn two_entries_with_one_alias_keep_two_credentials() {
     );
 }
 
-#[specforge_test(
-    behavior = "logout_registry",
-    verify = "credentials for other registry roots remain untouched"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn logout_forgets_only_its_roots_credential() {
     let (project, client) = project_on_main();
     registry_for(&project, &client, "login")
@@ -332,10 +302,7 @@ fn logout_forgets_only_its_roots_credential() {
     assert_eq!(left.count(), 0, "its secret file is gone");
 }
 
-#[specforge_test(
-    behavior = "logout_registry",
-    verify = "no credential for the root succeeds silently"
-)]
+#[specforge_test(requirement = "FEATURE-110")]
 fn logout_of_a_root_with_nothing_kept_succeeds_silently() {
     let (project, _) = project_on_main();
 
@@ -345,4 +312,90 @@ fn logout_of_a_root_with_nothing_kept_succeeds_silently() {
 
     assert!(!out.removed);
     assert!(!project.home().join("credentials.json").exists());
+}
+
+// ── no user home ──────────────────────────────────────────────────────────────────────────────────
+
+/// The user directory's refusal for `file`: its cause and its remedy.
+fn assert_no_home(error: &specforge_ops::OpError, code: &str, file: &str) {
+    assert_eq!(error.code, code, "{error:?}");
+    assert_eq!(
+        error.message,
+        format!(
+            "no user directory to keep {file} in: HOME (USERPROFILE on Windows) is unset or relative"
+        ),
+        "{error:?}"
+    );
+    assert_eq!(
+        error.suggestion.as_deref(),
+        Some("set HOME (USERPROFILE on Windows) to an absolute path"),
+        "{error:?}"
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-110")]
+fn a_user_with_no_home_refuses_every_registry_file_and_writes_nothing() {
+    use specforge_common::home::home_from;
+    use specforge_ops::registry::KeyPin;
+    use specforge_ops::registry::testing::declaration;
+    use specforge_package::DeclaredPackage;
+    // A relative home is no home (ADR 0375 D5): it used to put the files under `./.specforge` of the directory a run
+    // starts in. That directory here is an empty one of the test's own (nextest runs each test in its own process).
+    let cwd = tempfile::TempDir::new().unwrap();
+    let before = std::env::current_dir().unwrap();
+    std::env::set_current_dir(cwd.path()).unwrap();
+    let home = home_from(Some(".".into()), None);
+    assert_eq!(home, None);
+    let user = User::from_home(home, Some("t".into()));
+    let (project, client) = project_on_main();
+    let registry = |operation: &str| {
+        ConfiguredRegistry::for_project(&project.project_root(), operation, &crate::ports())
+            .with_client(client.clone())
+            .as_user(user.clone())
+    };
+    let name = PackageName::parse("@a/x").unwrap();
+
+    let read = registry("add").versions(&name).unwrap_err();
+    let pinned = registry("add")
+        .pin(&[KeyPin {
+            name: name.clone(),
+            key_id: "k".into(),
+            replaces: None,
+        }])
+        .unwrap_err();
+    let declared = declaration("@a/x", "1.0.0", &[]);
+    let published = registry("publish")
+        .publish(&DeclaredPackage::of(&declared).unwrap(), b"\0asm")
+        .unwrap_err();
+    let logged_in = registry("login")
+        .log_in(None, TokenSource::Given("t".into()))
+        .unwrap_err();
+    let logged_out = user.log_out(&root("https://main.invalid")).unwrap_err();
+    let health = User::from_home(None, None).credential_health();
+
+    let left: Vec<_> = std::fs::read_dir(cwd.path()).unwrap().collect();
+    std::env::set_current_dir(before).unwrap();
+    assert_no_home(&read, "R012", "credentials.json");
+    assert_no_home(&pinned, "R-TRUST-006", "known-keys.json");
+    // The environment's token stands in for the store: the publisher key is the file refused.
+    assert_no_home(&published, "E074", "signing-key.json");
+    assert_no_home(&logged_in, "R012", "credentials.json");
+    assert_no_home(&logged_out, "R012", "credentials.json");
+    assert_eq!(health.failures, 1);
+    assert!(!health.signing_key_present);
+    assert_eq!(
+        health
+            .lines
+            .iter()
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "no user directory to keep credentials.json in: HOME (USERPROFILE on Windows) is unset or relative — set HOME (USERPROFILE on Windows) to an absolute path"
+        ]
+    );
+    assert!(client.calls().is_empty(), "{:?}", client.calls());
+    assert!(
+        left.is_empty(),
+        "written in the directory the run started in: {left:?}"
+    );
 }

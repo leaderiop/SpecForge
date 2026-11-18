@@ -176,10 +176,7 @@ fn registered_from_manifest() -> (CommandRoutes, ExtensionDeclaration) {
     (routes, declaration)
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "commands parsed from manifest surfaces field"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_manifests_commands_are_registered() {
     let (routes, _) = registered_from_manifest();
     let routed: Vec<(&str, &str, &str)> = routes
@@ -196,10 +193,7 @@ fn a_manifests_commands_are_registered() {
     assert_eq!(routed, [("analyze", "analyze", "cmd__analyze")]);
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "MCP tools parsed from manifest surfaces field"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_manifests_mcp_tools_are_registered() {
     let (_, declaration) = registered_from_manifest();
     let tools: Vec<(&str, &str)> = (declaration.surfaces.mcp_tools.iter())
@@ -208,10 +202,7 @@ fn a_manifests_mcp_tools_are_registered() {
     assert_eq!(tools, [("search", "mcp__search")]);
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "MCP resources parsed from manifest surfaces field"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_manifests_mcp_resources_are_registered() {
     let (_, declaration) = registered_from_manifest();
     let resources: Vec<(&str, &str)> = (declaration.surfaces.mcp_resources.iter())
@@ -220,10 +211,7 @@ fn a_manifests_mcp_resources_are_registered() {
     assert_eq!(resources, [("graph", "mcp__graph")]);
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "two extensions of one short name routing one CLI name produce E039"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn two_extensions_of_one_short_name_routing_one_name_is_e039() {
     let s1 = make_surfaces(
         vec![make_command("analyze", "cmd__analyze")],
@@ -248,10 +236,7 @@ fn two_extensions_of_one_short_name_routing_one_name_is_e039() {
     assert_eq!(routes.shadowed().len(), 1);
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "duplicate MCP tool name across extensions produces E039"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn test_register_duplicate_mcp_tool_e039() {
     let s1 = make_surfaces(vec![], vec![make_tool("search", "mcp__search")], vec![]);
     let s2 = make_surfaces(vec![], vec![make_tool("search", "mcp__search_v2")], vec![]);
@@ -263,10 +248,7 @@ fn test_register_duplicate_mcp_tool_e039() {
     assert!(diags[0].message.contains("search"));
 }
 
-#[specforge_test(
-    behavior = "register_surface_contributions",
-    verify = "registration succeeds with no duplicates"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn test_register_no_duplicates_clean() {
     let s1 = make_surfaces(
         vec![make_command("analyze", "cmd__analyze")],
@@ -337,10 +319,7 @@ fn build_with_tools(tools: Vec<McpToolDescriptor>) -> (Vec<String>, Vec<String>)
     (listed, codes)
 }
 
-#[specforge_test(
-    behavior = "validate_mcp_tool_schemas",
-    verify = "a tool whose input_schema is not a JSON object is E055 and not registered"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_tool_whose_input_schema_is_not_an_object_is_refused() {
     let mut tool = make_tool("bad", "mcp__bad");
     tool.input_schema = serde_json::json!("object");
@@ -349,10 +328,7 @@ fn a_tool_whose_input_schema_is_not_an_object_is_refused() {
     assert_eq!(codes, ["E055"]);
 }
 
-#[specforge_test(
-    behavior = "validate_mcp_tool_schemas",
-    verify = "a tool whose output_schema is not a JSON object is E055 and not registered"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_tool_whose_output_schema_is_not_an_object_is_refused() {
     let mut tool = make_tool("bad", "mcp__bad");
     tool.output_schema = Some(serde_json::json!([1]));
@@ -361,10 +337,7 @@ fn a_tool_whose_output_schema_is_not_an_object_is_refused() {
     assert_eq!(codes, ["E055"]);
 }
 
-#[specforge_test(
-    behavior = "validate_mcp_tool_schemas",
-    verify = "a tool whose schemas are JSON objects is registered"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn a_tool_whose_schemas_are_objects_is_registered() {
     let mut tool = make_tool("ok", "mcp__ok");
     tool.output_schema = Some(serde_json::json!({"type": "object"}));
@@ -373,20 +346,14 @@ fn a_tool_whose_schemas_are_objects_is_registered() {
     assert!(codes.is_empty(), "{codes:?}");
 }
 
-#[specforge_test(
-    invariant = "surface_schema_validity",
-    verify = "a tool whose schemas are JSON objects is registered"
-)]
+#[specforge_test(requirement = "INVARIANT-135")]
 fn the_invariant_keeps_a_wellformed_tool() {
     let (listed, codes) = build_with_tools(vec![make_tool("ok", "mcp__ok")]);
     assert_eq!(listed, ["ok"]);
     assert!(codes.is_empty());
 }
 
-#[specforge_test(
-    invariant = "surface_schema_validity",
-    verify = "a tool whose input_schema is not a JSON object is E055 and not registered"
-)]
+#[specforge_test(requirement = "INVARIANT-135")]
 fn the_invariant_refuses_a_malformed_tool() {
     let mut tool = make_tool("bad", "mcp__bad");
     tool.input_schema = serde_json::json!(null);

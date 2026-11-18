@@ -98,10 +98,7 @@ fn edge(target: &str, label: &str) -> (String, String) {
     (target.to_string(), label.to_string())
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a name in a type-syntax field value links through the derived field"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_field_type_name_links_through_the_derived_field() {
     let source = r#"
 shape Wheel "Wheel" {
@@ -127,10 +124,7 @@ shape Car "Car" {
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a name in a method parameter or return type links through the derived field"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_method_signature_name_links_through_the_derived_field() {
     let source = r#"
 shape Config "Config" {
@@ -159,10 +153,7 @@ iface Detector "Detector" {
     );
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a primitive, a generic wrapper or an undeclared name creates no edge"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn primitives_wrappers_and_undeclared_names_create_no_edge() {
     let source = r#"
 shape Thing "Thing" {
@@ -193,10 +184,7 @@ fn a_function_type_reports_only_the_names_inside_it() {
     assert!(found[0].contains("'Missing'"), "{found:?}");
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a name that resolves to an entity of another kind creates no edge"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_name_of_another_kind_creates_no_edge() {
     let source = r#"
 iface Other "Other" {
@@ -215,10 +203,7 @@ iface Caller "Caller" {
     assert_eq!(edges_from(&graph, "Caller"), vec![edge("Holder", "uses")]);
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "quoted strings and single-reference fields derive no edge"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn quoted_strings_and_single_reference_fields_derive_no_edge() {
     let source = r#"
 shape Base "Base" {
@@ -235,10 +220,7 @@ shape Note "Note" {
     assert_eq!(edges_from(&graph, "Note"), vec![edge("Base", "base")]);
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "an entity naming itself creates no edge"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn an_entity_naming_itself_creates_no_edge() {
     let source = r#"
 shape Tree "Tree" {
@@ -250,10 +232,7 @@ shape Tree "Tree" {
     assert!(graph.edges().is_empty(), "{:?}", graph.edges());
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a recursive type derives no reference cycle"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_recursive_type_derives_no_reference_cycle() {
     let source = r#"
 shape Expr "Expr" {
@@ -271,10 +250,7 @@ shape Term "Term" {
     assert!(w061.is_empty(), "{w061:?}");
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a kind with no derived field derives no edge"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_kind_with_no_derived_field_derives_no_edge() {
     let source = r#"
 shape Part "Part" {
@@ -292,10 +268,7 @@ iface Port "Port" {
     assert!(graph.edges().is_empty(), "{:?}", graph.edges());
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a quoted union member derives no edge"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_quoted_union_variant_derives_no_edge() {
     let source = "shape Base {\n  id string\n}\nshape Wheel {\n  size number\n}\nshape Level = \"Base\" | Wheel\n";
     let (graph, _) = build(source, derived());
@@ -317,10 +290,7 @@ fn e004s(diagnostics: &[specforge_graph::Diagnostic]) -> Vec<(String, usize, usi
     found
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a member, a union variant or a method type naming no type is E004 at the name"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_member_a_variant_or_a_method_type_naming_no_type_is_e004() {
     let source = "shape t \"T\" {\n  id string\n}\nshape m \"M\" {\n  g Missing\n  u Nowhere | t\n}\niface Store \"Store\" {\n  method load(id: Absent) -> Result<t, never>\n}\n";
     let (_, diagnostics) = build(source, derived());
@@ -353,10 +323,7 @@ fn a_member_a_variant_or_a_method_type_naming_no_type_is_e004() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a primitive, a container or a declared type is no E004"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_primitive_a_container_or_a_declared_type_is_no_e004() {
     // A union body's variants may be an enum's words: no E004 (ADR 0282 D1).
     let source = "shape t \"T\" {\n  name string\n  many t[]\n  one t\n  self_ref t\n  level \"Lit\" | t\n}\niface Store \"Store\" {\n  method load(id: string) -> Vec<t>\n}\nshape e \"E\" = open | closed\n";
@@ -365,10 +332,7 @@ fn a_primitive_a_container_or_a_declared_type_is_no_e004() {
     assert!(e004s(&diagnostics).is_empty(), "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a type name written whole may hold a dash or a dot: it links as one name and is one E004 when undeclared"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_type_name_holding_a_dash_links_whole_and_is_no_e004() {
     let source = "shape Money-v2 \"M\" {\n  id string\n}\nshape t \"T\" {\n  amount Money-v2\n}\nshape u \"U\" {\n  amount Nope-v2\n}\nshape w \"W\" {\n  amount 2-1\n}\n";
     let (graph, diagnostics) = build(source, derived());

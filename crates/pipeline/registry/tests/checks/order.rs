@@ -36,10 +36,8 @@ fn shapes() -> ExtensionDeclaration {
     })
 }
 
-#[spec(
-    behavior = "check_entities_in_one_order",
-    verify = "the structural checks run in one order: W012, E024, E013, E014, W020, W158, E061, W159, then the rule set, the host's E006 rules last"
-)]
+#[spec(requirement = "FEATURE-124")]
+#[spec(requirement = "FEATURE-141")]
 fn the_checks_run_in_one_order() {
     // One entity per check, written in an order that is not the checks'.
     let text = "ref gh.issue:1 \"R\"\n\n\

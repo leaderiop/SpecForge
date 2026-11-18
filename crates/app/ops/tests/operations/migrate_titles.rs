@@ -9,10 +9,7 @@ use specforge_migrate::structural_differences;
 const UNTITLED: &str = "// Alpha does a thing.\nbehavior alpha {\n}\n";
 const TITLED: &str = "behavior alpha \"Alpha does a thing.\" {\n}\n";
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a migration that adds titles is kept, with no W054"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_migration_that_adds_titles_is_kept() {
     let dir = project();
     let file = dir.path().join("old.spec");
@@ -28,10 +25,7 @@ fn a_migration_that_adds_titles_is_kept() {
     assert_eq!(std::fs::read_to_string(&file).unwrap(), TITLED);
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a dry run shows the titles and writes nothing"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_dry_run_shows_the_titles_and_writes_nothing() {
     let dir = project();
     let file = dir.path().join("old.spec");
@@ -53,10 +47,7 @@ fn a_dry_run_shows_the_titles_and_writes_nothing() {
     assert_eq!(std::fs::read_to_string(&file).unwrap(), UNTITLED);
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a project already titled has nothing pending"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_project_already_titled_has_nothing_pending() {
     let dir = project();
     std::fs::write(dir.path().join("old.spec"), TITLED).unwrap();
@@ -69,10 +60,7 @@ fn a_project_already_titled_has_nothing_pending() {
     assert!(!outcome.pending, "{outcome:?}");
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a planned text that also changes a field refuses the titles"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_planned_text_that_also_changes_a_field_refuses_the_titles() {
     let dir = project_with_extension();
     let file = dir.path().join("old.spec");
@@ -93,10 +81,7 @@ fn a_planned_text_that_also_changes_a_field_refuses_the_titles() {
     assert_eq!(std::fs::read_to_string(&file).unwrap(), original);
 }
 
-#[specforge_test(
-    behavior = "add_missing_titles",
-    verify = "a migration leaves no E076 it names migrate for"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_migration_leaves_no_e076_it_names_migrate_for() {
     let dir = project();
     let file = dir.path().join("old.spec");

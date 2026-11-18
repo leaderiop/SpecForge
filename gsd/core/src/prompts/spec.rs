@@ -89,7 +89,7 @@ const MVP_ARGS: &[Arg] = &[Arg::reference("phase", "phase")];
 
 const MVP_STEPS: &[Step] = &[Step {
     id: "plan",
-    title: "Plan the phase, in MVP mode (plan_phase --mvp)",
+    title: "Plan the phase, in MVP mode (the prompt plan_phase)",
     does: Do::Prompt("plan_phase"),
 }];
 

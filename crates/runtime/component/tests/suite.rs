@@ -17,6 +17,8 @@ mod compile_cache;
 mod declarations;
 #[path = "epoch_deadline.rs"]
 mod epoch_deadline;
+#[path = "families.rs"]
+mod families;
 #[path = "greet_sdk.rs"]
 mod greet_sdk;
 #[path = "imports.rs"]

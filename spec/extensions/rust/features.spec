@@ -1,15 +1,11 @@
-// Rust test traceability (the #[specforge_test] macros, @specforge/cargo-test): features
-
-use "extensions/rust/behaviors"
-
-feature rust_test_collection "Rust Test Collection" {
-  status   done
-  problem  """
+requirement FEATURE-116 "Rust Test Collection" {
+  category "Feature"
+  tier     v2
+  text     """
     Rust test frameworks (cargo test, nextest) produce results in various
     formats, but none links a test to the spec entity it proves, so
     coverage could count obligations but never proof.
-  """
-  solution """
+
     Tests name the entity they prove with the #[specforge_test] attribute,
     which records each result to a per-binary report. @specforge/cargo-test
     declares the command `specforge collect` runs (cargo test) and maps
@@ -18,14 +14,14 @@ feature rust_test_collection "Rust Test Collection" {
   """
 }
 
-feature rust_proc_macro_annotation "Rust Proc Macro Annotation" {
-  status   done
-  problem  """
+requirement FEATURE-115 "Rust Proc Macro Annotation" {
+  category "Feature"
+  tier     v2
+  text     """
     Naming conventions alone are fragile and can break when test functions
     are renamed. Developers need explicit, compiler-checked linkage from
     test functions to spec entity IDs.
-  """
-  solution """
+
     The #[specforge_test(behavior = "entity_id", verify = "...")] proc
     macro attribute registers the test and wraps its body with a
     Drop-based guard that records pass/fail. Results are written to

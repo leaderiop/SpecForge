@@ -12,12 +12,8 @@ const CONSTRAINT_KINDS: &[&str] = &[
     "security",
     "other",
 ];
-const CONSTRAINT: &[Field] = &[
-    en("kind", CONSTRAINT_KINDS),
-    str("what").prose(),
-    str("why").prose(),
-];
-const OUT_OF_SCOPE: &[Field] = &[str("item").prose(), str("why").prose().r()];
+const CONSTRAINT: &[Field] = &[en("kind", CONSTRAINT_KINDS), str("what"), str("why")];
+const OUT_OF_SCOPE: &[Field] = &[str("item"), str("why").r()];
 
 /// Singleton. GSD: `PROJECT.md`.
 pub const PROJECT: Kind = Kind::new(
@@ -25,16 +21,19 @@ pub const PROJECT: Kind = Kind::new(
     "The project: what it is, its core value, context and constraints (GSD PROJECT.md)",
     &[
         str("name").r().doc("# [Project Name]"),
-        str("what").prose().r().doc("What This Is"),
-        str("core_value").prose().r().doc("Core Value"),
-        str("customer").prose().doc("Business Context"),
-        str("revenue_model").prose().doc("Business Context"),
-        str("success_metric").prose().doc("Business Context"),
-        str("context").prose().r().doc("Context"),
+        str("what").r().doc("What This Is"),
+        str("core_value").r().doc("Core Value"),
+        str("customer").doc("Business Context"),
+        str("revenue_model").doc("Business Context"),
+        str("success_metric").doc("Business Context"),
+        str("context").r().doc("Context"),
         blocks("constraints", CONSTRAINT).r().doc("Constraints"),
         blocks("out_of_scope", OUT_OF_SCOPE).doc("Out of Scope"),
         rfs("key_decisions", "decision").doc("Key Decisions"),
-        str("project_code").doc("config project_code: ^[A-Z][A-Z0-9_]*$"),
+        str("project_code").doc(
+            "config project_code: ^[A-Z][A-Z0-9_]*$ (upstream keeps it in config.json only; gsd-git reads this \
+             field when the setting is unset)",
+        ),
         rfs("validated", "requirement")
             .c()
             .doc("Validated: from requirement status"),
@@ -60,36 +59,6 @@ const REQUIREMENT_STATUS: &[&str] = &[
     "blocked",
     "gaps_found",
 ];
-/// A requirement's quality class: ISO/IEC 25010:2011's eight product quality characteristics by their short names
-/// (interoperability is part of compatibility), `safety`, which ISO/IEC 25010:2023 added, and `regulatory`. The 2023
-/// revision also renamed usability to interaction capability and portability to flexibility; the list keeps the
-/// 2011 words.
-pub const REQUIREMENT_CATEGORY: &[&str] = &[
-    "functional",
-    "performance",
-    "compatibility",
-    "usability",
-    "reliability",
-    "security",
-    "maintainability",
-    "portability",
-    "safety",
-    "regulatory",
-];
-/// The sense a metric's threshold holds in.
-pub const DIRECTION: &[&str] = &["at_most", "at_least", "exactly"];
-/// A requirement's effort, a T-shirt size.
-pub const EFFORT: &[&str] = &["xs", "s", "m", "l", "xl"];
-/// A measure: no bound on the threshold (a latency is positive, a drift may be negative: `direction` carries the
-/// sense), and no unit for a plain count.
-pub const METRIC: &[Field] = &[
-    str("name").r().doc("what is measured"),
-    num("threshold").r().doc("the value it is held to"),
-    str("unit").doc("its unit (ms, s, %); none for a count"),
-    en("direction", DIRECTION)
-        .r()
-        .doc("at_most, at_least or exactly the threshold"),
-];
 /// How far a requirement's thread reaches (`passes::thread::Proof`, in its order).
 pub const PROOF_STATES: &[&str] = &[
     "no_task",
@@ -100,48 +69,29 @@ pub const PROOF_STATES: &[&str] = &[
     "proven",
 ];
 
-/// One bullet of `REQUIREMENTS.md`, named `AUTH-01`, and the fields of the product feature and the governance
-/// constraint it absorbs (quality category, priority, metric, sources, relations, tags).
+/// One bullet of `REQUIREMENTS.md`, named `AUTH-01`.
 pub const REQUIREMENT: Kind = Kind::new(
     "requirement",
     "A requirement, named by its GSD id such as AUTH-01 (GSD REQUIREMENTS.md)",
     &[
-        str("text").prose().r().doc("the description after the ID"),
-        str("area")
+        str("text").r().doc("the description after the ID"),
+        str("category").r().doc("### [Category]"),
+        en("tier", TIERS)
             .r()
-            .doc("its heading, a feature area (### [Category]); not `category`, the quality class"),
-        en("tier", TIERS).r().doc("v1, v2 or Out of Scope"),
-        str("reason").prose().doc("Out of Scope reason: required when out_of_scope (gsd/E105)"),
+            .doc("v1, v2 or Out of Scope (upstream: the heading it sits under)"),
+        str("reason").doc("Out of Scope reason: required when out_of_scope (gsd/E105)"),
         date("defined").i().doc("Defined"),
-        en("category", REQUIREMENT_CATEGORY)
-            .doc("its quality characteristic (ISO/IEC 25010:2011's names, and safety from 2023) or regulatory"),
-        en("priority", super::product::PRIORITY)
-            .doc("must, should or could (won't is `tier out_of_scope`)"),
-        block("metric", METRIC).doc(
-            "the measure it is held to: `name`, a `threshold` number, its `unit` when it has one, a `direction`",
-        ),
-        strs("source").doc(
-            "where it came from: a person, quoted, or a declared `ref` (`gh.issue:42`), bare",
-        ),
-        rfs("personas", "persona")
-            .inverse("requirements")
-            .doc("the personas it serves; a persona reads them back as `requirements`"),
-        rfs("constrains", "requirement")
-            .inverse("constrained_by")
-            .doc("the requirements it limits; each reads it back as `constrained_by`"),
-        rfs("protects", "invariant")
-            .inverse("protected_by")
-            .doc("the invariants it guards; each reads it back as `protected_by`"),
-        strs("tags").doc("words to group it by"),
-        en("effort", EFFORT).doc("how large it is to build, a T-shirt size"),
         en("status", REQUIREMENT_STATUS)
             .c()
             .doc("Traceability status, from plans, summaries and verifications"),
         rfs("satisfied_by", "item").c().doc(
-            "the code items the tasks of its plans name, held or not: sorted, each once; absent when none",
+            "the code items the recorded commits of its plans' tasks changed: sorted, each once; absent until a \
+             commit is collected with item facts",
         ),
         en("proof", PROOF_STATES).c().doc(
-            "how far its thread reaches: a task of its plans, a commit of one, a passing test; `proven` when whole",
+            "how far its thread reaches: a task of its plans, a commit of one, a passing test (tagged with the task or \
+             the requirement, or named by a check of its coverage item); `proven` when whole. A requirement no plan \
+             lists reads its tests alone",
         ),
         ens("shapes", super::spec::SHAPES)
             .doc("upstream's authored shapes override; an empty list proposes no edge"),

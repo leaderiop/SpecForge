@@ -1,0 +1,1986 @@
+{
+  "category": "settings",
+  "items": [
+    {
+      "default": [],
+      "description": "Extra trusted directories for global: skills.",
+      "field_type": "string_list",
+      "kind": "setting",
+      "name": "agent_skills_security.trusted_global_roots"
+    },
+    {
+      "default": false,
+      "description": "Opt in to the dispatch audit trail.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "audit.enabled"
+    },
+    {
+      "description": "Override auto-detection of Brave Search API availability.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "brave_search"
+    },
+    {
+      "default": false,
+      "description": "Master toggle for the Claude orchestration capability.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "claude_orchestration.enabled"
+    },
+    {
+      "default": "auto",
+      "description": "Which dispatch backend execute-phase uses when the capability is enabled.",
+      "enum_values": [
+        "auto",
+        "workflow",
+        "inline"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "claude_orchestration.execution_backend"
+    },
+    {
+      "default": "0.3.149",
+      "description": "Oldest Agent SDK version the Workflow backend may run on.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "claude_orchestration.min_agent_sdk_version"
+    },
+    {
+      "description": "Execution context preset injected into every agent prompt: dev, research or review (GSD refuses other values).",
+      "enum_values": [
+        "dev",
+        "research",
+        "review"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "context"
+    },
+    {
+      "default": 200000,
+      "description": "Context window size in tokens.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "context_window"
+    },
+    {
+      "default": "high",
+      "description": "Global fallback effort level.",
+      "enum_values": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "inherit"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "effort.default"
+    },
+    {
+      "description": "Override auto-detection of Exa Search API availability.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "exa_search"
+    },
+    {
+      "default": 5,
+      "description": "Minutes between executor stall checks.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "executor.stall_detect_interval_minutes"
+    },
+    {
+      "default": 10,
+      "description": "Minutes without executor progress before execute-phase offers recovery.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "executor.stall_threshold_minutes"
+    },
+    {
+      "default": "Artifacts/jobs",
+      "description": "Root directory for per-job artifacts.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "external_job.artifact_dir"
+    },
+    {
+      "default": "slurm",
+      "description": "Scheduler backend.",
+      "enum_values": [
+        "slurm"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "external_job.backend"
+    },
+    {
+      "default": false,
+      "description": "Master toggle for the async external-job producer capability.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "external_job.enabled"
+    },
+    {
+      "default": 15000,
+      "description": "Timeout in milliseconds for the scheduler poll.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "external_job.poll_timeout_ms"
+    },
+    {
+      "default": 30000,
+      "description": "Timeout in milliseconds for the scheduler submit.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "external_job.submit_timeout_ms"
+    },
+    {
+      "default": false,
+      "description": "Global fast_mode flag.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "fast_mode.enabled"
+    },
+    {
+      "default": false,
+      "description": "Copy learnings across projects and inject them into planning.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "features.global_learnings"
+    },
+    {
+      "default": false,
+      "description": "Analyse workflow decision points with a thinking partner.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "features.thinking_partner"
+    },
+    {
+      "description": "Override auto-detection of Firecrawl API availability.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "firecrawl"
+    },
+    {
+      "default": true,
+      "description": "Confirm milestone scope before shipping (complete-milestone.md).",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "gates.confirm_milestone_scope"
+    },
+    {
+      "default": true,
+      "description": "Confirm phase transition (transition.md).",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "gates.confirm_transition"
+    },
+    {
+      "default": true,
+      "description": "Confirm before executing next plan (execute-plan.md).",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "gates.execute_next_plan"
+    },
+    {
+      "default": false,
+      "description": "Let the executor commit on the default branch.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "git.allow_default_branch_commits"
+    },
+    {
+      "description": "The branch phase and milestone branches start from and merge back into.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "git.base_branch"
+    },
+    {
+      "default": "none",
+      "description": "Branch per phase, per milestone, or neither.",
+      "enum_values": [
+        "none",
+        "phase",
+        "milestone"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "git.branching_strategy"
+    },
+    {
+      "default": true,
+      "description": "Tag the release when a milestone completes.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "git.create_tag"
+    },
+    {
+      "default": "gsd/{milestone}-{slug}",
+      "description": "Branch name template for milestone strategy.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "git.milestone_branch_template"
+    },
+    {
+      "default": "gsd/phase-{phase}-{slug}",
+      "description": "Branch name template for phase strategy.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "git.phase_branch_template"
+    },
+    {
+      "description": "Extra shared branches that trigger protected-branch warnings.",
+      "field_type": "string_list",
+      "kind": "setting",
+      "name": "git.protected_branches"
+    },
+    {
+      "description": "Optional branch name template for /gsd-quick tasks.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "git.quick_branch_template"
+    },
+    {
+      "default": "standard",
+      "description": "How many phases a roadmap has: coarse 2-4, standard 4-6, fine 6-10.",
+      "enum_values": [
+        "coarse",
+        "standard",
+        "fine"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "granularity"
+    },
+    {
+      "default": [],
+      "description": "Extra Conventional Commits types the commit-message hook accepts.",
+      "field_type": "string_list",
+      "kind": "setting",
+      "name": "hooks.commit_types"
+    },
+    {
+      "default": false,
+      "description": "Turn on the opt-in community hooks.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "hooks.community"
+    },
+    {
+      "default": 25,
+      "description": "Percent of context left at or below which the monitor reports critical (GSD refuses 100: no warning could be above it).",
+      "field_type": "number",
+      "kind": "setting",
+      "maximum": 99,
+      "minimum": 0,
+      "name": "hooks.context_critical_threshold"
+    },
+    {
+      "default": 35,
+      "description": "Percent of context left at or below which the monitor warns (GSD refuses 0: no critical could be below it).",
+      "field_type": "number",
+      "kind": "setting",
+      "maximum": 100,
+      "minimum": 1,
+      "name": "hooks.context_warning_threshold"
+    },
+    {
+      "default": true,
+      "description": "Warn about context window usage.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "hooks.context_warnings"
+    },
+    {
+      "default": false,
+      "description": "Warn when files are edited outside a GSD workflow.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "hooks.workflow_guard"
+    },
+    {
+      "description": "Override auto-detection of Jina API availability.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "jina"
+    },
+    {
+      "default": 10,
+      "description": "Maximum number of cross-project learnings injected into each planner prompt.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 0,
+      "name": "learnings.max_inject"
+    },
+    {
+      "description": "Flags added to the manager's discuss-phase commands.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "manager.flags.discuss"
+    },
+    {
+      "description": "Flags added to the manager's execute-phase commands.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "manager.flags.execute"
+    },
+    {
+      "description": "Flags added to the manager's plan-phase commands.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "manager.flags.plan"
+    },
+    {
+      "default": "interactive",
+      "description": "yolo approves decisions on its own; interactive confirms each step.",
+      "enum_values": [
+        "interactive",
+        "yolo"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "mode"
+    },
+    {
+      "description": "Budget tier of a known provider.",
+      "enum_values": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "model_policy.budget"
+    },
+    {
+      "description": "Model ID of the high tier for a generic provider.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "model_policy.high"
+    },
+    {
+      "description": "Model ID of the low tier for a generic provider.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "model_policy.low"
+    },
+    {
+      "description": "Model ID of the medium tier for a generic provider.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "model_policy.medium"
+    },
+    {
+      "description": "Model provider: openai, anthropic, anthropic-fable, google, qwen or generic.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "model_policy.provider"
+    },
+    {
+      "default": "balanced",
+      "description": "Model tier of each agent: quality, balanced, budget, adaptive or inherit.",
+      "enum_values": [
+        "quality",
+        "balanced",
+        "budget",
+        "adaptive",
+        "inherit"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "model_profile"
+    },
+    {
+      "default": true,
+      "description": "Shorthand for parallelization.enabled.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "parallelization"
+    },
+    {
+      "description": "Override auto-detection of Perplexity API availability.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "perplexity"
+    },
+    {
+      "description": "How phase IDs are formed; unset and sequential use plain numbers.",
+      "enum_values": [
+        "sequential",
+        "milestone-prefixed",
+        "bracket"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "phase_id_convention"
+    },
+    {
+      "default": "sequential",
+      "description": "How phase directories are named.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "phase_naming"
+    },
+    {
+      "default": true,
+      "description": "Enable the plan drift guard.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "plan_review.source_grounding"
+    },
+    {
+      "default": "grep",
+      "description": "Selects the resolver adapter used to verify symbol existence.",
+      "enum_values": [
+        "grep",
+        "intel",
+        "treesitter",
+        "lsp",
+        "scip"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "plan_review.source_grounding_authority"
+    },
+    {
+      "default": 5,
+      "description": "Minutes between planner stall checks.",
+      "field_type": "integer",
+      "kind": "setting",
+      "maximum": 1440,
+      "minimum": 1,
+      "name": "planner.stall_detect_interval_minutes"
+    },
+    {
+      "default": true,
+      "description": "Detect stalled planner and plan-checker agents.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "planner.stall_detection_enabled"
+    },
+    {
+      "default": 10,
+      "description": "Minutes without planner progress before plan-phase offers recovery.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "planner.stall_threshold_minutes"
+    },
+    {
+      "default": false,
+      "description": "Opt-in concurrent per-plan planners in chunked mode.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "planning.chunked_parallel"
+    },
+    {
+      "description": "Prefix for phase directory names.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "project_code"
+    },
+    {
+      "description": "Override auto-detection of Ref search API availability.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "ref_search"
+    },
+    {
+      "default": 5,
+      "description": "Complexity growth that triggers a refactor proposal below the threshold.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "refactor.complexity_jump_delta"
+    },
+    {
+      "default": 15,
+      "description": "Absolute per-function complexity above which a refactor proposal is surfaced.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "refactor.complexity_threshold"
+    },
+    {
+      "default": false,
+      "description": "Enable the complexity-triggered refactor hook.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "refactor.trigger_enabled"
+    },
+    {
+      "default": false,
+      "description": "Record an untriaged refactor proposal as an open broken-windows entry.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "refactor.trigger_strict"
+    },
+    {
+      "default": "aliases",
+      "description": "How agent models are named: tier aliases, full model IDs, or left out for a non-Claude runtime.",
+      "enum_values": [
+        "aliases",
+        "ids",
+        "omit"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "resolve_model_ids"
+    },
+    {
+      "description": "Language of agent responses.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "response_language"
+    },
+    {
+      "description": "Reviewers /gsd-review uses when none are named.",
+      "field_type": "string_list",
+      "kind": "setting",
+      "name": "review.default_reviewers"
+    },
+    {
+      "description": "Reasoning effort for the Claude reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.effort.claude"
+    },
+    {
+      "description": "Reasoning effort for the Codex reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.effort.codex"
+    },
+    {
+      "description": "Reasoning effort for the OpenCode reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.effort.opencode"
+    },
+    {
+      "default": "http://localhost:8080",
+      "description": "Base URL of the llama.cpp OpenAI-compatible server.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.llama_cpp_host"
+    },
+    {
+      "default": "http://localhost:1234",
+      "description": "Base URL of the LM Studio OpenAI-compatible server.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.lm_studio_host"
+    },
+    {
+      "description": "Default maximum estimated tokens for the assembled review prompt.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "review.max_prompt_tokens"
+    },
+    {
+      "description": "Prompt-token budget for the Antigravity reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.antigravity"
+    },
+    {
+      "description": "Prompt-token budget for the Claude reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.claude"
+    },
+    {
+      "description": "Prompt-token budget for the CodeRabbit reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.coderabbit"
+    },
+    {
+      "description": "Prompt-token budget for the Codex reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.codex"
+    },
+    {
+      "description": "Prompt-token budget for the Cursor reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.cursor"
+    },
+    {
+      "description": "Prompt-token budget for the Kimi Code reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.kimi-code"
+    },
+    {
+      "description": "Prompt-token budget for the llama.cpp reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.llama_cpp"
+    },
+    {
+      "description": "Prompt-token budget for the LM Studio reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.lm_studio"
+    },
+    {
+      "description": "Prompt-token budget for the Ollama reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.ollama"
+    },
+    {
+      "description": "Prompt-token budget for the OpenCode reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.opencode"
+    },
+    {
+      "description": "Prompt-token budget for the Qwen Code reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.max_prompt_tokens_per_reviewer.qwen"
+    },
+    {
+      "description": "Model passed to the Antigravity reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.models.agy"
+    },
+    {
+      "description": "Model passed to the Claude reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.models.claude"
+    },
+    {
+      "description": "Model passed to the Codex reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.models.codex"
+    },
+    {
+      "description": "Model passed to the Cursor reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.models.cursor"
+    },
+    {
+      "description": "Model passed to the Kimi Code reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.models.kimi-code"
+    },
+    {
+      "description": "Model requested from the llama.cpp reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.models.llama_cpp"
+    },
+    {
+      "description": "Model requested from the LM Studio reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.models.lm_studio"
+    },
+    {
+      "description": "Model requested from the Ollama reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.models.ollama"
+    },
+    {
+      "description": "Model passed to the OpenCode reviewer lane.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.models.opencode"
+    },
+    {
+      "default": "http://localhost:11434",
+      "description": "Base URL of the Ollama OpenAI-compatible server.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "review.ollama_host"
+    },
+    {
+      "default": false,
+      "description": "Run independent reviewer lanes at the same time.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "review.parallel_lanes"
+    },
+    {
+      "description": "Outer wall-clock timeout override (seconds) for the Antigravity reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.timeouts.antigravity"
+    },
+    {
+      "description": "Outer wall-clock timeout override (seconds) for the Claude reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.timeouts.claude"
+    },
+    {
+      "description": "Outer wall-clock timeout override (seconds) for the Codex reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.timeouts.codex"
+    },
+    {
+      "description": "Outer wall-clock timeout override (seconds) for the Kimi Code reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.timeouts.kimi-code"
+    },
+    {
+      "description": "Outer wall-clock timeout override (seconds) for the llama.cpp reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.timeouts.llama_cpp"
+    },
+    {
+      "description": "Outer wall-clock timeout override (seconds) for the LM Studio reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.timeouts.lm_studio"
+    },
+    {
+      "description": "Outer wall-clock timeout override (seconds) for the Ollama reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.timeouts.ollama"
+    },
+    {
+      "description": "Outer wall-clock timeout override (seconds) for the OpenCode reviewer lane.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": -1,
+      "name": "review.timeouts.opencode"
+    },
+    {
+      "description": "Active runtime for runtime-aware profile resolution.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "runtime"
+    },
+    {
+      "default": [],
+      "description": "Extra sections the ship step adds to the pull request body.",
+      "field_type": "string_list",
+      "kind": "setting",
+      "name": "ship.pr_body_sections"
+    },
+    {
+      "default": "end",
+      "description": "Where the context meter sits: end of the line or front.",
+      "enum_values": [
+        "end",
+        "front"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "statusline.context_position"
+    },
+    {
+      "default": false,
+      "description": "Show the absolute token count after the context meter.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "statusline.show_context_tokens"
+    },
+    {
+      "default": false,
+      "description": "Show the git branch and work-state markers.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "statusline.show_git"
+    },
+    {
+      "default": false,
+      "description": "Show the last slash command used.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "statusline.show_last_command"
+    },
+    {
+      "default": false,
+      "description": "Show how many commits back the GSD state is.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "statusline.show_state_freshness"
+    },
+    {
+      "default": "full",
+      "description": "GSD-state segment format: full or compact.",
+      "enum_values": [
+        "full",
+        "compact"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "statusline.state_format"
+    },
+    {
+      "description": "Override auto-detection of Tavily Search API availability.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "tavily_search"
+    },
+    {
+      "default": true,
+      "description": "Route each plan to a specialist executor.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.agent_hint_routing"
+    },
+    {
+      "default": true,
+      "description": "Enable the assumption-delta architecture checkpoint during planning.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.assumption_delta"
+    },
+    {
+      "default": false,
+      "description": "Auto-chain discuss → plan → execute without stopping.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.auto_advance"
+    },
+    {
+      "description": "Shell command for the post-merge build gate.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "workflow.build_command"
+    },
+    {
+      "default": false,
+      "description": "Compact content mode.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.compact_content"
+    },
+    {
+      "default": true,
+      "description": "Toggle for both decision-coverage gates.",
+      "field_type": "bool",
+      "gates": [
+        "E310",
+        "W506"
+      ],
+      "kind": "setting",
+      "name": "workflow.context_coverage_gate"
+    },
+    {
+      "default": "warn",
+      "description": "What the context-drift gate does on a stale artifact: warn or block.",
+      "enum_values": [
+        "warn",
+        "block"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "workflow.context_drift_action"
+    },
+    {
+      "default": true,
+      "description": "Enable the non-blocking context-drift pre-check at plan:pre.",
+      "field_type": "bool",
+      "gates": [
+        "W406"
+      ],
+      "kind": "setting",
+      "name": "workflow.context_drift_precheck"
+    },
+    {
+      "default": "warn",
+      "description": "Context exhaustion guard before each execute wave: auto, warn or off.",
+      "enum_values": [
+        "auto",
+        "warn",
+        "off"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "workflow.context_guard_mode"
+    },
+    {
+      "description": "Shell command template for cross-AI execution.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "workflow.cross_ai_command"
+    },
+    {
+      "default": false,
+      "description": "Delegate phase execution to an external AI CLI instead of spawning local executor agents.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.cross_ai_execution"
+    },
+    {
+      "default": 300,
+      "description": "Timeout in seconds for cross-AI execution commands.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "workflow.cross_ai_timeout"
+    },
+    {
+      "default": "discuss",
+      "description": "How discuss-phase gathers context: discuss asks, assumptions reads the code first.",
+      "enum_values": [
+        "discuss",
+        "assumptions"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "workflow.discuss_mode"
+    },
+    {
+      "default": "end-of-phase",
+      "description": "When human verification happens: end-of-phase or mid-flight.",
+      "enum_values": [
+        "mid-flight",
+        "end-of-phase"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "workflow.human_verify_mode"
+    },
+    {
+      "default": 2,
+      "description": "Most tasks a phase may have before the planner writes a separate PLAN.md.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 0,
+      "name": "workflow.inline_plan_threshold"
+    },
+    {
+      "default": 3,
+      "description": "Maximum number of question rounds in discuss-phase before the workflow stops asking.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "workflow.max_discuss_passes"
+    },
+    {
+      "default": false,
+      "description": "Plan every phase as an MVP slice by default.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.mvp_mode"
+    },
+    {
+      "default": true,
+      "description": "Autonomous task repair on verification failure.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.node_repair"
+    },
+    {
+      "default": 2,
+      "description": "Max repair attempts per failed task.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 0,
+      "name": "workflow.node_repair_budget"
+    },
+    {
+      "default": true,
+      "description": "Enable Nyquist validation coverage auditing.",
+      "field_type": "bool",
+      "gates": [
+        "E314",
+        "W510"
+      ],
+      "kind": "setting",
+      "name": "workflow.nyquist_validation"
+    },
+    {
+      "default": true,
+      "description": "Run the pattern mapper before planning when context or research is available.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.pattern_mapper"
+    },
+    {
+      "default": false,
+      "description": "Run external validation script against generated plans.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.plan_bounce"
+    },
+    {
+      "default": 2,
+      "description": "Number of sequential bounce passes to run.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "workflow.plan_bounce_passes"
+    },
+    {
+      "description": "Path to the external script invoked for plan bounce validation.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "workflow.plan_bounce_script"
+    },
+    {
+      "default": true,
+      "description": "Run the plan verification loop.",
+      "field_type": "bool",
+      "gates": [
+        "W311",
+        "W313",
+        "W315",
+        "W316",
+        "W318"
+      ],
+      "kind": "setting",
+      "name": "workflow.plan_check"
+    },
+    {
+      "default": false,
+      "description": "Enable chunked planning mode.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.plan_chunked"
+    },
+    {
+      "default": false,
+      "description": "Enable the /gsd-plan-review-convergence command.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.plan_review_convergence"
+    },
+    {
+      "default": true,
+      "description": "Run the post-planning gap analysis report after plans are generated.",
+      "field_type": "bool",
+      "gates": [
+        "W317"
+      ],
+      "kind": "setting",
+      "name": "workflow.post_planning_gaps"
+    },
+    {
+      "default": true,
+      "description": "Run phase research before planning when research artifacts are missing.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.research"
+    },
+    {
+      "default": false,
+      "description": "Run research before discussion questions instead of after.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.research_before_questions"
+    },
+    {
+      "default": true,
+      "description": "Enable the drift gates at execute:wave:post.",
+      "field_type": "bool",
+      "gates": [
+        "E405"
+      ],
+      "kind": "setting",
+      "name": "workflow.schema_drift_gate"
+    },
+    {
+      "default": true,
+      "description": "Enable ORM schema push detection during planning.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.schema_push_detection"
+    },
+    {
+      "default": false,
+      "description": "Autonomous runs skip discuss-phase.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.skip_discuss"
+    },
+    {
+      "default": 100000,
+      "description": "Token budget above which a phase is flagged for splitting; advisory.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "workflow.smart_zone_tokens"
+    },
+    {
+      "default": true,
+      "description": "Author edge and prohibition predicates for a phase that has no spec.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.specless_probe_fallback"
+    },
+    {
+      "default": 300000,
+      "description": "Timeout in milliseconds for parallel subagent tasks.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "workflow.subagent_timeout"
+    },
+    {
+      "default": false,
+      "description": "Plan eligible tasks as TDD and enforce the red, green, refactor sequence.",
+      "field_type": "bool",
+      "gates": [
+        "W403",
+        "W404"
+      ],
+      "kind": "setting",
+      "name": "workflow.tdd_mode"
+    },
+    {
+      "description": "Shell command for the post-merge test gate.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "workflow.test_command"
+    },
+    {
+      "default": 600,
+      "description": "Timeout in seconds for a verification test gate.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "workflow.test_gate_timeout"
+    },
+    {
+      "default": false,
+      "description": "Replaces AskUserQuestion TUI menus with plain-text numbered lists.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.text_mode"
+    },
+    {
+      "default": true,
+      "description": "Isolate parallel execution in git worktrees.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.use_worktrees"
+    },
+    {
+      "default": true,
+      "description": "Post-execution verification against phase goals.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.verifier"
+    },
+    {
+      "default": false,
+      "description": "Block ship while the broken-windows ledger has open entries.",
+      "field_type": "bool",
+      "gates": [
+        "E512"
+      ],
+      "gates_when_on": [
+        "W514"
+      ],
+      "kind": "setting",
+      "name": "workflow.windows_enforce"
+    },
+    {
+      "default": false,
+      "description": "Executors in worktrees skip pre-commit hooks.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "workflow.worktree_skip_hooks"
+    },
+    {
+      "default": false,
+      "description": "Master switch for dynamic routing with failure-tier escalation.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "dynamic_routing.enabled"
+    },
+    {
+      "default": true,
+      "description": "Escalate one tier up after a soft failure.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "dynamic_routing.escalate_on_failure"
+    },
+    {
+      "default": 1,
+      "description": "Hard cap on retries per agent invocation.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 0,
+      "name": "dynamic_routing.max_escalations"
+    },
+    {
+      "description": "Fallback model IDs tried when a run hits a quota limit.",
+      "field_type": "string_list",
+      "kind": "setting",
+      "name": "dynamic_routing.provider_escalation"
+    },
+    {
+      "default": "xhigh",
+      "description": "Effort for heavy-tier agents (deep reasoning).",
+      "enum_values": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "inherit"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "effort.routing_tier_defaults.heavy"
+    },
+    {
+      "default": "low",
+      "description": "Effort for light-tier agents (fast mappers/scanners).",
+      "enum_values": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "inherit"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "effort.routing_tier_defaults.light"
+    },
+    {
+      "default": "high",
+      "description": "Effort for standard-tier agents (workhorse agents).",
+      "enum_values": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "inherit"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "effort.routing_tier_defaults.standard"
+    },
+    {
+      "default": false,
+      "description": "Fast mode for heavy-tier agents.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "fast_mode.routing_tier_defaults.heavy"
+    },
+    {
+      "default": true,
+      "description": "Fast mode for light-tier agents.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "fast_mode.routing_tier_defaults.light"
+    },
+    {
+      "default": false,
+      "description": "Fast mode for standard-tier agents.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "fast_mode.routing_tier_defaults.standard"
+    },
+    {
+      "default": true,
+      "description": "Run independent plans simultaneously.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "parallelization.enabled"
+    },
+    {
+      "default": 3,
+      "description": "Maximum simultaneous agents.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "parallelization.max_concurrent_agents"
+    },
+    {
+      "default": 2,
+      "description": "Minimum plans to trigger parallel execution.",
+      "field_type": "integer",
+      "kind": "setting",
+      "minimum": 1,
+      "name": "parallelization.min_plans_for_parallel"
+    },
+    {
+      "default": true,
+      "description": "Parallelize at plan level.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "parallelization.plan_level"
+    },
+    {
+      "default": true,
+      "description": "Skip checkpoints during parallel execution.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "parallelization.skip_checkpoints"
+    },
+    {
+      "default": false,
+      "description": "Parallelize tasks within a plan.",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "parallelization.task_level"
+    },
+    {
+      "description": "Ref new parallel worktrees start from; head uses the local HEAD.",
+      "field_type": "string",
+      "kind": "setting",
+      "name": "worktree.baseRef"
+    },
+    {
+      "description": "Skills added to one agent type's prompt.",
+      "field_type": "string_list",
+      "keys": [
+        []
+      ],
+      "kind": "setting",
+      "name": "agent_skills.*"
+    },
+    {
+      "description": "Tools granted to one agent at install time; `all` grants every agent.",
+      "field_type": "string_list",
+      "keys": [
+        []
+      ],
+      "kind": "setting",
+      "name": "agent_tools.*"
+    },
+    {
+      "description": "Tier alias used for a routing tier.",
+      "enum_values": [
+        "opus",
+        "sonnet",
+        "haiku"
+      ],
+      "field_type": "enum",
+      "keys": [
+        [
+          "light",
+          "standard",
+          "heavy"
+        ]
+      ],
+      "kind": "setting",
+      "name": "dynamic_routing.tier_models.*"
+    },
+    {
+      "description": "Effort for one agent; beats the tier defaults.",
+      "enum_values": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "inherit"
+      ],
+      "field_type": "enum",
+      "keys": [
+        []
+      ],
+      "kind": "setting",
+      "name": "effort.agent_overrides.*"
+    },
+    {
+      "description": "Fast mode for one agent; beats the tier defaults.",
+      "field_type": "bool",
+      "keys": [
+        []
+      ],
+      "kind": "setting",
+      "name": "fast_mode.agent_overrides.*"
+    },
+    {
+      "description": "A feature toggle.",
+      "field_type": "bool",
+      "keys": [
+        []
+      ],
+      "kind": "setting",
+      "name": "features.*"
+    },
+    {
+      "description": "Granularity of one phase type.",
+      "enum_values": [
+        "coarse",
+        "standard",
+        "fine"
+      ],
+      "field_type": "enum",
+      "keys": [
+        [
+          "planning",
+          "discuss",
+          "research",
+          "execution",
+          "verification",
+          "completion"
+        ]
+      ],
+      "kind": "setting",
+      "name": "granularities.*"
+    },
+    {
+      "description": "Model ID for one agent.",
+      "field_type": "string",
+      "keys": [
+        []
+      ],
+      "kind": "setting",
+      "name": "model_overrides.*"
+    },
+    {
+      "description": "Model tier of one phase type.",
+      "enum_values": [
+        "opus",
+        "sonnet",
+        "haiku",
+        "inherit"
+      ],
+      "field_type": "enum",
+      "keys": [
+        [
+          "planning",
+          "discuss",
+          "research",
+          "execution",
+          "verification",
+          "completion"
+        ]
+      ],
+      "kind": "setting",
+      "name": "models.*"
+    },
+    {
+      "description": "A named reviewer instance: its adapter, model or agent.",
+      "field_type": "string",
+      "keys": [
+        [],
+        [
+          "cli",
+          "model",
+          "agent"
+        ]
+      ],
+      "kind": "setting",
+      "name": "review.reviewer_instances.*.*"
+    },
+    {
+      "description": "Model entry for one runtime and tier; beats model_profile_overrides.",
+      "field_type": "block",
+      "keys": [
+        [],
+        [
+          "opus",
+          "sonnet",
+          "haiku"
+        ]
+      ],
+      "kind": "setting",
+      "members": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "model",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "inherit"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "reasoning_effort",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "name": "model_policy.runtime_tiers.*.*"
+    },
+    {
+      "description": "Model entry for one runtime and tier.",
+      "field_type": "block",
+      "keys": [
+        [],
+        [
+          "opus",
+          "sonnet",
+          "haiku"
+        ]
+      ],
+      "kind": "setting",
+      "members": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "model",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "inherit"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "reasoning_effort",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "name": "model_profile_overrides.*.*"
+    },
+    {
+      "default": false,
+      "description": "Every task of a complete plan has a commit.",
+      "field_type": "bool",
+      "gates": [
+        "W407"
+      ],
+      "kind": "setting",
+      "name": "specforge.task_commits"
+    },
+    {
+      "default": false,
+      "description": "A complete requirement traces to a task, a commit and a passing test.",
+      "field_type": "bool",
+      "gates": [
+        "E515"
+      ],
+      "kind": "setting",
+      "name": "specforge.traceability_gate"
+    },
+    {
+      "default": false,
+      "description": "A stale verdict blocks every workflow step, not only execution.",
+      "field_type": "bool",
+      "gates": [
+        "E516"
+      ],
+      "kind": "setting",
+      "name": "specforge.stale_verdict_gate"
+    },
+    {
+      "default": false,
+      "description": "Active plans of different workstreams share no file.",
+      "field_type": "bool",
+      "gates": [
+        "E517"
+      ],
+      "kind": "setting",
+      "name": "specforge.cross_workstream_conflicts"
+    },
+    {
+      "default": false,
+      "description": "A complete plan's commits touched every path it planned, and the files it deletes are gone.",
+      "field_type": "bool",
+      "gates": [
+        "W520"
+      ],
+      "kind": "setting",
+      "name": "specforge.plan_paths_touched"
+    },
+    {
+      "default": false,
+      "description": "A task commit names its task by its Gsd-Task trailer.",
+      "field_type": "bool",
+      "gates": [
+        "E521"
+      ],
+      "kind": "setting",
+      "name": "specforge.task_trailers"
+    },
+    {
+      "default": "gsd-compat",
+      "description": "gsd-compat is GSD as it is; gsd-strict blocks where GSD warns; gsd-plus adds traceability gates.",
+      "enum_values": [
+        "gsd-compat",
+        "gsd-strict",
+        "gsd-plus"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "profile"
+    },
+    {
+      "kind": "preset",
+      "source": "profile",
+      "values": {
+        "gsd-compat": {
+          "settings": {
+            "specforge.cross_workstream_conflicts": false,
+            "specforge.plan_paths_touched": false,
+            "specforge.stale_verdict_gate": false,
+            "specforge.task_commits": false,
+            "specforge.task_trailers": false,
+            "specforge.traceability_gate": false,
+            "workflow.windows_enforce": false
+          }
+        },
+        "gsd-plus": {
+          "settings": {
+            "specforge.cross_workstream_conflicts": true,
+            "specforge.plan_paths_touched": true,
+            "specforge.stale_verdict_gate": true,
+            "specforge.task_commits": true,
+            "specforge.task_trailers": true,
+            "specforge.traceability_gate": true,
+            "workflow.windows_enforce": true
+          },
+          "severities": {
+            "W103": "error",
+            "W203": "error",
+            "W204": "error",
+            "W205": "error",
+            "W304": "error",
+            "W305": "error",
+            "W306": "error",
+            "W308": "error",
+            "W309": "error",
+            "W311": "error",
+            "W313": "error",
+            "W315": "error",
+            "W318": "error",
+            "W323": "error",
+            "W404": "error",
+            "W406": "error",
+            "W408": "error",
+            "W409": "error",
+            "W510": "error"
+          }
+        },
+        "gsd-strict": {
+          "settings": {
+            "specforge.cross_workstream_conflicts": false,
+            "specforge.plan_paths_touched": true,
+            "specforge.stale_verdict_gate": false,
+            "specforge.task_commits": true,
+            "specforge.task_trailers": false,
+            "specforge.traceability_gate": false,
+            "workflow.windows_enforce": true
+          },
+          "severities": {
+            "W103": "error",
+            "W203": "error",
+            "W204": "error",
+            "W205": "error",
+            "W304": "error",
+            "W305": "error",
+            "W306": "error",
+            "W308": "error",
+            "W309": "error",
+            "W311": "error",
+            "W313": "error",
+            "W315": "error",
+            "W318": "error",
+            "W323": "error",
+            "W404": "error",
+            "W406": "error",
+            "W408": "error",
+            "W409": "error",
+            "W510": "error"
+          }
+        }
+      }
+    },
+    {
+      "default": "full",
+      "description": "Which body the agents with a compact variant render: full, or compact (codex and cursor; Claude Code always renders the full body).",
+      "enum_values": [
+        "full",
+        "compact"
+      ],
+      "field_type": "enum",
+      "kind": "setting",
+      "name": "specforge.agent_variant"
+    },
+    {
+      "kind": "preset",
+      "source": "workflow.compact_content",
+      "values": {
+        "true": {
+          "settings": {
+            "specforge.agent_variant": "compact"
+          }
+        }
+      }
+    },
+    {
+      "kind": "preset",
+      "source": "workflow.context_drift_action",
+      "values": {
+        "block": {
+          "severities": {
+            "W406": "error"
+          }
+        }
+      }
+    },
+    {
+      "description": "API key of the search source; read from the environment, never from specforge.json.",
+      "env": "BRAVE_API_KEY",
+      "kind": "secret",
+      "name": "brave_search_key"
+    },
+    {
+      "description": "API key of the search source; read from the environment, never from specforge.json.",
+      "env": "FIRECRAWL_API_KEY",
+      "kind": "secret",
+      "name": "firecrawl_key"
+    },
+    {
+      "description": "API key of the search source; read from the environment, never from specforge.json.",
+      "env": "EXA_API_KEY",
+      "kind": "secret",
+      "name": "exa_search_key"
+    },
+    {
+      "description": "API key of the search source; read from the environment, never from specforge.json.",
+      "env": "TAVILY_API_KEY",
+      "kind": "secret",
+      "name": "tavily_search_key"
+    },
+    {
+      "description": "API key of the search source; read from the environment, never from specforge.json.",
+      "env": "REF_API_KEY",
+      "kind": "secret",
+      "name": "ref_search_key"
+    },
+    {
+      "description": "API key of the search source; read from the environment, never from specforge.json.",
+      "env": "PERPLEXITY_API_KEY",
+      "kind": "secret",
+      "name": "perplexity_key"
+    },
+    {
+      "description": "API key of the search source; read from the environment, never from specforge.json.",
+      "env": "JINA_API_KEY",
+      "kind": "secret",
+      "name": "jina_key"
+    },
+    {
+      "description": "GitHub token the ship and pr-branch workflows send to api.github.com; read from the environment, never from specforge.json.",
+      "env": "GH_TOKEN",
+      "kind": "secret",
+      "name": "github_token"
+    },
+    {
+      "kind": "preset",
+      "source": "model_profile",
+      "values": {
+        "adaptive": {
+          "settings": {
+            "model_overrides.gsd-advisor-researcher": "standard",
+            "model_overrides.gsd-assumptions-analyzer": "heavy",
+            "model_overrides.gsd-doc-classifier": "light",
+            "model_overrides.gsd-doc-synthesizer": "standard",
+            "model_overrides.gsd-executor": "standard",
+            "model_overrides.gsd-integration-checker": "light",
+            "model_overrides.gsd-nyquist-auditor": "light",
+            "model_overrides.gsd-pattern-mapper": "light",
+            "model_overrides.gsd-phase-researcher": "standard",
+            "model_overrides.gsd-plan-checker": "light",
+            "model_overrides.gsd-planner": "heavy",
+            "model_overrides.gsd-project-researcher": "standard",
+            "model_overrides.gsd-research-synthesizer": "light",
+            "model_overrides.gsd-roadmapper": "heavy",
+            "model_overrides.gsd-verifier": "standard"
+          }
+        },
+        "balanced": {
+          "settings": {
+            "model_overrides.gsd-advisor-researcher": "standard",
+            "model_overrides.gsd-assumptions-analyzer": "standard",
+            "model_overrides.gsd-doc-classifier": "light",
+            "model_overrides.gsd-doc-synthesizer": "standard",
+            "model_overrides.gsd-executor": "standard",
+            "model_overrides.gsd-integration-checker": "standard",
+            "model_overrides.gsd-nyquist-auditor": "standard",
+            "model_overrides.gsd-pattern-mapper": "standard",
+            "model_overrides.gsd-phase-researcher": "standard",
+            "model_overrides.gsd-plan-checker": "standard",
+            "model_overrides.gsd-planner": "heavy",
+            "model_overrides.gsd-project-researcher": "standard",
+            "model_overrides.gsd-research-synthesizer": "standard",
+            "model_overrides.gsd-roadmapper": "standard",
+            "model_overrides.gsd-verifier": "standard"
+          }
+        },
+        "budget": {
+          "settings": {
+            "model_overrides.gsd-advisor-researcher": "light",
+            "model_overrides.gsd-assumptions-analyzer": "standard",
+            "model_overrides.gsd-doc-classifier": "light",
+            "model_overrides.gsd-doc-synthesizer": "light",
+            "model_overrides.gsd-executor": "standard",
+            "model_overrides.gsd-integration-checker": "light",
+            "model_overrides.gsd-nyquist-auditor": "light",
+            "model_overrides.gsd-pattern-mapper": "light",
+            "model_overrides.gsd-phase-researcher": "light",
+            "model_overrides.gsd-plan-checker": "light",
+            "model_overrides.gsd-planner": "standard",
+            "model_overrides.gsd-project-researcher": "light",
+            "model_overrides.gsd-research-synthesizer": "light",
+            "model_overrides.gsd-roadmapper": "standard",
+            "model_overrides.gsd-verifier": "light"
+          }
+        },
+        "quality": {
+          "settings": {
+            "model_overrides.gsd-advisor-researcher": "heavy",
+            "model_overrides.gsd-assumptions-analyzer": "heavy",
+            "model_overrides.gsd-doc-classifier": "standard",
+            "model_overrides.gsd-doc-synthesizer": "heavy",
+            "model_overrides.gsd-executor": "heavy",
+            "model_overrides.gsd-integration-checker": "standard",
+            "model_overrides.gsd-nyquist-auditor": "standard",
+            "model_overrides.gsd-pattern-mapper": "standard",
+            "model_overrides.gsd-phase-researcher": "heavy",
+            "model_overrides.gsd-plan-checker": "standard",
+            "model_overrides.gsd-planner": "heavy",
+            "model_overrides.gsd-project-researcher": "heavy",
+            "model_overrides.gsd-research-synthesizer": "standard",
+            "model_overrides.gsd-roadmapper": "heavy",
+            "model_overrides.gsd-verifier": "standard"
+          }
+        }
+      }
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the core_loop cluster (8 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.core_loop"
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the audit_review cluster (11 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.audit_review"
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the milestone cluster (4 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.milestone"
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the research_ideate cluster (6 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.research_ideate"
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the workspace_state cluster (7 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.workspace_state"
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the docs cluster (2 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.docs"
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the ui cluster (2 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.ui"
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the ai_eval cluster (2 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.ai_eval"
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the ns_meta cluster (6 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.ns_meta"
+    },
+    {
+      "default": true,
+      "description": "Show the skills of the utility cluster (32 skills): turn it off and reinstall to hide them",
+      "field_type": "bool",
+      "kind": "setting",
+      "name": "specforge.surface.utility"
+    }
+  ]
+}

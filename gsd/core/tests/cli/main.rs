@@ -54,7 +54,6 @@ mod execute_status;
 #[path = "../common/files.rs"]
 mod files;
 mod gates;
-mod governance;
 mod harness;
 mod hooks_community;
 mod hooks_config;
@@ -72,8 +71,6 @@ mod host_options;
 mod install_agents;
 mod install_hosts;
 mod install_skills;
-mod invariants;
-mod invariants_due;
 mod judged;
 mod judged_flow;
 mod judged_refusals;
@@ -145,7 +142,7 @@ mod verify_rules;
 mod verify_status;
 mod verify_verdicts;
 
-use harness::{Project, project};
+use harness::project;
 
 #[test]
 fn an_empty_project_loads_gsd_core_and_checks_clean() {
@@ -191,7 +188,7 @@ fn a_requirement_with_an_unknown_tier_is_refused() {
     let p = project("roadmap");
     p.write(
         "spec/bad.spec",
-        "requirement TASK-09 \"Bad\" {\n  text \"x\"\n  area \"Tasks\"\n  tier v3\n}\n",
+        "requirement TASK-09 \"Bad\" {\n  text \"x\"\n  category \"Tasks\"\n  tier v3\n}\n",
     );
     let check = p.run(&["check"]);
     assert_eq!(check.code, 1, "check: {}", check.all());
@@ -203,7 +200,7 @@ fn a_requirement_with_an_unknown_tier_is_refused() {
 }
 
 #[test]
-fn a_requirement_without_its_area_is_refused() {
+fn a_requirement_without_its_category_is_refused() {
     let p = project("roadmap");
     p.write(
         "spec/bad.spec",
@@ -212,7 +209,7 @@ fn a_requirement_without_its_area_is_refused() {
     let check = p.run(&["check"]);
     assert_eq!(check.code, 1, "check: {}", check.all());
     assert!(
-        check.all().contains("TASK-09") && check.all().contains("'area'"),
+        check.all().contains("TASK-09") && check.all().contains("'category'"),
         "check: {}",
         check.all()
     );
@@ -316,301 +313,24 @@ fn a_lesson_is_named_within_its_retrospective() {
     );
 }
 
-/// The ref a requirement's `source` names in these tests.
-const BOARD_EXPORT: &str = "ref gh.issue:42 \"Board export\"\n";
-
-/// The `roadmap` project with `spec/quality.spec` holding `blocks`, and [`BOARD_EXPORT`] declared when they name an
-/// issue (a ref nothing names is W012).
-fn with_quality(blocks: &str) -> Project {
+/// The heading is `category`: a requirement that writes `area` in its place lacks its `category`, and the `area`
+/// it wrote is a field the kind does not declare (W020).
+#[test]
+fn a_requirement_written_with_area_as_its_heading_is_refused() {
     let p = project("roadmap");
-    if blocks.contains("gh.issue:") {
-        p.write("spec/refs.spec", BOARD_EXPORT);
-    }
-    p.write("spec/quality.spec", blocks);
-    p
-}
-
-/// `check`'s exit code and its whole output.
-fn checked(p: &Project) -> (i32, String) {
+    p.write(
+        "spec/bad.spec",
+        "requirement TASK-09 \"Old\" {\n  text \"x\"\n  area \"Tasks\"\n  tier v2\n}\n",
+    );
     let check = p.run(&["check"]);
-    (check.code, check.all())
-}
-
-fn assert_clean(p: &Project) {
-    let (code, all) = checked(p);
-    assert_eq!(code, 0, "check: {all}");
-    assert!(all.contains("0 errors, 0 warnings"), "check: {all}");
-}
-
-const PERF_01: &str = "requirement PERF-01 \"Incremental diagnostics\" {
-  text     \"A file change shows its diagnostics within 100 ms for 500 spec files\"
-  area     \"Compiler\"
-  tier     v2
-  category performance
-  priority must
-  metric   { name \"file change to diagnostics\" threshold 100 unit \"ms\" direction at_most }
-  source   [\"Alice Martin\", gh.issue:42]
-  tags     [\"latency\"]
-}
-";
-
-#[test]
-fn a_requirement_takes_its_quality_fields() {
-    let p = with_quality(&format!(
-        "{PERF_01}\nrequirement PERF-02 \"Drift\" {{\n  text     \"A clock drifts little\"\n  area     \
-         \"Compiler\"\n  tier     v2\n  metric   {{ name \"drift\" threshold 0.25 unit \"s\" direction at_most }}\n}}\n"
-    ));
-    assert_clean(&p);
-    let perf = p.fields_of("PERF-01");
-    assert_eq!(perf["category"], "performance", "{perf:#}");
-    assert_eq!(perf["priority"], "must", "{perf:#}");
-    assert_eq!(
-        perf["metric"]["threshold"],
-        serde_json::json!(100),
-        "{perf:#}"
-    );
-    assert!(perf["metric"]["threshold"].is_number(), "{perf:#}");
-    assert_eq!(perf["metric"]["unit"], "ms", "{perf:#}");
-    assert_eq!(perf["metric"]["direction"], "at_most", "{perf:#}");
-    assert_eq!(
-        perf["source"],
-        serde_json::json!(["Alice Martin", "gh.issue:42"]),
-        "{perf:#}"
-    );
-    assert_eq!(perf["tags"], serde_json::json!(["latency"]), "{perf:#}");
-    let drift = p.fields_of("PERF-02");
-    assert_eq!(
-        drift["metric"]["threshold"],
-        serde_json::json!(0.25),
-        "{drift:#}"
-    );
-}
-
-#[test]
-fn a_requirement_with_an_unknown_category_priority_or_direction_is_refused() {
-    for (from, to, named) in [
-        (
-            "category performance",
-            "category latency",
-            "functional, performance, compatibility, usability, reliability, security, maintainability, \
-             portability, safety, regulatory",
-        ),
-        ("priority must", "priority high", "must, should, could"),
-        (
-            "direction at_most",
-            "direction below",
-            "at_most, at_least, exactly",
-        ),
-    ] {
-        let p = with_quality(&PERF_01.replace(from, to));
-        let (code, all) = checked(&p);
-        assert_eq!(code, 1, "{to}: {all}");
-        assert!(all.contains("E061") && all.contains(named), "{to}: {all}");
-    }
-}
-
-#[test]
-fn a_requirement_written_with_category_as_its_heading_is_refused() {
-    let p = with_quality(
-        "requirement TASK-09 \"Old\" {\n  text     \"x\"\n  area     \"Tasks\"\n  category \"Tasks\"\n  tier     \
-         v2\n}\n",
-    );
-    let (code, all) = checked(&p);
-    assert_eq!(code, 1, "{all}");
-    assert!(all.contains("E061") && all.contains("functional"), "{all}");
-}
-
-#[test]
-fn a_requirement_source_names_only_a_declared_ref() {
-    let p = with_quality(&PERF_01.replace("gh.issue:42]", "gh.issue:43]"));
-    let (code, all) = checked(&p);
-    assert_eq!(code, 1, "{all}");
-    assert!(all.contains("E003") && all.contains("gh.issue:43"), "{all}");
-}
-
-#[test]
-fn a_requirement_metric_without_its_direction_is_refused() {
-    let p = with_quality(&PERF_01.replace(" direction at_most", ""));
-    let (code, all) = checked(&p);
-    assert_eq!(code, 1, "{all}");
-    assert!(all.contains("direction"), "{all}");
-}
-
-#[test]
-fn a_requirement_metric_that_counts_needs_no_unit() {
-    let p = with_quality(
-        "requirement GATE-01 \"No blocker\" {\n  text   \"A release ships with no open blocker\"\n  area   \
-         \"Release\"\n  tier   v2\n  metric { name \"open blockers\" threshold 0 direction at_most }\n}\n",
-    );
-    assert_clean(&p);
-    let gate = p.fields_of("GATE-01");
-    assert_eq!(
-        gate["metric"]["threshold"],
-        serde_json::json!(0),
-        "{gate:#}"
-    );
-    assert!(gate["metric"].get("unit").is_none(), "{gate:#}");
-}
-
-#[test]
-fn a_requirement_takes_its_quality_fields_as_flags() {
-    let p = with_quality("");
-    p.write("spec/refs.spec", BOARD_EXPORT);
-    let args = |dry_run: bool| {
-        let mut args = vec![
-            "new",
-            "requirement",
-            "P95-01",
-            "Fast enough",
-            "--in",
-            "spec/quality.spec",
-            "--text",
-            "A request answers fast",
-            "--area",
-            "Serving",
-            "--tier",
-            "v2",
-            "--metric",
-            r#"{"name": "p95", "threshold": 0.5, "unit": "s", "direction": "at_most"}"#,
-            "--source",
-            "Alice Martin",
-            "--source",
-            "gh.issue:42",
-            "--category",
-            "security",
-            "--priority",
-            "should",
-        ];
-        if dry_run {
-            args.push("--dry-run");
-        }
-        args
-    };
-    let dry = p.run(&args(true));
-    assert_eq!(dry.code, 0, "{}", dry.all());
-    assert!(dry.stdout.contains("+requirement P95-01"), "{}", dry.all());
-    assert!(!p.read("spec/quality.spec").contains("P95-01"));
-    let written = p.run(&args(false));
-    assert_eq!(written.code, 0, "{}", written.all());
-    assert_clean(&p);
-    let fields = p.fields_of("P95-01");
-    assert_eq!(
-        fields["metric"]["threshold"],
-        serde_json::json!(0.5),
-        "{fields:#}"
-    );
-    assert_eq!(
-        fields["source"],
-        serde_json::json!(["Alice Martin", "gh.issue:42"]),
-        "{fields:#}"
-    );
-    assert_eq!(
-        (&fields["category"], &fields["priority"]),
-        (&"security".into(), &"should".into()),
-        "{fields:#}"
-    );
-}
-
-/// A persona, an invariant and two requirements: PERF-01 serves the persona, constrains PERF-02 and protects the
-/// invariant.
-const RELATED: &str = "persona spec_author \"Spec author\" {
-  context \"Writes the spec files of a project\"
-}
-
-invariant diagnostic_determinism \"Diagnostics are deterministic\" {
-  statement \"The same files give the same diagnostics\"
-}
-
-requirement PERF-01 \"Incremental diagnostics\" {
-  text       \"A file change shows its diagnostics within 100 ms\"
-  area       \"Compiler\"
-  tier       v2
-  personas   [spec_author]
-  constrains [PERF-02]
-  protects   [diagnostic_determinism]
-}
-
-requirement PERF-02 \"Full check\" {
-  text \"A whole check of 500 files ends within 2 s\"
-  area \"Compiler\"
-  tier v2
-}
-";
-
-/// The ids of the nodes `specforge query <id> --depth 1 --format json` answers.
-fn neighbours(p: &Project, id: &str) -> Vec<String> {
-    node_ids(&p.run(&["query", id, "--depth", "1", "--format", "json"]))
-}
-
-#[test]
-fn a_requirement_links_its_personas_requirements_and_invariants() {
-    let p = with_quality(RELATED);
-    assert_clean(&p);
-    assert!(neighbours(&p, "spec_author").contains(&"PERF-01".to_string()));
-    assert!(neighbours(&p, "diagnostic_determinism").contains(&"PERF-01".to_string()));
-    assert!(neighbours(&p, "PERF-02").contains(&"PERF-01".to_string()));
-    let link = p.run(&["link", "PERF-02", "personas", "spec_author"]);
-    assert_eq!(link.code, 0, "{}", link.all());
+    assert_eq!(check.code, 1, "check: {}", check.all());
+    let all = check.all();
     assert!(
-        p.read("spec/quality.spec")
-            .contains("personas [spec_author]"),
-        "{}",
-        p.read("spec/quality.spec")
+        all.contains("TASK-09") && all.contains("'category'"),
+        "check: {all}"
     );
-    assert_clean(&p);
-    // The reverse is read back, never written: on the persona, the invariant or the constrained requirement (a
-    // self-relation, ADR 0359) it is E079 naming the owning field, never an unknown field (ADR 0354).
-    for (anchor, reverse, owner) in [
-        (
-            "  context \"Writes the spec files of a project\"\n",
-            "  requirements [PERF-01]\n",
-            "requirement.personas",
-        ),
-        (
-            "  statement \"The same files give the same diagnostics\"\n",
-            "  protected_by [PERF-01]\n",
-            "requirement.protects",
-        ),
-        (
-            "  text \"A whole check of 500 files ends within 2 s\"\n",
-            "  constrained_by [PERF-01]\n",
-            "requirement.constrains",
-        ),
-    ] {
-        let p = with_quality(&RELATED.replace(anchor, &format!("{anchor}{reverse}")));
-        // Both sides written also make a cycle (W061): the E079 is what names the reverse.
-        let report = p.report();
-        assert!(
-            report
-                .iter()
-                .any(|(code, message)| code == "E079" && message.contains(owner)),
-            "{reverse}: {report:#?}"
-        );
-        assert!(
-            report.iter().all(|(code, _)| code != "W020"),
-            "{reverse}: {report:#?}"
-        );
-    }
-    let p = with_quality(&RELATED.replace("[diagnostic_determinism]", "[nope]"));
-    let (code, all) = checked(&p);
-    assert_eq!(code, 1, "{all}");
-    assert!(all.contains("E003") && all.contains("nope"), "{all}");
-}
-
-#[test]
-fn a_requirement_effort_is_a_t_shirt_size() {
-    let sized = |effort: &str| {
-        with_quality(&format!(
-            "requirement SIZE-01 \"Sized\" {{\n  text   \"x\"\n  area   \"Tasks\"\n  tier   v2\n  effort {effort}\n}}\n"
-        ))
-    };
-    let p = sized("m");
-    assert_clean(&p);
-    assert_eq!(p.fields_of("SIZE-01")["effort"], "m");
-    let (code, all) = checked(&sized("huge"));
-    assert_eq!(code, 1, "{all}");
     assert!(
-        all.contains("E061") && all.contains("xs, s, m, l, xl"),
-        "{all}"
+        all.contains("W020") && all.contains("'area'"),
+        "check: {all}"
     );
 }

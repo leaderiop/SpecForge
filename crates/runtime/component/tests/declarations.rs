@@ -28,10 +28,7 @@ fn sdk_blobs() -> impl Iterator<Item = &'static CommittedBlob> {
     COMMITTED.iter().filter(|blob| blob.is_sdk())
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "every committed SDK blob's handshake and describe answers match their pinned snapshot byte for byte"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn sdk_declarations_match_their_snapshots() {
     let runtime = ComponentRuntime::new();
     let mut stale = Vec::new();
@@ -58,10 +55,7 @@ fn sdk_declarations_match_their_snapshots() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "the declaration snapshots are exactly the committed SDK blobs'"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_snapshots_are_the_sdk_blobs() {
     // The list is consistent with itself.
     let mut names = BTreeSet::new();
@@ -117,10 +111,7 @@ fn the_snapshots_are_the_sdk_blobs() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "every committed SDK blob's declaration round-trips through the typed declaration byte for byte, but for the legacy keys it declares"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn every_sdk_declaration_round_trips_through_the_typed_declaration() {
     let runtime = ComponentRuntime::new();
     for blob in sdk_blobs() {
@@ -179,10 +170,7 @@ fn every_sdk_declaration_round_trips_through_the_typed_declaration() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "every committed blob's declaration loads unchanged by the printable read"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn every_committed_blob_loads_unchanged_by_the_printable_read() {
     let runtime = ComponentRuntime::new();
     for blob in sdk_blobs() {
@@ -241,10 +229,7 @@ fn handshake_protocol(runtime: &ComponentRuntime, name: &str) -> String {
         .to_string()
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "every committed SDK blob answers the host's protocol version; a bridge component answers the version it declares"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn every_sdk_blob_answers_the_host_protocol() {
     let runtime = ComponentRuntime::new();
     let mut stale = Vec::new();
@@ -267,10 +252,7 @@ fn every_sdk_blob_answers_the_host_protocol() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_declaration",
-    verify = "every committed SDK blob answers the host's protocol version; a bridge component answers the version it declares"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_bridge_component_answers_its_canned_protocol() {
     let runtime = ComponentRuntime::new();
     let mut checked = 0;

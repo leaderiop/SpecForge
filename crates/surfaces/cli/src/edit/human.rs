@@ -50,10 +50,7 @@ fn new_override(facts: Facts) -> (bool, String, TestProject) {
     )
 }
 
-#[specforge_test(
-    behavior = "refuse_human_only_write",
-    verify = "the command line writes a human-only value from a terminal and refuses it without one"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn the_cli_writes_a_human_only_value_from_a_terminal() {
     let (wrote, err, _) = new_override(TERMINAL);
     assert!(wrote, "{err}");

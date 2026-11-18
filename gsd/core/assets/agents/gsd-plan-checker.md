@@ -69,12 +69,12 @@ This ensures verification checks that plans follow project-specific conventions.
 
 | Section | How You Use It |
 |---------|----------------|
-| `## Decisions` | In force — plans MUST implement each decision in force exactly. Flag if contradicted. |
+| `## Decisions` | LOCKED — plans MUST implement these exactly. Flag if contradicted. |
 | `## Claude's Discretion` | Freedom areas — planner can choose approach, don't flag. |
 | `## Deferred Ideas` | Out of scope — plans must NOT include these. Flag if present. |
 
 If CONTEXT.md exists, add verification dimension: **Context Compliance**
-- Do plans honor the decisions in force?
+- Do plans honor locked decisions?
 - Are deferred ideas excluded?
 - Are discretion areas handled appropriately?
 
@@ -124,7 +124,7 @@ For calibration on scoring and issue identification, reference these examples:
 
 **Process:**
 1. Read the phase goal (`specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal'`)
-2. Trace each of the phase's requirements to its plans, tasks, tests and truths; a thread that says `no plan` is in no
+2. Trace each of the phase's requirements to its plans, tasks, commits, truths and coverage items; a thread that says `no plan` is in no
    plan's `requirements`:
 
    ```bash
@@ -385,16 +385,14 @@ issue:
 **Process:**
 1. Parse CONTEXT.md sections: Decisions, Claude's Discretion, Deferred Ideas
 2. Extract all numbered decisions (D-01, D-02, etc.) from the `<decisions>` section
-3. For each decision in force, find the plan(s) whose `decisions` list it, then the task(s) that implement it.
-   A decision whose `in_force` is false (another decision supersedes it) is not in force: its successor is the
-   one to deliver, and a plan that follows the successor does not contradict it
-4. Verify 100% decision coverage: every D-XX in force is in at least one plan's `decisions` (gsd/E310 checks the list; you judge that the tasks deliver it in full)
+3. For each locked Decision, find implementing task(s) — check task actions for D-XX references
+4. Verify 100% decision coverage: every D-XX must appear in at least one task's action or rationale
 5. Verify no tasks implement Deferred Ideas (scope creep)
 6. Verify Discretion areas are handled (planner's choice is valid)
 
 **Red flags:**
-- A decision in force has no implementing task
-- Task contradicts a decision in force (e.g., user said "cards layout", plan says "table layout")
+- Locked decision has no implementing task
+- Task contradicts a locked decision (e.g., user said "cards layout", plan says "table layout")
 - Task implements something from Deferred Ideas
 - Plan ignores user's stated preference
 
@@ -403,8 +401,8 @@ issue:
 issue:
   dimension: context_compliance
   severity: blocker
-  required_property: "No task contradicts a decision in force of the phase's context"
-  description: "Plan contradicts a decision in force: user specified 'card layout' but Task 2 implements 'table layout'"
+  required_property: "No task contradicts a locked decision in CONTEXT.md"
+  description: "Plan contradicts locked decision: user specified 'card layout' but Task 2 implements 'table layout'"
   plan: "01"
   task: 2
   user_decision: "Layout: Cards (from Decisions section)"
@@ -455,7 +453,7 @@ issue:
 issue:
   dimension: scope_reduction
   severity: blocker
-  required_property: "The decisions in force are delivered at full recorded scope"
+  required_property: "Locked decisions are delivered at full recorded scope"
   description: "Plan reduces D-26 from 'calculated costs in impulses' to 'static hardcoded labels'"
   plan: "03"
   task: 1
@@ -741,7 +739,7 @@ INIT=$(specforge query "${PHASE_ID}" --depth 2 --format json)
 
 Extract from the answer: the phase, its `plan` entities and their count.
 
-Orchestrator provides the phase's context in the verification prompt. If provided, parse it for the decisions in force, discretion areas, deferred ideas.
+Orchestrator provides CONTEXT.md content in the verification prompt. If provided, parse for locked decisions, discretion areas, deferred ideas.
 
 ```bash
 # #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
@@ -759,7 +757,7 @@ specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
 
 ```
 
-**Extract:** Phase goal, requirements (decompose goal), the decisions in force, deferred ideas.
+**Extract:** Phase goal, requirements (decompose goal), locked decisions, deferred ideas.
 
 ## Step 2: Load All Plans
 
@@ -929,7 +927,7 @@ that property — never the only admissible route, never an instruction. A plann
 State it as the invariant, not the edit — "every `auto` task has a `<verify>` separating pass
 from fail", not "add a verify block". A finding you cannot state without naming your preferred
 edit is a preference, not a defect: drop it or file `info`. Never author a `fix_hint` you can
-see contradicts a decision in force, a CLAUDE.md convention, or an active capability constraint. If
+see contradicts a locked decision, a CLAUDE.md convention, or an active capability constraint. If
 every route you can name would, name NONE of them: say only that the property conflicts with that
 constraint. A hint carrying a forbidden route is applied by anyone who trusts hints.
 
@@ -1058,8 +1056,8 @@ Plan verification complete when:
 - [ ] Scope assessed (within context budget)
 - [ ] must_haves derivation verified (user-observable truths)
 - [ ] Context compliance checked (if CONTEXT.md provided):
-  - [ ] The decisions in force have implementing tasks
-  - [ ] No tasks contradict a decision in force
+  - [ ] Locked decisions have implementing tasks
+  - [ ] No tasks contradict locked decisions
   - [ ] Deferred ideas not included in plans
 - [ ] Overall status determined (passed | issues_found)
 - [ ] Architectural tier compliance checked (tasks match responsibility map tiers)

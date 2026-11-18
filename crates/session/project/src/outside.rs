@@ -77,10 +77,7 @@ mod tests {
     use specforge_effects::EffectsMode;
     use specforge_test_macros::test as specforge_test;
 
-    #[specforge_test(
-        behavior = "bring_session_up_to_date",
-        verify = "a project opens with cached effects and no ports, over its own effects journal"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn a_project_opens_with_cached_effects_and_no_ports() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("specforge.json"), r#"{"extensions": []}"#).unwrap();

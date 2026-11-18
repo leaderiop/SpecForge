@@ -21,10 +21,7 @@ async fn e2e_completion_entity_ids() {
     );
 }
 
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "suggestions include entity titles and kinds"
-)]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn e2e_completion_entity_with_title() {
     let text = "type token \"Auth Token\" {}\nbehavior b \"B\" {\n  types [tok]\n}\n";
@@ -109,10 +106,8 @@ fn labels(items: &[Value]) -> Vec<&str> {
     items.iter().filter_map(|i| i["label"].as_str()).collect()
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "field name completion uses FieldRegistry for entity kind"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn e2e_completion_offers_the_kinds_fields_inside_a_block() {
     let items = items_at("behavior login \"L\" {\n  \n}\n", 1, 2).await;
@@ -126,10 +121,8 @@ async fn e2e_completion_offers_the_kinds_fields_inside_a_block() {
     assert_eq!(invariants["insertTextFormat"], 2, "{invariants}");
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "suggestions are filtered by entity kind"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn e2e_completion_fields_follow_the_enclosing_kind() {
     let items = items_at("invariant unique \"U\" {\n  \n}\n", 1, 2).await;
@@ -142,10 +135,8 @@ async fn e2e_completion_fields_follow_the_enclosing_kind() {
     );
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "no field name suggestions outside entity blocks"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn e2e_completion_offers_no_fields_at_top_level() {
     let items = items_at("behavior login \"L\" {\n  contract \"c\"\n}\n\n", 3, 0).await;
@@ -156,10 +147,7 @@ async fn e2e_completion_offers_no_fields_at_top_level() {
     assert!(!names.contains(&"guarantee"), "{names:?}");
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "no keyword suggestions inside entity blocks"
-)]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn e2e_completion_offers_no_keywords_inside_a_block() {
     let items = items_at("behavior login \"L\" {\n  \n}\n", 1, 2).await;
@@ -168,10 +156,7 @@ async fn e2e_completion_offers_no_keywords_inside_a_block() {
     assert!(keywords.is_empty(), "{keywords:?}");
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "snippet templates based on kind field definitions"
-)]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn e2e_keyword_snippet_scaffolds_required_fields() {
     let items = items_at("\n", 0, 0).await;
@@ -191,10 +176,7 @@ async fn e2e_keyword_snippet_scaffolds_required_fields() {
     assert_eq!(behavior["detail"], "@specforge/software", "{behavior}");
 }
 
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "a single-reference field's value suggests the IDs of its target kind"
-)]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn a_single_reference_value_completes_ids() {
     // `extends` is a single reference of a type, to another type.
@@ -235,10 +217,7 @@ async fn scheme_ref_items(insert_replace: bool) -> Vec<Value> {
     resp["result"].as_array().cloned().unwrap_or_default()
 }
 
-#[spec(
-    behavior = "autocomplete_entity_ids",
-    verify = "accepting an ID replaces the word under the cursor, a scheme ref ID whole"
-)]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn completion_replaces_the_whole_scheme_ref_id() {
     let range = |line, start, end| json!({"start": {"line": line, "character": start}, "end": {"line": line, "character": end}});

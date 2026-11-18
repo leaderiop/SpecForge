@@ -17,11 +17,7 @@ fn crashing() -> ContributionsBuilder {
     c
 }
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
-)]
-#[specforge_test_macros::test(port = "WasmRuntime", verify = "WasmRuntime contract is satisfied")]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn the_in_process_runtime_keeps_the_runtime_contract() {
     let runtime = InProcessRuntime::new().with(crashing);
     assert_runtime_contract(&runtime, "@contract/crash", "cmd__crash");
@@ -194,10 +190,7 @@ fn a_module_whose_bytes_spell_a_declaration_loads_under_any_name() {
     assert_eq!(runtime.declared_by("@acme/y", b"\0asm other"), None);
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "an instance restarted after a trap still carries the extension's settings"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_restarted_instance_keeps_its_settings() {
     use serde_json::json;
     use specforge_wasm::{ExtensionCalls, ExtensionSettings};
@@ -228,10 +221,7 @@ fn a_restarted_instance_keeps_its_settings() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "every guest call but handshake and describe carries the extension's own settings and no other's"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn secret_presence_is_told_to_what_a_person_runs_not_to_a_pass() {
     use serde_json::json;
     use specforge_protocol_types::PassInput;
@@ -269,10 +259,7 @@ fn secret_presence_is_told_to_what_a_person_runs_not_to_a_pass() {
     assert!(carried.get("secrets").is_none(), "{carried}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_wasm_module",
-    verify = "the runtime keeps the provenance a module was loaded with, across a rename, until it is unloaded"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-136")]
 fn the_runtime_keeps_the_provenance_it_loaded_with() {
     let bytes = b"\0asm provenance";
     let runtime = InProcessRuntime::new().binary(bytes, crashing);
@@ -292,10 +279,7 @@ fn the_runtime_keeps_the_provenance_it_loaded_with() {
     assert_eq!(runtime.provenance("@acme/never"), None);
 }
 
-#[specforge_test_macros::test(
-    behavior = "grant_a_host_port_call",
-    verify = "the in-process runtime answers a port call as the component runtime does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-137")]
 fn the_in_process_runtime_keeps_the_port_contract() {
     specforge_wasm::testing::assert_port_contract(
         &crate::calls::ports::runtime(),

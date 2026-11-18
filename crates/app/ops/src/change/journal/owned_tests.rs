@@ -24,10 +24,7 @@ fn sources(root: &std::path::Path) -> SourceRoot {
     SourceRoot::new(root.to_path_buf(), root.to_path_buf(), Exclude::default())
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "rollback restores a removed file and removes a created host file, and refuses a path no write records"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn rollback_puts_back_a_removed_host_file_and_unwrites_a_created_one() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
@@ -50,10 +47,7 @@ fn rollback_puts_back_a_removed_host_file_and_unwrites_a_created_one() {
     assert!(!root.join(JOURNAL_FILE).exists());
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "rollback leaves a removed file alone when something else was written at its name since"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn rollback_leaves_a_removed_file_that_was_written_again() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
@@ -69,10 +63,7 @@ fn rollback_leaves_a_removed_file_that_was_written_again() {
     );
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "rollback refuses a journal that names a file no write of the project records"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn rollback_refuses_a_path_no_write_records() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
@@ -82,10 +73,7 @@ fn rollback_refuses_a_path_no_write_records() {
     assert!(rollback(&sources(root), crate::testing::caller()).is_err());
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "a journal never restores a host config file, which runs code"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn rollback_restores_neither_a_config_file_nor_an_unmarked_host_file() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
@@ -101,10 +89,7 @@ fn rollback_restores_neither_a_config_file_nor_an_unmarked_host_file() {
     assert!(!root.join(JOURNAL_FILE).exists());
 }
 
-#[specforge_test(
-    behavior = "roll_back_interrupted_write",
-    verify = "the journal keeps no text of a host config file"
-)]
+#[specforge_test(requirement = "FEATURE-131")]
 fn the_journal_keeps_no_text_of_a_config_file() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();

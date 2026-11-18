@@ -9,10 +9,7 @@ use specforge_test_macros::test as specforge_test;
 
 use crate::host_support::{hosted, hosts_project};
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "the slash commands a prompt is sent are the ones an install writes"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn served_slashes_are_what_an_install_writes() {
     let hosted = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
     let view = ProjectView::of(&hosted.compiled);

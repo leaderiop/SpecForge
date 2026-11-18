@@ -9,10 +9,7 @@ fn nowhere() -> TestProject {
     TestProject::new().without_config()
 }
 
-#[specforge_test_macros::test(
-    behavior = "explain_diagnostic_code",
-    verify = "specforge explain prints the catalogued entry with its docs link, and a retired code with the entry that replaced it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-017")]
 fn explain_prints_a_catalogued_code_case_insensitively() {
     let nowhere = nowhere();
     let out = Cli::on(&nowhere)
@@ -33,10 +30,7 @@ fn explain_prints_a_catalogued_code_case_insensitively() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "explain_diagnostic_code",
-    verify = "specforge explain prints the catalogued entry with its docs link, and a retired code with the entry that replaced it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-017")]
 fn explain_points_a_retired_code_at_its_replacement() {
     let nowhere = nowhere();
     let out = Cli::on(&nowhere)
@@ -59,10 +53,7 @@ fn explain_points_a_retired_code_at_its_replacement() {
 
 /// Colour follows the one rule: a pipe and `NO_COLOR` are plain, and
 /// `CLICOLOR_FORCE` bolds the code even into a pipe.
-#[specforge_test_macros::test(
-    behavior = "print_diagnostics_structured",
-    verify = "specforge explain bolds the code only where its output is coloured"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-017")]
 fn explain_is_plain_into_a_pipe_and_bold_when_forced() {
     let nowhere = nowhere();
     let out = Cli::on(&nowhere)
@@ -90,10 +81,7 @@ fn explain_is_plain_into_a_pipe_and_bold_when_forced() {
     assert!(stdout.starts_with("\x1b[1mE001"), "stdout: {stdout:?}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "explain_diagnostic_code",
-    verify = "an uncatalogued code is refused with unknown_code on both surfaces"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-017")]
 fn explain_rejects_an_unknown_code_with_format_hints() {
     let nowhere = nowhere();
     let out = Cli::on(&nowhere)
@@ -152,10 +140,7 @@ fn explain_reads_its_code_as_specforge_explain_does() {
     assert!(stdout.contains("Parse error"), "stdout: {stdout}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "explain_diagnostic_code",
-    verify = "specforge explain --format json prints the document specforge.explain answers"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-017")]
 fn explain_prints_its_document_under_format_json() {
     let nowhere = nowhere();
     let out = Cli::on(&nowhere)

@@ -64,10 +64,7 @@ fn extension() -> ContributionsBuilder {
     c
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "the SDK declares a command's gates and subject, a guard pass's reports and a prompt on the wire"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn gates_reports_and_prompts_reach_the_wire() {
     let declaration = extension().declaration();
     let command = &declaration.surfaces.commands[0];
@@ -95,10 +92,7 @@ fn gates_reports_and_prompts_reach_the_wire() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt declared with the SDK is rendered by its export from the arguments and host the call carries"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_declared_prompt_is_rendered_by_its_export() {
     let input = json!({
         "args": {"phase": "v1.0/03", "depth": 2, "mode": "slow"},
@@ -119,10 +113,7 @@ fn a_declared_prompt_is_rendered_by_its_export() {
     assert!(refused.unwrap_err().starts_with("invalid prompt input"));
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "the SDK refuses a prompt declared twice or without a handler"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_declared_twice_or_without_a_handler_panics() {
     let twice = std::panic::catch_unwind(|| {
         let mut c = extension();
@@ -138,10 +129,7 @@ fn a_prompt_declared_twice_or_without_a_handler_panics() {
     assert!(bare.is_err());
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "a prompt reads the state the host sends it"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_prompt_reads_the_state_it_is_sent() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
     c.prompt("status", |p| {
@@ -171,10 +159,7 @@ fn a_prompt_reads_the_state_it_is_sent() {
     assert_eq!(text(base), "active None");
 }
 
-#[specforge_test(
-    behavior = "gate_a_command",
-    verify = "an extension compares a pass's trigger kind to the SDK's TriggerKind"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_prelude_names_the_trigger_kind() {
     assert_eq!(TriggerKind::default(), TriggerKind::Write);
     let input = PassInput {
@@ -184,10 +169,7 @@ fn the_prelude_names_the_trigger_kind() {
     assert!(input.trigger.is_some_and(|t| t.kind == TriggerKind::Gate));
 }
 
-#[specforge_test(
-    behavior = "serve_extension_prompt",
-    verify = "the SDK declares a prompt's free-text tail as a string argument"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn a_rest_argument_is_a_string_tail_on_the_wire() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
     c.prompt("quick", |p| {
@@ -205,10 +187,7 @@ fn a_rest_argument_is_a_string_tail_on_the_wire() {
     );
 }
 
-#[specforge_test(
-    behavior = "install_into_a_host",
-    verify = "the SDK's when appends a setting, and a declaration with one is written as a string"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn when_appends_a_setting_and_one_is_written_as_a_name() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
     c.prompt("one", |p| {

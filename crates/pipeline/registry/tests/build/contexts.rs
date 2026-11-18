@@ -122,10 +122,7 @@ fn runner(c: &mut ContributionsBuilder) {
     });
 }
 
-#[spec(
-    behavior = "declare_context_route",
-    verify = "a context route that cannot be served is E123 and is not registered"
-)]
+#[spec(requirement = "FEATURE-012")]
 fn a_context_route_over_loaded_kinds_is_registered_with_its_sections_in_order() {
     let build = build([proof(), work(runner)]);
     assert!(
@@ -177,10 +174,7 @@ fn a_context_route_over_loaded_kinds_is_registered_with_its_sections_in_order() 
     assert!(build_with([proof()], candidates(&[])).contexts().is_empty());
 }
 
-#[spec(
-    behavior = "declare_context_route",
-    verify = "a context route that cannot be served is E123 and is not registered"
-)]
+#[spec(requirement = "FEATURE-012")]
 fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
     type Declare = fn(&mut ContributionsBuilder);
     let cases: &[(&str, &str, Declare)] = &[
@@ -326,10 +320,7 @@ fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
     assert_eq!(shared.contexts().iter().count(), 1);
 }
 
-#[spec(
-    behavior = "declare_context_route",
-    verify = "a file section follows its referrers on to their file field, and one that ends at the reference is E123"
-)]
+#[spec(requirement = "FEATURE-012")]
 fn a_file_section_follows_its_referrers_on_to_their_file_field() {
     let section = |selector: &'static str| {
         move |c: &mut ContributionsBuilder| {
@@ -364,10 +355,7 @@ fn a_file_section_follows_its_referrers_on_to_their_file_field() {
     }
 }
 
-#[spec(
-    behavior = "declare_context_route",
-    verify = "a context section of an optional peer the project does not load is skipped and listed"
-)]
+#[spec(requirement = "FEATURE-012")]
 fn a_section_of_an_unloaded_optional_peer_is_skipped_and_recorded() {
     let declare_routes = |c: &mut ContributionsBuilder| {
         runner(c);
@@ -401,10 +389,7 @@ fn a_section_of_an_unloaded_optional_peer_is_skipped_and_recorded() {
     );
 }
 
-#[spec(
-    behavior = "declare_context_route",
-    verify = "a context section whose file() goes through an unloaded optional peer's kind is skipped and listed"
-)]
+#[spec(requirement = "FEATURE-012")]
 fn a_file_section_through_an_unloaded_optional_peers_kind_is_skipped_and_recorded() {
     let declare_routes = |c: &mut ContributionsBuilder| {
         c.context("results", |r| {
@@ -442,10 +427,7 @@ fn a_file_section_through_an_unloaded_optional_peers_kind_is_skipped_and_recorde
     assert!(refused.contexts().named("work/results").is_none());
 }
 
-#[spec(
-    behavior = "declare_context_route",
-    verify = "a context route's agent its extension does not declare, or another route binds, is E124 and the route stays"
-)]
+#[spec(requirement = "FEATURE-012")]
 fn an_agent_its_extension_does_not_declare_or_another_route_binds_is_e124() {
     let build = build([
         proof(),
@@ -509,10 +491,7 @@ fn recording(c: &mut ContributionsBuilder, records: &[(&str, &str)], stale: Opti
     });
 }
 
-#[spec(
-    behavior = "declare_context_route",
-    verify = "a context route records context fields of its own extension, each with a subject selector to its subject kind, and names a code its extension catalogues"
-)]
+#[spec(requirement = "FEATURE-012")]
 fn a_route_records_its_extensions_context_fields_and_names_a_catalogued_code() {
     let built = build([
         proof(),
@@ -567,10 +546,7 @@ fn a_route_records_its_extensions_context_fields_and_names_a_catalogued_code() {
     assert_eq!(built.contexts().recording("plan", "files").count(), 0);
 }
 
-#[spec(
-    behavior = "declare_context_route",
-    verify = "a context record that cannot be held makes its route E123, and the route is not registered"
-)]
+#[spec(requirement = "FEATURE-012")]
 fn a_record_the_registry_cannot_hold_is_e123_and_the_route_not_registered() {
     let cases: &[(Records, Option<&str>, &str)] = &[
         (
@@ -649,10 +625,7 @@ fn a_record_the_registry_cannot_hold_is_e123_and_the_route_not_registered() {
     }
 }
 
-#[spec(
-    behavior = "check_values_by_owner_state",
-    verify = "a gate on a context-written field is kept with no declared check"
-)]
+#[spec(requirement = "FEATURE-124")]
 fn a_gate_on_a_context_field_is_kept_without_a_check() {
     let states = Vocabulary::new(&["draft", "complete"]);
     let declaration = declare("@acme/plans", |c| {

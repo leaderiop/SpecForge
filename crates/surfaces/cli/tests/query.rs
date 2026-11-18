@@ -73,10 +73,7 @@ fn query_with_kind_filter() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "query_graph_multi_resolution",
-    verify = "a non-existent entity is E003 naming the closest entity"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-001")]
 fn query_nonexistent_entity_exits_one() {
     let dir = TestProject::new()
         .without_config()

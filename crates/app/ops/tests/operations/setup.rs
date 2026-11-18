@@ -183,10 +183,7 @@ fn findings(report: &DoctorReport) -> Vec<(String, String, String)> {
     all
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor reports every diagnostic the environment reports as one finding, with the part of the setup it is about and the diagnostic's severity"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_reports_every_setup_diagnostic_the_environment_reports() {
     for (name, (_dir, project)) in scenarios() {
         let view = ProjectView::of(&project);
@@ -208,10 +205,7 @@ fn doctor_reports_every_setup_diagnostic_the_environment_reports() {
     }
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor fails whenever check fails on a diagnostic of the project's setup"
-)]
+#[specforge_test(requirement = "FEATURE-021")]
 fn doctor_fails_whenever_check_fails_on_a_setup_diagnostic() {
     for (name, (_dir, project)) in scenarios() {
         let view = ProjectView::of(&project);

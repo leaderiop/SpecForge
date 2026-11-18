@@ -565,10 +565,7 @@ impl Registry for Unconfigured {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(
-        type = "KeyPin",
-        verify = "KeyPin is what a committed lock plan pins for a package name"
-    )]
+    #[test]
     fn a_publisher_names_the_pin_it_calls_for() {
         let name = PackageName::parse("@acme/x").unwrap();
         let signed = |first_use| Publisher::Signed {
@@ -600,10 +597,7 @@ mod tests {
         assert_eq!(Publisher::Unsigned.pin(&name), None);
     }
 
-    #[specforge_test_macros::test(
-        type = "TrustPolicy",
-        verify = "TrustPolicy is what a fetch decides a publisher by: the caller's choices and the pin the lock records"
-    )]
+    #[test]
     fn a_trust_policy_holds_the_lock_pin_only_when_given() {
         let policy = TrustPolicy::new(true, Asking::Nobody);
 
@@ -612,10 +606,7 @@ mod tests {
         assert_eq!(pinned.locked_key(), Some("k"));
     }
 
-    #[specforge_test_macros::test(
-        type = "LockedPin",
-        verify = "LockedPin is what specforge.lock records for a name's registry install"
-    )]
+    #[test]
     fn a_locked_pin_is_what_a_registry_lock_entry_records() {
         let entry = LockFileEntry {
             name: PackageName::parse("@a/x").unwrap(),
@@ -635,10 +626,7 @@ mod tests {
         assert_eq!(pin.key_id, Some("1111111111111111"));
     }
 
-    #[specforge_test_macros::test(
-        type = "LockedPin",
-        verify = "a locked pin admits other bytes only at another version"
-    )]
+    #[test]
     fn a_locked_pin_admits_other_bytes_only_at_another_version() {
         let name = PackageName::parse("@a/x").unwrap();
         let (a, b) = (Sha256::of(b"a"), Sha256::of(b"b"));

@@ -60,10 +60,7 @@ feature gamma "G" { problem "third" }
 
 // Coverage is over the kinds the enabled extensions declare testable:
 // alpha and beta are behaviors, gamma is a feature (not testable).
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports coverage percentage"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn stats_reports_coverage_over_testable_kinds() {
     let dir = TestProject::new().without_config().files(&[
         (
@@ -119,10 +116,7 @@ fn stats_human_format_lists_all_kinds() {
     }
 }
 
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "with nothing testable, stats reports the declared and the proof percentages alike"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
 fn nothing_testable_is_0_percent_declared_and_proven() {
     let dir = TestProject::new().without_config().files(&[
         (

@@ -282,10 +282,8 @@ mod tests {
         diagnostics.iter().map(|d| d.severity).collect()
     }
 
-    #[specforge_test(
-        behavior = "check_diagnostic_policy",
-        verify = "the verdict is taken over every reported diagnostic, never the filtered ones"
-    )]
+    #[specforge_test(requirement = "FEATURE-006")]
+    #[specforge_test(requirement = "FEATURE-017")]
     fn the_verdict_ignores_the_severity_filter() {
         let dir = project(&[CLEAN, ERROR]);
         let compiled = compile(&dir);
@@ -315,10 +313,8 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "check_diagnostic_policy",
-        verify = "strict promotes warnings before the verdict, so a strict check with warnings is not clean"
-    )]
+    #[specforge_test(requirement = "FEATURE-006")]
+    #[specforge_test(requirement = "FEATURE-017")]
     fn strict_promotes_warnings_before_the_verdict() {
         let dir = project(&[WARNING]);
         let compiled = compile(&dir);
@@ -406,10 +402,7 @@ mod tests {
         assert!(parse_severity("").is_err());
     }
 
-    #[specforge_test(
-        behavior = "provide_mcp_validate_tool",
-        verify = "an unknown severity_filter or lint profile is invalid input"
-    )]
+    #[specforge_test(requirement = "FEATURE-064")]
     fn check_refusals_have_their_own_codes() {
         let severity = parse_severity("errors").unwrap_err().error;
         assert_eq!(severity.code, UNKNOWN_SEVERITY);
@@ -523,10 +516,7 @@ mod tests {
         assert_eq!(Counts::of(&[]), Counts::default());
     }
 
-    #[specforge_test(
-        invariant = "mcp_structured_error_responses",
-        verify = "an operation states the request field each refusal is about, and a refusal of the project or the environment is about none"
-    )]
+    #[specforge_test(requirement = "INVARIANT-067")]
     fn check_states_which_field_a_refusal_is_about() {
         assert_eq!(
             parse_severity("errors").unwrap_err().subject,

@@ -70,10 +70,7 @@ fn carried_a_secret(scene: &Scene) -> bool {
     scene.http.requests().iter().all(|r| r.secret.is_some())
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a record fetched with one extension's secret answers no other extension in any mode"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_record_fetched_with_a_secret_answers_no_other_extension() {
     let scene = two(FakeHttp::new().route(A_URL, 200, "for a"), &a_spec());
     let asked = scene.online();
@@ -113,10 +110,7 @@ fn a_record_fetched_with_a_secret_answers_no_other_extension() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a 401 one extension was answered does not answer another"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn one_extensions_401_does_not_answer_another() {
     let scene = two(FakeHttp::new().route(A_URL, 401, ""), &b_spec());
     let refused = scene.online();
@@ -188,10 +182,7 @@ fn anywhere() -> ContributionsBuilder {
     c
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a redirect one extension's grant permits reaches no other extension without its own grant"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_redirect_one_grant_permits_reaches_no_other_extension() {
     let there = "https://b.example/landed";
     let http = FakeHttp::new().redirect(A_URL, there).route(there, 200, "");
@@ -214,10 +205,7 @@ fn a_redirect_one_grant_permits_reaches_no_other_extension() {
 
 /// Windows sets no mode, so it cannot tell a committed record this way.
 #[cfg(unix)]
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a committed effect record or checker memo forges no pass"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_committed_record_or_memo_forges_no_pass() {
     use std::os::unix::fs::PermissionsExt as _;
 

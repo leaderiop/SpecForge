@@ -1,13 +1,15 @@
-//! `spec/extensions/product/behaviors-registration.spec` lists the edge
-//! types and the fields each kind registers, as prose strings. These tests
-//! hold those lists to the live declaration, both ways, so a change to
-//! either side is noticed.
+//! `spec/extensions/product/behaviors-registration.spec` of the pre-swap root
+//! spec lists the edge types and the fields each kind registers, as prose
+//! strings. These tests hold the lists of its frozen copy (ADR 0374 D8) to the
+//! live declaration, both ways, so a change to the declaration is noticed.
 
 use specforge_protocol_types::FieldDescriptor;
 use specforge_test::prelude::*;
 use std::collections::BTreeMap;
 
-const SPEC: &str = include_str!("../../../../spec/extensions/product/behaviors-registration.spec");
+const SPEC: &str = include_str!(
+    "../../../../fixtures/old-spec/spec/extensions/product/behaviors-registration.spec"
+);
 
 /// The lines of the `behavior <name>` block, up to its closing brace.
 fn block(name: &str) -> Vec<&'static str> {
@@ -105,10 +107,8 @@ fn listed_fields(list: &str) -> BTreeMap<String, Listed> {
     fields
 }
 
-#[specforge_test(
-    behavior = "pe_register_field_definitions",
-    verify = "the field lists this behavior ensures are the declaration's, field for field"
-)]
+#[specforge_test(requirement = "FEATURE-080")]
+#[specforge_test(requirement = "FEATURE-098")]
 fn the_field_lists_are_the_declarations() {
     let declaration = crate::specforge_extension_build().declaration();
     let lines = block("pe_register_field_definitions");
@@ -180,10 +180,8 @@ fn the_field_lists_are_the_declarations() {
     assert_eq!(shared, ["tags"], "the spec says every kind also gets tags");
 }
 
-#[specforge_test(
-    behavior = "pe_register_edge_types",
-    verify = "the edge types this behavior ensures are the declaration's, with their kinds"
-)]
+#[specforge_test(requirement = "FEATURE-080")]
+#[specforge_test(requirement = "FEATURE-098")]
 fn the_edge_list_is_the_declarations() {
     let declaration = crate::specforge_extension_build().declaration();
     let mut listed = 0;

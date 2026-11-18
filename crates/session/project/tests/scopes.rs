@@ -2,16 +2,23 @@
 
 use std::collections::{HashMap, HashSet};
 
+use specforge_component::builtins::Family;
 use specforge_component::committed::pinned_builtin_declarations;
 use specforge_graph::{GraphBuild, written_tokens};
 use specforge_parser::{SpecFile, parse};
 use specforge_project::testing::Assembled;
 use specforge_test_macros::test as specforge_test;
 
-/// The builtins' registries as every example project compiles with them.
+/// The old set's registries, which is what every example project compiles with (a registry is built
+/// from one set of builtins, ADR 0369 D3).
 fn builtins() -> Assembled {
+    let old = Family::Old.names();
     Assembled::over(specforge_registry::build_registries(
-        pinned_builtin_declarations().unwrap(),
+        pinned_builtin_declarations()
+            .unwrap()
+            .into_iter()
+            .filter(|declaration| old.contains(&declaration.name()))
+            .collect(),
     ))
 }
 
@@ -101,10 +108,7 @@ fn check(project: &Assembled, files: Vec<SpecFile>) {
     assert_eq!(got, expected);
 }
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "a project with no scoped kind keeps each id its name, each edge its written text, and E002 and W060 on the same declarations"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn an_unscoped_project_keeps_each_id_its_name_and_each_edge_its_written_text() {
     let project = builtins();
     let root = specforge_repo_root::repo_root();
@@ -120,8 +124,9 @@ fn an_unscoped_project_keeps_each_id_its_name_and_each_edge_its_written_text() {
                 }
             }
         }
+        // The pre-swap root spec, frozen (ADR 0374 D8), is the one project the old builtins compile.
         specs
-            .entry(path.starts_with(root.join("spec")))
+            .entry(path.starts_with(root.join("fixtures/old-spec/spec")))
             .or_default()
             .push(file.clone());
         check(&project, vec![file]);
@@ -185,10 +190,7 @@ decision D-01 "Choice" { phase v1.0/03 }
 decision D-01 "Choice" { phase v2.0/03 }
 "#;
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "a name repeated in another scope is another entity with another path"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_name_repeats_in_another_scope() {
     let build = scoped(&[("a.spec", TWO_MILESTONES)]);
     assert_eq!(
@@ -209,10 +211,7 @@ fn a_name_repeats_in_another_scope() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "a name repeated in one scope is E002 naming the path, or W060 for another kind, and a second spec block stays E002"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn a_name_repeated_in_one_scope_is_e002_naming_the_path() {
     let build = scoped(&[(
         "a.spec",
@@ -241,10 +240,7 @@ spec "other" { }
     assert!(w060[0].contains("'v1.0/03/D-01'"), "{w060:?}");
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "a type name resolves by its holder's chain and is no E004, a path written as a type is one name"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_type_name_resolves_by_its_chain_and_is_no_e004() {
     let build = scoped(&[(
         "a.spec",
@@ -281,10 +277,7 @@ shape Lost "Lost" {
     assert!(e004[0].contains("'Nowhere'"), "{e004:?}");
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a reference resolves in its holder, each enclosing scope, then the project"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_reference_resolves_from_its_holder_outward() {
     let build = scoped(&[(
         "a.spec",
@@ -312,10 +305,7 @@ plan 03-02 "Plan" {
     assert_eq!(targets(&build, "v1.0", "audit"), ["v1.0/A1"]);
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a path resolves at the nearest level where the whole path resolves"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_path_resolves_where_the_whole_path_does() {
     let build = scoped(&[(
         "a.spec",
@@ -346,10 +336,7 @@ task v1.0 "A task named like a milestone" { plan v1.0/03/03-02 }
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a rooted path names an entity from the project, and a bare name is found in the chain first"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_rooted_path_names_from_the_project() {
     let build = scoped(&[(
         "a.spec",
@@ -375,10 +362,7 @@ plan 05-01 "Plan" {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a name outside the holder's chain is E003 naming each entity that bears it, and never links silently"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_name_outside_the_chain_is_e003_naming_each_candidate() {
     let build = scoped(&[(
         "a.spec",
@@ -425,10 +409,7 @@ plan 05-01 "Plan" {
     assert_eq!(candidates("v2.0/05/05-01", "D-07"), ["v1.0/03/D-07"]);
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a name outside the holder's chain is E003 naming each entity that bears it, and never links silently"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_rooted_miss_names_the_entities_bearing_the_name_elsewhere() {
     let build = scoped(&[(
         "a.spec",
@@ -457,10 +438,7 @@ plan 05-01 "Plan" {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a scope field takes a unique suffix, and several matches are E003 naming each"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_scope_field_takes_a_unique_suffix() {
     let one = scoped(&[(
         "a.spec",
@@ -489,10 +467,7 @@ fn a_scope_field_takes_a_unique_suffix() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_duplicate_entity_ids",
-    verify = "an entity that writes no scope field is in the project scope"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
 fn an_absent_scope_field_is_the_project() {
     let build = scoped(&[(
         "a.spec",
@@ -507,10 +482,7 @@ fn an_absent_scope_field_is_the_project() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "an entity whose scope does not resolve keeps its written scope in its path and reports E003 on the field"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn an_unresolved_scope_keeps_its_written_path() {
     let build = scoped(&[("a.spec", "decision D-01 \"D\" { phase 99 }\n")]);
     assert_eq!(ids(&build), ["99/D-01"]);
@@ -519,10 +491,7 @@ fn an_unresolved_scope_keeps_its_written_path() {
     assert!(e003[0].contains("'99'"), "{e003:?}");
 }
 
-#[specforge_test(
-    behavior = "rebuild_affected_subgraph",
-    verify = "an apply that moves a scope re-keys its members held in other files, equal to a cold build"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_renamed_scope_rekeys_its_members_incrementally() {
     let mut build = scoped(&[
         (
@@ -541,10 +510,7 @@ fn a_renamed_scope_rekeys_its_members_incrementally() {
     assert_eq!(ids(&build), ["v1.0", "v2.0", "v2.0/03", "v2.0/03/D-01"]);
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "the finder reports a final token for a path's last name and a qualifier token for each name before it"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn the_finder_reads_each_segment() {
     let source = "milestone v1.0 \"One\" { }\nphase 03 \"Three\" { milestone v1.0 }\n\
                   decision D-01 \"D\" { phase v1.0/03 }\nplan 05-01 \"P\" {\n  phase v1.0/03\n  decisions [v1.0/03/D-01]\n}\n";
@@ -614,10 +580,7 @@ fn w021(kinds: &[serde_json::Value]) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a kind declares the reference field its entities are scoped by, and a field that cannot scope is W021"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_kind_declares_its_scope_field() {
     use serde_json::json;
     let kind = |name: &str, scoped_by: &str, fields: Vec<serde_json::Value>| json!({"name": name, "keyword": name, "scoped_by": scoped_by, "fields": fields});
@@ -675,10 +638,8 @@ fn a_kind_declares_its_scope_field() {
     assert!(!w021(&cycle).is_empty(), "a scoping cycle is W021");
 }
 
-#[specforge_test(
-    behavior = "check_entities_in_one_order",
-    verify = "E013 and E014 judge an entity's name, not its path"
-)]
+#[specforge_test(requirement = "FEATURE-124")]
+#[specforge_test(requirement = "FEATURE-141")]
 fn a_name_is_judged_not_its_path() {
     let long = "n".repeat(58);
     let source = format!(
@@ -696,10 +657,8 @@ fn a_name_is_judged_not_its_path() {
     assert_eq!(of("E013"), 1, "{found:?}");
 }
 
-#[specforge_test(
-    behavior = "compute_the_coverage_view",
-    verify = "a test report names an entity by its path or a unique short form"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
 fn a_test_report_names_an_entity_by_its_short_form() {
     let source = "milestone v1.0 \"One\" { }\nphase 03 \"Three\" { milestone v1.0 }\n\
                   plan 03-02 \"Plan\" {\n  phase v1.0/03\n  verify unit \"works\"\n}\n";

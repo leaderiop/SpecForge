@@ -72,10 +72,7 @@ fn filled(snippet: &str, id: &str, title: &str, values: &[(&str, &str)]) -> Stri
     out.join("\n")
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "a filled keyword snippet is the block new writes"
-)]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn a_filled_keyword_snippet_is_the_block_new_writes() {
     let rows: [Row; 3] = [
@@ -112,10 +109,8 @@ async fn a_filled_keyword_snippet_is_the_block_new_writes() {
     }
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "a field snippet is the member set writes, laid out with the file's indent"
-)]
+#[spec(requirement = "FEATURE-026")]
+#[spec(requirement = "FEATURE-049")]
 #[tokio::test]
 async fn a_field_snippet_is_the_member_set_writes() {
     let text = "failure_mode disk_full \"Disk full\" {\n    severity high\n    detection low\n    effect   \"e\"\n    \n}\n\nprocess p1 \"P\" {\n    description   \"d\"\n    initial_state \"s\"\n    \n}\n";
@@ -135,10 +130,7 @@ async fn a_field_snippet_is_the_member_set_writes() {
     );
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "a keyword snippet's tabstops follow its text"
-)]
+#[spec(requirement = "FEATURE-049")]
 fn tabstops_follow_the_text_order() {
     let dir = TestProject::new()
         .config(|c| c["name"] = "snippets".into())

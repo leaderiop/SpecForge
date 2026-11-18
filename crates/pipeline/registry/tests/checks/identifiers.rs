@@ -15,10 +15,8 @@ fn behaviors(ids: &[&str]) -> String {
         .collect()
 }
 
-#[spec(
-    behavior = "check_entities_in_one_order",
-    verify = "an entity ID equal to a structural keyword or a registered kind's keyword is E013"
-)]
+#[spec(requirement = "FEATURE-124")]
+#[spec(requirement = "FEATURE-141")]
 fn a_reserved_entity_id_produces_e013() {
     let diags = checked(
         &build([software()]),
@@ -54,10 +52,8 @@ fn normal_identifiers_pass_the_reserved_check() {
     assert!(coded_in(&diags, "E013").is_empty(), "{diags:?}");
 }
 
-#[spec(
-    behavior = "check_entities_in_one_order",
-    verify = "an entity ID shorter than 2 or longer than 60 characters is E014"
-)]
+#[spec(requirement = "FEATURE-124")]
+#[spec(requirement = "FEATURE-141")]
 fn identifier_length_bounds() {
     let build = build([software()]);
     let short = checked(&build, &[("t.spec", &behaviors(&["x"]))]);
@@ -78,10 +74,8 @@ fn identifier_length_bounds_are_inclusive() {
     assert!(coded_in(&diags, "E014").is_empty(), "{diags:?}");
 }
 
-#[spec(
-    behavior = "check_entities_in_one_order",
-    verify = "the entity-ID rule answers for an ID exactly what E013 and E014 report of it"
-)]
+#[spec(requirement = "FEATURE-124")]
+#[spec(requirement = "FEATURE-141")]
 fn the_entity_id_rule_answers_what_e013_and_e014_report() {
     let build = build([software()]);
     let long = "a".repeat(61);

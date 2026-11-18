@@ -1,5 +1,6 @@
 //! The contained disk: a read lands inside the root or is refused naming the landing, never the content
-//! (ADR 0145). A file with more than one name is refused (ADR 0146).
+//! (ADR 0145). A file with more than one name is refused (ADR 0146). Every case links the unix way: unix only.
+#![cfg(unix)]
 use super::*;
 use specforge_registry::Disk;
 
@@ -11,7 +12,6 @@ fn scene() -> (tempfile::TempDir, PathBuf) {
     (dir, real)
 }
 
-#[cfg(unix)]
 #[test]
 fn a_contained_disk_reads_a_chain_that_stays_inside() {
     let (_dir, base) = scene();
@@ -23,7 +23,6 @@ fn a_contained_disk_reads_a_chain_that_stays_inside() {
     assert_eq!(disk.read(&root.join("l2")).unwrap(), b"INSIDE");
 }
 
-#[cfg(unix)]
 #[test]
 fn a_contained_disk_refuses_a_final_target_outside_with_invalid_input_naming_the_landing_not_the_content()
  {
@@ -42,7 +41,6 @@ fn a_contained_disk_refuses_a_final_target_outside_with_invalid_input_naming_the
     assert!(!text.contains("SECRETWORD"), "{text}");
 }
 
-#[cfg(unix)]
 #[test]
 fn a_contained_disk_refuses_a_dangling_link_outside() {
     let (_dir, base) = scene();
@@ -56,7 +54,6 @@ fn a_contained_disk_refuses_a_dangling_link_outside() {
     assert!(!disk.exists(&root.join("gone")));
 }
 
-#[cfg(unix)]
 #[test]
 fn a_contained_disk_refuses_a_file_with_two_names_as_invalid_input_naming_the_count_not_the_content()
  {
@@ -73,7 +70,6 @@ fn a_contained_disk_refuses_a_file_with_two_names_as_invalid_input_naming_the_co
 }
 
 /// The CLI, watch and LSP bound nothing (ADR 0092 D6): a second name reads there.
-#[cfg(unix)]
 #[test]
 fn an_unbounded_containment_reads_a_file_with_two_names() {
     let (_dir, base) = scene();
@@ -83,7 +79,6 @@ fn an_unbounded_containment_reads_a_file_with_two_names() {
     assert_eq!(disk.read(&base.join("proj/hard")).unwrap(), b"SECRETWORD");
 }
 
-#[cfg(unix)]
 #[test]
 fn a_directory_is_not_refused_for_its_link_count() {
     let (_dir, base) = scene();

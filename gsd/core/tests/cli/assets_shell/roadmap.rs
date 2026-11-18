@@ -27,9 +27,7 @@ const FILL: &[(&str, &str)] = &[
         "A board exports to a file",
     ),
     ("{the second requirement's text}", "A board imports a file"),
-    ("{the requirements' area}", "Sync"),
-    ("{its quality category, or leave the key out}", "functional"),
-    ("{must, should or could, or leave the key out}", "must"),
+    ("{the requirements' category}", "Sync"),
     ("{the first phase's number, e.g. 04}", "04"),
     ("{the second phase's number, e.g. 05}", "05"),
     ("{the first phase's name}", "Export"),
@@ -106,10 +104,6 @@ fn the_roadmap_write_step() {
     let written = mcp_edit(&p, &roadmap_edit());
     assert_ne!(written["isError"], true, "{written}");
     assert_eq!(p.fields_of("v1.1/04")["requirements"], json!(["SYNC-02"]));
-    for id in ["SYNC-02", "SYNC-03"] {
-        assert_eq!(p.fields_of(id)["category"], "functional", "{id}");
-        assert_eq!(p.fields_of(id)["priority"], "must", "{id}");
-    }
     assert_eq!(p.fields_of("v1.1/05")["requirements"], json!(["SYNC-03"]));
     // Written as `link` spells it from phase 05: its sibling is `04` there.
     assert_eq!(p.fields_of("v1.1/05")["depends_on"], json!(["04"]));
@@ -122,63 +116,6 @@ fn the_roadmap_write_step() {
     }
     assert!(after.is_empty(), "added: {after:?}");
     assert!(p.codes().iter().all(|c| c != "gsd/E101"));
-}
-
-/// The fields of requirement op `id` in `edit`.
-fn requirement_fields<'a>(edit: &'a mut Value, id: &str) -> &'a mut serde_json::Map<String, Value> {
-    edit.as_array_mut()
-        .expect("a list of edits")
-        .iter_mut()
-        .find(|e| e["kind"] == "requirement" && e["id"] == id)
-        .unwrap_or_else(|| panic!("no requirement op {id}"))["fields"]
-        .as_object_mut()
-        .expect("its fields")
-}
-
-/// The template says a requirement's `category` and `priority` are left out when unknown, never guessed. With a
-/// heading guessed into SYNC-03's `category`, a word the kind does not take, the roadmap edit is refused whole (E061)
-/// and nothing is written; with both keys left out, it writes SYNC-03 with neither and adds no finding.
-#[test]
-fn the_roadmap_edit_leaves_out_an_unknown_category_and_priority() {
-    let text = asset("gsd-core/templates/roadmap.md");
-    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    assert!(
-        text.contains(
-            "`category` and `priority` are optional: leave a key out when its value is not known"
-        ),
-        "{text}"
-    );
-    let p = taskboard();
-    let mut guessed = roadmap_edit();
-    requirement_fields(&mut guessed, "SYNC-03").insert("category".into(), json!("Sync"));
-    let refused = mcp_edit(&p, &guessed);
-    assert_eq!(refused["isError"], true, "{refused}");
-    assert!(refused.to_string().contains("E061"), "{refused}");
-    assert!(
-        p.nodes_of("requirement")
-            .iter()
-            .all(|r| r["id"] != "SYNC-03")
-    );
-    let before = p.codes();
-    let mut unknown = roadmap_edit();
-    let fields = requirement_fields(&mut unknown, "SYNC-03");
-    fields.remove("category");
-    fields.remove("priority");
-    let written = mcp_edit(&p, &unknown);
-    assert_ne!(written["isError"], true, "{written}");
-    let sync = p.fields_of("SYNC-03");
-    assert!(
-        sync.get("category").is_none() && sync.get("priority").is_none(),
-        "{sync}"
-    );
-    assert_eq!(sync["area"], "Sync", "{sync}");
-    let mut after = p.codes();
-    for code in &before {
-        if let Some(at) = after.iter().position(|c| c == code) {
-            after.remove(at);
-        }
-    }
-    assert!(after.is_empty(), "added: {after:?}");
 }
 
 /// A revision that moves a requirement to another phase changes both phases in one `specforge.edit` call: a `link`
@@ -232,7 +169,7 @@ fn the_ingest_merge_writes_requirements_with_their_phases() {
         "spec/requirements.spec",
         "--text",
         "A board syncs",
-        "--area",
+        "--category",
         "Sync",
         "--tier",
         "v1",

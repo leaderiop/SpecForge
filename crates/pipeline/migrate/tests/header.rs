@@ -12,10 +12,7 @@ use specforge_test_macros::test as specforge_test;
 use std::path::Path;
 use tempfile::TempDir;
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a header below leading blank lines is rewritten where it stands"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_header_below_blank_lines_is_rewritten_where_it_stands() {
     let dir = TempDir::new().unwrap();
     std::fs::write(

@@ -13,6 +13,12 @@ struct Selective {
     is_pub: bool,
 }
 
+/// What an import path never holds, on any OS: a `\` (a separator on Windows) or a `:` (a drive on Windows).
+const REFUSED: [char; 2] = ['\\', ':'];
+
+/// An E025's suggestion for an import path holding one of [`REFUSED`].
+const SLASHED: &str = "an import path is `/`-separated and holds no `\\` or `:`";
+
 /// What one `use` path names among a compile's sources.
 enum Named<'s> {
     Source(&'s str),
@@ -22,7 +28,8 @@ enum Named<'s> {
 
 /// The import diagnostics of a compile's sources, in this order: per parsed
 /// source in key order, each import's E025 (it names no source: no key by
-/// that path, or a path that leaves the spec root or is absolute) or I004
+/// that path, a path that leaves the spec root or is absolute, or one that
+/// holds a `\` or a `:` on any OS) or I004
 /// (`@scope/name`, an extension import); then one W113 per strongly
 /// connected set of imports, walking every file from its smallest key, in
 /// sorted order; then the W027s of
@@ -56,13 +63,17 @@ pub fn resolve_imports(
         .collect();
 
     // Candidates for fuzzy suggestions: what an import path would spell (source keys without the spec dir and
-    // .spec).
-    let candidates: Vec<&str> = sources
+    // .spec), never one an import path cannot hold (a `\` or a `:`, see `name`).
+    let candidates: Vec<String> = sources
         .iter()
         .map(|key| {
             let key = under(spec_dir, key);
-            key.strip_suffix(".spec").unwrap_or(key)
+            match key.strip_suffix(".spec") {
+                Some(path) => path.to_string(),
+                None => key,
+            }
         })
+        .filter(|path| !path.contains(REFUSED))
         .collect();
 
     // Resolve imports and build the file dependency graph, tracking each
@@ -97,7 +108,10 @@ pub fn resolve_imports(
                     );
                 }
                 Named::Nothing => {
-                    let close = find_close_match(import.path.as_str(), candidates.iter().copied());
+                    let close = find_close_match(
+                        import.path.as_str(),
+                        candidates.iter().map(String::as_str),
+                    );
                     let mut diagnostic = Diagnostic::new(
                         codes::E025,
                         format!(
@@ -110,11 +124,16 @@ pub fn resolve_imports(
                         path: import.path.to_string(),
                         did_you_mean: close.map(str::to_string),
                     });
-                    diagnostic.suggestion = Some(match close {
-                        Some(m) => format!("did you mean '{}'?", m),
-                        None => "a use path names a project source: a .spec file under the spec \
-                                 root, not excluded and not under a skipped directory"
-                            .to_string(),
+                    let refused = import.path.as_str().contains(REFUSED);
+                    diagnostic.suggestion = Some(match (close, refused) {
+                        (Some(m), false) => format!("did you mean '{}'?", m),
+                        (Some(m), true) => format!("{SLASHED}: did you mean '{m}'?"),
+                        (None, true) => SLASHED.to_string(),
+                        (None, false) => {
+                            "a use path names a project source: a .spec file under the spec \
+                             root, not excluded and not under a skipped directory"
+                                .to_string()
+                        }
                     });
                     diagnostics.push(diagnostic);
                 }
@@ -171,8 +190,11 @@ pub fn resolve_imports(
 /// among `sources`, by the cascade [`resolve_imports`] uses: a relative path
 /// (`./`, `../`) from `importing`'s directory, any other path from the spec
 /// root (`spec_dir`, see [`resolve_imports`]); `<path>.spec` (`<path>` itself when it ends in `.spec`), else
-/// `<path>/index.spec`. Keys compare exactly. `None` for an extension
-/// import (`@scope/name`) or a path that names no source.
+/// `<path>/index.spec`. Keys compare exactly. An import path is
+/// `/`-separated text on every OS: one holding a `\` or a `:` (a Windows
+/// separator or drive) names nothing, so a spec resolves the same on every
+/// host. `None` for an extension import (`@scope/name`) or a path that names
+/// no source.
 #[must_use]
 pub fn import_target<'s>(
     sources: &BTreeSet<&'s str>,
@@ -202,10 +224,14 @@ fn name<'s>(
             None => Named::Nothing,
         };
     }
+    // Windows reads `\` as a separator and `C:` as a drive, Linux reads both as part of a name: refused on every OS,
+    // an import names the same source wherever it is checked.
+    if import_path.contains(REFUSED) {
+        return Named::Nothing;
+    }
+    let importing = under(spec_dir, importing);
     let from = if import_path.starts_with("./") || import_path.starts_with("../") {
-        Path::new(under(spec_dir, importing))
-            .parent()
-            .unwrap_or(Path::new(""))
+        Path::new(&importing).parent().unwrap_or(Path::new(""))
     } else {
         Path::new("")
     };
@@ -215,23 +241,38 @@ fn name<'s>(
     candidates(&base)
         .iter()
         .find_map(|candidate| {
-            let candidate = candidate.to_string_lossy();
-            let key = match spec_dir.as_os_str().is_empty() {
-                true => candidate.into_owned(),
-                false => format!("{}/{candidate}", spec_dir.to_string_lossy()),
-            };
-            sources.get(key.as_str()).copied()
+            sources
+                .get(key(&spec_dir.join(candidate)).as_str())
+                .copied()
         })
         .map_or(Named::Nothing, Named::Source)
 }
 
-/// `key` without the spec dir it is under (a key is named from the project root, the spec root being its prefix).
-fn under<'a>(spec_dir: &Path, key: &'a str) -> &'a str {
+/// The key of the source at `path` (under the spec root), spelled as `ProjectPath::key` mints it: a path relative to
+/// the project is its names joined by `/` on every OS (a path built with `join` is `\`-joined on Windows), and an
+/// absolute one (a spec root outside the project) is the path as the OS writes it.
+fn key(path: &Path) -> String {
+    if path.is_absolute() {
+        return path.to_string_lossy().into_owned();
+    }
+    slashed(path)
+}
+
+/// `path`'s names joined by `/`.
+fn slashed(path: &Path) -> String {
+    path.components()
+        .map(|component| component.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+/// `key` without the spec dir it is under (a key is named from the project root, the spec root being its prefix),
+/// spelled as an import path is: its names joined by `/`, also under an absolute spec root, whose keys the OS writes
+/// (`\`-joined on Windows).
+fn under(spec_dir: &Path, key: &str) -> String {
     Path::new(key)
         .strip_prefix(spec_dir)
-        .ok()
-        .and_then(Path::to_str)
-        .unwrap_or(key)
+        .map_or_else(|_| key.to_string(), slashed)
 }
 
 /// `path` under `from` (both relative to the spec root), `.` and `..`

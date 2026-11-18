@@ -9,6 +9,9 @@ description: "Write invariant blocks in .spec files (the invariant kind is decla
 > it: run `specforge extensions` first, and if it is not listed, do not write `invariant` blocks (add it with
 > `specforge add @specforge/governance`, or write the kinds the project's own extensions declare). `verify` needs
 > `@specforge/testing`; `expression` needs `@specforge/formal`. `specforge infer-guide invariant` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `invariant` blocks in a project that does, such as the
+> example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Invariants declare non-negotiable guarantees. Behaviors name the invariants they enforce; decisions, constraints and
 failure modes (from `@specforge/governance`) point at the invariants they protect or threaten.

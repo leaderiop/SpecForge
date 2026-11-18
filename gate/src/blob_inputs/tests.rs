@@ -127,7 +127,34 @@ fn blobs_lists_the_recorded_blobs() {
     );
     assert!(listed.iter().all(|l| l.starts_with("extensions/")
         || l.starts_with("fixtures/")
-        || l.starts_with("examples/")));
+        || l.starts_with("examples/")
+        || l == "gsd/core"));
+}
+
+/// A crate of the gsd workspace builds as that workspace does: its lock, its cargo directory and its SDK patch; any
+/// other crate with its own lock, at the root (ADR 0366 D2).
+#[test]
+fn a_gsd_crate_builds_with_the_gsd_lock_and_config() {
+    assert_eq!(lock_of("gsd/core"), "gsd/Cargo.lock");
+    assert_eq!(cargo_dir("gsd/core"), "gsd");
+    assert_eq!(
+        workspace_inputs("gsd/core"),
+        ["gsd/Cargo.lock", "gsd/.cargo/config.toml"]
+    );
+    assert_eq!(
+        lock_of("extensions/product"),
+        "extensions/product/Cargo.lock"
+    );
+    assert_eq!(cargo_dir("extensions/product"), ".");
+    assert_eq!(
+        workspace_inputs("extensions/product"),
+        ["extensions/product/Cargo.lock"]
+    );
+    // A directory that only begins with the workspace's name is not in it.
+    assert_eq!(lock_of("gsdx/core"), "gsdx/core/Cargo.lock");
+    for key in workspace_inputs("gsd/core") {
+        assert!(repo_root().join(&key).is_file(), "{key} is missing");
+    }
 }
 
 #[test]
@@ -174,6 +201,68 @@ fn a_key_names_the_repo_path_it_hashes() {
     assert_eq!(path_of("crates/x/src/lib.rs"), "crates/x/src/lib.rs");
 }
 
+/// Every committed blob was built on the pinned rustc, so a pin moved without a re-vendor fails here (ADR 0373 D1).
+#[test]
+fn every_record_was_built_with_the_pinned_rustc() {
+    let pinned = format!("rustc {BLOB_RUSTC} ");
+    let listed = blobs(repo_root()).unwrap();
+    assert!(!listed.is_empty());
+    for crate_dir in listed {
+        let record = BlobRecord::read(repo_root(), &crate_dir).unwrap();
+        assert!(
+            record.built_with.starts_with(&pinned),
+            "{crate_dir} was built with {}, not the pinned rustc {BLOB_RUSTC}: re-vendor it on the pin",
+            record.built_with
+        );
+    }
+}
+
+/// The bootstrap job installs the pinned rustc itself, since a rustup that does not install a missing toolchain
+/// implicitly would otherwise stop the job (ADR 0373 D1).
+#[test]
+fn the_bootstrap_job_installs_the_pinned_rustc() {
+    let path = repo_root().join(".github/workflows/bootstrap.yml");
+    let workflow = std::fs::read_to_string(&path).unwrap();
+    let install = format!("rustup toolchain install {BLOB_RUSTC} ");
+    let line = workflow
+        .lines()
+        .find(|line| line.contains(&install))
+        .unwrap_or_else(|| panic!("{} does not run `{install}`", path.display()));
+    assert!(line.contains("wasm32-wasip2"), "{line}");
+}
+
+/// The re-vendoring guide installs the pinned rustc with the command the tools print, so a pin bump that forgets the
+/// doc fails here (ADR 0373 D1).
+#[test]
+fn the_revendor_guide_installs_the_pinned_rustc() {
+    let path = repo_root().join("docs/agents/revendor.md");
+    let guide = std::fs::read_to_string(&path).unwrap();
+    let install = blob_rustc_install();
+    assert!(
+        guide.lines().any(|line| line.trim() == install),
+        "{} does not show `{install}` on a line of its own",
+        path.display()
+    );
+}
+
+/// The bootstrap job is bounded, as every `ci.yml` job is: it builds cold with no cache, so a hung rebuild or a stalled
+/// toolchain install would otherwise hold a runner for the platform's six-hour default.
+#[test]
+fn the_bootstrap_job_has_a_timeout() {
+    let path = repo_root().join(".github/workflows/bootstrap.yml");
+    let workflow = std::fs::read_to_string(&path).unwrap();
+    let minutes: u32 = workflow
+        .lines()
+        .skip_while(|line| line.trim() != "bootstrap:")
+        .take_while(|line| line.trim() != "steps:")
+        .find_map(|line| line.trim().strip_prefix("timeout-minutes:"))
+        .unwrap_or_else(|| panic!("{}: job `bootstrap` has no timeout-minutes", path.display()))
+        .trim()
+        .parse()
+        .unwrap();
+    assert!((1..=60).contains(&minutes), "{minutes}");
+}
+
 #[test]
 fn a_change_to_an_examples_extension_feeds_its_blob() {
     assert_eq!(
@@ -183,5 +272,74 @@ fn a_change_to_an_examples_extension_feeds_its_blob() {
         )
         .unwrap(),
         ["examples/marketing/extension"]
+    );
+}
+
+/// The patterns of the bootstrap workflow's `pull_request` `paths:` list, read line by line (no YAML dependency).
+fn bootstrap_paths(workflow: &str) -> Vec<String> {
+    let mut lines = workflow
+        .lines()
+        .skip_while(|line| line.trim() != "pull_request:");
+    assert!(
+        lines.next().is_some(),
+        "the bootstrap workflow has no pull_request trigger"
+    );
+    lines
+        .skip_while(|line| line.trim() != "paths:")
+        .skip(1)
+        .map_while(|line| line.trim().strip_prefix("- "))
+        .map(|pattern| pattern.trim_matches('"').to_owned())
+        .collect()
+}
+
+/// A pattern ending `/**` matches a path under that directory; any other pattern matches itself.
+fn covers(pattern: &str, path: &str) -> bool {
+    match pattern.strip_suffix("/**") {
+        Some(dir) => path
+            .strip_prefix(dir)
+            .is_some_and(|rest| rest.starts_with('/')),
+        None => pattern == path,
+    }
+}
+
+/// A change to anything a committed blob compiles from runs the cold-clone job on a pull request: every input key of
+/// every record is under one of the job's `paths:` (ADR 0366 D2 and D4, ADR 0373 D2).
+#[test]
+fn the_bootstrap_paths_cover_every_recorded_input() {
+    let path = repo_root().join(".github/workflows/bootstrap.yml");
+    let workflow = std::fs::read_to_string(&path).unwrap();
+    let patterns = bootstrap_paths(&workflow);
+    assert!(!patterns.is_empty(), "{} lists no paths", path.display());
+    let mut uncovered = Vec::new();
+    for crate_dir in blobs(repo_root()).unwrap() {
+        let record = BlobRecord::read(repo_root(), &crate_dir).unwrap();
+        for key in record.inputs.keys() {
+            let input = path_of(key);
+            if !patterns.iter().any(|pattern| covers(pattern, input)) {
+                uncovered.push(format!("{crate_dir}: {key}"));
+            }
+        }
+    }
+    assert!(
+        uncovered.is_empty(),
+        "{} does not run on a change to these recorded inputs; add their paths:\n  {}",
+        path.display(),
+        uncovered.join("\n  ")
+    );
+}
+
+/// The job runs the equality test the ignored way: it is `#[ignore]`d so the gate's `tests` check does not build the
+/// blob (ADR 0373 D2).
+#[test]
+fn the_bootstrap_job_runs_the_gsd_core_equality_test() {
+    let path = repo_root().join(".github/workflows/bootstrap.yml");
+    let workflow = std::fs::read_to_string(&path).unwrap();
+    let line = workflow
+        .lines()
+        .find(|line| line.contains("committed_gsd_core_blob_is_the_stagers_build"))
+        .unwrap_or_else(|| panic!("{} does not run the gsd/core equality test", path.display()));
+    assert!(
+        line.contains("cargo nextest run") && line.contains("--run-ignored only"),
+        "{line}"
     );
 }

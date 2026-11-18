@@ -118,10 +118,7 @@ fn both() -> Held {
 
 /// The phase renamed `03 → 04` in `p.spec`, then its milestone `v1.0 → v1.1` in `m.spec`, saved at once, then each
 /// undone in the order the editor undoes them: each step lands, and the tests' results follow every move.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "editor renames of a scope and of what it scopes compose as one history"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_phase_then_its_milestone_in_other_files_compose_as_one_history() {
     let mut served = served();
     let first = texts(&served);
@@ -159,10 +156,7 @@ fn a_phase_then_its_milestone_in_other_files_compose_as_one_history() {
 
 /// The milestone renamed `v1.0 → v1.1` in `m.spec`, then its phase `03 → 04` in `p.spec`, saved at once, then each
 /// undone in the order the editor undoes them.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "editor renames of a scope and of what it scopes compose as one history"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_milestone_then_its_phase_in_other_files_compose_as_one_history() {
     let mut served = served();
     let first = texts(&served);
@@ -200,10 +194,7 @@ fn a_milestone_then_its_phase_in_other_files_compose_as_one_history() {
 
 /// Phase `03 → 04` and phase `05 → 06`, two histories (neither moves what the other does), then their milestone
 /// `v1.0 → v1.1`, which moves both: one history, saved at once, then undone in the order the editor undoes them.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an editor rename touching two histories of renames joins them into one"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_milestone_renamed_after_two_of_its_phases_joins_their_histories() {
     let mut served = served();
     let first = texts(&served);
@@ -269,10 +260,7 @@ fn a_milestone_renamed_after_two_of_its_phases_joins_their_histories() {
 /// The milestone renamed, then its phase, saved; then the milestone, the earlier rename, undone by hand with the
 /// phase's rename kept. No history holds those texts: nothing is shown, and the save lands nothing, so no move no
 /// rename made and no harness value dropped.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an earlier editor rename undone by hand before a later one it led to lands nothing"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn an_earlier_rename_undone_by_hand_before_a_later_one_lands_nothing() {
     let mut served = served();
     rename(&mut served, "m.spec", "v1.1");
@@ -329,30 +317,21 @@ fn the_milestone_undone_file_by_file(files: [&str; 4]) {
 
 /// The milestone's rename undone in its declaring file first: the files that place its phases still hold it, so the
 /// rename is in effect in some files and not others, and nothing lands until every file is back.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an editor rename held in some of the files it edited and not in others lands nothing"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_milestone_undone_in_its_declaring_file_alone_lands_nothing_until_every_file_is_back() {
     the_milestone_undone_file_by_file(["m.spec", "q.spec", "u.spec", "p.spec"]);
 }
 
 /// The milestone's rename undone first in the file that places the tests, last in its declaring file: a save that
 /// writes nothing leaves the project the ledger was written over as it was, so the last save re-keys the results.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "a landing of an editor rename that writes nothing leaves the project the ledger was written over"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_milestone_undone_in_the_tests_file_first_keeps_their_results() {
     the_milestone_undone_file_by_file(["u.spec", "p.spec", "q.spec", "m.spec"]);
 }
 
 /// Two phases renamed, then their milestone, one history, saved; then the milestone's rename undone one file at a
 /// time, each saved alone: nothing lands until every file is back, then the milestone's moves go back.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an editor rename held in some of the files it edited and not in others lands nothing"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_joined_history_undone_file_by_file_lands_once_every_file_is_back() {
     let mut served = served();
     rename(&mut served, "p.spec", "04");
@@ -390,10 +369,7 @@ fn a_joined_history_undone_file_by_file_lands_once_every_file_is_back() {
 /// The milestone renamed and saved, `q.spec` closed holding it, the rename undone in every other file and saved, then
 /// those closed too: the files disagree as the history ends, so it lands nothing, and the editor is told which files
 /// disagree and that `specforge rename` finishes the rename.
-#[spec(
-    behavior = "land_rename_ledger",
-    verify = "an editor rename whose files disagree when they all close lands nothing and says so"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_history_ending_with_its_files_disagreeing_lands_nothing_and_says_so() {
     let mut served = served();
     let first = texts(&served);

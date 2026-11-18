@@ -4,10 +4,7 @@ use super::*;
 // Slice 4: Schema Diffing
 // ===========================================================================
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "removed entity kind detected as breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_removed_kind_is_breaking() {
     let old = sample_schema();
     let mut new = sample_schema();
@@ -22,10 +19,7 @@ fn diff_removed_kind_is_breaking() {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "new entity kind detected as non-breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_added_kind_is_non_breaking() {
     let old = sample_schema();
     let mut new = sample_schema();
@@ -42,10 +36,7 @@ fn diff_added_kind_is_non_breaking() {
     assert!(additions(&changes));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "added optional field detected as non-breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_added_optional_field_non_breaking() {
     let old = sample_schema();
     let mut new = sample_schema();
@@ -58,10 +49,7 @@ fn diff_added_optional_field_non_breaking() {
     assert!(additions(&changes));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "new required field detected as breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_added_required_field_is_breaking() {
     let old = sample_schema();
     let mut new = sample_schema();
@@ -73,10 +61,7 @@ fn diff_added_required_field_is_breaking() {
     assert!(breaking(&diff(&old, &new)));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "removed field is breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_removed_field_is_breaking() {
     let old = sample_schema();
     let mut new = sample_schema();
@@ -87,10 +72,7 @@ fn diff_removed_field_is_breaking() {
     assert!(changes.iter().any(|c| matches!(c, SchemaChange::FieldRemoved { kind, field } if kind == "behavior" && field == "contract")));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "removed edge type detected as breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_removed_edge_is_breaking() {
     let old = sample_schema();
     let mut new = sample_schema();
@@ -99,10 +81,7 @@ fn diff_removed_edge_is_breaking() {
     assert!(breaking(&diff(&old, &new)));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "new edge type detected as non-breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_added_edge_non_breaking() {
     let old = sample_schema();
     let mut new = sample_schema();
@@ -118,10 +97,7 @@ fn diff_added_edge_non_breaking() {
     assert!(additions(&changes));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "no previous schema treats all changes as non-breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_no_previous_schema_all_non_breaking() {
     let dir = tempfile::tempdir().unwrap();
 
@@ -132,10 +108,7 @@ fn diff_no_previous_schema_all_non_breaking() {
     assert_eq!(versioned.version(), &SchemaVersion::new(1, 0, 0));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "identical schemas no changes"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_identical_schemas_no_changes() {
     let changes = diff(&sample_schema(), &sample_schema());
     assert!(changes.is_empty());
@@ -143,10 +116,7 @@ fn diff_identical_schemas_no_changes() {
     assert!(!additions(&changes));
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "the versioned schema lists each change since the recorded schema"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn diff_multiple_field_changes() {
     let old = sample_schema();
     let mut new = sample_schema();
@@ -175,10 +145,7 @@ fn diff_multiple_field_changes() {
     assert!(additions(&changes)); // added "description"
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "the versioned schema lists each change since the recorded schema"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn the_versioned_schema_lists_each_change_since_the_record() {
     let dir = tempfile::tempdir().unwrap();
     let cache = SchemaCache::in_dir(dir.path());
@@ -199,10 +166,7 @@ fn the_versioned_schema_lists_each_change_since_the_record() {
 }
 
 // B:detect_breaking_schema_changes — verify contract "requires/ensures consistency for breaking schema change detection"
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "Detect Breaking Schema Changes: breaking schema change detection holds — schema_generated_fired, filesystem_available, breaking_changes_classified, nonbreaking_changes_classified, migration_record_emitted, schema_breaking_change_detected_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn detect_breaking_contract() {
     let old = sample_schema();
 
@@ -225,10 +189,7 @@ fn detect_breaking_contract() {
     assert!(!changes.is_empty());
 }
 
-#[specforge_test(
-    behavior = "detect_breaking_schema_changes",
-    verify = "added optional field detected as non-breaking"
-)]
+#[specforge_test(requirement = "FEATURE-048")]
 fn a_single_target_kind_widened_to_a_list_is_minor_and_narrowed_is_major() {
     let mut single = sample_schema();
     let mut field = optional_field("owner");

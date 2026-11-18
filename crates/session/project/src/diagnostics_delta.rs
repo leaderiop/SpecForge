@@ -125,20 +125,14 @@ mod tests {
         assert!(DiagnosticsDelta::between(&[a.clone(), b.clone()], &[b, a]).is_empty());
     }
 
-    #[specforge_test(
-        behavior = "emit_incremental_diagnostics",
-        verify = "a diagnostic is unchanged in a delta only when every presented part is"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn a_moved_diagnostic_is_removed_and_added() {
         let delta = DiagnosticsDelta::between(&[at(3, 3)], &[at(6, 6)]);
         assert_eq!(lines(&delta.removed), [(3, 3)]);
         assert_eq!(lines(&delta.added), [(6, 6)]);
     }
 
-    #[specforge_test(
-        behavior = "emit_incremental_diagnostics",
-        verify = "a diagnostic is unchanged in a delta only when every presented part is"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn every_presented_part_counts() {
         let base = at(3, 3)
             .with_suggestion("remove it")
@@ -169,10 +163,7 @@ mod tests {
         }
     }
 
-    #[specforge_test(
-        behavior = "emit_incremental_diagnostics",
-        verify = "a diagnostic is unchanged in a delta only when every presented part is"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn identical_diagnostics_count_one_by_one() {
         let d = at(3, 3);
         let removed = DiagnosticsDelta::between(&[d.clone(), d.clone()], from_ref(&d));
@@ -183,10 +174,7 @@ mod tests {
         assert!(added.removed.0.is_empty());
     }
 
-    #[specforge_test(
-        behavior = "emit_incremental_diagnostics",
-        verify = "a diagnostic is unchanged in a delta only when every presented part is"
-    )]
+    #[specforge_test(requirement = "FEATURE-050")]
     fn the_delta_keeps_each_report_order() {
         let delta = DiagnosticsDelta::between(
             &[at(1, 1), at(2, 2), at(3, 3)],

@@ -11,10 +11,7 @@ use std::any::TypeId;
 use specforge_extension_sdk as sdk;
 use specforge_protocol_types as protocol;
 
-#[specforge_test_macros::test(
-    behavior = "call_extension_exports",
-    verify = "every operational payload is one protocol type the host and the SDK share"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn the_sdk_payloads_are_the_protocol_types() {
     let same = [
         (

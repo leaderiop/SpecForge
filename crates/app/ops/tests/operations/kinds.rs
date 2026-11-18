@@ -61,10 +61,9 @@ fn project() -> Assembled {
     Assembled::over(build_registries(vec![declaration])).graph(graph)
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "a kind filter reports each kind the project does not know with I020, naming the closest"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_filter_reports_each_unknown_kind_once_naming_the_closest() {
     let project = project();
     let view = project.view();
@@ -95,10 +94,9 @@ fn a_filter_reports_each_unknown_kind_once_naming_the_closest() {
     );
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "an argument naming an undeclared kind is refused with unknown_kind naming the closest declared kind"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn an_argument_needs_a_declared_kind() {
     let project = project();
     let view = project.view();
@@ -121,10 +119,9 @@ fn an_argument_needs_a_declared_kind() {
     assert_eq!(error.suggestion.as_deref(), Some("did you mean 'adr'?"));
 }
 
-#[specforge_test(
-    behavior = "read_views_over_the_project_view",
-    verify = "a kinds list written as text names the items between its commas, each trimmed, an empty item kept as the empty kind"
-)]
+#[specforge_test(requirement = "FEATURE-025")]
+#[specforge_test(requirement = "FEATURE-064")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_kinds_list_written_as_text_names_its_items_trimmed() {
     let read = |text| kinds_of_text(text).collect::<Vec<_>>();
     assert_eq!(read("behavior"), ["behavior"]);

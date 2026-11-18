@@ -9,6 +9,9 @@ description: "Write journey blocks in .spec files (the journey kind is declared 
 > `feature` kinds it points at) exists only in a project that loads it: run `specforge extensions` first, and if it is
 > not listed, do not write `journey` blocks (add it with `specforge add @specforge/product`, or write the kinds the
 > project's own extensions declare). `specforge infer-guide journey` prints the fields.
+>
+> This repository's own spec does not load it (ADR 0374): write `journey` blocks in a project that does, such as the
+> example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Journeys describe what a real person does, step by step. A journey points at a `persona` entity and at `channel`
 entities, both declared as blocks of their own (not inside the `spec` block).

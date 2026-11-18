@@ -7,16 +7,18 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_graph::{DerivedFrom, DerivedReference, FieldForms, GraphInputs};
 
-use crate::{FieldRegistry, KindRegistry};
+use crate::{CandidateVocabulary, FieldRegistry, KindRegistry};
 
+/// The graph inputs of the loaded `kinds` and `fields`, with each absent target kind's owners
+/// offered from `candidates` ([`target_owners`]).
 pub(super) fn derive(
     kinds: &KindRegistry,
     fields: &FieldRegistry,
     forms: &FieldForms,
-    owner_of: impl Fn(&str) -> Option<String>,
+    candidates: &CandidateVocabulary,
 ) -> GraphInputs {
     GraphInputs {
-        target_owners: target_owners(forms, owner_of),
+        target_owners: target_owners(forms, kinds, candidates),
         field_forms: forms.clone(),
         derived_references: derived_references(fields),
         scopes: scopes(kinds),
@@ -46,18 +48,26 @@ fn scopes(kinds: &KindRegistry) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// For each target kind no loaded extension declares, the extension that owns it (`owner_of`, the
-/// lookup E024 reads), so I004 and E022 name the extension E024 names (ADR 0117). A kind nothing
-/// owns has no entry.
+/// For each target kind no loaded extension declares, the extensions the candidate vocabulary
+/// offers for it by the rule E024 reads ([`CandidateVocabulary::offered_declarers`] over the loaded
+/// `kinds`): those that declare no loaded kind, else all of them, in its order, so I004 and E022
+/// name each extension E024 names (ADR 0117, ADR 0369, ADR 0373 D4). A kind nothing declares has
+/// no entry.
 fn target_owners(
     forms: &FieldForms,
-    owner_of: impl Fn(&str) -> Option<String>,
-) -> BTreeMap<String, String> {
+    kinds: &KindRegistry,
+    candidates: &CandidateVocabulary,
+) -> BTreeMap<String, Vec<String>> {
     forms
         .targets()
         .into_iter()
         .flat_map(|(_, target)| target.absent())
-        .filter_map(|kind| Some((kind.to_string(), owner_of(kind)?)))
+        .map(|kind| {
+            let offered = candidates.offered_declarers(kind, |loaded| kinds.contains(loaded));
+            let owners = offered.declarers.into_iter().map(str::to_string).collect();
+            (kind.to_string(), owners)
+        })
+        .filter(|(_, owners): &(String, Vec<String>)| !owners.is_empty())
         .collect()
 }
 

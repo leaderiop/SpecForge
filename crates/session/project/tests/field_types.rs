@@ -64,10 +64,7 @@ fn e061(diags: &[Diagnostic]) -> Vec<&Diagnostic> {
     diags.iter().filter(|d| d.code == "E061").collect()
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a value that is not the declared integer, bool or enum type is an error"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn values_that_are_not_the_declared_bool_or_enum_are_errors() {
     let (_graph, diags) = build_and_check(
         r#"ticket t1 "T" {
@@ -101,10 +98,7 @@ fn values_that_are_not_the_declared_bool_or_enum_are_errors() {
     assert_eq!(spans, vec![(2, 12), (3, 10)]);
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "an enum value suggests the closest declared value"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_enum_value_suggests_the_closest_declared_value() {
     let (_graph, diags) = build_and_check(
         r#"ticket t1 "T" {
@@ -121,10 +115,7 @@ fn an_enum_value_suggests_the_closest_declared_value() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "Check Field Value Types: declared field types hold — registries_populated_fired, off_form_warned, single_values_listed, mismatches_diagnosed, undeclared_untouched"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn check_field_value_types_contract() {
     let (graph, diags) = build_and_check(
         r#"ticket t1 "T" {
@@ -175,10 +166,7 @@ fn check_field_value_types_contract() {
     assert_eq!(e061(&diags).len(), 2, "{diags:?}");
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "no reference field of the repository's spec holds a bare number, date or boolean"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn no_reference_field_in_the_corpus_holds_a_number_or_a_date() {
     use specforge_parser::{FieldValue, Written};
     use std::collections::{HashMap, HashSet};
@@ -237,10 +225,7 @@ fn no_reference_field_in_the_corpus_holds_a_number_or_a_date() {
     );
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn a_reference_field_names_a_gsd_entity() {
     let (graph, diags) = build_and_check(
         r#"ticket 03-02 "A" {
@@ -282,10 +267,7 @@ ticket t3 "T" {
     assert!(diags.iter().all(|d| d.code != "E003"), "{diags:?}");
 }
 
-#[specforge_test(
-    behavior = "check_field_value_types",
-    verify = "a block field with no declared members is an open map of named text entries"
-)]
+#[specforge_test(requirement = "FEATURE-018")]
 fn an_open_block_reads_as_named_text_entries() {
     let (graph, diags) = build_and_check(
         r#"ticket t1 "T" {

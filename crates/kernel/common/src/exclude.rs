@@ -162,10 +162,7 @@ mod tests {
     use super::*;
     use specforge_test_macros::test as specforge_test;
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "an exclude entry that can match no source is E069 and ignored"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn each_unusable_entry_names_why() {
         assert_eq!(ExcludeEntry::parse(""), Err(ExcludeError::Empty));
         assert_eq!(ExcludeEntry::parse("/"), Err(ExcludeError::Empty));
@@ -185,10 +182,7 @@ mod tests {
         assert_eq!(ExcludeEntry::parse("drafts/").unwrap().written(), "drafts/");
     }
 
-    #[specforge_test(
-        behavior = "resolve_use_imports",
-        verify = "exclude entries are glob patterns matched against a file and its directories"
-    )]
+    #[specforge_test(requirement = "FEATURE-109")]
     fn an_entry_matches_a_file_through_its_directories() {
         let exclude = Exclude::parse(["legacy"]).unwrap();
         assert!(exclude.excludes(Path::new("a/legacy/b/c.spec")));

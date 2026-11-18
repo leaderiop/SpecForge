@@ -6,10 +6,7 @@ use specforge_parser::testing::{edited_corpus, property_config};
 use specforge_test_macros::test as specforge_test;
 use tree_sitter_specforge::kind;
 
-#[specforge_test(
-    behavior = "lex_spec_text",
-    verify = "the lexer agrees with the grammar on every top-level form an edit of the repository's spec leaves intact"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn the_lexer_agrees_with_the_grammar_on_every_edited_form() {
     let checked = std::cell::Cell::new(0usize);
     // The edited files parsed, and those where at least one leaf was checked.

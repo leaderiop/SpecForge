@@ -15,11 +15,18 @@ env:
   # No debuginfo in test binaries: a core-crate rebuild links ~140 of them, 27% faster without it (measured
   # 108s -> 79s). opt-level 0 was tried too: the build saved 77s, the tests lost 267s. CI backtraces lose file:line.
   CARGO_PROFILE_TEST_DEBUG: "0"
+  # Every cache step's prefix-key. Bump it to start every cache anew, and whenever a cache step's paths or workspaces
+  # change: a changed path list is a new cache version, which orphans the old entry (ADR 0375 D1).
+  CACHE_PREFIX: v1-rust
 
+# Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's slowest cold wall
+# time seen on the current code (the cold runs on this change and the 80-run history before it) times 1.25, rounded
+# up to a minute, under its timeout less five minutes (ADR 0375 D3). One cold run was too few: the same code ran gsd
+# in 1,054 s and in 1,602 s.
 jobs:
   ci:
-    # `cargo gate ci`'s lint, specs and gsd shards; the `build` job below holds build and self-spec-sample, the `tests`
-    # jobs the tests. `dogfood` judges every partition's reports.
+    # `cargo gate ci`'s lint, specs and gsd shards; the `build` job below holds build, the `tests` jobs the tests.
+    # `dogfood` judges every partition's nextest report.
     # The lint shard fails when `cargo gate list` holds a check no shard names.
     name: Check list (${{ matrix.shard }})
     runs-on: ubuntu-latest
@@ -30,18 +37,29 @@ jobs:
         include:
           - shard: lint
             checks: rustfmt,clippy,doctests,audit
+            budget: 1440
+            cache: lint
           # The @gsd workspace on a runner of its own: its builds and black-box tests run beside lint and specs.
           - shard: gsd
             checks: gsd
-            # A key of its own: rust-cache never saves over a key it restored whole, so the old one would never hold
-            # the workspace crates.
+            budget: 2040
+            # Its shared-key names what it holds, the workspace crates too: rust-cache never saves over a key it
+            # restored whole, so a key once saved without them would never gain them.
             cache: gsd-crates
             workspaces: |
               . -> target
               gsd -> target/gsd
           - shard: specs
-            checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs,spec-modules
+            checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs
+            budget: 2040
+            cache: specs
+    env:
+      BUDGET_SECONDS: ${{ matrix.budget }}
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -57,7 +75,8 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.cache || matrix.shard }}
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: ${{ matrix.cache }}
           workspaces: ${{ matrix.workspaces || '. -> target' }}
           # The gsd shard rebuilt every crate of the workspace (the `specforge` it drives) on each run: rust-cache
           # leaves workspace crates out by default. Kept, only what a change reaches rebuilds.
@@ -83,7 +102,7 @@ jobs:
       - name: Every check of the list is in a shard
         if: matrix.shard == 'lint'
         run: |
-          sharded="build,self-spec-sample,tests,guests,dogfood,rustfmt,clippy,gsd,doctests,audit,pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,published-schemas,specs,spec-modules"
+          sharded="build,tests,guests,dogfood,rustfmt,clippy,gsd,doctests,audit,pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,published-schemas,specs"
           listed=$(cargo gate list | awk '/^[a-z]/ && $2 != "bootstrap" {print $1}' | sort)
           missing=$(comm -23 <(echo "$listed") <(tr , '\n' <<<"$sharded" | sort))
           if [ -n "$missing" ]; then echo "checks in no shard: $missing"; exit 1; fi
@@ -92,25 +111,40 @@ jobs:
       # A PR runs the checks its diff reaches (quick's triggers); main runs the whole list.
       - name: Run the shard's checks
         run: cargo gate ci --only ${{ matrix.checks }} ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
-
-      # dogfood reaches only full runs (main), so only main keeps the reports for it.
-      - name: Keep the test reports for dogfood
-        if: github.event_name == 'push' && matrix.shard == 'specs'
-        uses: actions/upload-artifact@v4
-        with:
-          name: reports-${{ matrix.shard }}
-          path: target/specforge
-          retention-days: 1
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   build:
-    # Compiles the tests once into a nextest archive; the four `tests` jobs run it without compiling. Then the sample
-    # check runs its cited tests on that same build.
+    # Compiles the tests once into a nextest archive; the four `tests` jobs run it without compiling.
     name: Check list (build)
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
       GATE_TEST_ARCHIVE: target/tests.tar.zst
+      BUDGET_SECONDS: 1680
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -119,11 +153,10 @@ jobs:
           targets: wasm32-wasip2
       - uses: Swatinem/rust-cache@v2
         with:
-          key: tests
-          # The sample check builds @gsd/core's wasm in the gsd workspace, as the gsd shard does.
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: build
           workspaces: |
             . -> target
-            gsd -> target/gsd
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@v2
         with:
@@ -137,37 +170,51 @@ jobs:
           if-no-files-found: ignore
           compression-level: 0
           retention-days: 1
-      # A cited test may prove with z3, as the `tests` jobs' do.
-      - name: Install z3 (SMT solver for prove tests)
-        run: sudo apt-get update && sudo apt-get install -y z3
-      # Here, after the archive: the cited tests' run must compile nothing, and only this job holds the test build
-      # it reuses. A shard of its own would build the workspace's tests a second time.
-      - run: cargo gate ci --only self-spec-sample ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   tests:
     name: Check list (tests-${{ matrix.part }})
     needs: build
-    # A red sample check fails the build job after its archive is up: the partitions still run.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       GATE_TEST_ARCHIVE: target/tests.tar.zst
       GATE_TEST_PARTITION: ${{ matrix.part }}/4
+      BUDGET_SECONDS: 540
     strategy:
       fail-fast: false
       matrix:
         part: [1, 2, 3, 4]
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
-      # Only `cargo gate` itself compiles here; the tests come from the archive.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: specs
-          save-if: false
+      # No cache: only `cargo gate` compiles here, and the tests come from the archive (ADR 0375 D1).
       - uses: taiki-e/install-action@v2
         with:
           tool: nextest
@@ -182,13 +229,36 @@ jobs:
       - name: Run the partition
         if: steps.archive.outcome == 'success'
         run: cargo gate ci --only tests ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
-      - name: Keep the test reports for dogfood
+      # dogfood reaches only full runs (main), so only main keeps the partition's nextest report for it. A missing
+      # report fails here: dogfood would otherwise judge the other partitions' reports as if they were all.
+      - name: Keep the JUnit report for dogfood
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
-          name: reports-tests-${{ matrix.part }}
-          path: target/specforge
+          name: junit-tests-${{ matrix.part }}
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: error
           retention-days: 1
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   effect-plane:
     # The effect plane's adapters on the other two OSes (ADR 0335): the process group or Job kill, PATHEXT and `.cmd`
@@ -198,15 +268,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            budget: 1500
+          - os: macos-latest
+            budget: 1380
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    env:
+      BUDGET_SECONDS: ${{ matrix.budget }}
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: effect-plane
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: effect-plane
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@v2
         with:
@@ -216,27 +297,191 @@ jobs:
         run: cargo nextest run --no-fail-fast -p specforge-effects -p specforge-process -p specforge-fs -p specforge-http -p specforge-git
       - name: The collector machine's runner tests
         run: cargo nextest run -p specforge-ops --lib -E "test(/^analysis::collect::process::/)"
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
+
+  windows-subset:
+    # The Windows subset (ADR 0375 D4): the tracked-tree copy, the user's home, absorb. Not one of `cargo gate`'s
+    # shards; a job of its own because, on the Windows effect-plane leg, it would take that leg's cold time past 1,500 s.
+    name: Windows subset
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      BUDGET_SECONDS: 1500
+    steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
+      # The fixtures and snapshots are compared as LF, and a generated tree can pass 260 characters (ADR 0375 D4).
+      - name: Line endings and long paths, before checkout
+        shell: bash
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.longpaths true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: windows-subset
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      - name: "Windows subset: checked_tree"
+        run: cargo nextest run --no-fail-fast -p gate -E 'test(/^checked_tree::/)'
+      - name: "Windows subset: USERPROFILE beside HOME"
+        run: cargo nextest run --no-fail-fast -p specforge-component --lib -E 'test(/user_compile_cache/)'
+      - name: "Windows subset: absorb"
+        run: cargo nextest run --no-fail-fast -p xtask --bin absorb --test absorb_e2e
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   dogfood:
-    # Every test of every partition and guest reported into target/specforge; dogfood judges them together.
+    # Each tests partition's nextest JUnit report lands in its own directory under target/nextest/ci (no
+    # merge-multiple: every partition writes junit.xml); dogfood merges them and judges the requirements' proof.
     name: Check list (dogfood)
     needs: [ci, tests]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      BUDGET_SECONDS: 840
     steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # Restores the specs shard's cache, the same build of the root, and saves nothing.
       - uses: Swatinem/rust-cache@v2
         with:
-          key: specs
+          prefix-key: ${{ env.CACHE_PREFIX }}
+          shared-key: specs
           save-if: false
       - uses: actions/download-artifact@v4
         with:
-          pattern: reports-*
-          path: target/specforge
-          merge-multiple: true
+          pattern: junit-tests-*
+          path: target/nextest/ci
       - name: Run dogfood
         run: cargo gate ci --only dogfood
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
+
+  cache-prune:
+    # Main keeps one generation of each cache: every entry a newer one of its group supersedes is deleted, a group
+    # being the key without its toolchain and lockfile hashes. The previous prefix's entries are the maintainer's to
+    # delete once (ADR 0375 D2).
+    name: Cache prune
+    needs: [ci, build, effect-plane, windows-subset]
+    if: github.event_name == 'push' && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+    env:
+      BUDGET_SECONDS: 300
+      # The most entries one listing reads: a listing that reaches it fails the job, after the deletions it allows.
+      CACHE_LIST_LIMIT: 100
+      STALE_CACHES: 'group_by(.key | sub("-[0-9a-f]{8}-[0-9a-f]{8}$"; "")) | map(sort_by(.createdAt) | .[:-1]) | flatten | .[].id'
+    steps:
+      - name: Start the build-time budget clock
+        shell: bash
+        run: |
+          echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Delete the cache entries a newer one of their group supersedes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          caches=$(gh cache list --ref refs/heads/main --limit "$CACHE_LIST_LIMIT" --json id,key,createdAt)
+          stale=$(jq -r "$STALE_CACHES" <<<"$caches")
+          for id in $stale; do
+            if ! gh cache delete "$id"; then
+              echo "::warning title=cache-prune::could not delete cache $id (a concurrent main run may have deleted it)"
+            fi
+          done
+          listed=$(jq length <<<"$caches")
+          if (( listed >= CACHE_LIST_LIMIT )); then
+            echo "::error title=cache-prune::the listing read $listed entries, its limit (CACHE_LIST_LIMIT): main may hold more, and a superseded entry past the limit stays (ADR 0375 D2)"
+            exit 1
+          fi
+      - name: Build-time budget
+        shell: bash
+        run: |
+          whole='^[0-9]+$'
+          if ! [[ ${BUDGET_T0:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no clock: the job's first step recorded no BUDGET_T0"
+            exit 1
+          fi
+          if ! [[ ${BUDGET_SECONDS:-} =~ $whole ]]; then
+            echo "::error title=Build-time budget::no budget: BUDGET_SECONDS is not a whole number of seconds"
+            exit 1
+          fi
+          took=$(( $(date +%s) - 10#$BUDGET_T0 ))
+          line="this job took $took s of its $BUDGET_SECONDS s build-time budget (ADR 0375 D3)"
+          echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          if (( took > 10#$BUDGET_SECONDS )); then
+            echo "::error title=Build-time budget::$line"
+            exit 1
+          fi
+          echo "$line"
 
   # The fresh-clone bootstrap is bootstrap.yml: on a PR it runs only when a blob input changes.

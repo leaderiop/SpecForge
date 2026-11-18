@@ -42,10 +42,7 @@ fn path_ids(cp: &Value) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "surface_critical_path",
-    verify = "product:critical-path returns CriticalPathPayload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn critical_path_answers_its_payload() {
     let cp = json_of("critical_path", json!({}), &schedule());
     assert_eq!(
@@ -76,10 +73,7 @@ fn critical_path_answers_its_payload() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_critical_path",
-    verify = "empty graph returns empty path"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn critical_path_of_no_milestones_is_empty() {
     let cp = json_of("critical_path", json!({}), &G::default());
     assert_eq!(
@@ -89,10 +83,7 @@ fn critical_path_of_no_milestones_is_empty() {
     );
 }
 
-#[specforge_test(
-    behavior = "surface_critical_path",
-    verify = "cycles return empty path with diagnostic message"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn a_milestone_cycle_gives_an_empty_path_and_says_why() {
     let g = schedule().edge("m1", "m3", "depends_on");
     let out = run_in(&runtime(), "critical_path", json!({}), &g, "json");
@@ -109,10 +100,7 @@ fn a_milestone_cycle_gives_an_empty_path_and_says_why() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_critical_path",
-    verify = "linear chain of 3 milestones returns all 3 as critical path"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_chain_of_three_open_milestones_is_the_path() {
     let g = G::default()
         .n("a", "milestone")
@@ -125,20 +113,14 @@ fn a_chain_of_three_open_milestones_is_the_path() {
     assert_eq!(cp["path_length"], 3);
 }
 
-#[specforge_test(
-    behavior = "pe_query_critical_path",
-    verify = "parallel chains return the longer one"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn of_two_chains_the_longer_is_the_path() {
     // m1-m2-m3 (three open) beats n1-n2.
     let cp = json_of("critical_path", json!({}), &schedule());
     assert_eq!(path_ids(&cp), ["m1", "m2", "m3"]);
 }
 
-#[specforge_test(
-    behavior = "pe_query_critical_path",
-    verify = "completed milestones are excluded from critical path"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_completed_milestone_is_off_the_path() {
     // m0 is completed: the chain stops at m1.
     let cp = json_of("critical_path", json!({}), &schedule());
@@ -161,10 +143,7 @@ fn a_completed_milestone_is_off_the_path() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_critical_path",
-    verify = "milestones without target_date still appear on path"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_milestone_without_a_date_is_on_the_path_without_dates() {
     let cp = json_of("critical_path", json!({}), &schedule());
     let m3 = &cp["critical_path"][2];
@@ -175,10 +154,7 @@ fn a_milestone_without_a_date_is_on_the_path_without_dates() {
     );
 }
 
-#[specforge_test(
-    behavior = "pe_query_critical_path",
-    verify = "graph with cycles returns empty path"
-)]
+#[specforge_test(requirement = "FEATURE-091")]
 fn a_cycle_among_milestones_leaves_no_path() {
     // Even a cycle off the longest chain: E015 fires, so no path is given.
     let g = schedule().edge("n1", "n2", "depends_on");
@@ -190,10 +166,7 @@ fn a_cycle_among_milestones_leaves_no_path() {
     assert!(cp["message"].as_str().unwrap().contains("(n1, n2)"), "{cp}");
 }
 
-#[specforge_test(
-    behavior = "product_new_query_correctness",
-    verify = "critical path is the longest incomplete chain"
-)]
+#[specforge_test(requirement = "RELIABILITY-16")]
 fn no_chain_of_open_milestones_is_longer_than_the_critical_path() {
     // A diamond and a tail: e <- {f, g} <- h <- i; j alone; equal branches
     // are taken by id.

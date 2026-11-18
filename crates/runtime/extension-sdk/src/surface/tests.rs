@@ -425,10 +425,7 @@ fn tools_and_resources_are_described_and_routed() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "dispatch_surface_command",
-    verify = "a command reads the state the host sends it, and none when it sent none"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-125")]
 fn a_command_reads_the_state_it_is_sent() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/widgets", "1.0.0"));
     c.command_prefix("acme");

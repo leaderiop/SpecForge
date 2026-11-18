@@ -14,8 +14,7 @@
                 │   ├──*─ disposition    (review ledger, append-only)
                 │   └──*─ user_setup
                 ├── depends_on →* plan   (a DAG; waves are computed from it)
-                ├── requirements →* requirement
-                └── decisions →* decision   (the context decisions it implements)
+                └── requirements →* requirement
 ```
 
 File: `plans/<NN-MM>.spec` in the phase folder: the plan, its tasks, checkpoints and must-haves, its plan-check
@@ -35,7 +34,6 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | files_deleted | paths<open> | | `files_deleted:`: checked while the plan is pending (the file is still there to delete), closed once it is complete |
 | coupling_justified | {peer → plan R, reason str R} | | `coupling_justified:`; exempts only non-file coupling (D3b, gsd/I321), never file overlap (gsd/W305) |
 | requirements | →* requirement | | `requirements:` (non-empty for a plan of a phase, not `R`, so gsd/E302 is the one diagnostic of its absence; a quick plan names none) |
-| decisions | →* decision | | the context decisions the plan implements (`decisions [D-01, D-03]`), resolved in its phase and read back as `implemented_by` (ADR 0351): gsd/E310, W317, W506 and E312's exemption read them, never the plan's text. Not `R`: gsd/E310 is the one diagnostic of a missing one; another phase's decision (`02/D-01`) covers nothing here |
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
 | gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (a reference union, ADR 0285 D5) |
 | agent_hint | str | | `agent_hint:` |
@@ -61,10 +59,9 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | plan | → plan | R I | parent |
-| type | enum{auto, tdd, tracer, manual} | R | `type=` |
+| type | enum{auto, tdd, tracer} | R | `type=` (gsd-core's types; a `checkpoint:*` task is a `checkpoint`) |
 | files | paths<planned> | | `<files>`: paths, checked once the task is done (E016; required for `auto`, gsd/E303) |
 | read_first | paths<planned> | | `<read_first>`: paths, checked once the task is done (E016) |
-| items | →* item | | the code items the task targets: `@code/core` item facts, quoted (`"js:taskboard/src/tasks.js::addTask"`); a pending task may name one not written yet (no finding while it is pending), a complete one names held items (`code/E101` otherwise) |
 | precondition | str | | `<precondition>` |
 | reversibility | {rating enum{reversible, costly, one_way} R, why str, settled_by → decision} | | `<reversibility>`; `settled_by` names the decision (a context decision, a project one, a checkpoint's) that already settles a one-way door: GSD's "unless the decision is already settled", made checkable (gsd/W308) |
 | action | text | R | `<action>` |
@@ -75,7 +72,6 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | done | str | R | `<done>` |
 | verify_paths | strs | C | the directory and the manifest (`package.json`, `Makefile`) each `automated` command runs in, from its `cd` or `--prefix`, project-relative; the host reads them (K11) for gsd/E320 |
 | commits | ←* commit | | read, not written: the inverse of `commit.task`, the commits whose subject names the task (`plan.commits` reads `commit.plan` the same way). The git collector records them |
-| mitigates | ←* risk | | read, not written: the inverse of `risk.mitigated_by`, the risks the task controls; writing it is E079 ([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)) |
 | status | enum{pending, done} | C | done when a recorded commit names it or its plan's summary is complete; pending otherwise. The task is complete (`complete_when`) while `done` |
 
 ## checkpoint
@@ -103,12 +99,9 @@ An option is a block, not an entity: nothing outside its checkpoint names it, so
 
 GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict can name it.
 
-A truth reads back the risks that name it in `risk.mitigated_by` as `mitigates`, never written: writing it is E079
-([ADR 0359](../../../docs/adr/0359-requirement-and-decision-fields-absorb-feature-constraint-and-decision.md)).
-
 | Kind | Fields |
 |---|---|
-| truth | `plan R I`, `text str R` (user-observable), `requirement ref requirement` (the requirement it proves; read back as `requirement.truths`), `proof refs test` (the `@code/core` test facts that prove it, quoted ids such as `"js:pkg/a.test.js#adds"`; with no `@code/core` loaded a written proof is I004), `verification enum{explicit, backstop} U` (a person's to write), `proposed_verification enum{explicit, backstop} I` (the tier the planner proposes, `backstop` for a lifted backstop edge; a person confirms it in `verification`, and a verifier abstains on a proposed backstop with no `verification`), `criterion int` (the phase success criterion it proves). Name `TR1`. |
+| truth | `plan R I`, `text str R` (user-observable), `verification enum{explicit, backstop}` (`explicit`: a named passing test; `backstop`: judged, and a verifier abstains on it with no explicit evidence. The planner writes `backstop` for a lifted backstop edge, as upstream's `{ statement, verification: backstop }`; a person may change it). Name `TR1`. |
 | artifact | `plan R I`, `path path<planned> R` (a path the plan creates: checked once the plan is complete, E016), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
 | key_link | `plan R I`, `from path<planned> R`, `to path<planned> R` (paths the plan creates: checked once the plan is complete, E016), `via str R`, `pattern str`. Name `KL1`. |
 | prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |
@@ -116,7 +109,7 @@ A truth reads back the risks that name it in `risk.mitigated_by` as `mitigates`,
 ## disposition
 
 GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-convergence`. Append-only. Name `DSP1`.
-`plan → plan R`, `round int R`, `reviewer str R`, `feedback str R`, `outcome enum{addressed, deferred} R`, `reason str`, `concern → review_concern` (the review concern it rules on: its status reads the disposition with the highest round).
+`plan → plan R`, `round int R`, `feedback str R`, `outcome enum{addressed, deferred} R`, `reason str`, `concern → review_concern` (the review concern it rules on: its status reads the disposition with the highest round).
 
 ## user_setup
 
@@ -191,7 +184,7 @@ one line; the same open conflict twice is one entity), `specforge gsd resolve-co
 GSD's plan checker is a prompt with twelve dimensions. Here each dimension is a rule: the ones code can decide are
 declarative rules or passes; the rest are **judged** (K7): the checker agent records a `verdict` member in the plan's file, and
 the verdict goes stale when any of the plan-check inputs changes ([rules.md](rules.md#judged-rules-inputs)): the plan
-and its tasks and must-haves, its phase, its requirements, the decisions it lists, the phase's and the project's decisions, the context,
+and its tasks and must-haves, its phase, its requirements, the phase's and the project's decisions, the context,
 the research, its sibling plans, the agent instruction files, and what the checker cited. A plan is `checked` only
 with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose plans are not. The mapping is in
 [rules.md](rules.md#plan).
@@ -204,7 +197,7 @@ with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose pla
     cited       [AUTH-07, "src/http/middleware.ts"]
     cited_tests []
     inputs      { plan "sha256:9f1c…" body "sha256:41d7…" phase "sha256:04ab…" requirements "sha256:5e21…"
-                  decisions "sha256:c3d0…" phase_decisions "sha256:5b17…" all_decisions "sha256:e0b9…"
+                  phase_decisions "sha256:5b17…" all_decisions "sha256:e0b9…"
                   context "sha256:7a4f…" research "sha256:19cd…" research_items "sha256:b6a2…"
                   siblings "sha256:2f80…" instructions "sha256:77e0…" cited "sha256:a8f3…" }
     findings    []

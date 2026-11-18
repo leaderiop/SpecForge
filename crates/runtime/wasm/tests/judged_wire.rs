@@ -3,10 +3,7 @@
 use serde_json::Value;
 use specforge_protocol_types::PassInput;
 
-#[specforge_test_macros::test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "a pass input carries each entity's judgements as they were written"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-058")]
 fn a_pass_input_reads_back_with_its_judgements() {
     let path =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/wire/pass.judged.input.json");

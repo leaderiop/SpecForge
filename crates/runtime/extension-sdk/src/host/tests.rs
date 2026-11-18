@@ -8,10 +8,7 @@ use super::in_process::{self, InProcessHost};
 use super::*;
 
 /// One value of each kind in every request and answer the conversions carry, there and back.
-#[specforge_test(
-    behavior = "call_host_ports_from_the_sdk",
-    verify = "every port request and answer survives the SDK's WIT conversion"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn every_port_request_and_answer_survives_the_wit_conversion() {
     use bindings::specforge::host::{fs, git, process, syntax, types};
     let request = HttpRequest {
@@ -475,10 +472,7 @@ fn a_request_has_no_place_for_what_only_the_host_sets() {
     assert_eq!(back.secret, None);
 }
 
-#[specforge_test(
-    behavior = "call_host_ports_from_the_sdk",
-    verify = "a port called outside any host is answered denied(call-kind)"
-)]
+#[specforge_test(requirement = "FEATURE-137")]
 fn a_port_called_outside_any_host_is_denied_its_call_kind() {
     assert!(matches!(
         fs::stat("project", "a"),

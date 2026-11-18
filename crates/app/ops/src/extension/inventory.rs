@@ -307,10 +307,8 @@ mod tests {
         }
     }
 
-    #[specforge_test(
-        behavior = "management_operations_over_the_project_view",
-        verify = "list, doctor and remove read one inventory of the project's extensions"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
+    #[specforge_test(requirement = "FEATURE-070")]
     fn one_row_per_name_with_its_origin_status_version_and_facts() {
         let changed = LoadProblem::Changed {
             locked: "a".into(),
@@ -425,10 +423,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        behavior = "list_installed_extensions",
-        verify = "an extension's source is where the extension load takes it from, whatever order its entries are in"
-    )]
+    #[specforge_test(requirement = "FEATURE-028")]
     fn an_extensions_source_is_where_the_load_takes_it() {
         // A builtin's name in the lock is a stray entry: the builtin loads.
         let fixture = Assembled::new()

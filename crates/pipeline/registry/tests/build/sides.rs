@@ -5,10 +5,7 @@ use specforge_test_macros::test as spec;
 
 use crate::support::{build, coded, codes, declare};
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "a relation declared from both of its ends is W162, once per field whose inverse_of names a field of its target kind"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_inverse_of_naming_a_field_of_the_target_kind_is_w162() {
     let declared = declare("@t/docs", |c| {
         c.kind("Doc", |k| {
@@ -44,10 +41,7 @@ fn an_inverse_of_naming_a_field_of_the_target_kind_is_w162() {
     assert_eq!(coded(&build, "W162").len(), 3, "{:?}", codes(&build));
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "two kinds that each declare a reference field targeting the other are W162 once, naming both fields"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn two_kinds_linked_both_ways_are_w162() {
     let declared = declare("@t/tree", |c| {
         c.kind("Parent", |k| {
@@ -71,10 +65,7 @@ fn two_kinds_linked_both_ways_are_w162() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "two kinds linked both ways where one field names its reverse are two relations, not W162"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_field_that_names_its_reverse_is_its_own_relation() {
     let declared = declare("@t/tree", |c| {
         c.kind("Parent", |k| {
@@ -96,10 +87,7 @@ fn a_field_that_names_its_reverse_is_its_own_relation() {
     assert!(coded(&build, "W162").is_empty(), "{:?}", codes(&build));
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "a union whose inverse_of names a field one of its kinds registers is W162 once per such kind"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_unions_reverse_a_kind_of_it_declares_is_w162() {
     let declared = declare("@t/docs", |c| {
         c.kind("Doc", |k| {

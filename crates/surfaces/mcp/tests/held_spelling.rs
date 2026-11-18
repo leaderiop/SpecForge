@@ -17,10 +17,7 @@ fn refused(server: &mut McpServer, tool: &str, arguments: Value) -> Value {
     crate::tool_errors::mcp_error(&call_tool(server, tool, arguments))
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "a refusal of test_results names it as the call spelled it"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_names_test_results_as_the_call_wrote_it() {
     let mut server = served();
     let error = refused(
@@ -36,10 +33,7 @@ fn analyze_names_test_results_as_the_call_wrote_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "a refusal of a local path in specifiers names it as the call spelled it"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn add_extension_names_a_local_path_as_the_call_wrote_it() {
     let mut server = served();
     let missing = refused(
@@ -63,10 +57,7 @@ fn add_extension_names_a_local_path_as_the_call_wrote_it() {
     );
 }
 
-#[specforge_test(
-    invariant = "mcp_structured_error_responses",
-    verify = "a call target's refusal names its path as the call spelled it"
-)]
+#[specforge_test(requirement = "INVARIANT-067")]
 fn a_call_targets_path_is_named_as_the_call_wrote_it() {
     let mut server = served();
     for (tool, arguments) in [
@@ -88,10 +79,7 @@ fn a_call_targets_path_is_named_as_the_call_wrote_it() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_analyze_tool",
-    verify = "a test_results that names a directory or nothing is invalid_input on test_results"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn analyze_refuses_a_test_results_directory_or_empty_name_on_test_results() {
     let mut server = served();
     for named in ["", "."] {

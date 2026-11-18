@@ -8,7 +8,8 @@ repository.workspace = true
 autotests = false
 
 [features]
-# `builtins::load_builtins` and `load_builtins_for`: put builtins into a
+# `builtins::load_builtins`, `load_builtins_for`, `Family` and `load_family`: put
+# builtins (all, the named ones, or one of the two sets, ADR 0369 D3) into a
 # runtime outside the extension load, for tests. `committed`: the list of every
 # committed blob and its wire answers.
 # `fixtures`: the wat-built bridge components the runtime's tests load.

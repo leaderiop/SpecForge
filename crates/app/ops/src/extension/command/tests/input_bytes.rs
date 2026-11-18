@@ -2,10 +2,7 @@
 
 use super::*;
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "the CommandInput carries the format the caller asked for and the host's date"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn command_input_differs_from_1_10_only_by_now_and_nonce() {
     let runtime = std::sync::Arc::new(fake());
     let fixture = fixture(&runtime);

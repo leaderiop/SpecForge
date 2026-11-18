@@ -62,6 +62,9 @@ pub const CARGO_AUDIT: Tool = Tool {
     install: "cargo install cargo-audit --locked",
 };
 
+/// How many characters of a failed command's stdout [`Ctx::answer`]'s error carries (the log keeps all of it).
+const ANSWER_SHOWN: usize = 400;
+
 /// What a check's `run` gets: the repo, the mode, the change set, the check's log file and the binaries the run
 /// builds once.
 pub struct Ctx<'a> {
@@ -137,6 +140,31 @@ impl Ctx<'_> {
         Ok(output)
     }
 
+    /// For a command that answers on stdout, its reason for a failure included (`specforge … --format json` prints
+    /// its error there): stdout on success. On a failure stdout is appended to the log after stderr, and the error
+    /// names the command, its status and what it printed, on one line.
+    pub fn answer(&self, cmd: &mut Command) -> Result<String, String> {
+        let shown = describe(cmd);
+        let output = self.output(cmd)?;
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        if output.status.success() {
+            return Ok(stdout);
+        }
+        self.log(stdout.trim_end());
+        let said: String = stdout
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .chars()
+            .take(ANSWER_SHOWN)
+            .collect();
+        Err(if said.is_empty() {
+            format!("`{shown}` {}", output.status)
+        } else {
+            format!("`{shown}` {}: {said}", output.status)
+        })
+    }
+
     /// The `specforge` binary cargo built, wherever the target directory is: built once per run, from
     /// `cargo build`'s own artifact message (`judge::executable_of`).
     pub fn specforge(&self) -> Result<&Path, String> {
@@ -166,11 +194,6 @@ impl Ctx<'_> {
         }
         judge::executable_of(&messages, bin)
             .ok_or_else(|| format!("cargo reported no `{bin}` executable"))
-    }
-
-    /// `<target_dir>/specforge`: where every test of the run reports (`SPECFORGE_REPORT`) and the dogfood reads.
-    pub fn reports(&self) -> PathBuf {
-        self.repo.target_dir.join("specforge")
     }
 
     /// `<target_dir>/ext`: one target directory for every guest.
@@ -458,12 +481,15 @@ pub fn run(
     }
     let log_dir = repo.target_dir.join("gate");
     std::fs::create_dir_all(&log_dir).map_err(|e| format!("{}: {e}", log_dir.display()))?;
-    // A full run's dogfood judges what this run's tests reported, not a cached run's.
-    let reports = repo.target_dir.join("specforge");
+    // A full run's dogfood judges the JUnit reports this run's tests write, not an earlier run's (ADR 0374 D5).
     if matches!(mode, Mode::Full | Mode::Ci) && only.is_none() {
-        let _ = std::fs::remove_dir_all(&reports);
+        for report in crate::dogfood::reports(&crate::dogfood::report_dir(
+            &repo.root,
+            mode.nextest_profile(),
+        )) {
+            std::fs::remove_file(&report).map_err(|e| format!("{}: {e}", report.display()))?;
+        }
     }
-    std::fs::create_dir_all(&reports).map_err(|e| format!("{}: {e}", reports.display()))?;
 
     let selected: Vec<usize> = (0..CHECKS.len())
         .filter(|&i| selections[i] != Selection::Skip)

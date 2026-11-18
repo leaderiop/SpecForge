@@ -44,7 +44,7 @@ fn project(registry: serde_json::Value) -> TestProject {
     })
 }
 
-#[specforge_test_macros::test(port = "Registry", verify = "Registry contract is satisfied")]
+#[test]
 fn the_configured_registry_over_http_keeps_the_registry_contract() {
     let server = LocalRegistry::start();
     let (key, denied) = (SigningKey::generate(), SigningKey::generate());
@@ -60,7 +60,7 @@ fn the_configured_registry_over_http_keeps_the_registry_contract() {
     assert_registry_contract(&registry, &published);
 }
 
-#[specforge_test_macros::test(port = "Registry", verify = "Registry contract is satisfied")]
+#[test]
 fn the_configured_registry_over_memory_keeps_the_registry_contract() {
     let config = RegistryConfig {
         alias: "local".to_string(),

@@ -36,10 +36,7 @@ fn touch(path: &Path) {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "hold_editor_buffers",
-    verify = "releasing a buffer reads its file through the one read and leaves nothing stale"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn releasing_a_buffer_whose_file_became_a_symlink_moves_the_inputs() {
     let (dir, mut session) = plain_project(&[("a.spec", TERM)]);
     let a = dir.root().join("a.spec");
@@ -88,10 +85,7 @@ fn an_update_that_changes_nothing_holds_one_list_twice() {
     ));
 }
 
-#[specforge_test(
-    behavior = "invalidate_changed_files",
-    verify = "a source rewritten with its own text re-parses nothing and runs no check"
-)]
+#[specforge_test(requirement = "FEATURE-050")]
 fn a_source_rewritten_with_its_own_text_changes_nothing() {
     let rt = counting();
     let (dir, mut session) = opened(&rt);

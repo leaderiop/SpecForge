@@ -34,117 +34,9 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "RequirementPersonas",
-        "source_kind": "requirement",
-        "target_kind": "persona"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "RequirementConstrains",
-        "source_kind": "requirement",
-        "target_kind": "requirement"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "RequirementProtects",
-        "source_kind": "requirement",
-        "target_kind": "invariant"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "RequirementSatisfiedBy",
         "source_kind": "requirement",
         "target_kind": "item"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "JourneyPersona",
-        "source_kind": "journey",
-        "target_kind": "persona"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "JourneyStepsRequirement",
-        "source_kind": "journey",
-        "target_kind": "requirement"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "JourneyRequirements",
-        "source_kind": "journey",
-        "target_kind": "requirement"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "JourneyMilestones",
-        "source_kind": "journey",
-        "target_kind": "milestone"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "JourneyLastUat",
-        "source_kind": "journey",
-        "target_kind": "uat_session"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "JourneyTests",
-        "source_kind": "journey",
-        "target_kind": "test"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "TermRelated",
-        "source_kind": "term",
-        "target_kind": "term"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "TermUsedIn",
-        "source_kind": "term",
-        "target_kind": null
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "MilestoneDependsOn",
-        "source_kind": "milestone",
-        "target_kind": "milestone"
       },
       {
         "description": null,
@@ -196,15 +88,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "PhaseInvariantsDue",
-        "source_kind": "phase",
-        "target_kind": "invariant"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "RetrospectiveMilestone",
         "source_kind": "retrospective",
         "target_kind": "milestone"
@@ -223,15 +106,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "LessonMilestone",
-        "source_kind": "lesson",
-        "target_kind": "milestone"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "LessonGraduatedTarget",
         "source_kind": "lesson",
         "target_kind": "decision"
@@ -244,15 +118,6 @@
         "label": "LessonGraduatedUntil",
         "source_kind": "lesson",
         "target_kind": "phase"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "MethodologySupersededBy",
-        "source_kind": "methodology",
-        "target_kind": "methodology"
       },
       {
         "description": null,
@@ -289,24 +154,6 @@
         "label": "DecisionPlan",
         "source_kind": "decision",
         "target_kind": "plan"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "DecisionSupersedes",
-        "source_kind": "decision",
-        "target_kind": "decision"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "DecisionAffects",
-        "source_kind": "decision",
-        "target_kind": null
       },
       {
         "description": null,
@@ -565,27 +412,9 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "PlanDecisions",
-        "source_kind": "plan",
-        "target_kind": "decision"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "TaskPlan",
         "source_kind": "task",
         "target_kind": "plan"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "TaskItems",
-        "source_kind": "task",
-        "target_kind": "item"
       },
       {
         "description": null,
@@ -622,24 +451,6 @@
         "label": "TruthPlan",
         "source_kind": "truth",
         "target_kind": "plan"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "TruthRequirement",
-        "source_kind": "truth",
-        "target_kind": "requirement"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "TruthProof",
-        "source_kind": "truth",
-        "target_kind": "test"
       },
       {
         "description": null,
@@ -1096,24 +907,6 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
-        "label": "UatTestFromTask",
-        "source_kind": "uat_test",
-        "target_kind": "task"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "UatTestJourney",
-        "source_kind": "uat_test",
-        "target_kind": "journey"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
         "label": "UatGapTest",
         "source_kind": "uat_gap",
         "target_kind": "uat_test"
@@ -1261,60 +1054,6 @@
         "label": "RefactorProposalPhase",
         "source_kind": "refactor_proposal",
         "target_kind": "phase"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "RiskMitigatedBy",
-        "source_kind": "risk",
-        "target_kind": null
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "RiskAffects",
-        "source_kind": "risk",
-        "target_kind": "requirement"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "RiskMilestone",
-        "source_kind": "risk",
-        "target_kind": "milestone"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "InvariantHoldsFrom",
-        "source_kind": "invariant",
-        "target_kind": "phase"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "InvariantProof",
-        "source_kind": "invariant",
-        "target_kind": "test"
-      },
-      {
-        "description": null,
-        "edge_arrowhead": null,
-        "edge_color": null,
-        "edge_style": null,
-        "label": "InvariantItems",
-        "source_kind": "invariant",
-        "target_kind": "item"
       }
     ]
   },
@@ -1493,7 +1232,7 @@
           },
           {
             "default_value": null,
-            "description": "config project_code: ^[A-Z][A-Z0-9_]*$",
+            "description": "config project_code: ^[A-Z][A-Z0-9_]*$ (upstream keeps it in config.json only; gsd-git reads this field when the setting is unset)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -1610,17 +1349,17 @@
           },
           {
             "default_value": null,
-            "description": "its heading, a feature area (### [Category]); not `category`, the quality class",
+            "description": "### [Category]",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
-            "name": "area",
+            "name": "category",
             "required": true,
             "target_kind": null
           },
           {
             "default_value": null,
-            "description": "v1, v2 or Out of Scope",
+            "description": "v1, v2 or Out of Scope (upstream: the heading it sits under)",
             "edge": null,
             "enum_values": [
               "v1",
@@ -1656,167 +1395,6 @@
           },
           {
             "default_value": null,
-            "description": "its quality characteristic (ISO/IEC 25010:2011's names, and safety from 2023) or regulatory",
-            "edge": null,
-            "enum_values": [
-              "functional",
-              "performance",
-              "compatibility",
-              "usability",
-              "reliability",
-              "security",
-              "maintainability",
-              "portability",
-              "safety",
-              "regulatory"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "category",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "must, should or could (won't is `tier out_of_scope`)",
-            "edge": null,
-            "enum_values": [
-              "must",
-              "should",
-              "could"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "priority",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the measure it is held to: `name`, a `threshold` number, its `unit` when it has one, a `direction`",
-            "edge": null,
-            "field_type": "block",
-            "inverse_of": null,
-            "members": [
-              {
-                "default_value": null,
-                "description": "what is measured",
-                "edge": null,
-                "field_type": "string",
-                "inverse_of": null,
-                "name": "name",
-                "required": true,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "the value it is held to",
-                "edge": null,
-                "field_type": "number",
-                "inverse_of": null,
-                "name": "threshold",
-                "required": true,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "its unit (ms, s, %); none for a count",
-                "edge": null,
-                "field_type": "string",
-                "inverse_of": null,
-                "name": "unit",
-                "required": false,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "at_most, at_least or exactly the threshold",
-                "edge": null,
-                "enum_values": [
-                  "at_most",
-                  "at_least",
-                  "exactly"
-                ],
-                "field_type": "enum",
-                "inverse_of": null,
-                "name": "direction",
-                "required": true,
-                "target_kind": null
-              }
-            ],
-            "name": "metric",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "where it came from: a person, quoted, or a declared `ref` (`gh.issue:42`), bare",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "source",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the personas it serves; a persona reads them back as `requirements`",
-            "edge": "RequirementPersonas",
-            "field_type": "reference_list",
-            "inverse_of": "requirements",
-            "name": "personas",
-            "required": false,
-            "target_kind": "persona"
-          },
-          {
-            "default_value": null,
-            "description": "the requirements it limits; each reads it back as `constrained_by`",
-            "edge": "RequirementConstrains",
-            "field_type": "reference_list",
-            "inverse_of": "constrained_by",
-            "name": "constrains",
-            "required": false,
-            "target_kind": "requirement"
-          },
-          {
-            "default_value": null,
-            "description": "the invariants it guards; each reads it back as `protected_by`",
-            "edge": "RequirementProtects",
-            "field_type": "reference_list",
-            "inverse_of": "protected_by",
-            "name": "protects",
-            "required": false,
-            "target_kind": "invariant"
-          },
-          {
-            "default_value": null,
-            "description": "words to group it by",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "how large it is to build, a T-shirt size",
-            "edge": null,
-            "enum_values": [
-              "xs",
-              "s",
-              "m",
-              "l",
-              "xl"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "effort",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
             "description": "Traceability status, from plans, summaries and verifications",
             "edge": null,
             "enum_values": [
@@ -1835,7 +1413,7 @@
           },
           {
             "default_value": null,
-            "description": "the code items the tasks of its plans name, held or not: sorted, each once; absent when none",
+            "description": "the code items the recorded commits of its plans' tasks changed: sorted, each once; absent until a commit is collected with item facts",
             "edge": "RequirementSatisfiedBy",
             "field_type": "reference_list",
             "inverse_of": null,
@@ -1846,7 +1424,7 @@
           },
           {
             "default_value": null,
-            "description": "how far its thread reaches: a task of its plans, a commit of one, a passing test; `proven` when whole",
+            "description": "how far its thread reaches: a task of its plans, a commit of one, a passing test (tagged with the task or the requirement, or named by a check of its coverage item); `proven` when whole. A requirement no plan lists reads its tests alone",
             "edge": null,
             "enum_values": [
               "no_task",
@@ -1897,403 +1475,6 @@
         "keyword": null,
         "lsp_icon": null,
         "name": "requirement",
-        "open_fields": false,
-        "semantic_token": null,
-        "singleton": false,
-        "supports_verify": false,
-        "testable": false,
-        "verify_kinds": []
-      },
-      {
-        "description": "A persona: who the product serves and what they want from it (beyond GSD)",
-        "dot_color": null,
-        "dot_fillcolor": null,
-        "dot_shape": null,
-        "fields": [
-          {
-            "default_value": null,
-            "description": "what the persona wants to achieve",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "goals",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "who they are and the situation they work in",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "context",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "what gets in their way today",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "pain_points",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "technical proficiency, most technical first",
-            "edge": null,
-            "enum_values": [
-              "expert",
-              "advanced",
-              "intermediate",
-              "beginner",
-              "non_technical"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "technical_level",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "deprecated when the product no longer serves them; absent means active",
-            "edge": null,
-            "enum_values": [
-              "active",
-              "deprecated"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "status",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "free words that group personas",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
-            "target_kind": null
-          }
-        ],
-        "has_body_parser": false,
-        "incremental": null,
-        "inference_guide": null,
-        "keyword": null,
-        "lsp_icon": null,
-        "name": "persona",
-        "open_fields": false,
-        "semantic_token": null,
-        "singleton": false,
-        "supports_verify": false,
-        "testable": false,
-        "verify_kinds": []
-      },
-      {
-        "description": "A persona's path through the product, step by step (beyond GSD)",
-        "dot_color": null,
-        "dot_fillcolor": null,
-        "dot_shape": null,
-        "fields": [
-          {
-            "default_value": null,
-            "description": "who takes the journey; the persona reads it back as `journeys`",
-            "edge": "JourneyPersona",
-            "field_type": "reference",
-            "inverse_of": "journeys",
-            "name": "persona",
-            "required": true,
-            "target_kind": "persona"
-          },
-          {
-            "default_value": null,
-            "description": "the surfaces it goes through, as words (cli, web): a channel is no kind",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "channels",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the ordered steps; a step names the requirement it exercises once known",
-            "edge": null,
-            "field_type": "block_list",
-            "inverse_of": null,
-            "members": [
-              {
-                "default_value": null,
-                "description": "what the persona does at this step",
-                "edge": null,
-                "field_type": "string",
-                "inverse_of": null,
-                "name": "action",
-                "required": true,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "the requirement the step exercises, once known",
-                "edge": "JourneyStepsRequirement",
-                "field_type": "reference",
-                "inverse_of": null,
-                "name": "requirement",
-                "required": false,
-                "target_kind": "requirement"
-              }
-            ],
-            "name": "steps",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the requirements it exercises as a whole; a step's `requirement` is the finer link",
-            "edge": "JourneyRequirements",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "requirements",
-            "required": false,
-            "target_kind": "requirement"
-          },
-          {
-            "default_value": null,
-            "description": "every milestone it ships in; each milestone reads it back as `journeys`",
-            "edge": "JourneyMilestones",
-            "field_type": "reference_list",
-            "inverse_of": "journeys",
-            "name": "milestones",
-            "required": false,
-            "target_kind": "milestone"
-          },
-          {
-            "default_value": null,
-            "description": "MoSCoW; a journey nobody wants is not written",
-            "edge": null,
-            "enum_values": [
-              "must",
-              "should",
-              "could"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "priority",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "free words",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the session of a UAT test that names it (`uat_test.journey`): the latest `started`, an undated session older than every dated one, then the greatest id; absent when no test names it (ADR 0357 D22)",
-            "edge": "JourneyLastUat",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "last_uat",
-            "required": false,
-            "target_kind": "uat_session",
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "it names a requirement, each one it names is proven by the requirement thread (the predicate gsd/E515 reads), and each step names one or the journey lists `requirements` (ADR 0357 D20)",
-            "edge": null,
-            "field_type": "bool",
-            "inverse_of": null,
-            "name": "covered",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the `@code/core` test facts tagged with it (`[gsd:<journey>]`), run or not: evidence beside `covered`, which reads the requirement thread only; `[]` when none (ADR 0357 D21)",
-            "edge": "JourneyTests",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "tests",
-            "required": false,
-            "target_kind": "test",
-            "writer": "computed"
-          }
-        ],
-        "has_body_parser": false,
-        "incremental": null,
-        "inference_guide": null,
-        "keyword": null,
-        "lsp_icon": null,
-        "name": "journey",
-        "open_fields": false,
-        "semantic_token": null,
-        "singleton": false,
-        "supports_verify": false,
-        "testable": false,
-        "verify_kinds": []
-      },
-      {
-        "description": "A glossary entry: a word of the project and what it means (beyond GSD)",
-        "dot_color": null,
-        "dot_fillcolor": null,
-        "dot_shape": null,
-        "fields": [
-          {
-            "default_value": null,
-            "description": "the word or phrase as prose writes it; a pass sees no title, so the vocabulary checks read this",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "name",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "what it means in this project",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "definition",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "synonyms not to use for it; a word the glossary accepts (this term's `name` or `aliases`, or another term's) is gsd/W538",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "avoid",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "other accepted names; one also in a term's `avoid` is gsd/W538",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "aliases",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "related terms",
-            "edge": "TermRelated",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "related",
-            "required": false,
-            "target_kind": "term"
-          },
-          {
-            "default_value": null,
-            "description": "where or how it is used",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "context",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "free words",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the entities whose prose holds its `name` or one of its `aliases` as a whole word or phrase, by id; `[]` when none (ADR 0357 D17)",
-            "edge": "TermUsedIn",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "used_in",
-            "required": false,
-            "target_kind": null,
-            "target_kinds": [
-              "project",
-              "requirement",
-              "persona",
-              "journey",
-              "milestone",
-              "phase",
-              "workstream",
-              "retrospective",
-              "lesson",
-              "methodology",
-              "context",
-              "decision",
-              "deferred_idea",
-              "phase_spec",
-              "locked_req",
-              "interview",
-              "edge",
-              "spec_prohibition",
-              "discussion",
-              "research",
-              "finding",
-              "stack_choice",
-              "pattern",
-              "pitfall",
-              "dont_hand_roll",
-              "open_question",
-              "plan",
-              "task",
-              "checkpoint",
-              "truth",
-              "artifact",
-              "prohibition",
-              "disposition",
-              "review",
-              "review_concern",
-              "revision_conflict",
-              "user_setup",
-              "summary",
-              "deliverable",
-              "deviation",
-              "pause",
-              "handoff",
-              "blocker",
-              "verify_gap",
-              "override",
-              "human_item",
-              "uat_test",
-              "uat_gap",
-              "manual_check",
-              "milestone_audit",
-              "broken_window",
-              "risk",
-              "invariant"
-            ],
-            "writer": "computed"
-          }
-        ],
-        "has_body_parser": false,
-        "incremental": null,
-        "inference_guide": null,
-        "keyword": null,
-        "lsp_icon": null,
-        "name": "term",
         "open_fields": false,
         "semantic_token": null,
         "singleton": false,
@@ -2369,86 +1550,6 @@
           },
           {
             "default_value": null,
-            "description": "what must hold to call it done (beyond GSD)",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "exit_criteria",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "when work on it starts (beyond GSD)",
-            "edge": null,
-            "field_type": "date",
-            "inverse_of": null,
-            "name": "starts",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the date it aims to ship; not before `starts`, gsd/E537 (beyond GSD)",
-            "edge": null,
-            "field_type": "date",
-            "inverse_of": null,
-            "name": "targets",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the milestones that ship before it; acyclic, gsd/E102 (beyond GSD)",
-            "edge": "MilestoneDependsOn",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "depends_on",
-            "required": false,
-            "target_kind": "milestone"
-          },
-          {
-            "default_value": null,
-            "description": "the person or team that answers for it (beyond GSD)",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "owner",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the others working on it (beyond GSD)",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "contributors",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the kinds of thing it ships, as words: cli, library, extension, service (beyond GSD)",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "artifact_types",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "free words (beyond GSD)",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
             "description": "gsd-path's abandon ruling",
             "edge": null,
             "field_type": "block",
@@ -2491,7 +1592,7 @@
           },
           {
             "default_value": null,
-            "description": "the workstream that scopes it; absent outside one",
+            "description": "the workstream that scopes it; absent outside one (upstream: the workstream directory that holds its state)",
             "edge": "MilestoneWorkstream",
             "field_type": "reference",
             "immutable": true,
@@ -2729,50 +1830,6 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the highest current rpn of the risks it carries: its phases' and those that name it (beyond GSD)",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "name": "risk_level",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the journeys whose `milestones` list it, and how many of them are `covered`; absent with none (beyond GSD, ADR 0357 D23)",
-            "edge": null,
-            "field_type": "block",
-            "inverse_of": null,
-            "members": [
-              {
-                "default_value": null,
-                "description": null,
-                "edge": null,
-                "field_type": "integer",
-                "inverse_of": null,
-                "name": "journeys",
-                "required": false,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": null,
-                "edge": null,
-                "field_type": "integer",
-                "inverse_of": null,
-                "name": "covered",
-                "required": false,
-                "target_kind": null
-              }
-            ],
-            "name": "journeys_covered",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -2890,16 +1947,6 @@
           },
           {
             "default_value": null,
-            "description": "the parenthetical, (Cluster B)",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "tag",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
             "description": "(INSERTED): a decimal name",
             "edge": null,
             "field_type": "bool",
@@ -2982,28 +2029,6 @@
             "name": "completed",
             "required": false,
             "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the highest current rpn of the risks its plans mitigate (beyond GSD)",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "name": "risk_level",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the invariants a commit of the phase changed after their last gsd/I536 verdict (gsd/E531); each reads it back as `due_in` (beyond GSD)",
-            "edge": "PhaseInvariantsDue",
-            "field_type": "reference_list",
-            "inverse_of": "due_in",
-            "name": "invariants_due",
-            "required": false,
-            "target_kind": "invariant",
             "writer": "computed"
           }
         ],
@@ -3242,16 +2267,6 @@
           {
             "default_value": null,
             "description": null,
-            "edge": "LessonMilestone",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "milestone",
-            "required": false,
-            "target_kind": "milestone"
-          },
-          {
-            "default_value": null,
-            "description": null,
             "edge": null,
             "field_type": "bool",
             "inverse_of": null,
@@ -3410,30 +2425,6 @@
             "name": "apply_when",
             "required": false,
             "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": null,
-            "edge": null,
-            "enum_values": [
-              "active",
-              "superseded"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "status",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": null,
-            "edge": "MethodologySupersededBy",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "superseded_by",
-            "required": false,
-            "target_kind": "methodology"
           }
         ],
         "has_body_parser": false,
@@ -3468,7 +2459,7 @@
           },
           {
             "default_value": null,
-            "description": "the quick plan of a quick task's context (/gsd-quick --discuss)",
+            "description": "the quick plan of a quick task's context (a /gsd-quick run with discussion)",
             "edge": "ContextPlan",
             "field_type": "reference",
             "immutable": true,
@@ -3668,83 +2659,11 @@
           },
           {
             "default_value": null,
-            "description": "what prompted it (an ADR's Context)",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "context",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the options weighed and not chosen, each with why it lost",
-            "edge": null,
-            "field_type": "block_list",
-            "inverse_of": null,
-            "members": [
-              {
-                "default_value": null,
-                "description": null,
-                "edge": null,
-                "field_type": "string",
-                "inverse_of": null,
-                "name": "name",
-                "required": true,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": null,
-                "edge": null,
-                "field_type": "string_list",
-                "inverse_of": null,
-                "name": "pros",
-                "required": false,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": null,
-                "edge": null,
-                "field_type": "string_list",
-                "inverse_of": null,
-                "name": "cons",
-                "required": false,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "why it was not chosen",
-                "edge": null,
-                "field_type": "string",
-                "inverse_of": null,
-                "name": "why_not",
-                "required": false,
-                "target_kind": null
-              }
-            ],
-            "name": "alternatives",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
             "description": "Key Decisions Rationale",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
             "name": "rationale",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "what follows from it, good and bad (an ADR's Consequences)",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "consequences",
             "required": false,
             "target_kind": null
           },
@@ -3803,73 +2722,6 @@
             "inverse_of": null,
             "name": "origin",
             "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the day it was taken; a change is a new decision that supersedes it",
-            "edge": null,
-            "field_type": "date",
-            "immutable": true,
-            "inverse_of": null,
-            "name": "decided",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "who took it",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "deciders",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the earlier decisions this one reverses; each reads it back as `superseded_by`",
-            "edge": "DecisionSupersedes",
-            "field_type": "reference_list",
-            "inverse_of": "superseded_by",
-            "name": "supersedes",
-            "required": false,
-            "target_kind": "decision"
-          },
-          {
-            "default_value": null,
-            "description": "false once a decision supersedes it with force (one of origin context or project, or a settled one, only by a decision of origin context or project, and none round a cycle): it no longer holds, so no plan lists it and no prompt holds it locked",
-            "edge": null,
-            "field_type": "bool",
-            "inverse_of": null,
-            "name": "in_force",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "what it shapes: requirements, invariants, code items (`@code/core`); each reads it back as `affected_by`",
-            "edge": "DecisionAffects",
-            "field_type": "reference_list",
-            "inverse_of": "affected_by",
-            "name": "affects",
-            "required": false,
-            "target_kind": null,
-            "target_kinds": [
-              "requirement",
-              "invariant",
-              "item"
-            ]
-          },
-          {
-            "default_value": null,
-            "description": "words to group decisions by",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
             "target_kind": null
           }
         ],
@@ -4919,7 +3771,7 @@
           },
           {
             "default_value": null,
-            "description": "the quick plan of a quick task's research (/gsd-quick --research)",
+            "description": "the quick plan of a quick task's research (a /gsd-quick run with research)",
             "edge": "ResearchPlan",
             "field_type": "reference",
             "immutable": true,
@@ -5092,7 +3944,7 @@
           },
           {
             "default_value": null,
-            "description": null,
+            "description": "the project research file it comes from (upstream: the file, here a value)",
             "edge": null,
             "enum_values": [
               "stack",
@@ -5134,7 +3986,7 @@
           },
           {
             "default_value": null,
-            "description": null,
+            "description": "the sources it cites (upstream tags the claim with its source in its text)",
             "edge": "FindingSources",
             "field_type": "reference_list",
             "inverse_of": null,
@@ -5524,7 +4376,7 @@
           },
           {
             "default_value": null,
-            "description": null,
+            "description": "the decision that answers it (upstream marks it `RESOLVED:` in its text)",
             "edge": "OpenQuestionResolvedBy",
             "field_type": "reference",
             "inverse_of": null,
@@ -5823,16 +4675,6 @@
           },
           {
             "default_value": null,
-            "description": "`decisions:` the context decisions this plan implements (`D-NN`, resolved in its phase), read back as `implemented_by`; gsd/E310, W317, W506 and E312 read it",
-            "edge": "PlanDecisions",
-            "field_type": "reference_list",
-            "inverse_of": "implemented_by",
-            "name": "decisions",
-            "required": false,
-            "target_kind": "decision"
-          },
-          {
-            "default_value": null,
             "description": "`wave: 0`: the plan builds the phase's wave-0 items",
             "edge": null,
             "field_type": "bool",
@@ -6115,8 +4957,7 @@
             "enum_values": [
               "auto",
               "tdd",
-              "tracer",
-              "manual"
+              "tracer"
             ],
             "field_type": "enum",
             "inverse_of": null,
@@ -6161,16 +5002,6 @@
             "name": "read_first",
             "required": false,
             "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the code items the task targets: `@code/core` item facts, quoted; a pending task may name one not written yet",
-            "edge": "TaskItems",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "items",
-            "required": false,
-            "target_kind": "item"
           },
           {
             "default_value": null,
@@ -6313,7 +5144,7 @@
           },
           {
             "default_value": null,
-            "description": "the directory and the manifest each `automated` command runs in (`cd`, `--prefix`), read by gsd/E320; each distinct path is listed once, on the first task (by id) that names it, so the host reads it once",
+            "description": "the directory and the manifest each `automated` command runs in (a `cd`, or a tool's prefix option), read by gsd/E320; each distinct path is listed once, on the first task (by id) that names it, so the host reads it once",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -6629,27 +5460,7 @@
           },
           {
             "default_value": null,
-            "description": "the requirement it proves; the requirement reads its truths back as `truths`",
-            "edge": "TruthRequirement",
-            "field_type": "reference",
-            "inverse_of": "truths",
-            "name": "requirement",
-            "required": false,
-            "target_kind": "requirement"
-          },
-          {
-            "default_value": null,
-            "description": "the tests that prove it: `@code/core` test facts, quoted (`\"js:pkg/a.test.js#adds\"`)",
-            "edge": "TruthProof",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "proof",
-            "required": false,
-            "target_kind": "test"
-          },
-          {
-            "default_value": null,
-            "description": "explicit: a named passing test; backstop: judged",
+            "description": "explicit: a named passing test; backstop: judged, and a verifier abstains on it with no explicit evidence. The planner writes `backstop` for a lifted backstop edge; a person may change the tier",
             "edge": null,
             "enum_values": [
               "explicit",
@@ -6658,32 +5469,6 @@
             "field_type": "enum",
             "inverse_of": null,
             "name": "verification",
-            "required": false,
-            "target_kind": null,
-            "writer": "human"
-          },
-          {
-            "default_value": null,
-            "description": "the tier the planner proposes (backstop for a lifted backstop edge); a person confirms it by setting `verification`, and a verifier abstains on a proposed backstop with no `verification`",
-            "edge": null,
-            "enum_values": [
-              "explicit",
-              "backstop"
-            ],
-            "field_type": "enum",
-            "immutable": true,
-            "inverse_of": null,
-            "name": "proposed_verification",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the phase success criterion it proves",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "name": "criterion",
             "required": false,
             "target_kind": null
           }
@@ -7010,17 +5795,6 @@
             "immutable": true,
             "inverse_of": null,
             "name": "round",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "who raised it",
-            "edge": null,
-            "field_type": "string",
-            "immutable": true,
-            "inverse_of": null,
-            "name": "reviewer",
             "required": true,
             "target_kind": null
           },
@@ -8619,7 +7393,7 @@
           },
           {
             "default_value": null,
-            "description": "why the work stopped",
+            "description": "where and why the work stopped (STATE.md's `Stopped at:`)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -8834,7 +7608,7 @@
           },
           {
             "default_value": null,
-            "description": "the plan it blocks",
+            "description": "the plan whose gate tripped (STATE.md's `last_gate_trip`), or that it blocks",
             "edge": "BlockerPlan",
             "field_type": "reference",
             "inverse_of": null,
@@ -8844,7 +7618,7 @@
           },
           {
             "default_value": null,
-            "description": "the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker --gate`",
+            "description": "the task whose TDD gate tripped (STATE.md's `last_gate_trip`), written by `raise_blocker` when a gate is given",
             "edge": "BlockerGate",
             "field_type": "reference",
             "inverse_of": null,
@@ -9609,7 +8383,7 @@
           {
             "append_only": true,
             "default_value": null,
-            "description": "`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result --follow-up`",
+            "description": "`## Deferred Follow-Ups`: each skipped test's idea, verbatim, written by `set_uat_result` when a follow-up is given",
             "edge": null,
             "field_type": "block_list",
             "inverse_of": null,
@@ -9777,26 +8551,6 @@
           },
           {
             "default_value": null,
-            "description": "the phase success criterion it proves",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "name": "criterion",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "a harvested `<human-check>`",
-            "edge": "UatTestFromTask",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "from_task",
-            "required": false,
-            "target_kind": "task"
-          },
-          {
-            "default_value": null,
             "description": "written from the person's answer",
             "edge": null,
             "enum_values": [
@@ -9815,7 +8569,7 @@
           },
           {
             "default_value": null,
-            "description": "an automated result is marked by the caller (a collector, or `--source automated`)",
+            "description": "the caller marks a result automated, through a collector or by setting the source to automated",
             "edge": null,
             "enum_values": [
               "human",
@@ -9880,16 +8634,6 @@
             "name": "blocked_by",
             "required": false,
             "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "beyond GSD: the journey the test walks; the journey reads it back as `uat_tests` (ADR 0357 D22)",
-            "edge": "UatTestJourney",
-            "field_type": "reference",
-            "inverse_of": "uat_tests",
-            "name": "journey",
-            "required": false,
-            "target_kind": "journey"
           }
         ],
         "has_body_parser": false,
@@ -11254,414 +9998,6 @@
         "name": "refactor_proposal",
         "open_fields": false,
         "scoped_by": "phase",
-        "semantic_token": null,
-        "singleton": false,
-        "supports_verify": false,
-        "testable": false,
-        "verify_kinds": []
-      },
-      {
-        "description": "A risk: what can go wrong, rated 1 to 10 for severity, occurrence and detection (FMEA), and what controls it (beyond GSD)",
-        "dot_color": null,
-        "dot_fillcolor": null,
-        "dot_shape": null,
-        "fields": [
-          {
-            "default_value": null,
-            "description": "what makes it happen",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "cause",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "what breaks when it does",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "effect",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "1 no effect … 10 hazardous, without warning",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "maximum": 10,
-            "minimum": 1,
-            "name": "severity",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "1 remote … 10 almost certain",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "maximum": 10,
-            "minimum": 1,
-            "name": "occurrence",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "1 almost certainly caught before harm … 10 cannot be caught",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "maximum": 10,
-            "minimum": 1,
-            "name": "detection",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the ratings once every mitigation is done; a member left out keeps its pre rating",
-            "edge": null,
-            "field_type": "block",
-            "inverse_of": null,
-            "members": [
-              {
-                "default_value": null,
-                "description": "severity once mitigated",
-                "edge": null,
-                "field_type": "integer",
-                "inverse_of": null,
-                "maximum": 10,
-                "minimum": 1,
-                "name": "severity",
-                "required": false,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "occurrence once mitigated",
-                "edge": null,
-                "field_type": "integer",
-                "inverse_of": null,
-                "maximum": 10,
-                "minimum": 1,
-                "name": "occurrence",
-                "required": false,
-                "target_kind": null
-              },
-              {
-                "default_value": null,
-                "description": "detection once mitigated",
-                "edge": null,
-                "field_type": "integer",
-                "inverse_of": null,
-                "maximum": 10,
-                "minimum": 1,
-                "name": "detection",
-                "required": false,
-                "target_kind": null
-              }
-            ],
-            "name": "post",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "what controls it: a task done, a truth verified, an invariant that holds; each reads it back as `mitigates`",
-            "edge": "RiskMitigatedBy",
-            "field_type": "reference_list",
-            "inverse_of": "mitigates",
-            "name": "mitigated_by",
-            "required": false,
-            "target_kind": null,
-            "target_kinds": [
-              "task",
-              "truth",
-              "invariant"
-            ]
-          },
-          {
-            "default_value": null,
-            "description": "the planned control as prose; no evidence",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "mitigation",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "the requirements it threatens; each reads it back as `risks`",
-            "edge": "RiskAffects",
-            "field_type": "reference_list",
-            "inverse_of": "risks",
-            "name": "affects",
-            "required": false,
-            "target_kind": "requirement"
-          },
-          {
-            "default_value": null,
-            "description": "where it must be settled when no phase's plan mitigates it; the milestone reads it back as `risks`",
-            "edge": "RiskMilestone",
-            "field_type": "reference",
-            "inverse_of": "risks",
-            "name": "milestone",
-            "required": false,
-            "target_kind": "milestone"
-          },
-          {
-            "default_value": null,
-            "description": "words to group it",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "free prose",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "description",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "external references",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "refs",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "severity × occurrence × detection (1 to 1000)",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "name": "rpn",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the post ratings' product; the rpn without a post block",
-            "edge": null,
-            "field_type": "integer",
-            "inverse_of": null,
-            "name": "post_rpn",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "open while it names no mitigation, mitigated once every one it names is done, else mitigating",
-            "edge": null,
-            "enum_values": [
-              "open",
-              "mitigating",
-              "mitigated"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "status",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "its current rpn (post_rpn once mitigated, else rpn) is at or above specforge.risk_block_on; without a post block post_rpn is the rpn, so a mitigated risk stops blocking once post ratings bring it under",
-            "edge": null,
-            "field_type": "bool",
-            "inverse_of": null,
-            "name": "blocking",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          }
-        ],
-        "has_body_parser": false,
-        "incremental": null,
-        "inference_guide": null,
-        "keyword": null,
-        "lsp_icon": null,
-        "name": "risk",
-        "open_fields": false,
-        "semantic_token": null,
-        "singleton": false,
-        "supports_verify": false,
-        "testable": false,
-        "verify_kinds": []
-      },
-      {
-        "complete_when": {
-          "field": "status",
-          "values": [
-            "unverified",
-            "stale",
-            "holds",
-            "violated",
-            "uncertain"
-          ]
-        },
-        "description": "An invariant: what must always hold, from which phase, proven by which tests, over which code items (beyond GSD)",
-        "dot_color": null,
-        "dot_fillcolor": null,
-        "dot_shape": null,
-        "fields": [
-          {
-            "default_value": null,
-            "description": "what must always hold",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "statement",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "a summary beside the statement",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "description",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "how far it reaches: the project (absent), or the milestone of its `holds_from` phase",
-            "edge": null,
-            "enum_values": [
-              "project",
-              "milestone"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "scope",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "in force once this phase has been complete (executed or after) or verified, and for good; absent: from the start",
-            "edge": "InvariantHoldsFrom",
-            "field_type": "reference",
-            "inverse_of": null,
-            "name": "holds_from",
-            "required": false,
-            "target_kind": "phase"
-          },
-          {
-            "default_value": null,
-            "description": "the tests that prove it: `@code/core` test facts, quoted (`\"js:pkg/a.test.js#adds\"`)",
-            "edge": "InvariantProof",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "proof",
-            "required": false,
-            "target_kind": "test"
-          },
-          {
-            "default_value": null,
-            "description": "the code items it holds over: `@code/core` item facts, quoted (`\"js:pkg/src/a.js::add\"`)",
-            "edge": "InvariantItems",
-            "field_type": "reference_list",
-            "inverse_of": null,
-            "name": "items",
-            "required": false,
-            "target_kind": "item"
-          },
-          {
-            "default_value": null,
-            "description": "what a violation costs",
-            "edge": null,
-            "enum_values": [
-              "critical",
-              "high",
-              "medium",
-              "low"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "criticality",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "words to group it",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "tags",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "external references: issue or document URIs",
-            "edge": null,
-            "field_type": "string_list",
-            "inverse_of": null,
-            "name": "refs",
-            "required": false,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
-            "description": "pending until its holds_from phase has been complete or verified; then unverified (no usable verdict), stale, or the fresh verdict's outcome",
-            "edge": null,
-            "enum_values": [
-              "pending",
-              "unverified",
-              "stale",
-              "holds",
-              "violated",
-              "uncertain"
-            ],
-            "field_type": "enum",
-            "inverse_of": null,
-            "name": "status",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          },
-          {
-            "default_value": null,
-            "description": "the time of the fresh verdict that it holds; absent otherwise",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "last_verified",
-            "required": false,
-            "target_kind": null,
-            "writer": "computed"
-          }
-        ],
-        "has_body_parser": false,
-        "incremental": null,
-        "inference_guide": null,
-        "keyword": null,
-        "lsp_icon": null,
-        "name": "invariant",
-        "open_fields": false,
         "semantic_token": null,
         "singleton": false,
         "supports_verify": false,

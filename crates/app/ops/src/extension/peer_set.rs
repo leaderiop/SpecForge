@@ -363,10 +363,7 @@ mod tests {
         (dir, installed, runtime, entries)
     }
 
-    #[specforge_test(
-        invariant = "peer_dependency_satisfaction",
-        verify = "add, init, update and remove judge the set check judges: the extensions the project's entries load"
-    )]
+    #[specforge_test(requirement = "INVARIANT-110")]
     fn the_set_is_what_the_entries_load() {
         let disk = MemoryDisk::new()
             .with_file("/p/base.wasm", testing::BASE_2)
@@ -439,10 +436,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        invariant = "peer_dependency_satisfaction",
-        verify = "add, init, update and remove judge the set check judges: the extensions the project's entries load"
-    )]
+    #[specforge_test(requirement = "INVARIANT-110")]
     fn the_prediction_reads_each_file_entry_once_through_its_disk() {
         let disk = MemoryDisk::new()
             .with_file("/p/base.wasm", testing::BASE_2)
@@ -480,10 +474,7 @@ mod tests {
         );
     }
 
-    #[specforge_test(
-        invariant = "peer_dependency_satisfaction",
-        verify = "the lock plan's peer set of the project as it is names what the extension load loads, in entry order, from the entries it loads them by"
-    )]
+    #[specforge_test(requirement = "INVARIANT-110")]
     fn the_prediction_of_the_project_as_it_is_is_what_the_load_loads() {
         let (dir, installed, runtime, entries) = broken_installs();
 
@@ -548,10 +539,7 @@ mod tests {
         assert!(set.member("@probe/changed").is_some());
     }
 
-    #[specforge_test(
-        invariant = "peer_dependency_satisfaction",
-        verify = "add, init, update and remove judge the set check judges: the extensions the project's entries load"
-    )]
+    #[specforge_test(requirement = "INVARIANT-110")]
     fn loaded_by_takes_a_builtin_only_from_its_entry() {
         // A view assembled with a `.wasm` file entry loaded under a builtin's name (the load
         // refuses one since ADR 0214): its declaration is still filed by origin, not by name.

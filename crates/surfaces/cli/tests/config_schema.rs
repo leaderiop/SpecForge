@@ -131,20 +131,13 @@ fn no_unread_test_dirs_config_is_documented() {
             .contains("test_dirs"),
         "$comment lists test_dirs as consumed"
     );
-    for doc in [
-        "docs/entities/spec.md",
-        "docs/quick-reference.md",
-        "spec/types/config.spec",
-    ] {
+    for doc in ["docs/entities/spec.md", "docs/quick-reference.md"] {
         let text = std::fs::read_to_string(repo_root().join(doc)).unwrap();
         assert!(!text.contains("test_dirs"), "{doc} documents `test_dirs`");
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "schema --config holds every loaded setting and a valid file validates against it"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_project_config_schema_holds_every_loaded_setting() {
     use serde_json::json;
     use specforge_ops::view::ProjectView;
@@ -213,10 +206,7 @@ fn the_project_config_schema_holds_every_loaded_setting() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "load_extension_settings",
-    verify = "the shipped schema types settings by extension in both copies"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn the_shipped_schema_types_settings_by_extension() {
     for path in [
         "schema/specforge.schema.json",

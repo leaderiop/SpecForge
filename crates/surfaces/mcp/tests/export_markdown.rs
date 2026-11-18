@@ -6,10 +6,7 @@ use specforge_ops::read::export::{Format, Request};
 use specforge_ops::view::ProjectView;
 use specforge_test_macros::test as specforge_test;
 
-#[specforge_test(
-    behavior = "export_review_document",
-    verify = "specforge.export answers the same document as specforge export"
-)]
+#[specforge_test(requirement = "FEATURE-112")]
 fn the_export_tool_answers_the_review_document() {
     let mut server = TestProject::new()
         .enabling(&["@specforge/software"])

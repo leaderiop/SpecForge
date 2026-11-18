@@ -53,8 +53,8 @@ the ledger's shape rather than restating it — this is the one place it is defi
 ## Review Dispositions Ledger
 
 The ledger is one `disposition` per concern a plan rules on (`specforge new disposition --help`): its `concern` is
-the `review_concern` id, its `outcome` `addressed` or `deferred` (with the `reason` when deferred), its `round` the
-reviews-mode round number and its `reviewer` who raised the concern. A disposition is what turns the concern's computed `status` from `open`. Fill the values, one line per
+the `review_concern` id, its `outcome` `addressed` or `deferred` (with the `reason` when deferred) and its `round` the
+reviews-mode round number; who raised the concern is the concern's `reviewers`. A disposition is what turns the concern's computed `status` from `open`. Fill the values, one line per
 concern, each with the plan's next disposition id:
 
 ```bash
@@ -62,7 +62,6 @@ PLAN_ID="{the plan that rules on the concern, e.g. v1.0/02/02-01}"
 DISPOSITION_ID="{the plan's next disposition id, e.g. DP1}"
 CONCERN_ID="{the review_concern id, e.g. v1.0/02/RV1/RC1}"
 ROUND="{the reviews-mode round number, e.g. 1}"
-REVIEWER="{who raised the concern, e.g. codex}"
 IFS= read -rd '' FEEDBACK <<'TEXT' || true; FEEDBACK=${FEEDBACK%$'\n'}
 {the concern, in a few words}
 TEXT
@@ -71,7 +70,7 @@ IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\n'}
 {how it was addressed, or why it was deferred}
 TEXT
 PLAN_FILE=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].file') || exit 1
-specforge new disposition "$DISPOSITION_ID" "$FEEDBACK" --in "$PLAN_FILE" --plan "$PLAN_ID" --round "$ROUND" --reviewer "$REVIEWER" --concern "$CONCERN_ID" --feedback "$FEEDBACK" --outcome "$OUTCOME" --reason "$REASON" || exit 1
+specforge new disposition "$DISPOSITION_ID" "$FEEDBACK" --in "$PLAN_FILE" --plan "$PLAN_ID" --round "$ROUND" --concern "$CONCERN_ID" --feedback "$FEEDBACK" --outcome "$OUTCOME" --reason "$REASON" || exit 1
 ```
 
 **Anchoring.** A disposition names its concern and round by id, so it stays anchored when the next round is

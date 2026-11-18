@@ -1,9 +1,6 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "a file's configuration does not depend on where format runs"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn each_file_uses_its_nearest_config() {
     let two = "behavior login \"Login\" {\n  contract \"The system MUST log in\"\n}\n";
     let dir = project_with(
@@ -23,10 +20,7 @@ fn each_file_uses_its_nearest_config() {
     assert_eq!((named.checked, named.changes.len()), (1, 0));
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "invalid indent_width produces diagnostic and uses default"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn an_invalid_config_is_reported_once_per_run() {
     let dir = project_with(
         "{}",
@@ -51,10 +45,7 @@ fn an_invalid_config_is_reported_once_per_run() {
     assert_eq!(w141.len(), 1, "{w141:?}");
 }
 
-#[specforge_test(
-    behavior = "load_format_config",
-    verify = "a file is formatted with the configuration of its own project"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_nested_projects_file_uses_its_own_projects_config() {
     let two = "behavior login \"Login\" {\n  contract \"The system MUST log in\"\n}\n";
     let dir = project_with(
@@ -102,10 +93,7 @@ fn kept_regions<'d>(doc: &'d FormattedDocument) -> Vec<&'d Diagnostic> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "formatting request returns TextEdit list"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn a_misformatted_document_gets_edits() {
     let doc = document(
         Place::Detached,
@@ -126,10 +114,7 @@ fn a_misformatted_document_gets_edits() {
     );
 }
 
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "applying the formatting edits to the document gives the formatted text byte for byte"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn edits_rebuild_the_formatted_text() {
     let blank = |range: Range<usize>| Edit {
         range,
@@ -208,10 +193,7 @@ fn edits_rebuild_the_formatted_text() {
     );
 }
 
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "TextEdit operations in a response do not overlap"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn edits_do_not_overlap() {
     let text = "behavior foo \"Foo\" {\n      contract \"a\"\n      types [x]\n}\n";
     let edits = document(
@@ -227,10 +209,7 @@ fn edits_do_not_overlap() {
     assert!(in_order_without_overlap(&edits), "{edits:?}");
 }
 
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "parse errors in document trigger format_with_parse_errors delegation"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn a_parse_error_is_reported_and_kept() {
     let dir = on_disk(&[("spec/x.spec", BROKEN)]);
     let file = dir.path().join("spec/x.spec");
@@ -252,10 +231,7 @@ fn a_parse_error_is_reported_and_kept() {
     assert!(!doc.complete());
 }
 
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "formats document within 50ms for files under 1000 lines"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn formats_a_document_within_50ms() {
     let mut source = String::from("use types/core\n\n");
     for i in 0..50 {
@@ -299,10 +275,7 @@ fn formats_a_document_within_50ms() {
     );
 }
 
-#[specforge_test(
-    behavior = "lsp_format_document",
-    verify = "LSP Format Document: LSP document formatting holds — document_open, format_config_loaded, textedit_list_returned, cli_parity_enforced, format_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn document_contract() {
     // document_open: the text is the open document's.
     let dir = on_disk(&[("spec/a.spec", MISINDENTED)]);
@@ -337,10 +310,7 @@ fn document_contract() {
     assert!(doc.complete());
 }
 
-#[specforge_test(
-    behavior = "lsp_format_range",
-    verify = "range is expanded to block boundaries"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn the_range_widens_to_whole_blocks() {
     let lines = Lines { first: 6, last: 6 };
 
@@ -373,10 +343,7 @@ fn the_range_widens_to_whole_blocks() {
     assert!(full.iter().any(|e| e.range.start < line(5)), "{full:?}");
 }
 
-#[specforge_test(
-    behavior = "lsp_format_range",
-    verify = "range formatting matches full formatting for affected blocks"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn a_range_formats_its_blocks_as_the_whole_document_does() {
     let range = document(
         Place::Detached,
@@ -397,10 +364,7 @@ fn a_range_formats_its_blocks_as_the_whole_document_does() {
     assert_eq!(block(&range.formatted), block(&full.formatted));
 }
 
-#[specforge_test(
-    behavior = "lsp_format_range",
-    verify = "parse errors within range are left unchanged per format_with_parse_errors"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn a_parse_error_in_a_range_is_kept() {
     let text = "behavior a \"A\" {\n  contract \"a\"\n}\n\nbehavior b \"B\" {\n  contract \"b\"\n}\n\nbehavior c \"C\" {\n      contract \"c\"\n}\n\n}}}\n";
 
@@ -419,10 +383,7 @@ fn a_parse_error_in_a_range_is_kept() {
     assert_eq!(kept[0].span.as_ref().unwrap().start_line, 13);
 }
 
-#[specforge_test(
-    behavior = "lsp_format_range",
-    verify = "formats range within 20ms for ranges under 200 lines"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn formats_a_range_within_20ms() {
     let mut source = String::from("use types/core\n\n");
     for i in 0..20 {
@@ -451,10 +412,7 @@ fn formats_a_range_within_20ms() {
     );
 }
 
-#[specforge_test(
-    behavior = "lsp_format_range",
-    verify = "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn range_contract() {
     // document_open, format_config_loaded: a project file, with its
     // project's configuration.
@@ -491,10 +449,7 @@ fn range_contract() {
     assert_eq!(tail(&range.formatted), tail(&full.formatted));
 }
 
-#[specforge_test(
-    behavior = "lsp_respect_editor_config",
-    verify = "editor settings are used for a document outside any project"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn editor_settings_apply_outside_a_project() {
     let doc = document(
         Place::Detached,
@@ -523,10 +478,7 @@ fn editor_settings_apply_outside_a_project() {
     assert!(doc.edits().is_empty());
 }
 
-#[specforge_test(
-    behavior = "lsp_respect_editor_config",
-    verify = "config file takes precedence over editor settings"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn config_file_takes_precedence_over_editor() {
     let dir = on_disk(&[
         (".specforgefmt.toml", "indent_width = 4\n"),
@@ -554,10 +506,7 @@ fn config_file_takes_precedence_over_editor() {
     assert!(doc.edits().is_empty());
 }
 
-#[specforge_test(
-    behavior = "lsp_respect_editor_config",
-    verify = "a project without a config file formats with the defaults, not the editor's settings"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn a_project_without_a_config_file_uses_the_defaults() {
     let dir = on_disk(&[("spec/a.spec", FOUR)]);
     let file = dir.path().join("spec/a.spec");
@@ -575,10 +524,7 @@ fn a_project_without_a_config_file_uses_the_defaults() {
     assert!(doc.changed(), "reindented to the defaults");
 }
 
-#[specforge_test(
-    behavior = "lsp_respect_editor_config",
-    verify = "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
-)]
+#[specforge_test(requirement = "FEATURE-061")]
 fn editor_config_contract() {
     // lsp_initialized_fired: the editor's settings are given.
     let editor = Some(EDITOR_4);
@@ -620,10 +566,7 @@ fn editor_config_contract() {
     assert_eq!(without.config.indent_width, 2);
 }
 
-#[specforge_test(
-    behavior = "format_from_stdin",
-    verify = "stdin content is formatted and written to stdout"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn stdin_text_uses_the_config_of_its_directory() {
     let dir = on_disk(&[("spec/sub/.specforgefmt.toml", "indent_width = 4\n")]);
     let sub = dir.path().join("spec/sub");

@@ -7,10 +7,7 @@ use specforge_ops::authoring::rename::{self, RenameField};
 const LIMIT: &str = "invariant session_limit \"Limit\" {\n  guarantee \"x\"\n}\n";
 const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
 
-#[specforge_test_macros::test(
-    behavior = "rename_entity_id",
-    verify = "rename refuses a reserved word as the new ID before anything is planned"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-111")]
 fn a_rename_to_a_reserved_word_is_refused_about_the_new_id() {
     let p = crate::navigate::compile(
         crate::navigate::SOFTWARE,
@@ -30,10 +27,7 @@ fn a_rename_to_a_reserved_word_is_refused_about_the_new_id() {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "rename_entity_id",
-    verify = "a rename is refused while a source that spells the ID does not parse"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-111")]
 fn a_rename_is_refused_while_a_source_that_spells_the_id_does_not_parse() {
     let p = crate::navigate::compile(
         crate::navigate::SOFTWARE,
@@ -67,10 +61,7 @@ fn a_rename_is_refused_while_a_source_that_spells_the_id_does_not_parse() {
     assert_eq!(plan.edits().len(), 1);
 }
 
-#[specforge_test_macros::test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "renaming a spec block is refused: its name is a string, not an entity ID"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-068")]
 fn a_spec_blocks_name_is_not_renamed() {
     let p = crate::navigate::compile(
         crate::navigate::SOFTWARE,
@@ -90,10 +81,7 @@ fn a_spec_blocks_name_is_not_renamed() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "rename_entity_id",
-    verify = "rename takes a new ID holding a dash or a dot"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-111")]
 fn a_rename_to_a_gsd_name_is_planned() {
     let p = crate::navigate::compile(
         crate::navigate::SOFTWARE,

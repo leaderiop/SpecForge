@@ -1,8 +1,8 @@
 // Journeys: two, each listed by a deliverable, one by both.
 
-use "product/personas"
 use "product/channels"
 use "product/features"
+use "product/personas"
 
 journey record_an_entry "Record an Entry" {
   persona  writer
@@ -10,11 +10,7 @@ journey record_an_entry "Record an Entry" {
   features [store_entries]
   priority critical
   tags     ["daily"]
-  flow     [
-    "Writer opens the store",
-    "Writer saves an entry",
-    "Writer sees the entry listed",
-  ]
+  flow     ["Writer opens the store", "Writer saves an entry", "Writer sees the entry listed"]
 }
 
 journey browse_entries "Browse Entries" {

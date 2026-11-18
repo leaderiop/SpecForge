@@ -6,10 +6,7 @@ use specforge_test_macros::test as specforge_test;
 
 use crate::support::{Cli, TestProject};
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "removing an extension another installed extension requires fails with E027 unless --force"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn remove_refuses_a_builtin_another_requires_with_e027_unless_forced() {
     let dir = TestProject::new()
         .enabling(&["@specforge/testing", "@specforge/cargo-test"])

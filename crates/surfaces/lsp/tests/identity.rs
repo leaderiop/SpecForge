@@ -39,10 +39,7 @@ fn has(codes: Option<Vec<String>>, code: &str) -> bool {
     codes.is_some_and(|codes| codes.iter().any(|c| c == code))
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "a document is one file whatever spelling of its URI the client sends"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn a_percent_encoded_document_is_published_and_fixed_under_its_own_uri() {
     let mut served = Served::new(&[(FILE, MISSPELT)]).open(&[]);
     let plain = served.uri(FILE);
@@ -72,10 +69,7 @@ fn a_percent_encoded_document_is_published_and_fixed_under_its_own_uri() {
     assert!(hover.starts_with("**E003**"), "{hover}");
 }
 
-#[spec(
-    behavior = "rename_entity_id",
-    verify = "rename from a buffer typed since the compile is refused as content modified"
-)]
+#[spec(requirement = "FEATURE-111")]
 fn a_percent_encoded_document_typed_since_the_compile_is_not_renamed() {
     let mut served = Served::new(&[(FILE, MISSPELT)]).open(&[]);
     let encoded = encoded(&served, FILE);
@@ -101,10 +95,7 @@ fn a_percent_encoded_document_typed_since_the_compile_is_not_renamed() {
     }
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "each file's diagnostics are published under the URI the client named it by"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn closing_a_percent_encoded_document_publishes_under_its_own_uri() {
     let mut served = Served::new(&[(FILE, MISSPELT)]).open(&[]);
     let plain = served.uri(FILE);
@@ -133,10 +124,7 @@ async fn published(session: &mut Session, uri: &str, version: i64) -> Vec<Value>
     params["diagnostics"].as_array().unwrap().clone()
 }
 
-#[specforge_test_macros::test(
-    behavior = "lsp_format_document",
-    verify = "formatting keeps the document's compile diagnostics published"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-061")]
 #[tokio::test]
 async fn formatting_a_percent_encoded_document_keeps_its_compile_diagnostics() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -160,10 +148,7 @@ async fn formatting_a_percent_encoded_document_keeps_its_compile_diagnostics() {
     );
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "an open document stays itself when an environment load moves its key"
-)]
+#[spec(requirement = "FEATURE-062")]
 fn a_document_is_found_after_its_key_moves() {
     let text = "type alpha \"Alpha\" {}\n";
     let mut served = Served::new(&[("spec/a.spec", text)]).restore(&[("spec/a.spec", text)]);
@@ -196,10 +181,7 @@ fn a_document_is_found_after_its_key_moves() {
     assert!(hover.contains("alpha"), "{hover}");
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "each file's diagnostics are published under the URI the client named it by"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn a_publication_follows_the_spelling_the_client_opened_with() {
     let mut served = Served::new(&[(FILE, MISSPELT)]).open(&[]);
     let plain = served.uri(FILE);

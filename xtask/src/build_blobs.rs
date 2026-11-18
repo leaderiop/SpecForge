@@ -8,11 +8,14 @@
 //! build-blobs --install   rebuild, vendor into <crate_dir>/wasm/, record inputs.json
 //! build-blobs --check     fail if a vendored blob or any recorded input changed (no build)
 //! build-blobs --verify    rebuild every blob and fail if one differs from its vendored bytes
-//!                            (a blob vendored by another rustc is built, not compared)
+//!                            (a blob another rustc built fails, naming the pin)
+//! build-blobs <mode> --only <crate dir>   any mode over that one committed crate (`gsd/core`)
 //! ```
 //!
 //! A blob is built in a staged workspace ([`Stage`]), so its bytes depend only on
-//! its sources and the toolchain, not on where the repository is checked out.
+//! its sources and the toolchain, not on where the repository is checked out. Every cargo
+//! and rustc a blob build runs is on the pinned rustc, `gate::blob_inputs::BLOB_RUSTC`
+//! (ADR 0373 D1).
 #![expect(
     clippy::print_stdout,
     reason = "a developer tool: its report is its stdout"
@@ -28,7 +31,7 @@ use std::process::Command;
 
 const TARGET: &str = "wasm32-wasip2";
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum Mode {
     Missing,
     Force,
@@ -37,30 +40,68 @@ enum Mode {
     Verify,
 }
 
+const USAGE: &str =
+    "usage: build-blobs [--force | --install | --check | --verify] [--only <crate dir>]";
+
+/// The mode `args` name (none is [`Mode::Missing`]) and the one committed blob `--only <crate dir>`
+/// narrows it to (none is every blob). A second mode, a second `--only`, a dangling one, or a crate dir
+/// no blob is committed under is an error.
+fn parse_args(args: &[&str]) -> Result<(Mode, Option<&'static CommittedBlob>), String> {
+    let mut mode = None;
+    let mut only = None;
+    let mut rest = args.iter().copied();
+    while let Some(arg) = rest.next() {
+        let named = match arg {
+            "--force" => Some(Mode::Force),
+            "--install" => Some(Mode::Install),
+            "--check" => Some(Mode::Check),
+            "--verify" => Some(Mode::Verify),
+            "--only" => None,
+            _ => return Err(format!("{USAGE} (got {arg:?})")),
+        };
+        if let Some(named) = named {
+            if mode.replace(named).is_some() {
+                return Err(format!("{USAGE} (got {args:?})"));
+            }
+            continue;
+        }
+        let dir = rest
+            .next()
+            .ok_or_else(|| format!("{USAGE} (--only needs a crate dir)"))?;
+        let blob = COMMITTED
+            .iter()
+            .find(|blob| blob.crate_dir == dir)
+            .ok_or_else(|| {
+                let committed: Vec<&str> = COMMITTED.iter().map(|blob| blob.crate_dir).collect();
+                format!(
+                    "--only {dir}: no blob is committed under that crate dir; the committed ones are {}",
+                    committed.join(", ")
+                )
+            })?;
+        if only.replace(blob).is_some() {
+            return Err(format!("{USAGE} (--only twice)"));
+        }
+    }
+    Ok((mode.unwrap_or(Mode::Missing), only))
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let mode = match args
-        .iter()
-        .map(String::as_str)
-        .collect::<Vec<_>>()
-        .as_slice()
-    {
-        [] => Mode::Missing,
-        ["--force"] => Mode::Force,
-        ["--install"] => Mode::Install,
-        ["--check"] => Mode::Check,
-        ["--verify"] => Mode::Verify,
-        other => {
-            eprintln!(
-                "usage: build-blobs [--force | --install | --check | --verify] (got {other:?})"
-            );
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let (mode, only) = match parse_args(&args) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            eprintln!("{message}");
             std::process::exit(2);
         }
     };
     let root = specforge_repo_root::repo_root();
 
     let mut failed = false;
-    for blob in COMMITTED {
+    for blob in COMMITTED
+        .iter()
+        .filter(|blob| only.is_none_or(|one| one.crate_dir == blob.crate_dir))
+    {
         let ok = match mode {
             Mode::Check => check(root, blob),
             Mode::Verify => verify(root, blob),
@@ -108,7 +149,8 @@ fn build(root: &Path, committed: &CommittedBlob, force: bool) -> Option<PathBuf>
         }
         Err(e) => {
             eprintln!(
-                "[fail]   {name}: {e}\nIf the target is missing, run: rustup target add {TARGET}"
+                "[fail]   {name}: {e}\nIf the pinned toolchain or its target is missing, run: {}",
+                blob_inputs::blob_rustc_install()
             );
             None
         }
@@ -124,6 +166,11 @@ fn build(root: &Path, committed: &CommittedBlob, force: bool) -> Option<PathBuf>
 /// `wasm32-wasip2` build compiles, at their repo-relative paths: cargo then hashes their paths
 /// relative to the stage, and passes them to rustc relative. The cargo home is remapped to
 /// `/cargo` and the stage to `/specforge`.
+///
+/// A crate of the gsd workspace (`gsd/core`) is staged as that workspace builds it (ADR 0366 D2):
+/// its metadata comes from `gsd/`, where cargo reads the workspace's SDK patch, the stage takes
+/// `gsd/Cargo.lock` and that patch re-rooted at the repository ([`patch`]), and its record lists
+/// `gsd/Cargo.lock` and `gsd/.cargo/config.toml` (`blob_inputs::workspace_inputs`).
 struct Stage {
     /// Canonical.
     root: PathBuf,
@@ -143,8 +190,12 @@ impl Stage {
     ///   resolution) and is built with the stage's `[profile.blob]`;
     /// - a `Cargo.toml` naming the extension as the member, with the root manifest's inherited
     ///   tables (`[workspace.package]`, `[workspace.dependencies]` and the `[workspace.lints]` tables
-    ///   the staged crates' `[lints] workspace = true` reads);
-    /// - the extension's `Cargo.lock` and the toolchain file.
+    ///   the staged crates' `[lints] workspace = true` reads), and for a crate of the gsd workspace
+    ///   that workspace's `[patch.crates-io]`, re-rooted at the repository;
+    /// - the crate's lock (`blob_inputs::lock_of`: `gsd/Cargo.lock` for a gsd crate) and the
+    ///   toolchain file.
+    ///
+    /// `cargo metadata` runs in `blob_inputs::cargo_dir`, so it reads the config a gsd crate builds with.
     fn prepare(repo: &Path, blob: &CommittedBlob) -> Result<Stage, String> {
         let crate_dir = blob.crate_dir;
         let dir = repo.join(format!("target/blob-stage/{}", blob.crate_dir));
@@ -155,7 +206,7 @@ impl Stage {
         let root = std::fs::canonicalize(&dir).map_err(|e| e.to_string())?;
 
         let manifest = repo.join(crate_dir).join("Cargo.toml");
-        let output = Command::new("cargo")
+        let output = blob_inputs::on_blob_rustc(&mut Command::new("cargo"))
             .args([
                 "metadata",
                 "--format-version",
@@ -166,6 +217,7 @@ impl Stage {
                 "--manifest-path",
             ])
             .arg(&manifest)
+            .current_dir(repo.join(blob_inputs::cargo_dir(crate_dir)))
             .output()
             .map_err(|e| format!("spawn cargo metadata: {e}"))?;
         if !output.status.success() {
@@ -190,16 +242,21 @@ impl Stage {
 
         let root_manifest = std::fs::read_to_string(repo.join("Cargo.toml"))
             .map_err(|e| format!("read Cargo.toml: {e}"))?;
-        let workspace = format!(
+        let mut workspace = format!(
             "[workspace]\nresolver = \"2\"\nmembers = [\"{crate_dir}\"]\n\n{}",
             blob_inputs::inherited_tables(&root_manifest)
         );
+        if let Some(config) = blob_inputs::cargo_config_of(crate_dir) {
+            workspace.push('\n');
+            workspace.push_str(&patch::stage_patch(
+                &repo.join(&config),
+                blob_inputs::cargo_dir(crate_dir),
+            )?);
+        }
         std::fs::write(root.join("Cargo.toml"), workspace).map_err(|e| e.to_string())?;
-        std::fs::copy(
-            repo.join(crate_dir).join("Cargo.lock"),
-            root.join("Cargo.lock"),
-        )
-        .map_err(|e| format!("copy Cargo.lock: {e}"))?;
+        let lock = blob_inputs::lock_of(crate_dir);
+        std::fs::copy(repo.join(&lock), root.join("Cargo.lock"))
+            .map_err(|e| format!("copy {lock}: {e}"))?;
         std::fs::copy(
             repo.join("rust-toolchain.toml"),
             root.join("rust-toolchain.toml"),
@@ -224,7 +281,7 @@ impl Stage {
             format!("--remap-path-prefix={}=/specforge", self.root.display()),
         ];
         let mut command = Command::new("cargo");
-        command
+        blob_inputs::on_blob_rustc(&mut command)
             .args(["build", "--profile", "blob", "--target", TARGET, "-p"])
             .arg(&self.package)
             .arg("--target-dir")
@@ -249,14 +306,11 @@ impl Stage {
         }
         let staged = std::fs::read_to_string(self.root.join("Cargo.lock"))
             .map_err(|e| format!("read the stage's Cargo.lock: {e}"))?;
-        let extension = std::fs::read_to_string(self.repo.join(self.crate_dir).join("Cargo.lock"))
-            .map_err(|e| format!("read Cargo.lock: {e}"))?;
-        lock_subset(&staged, &extension).map_err(|package| {
-            format!(
-                "the stage resolved {package} differently from {}/Cargo.lock",
-                self.crate_dir
-            )
-        })?;
+        let lock = blob_inputs::lock_of(self.crate_dir);
+        let extension = std::fs::read_to_string(self.repo.join(&lock))
+            .map_err(|e| format!("read {lock}: {e}"))?;
+        lock_subset(&staged, &extension)
+            .map_err(|package| format!("the stage resolved {package} differently from {lock}"))?;
         Ok(blob)
     }
 }
@@ -421,22 +475,29 @@ fn lock_subset(staged: &str, extension: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// `--verify`: the vendored blob is what its sources build, byte for byte. A blob built by
-/// another `rustc` is built, but not compared, and that is said.
+/// `--verify`: the vendored blob is what its sources build on the pinned rustc, byte for byte. A
+/// blob another rustc built fails, never skips (ADR 0373 D1).
 fn verify(root: &Path, committed: &CommittedBlob) -> bool {
     let (name, artifact) = (committed.crate_dir, committed.artifact);
     let vendor_dir = root.join(name).join("wasm");
-    let record = BlobRecord::read(root, name).ok();
-    let this = rustc_version();
-    // Always built, so a cold clone proves every blob builds; another rustc's bytes differ.
+    let record = match BlobRecord::read(root, name) {
+        Ok(record) => record,
+        Err(e) => {
+            eprintln!("[fail]   {name}: {e}");
+            return false;
+        }
+    };
+    // Always built, so a cold clone proves every blob builds.
     let Some(built) = build(root, committed, true) else {
         return false;
     };
-    if let Some(built_with) = record.as_ref().map(|r| r.built_with.as_str())
-        && built_with != this
-    {
-        println!("[skip]   {name}: built with {built_with}; this is {this}");
-        return true;
+    let verdict = match blob_inputs::blob_rustc_version(Command::new("rustc")) {
+        Ok(pinned) => rustc_verdict(&record.built_with, &pinned),
+        Err(e) => Some(e),
+    };
+    if let Some(problem) = verdict {
+        eprintln!("[fail]   {name}: {problem}");
+        return false;
     }
     match (
         std::fs::read(&built),
@@ -463,6 +524,7 @@ fn install(root: &Path, committed: &CommittedBlob, built: &Path) -> bool {
     let (name, artifact) = (committed.crate_dir, committed.artifact);
     let vendor_dir = root.join(name).join("wasm");
     let result = (|| -> Result<usize, String> {
+        let built_with = blob_inputs::pinned_rustc(Command::new("rustc"))?;
         let bytes = std::fs::read(built).map_err(|e| format!("read {}: {e}", built.display()))?;
         let stage =
             std::fs::canonicalize(root.join(format!("target/blob-stage/{}", committed.crate_dir)))
@@ -474,7 +536,7 @@ fn install(root: &Path, committed: &CommittedBlob, built: &Path) -> bool {
         BlobRecord {
             artifact: artifact.to_string(),
             artifact_sha256: hex_sha256(&bytes).to_string(),
-            built_with: rustc_version(),
+            built_with,
             inputs,
         }
         .write(root, name)?;
@@ -534,7 +596,8 @@ fn check(root: &Path, committed: &CommittedBlob) -> bool {
 
 /// Every repo-local file rustc read for the artifact (from cargo's dep-info, taken in the
 /// stage, which mirrors the repository's layout), the manifest owning each, the crate's
-/// lockfile (pins registry crates), and the root manifest tables the shared crates inherit
+/// workspace inputs (its lockfile, which pins registry crates, and for a gsd crate the cargo
+/// config holding the SDK patch: `blob_inputs::workspace_inputs`), and the root manifest tables the shared crates inherit
 /// from. Each is hashed as the repository holds it.
 fn collect_inputs(
     root: &Path,
@@ -566,7 +629,7 @@ fn collect_inputs(
             dep_info.display()
         ));
     }
-    keys.insert(format!("{name}/Cargo.lock"));
+    keys.extend(blob_inputs::workspace_inputs(name));
     keys.insert(WORKSPACE_INHERITED.to_string());
 
     keys.into_iter()
@@ -637,15 +700,24 @@ fn parse_dep_info(text: &str) -> Vec<PathBuf> {
     paths
 }
 
-fn rustc_version() -> String {
-    Command::new("rustc")
-        .arg("--version")
-        .output()
-        .ok()
-        .and_then(|out| String::from_utf8(out.stdout).ok())
-        .map(|v| v.trim().to_string())
-        .unwrap_or_else(|| "unknown".to_string())
+/// `--verify`'s verdict over a record's `built_with` and the pinned rustc's `--version`: `None`
+/// when they are the same rustc, else what fails, naming the pin and the fix. Never a skip.
+fn rustc_verdict(built_with: &str, pinned: &str) -> Option<String> {
+    if let Some(problem) = blob_inputs::pin_problem(pinned) {
+        return Some(problem);
+    }
+    (built_with != pinned).then(|| {
+        format!(
+            "built with {built_with}, but the pinned rustc (gate::blob_inputs::BLOB_RUSTC = {}) is \
+             {pinned}: re-vendor on the pin (`cargo run -p xtask --bin revendor`, after {})",
+            blob_inputs::BLOB_RUSTC,
+            blob_inputs::blob_rustc_install()
+        )
+    })
 }
+
+#[path = "build_blobs/patch.rs"]
+mod patch;
 
 #[cfg(test)]
 #[path = "build_blobs/tests.rs"]

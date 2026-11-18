@@ -36,10 +36,7 @@ const NEXTEST: [&str; 4] = [
     "specforge:{config}",
 ];
 
-#[specforge_test_macros::test(
-    behavior = "approve_capability",
-    verify = "a command whose argv names a placeholder admits no request, its expansion included"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_templated_argv_admits_no_request() {
     let expanded = [
         "cargo-nextest",
@@ -67,10 +64,7 @@ fn a_templated_argv_admits_no_request() {
     assert!(!rules(&plain).admits(&run(&["cargo", "test", "--all"]), false));
 }
 
-#[specforge_test_macros::test(
-    behavior = "approve_capability",
-    verify = "a changed config file asks again, as a changed command does"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-128")]
 fn a_changed_config_template_asks_again() {
     let approved = process(&NEXTEST, Some("[profile.specforge]\n"));
     assert!(rules(&approved).covers(&process(&NEXTEST, Some("[profile.specforge]\n"))));

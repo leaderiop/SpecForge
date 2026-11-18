@@ -335,10 +335,7 @@ mod tests {
         Notes::new(&terminal, OutputFormat::Human).noticed(traced.unwrap())
     }
 
-    #[specforge_test_macros::test(
-        behavior = "render_trace_thread",
-        verify = "specforge trace prints a route trace's thread, and --reach the generic chain"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-129")]
     fn a_route_trace_prints_its_thread_text() {
         use specforge_project::testing::GSD_ROUTED_SPEC;
         assert_eq!(
@@ -366,10 +363,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "render_trace_thread",
-        verify = "specforge trace prints a route's thread as human text unless --format json is given, and any other trace as json"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-129")]
     fn the_default_format_is_human_for_a_route_trace_and_json_otherwise() {
         use clap::Parser;
         use specforge_project::testing::GSD_ROUTED_SPEC;

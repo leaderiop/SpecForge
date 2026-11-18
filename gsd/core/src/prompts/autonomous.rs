@@ -20,7 +20,7 @@ const STEPS: &[Step] = &[
     },
     Step {
         id: "converge",
-        title: "Replan until the cross-AI review concerns are resolved (--converge)",
+        title: "Replan until the cross-AI review concerns are resolved (when converging)",
         does: Do::Prompt("plan_review_convergence"),
     },
     Step {

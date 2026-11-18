@@ -154,10 +154,7 @@ mod tests {
             .args
     }
 
-    #[specforge_test_macros::test(
-        behavior = "serve_context_pack",
-        verify = "specforge context prints a route's pack and --pick reads its digest"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-012")]
     fn specforge_context_prints_the_pack_and_pick_reads_its_digest() {
         let project = gsd_context_project();
         let compiled =
@@ -190,10 +187,7 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(
-        behavior = "record_context_pack",
-        verify = "specforge context --record writes the digest it prints"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-012")]
     fn specforge_context_record_writes_the_digest_it_prints() {
         let project = gsd_context_project();
         let compiled =
@@ -242,10 +236,7 @@ mod tests {
         assert!(written.contains("max_tokens 5000"), "{written}");
     }
 
-    #[specforge_test_macros::test(
-        behavior = "record_context_pack",
-        verify = "specforge context --record below the core sections is refused as the record, with nothing written"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-012")]
     fn a_record_below_the_core_sections_is_refused_as_the_record() {
         let project = gsd_context_project();
         let compiled =

@@ -4,10 +4,7 @@ use specforge_test_macros::test as specforge_test;
 
 // --- Phase 2b: Verify declarations through pipeline ---
 
-#[specforge_test(
-    behavior = "parse_verify_statements",
-    verify = "parse verify statement in any entity block"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn verify_unit_in_behavior() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -30,10 +27,7 @@ behavior parse_input "Parse Input" {
     );
 }
 
-#[specforge_test(
-    behavior = "parse_verify_statements",
-    verify = "verify kind and description extracted correctly"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn verify_integration_in_behavior() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -56,10 +50,7 @@ behavior emit_output "Emit Output" {
     );
 }
 
-#[specforge_test(
-    behavior = "parse_verify_statements",
-    verify = "parse verify statement in any entity block"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn verify_property_in_behavior() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -77,10 +68,7 @@ behavior graph_build "Graph Build" {
     assert!(node.get("verify").is_some());
 }
 
-#[specforge_test(
-    behavior = "parse_verify_statements",
-    verify = "parse multiple verify statements in same entity"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn verify_multiple_statements() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -132,10 +120,7 @@ behavior parse_input "Parse Input" {
     );
 }
 
-#[specforge_test(
-    behavior = "parse_verify_statements",
-    verify = "parse verify statement in any entity block"
-)]
+#[specforge_test(requirement = "FEATURE-123")]
 fn verify_on_non_behavior_entity() {
     let (_project, compiled) = built(&[(
         "main.spec",
@@ -156,10 +141,7 @@ invariant graph_acyclic "Graph Acyclicity" {
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_graph_format",
-    verify = "graph format includes all fields and metadata"
-)]
+#[specforge_test(requirement = "FEATURE-001")]
 fn graph_export_includes_verify_beside_fields() {
     let (_project, compiled) = built(&[(
         "main.spec",

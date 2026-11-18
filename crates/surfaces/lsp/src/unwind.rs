@@ -17,10 +17,7 @@ mod tests {
     use super::unwinding;
     use specforge_test_macros::test as spec;
 
-    #[spec(
-        invariant = "lsp_survives_its_faults",
-        verify = "a panic is turned into its message"
-    )]
+    #[spec(requirement = "INVARIANT-062")]
     fn a_panic_is_turned_into_its_message() {
         assert_eq!(unwinding(|| 7), Ok(7));
         assert_eq!(unwinding(|| panic!("boom")), Err::<(), _>("boom".into()));

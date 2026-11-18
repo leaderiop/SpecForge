@@ -38,10 +38,7 @@ fn cyclic(name: &str, peer_name: &str) -> ExtensionDeclaration {
     c.declaration()
 }
 
-#[spec(
-    behavior = "registry_build_load_order",
-    verify = "a dependent listed before its peer loads after it"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn a_dependent_listed_first_loads_after_its_peer() {
     let entries = || {
         [
@@ -83,10 +80,7 @@ fn a_dependent_listed_first_loads_after_its_peer() {
     assert_eq!(messages(&swapped), messages(&build));
 }
 
-#[spec(
-    behavior = "registry_build_load_order",
-    verify = "E026, W018, passes and surfaces follow the load order"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn first_wins_rules_follow_the_load_order() {
     // A dependent listed first would otherwise own the keyword, and its pass would run first.
     let build = build([
@@ -105,10 +99,7 @@ fn first_wins_rules_follow_the_load_order() {
     assert_eq!(passes, ["@t/base", "@t/dep"]);
 }
 
-#[spec(
-    behavior = "registry_build_load_order",
-    verify = "Registry Build Orders the Extensions: load order holds — declarations_in_entry_order, dependencies_first, entry_order_kept, deterministic, cycles_failed"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn the_load_order_holds() {
     let names = |b: &specforge_registry::RegistryBuild| -> Vec<String> {
         b.declarations()
@@ -150,14 +141,7 @@ fn the_load_order_holds() {
     }
 }
 
-#[spec(
-    behavior = "registry_build_load_order",
-    verify = "a cycle among required peers is one E027 naming its extensions"
-)]
-#[spec(
-    failure_mode = "circular_peer_dependency",
-    verify = "Circular Peer Dependency failure mode is handled"
-)]
+#[spec(requirement = "FEATURE-136")]
 fn a_required_cycle_is_one_e027_naming_its_extensions() {
     let build = build([cyclic("@t/cyca", "@t/cycb"), cyclic("@t/cycb", "@t/cyca")]);
     assert_eq!(codes(&build), ["E027"]);

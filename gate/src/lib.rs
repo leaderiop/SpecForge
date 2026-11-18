@@ -7,16 +7,19 @@ mod blob_size;
 mod change_set;
 mod checked_tree;
 mod checks;
+#[cfg(test)]
+mod ci_workflow;
 pub mod crate_map;
 mod doc_links;
+mod dogfood;
 mod gsd;
 pub mod judge;
+mod junit;
 pub mod layers;
 pub mod objects;
 mod repo;
 mod root_layout;
 mod run;
-pub mod self_spec_sample;
 mod size_cap;
 mod steps;
 

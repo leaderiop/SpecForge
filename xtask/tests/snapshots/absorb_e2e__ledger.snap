@@ -3,31 +3,108 @@ source: xtask/tests/absorb_e2e.rs
 expression: ledger
 ---
 {
-  "format": 1,
+  "format": 2,
   "from": "absorb-fixture",
   "entries": [
     {
-      "kind": "constraint",
-      "id": "bounded_retries",
-      "field": "area",
-      "value": null,
+      "kind": "behavior",
+      "id": "write_entry",
+      "field": "category",
+      "value": "command",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "gsd-core has no behavior kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "behavior",
+      "id": "write_entry",
+      "field": "contract",
+      "value": "The store MUST write an entry whole.",
+      "why": {
+        "dropped": "gsd-core has no behavior kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "behavior",
+      "id": "write_entry",
+      "field": "title",
+      "value": "Write Entry",
+      "why": {
+        "dropped": "gsd-core has no behavior kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "channel",
+      "id": "cli",
+      "field": "description",
+      "value": "The store's command-line tool.",
+      "why": {
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "channel",
+      "id": "cli",
+      "field": "interaction_model",
+      "value": "request_response",
+      "why": {
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "channel",
+      "id": "cli",
+      "field": "status",
+      "value": "active",
+      "why": {
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "channel",
+      "id": "cli",
+      "field": "tags",
+      "value": [
+        "primary"
+      ],
+      "why": {
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "channel",
+      "id": "cli",
+      "field": "title",
+      "value": "Command Line",
+      "why": {
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "channel",
+      "id": "web",
+      "field": "description",
+      "value": "A page that lists the entries.",
+      "why": {
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "channel",
+      "id": "web",
+      "field": "title",
+      "value": "Web Page",
+      "why": {
+        "dropped": "gsd-core has no channel kind (ADR 0370 D2)"
       }
     },
     {
       "kind": "constraint",
       "id": "bounded_retries",
-      "field": "category",
-      "value": "interoperability",
+      "field": "priority",
+      "value": "high",
       "why": {
-        "collapsed": {
-          "field": "requirement.category",
-          "into": "compatibility"
-        }
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -38,29 +115,8 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
+          "value": "v2"
         }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "calm_wait",
-      "field": "area",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "calm_wait",
-      "field": "metric",
-      "value": "Fast enough that nobody reaches for the button twice.",
-      "why": {
-        "unconverted": "no line is one bound `<name> <op> <number>`; every line joins the text"
       }
     },
     {
@@ -69,10 +125,7 @@ expression: ledger
       "field": "priority",
       "value": "low",
       "why": {
-        "collapsed": {
-          "field": "requirement.priority",
-          "into": "could"
-        }
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -83,31 +136,7 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "retry_window",
-      "field": "area",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "retry_window",
-      "field": "metric",
-      "value": "wait < 30s",
-      "why": {
-        "collapsed": {
-          "field": "requirement.metric.direction",
-          "into": "at_most"
+          "value": "v2"
         }
       }
     },
@@ -117,10 +146,7 @@ expression: ledger
       "field": "priority",
       "value": "medium",
       "why": {
-        "collapsed": {
-          "field": "requirement.priority",
-          "into": "could"
-        }
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -131,19 +157,7 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
-        }
-      }
-    },
-    {
-      "kind": "constraint",
-      "id": "write_latency",
-      "field": "area",
-      "value": null,
-      "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
+          "value": "v2"
         }
       }
     },
@@ -155,7 +169,7 @@ expression: ledger
         "write_entry"
       ],
       "why": {
-        "later": "behavior"
+        "dropped": "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one (ADR 0372 D6)"
       }
     },
     {
@@ -166,7 +180,27 @@ expression: ledger
         "write_entry"
       ],
       "why": {
-        "later": "truth"
+        "dropped": "it names behaviors, which are dropped with the software kinds (ADR 0364 D2): no requirement field names one (ADR 0372 D6)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "priority",
+      "value": "critical",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "constraint",
+      "id": "write_latency",
+      "field": "protects",
+      "value": [
+        "writes_are_durable"
+      ],
+      "why": {
+        "dropped": "requirement.protects leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -177,7 +211,7 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
+          "value": "v2"
         }
       }
     },
@@ -190,19 +224,16 @@ expression: ledger
         "text": "benchmark a thousand writes, assert the 99th percentile"
       },
       "why": {
-        "later": "truth"
+        "dropped": "a requirement holds no list of obligations (ADR 0368 D1): a verify line is dropped (ADR 0372 D6)"
       }
     },
     {
       "kind": "constraint",
       "id": "write_throughput",
-      "field": "area",
-      "value": null,
+      "field": "priority",
+      "value": "high",
       "why": {
-        "filled": {
-          "field": "requirement.area",
-          "value": "Constraint"
-        }
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -213,44 +244,107 @@ expression: ledger
       "why": {
         "filled": {
           "field": "requirement.tier",
-          "value": "v1"
+          "value": "v2"
         }
       }
     },
     {
       "kind": "decision",
       "id": "first_store",
-      "field": "origin",
-      "value": null,
+      "field": "context",
+      "value": "Facts needed a home.",
       "why": {
-        "filled": {
-          "field": "decision.origin",
-          "value": "project"
-        }
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "first_store",
+      "field": "decision",
+      "value": "Keep facts in one JSON file.",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "first_store",
+      "field": "status",
+      "value": "superseded",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "first_store",
+      "field": "superseded_by",
+      "value": "second_store",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "first_store",
+      "field": "title",
+      "value": "First Store",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
       "kind": "decision",
       "id": "lazy_cache",
-      "field": "origin",
-      "value": null,
+      "field": "context",
+      "value": "Cold runs read every file.",
       "why": {
-        "filled": {
-          "field": "decision.origin",
-          "value": "project"
-        }
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "lazy_cache",
+      "field": "decision",
+      "value": "Cache the parse of each file until it changes.",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "lazy_cache",
+      "field": "status",
+      "value": "proposed",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "lazy_cache",
+      "field": "title",
+      "value": "Lazy Cache",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
       "kind": "decision",
       "id": "old_format",
-      "field": "origin",
-      "value": null,
+      "field": "context",
+      "value": "The first format had no versions.",
       "why": {
-        "filled": {
-          "field": "decision.origin",
-          "value": "project"
-        }
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "old_format",
+      "field": "decision",
+      "value": "Write the format without a version line.",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
       }
     },
     {
@@ -259,10 +353,69 @@ expression: ledger
       "field": "status",
       "value": "superseded",
       "why": {
-        "computed": {
-          "field": "decision.in_force",
-          "new": true
-        }
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "old_format",
+      "field": "title",
+      "value": "Old Format",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "one_parser",
+      "field": "alternatives",
+      "value": [
+        "A hand parser",
+        "A parser combinator"
+      ],
+      "why": {
+        "dropped": "decision.alternatives leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "one_parser",
+      "field": "consequences",
+      "value": [
+        "One grammar to keep",
+        "A hand parser is refused in review"
+      ],
+      "why": {
+        "dropped": "decision.consequences leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "one_parser",
+      "field": "context",
+      "value": "Two readers of one format drift apart.",
+      "why": {
+        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "one_parser",
+      "field": "date",
+      "value": "2026-03-01",
+      "why": {
+        "dropped": "decision.decided leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "one_parser",
+      "field": "deciders",
+      "value": [
+        "Alice Martin"
+      ],
+      "why": {
+        "dropped": "decision.deciders leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -279,6 +432,27 @@ expression: ledger
     },
     {
       "kind": "decision",
+      "id": "one_parser",
+      "field": "tags",
+      "value": [
+        "parsing",
+        "format"
+      ],
+      "why": {
+        "dropped": "decision.tags leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "second_store",
+      "field": "context",
+      "value": "One JSON file grew past a megabyte.",
+      "why": {
+        "dropped": "decision.context leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "decision",
       "id": "second_store",
       "field": "origin",
       "value": null,
@@ -291,14 +465,113 @@ expression: ledger
     },
     {
       "kind": "decision",
-      "id": "sync_writes",
-      "field": "origin",
-      "value": null,
+      "id": "stale_choice",
+      "field": "context",
+      "value": "The store had one writer.",
       "why": {
-        "filled": {
-          "field": "decision.origin",
-          "value": "project"
-        }
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "stale_choice",
+      "field": "decision",
+      "value": "Lock the whole store on each write.",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "stale_choice",
+      "field": "status",
+      "value": "accepted",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "stale_choice",
+      "field": "superseded_by",
+      "value": "second_store",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "stale_choice",
+      "field": "title",
+      "value": "Stale Choice",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "sync_writes",
+      "field": "context",
+      "value": "Writes raced the watcher.",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "sync_writes",
+      "field": "decision",
+      "value": "Write every file synchronously.",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "sync_writes",
+      "field": "status",
+      "value": "deprecated",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "decision",
+      "id": "sync_writes",
+      "field": "title",
+      "value": "Synchronous Writes",
+      "why": {
+        "dropped": "a decision not in force (its status is not accepted, or it names a successor) no longer holds: it converts to nothing, and its ADR under docs/adr/ is its record (ADR 0372 D5)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_cli",
+      "field": "artifact_type",
+      "value": "cli",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_cli",
+      "field": "description",
+      "value": "The command-line tool.",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_cli",
+      "field": "journeys",
+      "value": [
+        "browse_entries",
+        "record_an_entry"
+      ],
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
       }
     },
     {
@@ -309,7 +582,16 @@ expression: ledger
         "store_module"
       ],
       "why": {
-        "later": "package"
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_cli",
+      "field": "owner",
+      "value": "Alice Martin",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
       }
     },
     {
@@ -318,46 +600,211 @@ expression: ledger
       "field": "status",
       "value": "shipped",
       "why": {
-        "computed": {
-          "field": "milestone.state",
-          "new": "planned"
-        }
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_cli",
+      "field": "title",
+      "value": "store-cli",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_web",
+      "field": "artifact_type",
+      "value": "web_app",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_web",
+      "field": "depends_on",
+      "value": [
+        "store_cli"
+      ],
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_web",
+      "field": "description",
+      "value": "The page that lists entries.",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_web",
+      "field": "journeys",
+      "value": [
+        "browse_entries"
+      ],
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "deliverable",
+      "id": "store_web",
+      "field": "title",
+      "value": "store-web",
+      "why": {
+        "dropped": "GSD's deliverable is a coverage item of a plan's summary: the old spec holds no plan or summary, and none is invented (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "event",
+      "id": "entry_saved",
+      "field": "channel",
+      "value": "store.entry_saved",
+      "why": {
+        "dropped": "gsd-core has no event kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "event",
+      "id": "entry_saved",
+      "field": "payload",
+      "value": "SavedEntry",
+      "why": {
+        "dropped": "gsd-core has no event kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "event",
+      "id": "entry_saved",
+      "field": "title",
+      "value": "Entry Saved",
+      "why": {
+        "dropped": "gsd-core has no event kind: the software kinds are dropped (ADR 0364 D1, D2)"
       }
     },
     {
       "kind": "failure_mode",
       "id": "slow_disk",
-      "field": "detection",
-      "value": null,
+      "field": "cause",
+      "value": "The disk is shared with a backup.",
       "why": {
-        "filled": {
-          "field": "risk.detection",
-          "value": 10
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
       "kind": "failure_mode",
       "id": "slow_disk",
-      "field": "occurrence",
-      "value": null,
+      "field": "effect",
+      "value": "Writes queue up.",
       "why": {
-        "filled": {
-          "field": "risk.occurrence",
-          "value": 10
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "slow_disk",
+      "field": "invariant",
+      "value": "entries_are_whole",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "slow_disk",
+      "field": "severity",
+      "value": "low",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "slow_disk",
+      "field": "title",
+      "value": "Slow Disk",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
       "kind": "failure_mode",
       "id": "torn_write",
       "field": "affected_behaviors",
-      "value": "write_entry",
+      "value": [
+        "write_entry"
+      ],
       "why": {
-        "target_later": {
-          "target": "write_entry",
-          "pending": "behavior"
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "cause",
+      "value": "The process dies between two writes of one entry.",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "description",
+      "value": "The classic crash between write and rename.",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "detection",
+      "value": "unlikely",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "effect",
+      "value": "Half an entry is read back.",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "invariant",
+      "value": "writes_are_durable",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "mitigation",
+      "value": "Write to a temporary file, then rename it.",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "occurrence",
+      "value": "occasional",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -371,10 +818,18 @@ expression: ledger
         "severity": "high"
       },
       "why": {
-        "computed": {
-          "field": "risk.post_rpn",
-          "new": 21
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "refs",
+      "value": [
+        "FMEA worksheet 3"
+      ],
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -383,10 +838,34 @@ expression: ledger
       "field": "risk",
       "value": "high",
       "why": {
-        "computed": {
-          "field": "risk.rpn",
-          "new": 350
-        }
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "rpn",
+      "value": 350,
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "severity",
+      "value": "critical",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "failure_mode",
+      "id": "torn_write",
+      "field": "title",
+      "value": "Torn Write",
+      "why": {
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
       }
     },
     {
@@ -398,17 +877,41 @@ expression: ledger
         "text": "a killed writer leaves the old entry"
       },
       "why": {
-        "later": "truth"
+        "dropped": "gsd-core has no risk kind (ADR 0370 D2), and a threat belongs to @gsd/security's register, which needs a plan: an old failure mode becomes no requirement and no threat (ADR 0372 D1)"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "list_entries",
+      "field": "category",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.category",
+          "value": "Feature"
+        }
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "list_entries",
+      "field": "status",
+      "value": "in_progress",
+      "why": {
+        "computed": {
+          "field": "requirement.status",
+          "new": "pending"
+        }
       }
     },
     {
       "kind": "feature",
       "id": "old_export",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -445,17 +948,17 @@ expression: ledger
         "A saved entry is on disk after a crash"
       ],
       "why": {
-        "later": "truth"
+        "dropped": "GSD writes acceptance as a plan's truths, and the conversion creates no plan (ADR 0372 D6)"
       }
     },
     {
       "kind": "feature",
       "id": "store_entries",
-      "field": "area",
+      "field": "category",
       "value": null,
       "why": {
         "filled": {
-          "field": "requirement.area",
+          "field": "requirement.category",
           "value": "Feature"
         }
       }
@@ -463,22 +966,50 @@ expression: ledger
     {
       "kind": "feature",
       "id": "store_entries",
-      "field": "refs",
-      "value": "gh.issue:42",
+      "field": "contributors",
+      "value": [
+        "Bob Stone"
+      ],
       "why": {
-        "unconverted": "a scheme reference is written bare and names a `ref`, which a typed edit cannot create"
+        "dropped": "requirement.source leaves @gsd/core (ADR 0370)"
       }
     },
     {
       "kind": "feature",
       "id": "store_entries",
-      "field": "solution",
-      "value": "Write each entry to the store as it is saved.",
+      "field": "effort",
+      "value": "s",
       "why": {
-        "created": {
-          "kind": "decision",
-          "id": "store_entries_solution"
-        }
+        "dropped": "requirement.effort leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "owner",
+      "value": "Alice Martin",
+      "why": {
+        "dropped": "requirement.source leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "priority",
+      "value": "high",
+      "why": {
+        "dropped": "requirement.priority leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "refs",
+      "value": [
+        "gh.issue:42"
+      ],
+      "why": {
+        "dropped": "requirement.source leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -494,6 +1025,229 @@ expression: ledger
       }
     },
     {
+      "kind": "feature",
+      "id": "store_entries",
+      "field": "tags",
+      "value": [
+        "storage"
+      ],
+      "why": {
+        "dropped": "requirement.tags leaves @gsd/core (ADR 0370)"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "entries_are_whole",
+      "field": "category",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.category",
+          "value": "Invariant"
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "entries_are_whole",
+      "field": "refs",
+      "value": [
+        "Storage design note"
+      ],
+      "why": {
+        "dropped": "a requirement keeps gsd-core's fields alone (ADR 0370 D3): none holds its references (ADR 0372 D6)"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "entries_are_whole",
+      "field": "risk",
+      "value": "low",
+      "why": {
+        "dropped": "a requirement keeps gsd-core's fields alone (ADR 0370 D3): none holds its risk (ADR 0372 D6)"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "entries_are_whole",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v2"
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "writes_are_durable",
+      "field": "category",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.category",
+          "value": "Invariant"
+        }
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "writes_are_durable",
+      "field": "risk",
+      "value": "high",
+      "why": {
+        "dropped": "a requirement keeps gsd-core's fields alone (ADR 0370 D3): none holds its risk (ADR 0372 D6)"
+      }
+    },
+    {
+      "kind": "invariant",
+      "id": "writes_are_durable",
+      "field": "tier",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "requirement.tier",
+          "value": "v2"
+        }
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "browse_entries",
+      "field": "channels",
+      "value": [
+        "cli",
+        "web"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "browse_entries",
+      "field": "flow",
+      "value": [
+        "Writer lists the entries",
+        "Writer opens one"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "browse_entries",
+      "field": "persona",
+      "value": "writer",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "browse_entries",
+      "field": "title",
+      "value": "Browse Entries",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "channels",
+      "value": [
+        "cli"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "features",
+      "value": [
+        "store_entries"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "flow",
+      "value": [
+        "Writer opens the store",
+        "Writer saves an entry",
+        "Writer sees the entry listed"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "persona",
+      "value": "writer",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "priority",
+      "value": "critical",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "tags",
+      "value": [
+        "daily"
+      ],
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "journey",
+      "id": "record_an_entry",
+      "field": "title",
+      "value": "Record an Entry",
+      "why": {
+        "dropped": "gsd-core has no journey kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "contributors",
+      "value": [
+        "Bob Stone"
+      ],
+      "why": {
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its contributors"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "depends_on",
+      "value": "groundwork",
+      "why": {
+        "dropped": "it names a milestone the run drops whole: a reference is never stubbed (ADR 0360 D4)"
+      }
+    },
+    {
       "kind": "milestone",
       "id": "first_cut",
       "field": "modules",
@@ -501,7 +1255,37 @@ expression: ledger
         "store_module"
       ],
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "owner",
+      "value": "Alice Martin",
+      "why": {
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its owner"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "slug",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "phase.slug",
+          "value": "first-cut"
+        }
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "start_date",
+      "value": "2026-09-01",
+      "why": {
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its start date"
       }
     },
     {
@@ -511,9 +1295,38 @@ expression: ledger
       "value": "completed",
       "why": {
         "computed": {
-          "field": "milestone.state",
-          "new": "planned"
+          "field": "phase.status",
+          "new": "not_started"
         }
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "tags",
+      "value": [
+        "h1"
+      ],
+      "why": {
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its tags"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "first_cut",
+      "field": "target_date",
+      "value": "2026-10-15",
+      "why": {
+        "dropped": "a phase keeps gsd-core's fields alone (ADR 0370 D3): none holds its target date"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "groundwork",
+      "field": "description",
+      "value": "The store's folder layout.",
+      "why": {
+        "dropped": "no converted release lists this milestone: it becomes no phase, and no version milestone is made for it (ADR 0372 D4)"
       }
     },
     {
@@ -522,9 +1335,48 @@ expression: ledger
       "field": "status",
       "value": "in_progress",
       "why": {
-        "computed": {
-          "field": "milestone.state",
-          "new": "planned"
+        "dropped": "no converted release lists this milestone: it becomes no phase, and no version milestone is made for it (ADR 0372 D4)"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "groundwork",
+      "field": "title",
+      "value": "Groundwork",
+      "why": {
+        "dropped": "no converted release lists this milestone: it becomes no phase, and no version milestone is made for it (ADR 0372 D4)"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "second_cut",
+      "field": "slug",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "phase.slug",
+          "value": "second-cut"
+        }
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "third_cut",
+      "field": "depends_on",
+      "value": "first_cut",
+      "why": {
+        "dropped": "it names a phase of another version milestone: GSD resolves a phase's depends_on within its own milestone (ADR 0372 D4)"
+      }
+    },
+    {
+      "kind": "milestone",
+      "id": "third_cut",
+      "field": "slug",
+      "value": null,
+      "why": {
+        "filled": {
+          "field": "phase.slug",
+          "value": "third-cut"
         }
       }
     },
@@ -534,7 +1386,7 @@ expression: ledger
       "field": "description",
       "value": "The code that reads and writes entries.",
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
       }
     },
     {
@@ -543,7 +1395,7 @@ expression: ledger
       "field": "family",
       "value": "core",
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
       }
     },
     {
@@ -554,7 +1406,7 @@ expression: ledger
         "store_entries"
       ],
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
       }
     },
     {
@@ -565,7 +1417,204 @@ expression: ledger
         "leaf"
       ],
       "why": {
-        "later": "package"
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
+      }
+    },
+    {
+      "kind": "module",
+      "id": "store_module",
+      "field": "title",
+      "value": "store",
+      "why": {
+        "dropped": "a module is dropped and no @gsd/core kind holds it (ADR 0365)"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "writer",
+      "field": "description",
+      "value": "Someone who records short entries every day.",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "writer",
+      "field": "goals",
+      "value": [
+        "Never lose an entry"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "writer",
+      "field": "key_features",
+      "value": [
+        "store_entries"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "writer",
+      "field": "pain_points",
+      "value": [
+        "Editors that forget unsaved text"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "writer",
+      "field": "status",
+      "value": "active",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "writer",
+      "field": "tags",
+      "value": [
+        "primary"
+      ],
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "writer",
+      "field": "technical_level",
+      "value": "intermediate",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "persona",
+      "id": "writer",
+      "field": "title",
+      "value": "Writer",
+      "why": {
+        "dropped": "gsd-core has no persona kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "category",
+      "value": "storage",
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "direction",
+      "value": "outbound",
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "method",
+      "value": {
+        "name": "save",
+        "params": [
+          {
+            "name": "path",
+            "type": "string"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          }
+        ],
+        "returns": "Result<SavedEntry, string>"
+      },
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "title",
+      "value": "Entry Store",
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "port",
+      "id": "EntryStore",
+      "field": "verify",
+      "value": {
+        "kind": "integration",
+        "text": "a saved entry is read back by its path"
+      },
+      "why": {
+        "dropped": "gsd-core has no port kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "identifier",
+      "value": "42",
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
+      }
+    },
+    {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "labels",
+      "value": [
+        "storage"
+      ],
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
+      }
+    },
+    {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "ref_kind",
+      "value": "issue",
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
+      }
+    },
+    {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "scheme",
+      "value": "gh",
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
+      }
+    },
+    {
+      "kind": "ref",
+      "id": "gh.issue:42",
+      "field": "title",
+      "value": "Entries are lost when the editor closes",
+      "why": {
+        "dropped": "a ref declaration names an outside resource: no @gsd/core kind holds it and a typed edit cannot create one, so it is dropped with its title and metadata, and a scheme reference that names it in a list is dropped with that list's value (ADR 0372 D1, D8)"
       }
     },
     {
@@ -576,36 +1625,7 @@ expression: ledger
         "store_cli"
       ],
       "why": {
-        "later": "release"
-      }
-    },
-    {
-      "kind": "release",
-      "id": "first_release",
-      "field": "description",
-      "value": "The store, usable every day.",
-      "why": {
-        "later": "release"
-      }
-    },
-    {
-      "kind": "release",
-      "id": "first_release",
-      "field": "milestones",
-      "value": [
-        "first_cut"
-      ],
-      "why": {
-        "later": "release"
-      }
-    },
-    {
-      "kind": "release",
-      "id": "first_release",
-      "field": "status",
-      "value": "planned",
-      "why": {
-        "later": "release"
+        "dropped": "a milestone keeps gsd-core's fields alone (ADR 0370 D3): none holds its deliverables"
       }
     },
     {
@@ -614,16 +1634,7 @@ expression: ledger
       "field": "target_date",
       "value": "2026-12-01",
       "why": {
-        "later": "release"
-      }
-    },
-    {
-      "kind": "release",
-      "id": "first_release",
-      "field": "version",
-      "value": "0.1.0",
-      "why": {
-        "later": "release"
+        "dropped": "milestone.targets leaves @gsd/core (ADR 0370)"
       }
     },
     {
@@ -632,7 +1643,7 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/formal",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -641,7 +1652,7 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/governance",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -650,7 +1661,7 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/product",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -659,7 +1670,7 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/software",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
     },
     {
@@ -668,8 +1679,216 @@ expression: ledger
       "field": "extensions",
       "value": "@specforge/testing",
       "why": {
-        "unconverted": "the target's specforge.json is init's: the source's name, version and spec_root carry over"
+        "unconverted": "written fresh by absorb"
       }
+    },
+    {
+      "kind": "term",
+      "id": "t_entry",
+      "field": "aliases",
+      "value": [
+        "note",
+        "record"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entry",
+      "field": "context",
+      "value": "The store and its readers.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entry",
+      "field": "definition",
+      "value": "One dated piece of text the writer saves.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entry",
+      "field": "see_also",
+      "value": [
+        "t_store"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entry",
+      "field": "tags",
+      "value": [
+        "core"
+      ],
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_entry",
+      "field": "title",
+      "value": "Entry",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_store",
+      "field": "definition",
+      "value": "The folder that holds every entry.",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "term",
+      "id": "t_store",
+      "field": "title",
+      "value": "Store",
+      "why": {
+        "dropped": "gsd-core has no term kind (ADR 0370 D2)"
+      }
+    },
+    {
+      "kind": "type",
+      "id": "SavedEntry",
+      "field": "annotations",
+      "value": {
+        "note": [
+          {
+            "name": "optional"
+          }
+        ]
+      },
+      "why": {
+        "dropped": "gsd-core has no type kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "type",
+      "id": "SavedEntry",
+      "field": "note",
+      "value": "string",
+      "why": {
+        "dropped": "gsd-core has no type kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "type",
+      "id": "SavedEntry",
+      "field": "path",
+      "value": "string",
+      "why": {
+        "dropped": "gsd-core has no type kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    },
+    {
+      "kind": "type",
+      "id": "SavedEntry",
+      "field": "title",
+      "value": "Saved Entry",
+      "why": {
+        "dropped": "gsd-core has no type kind: the software kinds are dropped (ADR 0364 D1, D2)"
+      }
+    }
+  ],
+  "ids": [
+    {
+      "kind": "constraint",
+      "old": "bounded_retries",
+      "new": "INTEROPERABILITY-01"
+    },
+    {
+      "kind": "constraint",
+      "old": "calm_wait",
+      "new": "USABILITY-01"
+    },
+    {
+      "kind": "constraint",
+      "old": "retry_window",
+      "new": "RELIABILITY-01"
+    },
+    {
+      "kind": "constraint",
+      "old": "write_latency",
+      "new": "PERFORMANCE-01"
+    },
+    {
+      "kind": "constraint",
+      "old": "write_throughput",
+      "new": "PERFORMANCE-02"
+    },
+    {
+      "kind": "decision",
+      "old": "one_parser",
+      "new": "D-01"
+    },
+    {
+      "kind": "decision",
+      "old": "second_store",
+      "new": "D-02"
+    },
+    {
+      "kind": "feature",
+      "old": "list_entries",
+      "new": "FEATURE-01"
+    },
+    {
+      "kind": "feature",
+      "old": "old_export",
+      "new": "FEATURE-02"
+    },
+    {
+      "kind": "feature",
+      "old": "store_entries",
+      "new": "FEATURE-03"
+    },
+    {
+      "kind": "invariant",
+      "old": "entries_are_whole",
+      "new": "INVARIANT-01"
+    },
+    {
+      "kind": "invariant",
+      "old": "writes_are_durable",
+      "new": "INVARIANT-02"
+    },
+    {
+      "kind": "milestone",
+      "old": "first_cut",
+      "new": "v0.1.0/01"
+    },
+    {
+      "kind": "milestone",
+      "old": "second_cut",
+      "new": "v0.1.0/02"
+    },
+    {
+      "kind": "milestone",
+      "old": "third_cut",
+      "new": "v0.2.0/01"
+    },
+    {
+      "kind": "release",
+      "old": "first_release",
+      "new": "v0.1.0"
+    },
+    {
+      "kind": "release",
+      "old": "second_release",
+      "new": "v0.2.0"
     }
   ]
 }

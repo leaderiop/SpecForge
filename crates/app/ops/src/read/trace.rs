@@ -8,7 +8,7 @@ use serde::Serialize;
 use specforge_common::Sym;
 use specforge_common::shape::Shape;
 use specforge_graph::{Direction, FieldForms, Graph, Node};
-use specforge_registry::RegistryBuild;
+use specforge_registry::{CandidateVocabulary, RegistryBuild};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod ask;
@@ -415,10 +415,12 @@ impl<'a> Tracer<'a> {
     /// `value`, with what versioning the schema reported and each followed route's skips.
     fn noticed<T>(self, value: T) -> Noticed<T> {
         let mut notices = self.view.versioned_schema().notices();
+        let registries = self.view.registries();
+        let registered = |kind: &str| registries.kinds().contains(kind);
         notices.extend(
             self.followed
                 .into_iter()
-                .flat_map(|route| skipped(self.view, route)),
+                .flat_map(|route| skipped(registries.candidates(), registered, route)),
         );
         Noticed::new(value, notices)
     }
@@ -456,9 +458,14 @@ fn another_kind(route: &Route, entity_id: &str, kind: &str) -> Refusal<TraceFiel
     .about(TraceField::Route)
 }
 
-/// I210 for each step or annotation `route` skips: it reaches a kind of an optional peer the project does not load.
-fn skipped(view: &ProjectView, route: &Route) -> Vec<Diagnostic> {
-    let candidates = view.registries().candidates();
+/// I210 for each step or annotation `route` skips (it reaches a kind of an optional peer the project does not load),
+/// with the remedy `candidates` gives for its kind: the declarers that declare no kind `registered` holds, else all
+/// of them, saying so (ADR 0373 D4).
+fn skipped(
+    candidates: &CandidateVocabulary,
+    registered: impl Fn(&str) -> bool + Copy,
+    route: &Route,
+) -> Vec<Diagnostic> {
     route
         .skipped
         .iter()
@@ -470,7 +477,7 @@ fn skipped(view: &ProjectView, route: &Route) -> Vec<Diagnostic> {
                     route.name, skip.kind
                 ),
             )
-            .with_suggestion(candidates.kind_remedy(&skip.kind))
+            .with_suggestion(candidates.kind_remedy(&skip.kind, registered))
         })
         .collect()
 }
@@ -667,12 +674,64 @@ fn links(graph: &Graph, entity_id: &str, direction: Direction) -> Vec<TraceLink>
 
 #[cfg(test)]
 mod tests {
-    use super::article;
+    use super::{CandidateVocabulary, Route, article, skipped};
+    use specforge_registry::Skipped;
 
     #[test]
     fn the_missing_link_sentence_writes_an_before_a_vowel() {
         assert_eq!(article("event"), "an");
         assert_eq!(article("invariant"), "an");
         assert_eq!(article("port"), "a");
+    }
+
+    #[test]
+    fn i210_names_every_extension_that_declares_the_skipped_kind() {
+        let route = Route {
+            name: "acme/proof-thread".to_string(),
+            extension: "@acme/routes".to_string(),
+            description: None,
+            start: "claim".to_string(),
+            default: true,
+            annotations: Vec::new(),
+            steps: Vec::new(),
+            skipped: vec![Skipped {
+                step: "check".to_string(),
+                annotation: None,
+                kind: "check".to_string(),
+            }],
+        };
+        // `@aaa/other` also declares `claim`, which is registered when `claim_loaded`.
+        let offered = |owners: &str, claim_loaded: bool| {
+            let text = format!(r#"{{"kinds": {{"check": [{owners}], "claim": ["@aaa/other"]}}}}"#);
+            let registered = |kind: &str| claim_loaded && kind == "claim";
+            let notices = skipped(&CandidateVocabulary::from_json(&text), registered, &route);
+            assert_eq!(notices.len(), 1, "{notices:?}");
+            assert_eq!(notices[0].code, "I210");
+            assert_eq!(
+                notices[0].message,
+                "route 'acme/proof-thread' skips step 'check': kind 'check' is not loaded"
+            );
+            notices[0].suggestion.clone().unwrap()
+        };
+        let suggested = |owners: &str| offered(owners, false);
+        // `@aaa/other` is the first declarer: an answer that takes it alone hides `@acme/proof`.
+        assert_eq!(
+            suggested(r#""@aaa/other", "@acme/proof""#),
+            "install one of the extensions that declare it with: `specforge add @aaa/other` or `specforge add @acme/proof`"
+        );
+        assert_eq!(
+            suggested(r#""@acme/proof""#),
+            "install it with: specforge add @acme/proof"
+        );
+        // Adding `@aaa/other` would declare the loaded `claim` again (E026): `@acme/proof` alone.
+        assert_eq!(
+            offered(r#""@aaa/other", "@acme/proof""#, true),
+            "install it with: specforge add @acme/proof"
+        );
+        // A keyword written with no extension is not named: the empty vocabulary.
+        assert_eq!(
+            suggested(""),
+            "search for an extension that provides it with: specforge extensions search check"
+        );
     }
 }

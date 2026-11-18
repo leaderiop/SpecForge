@@ -17,8 +17,17 @@ cargo run -p xtask --bin revendor
 ```
 
 Run it from the main checkout, or from a worktree outside the repository directory, with `CARGO_TARGET_DIR` unset
-(it refuses otherwise; the blobs build in `target/blob-stage/`). It takes about four minutes and needs
-`rustup target add wasm32-wasip2`.
+(it refuses otherwise; the blobs build in `target/blob-stage/`). It takes about five minutes (5 min 17 s when it first
+vendored `@gsd/core`) and needs the pinned toolchain with its target, not only the target:
+
+```text
+rustup toolchain install 1.99.1 --profile minimal --target wasm32-wasip2
+```
+
+Every committed blob is built on that one rustc, `BLOB_RUSTC` in `gate/src/blob_inputs.rs` (ADR 0373 D1): the stager
+runs every cargo and rustc of a blob build on it whatever the checkout's own toolchain is, `inputs.json` records it as
+`built_with`, and `build-blobs --verify` fails on a blob another rustc built. A change of the pin re-vendors every blob
+in its commit.
 
 It refreshes the lockfile of every committed blob's crate, rebuilds every committed blob
 (`specforge_component::committed::COMMITTED`: every builtin, the four fixtures and the marketing example's extension) into `<crate>/wasm/` with its
@@ -29,7 +38,12 @@ ignored tests), and prints the `git add` line that stages exactly those paths.
 
 A new committed blob is listed in `crates/runtime/component/src/committed.rs` first; a new builtin is a row of
 `BUILTINS` (`crates/runtime/component/src/builtins.rs`), which `COMMITTED` lists first. A builtin's crate is
-`extensions/<dir>` (`@specforge/<dir>`) or, in a family, `extensions/<family>/<pack>` (`@<family>/<pack>`); a crate there
+`extensions/<dir>` (`@specforge/<dir>`) or, in a family, `extensions/<family>/<pack>` (`@<family>/<pack>`), with one
+exception: `@gsd/core`'s crate is `gsd/core`, a named row of `BUILTINS` (ADR 0366 D1). Its lock is the gsd workspace's
+`gsd/Cargo.lock`, shared with `gsd-kit` and `gsd-security` and hashed whole, so a dependency change that only touches
+`gsd-security` still re-vendors it; its SDK patch comes from `gsd/.cargo/config.toml`, which the stager replays
+re-rooted at the repository (ADR 0366 D2, `gate/src/blob_inputs.rs`). The printed `git add` line then holds
+`gsd/core/wasm` and `gsd/Cargo.lock`. A crate under `extensions/`
 without `wasm/` is an extension library (`extensions/code/junit`, `extensions/code/facts`, `extensions/rust/manifest`,
 `extensions/javascript/workspace`),
 an rlib no blob of its own. A library is an input of every builtin that links it, directly or through another library,
@@ -37,6 +51,17 @@ so editing one re-vendors those builtins: code-facts, and code-junit, which it l
 `@javascript/node-test`, `@javascript/source`, `@rust/cargo`, `@rust/source` and `@rust/test`; `specforge-rust-manifest`
 feeds `@rust/cargo`; `specforge-javascript-workspace` feeds `@javascript/node-test` and `@javascript/source`.
 `every_committed_wasm_is_listed` (xtask) fails for a `.wasm` file git tracks that the list does not name.
+
+## Only the vocabulary
+
+```text
+cargo run -p xtask --bin revendor -- --vocabulary
+```
+
+When the vocabulary's rule or its written form changed and no blob input did (the `builtins` check passes), this
+rewrites `crates/runtime/component/data/builtin-vocabulary.json` from the pinned declarations and builds nothing:
+no lockfile, no blob and no snapshot changes, and it runs from any checkout. A kind keyword two builtins declare is
+listed with both, sorted (ADR 0369). A field two builtins add to one kind stops it, with an error that names both.
 
 ## Profile
 

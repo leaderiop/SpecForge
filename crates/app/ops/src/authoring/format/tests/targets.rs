@@ -1,13 +1,7 @@
 use super::*;
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "no arguments formats all .spec files under spec_root"
-)]
-#[specforge_test(
-    invariant = "discover_completeness",
-    verify = "all .spec files under spec_root are discovered"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
+#[specforge_test(requirement = "INVARIANT-019")]
 fn targets_are_the_files_under_spec_root() {
     let dir = project_with(
         r#"{"spec_root": "specs"}"#,
@@ -37,10 +31,7 @@ fn targets_are_the_files_under_spec_root() {
     );
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "files the project's exclude entries leave out are not formatted"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn excluded_files_are_not_formatted() {
     let dir = project_with(
         r#"{"spec_root": "spec", "exclude": ["drafts"]}"#,
@@ -53,10 +44,7 @@ fn excluded_files_are_not_formatted() {
     assert_eq!(changed_in(dir.path(), &named), ["spec/drafts/d.spec"]);
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "explicit file paths format only those files"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn explicit_files_format_only_those() {
     let dir = project();
 
@@ -66,10 +54,7 @@ fn explicit_files_format_only_those() {
     assert_eq!(changed_in(dir.path(), &outcome), ["spec/a.spec"]);
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "directory argument recursively discovers .spec files"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_directory_argument_is_walked() {
     let dir = project_with(
         r#"{"exclude": ["drafts"]}"#,
@@ -90,10 +75,7 @@ fn a_directory_argument_is_walked() {
     );
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "non-.spec files are skipped with no error"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn non_spec_files_are_skipped() {
     let dir = project_with("{}", &[("notes.md", "# notes"), ("a.spec", MESSY)]);
 
@@ -103,10 +85,7 @@ fn non_spec_files_are_skipped() {
     assert!(outcome.failures.is_empty());
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a named directory that is a project formats that project's sources"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_named_project_directory_formats_its_sources() {
     let dir = project_with(
         r#"{"spec_root": "specs"}"#,
@@ -119,10 +98,7 @@ fn a_named_project_directory_formats_its_sources() {
     assert_eq!(changed(dir.path()), ["specs/a.spec"]);
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a named directory that is a project formats that project's sources"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_walk_takes_a_nested_projects_sources() {
     let dir = project_with(
         "{}",
@@ -142,10 +118,7 @@ fn a_walk_takes_a_nested_projects_sources() {
     );
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "Discover Format Targets: format target discovery holds — project_root_available, filesystem_accessible, all_spec_files_discovered, exclusions_applied, non_spec_skipped"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn discover_contract() {
     // project_root_available, filesystem_accessible: a project on disk.
     let dir = project_with(
@@ -217,10 +190,7 @@ fn the_ci_gate_paths_reach_only_their_sources() {
     assert_eq!(outcome.checked, sources.len());
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a directory named like a .spec file is no target, walked or discovered"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_directory_named_like_a_spec_file_is_no_target() {
     let dir = project_with("{}", &[("sub/a.spec", MESSY)]);
     std::fs::create_dir_all(dir.path().join("sub/archive.spec")).unwrap();
@@ -238,10 +208,7 @@ fn a_directory_named_like_a_spec_file_is_no_target() {
     assert_eq!(walked.checked, 1);
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a file several arguments reach is formatted once"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_file_several_arguments_reach_is_formatted_once() {
     let dir = project_with("{}", &[("a.spec", MESSY)]);
     std::fs::create_dir(dir.path().join("x")).unwrap();
@@ -255,10 +222,7 @@ fn a_file_several_arguments_reach_is_formatted_once() {
     assert_eq!(folded.checked, 1);
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a named directory that is a project formats that project's sources"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_walk_reads_a_nested_project_directory_as_a_project() {
     let dir = project_with(
         "{}",
@@ -277,10 +241,7 @@ fn a_walk_reads_a_nested_project_directory_as_a_project() {
     assert_eq!(changed_in(dir.path(), &outcome), ["sub/N/n.spec"]);
 }
 
-#[specforge_test(
-    behavior = "discover_format_targets",
-    verify = "a project's sources end at a nested project, which a run from the project does not format"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn a_run_from_a_project_leaves_a_nested_project_alone() {
     let dir = project_with(
         "{}",

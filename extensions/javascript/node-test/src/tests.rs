@@ -52,10 +52,8 @@ fn one(file: &str) -> String {
     format!(r#"<testsuites><testcase name="adds" classname="test" file="{file}"/></testsuites>"#)
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "the twin's tests are named after its package"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn the_twins_tests_are_named_after_its_package() {
     let out = collect(&input(
         TASKBOARD,
@@ -91,10 +89,8 @@ fn the_twins_tests_are_named_after_its_package() {
     );
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a workspace test is named after its nearest package"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_workspace_test_is_named_after_its_nearest_package() {
     let packages = [
         (
@@ -121,10 +117,8 @@ fn a_workspace_test_is_named_after_its_nearest_package() {
     );
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a test fact's file is project-relative in a nested package"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_nested_packages_test_fact_files_its_project_relative_path() {
     let packages = [
         ("package.json", r#"{"name":"app"}"#),
@@ -140,10 +134,8 @@ fn a_nested_packages_test_fact_files_its_project_relative_path() {
     assert_eq!(out.facts[0].fields["file"], "packages/core/test/x.test.js");
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a [<ns>:<id>] tag in a test's name is one of its names"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_tag_in_a_tests_name_is_one_of_its_names() {
     let report = r#"<testsuites><testcase name="[gsd:01-01/TR1] adds [req:TASK-01]" file="/p/test/a.test.js"/></testsuites>"#;
     let out = collect(&input(
@@ -162,10 +154,8 @@ fn a_tag_in_a_tests_name_is_one_of_its_names() {
     );
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "an absolute file is made relative to the project root"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn an_absolute_file_is_made_relative_to_cwd() {
     let out = collect(&input(
         &one("/work/proj/test/a.test.js"),
@@ -177,10 +167,8 @@ fn an_absolute_file_is_made_relative_to_cwd() {
     assert_eq!(out.facts[0].fields["file"], "test/a.test.js");
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a Windows file is made relative to a verbatim cwd"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_windows_file_is_made_relative_to_a_verbatim_cwd() {
     let out = collect(&input(
         &one(r"C:\proj\test\a.test.js"),
@@ -191,10 +179,8 @@ fn a_windows_file_is_made_relative_to_a_verbatim_cwd() {
     assert_eq!(tests(&out)[0].0, "js:p/test/a.test.js#adds");
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a failing and a skipped test keep their status"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_failing_and_a_skipped_test_keep_their_status() {
     let out = collect(&input(
         NESTED,
@@ -223,10 +209,8 @@ fn a_failing_and_a_skipped_test_keep_their_status() {
     );
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a test with no named package is the collector's error"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_test_with_no_named_package_is_the_collectors_error() {
     for packages in [
         &[][..],
@@ -244,10 +228,8 @@ fn a_test_with_no_named_package_is_the_collectors_error() {
     }
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a case without a file is the collector's error"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_case_without_a_file_is_the_collectors_error() {
     let report = r#"<testsuites><testcase name="adds" classname="test"/></testsuites>"#;
     let why = collect(&input(report, "/w", &[("package.json", r#"{"name":"p"}"#)])).unwrap_err();
@@ -257,10 +239,8 @@ fn a_case_without_a_file_is_the_collectors_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a file outside the project, absolute or through .., is the collector's error"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_file_outside_the_project_is_the_collectors_error() {
     for file in [
         "/elsewhere/a.test.js",
@@ -280,10 +260,8 @@ fn a_file_outside_the_project_is_the_collectors_error() {
     }
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a report that is not JUnit is the collector's error"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_report_that_is_not_junit_is_the_collectors_error() {
     let why = collect(&input(r#"{"testResults":[]}"#, "/w", &[])).unwrap_err();
     assert!(why.starts_with(&format!("{REPORT}: ")), "{why}");
@@ -301,10 +279,8 @@ fn the_collector_answers_the_test_and_test_run_kinds() {
     assert_eq!(collector.answers, ["test", "test_run"]);
 }
 
-#[specforge_test(
-    behavior = "nt_map_node_test_report",
-    verify = "a second package of one name names its tests after its directory"
-)]
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-077")]
 fn a_second_package_of_one_name_names_its_tests_after_its_directory() {
     let packages = [
         ("package.json", r#"{"name":"app"}"#),

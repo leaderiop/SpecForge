@@ -7,10 +7,7 @@
 use serde_json::json;
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, prelude::*};
 
-#[specforge_test_macros::test(
-    behavior = "run_a_hook",
-    verify = "the SDK's hook builder declares hosts, git facts and other extensions' settings, and a call reads them"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn the_hook_builder_declares_hosts_git_and_other_settings() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/flow", "1.0.0"));
     c.hook("h", HookEvent::PreTool, |h| {

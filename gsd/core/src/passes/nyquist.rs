@@ -52,10 +52,7 @@ fn tasks_without_a_check(input: &PassInput, validated: &BTreeSet<&str>) -> Vec<P
             let automated = rows(task, "verify")
                 .iter()
                 .any(|row| row.get("automated").is_some_and(|c| !c.trim().is_empty()));
-            if !automated
-                && !covered
-                && task.fields.get("type").map(String::as_str) != Some("manual")
-            {
+            if !automated && !covered {
                 found.push(
                     PassDiagnostic::new(
                         "E314",

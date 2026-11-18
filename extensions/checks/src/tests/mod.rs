@@ -31,10 +31,7 @@ fn switches() -> Vec<SettingDescriptor> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "ck_family_switches",
-    verify = "the extension declares the scopes files, links, git, media-remote and registries, and one switch per family on by default"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn declares_five_scopes_and_a_switch_per_family() {
     let declaration = declaration();
     let scopes: Vec<_> = declaration
@@ -75,10 +72,7 @@ fn declares_five_scopes_and_a_switch_per_family() {
     }
 }
 
-#[specforge_test(
-    behavior = "ck_family_switches",
-    verify = "each switch gates only codes its family alone reports, and the shared E103, E016, W176 and network warnings under no switch"
-)]
+#[specforge_test(requirement = "FEATURE-007")]
 fn each_switch_gates_only_its_familys_codes() {
     let switches = switches();
     let gated: Vec<&str> = switches

@@ -18,10 +18,7 @@ fn code() -> ExtensionDeclaration {
     })
 }
 
-#[spec(
-    behavior = "check_collected_kinds",
-    verify = "an entity of a kind a collector writes, written in a spec file, is E115"
-)]
+#[spec(requirement = "FEATURE-006")]
 fn an_entity_of_a_collected_kind_in_a_spec_file_is_e115() {
     let diags = checked(
         &build([code()]),
@@ -41,10 +38,8 @@ fn an_entity_of_a_collected_kind_in_a_spec_file_is_e115() {
     assert_eq!(e115[0].span.as_ref().unwrap().file.as_str(), "main.spec");
 }
 
-#[spec(
-    behavior = "check_entities_in_one_order",
-    verify = "a fact's id is exempt from the identifier length contract"
-)]
+#[spec(requirement = "FEATURE-124")]
+#[spec(requirement = "FEATURE-141")]
 fn a_collected_id_over_sixty_characters_is_no_e014() {
     let id = "a".repeat(63);
     let text = format!("test {id} \"T\" {{\n}}\n");

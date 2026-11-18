@@ -28,10 +28,7 @@ fn read(root: &std::path::Path, file: &str) -> String {
     std::fs::read_to_string(root.join(file)).unwrap()
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_edit_tool",
-    verify = "specforge.edit applies a list of edits all or nothing"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn edit_applies_a_list_all_or_nothing() {
     let (mut server, root) = served();
     // A new invariant and a link to it, in one call: neither could be made alone.
@@ -82,10 +79,7 @@ fn edit_applies_a_list_all_or_nothing() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_edit_tool",
-    verify = "specforge.edit with dry_run writes nothing and returns the diff"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn edit_with_dry_run_writes_nothing_and_returns_the_diff() {
     let (mut server, root) = served();
     let reply = edit(
@@ -177,10 +171,7 @@ fn edit_on_another_project_by_path_leaves_the_served_one() {
     assert_eq!(read(&root, "spec/login.spec"), LOGIN);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_edit_tool",
-    verify = "specforge.edit of a list that cancels out writes nothing and names no entity"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn specforge_edit_of_a_list_that_cancels_out_writes_and_names_nothing() {
     let (mut server, root) = served();
     let reply = edit(

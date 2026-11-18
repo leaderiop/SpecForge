@@ -121,10 +121,7 @@ mod tests {
             })
     }
 
-    #[specforge_test(
-        behavior = "upgrade_wasm_extension",
-        verify = "one rule picks the version a requirement asks for"
-    )]
+    #[specforge_test(requirement = "FEATURE-134")]
     fn resolve_asks_nothing_for_an_exact_version() {
         let registry = publishing(&["1.0.0"]);
 
@@ -134,10 +131,7 @@ mod tests {
         assert!(registry.listed().is_empty());
     }
 
-    #[specforge_test(
-        behavior = "upgrade_wasm_extension",
-        verify = "one rule picks the version a requirement asks for"
-    )]
+    #[specforge_test(requirement = "FEATURE-134")]
     fn resolve_picks_from_the_published_versions() {
         let registry = publishing(&["1.4.0", "1.9.0", "2.0.0-beta.1", "2.0.0"]);
         for (reference, want) in [
@@ -151,10 +145,7 @@ mod tests {
         }
     }
 
-    #[specforge_test(
-        behavior = "upgrade_wasm_extension",
-        verify = "one rule picks the version a requirement asks for"
-    )]
+    #[specforge_test(requirement = "FEATURE-134")]
     fn resolve_reports_r_res_004_with_the_published_versions() {
         let registry = publishing(&["1.4.0", "1.9.0"]);
 

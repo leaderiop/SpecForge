@@ -129,10 +129,7 @@ mod tests {
         })
     }
 
-    #[specforge_test_macros::test(
-        behavior = "auto_detect_collector",
-        verify = "collectors run in declaration order unless a facts input orders a producer first, and a cycle is E119"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-128")]
     fn the_order_is_stable_and_a_cycle_names_its_collectors() {
         let items = collector("items", &["package"], &["item"]);
         let packages = collector("packages", &[], &["package"]);

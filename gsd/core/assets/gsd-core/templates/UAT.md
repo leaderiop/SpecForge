@@ -35,10 +35,9 @@ TEXT
 IFS= read -rd '' EXPECTED <<'TEXT' || true; EXPECTED=${EXPECTED%$'\n'}
 {what the person should observe}
 TEXT
-JOURNEY="{the journey the test walks, e.g. add_and_finish, or nothing}"
 SESSION_FILE=$(specforge query "$UAT_SESSION" --depth 0 --pick '.nodes[0].file') || exit 1
 [ -n "$SESSION_FILE" ] || { echo "no UAT session $UAT_SESSION in the graph" >&2; exit 1; }
-specforge new uat_test "$TEST_ID" "$NAME" --in "$SESSION_FILE" --session "$UAT_SESSION" --expected "$EXPECTED" ${JOURNEY:+--journey "$JOURNEY"} || exit 1
+specforge new uat_test "$TEST_ID" "$NAME" --in "$SESSION_FILE" --session "$UAT_SESSION" --expected "$EXPECTED" || exit 1
 ```
 
 Record a gap when a test's answer is an issue:

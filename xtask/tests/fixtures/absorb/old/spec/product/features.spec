@@ -20,3 +20,8 @@ feature old_export "Old Export" {
   status  deprecated
   problem "Entries could only be exported as one large file."
 }
+
+feature list_entries "List Entries" {
+  status  in_progress
+  problem "Entries cannot be found again once saved."
+}

@@ -79,10 +79,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "a closed stdout ends the output quietly and keeps the command's exit"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn a_closed_stdout_ends_the_server_while_its_input_continues() {
         let dir = tempfile::tempdir().unwrap();
         let terminal = Terminal::new(

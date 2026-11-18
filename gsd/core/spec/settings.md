@@ -98,7 +98,6 @@ A profile presets these settings:
 | `specforge.traceability_gate` | false | false | true |
 | `specforge.stale_verdict_gate` | false | false | true |
 | `specforge.cross_workstream_conflicts` | false | false | true |
-| `specforge.truth_requirements` | false | false | true |
 | `specforge.plan_paths_touched` | false | true | true |
 | `specforge.task_trailers` | false | false | true |
 
@@ -115,13 +114,11 @@ A setting has one preset source, and these are independent of `profile`:
 ## SpecForge-only settings
 
 Settings of `@gsd/core` GSD does not have, under `specforge.` so the roster check tells them apart. Those in the table
-below are bool, default false, and each gates rules ([rules.md](rules.md#setting-gated-rules)). Two more gate none.
-`specforge.agent_variant` is an enum, `full` (the default) or `compact`, that picks the body of the ten agents that have
-a compact variant (codex and cursor; Claude Code always renders the full body, as upstream installs no compact agent for
-it). It is an enum because the host takes a variant setting only as a string or enum; `workflow.compact_content`
-presets it. `specforge.risk_block_on` is an integer from 1 to 1000, 100 by default: the rpn at or above which a risk
-blocks: its `rpn` until it is mitigated, then its `post_rpn`, which is the `rpn` again without a `post` block
-([governance.md](governance.md#blocking)). gsd/W532 warns on one at or above it that names no mitigation. No profile presets it.
+below are bool, default false, and each gates rules ([rules.md](rules.md#setting-gated-rules)). One more,
+`specforge.agent_variant`, gates none:
+it is an enum, `full` (the default) or `compact`, that picks the body of the ten agents that have a compact variant
+(codex and cursor; Claude Code always renders the full body, as upstream installs no compact agent for it). It is an enum
+because the host takes a variant setting only as a string or enum; `workflow.compact_content` presets it.
 
 | Setting | Switches on |
 |---|---|
@@ -129,7 +126,6 @@ blocks: its `rpn` until it is mitigated, then its `post_rpn`, which is the `rpn`
 | `specforge.traceability_gate` | a complete requirement traces to a task, a commit and a passing test (gsd/E515) |
 | `specforge.stale_verdict_gate` | a stale verdict blocks every workflow step, not only execution (gsd/E516) |
 | `specforge.cross_workstream_conflicts` | active plans of different workstreams share no file (gsd/E517) |
-| `specforge.truth_requirements` | a truth of a phase's plan names one of its plan's requirements (gsd/E519) |
 | `specforge.plan_paths_touched` | a complete plan's commits touched every path it planned, and the files it deletes are gone (gsd/W520) |
 | `specforge.task_trailers` | a task commit names its task by its `Gsd-Task:` trailer (gsd/E521) |
 

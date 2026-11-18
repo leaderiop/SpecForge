@@ -13,8 +13,6 @@ pub mod surface;
 
 use specforge_extension_sdk::prelude::*;
 
-pub use gates::{RISK_BLOCK_ON, RISK_BLOCK_ON_DEFAULT};
-
 /// The settings a workflow reads in place of `config-get`: every key of the roster that has a value, as a JSON object
 /// (the host's value, else the declared default), in the roster's order.
 pub fn block() -> String {

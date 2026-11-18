@@ -434,10 +434,7 @@ mod tests {
     use super::*;
     use std::ffi::OsString;
 
-    #[specforge_test_macros::test(
-        behavior = "print_diagnostics_structured",
-        verify = "NO_COLOR disables diagnostic colour"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-017")]
     fn the_color_rule_is_no_color_then_force_then_the_terminal() {
         let value = |text: &str| Some(OsString::from(text));
         for (no_color, force, is_terminal, expected) in [
@@ -576,10 +573,7 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(
-        behavior = "report_command_outcome",
-        verify = "a closed stdout ends the output quietly and keeps the command's exit"
-    )]
+    #[specforge_test_macros::test(requirement = "FEATURE-006")]
     fn a_closed_stdout_ends_the_output_quietly() {
         let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let err = SharedBuffer::default();

@@ -5,10 +5,7 @@ use specforge_diagnostics::ExtensionCode;
 use specforge_lsp::hover::diagnostics;
 use specforge_test_macros::test as spec;
 
-#[spec(
-    behavior = "hover_diagnostic",
-    verify = "a third-party code is titled, explained and linked from its own catalog"
-)]
+#[spec(requirement = "FEATURE-059")]
 fn hover_explains_a_third_party_code() {
     let mut codes = Codebook::default();
     codes

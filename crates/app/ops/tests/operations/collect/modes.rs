@@ -33,10 +33,7 @@ fn link_out(fx: &Fixture) -> tempfile::TempDir {
     outside
 }
 
-#[specforge_test(
-    behavior = "dispatch_collector",
-    verify = "--report reads only the named files, whatever the collector declares"
-)]
+#[specforge_test(requirement = "FEATURE-128")]
 fn reports_mode_reads_past_a_report_location_declared_outside() {
     let fx = Fixture::new(vec![
         Runner::new("acme").report("../x.json").proving("a", "t"),

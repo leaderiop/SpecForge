@@ -25,10 +25,7 @@ behavior beh \"B\" {
 }
 ";
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a field written twice in one block is E081, and the node holds its first entry, at any depth"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_field_written_twice_is_e081_and_the_node_holds_the_first() {
     let (graph, diagnostics) = build(&[("a.spec", REPEATED)]);
     let messages: Vec<&str> = diagnostics
@@ -59,10 +56,7 @@ fn a_field_written_twice_is_e081_and_the_node_holds_the_first() {
     assert_eq!(targets, ["P1"]);
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "a later entry's names stay tokens a rename edits, and link nothing"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_later_entrys_names_are_tokens_and_link_nothing() {
     let file = parse(REPEATED, "a.spec");
     let inputs = GraphInputs {
@@ -85,10 +79,7 @@ fn a_later_entrys_names_are_tokens_and_link_nothing() {
     assert!(graph.edges_from("beh").iter().all(|e| e.target != "P2"));
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "an update reports a field written twice as the cold build does"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn an_update_reports_a_field_written_twice_as_the_cold_build_does() {
     let once = "behavior beh \"B\" {\n  owner \"a\"\n}\n";
     let twice = "behavior beh \"B\" {\n  owner \"a\"\n  owner \"b\"\n}\n";

@@ -10,7 +10,7 @@
 //! for that target).
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -19,7 +19,7 @@ use specforge_wasm::runtime::{ExtensionSettings, LoadError, WasmCallResult, Wasm
 use specforge_wasm::sandbox::Limits;
 use specforge_wasm::{PortCall, PortSession, Provenance};
 use wasmtime::component::{Component, Linker, Resource};
-use wasmtime::{Cache, CacheConfig, Config, Engine, Store};
+use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::p2::DynPollable;
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
@@ -37,6 +37,9 @@ pub mod committed;
 pub mod fixtures;
 mod imports;
 mod ports;
+mod user_compile_cache;
+use user_compile_cache::enable_compile_cache;
+pub use user_compile_cache::user_compile_cache_dir;
 
 /// Per-instance state: the WASI context (no capability) and the memory
 /// ceiling the limiter enforces. Builtins are pure-compute, but wasip2
@@ -335,8 +338,9 @@ impl ComponentRuntime {
         // deregisters it one frame description at a time, each a linear search, so freeing a
         // compiled component was most of a session's reload (#159). Nothing unwinds through a
         // guest: traps and wasm backtraces walk frame pointers, and a host panic under a guest
-        // is caught and resumed on the host side.
-        config.native_unwind_info(false);
+        // is caught and resumed on the host side. Windows keeps it: its exception handling walks
+        // the registered function tables, so wasmtime refuses an engine there without them.
+        config.native_unwind_info(cfg!(windows));
         if let Some(dir) = &cache_dir
             && let Err(e) = enable_compile_cache(&mut config, dir)
         {
@@ -626,40 +630,6 @@ impl WasmRuntime for ComponentRuntime {
         let plugin = plugin.lock().ok()?;
         plugin.settings.clone()
     }
-}
-
-/// Per-user Wasmtime compilation cache directory.
-///
-/// `$SPECFORGE_WASMTIME_CACHE` overrides; setting it to `off` disables the
-/// cache. Default: `$HOME/.cache/specforge/wasmtime` (no cache when `HOME`
-/// is unset). The test drivers read it, so a child running under another `HOME` shares the cache of the test process
-/// (a cache of its own would compile every builtin again).
-pub fn user_compile_cache_dir() -> Option<PathBuf> {
-    match std::env::var_os("SPECFORGE_WASMTIME_CACHE") {
-        Some(v) if v == "off" => None,
-        Some(v) => Some(PathBuf::from(v)),
-        None => std::env::var_os("HOME").map(|home| {
-            PathBuf::from(home)
-                .join(".cache")
-                .join("specforge")
-                .join("wasmtime")
-        }),
-    }
-}
-
-/// Configure wasmtime's native on-disk compilation cache (true AOT: compiled
-/// machine code is cached and deserialized on later runs, keyed by input
-/// bytes + engine config). Covers components — `compile_component` goes
-/// through wasmtime's `ModuleCacheEntry` like modules do. The soft size cap
-/// keeps the governance constraint (500 MB, size-based eviction) true.
-fn enable_compile_cache(config: &mut Config, dir: &Path) -> Result<(), String> {
-    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let mut cache_config = CacheConfig::new();
-    cache_config.with_directory(dir);
-    cache_config.with_files_total_size_soft_limit(500 * 1024 * 1024);
-    let cache = Cache::new(cache_config).map_err(|e| e.to_string())?;
-    config.cache(Some(cache));
-    Ok(())
 }
 
 #[cfg(test)]

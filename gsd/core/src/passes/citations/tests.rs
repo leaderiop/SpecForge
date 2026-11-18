@@ -1,0 +1,316 @@
+use serde_json::{Value, json};
+
+use super::*;
+
+const PLAN_01: &str = "v1.0/01/01-01";
+const PLAN_02: &str = "v1.0/02/02-01";
+
+fn entity(id: &str, kind: &str, fields: Value) -> Value {
+    json!({ "id": id, "kind": kind, "fields": fields })
+}
+
+/// Phases 01 and 02 each with a context decision `D-01`, the project's own `D-01`, a plan in each phase, and `more`.
+fn input(more: Vec<Value>) -> PassInput {
+    let mut entities = vec![
+        entity("v1.0/01", "phase", json!({})),
+        entity("v1.0/02", "phase", json!({})),
+        entity(
+            "v1.0/01/D-01",
+            "decision",
+            json!({ "origin": "context", "text": "ES modules" }),
+        ),
+        entity(
+            "v1.0/02/D-01",
+            "decision",
+            json!({ "origin": "context", "text": "One JSON file" }),
+        ),
+        entity("D-01", "decision", json!({ "text": "No build step" })),
+        entity(PLAN_01, "plan", json!({ "phase": "v1.0/01" })),
+        entity(PLAN_02, "plan", json!({ "phase": "v1.0/02" })),
+    ];
+    entities.extend(more);
+    serde_json::from_value(crate::passes::plans::with_field_edges(
+        json!({ "entities": entities, "edges": [] }),
+    ))
+    .expect("a pass input")
+}
+
+/// What `text`, written in plan 02-01, cites.
+fn cited_in_02(text: &str) -> Vec<String> {
+    let input = input(vec![]);
+    cited(&decisions(&input), PLAN_02, text)
+        .into_iter()
+        .map(String::from)
+        .collect()
+}
+
+/// What the plan `plan` cites, as `cited_by` reads it.
+fn cited_by_plan(input: &PassInput, plan: &str) -> Vec<String> {
+    let plan = input
+        .entities
+        .iter()
+        .find(|e| e.id == plan)
+        .expect("the plan");
+    cited_by(input, [plan])
+        .into_iter()
+        .map(String::from)
+        .collect()
+}
+
+/// An id meant for another phase is written with its path: upstream's reading, accepted.
+#[test]
+fn a_bare_id_is_the_plans_own_phases() {
+    assert_eq!(cited_in_02("Implement D-01"), ["v1.0/02/D-01"]);
+    let input = input(vec![]);
+    assert_eq!(
+        cited(&decisions(&input), PLAN_01, "Implement D-01"),
+        BTreeSet::from(["v1.0/01/D-01"])
+    );
+    // A plan of a phase with no `D-01` reads the project's.
+    assert_eq!(
+        cited(&decisions(&input), "v1.0/03/03-01", "Implement D-01"),
+        BTreeSet::from(["D-01"])
+    );
+}
+
+#[test]
+fn a_path_names_another_phases_decision() {
+    for written in [
+        "Keep 01/D-01",
+        "Keep v1.0/01/D-01",
+        "Keep /v1.0/01/D-01",
+        "(01/D-01)",
+    ] {
+        assert_eq!(cited_in_02(written), ["v1.0/01/D-01"], "{written}");
+    }
+    for written in ["Keep /D-01", "/D-01", "(/D-01)", "`/D-01`", "\"/D-01\""] {
+        assert_eq!(
+            cited_in_02(written),
+            ["D-01"],
+            "rooted, the project's: {written}"
+        );
+    }
+    assert_eq!(
+        cited_in_02("Keep 01/D-01 and D-01"),
+        ["v1.0/01/D-01", "v1.0/02/D-01"]
+    );
+}
+
+#[test]
+fn a_path_that_names_no_decision_cites_nothing() {
+    for written in ["src/D-01", "see src/D-01.js", "v1.0/03/D-01", "x/01/D-01"] {
+        assert!(cited_in_02(written).is_empty(), "{written}");
+    }
+}
+
+/// A slash after an id (`D-01/D-02`, `REQ-01/D-02`) or after the mark that closes one (`(D-01)/D-02`, `**D-01**/D-02`)
+/// joins two words: the id after it is read bare, as upstream's `\bD-NN\b` reads it. The project's own `D-02` is there
+/// so that a rooted reading of `/D-02` would show.
+#[test]
+fn a_slash_between_two_words_is_no_path() {
+    let input = input(vec![
+        entity(
+            "v1.0/02/D-02",
+            "decision",
+            json!({ "origin": "context", "text": "Write the file atomically" }),
+        ),
+        entity("D-02", "decision", json!({ "text": "One binary" })),
+    ]);
+    let cites = |text: &str| -> Vec<&str> {
+        cited(&decisions(&input), PLAN_02, text)
+            .into_iter()
+            .collect()
+    };
+    for written in [
+        "Implements D-01/D-02",
+        "Covers (D-01)/D-02",
+        "Covers **D-01**/D-02",
+        "Covers `D-01`/D-02",
+        "Covers [D-01]/D-02",
+    ] {
+        assert_eq!(
+            cites(written),
+            ["v1.0/02/D-01", "v1.0/02/D-02"],
+            "{written}"
+        );
+    }
+    for written in ["Implements REQ-01/D-02", "AUTH-01/D-02", "REQ2-01/D-02"] {
+        assert_eq!(cites(written), ["v1.0/02/D-02"], "{written}");
+    }
+    // The id ends the path; the phase after it still reads as one.
+    assert_eq!(cites("D-02/01/D-01"), ["v1.0/01/D-01", "v1.0/02/D-02"]);
+}
+
+#[test]
+fn the_id_is_a_whole_word() {
+    for written in ["D-010", "XD-01", "_D-01"] {
+        assert!(cited_in_02(written).is_empty(), "{written}");
+    }
+    for written in ["D-01-x", "(D-01)", "D-01.", "D-01,"] {
+        assert_eq!(cited_in_02(written), ["v1.0/02/D-01"], "{written}");
+    }
+}
+
+#[test]
+fn case_is_as_written() {
+    assert!(cited_in_02("d-01").is_empty());
+}
+
+/// gsd-core 1.19.0 also counts a decision cited when the first six normalised words of its text are in the plan's
+/// normalised text; SpecForge counts the id alone.
+#[test]
+fn no_paraphrase_cites() {
+    let input = input(vec![
+        entity(
+            "v1.0/02/D-02",
+            "decision",
+            json!({ "origin": "context", "text": "Completed tasks move to a done list at once" }),
+        ),
+        entity(
+            "v1.0/02/02-01/T1",
+            "task",
+            json!({ "action": "Completed tasks: move to a done list, then write src/complete.js" }),
+        ),
+    ]);
+    assert!(cited_by_plan(&input, PLAN_02).is_empty());
+}
+
+#[test]
+fn the_plans_text_is_its_designated_sections() {
+    let cites = |plan_fields: Value, children: Vec<Value>| {
+        let mut more = vec![entity(PLAN_02, "plan", plan_fields)];
+        more.extend(children);
+        let mut input = input(more);
+        // The later entity replaces the bare plan 02-01.
+        let bare = input
+            .entities
+            .iter()
+            .position(|e| e.id == PLAN_02)
+            .expect("plan 02-01");
+        input.entities.remove(bare);
+        cited_by_plan(&input, PLAN_02)
+    };
+    let fields = json!({ "phase": "v1.0/02" });
+    for (field, place) in [
+        ("objective", "the objective"),
+        ("purpose", "the purpose"),
+        ("output", "the output"),
+    ] {
+        let mut plan = fields.clone();
+        plan[field] = json!("Implement D-01");
+        assert_eq!(cites(plan, vec![]), ["v1.0/02/D-01"], "{place}");
+    }
+    for (kind, field) in [
+        ("task", "action"),
+        ("truth", "text"),
+        ("checkpoint", "what_built"),
+        ("artifact", "provides"),
+        ("key_link", "via"),
+        ("prohibition", "text"),
+    ] {
+        let child = entity(
+            &format!("{PLAN_02}/X1"),
+            kind,
+            json!({ field: "Implement D-01" }),
+        );
+        assert_eq!(
+            cites(fields.clone(), vec![child]),
+            ["v1.0/02/D-01"],
+            "{kind}.{field}"
+        );
+    }
+    for field in ["context_refs", "verification", "success_criteria"] {
+        let mut plan = fields.clone();
+        plan[field] = json!("Implement D-01");
+        assert!(cites(plan, vec![]).is_empty(), "{field}");
+    }
+    // A child of another plan is not this plan's text.
+    let other = entity(
+        &format!("{PLAN_01}/T1"),
+        "task",
+        json!({ "action": "Implement 02/D-01" }),
+    );
+    assert!(cites(fields, vec![other]).is_empty());
+}
+
+/// Phase 02's plan 02-01 with a summary, a coverage item and a deviation of it, and a recorded commit of it; plan
+/// 01-01 with its own summary and commit; and phase 02's decisions `D-02` and `D-03`.
+fn shipped(summary: &str, item: &str, deviation: &str, subject: &str) -> Vec<String> {
+    let input = input(vec![
+        entity(
+            "v1.0/02/D-02",
+            "decision",
+            json!({ "origin": "context", "text": "Rename the store" }),
+        ),
+        entity(
+            "v1.0/02/D-03",
+            "decision",
+            json!({ "origin": "context", "text": "Keep the titles" }),
+        ),
+        entity(
+            "v1.0/02/02-01/02-01-SUMMARY",
+            "summary",
+            json!({ "plan": PLAN_02, "one_liner": summary }),
+        ),
+        entity(
+            "v1.0/02/02-01/02-01-SUMMARY/D1",
+            "deliverable",
+            json!({ "description": item }),
+        ),
+        entity(
+            "v1.0/02/02-01/02-01-SUMMARY/DV1",
+            "deviation",
+            json!({ "description": deviation }),
+        ),
+        entity(
+            "abc123def456",
+            "commit",
+            json!({ "plan": PLAN_02, "subject": subject }),
+        ),
+        entity(
+            "v1.0/01/01-01/01-01-SUMMARY",
+            "summary",
+            json!({ "plan": PLAN_01, "one_liner": "Implements 02/D-03" }),
+        ),
+        entity(
+            "def456abc123",
+            "commit",
+            json!({ "plan": PLAN_01, "subject": "feat(01-01): 02/D-03 kept" }),
+        ),
+    ]);
+    let plan = input
+        .entities
+        .iter()
+        .find(|e| e.id == PLAN_02)
+        .expect("plan 02-01");
+    shipped_by(&input, [plan])
+        .into_iter()
+        .map(String::from)
+        .collect()
+}
+
+#[test]
+fn a_summarys_citation_is_read_from_its_plan() {
+    assert_eq!(shipped("Implements D-01", "", "", ""), ["v1.0/02/D-01"]);
+    assert_eq!(
+        shipped("Keeps 01/D-01", "", "", ""),
+        ["v1.0/01/D-01"],
+        "a path from the plan"
+    );
+    assert_eq!(shipped("", "D-02 shipped", "", ""), ["v1.0/02/D-02"]);
+    assert_eq!(shipped("", "", "D-03 moved", ""), ["v1.0/02/D-03"]);
+}
+
+#[test]
+fn a_commit_subject_cites_from_its_plan() {
+    assert_eq!(
+        shipped("", "", "", "feat(02-01): D-02 rename"),
+        ["v1.0/02/D-02"]
+    );
+}
+
+/// Another plan's summary and commit cite `02/D-03`: shipped by that plan, not by 02-01.
+#[test]
+fn another_plans_summary_and_commit_ship_nothing_here() {
+    assert!(shipped("Done", "Done", "None", "feat(02-01): done").is_empty());
+}

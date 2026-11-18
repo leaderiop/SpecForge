@@ -136,8 +136,8 @@ fn a_uat_result_is_harness_written() {
     // The value is in the file and blessed in the ledger, as the command that records an answer leaves it.
     p.edit(
         "spec/uat.spec",
-        "  criterion 1\n}",
-        "  criterion 1\n  result pass\n}",
+        "  expected \"A task added from the form is listed\"\n}",
+        "  expected \"A task added from the form is listed\"\n  result pass\n}",
     );
     assert_eq!(p.run(&["format", "spec"]).code, 0);
     p.record_harness("v1.0/01/01-UAT/U1", "result", "\"pass\"");
@@ -378,20 +378,14 @@ fn re_verification_is_absent_without_a_baseline_verification() {
 
 const SESSION: &str = "v1.0/01/01-UAT";
 
-/// Records a person's answer to UAT test `name` (criterion `criterion`): the value in the file, blessed in the ledger.
-fn answer(p: &Project, name: &str, criterion: u8, result: &str) {
-    p.edit(
-        "spec/uat.spec",
-        &format!("  criterion {criterion}\n}}"),
-        &format!(
-            "  criterion {criterion}\n  result {result}\n{}}}",
-            if result == "issue" {
-                "  reported \"The list ignores it\"\n"
-            } else {
-                ""
-            }
-        ),
-    );
+/// Records a person's answer to UAT test `name`: the value in the file, blessed in the ledger.
+fn answer(p: &Project, name: &str, result: &str) {
+    let reported = if result == "issue" {
+        "  reported \"The list ignores it\"\n"
+    } else {
+        ""
+    };
+    p.close_uat_test(name, &format!("  result {result}\n{reported}"));
     assert_eq!(p.run(&["format", "spec"]).code, 0);
     p.record_harness(
         &format!("{SESSION}/{name}"),
@@ -410,8 +404,8 @@ fn uat_totals_match_audit_uat_golden() {
         serde_json::json!({ "total": 2, "passed": 0, "issues": 0, "pending": 2, "skipped": 0, "blocked": 0, "follow_ups": 0 })
     );
     assert_eq!(p.fields_of(SESSION)["status"], "testing");
-    answer(&p, "U1", 1, "pass");
-    answer(&p, "U2", 2, "issue");
+    answer(&p, "U1", "pass");
+    answer(&p, "U2", "issue");
     assert_eq!(p.report(), Vec::new(), "{:?}", p.report());
     assert_eq!(
         totals(&p),
@@ -424,8 +418,8 @@ fn uat_totals_match_audit_uat_golden() {
 #[test]
 fn a_completed_gap_closure_plan_resolves_its_gap() {
     let p = verify();
-    answer(&p, "U1", 1, "pass");
-    answer(&p, "U2", 2, "issue");
+    answer(&p, "U1", "pass");
+    answer(&p, "U2", "issue");
     let gap = format!("{SESSION}/U2/G1");
     assert_eq!(p.fields_of(&gap)["status"], "open");
     p.edit(
@@ -510,7 +504,7 @@ fn uat_tests_and_gaps_written_with_relative_references_still_count() {
     let p = verify();
     p.edit(
         "spec/uat.spec",
-        "  session   v1.0/01/01-UAT\n  expected  \"A completed",
+        "  session  v1.0/01/01-UAT\n  expected \"A completed",
         "  session   01-UAT\n  expected  \"A completed",
     );
     p.edit(
@@ -563,8 +557,8 @@ fn a_declined_proposal_waives_its_window() {
 #[test]
 fn an_issue_with_one_gap_resolved_and_one_open_is_not_complete() {
     let p = verify();
-    answer(&p, "U1", 1, "pass");
-    answer(&p, "U2", 2, "issue");
+    answer(&p, "U1", "pass");
+    answer(&p, "U2", "issue");
     let text = p.read("spec/uat.spec");
     p.write(
         "spec/uat.spec",

@@ -77,10 +77,8 @@ fn added_errors(p: &Compiled, file: &str, text: &str) -> Vec<(String, String)> {
     added
 }
 
-#[specforge_test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "the verify stub is laid out with the file's format configuration"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn a_verify_stub_follows_the_files_indent() {
     let p = four("flows.spec", VERIFY_4);
     let fixes = fixes_of(&p, &FixQuery::default());
@@ -93,10 +91,8 @@ fn a_verify_stub_follows_the_files_indent() {
     assert!(canonical_with(&p, &indent_four(), &text), "{text}");
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "stub is laid out with the file's format configuration"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn an_entity_stub_follows_the_files_indent() {
     let p = four("a.spec", EVENTS_4);
     let fixes = fixes_of(&p, &FixQuery::default());
@@ -105,10 +101,8 @@ fn an_entity_stub_follows_the_files_indent() {
     assert!(canonical_with(&p, &indent_four(), &text), "{text}");
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "stub goes after the last block of its kind in the current file"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn an_entity_stub_goes_after_the_last_block_of_its_kind() {
     let p = four("a.spec", EVENTS_4);
     let fixes = fixes_of(&p, &FixQuery::default());
@@ -129,10 +123,8 @@ fn no_entity_stub_for_an_id_create_refuses() {
     assert!(offered(&fixes, "Create event stub for e").is_none());
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "stub writes TODO in each required field"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn an_entity_stub_writes_todo_in_each_required_field() {
     let p = compile(TESTING, &[("a.spec", DANGLING)]);
     let fixes = fixes_of(&p, &FixQuery::default());
@@ -152,10 +144,8 @@ fn no_entity_stub_whose_placeholders_cannot_hold() {
     assert!(offered(&fixes, "Create port stub for missing_port").is_none());
 }
 
-#[specforge_test(
-    behavior = "code_action_create_entity_stub",
-    verify = "an offered stub adds no error to the project"
-)]
+#[specforge_test(requirement = "FEATURE-008")]
+#[specforge_test(requirement = "FEATURE-024")]
 fn every_offered_fix_adds_no_error() {
     for (file, text) in [
         ("flows.spec", VERIFY_4),

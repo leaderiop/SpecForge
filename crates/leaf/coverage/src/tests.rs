@@ -57,10 +57,7 @@ fn create_user(tests: Value) -> Value {
     })
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "recorded test results prove entities and failing tests are A014"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn an_obligation_is_proven_by_a_passing_test_that_names_it() {
     let (_, out) = assess_input(create_user(json!([
         {"name": "dup", "status": "passed", "verify": "rejects a duplicate email"},
@@ -72,10 +69,7 @@ fn an_obligation_is_proven_by_a_passing_test_that_names_it() {
     assert!(out.verdicts["create_user"].is_proven());
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "recorded test results prove entities and failing tests are A014"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn unnamed_and_failing_tests_leave_obligations_unproven() {
     let (_, out) = assess_input(create_user(json!([
         {"name": "any", "status": "passed"},
@@ -89,10 +83,7 @@ fn unnamed_and_failing_tests_leave_obligations_unproven() {
     assert_eq!(out.summary.discharge_funnel.entities_proven, 0);
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "a skipped test neither proves an obligation nor fails its entity"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_skipped_test_neither_proves_nor_fails() {
     let (_, out) = assess_input(create_user(json!([
         {"name": "dup", "status": "skipped", "verify": "rejects a duplicate email"},
@@ -104,10 +95,7 @@ fn a_skipped_test_neither_proves_nor_fails() {
     assert!(!verdict.is_proven());
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "an obligation no passing test names is A015 and a test naming an undeclared obligation is A016"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_test_naming_an_undeclared_obligation_is_reported() {
     let (_, out) = assess_input(create_user(json!([
         {"name": "dup", "status": "passed", "verify": "rejects a duplicate email"},
@@ -121,10 +109,7 @@ fn a_test_naming_an_undeclared_obligation_is_reported() {
     );
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "a proved formal claim discharges verify property obligations"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn an_entailed_formal_claim_discharges_property_obligations() {
     let (_, out) = assess_input(json!({
         "entities": [{
@@ -163,10 +148,7 @@ fn the_gate_percentage_is_proven_over_testable_and_vacuous_without_testables() {
     assert_eq!(summary.proof_pct(), 25.0);
 }
 
-#[specforge_test(
-    behavior = "te_coverage_gate",
-    verify = "a proven entity whose kind is not testable does not raise the gate"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn only_testable_entities_count_toward_the_gate() {
     let (_, out) = assess_input(json!({
         "entities": [
@@ -190,10 +172,7 @@ fn only_testable_entities_count_toward_the_gate() {
     assert_eq!(out.summary.proof_pct(), 50.0);
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "an entity with no obligations is never proven, even by passing tests"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn passing_tests_do_not_prove_an_entity_with_no_obligations() {
     let (_, out) = assess_input(json!({
         "entities": [{"id": "logout", "kind": "behavior", "testable": true}],
@@ -209,10 +188,7 @@ fn passing_tests_do_not_prove_an_entity_with_no_obligations() {
     assert_eq!(codes(&out), vec!["A001"]);
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "an entity whose obligations are all formally discharged is proven without tests"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_formally_discharged_entity_is_proven_without_tests() {
     let (_, out) = assess_input(json!({
         "entities": [{
@@ -230,10 +206,7 @@ fn a_formally_discharged_entity_is_proven_without_tests() {
     assert_eq!(out.summary.testable_proven, 1);
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "entities W004 exempts are not A001 and leave the testable count"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn exempt_entities_leave_a001_and_the_testable_count() {
     let (_, out) = assess_input(json!({
         "entities": [
@@ -315,10 +288,7 @@ fn the_rule_matches_the_shared_golden_vectors() {
     }
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "without a risk grading no kind is risk-tallied and nothing is A002"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn without_grading_no_kind_is_risk_tallied_and_nothing_is_a002() {
     let input = json!({
         "entities": [
@@ -358,10 +328,7 @@ fn without_grading_no_kind_is_risk_tallied_and_nothing_is_a002() {
     );
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "an entity counts toward coverage when its kind is testable and it owes or declares obligations, and is exempt when testable and neither"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn counting_is_testable_and_owing_or_declaring() {
     for testable in [false, true] {
         for owes_obligations in [false, true] {
@@ -402,10 +369,7 @@ fn counting_is_testable_and_owing_or_declaring() {
     assert!(entity.counts_toward_coverage());
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "an entity's status is not_testable when its kind is not testable, exempt when it is testable and does not count, and otherwise how its verdict proves it"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_status_says_whether_the_entity_counts_then_how_it_is_proven() {
     let verdicts = [
         Verdict::default(),
@@ -464,10 +428,7 @@ fn a_status_says_whether_the_entity_counts_then_how_it_is_proven() {
     );
 }
 
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "the rule reads a pass entity as the host decided it, with no risk unless the grading caller sets one"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn a_pass_entity_is_read_as_the_host_decided_it() {
     let mut wire = specforge_protocol_types::PassEntity {
         id: "a".into(),
@@ -494,10 +455,7 @@ fn a_pass_entity_is_read_as_the_host_decided_it() {
 
 /// "Unverified" is the glossary's word for what counts and is not proven
 /// (ADR 0015 D4); the summary's declared counts must not use it.
-#[specforge_test(
-    behavior = "te_coverage_pass",
-    verify = "the coverage summary names declared intent in the glossary's words: testable_declared and an invariant tally's without_obligations, and no key says verified"
-)]
+#[specforge_test(requirement = "FEATURE-126")]
 fn the_summary_names_declared_intent_by_the_glossary() {
     // An invariant that declares one obligation no test proves (A015): declared, unverified.
     let (_, out) = assess_input(json!({

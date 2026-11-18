@@ -57,10 +57,7 @@ fn secs(waits: &Arc<Mutex<Vec<Duration>>>) -> Vec<u64> {
     waits.lock().unwrap().iter().map(|d| d.as_secs()).collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "retry_registry_request",
-    verify = "429 response retries with exponential backoff"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn a_rate_limited_call_is_sent_again_after_the_backoff() {
     let (client, retrying, waits) = retrying();
     rate_limited(&client, CallKind::Versions, 2, 0);
@@ -72,10 +69,7 @@ fn a_rate_limited_call_is_sent_again_after_the_backoff() {
     assert_eq!(count(&client, CallKind::Versions), 3);
 }
 
-#[specforge_test_macros::test(
-    behavior = "retry_registry_request",
-    verify = "max retries exceeded produces final error"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn three_retries_then_the_last_rate_limit_is_the_answer() {
     let (client, retrying, waits) = retrying();
     rate_limited(&client, CallKind::Versions, 4, 0);
@@ -90,10 +84,7 @@ fn three_retries_then_the_last_rate_limit_is_the_answer() {
     assert_eq!(count(&client, CallKind::Versions), 4);
 }
 
-#[specforge_test_macros::test(
-    behavior = "retry_registry_request",
-    verify = "a Retry-After longer than the longest backoff is not waited for"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn a_wait_longer_than_the_longest_backoff_is_not_taken() {
     let (client, retrying, waits) = retrying();
     rate_limited(&client, CallKind::Versions, 1, 60_000);
@@ -143,10 +134,7 @@ fn every_call_is_retried_alike() {
     assert_eq!(count(&client, CallKind::Search), 2);
 }
 
-#[specforge_test_macros::test(
-    behavior = "retry_registry_request",
-    verify = "network timeout produces ExtensionError with retry guidance"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-110")]
 fn a_timeout_is_not_retried() {
     let (client, retrying, waits) = retrying();
     client.fail_next(

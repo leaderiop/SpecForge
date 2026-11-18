@@ -53,10 +53,7 @@ fn checked(id: &str, outcome: ValueOutcome) -> CheckedValues {
 
 const OK: ValueOutcome = ValueOutcome::Class(OutcomeClass::Ok);
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "an entity without checked values digests as it did before checked values"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn an_entity_without_checked_values_digests_as_before() {
     let project = gsd_judged_project("");
     let compiled = compile(&project);
@@ -84,10 +81,7 @@ fn an_entity_without_checked_values_digests_as_before() {
 const PINNED_DECISIONS: &str =
     "sha256:74a8804ab011abf737f0ef17c15ad3589617fa264c77c96e220836d1a1c4d75c";
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a checked value whose outcome class changes stales the verdict that read it"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_checked_value_turning_404_stales_the_verdict() {
     let project = gsd_judged_project("");
     let id = decision(&project);
@@ -104,10 +98,7 @@ fn a_checked_value_turning_404_stales_the_verdict() {
     );
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a value rechecked later with the same outcome class stales nothing"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn the_same_outcome_class_rechecked_later_stays_fresh() {
     let project = gsd_judged_project("");
     let id = decision(&project);
@@ -119,10 +110,7 @@ fn the_same_outcome_class_rechecked_later_stays_fresh() {
     assert!(found(&later.diagnostics(), "I207").is_empty());
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "an input with a value this machine did not check is skipped like a missing report, and reported as I207"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn an_unknown_outcome_is_skipped_like_a_missing_report_and_i207() {
     let project = gsd_judged_project("");
     let id = decision(&project);
@@ -150,10 +138,7 @@ fn an_unknown_outcome_is_skipped_like_a_missing_report_and_i207() {
     assert!(now.unjudged.contains(&"decisions".to_string()));
 }
 
-#[specforge_test(
-    behavior = "digest_judged_inputs",
-    verify = "a checked value's outcome is digested by its fixed tag, never by how it is shown"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_value_outcome_is_digested_by_its_fixed_tag() {
     use specforge_effects::{Redirected, Unreachable};
     let tags = [
@@ -194,10 +179,7 @@ fn file_checked() -> (TestProject, specforge_project::SharedRuntime) {
     (project, std::sync::Arc::new(runtime))
 }
 
-#[specforge_test(
-    behavior = "judge_rule_by_fresh_verdict",
-    verify = "the baseline digests an ungated checked value at the commit, over the commit's files"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn the_baseline_digests_a_checked_value_at_the_commit() {
     use specforge_effects::git::Sha;
     use specforge_project::baseline::{Baseline, Checking, CommitReads};
@@ -376,10 +358,7 @@ fn recorded_then_forgotten(project: &TestProject, runtime: &specforge_project::S
 
 const JOURNAL: &str = ".specforge/effects/journal";
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "the baseline is cached by commit, environment and the journal answers its checks read"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_cached_baseline_judges_a_probe_the_journal_answers_later() {
     use specforge_effects::git::{Git, Located, Sha};
     use specforge_project::baseline::{Baseline, Checking};
@@ -425,10 +404,7 @@ fn a_cached_baseline_judges_a_probe_the_journal_answers_later() {
     assert!(Arc::ptr_eq(&judged, &at_commit()), "and cached again");
 }
 
-#[specforge_test(
-    behavior = "read_git_baseline",
-    verify = "a cached baseline is compiled again once a journal record its checks read answers otherwise"
-)]
+#[specforge_test(requirement = "FEATURE-006")]
 fn a_record_only_the_baseline_read_is_an_input_of_a_sessions_checks() {
     let (project, runtime) = linked(LINK);
     // The link's answer, kept aside.

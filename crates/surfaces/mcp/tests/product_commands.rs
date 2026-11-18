@@ -16,10 +16,7 @@ fn product_project() -> TestProject {
         .file("spec.spec", specs::PRODUCT_COMMANDS)
 }
 
-#[specforge_test(
-    behavior = "surface_list_features",
-    verify = "status filter reduces result set"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn the_features_command_is_an_mcp_tool_with_its_filters() {
     let mut served = Served::rooted(product_project());
 
@@ -30,10 +27,7 @@ fn the_features_command_is_an_mcp_tool_with_its_filters() {
     assert_eq!(done["features"][0]["id"], "f2");
 }
 
-#[specforge_test(
-    behavior = "dispatch_surface_command",
-    verify = "over MCP a command is asked for json and its JSON output is the tool's structured content"
-)]
+#[specforge_test(requirement = "FEATURE-125")]
 fn over_mcp_a_command_answers_json_as_structured_content() {
     // MCP 2025-06-18 is the first revision with structured content.
     let mut served = Served::rooted_at(product_project(), "2025-06-18");
@@ -62,10 +56,7 @@ fn over_mcp_a_command_answers_json_as_structured_content() {
     assert_eq!(rpc::tool_json(&response), *structured);
 }
 
-#[specforge_test(
-    behavior = "surface_format_conventions",
-    verify = "an MCP tool call returns the json payload"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn an_mcp_tool_call_returns_the_json_payload() {
     let project = product_project();
     // What `specforge product health --format json` prints: the command run over the compiled project.
@@ -92,10 +83,7 @@ fn an_mcp_tool_call_returns_the_json_payload() {
     assert_eq!(served.tool("specforge.product.health", json!({})), cli);
 }
 
-#[specforge_test(
-    behavior = "surface_error_handling",
-    verify = "MCP tool errors are isError results carrying the McpError the error object maps to"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn over_mcp_a_commands_error_is_the_mcp_error_its_code_names() {
     let mut served = Served::rooted_at(product_project(), "2025-06-18");
 

@@ -214,7 +214,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("the plan it blocks");
             })
             .arg("gate", |a| {
-                a.description("the task whose TDD gate tripped (`T1` under --plan, or its full id): an open blocker of the same gate is reused");
+                a.description("the task whose TDD gate tripped (`T1` under the given plan, or its full id): an open blocker of the same gate is reused");
             })
             .handler(|call| run(call, raise_blocker));
     });

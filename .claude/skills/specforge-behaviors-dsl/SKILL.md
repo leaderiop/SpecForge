@@ -10,6 +10,9 @@ description: "Write behavior blocks in .spec files (the behavior kind is declare
 > `specforge add @specforge/software`, or write the kinds the project's own extensions declare). `verify` needs
 > `@specforge/testing`; `requires`/`ensures`/`maintains`/`satisfies`/`abstract`/`refines`/`sync` need `@specforge/formal`.
 > `specforge infer-guide behavior` prints the fields the loaded extensions declare.
+>
+> This repository's own spec does not load it (ADR 0374): write `behavior` blocks in a project that does, such as the
+> example projects or `integrations/rust/spec`, and see `specforge-authoring`'s "This repository".
 
 Behaviors are the atomic unit of a software specification: each one describes a single operation, what it guarantees,
 and what a test must prove about it.

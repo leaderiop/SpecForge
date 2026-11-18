@@ -100,10 +100,7 @@ fn told_in(scene: &Scene, mode: EffectsMode) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a suffix read serves a file's last bytes, where they start and the file's length"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_suffix_read_serves_the_last_bytes_and_the_files_length() {
     let spec = "service a \"A\" {\n  tail \"a.txt\"\n  span \"a.txt\"\n}\n";
     let scene = scene(FakeHttp::new(), spec);
@@ -117,10 +114,7 @@ const PARTIAL: &str = "https://a.example/partial.pdf";
 const LARGE: &str = "https://a.example/large.pdf";
 const PAST: &str = "https://a.example/past.pdf";
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a 200 to a suffix request is sliced when small and range:ignored when large"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_200_to_a_suffix_request_is_sliced_when_small_and_range_ignored_when_large() {
     let http = FakeHttp::new()
         .route(SMALL, 200, "0123456789")
@@ -155,10 +149,7 @@ fn a_200_to_a_suffix_request_is_sliced_when_small_and_range_ignored_when_large()
     assert_eq!(asked, ["bytes=-4"; 4]);
 }
 
-#[specforge_test_macros::test(
-    behavior = "check_field_values",
-    verify = "a prefix and a suffix of one URL are two journal records"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-124")]
 fn a_prefix_and_a_suffix_of_one_file_are_two_journal_records() {
     let spec = format!("service a \"A\" {{\n  tail_url \"{SMALL}\"\n  head_url \"{SMALL}\"\n}}\n");
     let scene = scene(FakeHttp::new().route(SMALL, 200, "0123456789"), &spec);

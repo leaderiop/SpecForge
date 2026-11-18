@@ -148,10 +148,7 @@ fn applied(event: &WatchEvent) -> &Applied {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "an edit that names a file outside the watched directories moves the watchers"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn an_edit_naming_a_file_outside_the_roots_rearms_on_its_directory() {
     let fixture = Fixture::new(PLAIN);
     let (mut watch, recorder) = fixture.watch();
@@ -173,10 +170,7 @@ fn an_edit_naming_a_file_outside_the_roots_rearms_on_its_directory() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "after the watchers move, the session catches up on what changed while they did"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn what_changes_while_the_watchers_move_is_caught_up() {
     let fixture = Fixture::new(PLAIN);
     let (mut watch, recorder) = fixture.watch();
@@ -193,10 +187,7 @@ fn what_changes_while_the_watchers_move_is_caught_up() {
     assert_eq!(catch_up.changed, catch_up.update.rebuilt_files);
 }
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "an edit that names a file inside the watched directories moves nothing"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn an_edit_inside_the_roots_rearms_nothing() {
     let fixture = Fixture::new(PLAIN);
     let (mut watch, recorder) = fixture.watch();
@@ -209,10 +200,7 @@ fn an_edit_inside_the_roots_rearms_nothing() {
     assert_eq!(recorder.armed().len(), 1, "{:?}", recorder.armed());
 }
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "after spec_root changes, files under the new spec root are watched"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_moved_spec_root_rearms_and_catches_up() {
     let fixture = Fixture::new(PLAIN);
     // The new spec root is outside the project root, so no watched
@@ -250,10 +238,7 @@ fn a_moved_spec_root_rearms_and_catches_up() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a failed move of the watchers is reported and the session still catches up"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_failed_rearm_is_reported_and_the_session_still_catches_up() {
     let fixture = Fixture::new(PLAIN);
     let (mut watch, recorder) = fixture.watch();
@@ -275,10 +260,7 @@ fn a_failed_rearm_is_reported_and_the_session_still_catches_up() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a failed move of the watchers is reported and the session still catches up"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_failed_rearm_with_nothing_stale_ends_on_the_report() {
     let fixture = Fixture::new(PLAIN);
     let (mut watch, recorder) = fixture.watch();
@@ -297,10 +279,7 @@ fn a_failed_rearm_with_nothing_stale_ends_on_the_report() {
     );
 }
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "what was written between the open and the watchers is applied before ready"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn what_was_written_before_the_watchers_is_applied_at_the_start() {
     let fixture = Fixture::new(PLAIN);
     let session = ProjectSession::open_from(
@@ -367,10 +346,7 @@ fn a_source_rewritten_with_its_own_text_reports_nothing() {
     assert_eq!(recorder.armed().len(), 1);
 }
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a batch of an unchanged source and a created named file is rechecked"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn an_unchanged_source_and_a_created_named_file_are_rechecked() {
     let fixture = Fixture::new(NAMES_INSIDE);
     let (mut watch, recorder) = fixture.watch();
@@ -453,10 +429,7 @@ fn applied_says_what_the_update_left() {
     assert_eq!(left.changed, ["spec/b.spec"]);
 }
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a directory event reaches every source under it"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_directory_event_reaches_every_source_under_it() {
     let fixture = Fixture::new(PLAIN);
     fixture.write(
@@ -479,10 +452,7 @@ fn a_directory_event_reaches_every_source_under_it() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "a session's watch roots and the LSP's watchers cover every symlinked source's target"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_symlinked_sources_target_is_watched() {
     let fixture = Fixture::new(PLAIN);
     let outside = fixture.parent.join("outside");
@@ -510,10 +480,7 @@ fn a_symlinked_sources_target_is_watched() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "classify_project_changes",
-    verify = "a symlinked source is reached by each hop its read followed"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_sources_middle_hop_pointed_elsewhere_is_seen() {
     let fixture = Fixture::new(PLAIN);
     let real = fixture.parent.join("real");
@@ -549,10 +516,7 @@ fn a_sources_middle_hop_pointed_elsewhere_is_seen() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a symlinked source whose hop lies in a directory that did not exist is seen when it is created"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_hop_into_a_missing_directory_is_followed_when_it_is_created() {
     let fixture = Fixture::new(PLAIN);
     let real = fixture.parent.join("real");
@@ -603,10 +567,7 @@ fn a_hop_into_a_missing_directory_is_followed_when_it_is_created() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a dangling source link whose missing directory lies outside the root is watched"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_dangling_source_links_missing_directory_outside_the_root_is_watched() {
     let fixture = Fixture::new(PLAIN);
     let far = fixture.parent.join("far");
@@ -638,10 +599,7 @@ fn a_dangling_source_links_missing_directory_outside_the_root_is_watched() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a source whose directory link is pointed elsewhere is seen"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_sources_directory_link_pointed_elsewhere_is_seen() {
     let fixture = Fixture::new(PLAIN);
     let outside = fixture.parent.join("outside");
@@ -671,10 +629,7 @@ fn a_sources_directory_link_pointed_elsewhere_is_seen() {
 }
 
 #[cfg(unix)]
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a named file behind a directory link pointed elsewhere is rechecked"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn a_named_file_behind_a_directory_link_pointed_elsewhere_is_rechecked() {
     let fixture =
         Fixture::new("gadget gadget_one \"G\" {\n  docs [\"<project>/docs/linked/guide.md\"]\n}\n");
@@ -707,10 +662,7 @@ fn a_named_file_behind_a_directory_link_pointed_elsewhere_is_rechecked() {
     );
 }
 
-#[spec(
-    behavior = "watch_file_system_for_changes",
-    verify = "a watch wakes when an effect record the checks consulted expires and runs the checks again"
-)]
+#[spec(requirement = "FEATURE-050")]
 fn watch_wakes_at_the_next_expiry() {
     let now = || specforge_effects::UnixMillis::now().unwrap();
     let fixture = Fixture::new(PLAIN);

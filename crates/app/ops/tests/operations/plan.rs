@@ -78,10 +78,7 @@ fn build_graph() -> Graph {
 }
 
 // B:validate_agent_plan — verify unit "plan with all valid entity IDs passes validation"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "plan with all valid entity IDs passes validation"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn plan_with_all_valid_entity_ids_passes() {
     let graph = build_graph();
     let plan = serde_json::json!({
@@ -98,10 +95,7 @@ fn plan_with_all_valid_entity_ids_passes() {
 }
 
 // B:validate_agent_plan — verify unit "plan referencing nonexistent entity ID produces E003"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "plan referencing nonexistent entity ID produces E003"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn plan_referencing_nonexistent_entity_produces_error() {
     let graph = build_graph();
     let plan = serde_json::json!({
@@ -123,10 +117,7 @@ fn plan_referencing_nonexistent_entity_produces_error() {
 }
 
 // B:validate_agent_plan — verify unit "testable entity missing from plan produces warning"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "testable entity missing from plan produces warning"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn testable_entity_missing_from_plan_produces_warning() {
     let graph = build_graph();
     // Plan only covers "b", missing "c"
@@ -162,10 +153,7 @@ fn testable_entity_missing_from_plan_produces_warning() {
 }
 
 // B:validate_agent_plan — verify unit "plan dependency order contradicting graph produces diagnostic"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "plan dependency order contradicting graph produces diagnostic"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn plan_dependency_order_contradicting_graph_produces_diagnostic() {
     let graph = build_graph();
     // Graph has edge b -> c (b references c, so c should be implemented before b).
@@ -187,10 +175,7 @@ fn plan_dependency_order_contradicting_graph_produces_diagnostic() {
 }
 
 // B:validate_agent_plan — verify contract "requires/ensures consistency for agent plan validation"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "Validate Agent Implementation Plan: agent plan validation holds — validation_complete_fired, unresolvable_ids_diagnosed, missing_entries_warned, ordering_validated, structured_report_produced, plan_validated_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn plan_validation_contract_consistency() {
     // Requires: graph is finalized (we pass a built graph)
     // Ensures: unresolvable IDs diagnosed, missing entries warned, ordering validated, structured report
@@ -283,10 +268,7 @@ fn plan_validation_contract_consistency() {
 }
 
 // B:validate_agent_plan — verify unit "the plan check reads no recorded test report"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "the plan check reads no recorded test report"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn the_plan_check_reads_no_recorded_report() {
     let project = Assembled::over(registries(&["behavior"], &[])).source("behavior a \"A\" {\n  verify unit \"a works\"\n}\n\nbehavior b \"B\" {\n  verify unit \"b works\"\n}\n");
     let plan = AgentPlan::read(
@@ -312,10 +294,7 @@ fn the_plan_check_reads_no_recorded_report() {
 }
 
 // B:validate_agent_plan — verify unit "a plan that is not an AgentPlan is refused, naming every place it departs from the type"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "a plan that is not an AgentPlan is refused, naming every place it departs from the type"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn an_agent_plan_is_read_against_its_schema() {
     use serde_json::json;
     let refused = |value: serde_json::Value| AgentPlan::read(&value).unwrap_err().message("plan");
@@ -370,10 +349,7 @@ fn an_agent_plan_is_read_against_its_schema() {
 }
 
 // B:validate_agent_plan — verify unit "a plan passes when every entry names an entity and none comes before what it depends on; a missing entry is a warning"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "a plan passes when every entry names an entity and none comes before what it depends on; a missing entry is a warning"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_missing_entry_warns_and_an_unresolved_or_misordered_entry_fails() {
     let graph = build_graph();
     let check = |ids: &[&str]| {
@@ -397,7 +373,7 @@ fn a_missing_entry_warns_and_an_unresolved_or_misordered_entry_fails() {
 }
 
 // B:validate_agent_plan — verify unit "output is structured JSON"
-#[specforge_test(behavior = "validate_agent_plan", verify = "output is structured JSON")]
+#[specforge_test(requirement = "FEATURE-130")]
 fn the_plan_outcome_is_one_document() {
     let graph = build_graph();
     let plan = serde_json::json!({"plan_id": "p", "entries": [
@@ -438,10 +414,7 @@ fn depending(ids: &[&str], edges: &[(&str, &str)]) -> Graph {
 }
 
 // B:validate_agent_plan — verify unit "entities on one cycle may come in any order in a plan"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "entities on one cycle may come in any order in a plan"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn entities_on_one_cycle_may_come_in_any_order() {
     let graph = depending(&["a", "b", "c"], &[("a", "b"), ("b", "a"), ("c", "a")]);
     let check = |ids: &[&str]| {
@@ -468,10 +441,7 @@ fn entities_on_one_cycle_may_come_in_any_order() {
 }
 
 // B:validate_agent_plan — verify unit "every entry of a cycle comes after every entry of what the cycle depends on, and before every entry that depends on it"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "every entry of a cycle comes after every entry of what the cycle depends on, and before every entry that depends on it"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn an_entry_and_the_cycle_it_depends_on_are_ordered_as_components() {
     let graph = depending(
         &["a", "b", "c", "d"],
@@ -510,10 +480,7 @@ fn an_entry_and_the_cycle_it_depends_on_are_ordered_as_components() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "an entity that counts toward coverage and has no entry is a missing entry, whether or not it declares obligations; an exempt one is not"
-)]
+#[specforge_test(requirement = "FEATURE-130")]
 fn a_plan_must_cover_every_entity_that_counts_toward_coverage() {
     // pay owes obligations (W004's rule applies to behavior) and declares
     // none; log is of a testable kind no rule obligates and declares none

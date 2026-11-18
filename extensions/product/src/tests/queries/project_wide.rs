@@ -65,10 +65,7 @@ fn project_health_scores_coverage_and_completeness() {
     assert_eq!(report.completeness.milestones_total, 2);
 }
 
-#[specforge_test(
-    behavior = "surface_health",
-    verify = "health counts an entity only it references as unreferenced, and a milestone whose only reference is itself as one without references"
-)]
+#[specforge_test(requirement = "FEATURE-095")]
 fn health_counts_an_entity_only_it_references_as_unreferenced() {
     let g = G::default()
         .n("f_self", "feature")

@@ -29,10 +29,7 @@ fn remove(id: &str, kind: Option<&str>, text: &str) -> Edit {
     }
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "remove-verify removes the statement, never a block field's entry named verify"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn remove_verify_removes_the_statement_never_an_entry_named_verify() {
     let c = ports(PORT);
     let text = after(
@@ -59,10 +56,7 @@ fn remove_verify_removes_the_statement_never_an_entry_named_verify() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "add-verify writes after the last statement, never inside a block field"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn add_verify_writes_after_the_last_statement_never_inside_a_block_field() {
     let c = ports(UNTESTED_PORT);
     let planned = plan(
@@ -80,10 +74,8 @@ fn add_verify_writes_after_the_last_statement_never_inside_a_block_field() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "a verify stub is offered for an entity whose block field holds an entry named verify"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-008")]
+#[specforge_test_macros::test(requirement = "FEATURE-024")]
 fn a_verify_stub_is_offered_beside_an_entry_named_verify() {
     let c = ports(UNTESTED_PORT);
     let fixes = crate::fixes::fixes_of(&c, &FixQuery::default());
@@ -100,10 +92,7 @@ fn a_verify_stub_is_offered_beside_an_entry_named_verify() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "retitle of an untitled union writes the title after its name, never over a variant"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn retitle_of_an_untitled_union_writes_the_title_after_its_name() {
     let retitle = |title: &str, id: &str| Edit::Retitle {
         entity_id: id.into(),
@@ -121,10 +110,7 @@ fn retitle_of_an_untitled_union_writes_the_title_after_its_name() {
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "add-verify on a union is refused as not_editable, a union has no verify statements"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn add_verify_on_a_union_is_refused_as_not_editable() {
     let c = project(&[("types.spec", "type stage = \"draft\" | \"final\"\n")]);
     let refusal = plan(&c, &[add("stage", None, "a stage is one of its variants")])
@@ -138,10 +124,7 @@ fn add_verify_on_a_union_is_refused_as_not_editable() {
 const FEATURE: &str = "type Feature \"Feature\" {\n  name     string\n  variants string[]\n}\n\n\
                        type Status = open | done\n";
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_obligation",
-    verify = "add-verify on a braced block writes the statement whatever its members are named"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn add_verify_on_a_braced_block_with_a_member_named_variants_writes_the_statement() {
     let c = compile(TESTING, &[("types.spec", FEATURE)]);
     assert_eq!(
@@ -157,10 +140,8 @@ fn add_verify_on_a_braced_block_with_a_member_named_variants_writes_the_statemen
     );
 }
 
-#[specforge_test_macros::test(
-    behavior = "code_actions_for_missing_verify",
-    verify = "a verify stub is offered and planned for a braced block whatever its members are named"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-008")]
+#[specforge_test_macros::test(requirement = "FEATURE-024")]
 fn a_verify_stub_is_offered_for_a_braced_block_with_a_member_named_variants() {
     let c = compile(TESTING, &[("types.spec", FEATURE)]);
     let navigator = c.navigator();

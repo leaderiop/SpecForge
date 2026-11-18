@@ -12,10 +12,7 @@ fn events() -> Compiled {
     project(&[("e.spec", EVENTS)])
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "unlink of an inherited single reference is refused as unset is"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn unlink_of_an_inherited_single_reference_is_refused_as_unset_is() {
     let c = events();
     let unlinked = refused(&c, &[unlink("order_placed", "payload", "Order")]);
@@ -23,10 +20,7 @@ fn unlink_of_an_inherited_single_reference_is_refused_as_unset_is() {
     assert_eq!(unlinked, refused(&c, &[unset("order_placed", "payload")]));
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_field",
-    verify = "set to a default's value leaves the block inheriting it, in any form"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn set_to_a_one_value_default_leaves_the_block_inheriting_it() {
     let c = events();
     assert!(
@@ -55,10 +49,7 @@ fn set_to_a_one_value_default_leaves_the_block_inheriting_it() {
     assert!(!new.contains("[\"a\"]"), "{new}");
 }
 
-#[specforge_test_macros::test(
-    behavior = "edit_entity_link",
-    verify = "a link and its unlink leave a block as it was"
-)]
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
 fn a_link_and_its_unlink_over_a_one_value_default_leave_the_text_as_it_was() {
     let c = events();
     let planned = plan(

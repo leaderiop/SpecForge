@@ -1,0 +1,789 @@
+{
+  "category": "validation_rules",
+  "items": [
+    {
+      "check": "field_value_constraint",
+      "code": "E107",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)([.][0-9]+)?Z$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "checkpoint.timestamp",
+      "message_template": "{kind} '{id}' has '{value}' where a time like 2026-10-28T09:30:00Z belongs",
+      "severity": "error",
+      "target_kind": "discussion",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "E107",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)([.][0-9]+)?Z$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "resolved.at",
+      "message_template": "{kind} '{id}' has '{value}' where a time like 2026-10-28T09:30:00Z belongs",
+      "severity": "error",
+      "target_kind": "blocker",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "E107",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)([.][0-9]+)?Z$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "started",
+      "message_template": "{kind} '{id}' has '{value}' where a time like 2026-10-28T09:30:00Z belongs",
+      "severity": "error",
+      "target_kind": "uat_session",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E105",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "tier",
+        "values": [
+          "out_of_scope"
+        ]
+      },
+      "edge_type": null,
+      "field": "reason",
+      "message_template": "requirement '{id}' is out of scope but gives no reason",
+      "severity": "error",
+      "target_kind": "requirement",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E402",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "status",
+        "values": [
+          "halted"
+        ]
+      },
+      "edge_type": null,
+      "field": "halted_because",
+      "message_template": "summary '{id}' is halted but gives no halted_because",
+      "severity": "error",
+      "target_kind": "summary",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "E201",
+      "constraint": null,
+      "edge_type": null,
+      "field": "canonical_refs",
+      "message_template": "context '{id}' has no canonical_refs; with no external spec, write one whose topic says so",
+      "severity": "error",
+      "target_kind": "context",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "E201",
+      "constraint": {
+        "kind": "non_empty",
+        "pattern": null,
+        "values": []
+      },
+      "edge_type": null,
+      "field": "canonical_refs",
+      "message_template": "context '{id}' has an empty canonical_refs",
+      "severity": "error",
+      "target_kind": "context",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E307",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "kind",
+        "values": [
+          "human_verify"
+        ]
+      },
+      "edge_type": null,
+      "field": "what_built",
+      "message_template": "checkpoint '{id}' of kind human_verify has no what_built",
+      "severity": "error",
+      "target_kind": "checkpoint",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E307",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "kind",
+        "values": [
+          "human_verify"
+        ]
+      },
+      "edge_type": null,
+      "field": "how_to_verify",
+      "message_template": "checkpoint '{id}' of kind human_verify has no how_to_verify",
+      "severity": "error",
+      "target_kind": "checkpoint",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E307",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "kind",
+        "values": [
+          "decision"
+        ]
+      },
+      "edge_type": null,
+      "field": "decision",
+      "message_template": "checkpoint '{id}' of kind decision has no decision",
+      "severity": "error",
+      "target_kind": "checkpoint",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E307",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "kind",
+        "values": [
+          "decision"
+        ]
+      },
+      "edge_type": null,
+      "field": "options",
+      "message_template": "checkpoint '{id}' of kind decision has no options",
+      "severity": "error",
+      "target_kind": "checkpoint",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E307",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "kind",
+        "values": [
+          "human_action"
+        ]
+      },
+      "edge_type": null,
+      "field": "instructions",
+      "message_template": "checkpoint '{id}' of kind human_action has no instructions",
+      "severity": "error",
+      "target_kind": "checkpoint",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E307",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "kind",
+        "values": [
+          "human_action"
+        ]
+      },
+      "edge_type": null,
+      "field": "action",
+      "message_template": "checkpoint '{id}' of kind human_action has no action",
+      "severity": "error",
+      "target_kind": "checkpoint",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E307",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "kind",
+        "values": [
+          "human_action"
+        ]
+      },
+      "edge_type": null,
+      "field": "verification",
+      "message_template": "checkpoint '{id}' of kind human_action has no verification",
+      "severity": "error",
+      "target_kind": "checkpoint",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "E319",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "verification",
+        "values": [
+          "test"
+        ]
+      },
+      "edge_type": null,
+      "field": "test",
+      "message_template": "prohibition '{id}' is verified by a test but names none",
+      "severity": "error",
+      "target_kind": "prohibition",
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "W311",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-plan-checker",
+        "outcomes": [
+          "passed",
+          "issues"
+        ],
+        "passing": [
+          "passed"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "plan",
+                "selector": "self"
+              },
+              {
+                "name": "body",
+                "selector": "self<task|checkpoint|truth|artifact|key_link|prohibition|user_setup.plan"
+              },
+              {
+                "name": "phase",
+                "selector": "self.phase"
+              },
+              {
+                "name": "requirements",
+                "selector": "self.requirements"
+              },
+              {
+                "name": "phase_decisions",
+                "selector": "self.phase<decision.phase"
+              },
+              {
+                "name": "all_decisions",
+                "selector": "decision"
+              },
+              {
+                "name": "context",
+                "selector": "self.phase<context|deferred_idea[origin=discussion].phase"
+              },
+              {
+                "name": "research",
+                "selector": "self.phase<research.phase"
+              },
+              {
+                "name": "research_items",
+                "selector": "self.phase<research.phase<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research"
+              },
+              {
+                "name": "siblings",
+                "selector": "self.phase<plan.phase"
+              },
+              {
+                "name": "instructions",
+                "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
+              }
+            ],
+            "kind": "plan"
+          }
+        ]
+      },
+      "message_template": "plan '{id}' is not checked against its phase goal, scope and settled decisions",
+      "severity": "warning",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "W313",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-plan-checker",
+        "outcomes": [
+          "passed",
+          "issues"
+        ],
+        "passing": [
+          "passed"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "plan",
+                "selector": "self"
+              },
+              {
+                "name": "body",
+                "selector": "self<task|checkpoint|truth|artifact|key_link|prohibition|user_setup.plan"
+              },
+              {
+                "name": "phase",
+                "selector": "self.phase"
+              },
+              {
+                "name": "requirements",
+                "selector": "self.requirements"
+              },
+              {
+                "name": "phase_decisions",
+                "selector": "self.phase<decision.phase"
+              },
+              {
+                "name": "all_decisions",
+                "selector": "decision"
+              },
+              {
+                "name": "context",
+                "selector": "self.phase<context|deferred_idea[origin=discussion].phase"
+              },
+              {
+                "name": "research",
+                "selector": "self.phase<research.phase"
+              },
+              {
+                "name": "research_items",
+                "selector": "self.phase<research.phase<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research"
+              },
+              {
+                "name": "siblings",
+                "selector": "self.phase<plan.phase"
+              },
+              {
+                "name": "instructions",
+                "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
+              }
+            ],
+            "kind": "plan"
+          }
+        ]
+      },
+      "message_template": "plan '{id}' is not checked for wired key links",
+      "severity": "warning",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "W315",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-plan-checker",
+        "outcomes": [
+          "passed",
+          "issues"
+        ],
+        "passing": [
+          "passed"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "plan",
+                "selector": "self"
+              },
+              {
+                "name": "body",
+                "selector": "self<task|checkpoint|truth|artifact|key_link|prohibition|user_setup.plan"
+              },
+              {
+                "name": "phase",
+                "selector": "self.phase"
+              },
+              {
+                "name": "requirements",
+                "selector": "self.requirements"
+              },
+              {
+                "name": "phase_decisions",
+                "selector": "self.phase<decision.phase"
+              },
+              {
+                "name": "all_decisions",
+                "selector": "decision"
+              },
+              {
+                "name": "context",
+                "selector": "self.phase<context|deferred_idea[origin=discussion].phase"
+              },
+              {
+                "name": "research",
+                "selector": "self.phase<research.phase"
+              },
+              {
+                "name": "research_items",
+                "selector": "self.phase<research.phase<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research"
+              },
+              {
+                "name": "siblings",
+                "selector": "self.phase<plan.phase"
+              },
+              {
+                "name": "instructions",
+                "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
+              }
+            ],
+            "kind": "plan"
+          }
+        ]
+      },
+      "message_template": "plan '{id}' is not checked for matching data contracts",
+      "severity": "warning",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "W316",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-plan-checker",
+        "outcomes": [
+          "passed",
+          "issues"
+        ],
+        "passing": [
+          "passed"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "plan",
+                "selector": "self"
+              },
+              {
+                "name": "body",
+                "selector": "self<task|checkpoint|truth|artifact|key_link|prohibition|user_setup.plan"
+              },
+              {
+                "name": "phase",
+                "selector": "self.phase"
+              },
+              {
+                "name": "requirements",
+                "selector": "self.requirements"
+              },
+              {
+                "name": "phase_decisions",
+                "selector": "self.phase<decision.phase"
+              },
+              {
+                "name": "all_decisions",
+                "selector": "decision"
+              },
+              {
+                "name": "context",
+                "selector": "self.phase<context|deferred_idea[origin=discussion].phase"
+              },
+              {
+                "name": "research",
+                "selector": "self.phase<research.phase"
+              },
+              {
+                "name": "research_items",
+                "selector": "self.phase<research.phase<finding|stack_choice|pattern|pitfall|dont_hand_roll|open_question.research"
+              },
+              {
+                "name": "siblings",
+                "selector": "self.phase<plan.phase"
+              },
+              {
+                "name": "instructions",
+                "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
+              }
+            ],
+            "kind": "plan"
+          }
+        ]
+      },
+      "message_template": "plan '{id}' is not checked against the agent instructions and mapped patterns",
+      "severity": "warning",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "E501",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-verifier",
+        "outcomes": [
+          "verified",
+          "verified_coincidental",
+          "failed",
+          "uncertain",
+          "present_behavior_unverified"
+        ],
+        "passing": [
+          "verified",
+          "verified_coincidental"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "truth",
+                "selector": "self"
+              },
+              {
+                "name": "plan",
+                "selector": "self.plan"
+              },
+              {
+                "name": "phase",
+                "selector": "self.plan.phase"
+              },
+              {
+                "name": "tests",
+                "selector": "test(self<test.names)"
+              },
+              {
+                "name": "files",
+                "selector": "file(self.plan.files_modified)"
+              }
+            ],
+            "kind": "truth"
+          },
+          {
+            "inputs": [
+              {
+                "name": "artifact",
+                "selector": "self"
+              },
+              {
+                "name": "plan",
+                "selector": "self.plan"
+              },
+              {
+                "name": "file",
+                "selector": "file(self.path)"
+              }
+            ],
+            "kind": "artifact"
+          },
+          {
+            "inputs": [
+              {
+                "name": "link",
+                "selector": "self"
+              },
+              {
+                "name": "plan",
+                "selector": "self.plan"
+              },
+              {
+                "name": "from",
+                "selector": "file(self.from)"
+              },
+              {
+                "name": "to",
+                "selector": "file(self.to)"
+              }
+            ],
+            "kind": "key_link",
+            "unless_set": [
+              "pattern"
+            ]
+          }
+        ]
+      },
+      "message_template": "{kind} '{id}' has no fresh verifier verdict",
+      "severity": "error",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "E518",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-integration-checker",
+        "outcome_fields": [
+          "milestone_audit.integration"
+        ],
+        "outcomes": [
+          "passed",
+          "issues"
+        ],
+        "passing": [
+          "passed"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "audit",
+                "selector": "self"
+              },
+              {
+                "name": "phases",
+                "selector": "self.milestone<phase.milestone"
+              },
+              {
+                "name": "verifications",
+                "selector": "self.milestone<phase.milestone<verification.phase"
+              },
+              {
+                "name": "requirements",
+                "selector": "self.milestone<phase.milestone.requirements"
+              }
+            ],
+            "kind": "milestone_audit"
+          }
+        ]
+      },
+      "message_template": "milestone audit '{id}' has no fresh integration verdict",
+      "severity": "error",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "E202",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "prompt:spec_phase",
+        "outcomes": [
+          "passed",
+          "failed"
+        ],
+        "passing": [
+          "passed"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "spec",
+                "selector": "self"
+              },
+              {
+                "name": "items",
+                "selector": "self<locked_req|interview.spec"
+              },
+              {
+                "name": "phase",
+                "selector": "self.phase"
+              }
+            ],
+            "kind": "phase_spec"
+          }
+        ],
+        "values": [
+          "phase_spec.scores"
+        ]
+      },
+      "message_template": "phase spec '{id}' is not judged against its ambiguity gates",
+      "severity": "error",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "W203",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "prompt:spec_phase",
+        "outcomes": [
+          "passed",
+          "failed"
+        ],
+        "passing": [
+          "passed"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "req",
+                "selector": "self"
+              },
+              {
+                "name": "traces",
+                "selector": "self.traces"
+              }
+            ],
+            "kind": "locked_req"
+          }
+        ]
+      },
+      "message_template": "locked requirement '{id}' is not judged for a falsifiable acceptance",
+      "severity": "warning",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "W205",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-phase-researcher",
+        "outcome_fields": [
+          "package_audit.legitimacy"
+        ],
+        "outcomes": [
+          "legitimate",
+          "suspicious",
+          "unknown"
+        ],
+        "passing": [
+          "legitimate"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "audit",
+                "selector": "self"
+              }
+            ],
+            "kind": "package_audit"
+          }
+        ]
+      },
+      "message_template": "package '{id}' has no legitimacy verdict",
+      "severity": "warning",
+      "target_kind": null,
+      "wasm_function": null
+    }
+  ]
+}

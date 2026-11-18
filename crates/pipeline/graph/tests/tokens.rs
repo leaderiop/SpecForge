@@ -52,10 +52,7 @@ fn show(tokens: &[WrittenToken]) -> Vec<String> {
         .collect()
 }
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "the written tokens of a file include a default no block takes"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_default_no_block_takes_is_a_token() {
     let (_, tokens) = find("defaults behavior {\n  ports [Repo]\n}\n", defaults_inputs);
     assert_eq!(
@@ -103,10 +100,7 @@ fn a_single_reference_is_a_single_token() {
     assert_eq!(show(&tokens), ["Wheel a base Single 2:8-2:13"]);
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "the written tokens of a file read a list written as one value as a list"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_list_written_as_one_value_is_no_type_name() {
     let source =
         "shape Car \"Car\" {\n  parts Wheel\n}\n\nshape Wheel \"Wheel\" {\n  size number\n}\n";
@@ -206,10 +200,7 @@ fn a_duplicate_declarations_tokens_are_held_by_its_id() {
     assert_eq!(held(&tokens), ["Repo 2:10-2:14 a", "Repo 6:10-6:14 a"]);
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "every edge is a token the graph's finder reads"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn every_edge_is_held_by_a_token() {
     for (source, make, duplicate) in [
         (SHAPES, derived_inputs as fn() -> GraphInputs, false),
@@ -246,10 +237,7 @@ fn every_edge_is_held_by_a_token() {
     }
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "every edge is a token the graph's finder reads"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn a_list_item_is_a_token_at_the_item() {
     let source =
         "shape Wheel \"Wheel\" {\n  size number\n}\nshape Car \"Car\" {\n  parts [Wheel]\n}\n";
@@ -286,10 +274,7 @@ fn a_methods_positions_are_not_serialized() {
     );
 }
 
-#[specforge_test(
-    behavior = "link_derived_references",
-    verify = "the written tokens of a file include every name a derived field links"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn every_name_of_a_signature_is_a_token() {
     let source = r#"
 shape Config "Config" {
@@ -388,10 +373,7 @@ iface X \"X\" {\n  method run() -> Result<\n    Config,\n    Project>\n}\n";
     );
 }
 
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "a quoted reference is written at its ID, inside its quotes"
-)]
+#[specforge_test(requirement = "FEATURE-109")]
 fn a_quoted_reference_is_a_token_at_its_id() {
     let source = "shape Wheel \"Wheel\" {\n  size number\n}\nshape Car \"Car\" {\n  base \"Wheel\"\n  parts [\"Wheel\", Wheel]\n}\n";
     let (_, tokens) = find(source, derived_inputs);
@@ -405,10 +387,7 @@ fn a_quoted_reference_is_a_token_at_its_id() {
     );
 }
 
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "the written tokens of a file include a use binding's imported name, never its alias"
-)]
+#[specforge_test(requirement = "FEATURE-046")]
 fn a_use_bindings_imported_name_is_a_token_held_by_no_block() {
     let (_, tokens) = find(
         "use { Repo as Store, Gone } from \"a.spec\"\n",
@@ -424,10 +403,7 @@ fn a_use_bindings_imported_name_is_a_token_held_by_no_block() {
     assert!(tokens.iter().all(|t| t.held_by.is_empty()), "{tokens:?}");
 }
 
-#[specforge_test(
-    behavior = "parse_verdict_statement",
-    verify = "a cited reference is a finder token and no edge"
-)]
+#[specforge_test(requirement = "FEATURE-058")]
 fn a_cited_reference_is_respelled_by_a_rename() {
     let source = "requirement AUTH-07 \"R\" {}\n\nplan P \"P\" {\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    cited [AUTH-07]\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
     let (graph, tokens) = find(source, defaults_inputs);

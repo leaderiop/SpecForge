@@ -21,10 +21,7 @@ fn write_spec(dir: &std::path::Path, name: &str, content: &str) {
 // ===================================================================
 
 // A1: `specforge migrate` exits 0 on project with no version mismatches
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "files already at target version are skipped with skippedCount incremented"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_exits_zero_on_current_version_project() {
     let tmp = project();
     let root = tmp.root();
@@ -59,10 +56,7 @@ fn migrate_exits_zero_on_current_version_project() {
 }
 
 // A2: MigrationSummary serializes to JSON
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "summary reports migrated, failed, and skipped counts"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_json_output_contains_summary_fields() {
     let tmp = project();
     let root = tmp.root();
@@ -122,10 +116,7 @@ fn status_of(json: &serde_json::Value, file: &str) -> String {
 }
 
 // A3: Unknown --target-version produces error
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "unsupported format version produces E019 with upgrade guidance"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_unknown_target_version_produces_error() {
     let tmp = project();
     let root = tmp.root();
@@ -171,10 +162,7 @@ fn migrate_unparseable_target_version_reports_e019() {
 // ===================================================================
 
 // B1: Header comment detected
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "header comment format version detected correctly"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn detect_format_version_from_header() {
     let tmp = project();
     let root = tmp.root();
@@ -212,10 +200,7 @@ fn detect_format_version_from_header() {
 }
 
 // B2: Missing version defaults to current (no migration needed)
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "missing format version treated as the current version"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn missing_version_header_defaults_to_current() {
     let tmp = project();
     let root = tmp.root();
@@ -241,10 +226,7 @@ fn missing_version_header_defaults_to_current() {
 }
 
 // B3: Unsupported version in header → E019
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "unsupported format version produces E019 with upgrade guidance"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn unsupported_version_in_header() {
     let tmp = project();
     let root = tmp.root();
@@ -274,10 +256,7 @@ fn unsupported_version_in_header() {
 // ===================================================================
 
 // C1: Files at target version are skipped
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "files already at target version are skipped with skippedCount incremented"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn files_at_target_version_are_skipped() {
     let tmp = project();
     let root = tmp.root();
@@ -304,10 +283,7 @@ fn files_at_target_version_are_skipped() {
     );
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "migrate leaves a nested project's files alone"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_leaves_a_nested_projects_files_alone() {
     let tmp = project();
     let root = tmp.root();
@@ -336,10 +312,7 @@ fn migrate_leaves_a_nested_projects_files_alone() {
 // C2: Backup created before modification (simulated with version 0.1 if we had a transform)
 // Since v1 is current and no older versions exist yet, we test the backup mechanism
 // by using a file that requires header addition.
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "backup created before modification"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn backup_created_before_modification() {
     let tmp = project();
     let root = tmp.root();
@@ -388,10 +361,7 @@ fn no_tmp_file_remains_after_migration() {
 }
 
 // C4: File failure isolation + --no-backup
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "--no-backup skips backup creation"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn no_backup_flag_skips_backup_creation() {
     let tmp = project();
     let root = tmp.root();
@@ -423,10 +393,7 @@ fn no_backup_flag_skips_backup_creation() {
 // ===================================================================
 
 // D1: --dry-run shows diff without modifying files
-#[specforge_test(
-    behavior = "generate_migration_diff",
-    verify = "dry-run shows unified diff without modifying files"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn dry_run_shows_diff_without_modifying_files() {
     let tmp = project();
     let root = tmp.root();
@@ -454,10 +421,7 @@ fn dry_run_shows_diff_without_modifying_files() {
 }
 
 // D2: Diff uses a/b/ prefix convention
-#[specforge_test(
-    behavior = "generate_migration_diff",
-    verify = "each file diff labeled with file path"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn diff_uses_posix_prefix_convention() {
     let tmp = project();
     let root = tmp.root();
@@ -499,10 +463,7 @@ fn diff_uses_posix_prefix_convention() {
 }
 
 // D3: --dry-run --format=json → structured MigrationDiff
-#[specforge_test(
-    behavior = "generate_migration_diff",
-    verify = "json format diff produces structured output with file-level entries"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn dry_run_json_produces_structured_diff() {
     let tmp = project();
     let root = tmp.root();
@@ -536,10 +497,7 @@ fn dry_run_json_produces_structured_diff() {
 // ===================================================================
 
 // E1: --rollback restores from .bak files
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "restores migrated files from .bak backups"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn rollback_restores_from_bak_files() {
     let tmp = project();
     let root = tmp.root();
@@ -575,10 +533,7 @@ fn rollback_restores_from_bak_files() {
 }
 
 // E2: Missing .bak → skip
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "missing .bak file produces warning and skips"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn rollback_missing_bak_skips() {
     let tmp = project();
     let root = tmp.root();
@@ -627,10 +582,7 @@ fn rollback_missing_bak_skips() {
 
 // E3: Single restore failure doesn't block others
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "rollback failure for one file does not block others"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn rollback_failure_isolation() {
     use std::os::unix::fs::PermissionsExt;
     let tmp = project();
@@ -700,10 +652,7 @@ fn rollback_failure_isolation() {
 // ===================================================================
 
 // H1: Full pipeline — v0.1→v1.0 migration end-to-end
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "files migrated from source to target version"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn full_pipeline_migration() {
     let tmp = project();
     let root = tmp.root();
@@ -744,10 +693,7 @@ fn full_pipeline_migration() {
 }
 
 // H2: Idempotency — double migrate → no changes
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "files already at target version are skipped with skippedCount incremented"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn double_migrate_is_idempotent() {
     let tmp = project();
     let root = tmp.root();
@@ -787,10 +733,7 @@ fn double_migrate_is_idempotent() {
 }
 
 // H3: A file that cannot be migrated stops the migration
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a file that cannot be migrated leaves every file as it was"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_file_that_cannot_be_migrated_stops_the_migration() {
     let tmp = project();
     let root = tmp.root();
@@ -860,10 +803,7 @@ fn json_summary_contains_results_and_backups() {
     );
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "migrate --format json prints the migration document specforge.migrate answers, with files_written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_json_is_the_migration_document() {
     let tmp = project();
     let root = tmp.root();
@@ -921,10 +861,7 @@ fn reported<'a>(diagnostics: &'a [serde_json::Value], code: &str) -> Vec<&'a ser
     diagnostics.iter().filter(|d| d["code"] == code).collect()
 }
 
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "older format version detected and reported as I007"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn older_format_version_produces_i007() {
     let tmp = project();
     let root = tmp.root();
@@ -969,10 +906,7 @@ fn older_format_version_produces_i007() {
     assert!(reported(&diagnostics, "I007").is_empty(), "{diagnostics:?}");
 }
 
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "Detect Format Version Mismatch: format version detection holds — spec_file_available, version_mismatch_reported, unsupported_version_rejected, parsing_continues"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn detect_format_version_contract() {
     // Requires (spec_file_available): .spec files are being compiled.
     let tmp = project();
@@ -1057,10 +991,7 @@ fn a_file_with_no_header_reports_no_version_diagnostic() {
 // Phase J: migrate_spec_files_in_place — additional coverage
 // ===================================================================
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "Migrate Spec Files In Place: in-place migration holds — semantic_preservation"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_in_place_contract() {
     let tmp = project();
     let root = tmp.root();
@@ -1096,10 +1027,7 @@ fn migrate_in_place_contract() {
     assert!(content.starts_with("// specforge-format: 1.0"));
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "summary reports migrated, failed, and skipped counts"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn summary_reports_all_three_counts() {
     let tmp = project();
     let root = tmp.root();
@@ -1133,10 +1061,7 @@ fn summary_reports_all_three_counts() {
 // Phase K: generate_migration_diff — additional coverage
 // ===================================================================
 
-#[specforge_test(
-    behavior = "generate_migration_diff",
-    verify = "diff format is compatible with patch(1)"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn diff_format_compatible_with_patch() {
     let tmp = project();
     let root = tmp.root();
@@ -1193,10 +1118,7 @@ fn diff_format_compatible_with_patch() {
     );
 }
 
-#[specforge_test(
-    behavior = "generate_migration_diff",
-    verify = "failure in one file does not block diff generation for others"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn dry_run_failure_isolation() {
     let tmp = project();
     let root = tmp.root();
@@ -1235,10 +1157,7 @@ fn dry_run_failure_isolation() {
     );
 }
 
-#[specforge_test(
-    behavior = "generate_migration_diff",
-    verify = "Generate Migration Diff: migration diff generation holds — spec_files_available, dry_run_flag_set, diff_produced, no_files_modified, migration_diff_generated_emitted"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migration_diff_contract() {
     let tmp = project();
     let root = tmp.root();
@@ -1279,10 +1198,7 @@ fn migration_diff_contract() {
 // Phase O: rollback_failed_migration — additional coverage
 // ===================================================================
 
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "restore is atomic per file"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn rollback_restore_is_atomic() {
     let tmp = project();
     let root = tmp.root();
@@ -1327,10 +1243,7 @@ fn rollback_restore_is_atomic() {
     assert_eq!(content, original, "file fully restored atomically");
 }
 
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "summary reports restored, skipped, and failed counts"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn rollback_summary_counts() {
     let tmp = project();
     let root = tmp.root();
@@ -1374,10 +1287,7 @@ fn rollback_summary_counts() {
     assert_eq!(fs::read_to_string(&c).unwrap(), edited);
 }
 
-#[specforge_test(
-    behavior = "rollback_failed_migration",
-    verify = "Rollback Failed Migration: migration rollback holds — migration_recorded, files_restored, edited_files_kept, rollback_event_emitted, backup_file_preservation"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn rollback_contract() {
     let tmp = project();
     let root = tmp.root();
@@ -1423,10 +1333,7 @@ fn rollback_contract() {
 
 use crate::support::written::{changed_since, files_under, files_written};
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "migrate --format json lists each migrated file and its backup in files_written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_json_lists_each_file_and_its_backup() {
     let tmp = project();
     let root = tmp.root();
@@ -1530,10 +1437,7 @@ fn dry_run_diff_labels_are_relative_to_the_project_root() {
 }
 
 // A real migration of an entity-bearing project passes silently.
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "structural equivalence verified between pre and post graphs"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_migration_of_an_entity_bearing_project_prints_only_the_summary() {
     let tmp = project();
     let root = tmp.root();
@@ -1554,10 +1458,7 @@ fn a_migration_of_an_entity_bearing_project_prints_only_the_summary() {
 
 // A format-only migration keeps the graph, so it passes with nothing but the
 // summary.
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "post-migration check runs automatically"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn a_format_only_migration_passes_silently() {
     let tmp = TestProject::new().without_config();
     let root = tmp.root();
@@ -1588,10 +1489,7 @@ fn a_format_only_migration_passes_silently() {
 /// The `0.9`-header text of a spec file, to migrate.
 const OLD: &str = "// specforge-format: 0.9\nbehavior alpha \"Alpha\" {\n}\n";
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a specforge.json that does not say which files are the project's sources refuses the migration, dry run included, and nothing is written"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     for config in crate::format::HIDES_SOURCES {
         let tmp = TestProject::new().without_config();
@@ -1614,10 +1512,7 @@ fn migrate_refuses_a_config_that_does_not_say_which_files_are_its_sources() {
     }
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "a problem in specforge.json the migration goes around is an E069 in its document and fails it"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_reports_a_config_problem_it_goes_around() {
     let tmp = TestProject::new().without_config();
     let root = tmp.root();

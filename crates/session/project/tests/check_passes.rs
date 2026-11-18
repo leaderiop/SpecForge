@@ -160,10 +160,7 @@ fn with_code<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a Diagnosti
         .collect()
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "a pass declared for the check phase runs on every compile"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_check_pass_runs_on_every_compile() {
     let dir = project(SPEC);
     let ext = Arc::new(passes_extension());
@@ -221,10 +218,7 @@ fn a_pass_diagnostic_naming_an_entity_carries_it_as_data() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "a session reports a check pass's diagnostics after an update"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_session_reports_check_pass_diagnostics_after_an_update() {
     let dir = project("gadget good \"Good\" {\n}\n");
     let ext = Arc::new(passes_extension());
@@ -259,10 +253,7 @@ fn as_set(diagnostics: &[Diagnostic]) -> Vec<String> {
     set
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "a pass without the check phase runs only under analyze"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_pass_without_the_check_phase_runs_only_under_analyze() {
     let dir = project(SPEC);
     let ext = Arc::new(passes_extension());
@@ -290,10 +281,7 @@ fn a_pass_without_the_check_phase_runs_only_under_analyze() {
     assert_eq!(called(&ext), ["__pass_report"]);
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "check passes run in their declared after/before order"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn check_passes_run_in_their_declared_order() {
     let dir = project(SPEC);
     let ext = Arc::new(passes_extension());
@@ -313,10 +301,7 @@ fn check_passes_run_in_their_declared_order() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "a trapping check pass is a diagnostic, not a crash"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_trapping_check_pass_is_a_diagnostic() {
     let dir = project(SPEC);
     let ext = Arc::new(passes_extension());
@@ -341,10 +326,7 @@ fn a_trapping_check_pass_is_a_diagnostic() {
     assert!(called(&ext).contains(&"__pass_second".to_string()));
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "a pass diagnostic naming an entity gets that entity's span"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_pass_diagnostic_naming_an_entity_gets_its_span() {
     let dir = project(SPEC);
     let ext = Arc::new(passes_extension());
@@ -367,10 +349,7 @@ fn a_pass_diagnostic_naming_an_entity_gets_its_span() {
 
 /// What the coverage rule needs to read from each entity, read the way a
 /// guest built with the SDK reads it: through the SDK's own `PassEntity`.
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn the_pass_input_carries_each_entitys_exemption() {
     use specforge_extension_sdk::prelude::*;
     use specforge_wasm::testing::InProcessRuntime;
@@ -443,10 +422,7 @@ fn the_pass_input_carries_each_entitys_exemption() {
 
 /// A pass finding whose code the extension may not use is kept as given,
 /// and one W150 is added per distinct (code, severity).
-#[specforge_test(
-    behavior = "call_extension_exports",
-    verify = "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
     let output = PassOutput {
         diagnostics: vec![
@@ -504,10 +480,7 @@ fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_check_phase_passes",
-    verify = "previous is the baseline of the kinds a pass names"
-)]
+#[specforge_test(requirement = "FEATURE-013")]
 fn previous_is_the_baseline_of_the_declared_kinds() {
     let spec = "verification V \"V\" {\n  phase 03\n}\n\ndecision D \"D\" {\n  phase 03\n  origin context\n}\n";
     let head = format!("{}{spec}", crate::computed::BASE);

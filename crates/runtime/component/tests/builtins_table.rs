@@ -155,21 +155,22 @@ fn layout(root: &Path) -> Layout {
     found
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "every builtin is listed once, by the directory its crate lives in"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn the_table_is_the_extensions_directory_by_the_naming_rule() {
     let on_disk = layout(specforge_repo_root::repo_root());
     assert!(on_disk.problems.is_empty(), "{:#?}", on_disk.problems);
+    // The one builtin outside `extensions/`, named in its row (ADR 0366 D1); every other row is the rule's.
+    let mut expected = on_disk.builtins;
+    expected.push(Named::new("gsd/core", "@gsd/core", "gsd_core.wasm"));
+    expected.sort();
     let mut listed: Vec<Named> = BUILTINS
         .iter()
         .map(|b| Named::new(b.crate_dir, b.name, b.artifact))
         .collect();
     listed.sort();
     assert_eq!(
-        listed, on_disk.builtins,
-        "BUILTINS lists every builtin crate under extensions/, once, named by the rule"
+        listed, expected,
+        "BUILTINS lists every builtin crate under extensions/, once, named by the rule, and @gsd/core at gsd/core"
     );
     for builtin in BUILTINS {
         assert!(
@@ -186,10 +187,7 @@ fn the_table_is_the_extensions_directory_by_the_naming_rule() {
     }
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "a layout under extensions/ that breaks the naming rule is named, and a family's builtins and libraries are read by it"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn a_layout_that_breaks_the_naming_rule_is_named() {
     let root = tempfile::tempdir().unwrap();
     let write = |file: &str, text: &str| {
@@ -243,10 +241,7 @@ fn a_layout_that_breaks_the_naming_rule_is_named() {
     );
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "every fixture crate is listed once, by its directory under fixtures/"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn the_fixtures_are_the_fixtures_directory() {
     let fixtures = specforge_repo_root::repo_root().join("fixtures");
     let mut on_disk: Vec<String> = std::fs::read_dir(&fixtures)
@@ -277,10 +272,7 @@ fn the_fixtures_are_the_fixtures_directory() {
     }
 }
 
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "every example's extension crate is listed once, by its directory under examples/"
-)]
+#[specforge_test(requirement = "FEATURE-028")]
 fn every_examples_extension_is_a_committed_blob() {
     let examples = specforge_repo_root::repo_root().join("examples");
     let mut on_disk: Vec<String> = std::fs::read_dir(examples)

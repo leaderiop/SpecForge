@@ -24,10 +24,7 @@ fn assert_refused(reply: &Value, argument: &str, diagnostic: Option<&str>) {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "a runner no collector answers to, auto included, is an E058 error on runner"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_refuses_auto_as_an_unknown_runner() {
     let reply = call_tool(
         &mut served(),
@@ -37,10 +34,7 @@ fn collect_refuses_auto_as_an_unknown_runner() {
     assert_refused(&reply, "runner", Some("E058"));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "a trace call with both entity_id and plan is invalid input on plan"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn trace_refuses_an_entity_with_a_plan_on_plan() {
     let reply = call_tool(
         &mut served(),
@@ -50,10 +44,7 @@ fn trace_refuses_an_entity_with_a_plan_on_plan() {
     assert_refused(&reply, "plan", None);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "the trace prompt refuses an entity_id given with a plan, as invalid input on plan"
-)]
+#[specforge_test(requirement = "FEATURE-071")]
 fn trace_prompt_refuses_an_entity_with_a_plan_on_plan() {
     let reply = call(
         &mut served(),
@@ -66,10 +57,7 @@ fn trace_prompt_refuses_an_entity_with_a_plan_on_plan() {
     assert_eq!(reply["error"]["data"]["argument"], "plan", "{reply}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "with_schema and no_schema together are invalid input on with_schema"
-)]
+#[specforge_test(requirement = "FEATURE-064")]
 fn export_refuses_both_schema_flags_on_with_schema() {
     let reply = call_tool(
         &mut served(),
@@ -93,10 +81,7 @@ fn workspace() -> (
     (dir, root, server)
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "each string in extensions is one specifier, as add_extension reads each of specifiers"
-)]
+#[specforge_test(requirement = "FEATURE-068")]
 fn init_reads_a_comma_string_as_add_extension_does() {
     let (_dir, root, mut server) = workspace();
     let reply = call_tool(
@@ -108,10 +93,7 @@ fn init_reads_a_comma_string_as_add_extension_does() {
     assert!(!root.join("created").exists());
 }
 
-#[specforge_test(
-    behavior = "parse_extension_specifier",
-    verify = "a string holding commas is one extension specifier, for add and init alike"
-)]
+#[specforge_test(requirement = "FEATURE-134")]
 fn add_extension_reads_a_comma_string_as_one_specifier() {
     let reply = call_tool(
         &mut served(),

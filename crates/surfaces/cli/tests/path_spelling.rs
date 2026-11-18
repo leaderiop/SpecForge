@@ -26,10 +26,7 @@ fn document_from(project: &TestProject, dir: &Path, args: &[&str]) -> Value {
 }
 
 #[cfg(unix)]
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "the format document names each file from the project root, whatever the working directory"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_document_names_a_named_file_from_the_project_root_from_any_cwd() {
     let project = project_with_a_bad_file();
     let root = project.root().to_path_buf();
@@ -79,10 +76,7 @@ fn format_document_names_a_named_file_from_the_project_root_from_any_cwd() {
     }
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "the format document names each file from the project root, whatever the working directory"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn format_failures_name_the_file_from_the_project_root() {
     let project = project_with_a_bad_file();
     let root = project.root().to_path_buf();
@@ -122,10 +116,7 @@ fn format_failures_name_the_file_from_the_project_root() {
     }
 }
 
-#[specforge_test(
-    behavior = "format_spec_files",
-    verify = "the format document names each file from the project root, whatever the working directory"
-)]
+#[specforge_test(requirement = "FEATURE-009")]
 fn files_written_outside_the_root_is_absolute_and_canonical() {
     let project = project_with_a_bad_file();
     let root = project.root().to_path_buf();
@@ -159,10 +150,7 @@ fn files_written_outside_the_root_is_absolute_and_canonical() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "the collect document names the report from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-070")]
 fn collect_report_is_named_from_the_project_root() {
     let project = TestProject::new().raw_config(
         r#"{"name":"col","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@specforge/testing","@specforge/cargo-test"]}"#,
@@ -190,10 +178,7 @@ fn collect_report_is_named_from_the_project_root() {
     assert_eq!(document["report"], "specforge-report.json", "{document}");
 }
 
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "the migrate document names each file and backup from the project root"
-)]
+#[specforge_test(requirement = "FEATURE-122")]
 fn migrate_names_files_and_backups_from_the_project_root() {
     let project = TestProject::new().raw_config(r#"{"name":"test","version":"0.1.0"}"#);
     let root = project.root();

@@ -150,12 +150,6 @@ pub fn crate_map(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     })
 }
 
-pub fn spec_modules(ctx: &Ctx, _: &Selection) -> Result<(), String> {
-    ctx.sh(ctx
-        .cmd("cargo")
-        .args(["run", "-q", "-p", "xtask", "--bin", "check-modules"]))
-}
-
 pub fn doc_links(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let tracked = tracked_paths(ctx)?;
     let root = &ctx.repo.root;
@@ -202,7 +196,7 @@ pub fn builtins(ctx: &Ctx, selection: &Selection) -> Result<(), String> {
 }
 
 pub fn guests(ctx: &Ctx, _: &Selection) -> Result<(), String> {
-    let (target, reports) = (ctx.ext_target(), ctx.reports());
+    let target = ctx.ext_target();
     // (what, cargo arguments before the manifest, after it)
     let passes: [(&str, &[&str], &[&str]); 3] = [
         ("tests", &["test", "-q"], &[]),
@@ -233,7 +227,6 @@ pub fn guests(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             let mut cmd = ctx.cmd("cargo");
             // What `build-blobs` does: an incremental guest is another build than CI's.
             cmd.env("CARGO_TARGET_DIR", &target)
-                .env("SPECFORGE_REPORT", &reports)
                 .env_remove("CARGO_INCREMENTAL");
             cmd.args(before)
                 .args(["--manifest-path", &manifest])
@@ -286,8 +279,7 @@ pub(crate) fn compile_tests(ctx: &Ctx) -> Result<(), String> {
 
 pub fn tests(ctx: &Ctx, selection: &Selection) -> Result<(), String> {
     let mut cmd = ctx.cmd("cargo");
-    cmd.args(["nextest", "run", "--profile", ctx.mode.nextest_profile()])
-        .env("SPECFORGE_REPORT", ctx.reports());
+    cmd.args(["nextest", "run", "--profile", ctx.mode.nextest_profile()]);
     // The archive `build` made, when there is one: its binaries run without compiling. It unpacks over the
     // repository, so the `env!("CARGO_BIN_EXE_…")` paths the tests were compiled with point at its binaries.
     match std::env::var("GATE_TEST_ARCHIVE") {
@@ -400,39 +392,6 @@ pub fn specs(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     }
 }
 
-pub fn dogfood(ctx: &Ctx, _: &Selection) -> Result<(), String> {
-    let specforge = ctx.specforge()?;
-    let reports = ctx.reports();
-    let json = |ctx: &Ctx, args: &[&str], extra: &[&Path]| -> Result<Value, String> {
-        let mut cmd = ctx.cmd(specforge);
-        cmd.args(args).args(extra).args(["--format", "json"]);
-        let (ok, out) = ctx.capture(&mut cmd)?;
-        let value = serde_json::from_str(&out)
-            .map_err(|e| format!("`specforge {}` printed no JSON ({e})", args.join(" ")))?;
-        if ok {
-            Ok(value)
-        } else {
-            Err(format!("`specforge {}` failed", args.join(" ")))
-        }
-    };
-    // The root project also enables the source collectors, so the report files name their runner.
-    let collect = json(
-        ctx,
-        &["collect", "--runner", "cargo-test", "--report"],
-        &[&reports],
-    )?;
-    let analyze = json(ctx, &["analyze", "coverage"], &[])?;
-    let (lines, failed) = judge::dogfood_verdict(&collect, &analyze);
-    for line in &lines {
-        ctx.log(line);
-    }
-    if failed {
-        Err(first_problem(&lines))
-    } else {
-        Ok(())
-    }
-}
-
 pub fn builtins_verify(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     ctx.sh(ctx.cmd("cargo").args([
         "run",
@@ -519,7 +478,9 @@ fn first_problem(lines: &[String]) -> String {
 
 /// `specforge check --path <project> --format json --effects cached` for every project of a copy of the tracked tree
 /// ([`crate::checked_tree`]): each one's diagnostics, keyed by the project's root in the repository. The gate never
-/// reaches the network (ADR 0337 D7), and no fact store, ledger or journal of this machine is in the copy.
+/// reaches the network (ADR 0337 D7), and no fact store, ledger or journal of this machine is in the copy. A project
+/// that loads `@rust/cargo` and `@rust/source` is collected by both in the copy first ([`collect_rust`]), so a
+/// reference to a fact is judged as a user's would be (ADR 0374 D6).
 fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String> {
     let specforge = ctx.specforge()?;
     // The tracked tree alone: a local collect's fact stores, its ledger or an effects journal moves no count.
@@ -527,6 +488,7 @@ fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String
     crate::checked_tree::copy_tracked(&ctx.repo.root, &tracked_paths(ctx)?, &tree)?;
     let mut found = BTreeMap::new();
     for project in ctx.repo.projects()? {
+        collect_rust(ctx, specforge, &project.root, &tree.join(&project.root))?;
         let (_, out) = ctx.capture(ctx.cmd(specforge).args([
             "check",
             "--path",
@@ -549,6 +511,47 @@ fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String
         found.insert(project.root, diagnostics);
     }
     Ok(found)
+}
+
+/// The packs whose collect `specs` runs before a project's check, in order: a project whose manifest loads both.
+const RUST_PACKS: [(&str, &str); 2] = [
+    ("@rust/cargo", "rust-cargo"),
+    ("@rust/source", "rust-source"),
+];
+
+/// `specforge collect --path <copy> --runner <runner> --yes --effects online --format json` for each of
+/// [`RUST_PACKS`] when the copy's `specforge.json` loads both (they read the project's files; no command runs). A
+/// failed collect is an error naming the project, the runner and the reason it printed ([`Ctx::answer`]).
+fn collect_rust(ctx: &Ctx, specforge: &Path, project: &str, copy: &Path) -> Result<(), String> {
+    let manifest = copy.join("specforge.json");
+    let text =
+        std::fs::read_to_string(&manifest).map_err(|e| format!("{}: {e}", manifest.display()))?;
+    let json: Value =
+        serde_json::from_str(&text).map_err(|e| format!("{}: {e}", manifest.display()))?;
+    let loads = |name: &str| {
+        json["extensions"]
+            .as_array()
+            .is_some_and(|list| list.iter().any(|e| e == name))
+    };
+    if !RUST_PACKS.iter().all(|(pack, _)| loads(pack)) {
+        return Ok(());
+    }
+    for (_, runner) in RUST_PACKS {
+        ctx.answer(ctx.cmd(specforge).args([
+            "collect",
+            "--path",
+            &copy.to_string_lossy(),
+            "--runner",
+            runner,
+            "--yes",
+            "--effects",
+            "online",
+            "--format",
+            "json",
+        ]))
+        .map_err(|e| format!("{project}: collecting with {runner}: {e}"))?;
+    }
+    Ok(())
 }
 
 /// The manifests outside the workspace (`outside_workspace_patterns`): the guests and extension libraries, the

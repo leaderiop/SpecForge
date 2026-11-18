@@ -229,20 +229,14 @@ fn sides(c: &mut ContributionsBuilder) {
 const OWNED_BY_B: &str = "a a1 \"A one\" {}\nb b1 \"B one\" { owner c1 }\nc c1 \"C one\" {}\n";
 
 // Holds since PR #49; guards the resolution that replaces it.
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "an edge rule over an edge type several kinds write without declaring it counts the edges of every writing kind"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn an_undeclared_edge_type_counts_the_edges_of_every_writer() {
     let diagnostics = compile("@probe/implicit", OWNED_BY_B, implicit);
 
     assert!(messages(&diagnostics, "W900").is_empty(), "{diagnostics:?}");
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "an edge rule does not count an edge of another edge type, whatever kinds it links"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_declared_edge_rule_does_not_count_an_edge_of_another_type() {
     // (i) c1 is only mentioned, never owned: a Mentions edge is not Owns.
     let source = "a a1 \"A one\" { owner c2 }\nc c1 \"C one\" {}\nc c2 \"C two\" {}\n\
@@ -264,10 +258,7 @@ fn a_declared_edge_rule_does_not_count_an_edge_of_another_type() {
     );
 }
 
-#[spec(
-    behavior = "execute_validation_pattern",
-    verify = "a cycle_detection rule follows only the edges of its edge type, never another kind's field of the same name"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn a_cycle_rule_follows_only_the_edges_of_its_type() {
     // An NDep loop is not an MDep cycle, though both are `depends_on`.
     let loop_of_n = "n n1 \"N one\" { depends_on [n2] }\nn n2 \"N two\" { depends_on [n1] }\n";
@@ -311,10 +302,7 @@ fn typed(c: &mut ContributionsBuilder) {
     }
 }
 
-#[spec(
-    behavior = "snapshot_entities_once",
-    verify = "every edge in the snapshot is typed by the edge type its field writes from the kind it starts at, and counted by that type"
-)]
+#[spec(requirement = "FEATURE-016")]
 fn the_snapshot_types_each_edge_by_the_field_that_wrote_it() {
     let source = "a a1 \"A one\" { owner c2 }\nc c1 \"C one\" {}\nc c2 \"C two\" {}\n\
                   d d1 \"D one\" { mentions [c1], watches [c1, c2] }\n";
@@ -359,10 +347,7 @@ fn the_snapshot_types_each_edge_by_the_field_that_wrote_it() {
     assert_eq!(d1.edges(Outgoing, Some("Mentions")), 1);
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "an edge type names every field that writes it: a kind's own, shared and enhancement fields alike"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn an_enhancement_field_writes_its_edge_type() {
     let source = "b b1 \"B one\" { owner c1 }\nc c1 \"C one\" {}\nc c2 \"C two\" {}\n\
                   e e1 \"E one\" { pins [c2] }\n";
@@ -383,10 +368,7 @@ fn an_enhancement_field_writes_its_edge_type() {
     );
 }
 
-#[spec(
-    behavior = "registry_build_edges",
-    verify = "a field that writes a declared edge type from a kind outside its declared source kind, or to a kind outside its declared target kind, is W021 and writes no edge of that type"
-)]
+#[spec(requirement = "FEATURE-018")]
 fn a_field_outside_a_declared_end_does_not_write_the_edge_type() {
     let source = "b b1 \"B one\" { owner c1 }\nc c1 \"C one\" {}\nc c2 \"C two\" {}\n";
     let diagnostics = compile("@probe/sides", source, sides);

@@ -27,7 +27,7 @@ the item and its plan, the code the item or its plan names, and every file the v
 
 | GSD per-item status | Here |
 |---|---|
-| truth `verified`, `failed`, `uncertain`, `present_behavior_unverified`, `verified_coincidental` | the verifier's verdict on the truth; `verified` needs a passing test fact for an `explicit` truth (gsd/E502: one whose `[gsd:<id>]` tag names it, one its `proof` holds, or one the verdict's `cited_tests` names); a verified truth the tests contradict derives as not verified |
+| truth `verified`, `failed`, `uncertain`, `present_behavior_unverified`, `verified_coincidental` | the verifier's verdict on the truth; `verified` needs a passing test fact for an `explicit` truth (gsd/E502: one whose `[gsd:<id>]` tag names it, or one the verdict's `cited_tests` names); a verified truth the tests contradict derives as not verified |
 | truth `passed_override` | an `override` entity, written by a human |
 | artifact `verified`, `orphaned`, `stub`, `missing`; data flow `flowing`, `static`, `disconnected`, `hollow_prop` | `missing`, `min_lines`, `contains` and `exports` are a pass over the file's facts (the file is absent, too short by upstream's `split('\n')` count, lacks the text or a name it exports, found by substring as upstream does); the rest are the verdict |
 | key link `wired`, `not_wired`, `partial` | a pass (the pattern is searched in `from`, and in `to`, as upstream) when `pattern` is set, else the verdict |
@@ -35,16 +35,16 @@ the item and its plan, the code the item or its plan names, and every file the v
 The passes that read project files (artifact facts, a key link's `pattern`, `anti_patterns`, `validation_row.file_exists`,
 `wave0_item.done`, the refactor trigger's complexity) are buildable since protocol 1.11.0 (K11) and built in r39 (the scan pass; the refactor trigger's complexity waits for r41; the verify command's own paths are `gsd/E320`, built in r37): a pass declares the paths it
 reads (a `files` input) and receives a `FileFact` per file (`exists`, `bytes`, `lines`, `digest`) and, for declared text reads, the text.
-Every status computed from test evidence reads `@code/core`'s test facts and the graph's `names` and `proof` edges, not
+Every status computed from test evidence reads `@code/core`'s test facts, the graph's `names` edges and the tests a check or a verdict names, not
 the recorded test report.
 The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `disposition.at`) are the host's clock,
 `CommandInput.now` (K14).
-| requirement `satisfied`, `blocked`, `needs_human`, `orphaned` | computed from the truths and deliverables that trace to it |
 
 **Decisions to shipped (gsd/W506, r42).** GSD's verify gate asks that every settled decision map to something shipped. A
-phase whose verification is `passed` has each decision of its context (`origin context`) listed in the `decisions` of one
-of its complete plans ([rules.md](rules.md), ADR 0351): a summary or a commit subject that names it is no claim. The shipped
-files themselves are not read.
+phase whose verification is `passed` has each decision of its context (`origin context`) cited by its id in the text of one
+of its complete plans, in one of their summaries (with the coverage items and deviations they scope), or in the subject of a
+recorded commit of those plans ([rules.md](rules.md), ADR 0371 D4). The shipped files themselves and the commits' bodies
+are not read (ACCEPTANCE.md `[decision-shipped-reach]`).
 
 ## verification
 
@@ -96,15 +96,12 @@ The test being asked now is session state.
 |---|---|---|---|
 | session | → uat_session | R I | parent |
 | expected | str | R | expected behaviour |
-| criterion | int | | the phase success criterion it proves |
-| from_task | → task | | a harvested `<human-check>` |
 | result | enum{pending, pass, issue, skipped, blocked} | H | the human's answer, recorded by a person through `set_uat_result --by` (a human-attested command, ADR 0301: refused to an agent) |
 | source | enum{human, automated} | H | written by `set_uat_result` (`human` when a re-answer replaces an earlier `source`) or by `record_automated_uat` (`automated`, a pass or an issue, an agent's or CI's call: `set_uat_result --source automated` is refused). A re-answer unsets the members its result does not take |
 | reported | str | | the human's words, verbatim, when `issue` |
 | severity | enum{blocker, major, minor, cosmetic} | | major when absent |
 | reason | str | | why skipped; `Deferred follow-up…` counts as passing |
 | blocked_by | enum{server, physical_device, release_build, third_party, prior_phase} | | when blocked |
-| journey | → journey | | beyond GSD: the journey the test walks; the journey reads it back as `uat_tests` and its latest session as `last_uat` ([ADR 0357](../../../docs/adr/0357-gsd-core-holds-persona-journey-and-term-and-a-channel-is-a-word.md) D22) |
 
 **uat_gap**: GSD `## Gaps`. Name `G1`, scoped by its test (`v1.0/01/01-UAT/U2/G1`).
 `test → uat_test R`, `truth str R`, `reason str`, `severity enum{blocker, major, minor, cosmetic}`, `root_cause str`,

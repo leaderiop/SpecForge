@@ -19,10 +19,7 @@ const RULES: &str = "invariant inv_a \"A\" {\n  guarantee \"g\"\n}\n";
 /// A file whose only block is a default no block takes (W161).
 const FLOWS: &str = "defaults behavior {\n  invariants [inv_a]\n}\n";
 
-#[specforge_test(
-    behavior = "apply_file_defaults",
-    verify = "rename edits a default no block takes"
-)]
+#[specforge_test(requirement = "FEATURE-047")]
 fn rename_edits_a_default_no_block_takes() {
     let p = compile(SOFTWARE, &[("rules.spec", RULES), ("flows.spec", FLOWS)]);
     let plan = rename::plan(&p.navigator(), "inv_a", "inv_b").unwrap();
