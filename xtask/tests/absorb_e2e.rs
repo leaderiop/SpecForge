@@ -18,6 +18,8 @@ const SELECTION: &str = concat!(
     "/tests/fixtures/absorb/selection.json"
 );
 
+// A test binary's root finds its modules beside itself, in `tests/`, where cargo would build each file as a test
+// binary of its own; the path keeps this one inside `absorb_e2e/`. The crate's lint allowance above covers it.
 #[path = "absorb_e2e/target_paths.rs"]
 mod target_paths;
 

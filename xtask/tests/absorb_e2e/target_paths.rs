@@ -2,11 +2,6 @@
 //! a symbolic link it would write through stops the run before any write, and a target path longer than 260
 //! characters converts. A module of the `absorb_e2e` binary (`absorb_e2e.rs` declares it), so the test binary stays
 //! one.
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "a test's unwrap is its assertion: a None or an Err fails the test"
-)]
 
 use std::collections::BTreeMap;
 use std::path::Path;
