@@ -91,7 +91,8 @@ pub struct DiffAnswer {
     pub nodes: Vec<DiffNode>,
     /// Each changed edge, the added then the removed, each sorted by source, target then label.
     pub edges: Vec<DiffEdge>,
-    /// What one side could not compare: a collector whose facts it lacks, left out of both sides.
+    /// What one side could not compare: a `specforge.json` loading another extension set (both sides are compiled
+    /// with the current one), a collector whose facts it lacks, left out of both sides.
     pub notes: Vec<DiffNote>,
     /// How many of `nodes` and `edges` each change counts.
     pub summary: DiffSummary,
@@ -191,9 +192,9 @@ pub struct DiffEdge {
 pub struct DiffNote {
     /// `from` or `to`.
     pub side: String,
-    /// `facts_not_collected` or `facts_unrecorded`.
+    /// `extensions_differ`, `config_unreadable`, `facts_not_collected` or `facts_unrecorded`.
     pub about: String,
-    /// What it is about: a collector's name.
+    /// What it is about: the extensions that differ, comma-separated, `specforge.json`, or a collector's name.
     pub subject: String,
     pub message: String,
 }
@@ -274,6 +275,8 @@ pub fn diff(
                 }
                 .to_string(),
                 about: match note.about {
+                    NoteAbout::ExtensionsDiffer => "extensions_differ",
+                    NoteAbout::ConfigUnreadable => "config_unreadable",
                     NoteAbout::FactsNotCollected => "facts_not_collected",
                     NoteAbout::FactsUnrecorded => "facts_unrecorded",
                 }

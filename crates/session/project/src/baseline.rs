@@ -470,7 +470,10 @@ impl Baseline {
                         .registries()
                         .compute_passes()
                         .any(|pass| !pass.inputs().files().is_empty());
-                let wants = Wants { tree, facts: None };
+                let wants = Wants {
+                    tree,
+                    ..Wants::default()
+                };
                 let loaded = load_at(env, history, place, commit, wants)?;
                 let within = loaded.within.clone();
                 let within = within.as_path();

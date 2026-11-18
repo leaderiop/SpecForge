@@ -168,3 +168,34 @@ fn diff_keeps_the_kinds_named_and_counts_them() {
         .exits(0);
     assert_eq!(picked.stdout, "1\n");
 }
+
+#[specforge_test_macros::test(requirement = "FEATURE-142")]
+fn diff_notes_a_revision_loading_another_extension_set() {
+    let project = TestProject::copy_of(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/parity/product_cycle"),
+    );
+    let current = project.read("specforge.json");
+    // the revision loads one extension fewer than the working tree
+    project.write(
+        "specforge.json",
+        current.replace(",\"@specforge/testing\"", ""),
+    );
+    let repo = Repo::init(project.root());
+    let sha = repo.commit_all("fewer extensions");
+    project.write("specforge.json", &current);
+    let cli = Cli::on(&project);
+    let run = cli.run(&["diff", "--format", "json"]).exits(0);
+    let json = run.json();
+    assert_eq!(json["notes"][0]["about"], "extensions_differ", "{json}");
+    assert_eq!(json["notes"][0]["subject"], "@specforge/testing", "{json}");
+    let pretty = serde_json::to_string_pretty(&json).unwrap();
+    insta::assert_snapshot!(
+        "diff_json_another_extension_set",
+        redacted(&pretty, &[&sha])
+    );
+    let text = cli.run(&["diff"]).exits(0).stdout;
+    assert!(
+        text.contains("note (from): the extensions at HEAD differ from the current ones"),
+        "{text}"
+    );
+}

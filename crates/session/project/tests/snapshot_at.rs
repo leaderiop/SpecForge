@@ -13,7 +13,8 @@ use specforge_git::testing::Repo;
 use specforge_project::CompiledProject;
 use specforge_project::harness::{LEDGER_FILE, Ledger, Line};
 use specforge_project::snapshot::{
-    AtError, Comparison, FactsAt, NoteAbout, Side, Snapshot, SnapshotKey, compare,
+    AtError, Comparison, ConfigAt, FactsAt, NoteAbout, Side, Snapshot, SnapshotKey, SnapshotNote,
+    compare,
 };
 use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, TestProject, stored};
 use specforge_protocol_types::DeltaBase;
@@ -423,4 +424,126 @@ fn an_unrecorded_store_is_a_note_on_each_side_that_holds_it() {
         notes.iter().all(|n| n.message.starts_with("fact store '")),
         "{notes:?}"
     );
+}
+
+/// A project enabling the collected fixture, committed with `specforge.json` as `committed` writes it, then served
+/// with all three extensions again: the snapshot at that commit, and the compiled working tree's.
+fn committed_with_config(committed: impl FnOnce(&TestProject)) -> (Snapshot, Snapshot) {
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&COLLECTED_EXTENSIONS)
+        .installing_enabled()
+        .file("a.spec", FIRST);
+    let current = project.read("specforge.json");
+    committed(&project);
+    let commit = Repo::init(project.root()).commit_all("another config");
+    project.write("specforge.json", current);
+    let project = project.with_git(gix());
+    let compiled = project.compile_in(Arc::new(Collected::new().runtime()));
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, &commit).unwrap();
+    (at, Snapshot::of_project(&compiled))
+}
+
+/// The notes of comparing `from` with `to` that are about the configuration.
+fn config_notes(from: &Snapshot, to: &Snapshot) -> Vec<SnapshotNote> {
+    let forms = specforge_graph::FieldForms::default();
+    compare(from, to, &forms, DeltaBase::None)
+        .notes
+        .into_iter()
+        .filter(|n| {
+            matches!(
+                n.about,
+                NoteAbout::ExtensionsDiffer | NoteAbout::ConfigUnreadable
+            )
+        })
+        .collect()
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_revision_loading_another_extension_set_is_a_note_and_still_compiles() {
+    use specforge_project::testing::{NODE, SPEC};
+    let (at, now) = committed_with_config(|project| {
+        project.config_edit(|c| c["extensions"] = json!([COLLECTED_EXTENSIONS[0], SPEC]));
+    });
+    assert_eq!(
+        at.config,
+        ConfigAt::Differs {
+            added: vec![NODE.to_string()],
+            removed: Vec::new(),
+        }
+    );
+    assert_eq!(now.config, ConfigAt::Same);
+    // both sides compile with the current extensions: the commit's `thing`s are there
+    assert!(at.graph.node("x").is_some(), "the current kinds compile it");
+    let [note] = config_notes(&at, &now)
+        .try_into()
+        .unwrap_or_else(|n| panic!("{n:?}"));
+    assert_eq!(
+        (note.side, note.about, note.subject.as_str()),
+        (Side::From, NoteAbout::ExtensionsDiffer, NODE)
+    );
+    assert!(
+        note.message.contains(&format!("+{NODE}")),
+        "{}",
+        note.message
+    );
+    assert!(
+        note.message
+            .contains("both sides were compiled with the current extensions"),
+        "{}",
+        note.message
+    );
+    // on the other side of a comparison, the note is on that side
+    let [back] = config_notes(&now, &at)
+        .try_into()
+        .unwrap_or_else(|n| panic!("{n:?}"));
+    assert_eq!(back.side, Side::To);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_revision_loading_the_same_extensions_in_another_order_or_version_is_no_note() {
+    use specforge_project::testing::{CODE, NODE, SPEC};
+    let (at, now) = committed_with_config(|project| {
+        project.config_edit(|c| {
+            c["extensions"] = json!([SPEC, format!("{NODE}@1.0.0"), CODE]);
+        });
+    });
+    assert_eq!(at.config, ConfigAt::Same);
+    assert!(config_notes(&at, &now).is_empty());
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_revision_whose_config_does_not_parse_is_a_note_and_still_diffs() {
+    let (at, now) = committed_with_config(|project| project.write("specforge.json", "{ not json"));
+    assert!(
+        matches!(&at.config, ConfigAt::Unreadable(_)),
+        "{:?}",
+        at.config
+    );
+    assert!(at.graph.node("x").is_some(), "the specs still compile");
+    let [note] = config_notes(&at, &now)
+        .try_into()
+        .unwrap_or_else(|n| panic!("{n:?}"));
+    assert_eq!(
+        (note.side, note.about, note.subject.as_str()),
+        (Side::From, NoteAbout::ConfigUnreadable, "specforge.json")
+    );
+    assert!(note.message.contains("not valid JSON"), "{}", note.message);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_revision_with_no_config_loads_no_extension() {
+    let (at, now) = committed_with_config(|project| project.remove("specforge.json"));
+    // the one reader of specforge.json reads no file as the default config: no extension
+    let mut added: Vec<String> = COLLECTED_EXTENSIONS.iter().map(|e| e.to_string()).collect();
+    added.sort();
+    assert_eq!(
+        at.config,
+        ConfigAt::Differs {
+            added,
+            removed: Vec::new()
+        }
+    );
+    assert!(at.graph.node("x").is_some());
+    assert_eq!(config_notes(&at, &now).len(), 1);
 }

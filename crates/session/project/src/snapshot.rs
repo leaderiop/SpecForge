@@ -6,13 +6,16 @@
 //!
 //! Facts are never read from git (stores are git-ignored) and never collected for a past revision: a revision is
 //! served the store its own ledger records, read from the disk, only when its bytes are the ones that line digests.
+//!
+//! Both sides of a comparison are compiled with the current extensions, so a diff shows changes of content, not of
+//! toolchain (ADR 0376 D3); a revision whose `specforge.json` loads another extension set says so ([`ConfigAt`]).
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::facts::{filed, is_collector_name, is_fact_store, is_store_key};
-use specforge_common::{Diagnostic, codes};
+use specforge_common::{Diagnostic, ExtensionEntry, PROJECT_FILE, codes, parse_project_config};
 use specforge_effects::git::{CommitFile, Git, GitPlace, Located, Sha, TreeEntry};
 use specforge_graph::{FieldForms, Graph};
 use specforge_protocol_types::DeltaBase;
@@ -40,6 +43,23 @@ pub struct Snapshot {
     pub key: SnapshotKey,
     pub graph: Arc<Graph>,
     pub facts: BTreeMap<String, FactsAt>,
+    /// How its `specforge.json` compares with the current one: the working tree's is the current one.
+    pub config: ConfigAt,
+}
+
+/// How a revision's `specforge.json` compares with the current one, whose extensions both sides are compiled with.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConfigAt {
+    /// It loads the extensions the current one loads, whatever their order or version.
+    Same,
+    /// It loads another set: `added` the extensions only the current one loads, `removed` those only it loads, each
+    /// sorted by name.
+    Differs {
+        added: Vec<String>,
+        removed: Vec<String>,
+    },
+    /// It cannot be used (not UTF-8, not JSON, not an object, an `extensions` that is no list), and why.
+    Unreadable(String),
 }
 
 /// What became of a collector's facts in a snapshot.
@@ -90,6 +110,7 @@ impl Snapshot {
         let wants = Wants {
             tree: false,
             facts: Some(disk),
+            config: true,
         };
         let loaded = load_at(env, &*history, &place, &sha, wants).map_err(AtError::Unreadable)?;
         let (graph, _) = loaded.built.graph.into_parts();
@@ -100,6 +121,7 @@ impl Snapshot {
             },
             graph: Arc::new(graph),
             facts: loaded.facts,
+            config: loaded.config.unwrap_or(ConfigAt::Same),
         })
     }
 
@@ -125,6 +147,7 @@ impl Snapshot {
             },
             graph: Arc::new(project.graph().clone()),
             facts,
+            config: ConfigAt::Same,
         }
     }
 }
@@ -142,7 +165,7 @@ pub struct Comparison {
 pub struct SnapshotNote {
     pub side: Side,
     pub about: NoteAbout,
-    /// The collector it is about.
+    /// What it is about: the collector, the extensions that differ (comma-separated), or `specforge.json`.
     pub subject: String,
     pub message: String,
 }
@@ -154,20 +177,29 @@ pub enum Side {
     To,
 }
 
-/// Why a side lacks a collector's facts.
+/// What a side could not compare as written.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NoteAbout {
     /// No store its ledger records is there.
     FactsNotCollected,
     /// A store is there and is not the one recorded, or does not read (W191, W192).
     FactsUnrecorded,
+    /// Its `specforge.json` loads another extension set: it was compiled with the current one.
+    ExtensionsDiffer,
+    /// Its `specforge.json` cannot be used: it was compiled with the current extensions.
+    ConfigUnreadable,
 }
 
-/// What changed from `from` to `to`, labelled `label` (ADR 0376 D4, D5). A collector served on one side only, or
-/// unrecorded on either, is left out of both: its stores' nodes are no change, and each side that lacks it gets a note
-/// (`facts not collected at <side>`, or its W191 or W192). A collector neither side collected needs no note.
+/// What changed from `from` to `to`, labelled `label` (ADR 0376 D3, D4, D5). A side whose `specforge.json` loads
+/// another extension set, or cannot be used, gets a note first: it was compiled with the current extensions. A
+/// collector served on one side only, or unrecorded on either, is left out of both: its stores' nodes are no change,
+/// and each side that lacks it gets a note (`facts not collected at <side>`, or its W191 or W192). A collector neither
+/// side collected needs no note.
 pub fn compare(from: &Snapshot, to: &Snapshot, forms: &FieldForms, label: DeltaBase) -> Comparison {
-    let mut notes = Vec::new();
+    let mut notes: Vec<SnapshotNote> = [(Side::From, from), (Side::To, to)]
+        .into_iter()
+        .filter_map(|(side, snapshot)| config_note(side, snapshot))
+        .collect();
     let mut lacking = Vec::new();
     let collectors: std::collections::BTreeSet<&String> =
         from.facts.keys().chain(to.facts.keys()).collect();
@@ -212,6 +244,42 @@ pub fn compare(from: &Snapshot, to: &Snapshot, forms: &FieldForms, label: DeltaB
         })
     };
     Comparison { delta, notes }
+}
+
+/// The note on `side` when `snapshot`'s `specforge.json` is not the current one's extension set.
+fn config_note(side: Side, snapshot: &Snapshot) -> Option<SnapshotNote> {
+    const CURRENT: &str = "both sides were compiled with the current extensions";
+    let name = snapshot.name();
+    let (about, subject, message) = match &snapshot.config {
+        ConfigAt::Same => return None,
+        ConfigAt::Differs { added, removed } => {
+            let names: Vec<&str> = added.iter().chain(removed).map(String::as_str).collect();
+            let signed: Vec<String> = added
+                .iter()
+                .map(|n| format!("+{n}"))
+                .chain(removed.iter().map(|n| format!("-{n}")))
+                .collect();
+            (
+                NoteAbout::ExtensionsDiffer,
+                names.join(", "),
+                format!(
+                    "the extensions at {name} differ from the current ones ({}); {CURRENT}",
+                    signed.join(", ")
+                ),
+            )
+        }
+        ConfigAt::Unreadable(why) => (
+            NoteAbout::ConfigUnreadable,
+            PROJECT_FILE.to_string(),
+            format!("{PROJECT_FILE} at {name} cannot be used: {why}; {CURRENT}"),
+        ),
+    };
+    Some(SnapshotNote {
+        side,
+        about,
+        subject,
+        message,
+    })
 }
 
 impl Snapshot {
@@ -266,6 +334,8 @@ pub(crate) struct Wants<'d> {
     pub tree: bool,
     /// The fact stores the commit's ledger records, read through this disk: none, no fact is served.
     pub facts: Option<&'d dyn Disk>,
+    /// How the commit's `specforge.json` compares with the current one ([`ConfigAt`]).
+    pub config: bool,
 }
 
 /// A commit's project as [`load_at`] read and built it.
@@ -284,11 +354,15 @@ pub(crate) struct LoadedAt {
     pub tree: Vec<TreeEntry>,
     /// What became of each collector's facts, when they were asked for.
     pub facts: BTreeMap<String, FactsAt>,
+    /// How the commit's `specforge.json` compares with the current one, when asked for.
+    pub config: Option<ConfigAt>,
     pub built: SourceBuild,
 }
 
 /// The project of `env` at `commit` of the repository `place`, read through `history` (no checkout) and built with
-/// `env`'s extensions: its specs and its ledger, its tree and the fact stores its ledger records when `wants` asks.
+/// `env`'s extensions: its specs and its ledger, its tree, the fact stores its ledger records and how its
+/// `specforge.json` compares with the current one when `wants` asks. The config is read in the one question that
+/// reads the specs.
 pub(crate) fn load_at(
     env: &Environment,
     history: &dyn Git,
@@ -301,16 +375,25 @@ pub(crate) fn load_at(
         .strip_prefix(&place.toplevel)
         .map_err(|_| "the project is outside the repository's working tree".to_string())?
         .to_path_buf();
-    // Only what a graph is built from: the specs and the ledger.
+    // Only what a graph is built from, the specs and the ledger, and the project's own config when it is asked for.
+    let config = within.join(PROJECT_FILE);
     let wanted = |path: &Path| {
         path.extension().is_some_and(|e| e == "spec")
             || path
                 .file_name()
                 .is_some_and(|n| n == crate::harness::LEDGER_FILE)
+            || (wants.config && path == config)
     };
-    let files = history
+    let mut files = history
         .files(place, commit, &within, &wanted)
         .map_err(|e| e.to_string())?;
+    let config = wants.config.then(|| {
+        let written = files
+            .iter()
+            .position(|(path, _)| *path == config)
+            .map(|at| files.remove(at).1);
+        config_at(env, &config, written)
+    });
     let tree = if wants.tree {
         history
             .tree(place, commit, &within)
@@ -318,14 +401,44 @@ pub(crate) fn load_at(
     } else {
         Vec::new()
     };
-    Ok(LoadedAt::of_files(
-        env,
-        commit.clone(),
-        within,
-        files,
-        tree,
-        wants.facts,
-    ))
+    let mut loaded = LoadedAt::of_files(env, commit.clone(), within, files, tree, wants.facts);
+    loaded.config = config;
+    Ok(loaded)
+}
+
+/// How the `specforge.json` a commit holds at `path` (`None`: it holds none) compares with `env`'s, read by the one
+/// reader of the file: none is the default config, which loads no extension.
+fn config_at(env: &Environment, path: &Path, written: Option<Vec<u8>>) -> ConfigAt {
+    let read = match written {
+        Some(bytes) => match String::from_utf8(bytes) {
+            Ok(text) => parse_project_config(path, &text),
+            Err(_) => return ConfigAt::Unreadable("it is not UTF-8".to_string()),
+        },
+        None => Default::default(),
+    };
+    if let Some(problem) = read.problems.iter().find(|p| p.loads_nothing()) {
+        return ConfigAt::Unreadable(problem.to_string());
+    }
+    let names = |entries: &[String]| -> std::collections::BTreeSet<String> {
+        entries
+            .iter()
+            .map(|entry| {
+                let parsed = ExtensionEntry::parse(entry);
+                parsed.name().unwrap_or(entry.trim()).to_string()
+            })
+            .collect()
+    };
+    let (then, now) = (
+        names(&read.config.extensions),
+        names(&env.config().extensions),
+    );
+    if then == now {
+        return ConfigAt::Same;
+    }
+    ConfigAt::Differs {
+        added: now.difference(&then).cloned().collect(),
+        removed: then.difference(&now).cloned().collect(),
+    }
 }
 
 impl LoadedAt {
@@ -386,6 +499,7 @@ impl LoadedAt {
             ledger,
             tree,
             facts: served,
+            config: None,
             built,
         }
     }
