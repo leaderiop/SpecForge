@@ -12,7 +12,7 @@ use specforge_project::snapshot::{
 use specforge_protocol_types::{DeltaAspect, DeltaBase, DeltaChange, DeltaPayload};
 
 use crate::view::ProjectView;
-use crate::{GIT_FAILED, NOT_A_REPOSITORY, OpError, OpErrorKind, Refusal};
+use crate::{GIT_FAILED, GIT_UNAVAILABLE, NOT_A_REPOSITORY, OpError, OpErrorKind, Refusal};
 
 /// A range of the symmetric form `<a>...<b>`, which names a merge-base and hides which side changed.
 pub const SYMMETRIC_RANGE: &str = "symmetric_range";
@@ -200,8 +200,8 @@ pub struct DiffNote {
 }
 
 /// What changed across `request`'s range, the revisions read through the view's git port and its containment's disk.
-/// An unknown revision is `unknown_revision`, a project in no repository `not_a_repository`, a git that cannot
-/// answer `git_failed`.
+/// An unknown revision is `unknown_revision`, a project in no repository `not_a_repository`, no git port or one that
+/// cannot read the repository `git_unavailable`, a git that cannot answer `git_failed`.
 pub fn diff(
     view: &ProjectView<'_>,
     request: &DiffRequest,
@@ -330,6 +330,11 @@ fn refused(view: &ProjectView<'_>, error: AtError) -> OpError {
             OpErrorKind::PreconditionFailed,
             NOT_A_REPOSITORY,
             format!("{} is in no git repository", view.env().root().display()),
+        ),
+        AtError::GitUnavailable(why) => OpError::new(
+            OpErrorKind::PreconditionFailed,
+            GIT_UNAVAILABLE,
+            format!("git cannot read the repository: {why}"),
         ),
         AtError::Unreadable(why) => OpError::new(OpErrorKind::Internal, GIT_FAILED, why),
     }

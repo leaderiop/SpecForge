@@ -3,15 +3,17 @@
 
 use std::sync::Arc;
 
+use specforge_effects::git::Located;
 use specforge_git::testing::Repo;
 use specforge_ops::read::diff::{
     DiffField, DiffRange, DiffRequest, DiffSummary, EMPTY_REVISION, KindCount, SYMMETRIC_RANGE,
     diff,
 };
 use specforge_ops::view::ProjectView;
-use specforge_ops::{NOT_A_REPOSITORY, OpErrorKind, UNKNOWN_REVISION};
+use specforge_ops::{GIT_UNAVAILABLE, NOT_A_REPOSITORY, OpErrorKind, UNKNOWN_REVISION};
 use specforge_project::testing::TestProject;
 use specforge_test_macros::test as specforge_test;
+use specforge_wasm::testing::InProcessRuntime;
 
 const FIRST: &str = "thing x \"X\" {\n  note \"first\"\n}\n\nthing y \"Y\" {\n}\n";
 
@@ -111,6 +113,25 @@ fn a_project_in_no_repository_is_refused() {
     let refusal = diff(&ProjectView::of(&compiled), &DiffRequest::default()).unwrap_err();
     assert_eq!(refusal.error.code, NOT_A_REPOSITORY);
     assert_eq!(refusal.error.kind, OpErrorKind::PreconditionFailed);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn no_git_port_or_one_that_cannot_read_the_repository_is_refused_as_git_unavailable() {
+    let (project, _) = committed();
+    let unreadable = {
+        let mut git = specforge_effects::testing::FakeGit::none();
+        git.located = Located::Unavailable("GIT_DIR names another repository".into());
+        git
+    };
+    for git in [
+        None,
+        Some(Arc::new(unreadable) as specforge_effects::SharedGit),
+    ] {
+        let compiled = project.compile_with(Arc::new(InProcessRuntime::new()), git);
+        let refusal = diff(&ProjectView::of(&compiled), &DiffRequest::default()).unwrap_err();
+        assert_eq!(refusal.error.code, GIT_UNAVAILABLE, "{:?}", refusal.error);
+        assert_eq!(refusal.error.kind, OpErrorKind::PreconditionFailed);
+    }
 }
 
 /// Two kinds at HEAD (`thing x`, `thing y`, `item a -refs-> x`); the working tree edits `x`, removes `y`, adds

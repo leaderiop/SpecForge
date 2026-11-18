@@ -124,13 +124,13 @@ fn a_project_outside_a_repository_has_no_revision() {
 }
 
 #[specforge_test(requirement = "FEATURE-142")]
-fn no_git_port_is_unreadable() {
+fn no_git_port_is_git_unavailable() {
     let project = TestProject::new().files(&[("a.spec", FIRST)]);
     Repo::init(project.root()).commit_all("c");
     let compiled = project.compile_bare();
     assert!(matches!(
         Snapshot::at_revision(compiled.environment(), &PlainDisk, "HEAD"),
-        Err(AtError::Unreadable(_))
+        Err(AtError::GitUnavailable(_))
     ));
 }
 

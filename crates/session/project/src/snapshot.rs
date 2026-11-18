@@ -83,7 +83,9 @@ pub enum AtError {
     UnknownRevision(String),
     /// The project is in no git repository.
     NotARepository,
-    /// Git could not be asked, or could not give the commit's files, and why.
+    /// No git port answers here: none is given, or it cannot read the repository, and why.
+    GitUnavailable(String),
+    /// Git could not resolve the revision, or could not give the commit's files, and why.
     Unreadable(String),
 }
 
@@ -140,7 +142,9 @@ pub fn since(
         Ok(found) => found,
         Err(Unnamed::Unknown) => return Err(UnknownRevision(revision.to_string())),
         Err(Unnamed::NotARepository) => return Ok(no_base(None, NoBase::NotARepository)),
-        Err(Unnamed::Unreadable(why)) => return Ok(no_base(None, NoBase::Unreadable(why))),
+        Err(Unnamed::Unavailable(why) | Unnamed::Unreadable(why)) => {
+            return Ok(no_base(None, NoBase::Unreadable(why)));
+        }
     };
     if !needs_base {
         return Ok(Since::Named { place, named });
@@ -172,7 +176,9 @@ pub fn since(
 enum Unnamed {
     /// The project is in no git repository.
     NotARepository,
-    /// Git could not be asked, or could not answer, and why.
+    /// Git cannot read the repository it located, and why.
+    Unavailable(String),
+    /// Git could not resolve the revision, and why.
     Unreadable(String),
     /// The repository names no commit by it.
     Unknown,
@@ -183,7 +189,7 @@ fn named(env: &Environment, history: &dyn Git, revision: &str) -> Result<(GitPla
     let place = match env.place(history) {
         Located::Repo(place) => place,
         Located::NotARepository => return Err(Unnamed::NotARepository),
-        Located::Unavailable(why) => return Err(Unnamed::Unreadable(why)),
+        Located::Unavailable(why) => return Err(Unnamed::Unavailable(why)),
     };
     match history.commit(&place, revision) {
         Ok(Some(sha)) => Ok((place, sha)),
@@ -203,9 +209,10 @@ impl Snapshot {
     ) -> Result<Snapshot, AtError> {
         let history = env
             .git()
-            .ok_or_else(|| AtError::Unreadable("no git port is given".to_string()))?;
+            .ok_or_else(|| AtError::GitUnavailable("no git port is given".to_string()))?;
         let (place, sha) = named(env, &*history, revision).map_err(|unnamed| match unnamed {
             Unnamed::NotARepository => AtError::NotARepository,
+            Unnamed::Unavailable(why) => AtError::GitUnavailable(why),
             Unnamed::Unreadable(why) => AtError::Unreadable(why),
             Unnamed::Unknown => AtError::UnknownRevision(revision.to_string()),
         })?;
