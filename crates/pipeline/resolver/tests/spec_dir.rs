@@ -71,3 +71,92 @@ fn an_import_path_with_a_backslash_or_a_drive_names_nothing_on_every_os() {
         "{found:?}"
     );
 }
+
+/// A spec root outside the project is absolute, and its keys are the paths as the OS writes them (`ProjectPath::key`).
+/// The resolver reads nothing, so the root need not exist.
+#[cfg(unix)]
+#[specforge_test(requirement = "FEATURE-109")]
+fn an_import_under_an_absolute_spec_root_names_the_absolute_key() {
+    const ROOT: &str = "/elsewhere/real";
+    let keys: BTreeSet<&str> = [
+        "/elsewhere/real/a.spec",
+        "/elsewhere/real/types.spec",
+        "/elsewhere/real/sub/b.spec",
+        "/elsewhere/x.spec",
+    ]
+    .into();
+    let named = |importing, path| import_target(&keys, Path::new(ROOT), importing, path);
+    assert_eq!(
+        named("/elsewhere/real/a.spec", "types"),
+        Some("/elsewhere/real/types.spec")
+    );
+    assert_eq!(
+        named("/elsewhere/real/a.spec", "./sub/b"),
+        Some("/elsewhere/real/sub/b.spec")
+    );
+    assert_eq!(
+        named("/elsewhere/real/sub/b.spec", "../types"),
+        Some("/elsewhere/real/types.spec")
+    );
+    assert_eq!(named("/elsewhere/real/a.spec", "../x"), None);
+
+    let parsed = parse("use \"sub/c\"\n", "/elsewhere/real/a.spec");
+    let other = parse("", "/elsewhere/real/sub/b.spec");
+    let found: Vec<_> = resolve_imports(
+        &[
+            ("/elsewhere/real/a.spec", &parsed),
+            ("/elsewhere/real/sub/b.spec", &other),
+        ],
+        &[],
+        Path::new(ROOT),
+    )
+    .into_iter()
+    .filter(|d| d.code == "E025")
+    .map(|d| d.suggestion.unwrap_or_default())
+    .collect();
+    // The suggestion is an import path, read from the spec root, not the absolute key.
+    assert_eq!(found, ["did you mean 'sub/b'?"]);
+}
+
+/// A relative spec root nested in the project: the key a candidate names is its names joined by `/`.
+#[specforge_test(requirement = "FEATURE-109")]
+fn an_import_under_a_nested_spec_root_names_the_slash_joined_key() {
+    let keys: BTreeSet<&str> = [
+        "docs/spec/a.spec",
+        "docs/spec/sub/b.spec",
+        "docs/spec/sub/index.spec",
+    ]
+    .into();
+    let named = |importing, path| import_target(&keys, Path::new("docs/spec"), importing, path);
+    assert_eq!(
+        named("docs/spec/a.spec", "sub/b"),
+        Some("docs/spec/sub/b.spec")
+    );
+    assert_eq!(
+        named("docs/spec/sub/b.spec", "../a"),
+        Some("docs/spec/a.spec")
+    );
+    assert_eq!(
+        named("docs/spec/a.spec", "sub"),
+        Some("docs/spec/sub/index.spec")
+    );
+}
+
+/// On Windows a relative spec root's keys are `/`-joined while a joined path is `\`-joined, and an absolute one's are
+/// the paths as Windows writes them.
+#[cfg(windows)]
+#[specforge_test(requirement = "FEATURE-109")]
+fn an_import_resolves_under_both_spellings_of_a_spec_root_on_windows() {
+    let relative: BTreeSet<&str> = ["spec/a.spec", "spec/sub/b.spec"].into();
+    assert_eq!(
+        import_target(&relative, Path::new("spec"), "spec/a.spec", "sub/b"),
+        Some("spec/sub/b.spec")
+    );
+    let absolute: BTreeSet<&str> =
+        [r"C:\elsewhere\real\a.spec", r"C:\elsewhere\real\sub\b.spec"].into();
+    let root = Path::new(r"C:\elsewhere\real");
+    assert_eq!(
+        import_target(&absolute, root, r"C:\elsewhere\real\a.spec", "./sub/b"),
+        Some(r"C:\elsewhere\real\sub\b.spec")
+    );
+}
