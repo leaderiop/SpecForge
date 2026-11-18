@@ -242,8 +242,9 @@ Getting the leg green took these commits, each at its source:
 The resolver's own tests are not in the subset: on Windows an import across directories under a relative spec root is
 held end to end, by absorb's tests, whose fixture's sources import across directories and whose target checks clean.
 An absolute spec root on Windows, whose keys are written `\\?\C:\...`, has no Windows test; a `windows-subset` step
-running `-p specforge-resolver --test spec_dir`, with a case keyed `\\?\C:\...`, would close it once the job's budget
-has room for it.
+running `cargo nextest run -p specforge-resolver --test tests -E 'test(/^spec_dir::/)'` (the crate's one test
+binary, `spec_dir` a module of it), with a case keyed `\\?\C:\...`, would close it once the job's budget has room for
+it.
 
 No test the subset names was made Unix-only. The gate's three workflow tests that run a step's own script under bash
 (two the budget check, one the clock) are `cfg(unix)`: the gate runs on Linux.
