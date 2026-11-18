@@ -4,6 +4,8 @@
 
 **Amended by [ADR 0193](0193-the-users-registry-files-are-written-privately-and-atomically.md) (round 21):** D3 (the signing key's name is spelled by User, which hands doctor its path), D4 and the platform amendment (every file of the user's registry directory is 0600 in a 0700 directory, written by replace_private).
 
+**Amended by [ADR 0375](0375-ci-caches-are-keyed-once-each-job-has-a-time-budget-and-windows-runs-a-named-subset.md) D5:** D3 (`User::current()` is `<home>/.specforge` of the user's home as `specforge_common::home::user_home` reads it, `HOME` else `USERPROFILE` and absolute only; with no home every registry file is refused, R012, R-TRUST-006 or E074, and none is written, where it used to fall back to `./.specforge`).
+
 ## Context
 
 - `~/.specforge/credentials.json` was keyed by a registry alias, and a project's `specforge.json` picks its aliases. A

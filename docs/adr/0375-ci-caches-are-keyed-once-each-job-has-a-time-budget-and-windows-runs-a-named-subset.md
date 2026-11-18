@@ -125,11 +125,15 @@ that skips it, cannot pass on a platform it never exercised.
 
 ## D5. The user's home is HOME, else USERPROFILE, absolute only
 
-The compile cache's directory (`user_compile_cache_dir`) reads the home as the effect journal, the consent store and the
-registry files already do: `HOME`, else `USERPROFILE`, and a relative home is no home. Each reader's lookup is a pure
-function its tests call with values, never by setting the process environment. The rule has one home,
-`specforge_common::home`, which the effect journal, the consent store and the compile cache read; the compile cache's
-tests, which the Windows subset runs, reach it through `user_compile_cache_dir`'s own lookup.
+The compile cache's directory (`user_compile_cache_dir`) and the user's registry files (`credentials.json`,
+`signing-key.json`, `known-keys.json`, which `specforge_ops_registry::User::current` keeps) read the home as the effect
+journal and the consent store already do: `HOME`, else `USERPROFILE`, and a relative home is no home. Each reader's
+lookup is a pure function its tests call with values, never by setting the process environment. The rule has one home,
+`specforge_common::home`, which the effect journal, the consent store, the compile cache and the registry files read;
+the compile cache's tests, which the Windows subset runs, reach it through `user_compile_cache_dir`'s own lookup, and
+the registry files' through `User::from_home`. With no home a registry file is refused, as R012 (credentials),
+R-TRUST-006 (known keys) or E074 (signing key), and nothing is written; before, `User::current` fell back to `.`, so
+they went under `./.specforge` of the directory a run started in, which can be a project.
 
 The reason: with `HOME` unset, as in a Windows shell, the wasm compile cache was off and every test that loads a builtin
 compiled it again; three readers agreeing and one not is a defect of the one, and a test that sets the process
