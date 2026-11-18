@@ -10154,5 +10154,229 @@ expression: listing
       "readOnlyHint": true,
       "openWorldHint": false
     }
+  },
+  {
+    "name": "specforge.diff",
+    "description": "Name the nodes and edges that changed between two snapshots of the project, with the digests of each changed node (range: <rev> against the working tree, <a>..<b> two revisions, none HEAD against the working tree; kinds: keep only those kinds' changes)",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "kinds": {
+          "description": "Keep only the changes of these kinds: their nodes and the edges with an end of one",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "range": {
+          "description": "What to compare: `<rev>` is that revision against the working tree, `<a>..<b>` two revisions; none is HEAD against the working tree",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "$defs": {
+        "DiffSide": {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "key"
+          ],
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "change": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "target",
+              "label",
+              "change"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "from": {
+          "$ref": "#/$defs/DiffSide"
+        },
+        "nodes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "after": {
+                "type": "string"
+              },
+              "aspects": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "before": {
+                "type": "string"
+              },
+              "change": {
+                "type": "string"
+              },
+              "fields": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "change"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "about": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "side": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "side",
+              "about",
+              "subject",
+              "message"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "summary": {
+          "additionalProperties": false,
+          "properties": {
+            "by_kind": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "added": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "modified": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "removed": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "added",
+                  "removed",
+                  "modified"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "edges_added": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "edges_removed": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "nodes_added": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "nodes_modified": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "nodes_removed": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "nodes_added",
+            "nodes_removed",
+            "nodes_modified",
+            "edges_added",
+            "edges_removed",
+            "by_kind"
+          ],
+          "type": "object"
+        },
+        "to": {
+          "$ref": "#/$defs/DiffSide"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "nodes",
+        "edges",
+        "notes",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "category": "core",
+    "source": "core",
+    "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
   }
 ]

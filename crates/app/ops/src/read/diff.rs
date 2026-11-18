@@ -82,7 +82,7 @@ pub enum DiffField {
     Range,
 }
 
-/// What changed between two snapshots.
+/// What changed between two snapshots (`McpDiffResult`).
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
 pub struct DiffAnswer {
     pub from: DiffSide,
@@ -145,8 +145,9 @@ impl DiffSummary {
     }
 }
 
-/// One side of a diff.
+/// One side of a diff: a named shape, since an answer holds two.
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
+#[shape(define)]
 pub struct DiffSide {
     /// The revision as written, or `working tree`.
     pub name: String,
