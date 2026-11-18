@@ -42,6 +42,7 @@ mod context;
 mod contrib;
 mod decimal;
 mod declaration;
+mod delta;
 mod effects;
 pub mod engine_tools;
 mod field;
@@ -88,6 +89,7 @@ pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
     protocol_minor,
 };
+pub use delta::{DeltaAspect, DeltaBase, DeltaChange, DeltaEdge, DeltaNode, DeltaPayload};
 pub use effects::{
     AttachedSecret, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
     OutcomeClass, Private, ProcessRequest, REDACTED, Redirected, ResolveRequest, TlsRequest,
