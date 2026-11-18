@@ -11,6 +11,9 @@ Arguments:
           What to compare: none is HEAD against the working tree, <REV> that revision against it, <A>..<B> two revisions
 
 Options:
+      --kind <KIND>
+          Keep only the changes of this kind: its nodes and the edges with an end of it (repeatable)
+
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
           

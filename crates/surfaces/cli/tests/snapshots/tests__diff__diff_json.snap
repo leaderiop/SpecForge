@@ -32,6 +32,21 @@ expression: "redacted(&pretty, &[&sha])"
     }
   ],
   "notes": [],
+  "summary": {
+    "by_kind": [
+      {
+        "added": 1,
+        "kind": "module",
+        "modified": 1,
+        "removed": 1
+      }
+    ],
+    "edges_added": 0,
+    "edges_removed": 0,
+    "nodes_added": 1,
+    "nodes_modified": 1,
+    "nodes_removed": 1
+  },
   "to": {
     "key": "<sha>-dirty",
     "name": "working tree"

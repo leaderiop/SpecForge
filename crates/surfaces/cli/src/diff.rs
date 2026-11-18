@@ -1,7 +1,7 @@
 use crate::outcome::{Exit, OutputFormat, Refusal};
 use crate::pick::PickedOutputArg;
 use crate::terminal::{Terminal, outln};
-use specforge_ops::read::diff::{DiffAnswer, DiffRange, DiffRequest, diff};
+use specforge_ops::read::diff::{DiffAnswer, DiffRange, DiffRequest, DiffSummary, diff};
 use specforge_ops::view::ProjectView;
 
 // `specforge diff`'s command line.
@@ -11,6 +11,10 @@ pub(crate) struct Args {
     /// revisions
     #[arg(value_parser = parse_range)]
     range: Option<String>,
+
+    /// Keep only the changes of this kind: its nodes and the edges with an end of it (repeatable)
+    #[arg(long = "kind", value_name = "KIND", action = clap::ArgAction::Append)]
+    kinds: Vec<String>,
 
     #[command(flatten)]
     project: crate::project::ProjectArg,
@@ -39,7 +43,10 @@ impl Args {
             Ok(project) => project,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
-        let request = DiffRequest { range: self.range };
+        let request = DiffRequest {
+            range: self.range,
+            kinds: self.kinds,
+        };
         let found = match diff(&ProjectView::of(&project), &request) {
             Ok(found) => found,
             Err(refusal) => return Refusal::of(format).report(terminal, &refusal),
@@ -53,7 +60,8 @@ impl Args {
 }
 
 /// `+ kind id` for an added node, `- kind id` for a removed one, `~ kind id  fields: ..  aspects: ..` for a modified
-/// one, then `+ source -label-> target` (or `-`) for each edge, then each note; `no change` when nothing changed.
+/// one, then `+ source -label-> target` (or `-`) for each edge, then each note, then the counts; `no change` when
+/// nothing changed.
 fn print_human(terminal: &Terminal, found: &DiffAnswer) {
     if found.nodes.is_empty() && found.edges.is_empty() {
         outln!(terminal, "no change");
@@ -85,5 +93,33 @@ fn print_human(terminal: &Terminal, found: &DiffAnswer) {
     }
     for note in &found.notes {
         outln!(terminal, "note ({}): {}", note.side, note.message);
+    }
+    if !(found.nodes.is_empty() && found.edges.is_empty()) {
+        outln!(terminal, "{}", counted(&found.summary));
+    }
+}
+
+/// `3 nodes changed (1 added, 1 removed, 1 modified), 2 edges (1 added, 1 removed)`.
+fn counted(summary: &DiffSummary) -> String {
+    let nodes = summary.nodes_added + summary.nodes_removed + summary.nodes_modified;
+    let edges = summary.edges_added + summary.edges_removed;
+    format!(
+        "{} changed ({} added, {} removed, {} modified), {} ({} added, {} removed)",
+        plural(nodes, "node"),
+        summary.nodes_added,
+        summary.nodes_removed,
+        summary.nodes_modified,
+        plural(edges, "edge"),
+        summary.edges_added,
+        summary.edges_removed
+    )
+}
+
+/// `1 node`, `2 nodes`.
+fn plural(count: usize, noun: &str) -> String {
+    if count == 1 {
+        format!("1 {noun}")
+    } else {
+        format!("{count} {noun}s")
     }
 }

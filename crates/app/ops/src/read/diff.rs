@@ -2,12 +2,14 @@
 //! id with the digests of its content, and each edge added or removed. `specforge diff` renders it. A revision is
 //! resolved by the git port in process; the working tree is the project as compiled.
 
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_project::snapshot::{
     AtError, Comparison, NoteAbout, Side, Snapshot, SnapshotKey, compare,
 };
-use specforge_protocol_types::{DeltaAspect, DeltaBase, DeltaChange};
+use specforge_protocol_types::{DeltaAspect, DeltaBase, DeltaChange, DeltaPayload};
 
 use crate::view::ProjectView;
 use crate::{GIT_FAILED, NOT_A_REPOSITORY, OpError, OpErrorKind, Refusal, UNKNOWN_REVISION};
@@ -64,11 +66,14 @@ fn empty(text: &str) -> OpError {
     )
 }
 
-/// A diff: the range, as written.
+/// A diff: the range, as written, and the kinds it keeps.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DiffRequest {
     /// `<rev>` or `<a>..<b>`; none is `HEAD` against the working tree.
     pub range: Option<String>,
+    /// The kinds kept: their nodes and the edges with an end of one, as a pass reading the delta is sent. None keeps
+    /// every change.
+    pub kinds: Vec<String>,
 }
 
 /// The field of a diff request a refusal can be about.
@@ -88,6 +93,56 @@ pub struct DiffAnswer {
     pub edges: Vec<DiffEdge>,
     /// What one side could not compare: a collector whose facts it lacks, left out of both sides.
     pub notes: Vec<DiffNote>,
+    /// How many of `nodes` and `edges` each change counts.
+    pub summary: DiffSummary,
+}
+
+/// The changes a diff shows, counted.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Shape)]
+pub struct DiffSummary {
+    pub nodes_added: usize,
+    pub nodes_removed: usize,
+    pub nodes_modified: usize,
+    pub edges_added: usize,
+    pub edges_removed: usize,
+    /// The node counts of each kind that changed, sorted by kind as bytes.
+    pub by_kind: Vec<KindCount>,
+}
+
+/// The node changes of one kind.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Shape)]
+pub struct KindCount {
+    pub kind: String,
+    pub added: usize,
+    pub removed: usize,
+    pub modified: usize,
+}
+
+impl DiffSummary {
+    /// The counts of `payload`'s changes.
+    fn of(payload: &DeltaPayload) -> DiffSummary {
+        let mut by_kind: BTreeMap<&str, KindCount> = BTreeMap::new();
+        let mut summary = DiffSummary {
+            edges_added: payload.added_edges.len(),
+            edges_removed: payload.removed_edges.len(),
+            ..DiffSummary::default()
+        };
+        for node in &payload.nodes {
+            let count = by_kind.entry(&node.kind).or_insert_with(|| KindCount {
+                kind: node.kind.clone(),
+                ..KindCount::default()
+            });
+            let (total, of_kind) = match node.change {
+                DeltaChange::Added => (&mut summary.nodes_added, &mut count.added),
+                DeltaChange::Removed => (&mut summary.nodes_removed, &mut count.removed),
+                DeltaChange::Modified => (&mut summary.nodes_modified, &mut count.modified),
+            };
+            *total += 1;
+            *of_kind += 1;
+        }
+        summary.by_kind = by_kind.into_values().collect();
+        summary
+    }
 }
 
 /// One side of a diff.
@@ -169,7 +224,11 @@ pub fn diff(
         SnapshotKey::WorkingTree { .. } => DeltaBase::None,
     };
     let Comparison { delta, notes } = compare(&from, &to, view.registries().field_forms(), label);
-    let payload = delta.payload();
+    let payload = if request.kinds.is_empty() {
+        delta.payload().clone()
+    } else {
+        delta.restricted_to(&request.kinds)
+    };
     let edges = |edges: &[specforge_protocol_types::DeltaEdge], change: &str| {
         edges
             .iter()
@@ -203,6 +262,7 @@ pub fn diff(
                 after: n.after.clone(),
             })
             .collect(),
+        summary: DiffSummary::of(&payload),
         edges: changed,
         notes: notes
             .into_iter()

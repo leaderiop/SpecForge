@@ -139,3 +139,32 @@ fn diff_outside_a_repository_is_refused() {
     let run = Cli::on(&project).run(&["diff"]).exits(1);
     assert!(run.stderr.contains("not_a_repository"), "{}", run.stderr);
 }
+
+#[specforge_test_macros::test(requirement = "FEATURE-142")]
+fn diff_keeps_the_kinds_named_and_counts_them() {
+    let (project, _repo, _) = committed();
+    edited(&project);
+    let cli = Cli::on(&project);
+    let all = cli.run(&["diff"]).exits(0).stdout;
+    assert!(
+        all.ends_with(
+            "3 nodes changed (1 added, 1 removed, 1 modified), 0 edges (0 added, 0 removed)\n"
+        ),
+        "{all}"
+    );
+    let modules = cli.run(&["diff", "--kind", "module", "--kind", "feature"]);
+    assert_eq!(modules.exits(0).stdout, all);
+    let none = cli.run(&["diff", "--kind", "feature"]).exits(0);
+    assert_eq!(none.stdout, "no change\n");
+    let json = cli
+        .run(&["diff", "--kind", "module", "--format", "json"])
+        .exits(0)
+        .json();
+    assert_eq!(json["summary"]["nodes_added"], 1);
+    assert_eq!(json["summary"]["by_kind"][0]["kind"], "module");
+    assert_eq!(json["summary"]["by_kind"][0]["modified"], 1);
+    let picked = cli
+        .run(&["diff", "--pick", ".summary.nodes_removed"])
+        .exits(0);
+    assert_eq!(picked.stdout, "1\n");
+}
