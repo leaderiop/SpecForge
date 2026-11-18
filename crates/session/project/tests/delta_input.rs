@@ -1,14 +1,18 @@
 //! What a pass that declares the `delta` input is sent (ADR 0376 D6, D7). The guest is `@test/delta`: the kinds `item`
-//! (whose `refs` are edges to a `note`) and `note`, and check passes that declare the delta of `item` (`items`,
-//! `twin`), of `note` (`notes`), of no kind (`empty`), or nothing (`plain`). Each payload is read from the inputs the
-//! runtime recorded.
+//! (whose `refs` are edges to a `note`, and whose `size` is computed) and `note`; check passes that declare the delta
+//! of `item` (`items`, `twin`), of `note` (`notes`), of no kind (`empty`), or nothing (`plain`); the compute pass
+//! `counted` and the guard pass `guarded` (reporting `E901`), both declaring the delta of `item`. Each payload is read
+//! from the inputs the runtime recorded.
 
 use std::sync::Arc;
 
 use serde_json::{Value, json};
+use specforge_effects::git::{Git, Located, Sha};
+use specforge_effects::testing::FakeGit;
 use specforge_extension_sdk::prelude::*;
 use specforge_graph::Graph;
 use specforge_project::CompiledProject;
+use specforge_project::baseline::{Baseline, Checking};
 use specforge_project::delta::Delta;
 use specforge_project::testing::{TestProject, pass_input};
 use specforge_test::prelude::*;
@@ -24,7 +28,7 @@ fn nothing(_: &PassInput) -> Vec<PassDiagnostic> {
     Vec::new()
 }
 
-/// `@test/delta`'s kinds and its check passes.
+/// `@test/delta`'s kinds and its passes.
 fn delta_extension() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
     c.kind("item", |k| {
@@ -32,6 +36,9 @@ fn delta_extension() -> ContributionsBuilder {
             f.field_type(FieldType::ReferenceList)
                 .edge("Refs")
                 .target_kind("note");
+        });
+        k.field("size", |f| {
+            f.field_type(FieldType::Integer).computed();
         });
     });
     c.kind("note", |_| {});
@@ -51,18 +58,39 @@ fn delta_extension() -> ContributionsBuilder {
     c.pass("plain", |p| {
         p.phase("check").run(nothing);
     });
+    c.pass("counted", |p| {
+        p.compute()
+            .computes(&["item.size"])
+            .input(Input::delta(&["item"]))
+            .run(nothing);
+    });
+    c.pass("guarded", |p| {
+        p.guard()
+            .reports(&["E901"])
+            .input(Input::delta(&["item"]))
+            .run(nothing);
+    });
     c
+}
+
+/// A project of `files` with `@test/delta` enabled.
+fn project(files: &[(&str, &str)]) -> TestProject {
+    TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[EXT])
+        .installing_enabled()
+        .files(files)
+}
+
+/// The `@test/delta` runtime.
+fn runtime() -> Arc<InProcessRuntime> {
+    Arc::new(InProcessRuntime::new().with(delta_extension))
 }
 
 /// `files` compiled cold with `@test/delta` loaded, and the runtime it compiled in.
 fn compiled(files: &[(&str, &str)]) -> (CompiledProject, Arc<InProcessRuntime>) {
-    let project = TestProject::new()
-        .config(|c| c["name"] = "p".into())
-        .enabling(&[EXT])
-        .installing_enabled()
-        .files(files);
-    let runtime = Arc::new(InProcessRuntime::new().with(delta_extension));
-    let compiled = project.compile_in(runtime.clone());
+    let runtime = runtime();
+    let compiled = project(files).compile_in(runtime.clone());
     (compiled, runtime)
 }
 
@@ -196,11 +224,7 @@ fn a_project_with_no_node_of_the_kind_sends_the_base_alone() {
 
 #[specforge_test(requirement = "FEATURE-142")]
 fn no_delta_is_taken_when_no_pass_declares_it() {
-    let project = TestProject::new()
-        .config(|c| c["name"] = "p".into())
-        .enabling(&[EXT])
-        .installing_enabled()
-        .files(&[("a.spec", SPEC)]);
+    let project = project(&[("a.spec", SPEC)]);
     let runtime = Arc::new(InProcessRuntime::new().with(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
         c.kind("item", |_| {});
@@ -212,4 +236,72 @@ fn no_delta_is_taken_when_no_pass_declares_it() {
     let compiled = project.compile_in(runtime.clone());
     assert!(compiled.delta().is_none());
     assert!(pass_input(&runtime, "plain").get("delta").is_none());
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_compute_pass_is_sent_the_delta_a_check_pass_is() {
+    let (compiled, runtime) = compiled(&[("a.spec", SPEC)]);
+    let counted = delta_of(&runtime, "counted");
+    assert_eq!(counted, delta_of(&runtime, "items"));
+    assert_eq!(counted, cold(&compiled, &["item"]));
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn the_compute_at_the_baseline_is_sent_the_commits_graph_from_none() {
+    let project = project(&[("a.spec", SPEC)]);
+    let runtime = runtime();
+    // The commit holds one item; the working tree three.
+    let sha = "c".repeat(40);
+    let at_commit = "item a \"A\" {\n}\n\nnote n1 \"N1\" {\n}\n";
+    let fake = FakeGit::repo(
+        project.root(),
+        &sha,
+        vec![("a.spec".into(), at_commit.as_bytes().to_vec())],
+    );
+    let env = project.environment_in(runtime.clone());
+    let Located::Repo(place) = Git::locate(&fake, project.root()) else {
+        panic!("a repository")
+    };
+    Baseline::at(&env, &fake, &place, &Sha::new(sha), &Checking::of(&env)).expect("a baseline");
+    let delta = delta_of(&runtime, "counted");
+    assert_eq!(delta["base"], json!({"kind": "none"}));
+    let ids: Vec<&str> = delta["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["a"], "{delta}");
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_guard_pass_is_sent_what_the_write_changed_against_the_project_before_it() {
+    let project = project(&[("a.spec", SPEC)]);
+    let runtime = runtime();
+    let compiled = project.compile_in(runtime.clone());
+    let edited = compiled
+        .edited(&[("a.spec".to_string(), SPEC.replace("\"B\"", "\"Bee\""))].into())
+        .judged_against(&compiled);
+    drop(edited);
+    let delta = delta_of(&runtime, "guarded");
+    assert_eq!(delta["base"], json!({"kind": "previous"}));
+    let nodes = delta["nodes"].as_array().unwrap();
+    assert_eq!(nodes.len(), 1, "{delta}");
+    assert_eq!(
+        (&nodes[0]["kind"], &nodes[0]["id"], &nodes[0]["change"]),
+        (&json!("item"), &json!("b"), &json!("modified"))
+    );
+    assert_eq!(nodes[0]["aspects"], json!(["title"]), "{delta}");
+    assert_ne!(nodes[0]["before"], nodes[0]["after"]);
+    assert!(delta.get("added_edges").is_none(), "{delta}");
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_guard_pass_a_gate_runs_is_sent_the_compiles_delta() {
+    let project = project(&[("a.spec", SPEC)]);
+    let runtime = runtime();
+    let compiled = project.compile_in(runtime.clone());
+    let code = specforge_diagnostics::qualify(EXT, "E901");
+    compiled.gated_against_self(&[code], &Trigger::gate("ship", None));
+    assert_eq!(delta_of(&runtime, "guarded"), cold(&compiled, &["item"]));
 }

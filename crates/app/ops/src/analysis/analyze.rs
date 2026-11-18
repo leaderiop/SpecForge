@@ -386,6 +386,8 @@ pub fn analyze(
             proved_claims: proved.as_ref().map(|_| &proved_claims),
             judgements: Some(view.project().judgements()),
             files: Some(view.env().file_source(&specforge_registry::PlainDisk)),
+            // An analyze pass reads what changed as the compile it analyzes took it (ADR 0376 D6).
+            delta: view.project().delta(),
             ..PassContext::of(view.entities())
         };
         // Declared `after` constraints order a single extension's passes;

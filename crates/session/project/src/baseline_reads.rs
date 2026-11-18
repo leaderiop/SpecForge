@@ -191,12 +191,14 @@ pub(crate) fn until_read<T>(
 }
 
 /// What the compute passes of `env` compute over `snapshot` (and the `judged` values) at a commit, reading its files
-/// through `disk`; `git` gives the size of each file a pass reads and the bytes of those within the cap, once each.
+/// through `disk`, the passes that declare the `delta` input sent `delta`, the commit's graph from the empty one
+/// (ADR 0376 D7); `git` gives the size of each file a pass reads and the bytes of those within the cap, once each.
 pub(crate) fn compute_at(
     env: &Environment,
     snapshot: &EntitySnapshot,
     runtime: &dyn WasmRuntime,
     judged: &Evaluated,
+    delta: Option<&crate::delta::Delta>,
     disk: &TreeDisk<'_>,
     git: CommitReads<'_>,
 ) -> (Computed, bool) {
@@ -223,7 +225,7 @@ pub(crate) fn compute_at(
             Reads {
                 disk,
                 tests: None,
-                delta: None,
+                delta,
             },
         )
         .0

@@ -5,6 +5,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+mod analyze_delta;
 mod anchors;
 mod call_graph;
 mod captures;

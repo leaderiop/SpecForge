@@ -619,6 +619,7 @@ impl Baseline {
                     &snapshot,
                     &**runtime as &dyn WasmRuntime,
                     &judged,
+                    env.delta_of(&built.graph).as_ref(),
                     &disk,
                     reads,
                 )
