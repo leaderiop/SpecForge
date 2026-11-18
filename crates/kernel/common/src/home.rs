@@ -57,12 +57,7 @@ mod tests {
         assert_eq!(home_from(None, None), None);
     }
 
-    #[cfg(windows)]
-    #[test]
-    fn user_home_reads_a_drive_path_userprofile() {
-        assert_eq!(
-            home_from(None, Some(r"C:\Users\runner".into())),
-            Some(std::path::PathBuf::from(r"C:\Users\runner"))
-        );
-    }
+    // A drive-path `USERPROFILE` is proven on Windows by the `windows-subset` job's
+    // `a_user_compile_cache_lives_under_a_drive_path_userprofile`, which goes through `home_from`; no Windows job
+    // builds this crate's tests, so a `cfg(windows)` twin here would never compile (ADR 0375 D4).
 }
