@@ -27,6 +27,7 @@ Run `scripts/setup-hooks.sh` once per clone: the tracked pre-commit hook runs th
 Run `cargo gate` (what the working tree changed) before a PR and `cargo gate full` before a merge; CI runs `cargo gate ci`, the same list. `cargo gate list` prints every check, the run it joins and the paths that trigger it.
 
 The prove tests ask the real SMT solver: install z3 (`brew install z3`, `apt-get install z3`); CI installs it. Every other test chooses the solver it sees.
+The gate's cache-prune test runs jq: install jq (`brew install jq`, `apt-get install jq`); CI's Linux runner has it.
 
 Lints are one table in the root `Cargo.toml` (`[workspace.lints]`), inherited by every crate. No `unwrap()` outside
 tests: use `expect("...")` naming the invariant, or return an error for anything a user controls. An exception is
