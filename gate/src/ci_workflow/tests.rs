@@ -667,8 +667,7 @@ fn a_workflow_without_a_cache_prefix_is_a_finding() {
 }
 
 /// The one job that deletes caches runs only on a push (to main, the only branch `ci.yml` runs pushes for), after
-/// every job that saves a cache, with `actions: write` and `contents: read` alone, and lists only main's entries
-/// (ADR 0375 D2).
+/// every job that saves a cache, with `actions: write` alone, and lists only main's entries (ADR 0375 D2).
 #[test]
 fn the_prune_job_runs_only_on_mains_pushes_with_actions_write_alone() {
     let workflow = read(CI);
@@ -688,7 +687,7 @@ fn the_prune_job_runs_only_on_mains_pushes_with_actions_write_alone() {
         .map(|line| line.trim())
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
         .collect();
-    assert_eq!(permissions, ["actions: write", "contents: read"]);
+    assert_eq!(permissions, ["actions: write"]);
     let savers: Vec<&str> = jobs
         .iter()
         .filter(|job| {

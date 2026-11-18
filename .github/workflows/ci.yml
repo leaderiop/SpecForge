@@ -435,7 +435,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       actions: write
-      contents: read
     env:
       BUDGET_SECONDS: 300
       GH_TOKEN: ${{ github.token }}

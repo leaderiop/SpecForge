@@ -41,10 +41,10 @@ holds.
 
 ## D2. Main keeps one generation of each cache
 
-A `cache-prune` job, on pushes to main only and after the saving jobs, with `actions: write` and `contents: read` and no
-other permission, lists main's cache entries and deletes every entry that a newer entry of its group supersedes. A group
-is the key without its two trailing hashes, the toolchain's and the lockfile's; a key of any other shape is never
-grouped and so never deleted. The previous prefix's entries are deleted once, by the maintainer, after the first main
+A `cache-prune` job, on pushes to main only and after the saving jobs, with `actions: write` and no other permission
+(it checks nothing out), lists main's cache entries and deletes every entry that a newer entry of its group supersedes.
+A group is the key without its two trailing hashes, the toolchain's and the lockfile's; a key of any other shape is
+never grouped and so never deleted. The previous prefix's entries are deleted once, by the maintainer, after the first main
 run on the new prefix, and not by CI: the prune job leaves each old group's newest entry alone.
 
 The reason: GitHub evicts the least recently used entries once the total passes its cap, and one a run restored counts
