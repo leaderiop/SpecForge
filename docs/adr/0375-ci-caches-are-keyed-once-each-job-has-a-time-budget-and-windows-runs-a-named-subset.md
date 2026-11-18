@@ -182,6 +182,94 @@ The reason: a measured, reproducible gap with a known cause and no local fix is 
 and a trigger than patched across three crates in a phase about CI time; and a budget that nothing can meet yet is a
 warning to keep, not a number to move to quiet it.
 
+## As built
+
+Measured on 2026-11-18. The decisions above are as decided; where the Context's figures and these differ, these are
+the record.
+
+**The cold run.** CI run 44205447318 and Bootstrap run 44205447468, on `2bbb79512`, the commit that set
+`CACHE_PREFIX` to `v1-rust`. Every job with a cache step logged only `v1-rust-` keys and found no cache, so the run
+was cold on every job. A second run on `7f35d7a66`, the commit that set the budgets below, is the confirmation run:
+CI run 44209528364 and Bootstrap run 44209528354, cold again (a pull request saves nothing), every job green and
+every `Build-time budget` step passing. Each budget is D3's formula over the cold run's wall time, the job's
+`completed_at` less its `started_at`:
+
+| Job | Cold wall (s) | Timeout (s) | 1.25 x cold, up to a minute | Cap: timeout less 300 | Budget (s) | Confirmation (s) |
+|-----|--------------:|------------:|----------------------------:|----------------------:|-----------:|-----------------:|
+| `ci` lint | 238 | 2,400 | 300 | 2,100 | 300 | 249 |
+| `ci` gsd | 1,112 | 2,400 | 1,440 | 2,100 | 1,440 | 1,054 |
+| `ci` specs | 1,570 | 2,400 | 1,980 | 2,100 | 1,980 | 1,110 |
+| `build` | 1,141 | 2,400 | 1,440 | 2,100 | 1,440 | 880 |
+| `tests`, each partition (slowest of four) | 295 | 1,800 | 420 | 1,500 | 420 | 356 |
+| `effect-plane` windows-latest | 1,369 | 1,800 | 1,740 | 1,500 | 1,500, its cap | 1,292 |
+| `effect-plane` macos-latest | 782 | 1,800 | 1,020 | 1,500 | 1,020 | 1,012 |
+| `windows-subset` | 1,318 | 1,800 | 1,680 | 1,500 | 1,500, its cap | 1,087 |
+| Bootstrap | 910 | 2,700 | 1,140 | 2,400 | 1,140 | 1,065 |
+| `dogfood` (main only) | none on a pull request | 1,200 | 840, from main's slowest, 637 | 900 | 840 | skipped |
+| `cache-prune` (main only) | none on a pull request | 600 | none | 300 | 300, its cap | skipped |
+
+Two budgets sit at their cap, both on Windows: the effect-plane leg and `windows-subset`. The effect-plane Windows leg
+is the job closest to its timeout, 431 s under it on the cold run. On a warm run the same jobs take far less: CI run
+44200960705, which restored main's caches of the previous prefix, took 107 s for lint, 814 s for gsd, 668 s for specs,
+512 s for the Windows leg and 278 s for macOS.
+
+**Known risks, each with its trigger.** Runner speed varies by more than the formula's quarter on some jobs. macOS
+went from 782 s cold to 1,012 s on the confirmation run, and its budget step read 998 s of 1,020 s. Bootstrap left
+75 s, and its runs on this branch since the Windows fixes have taken 910 s to 1,360 s, the top of that above its
+1,140 s. Lint and the slowest `tests` partition left 51 s and 64 s. A cold run past a budget has that budget
+recomputed by the same formula from the larger of its two cold runs, never by raising a timeout; a cold job past its
+budget twice reopens this record (below). The two Windows budgets cannot rise: a faster cold time, or main's warm
+cache, is what widens them.
+
+**Windows.** The subset runs in `windows-subset`, because D1's estimate for the effect-plane leg with the subset was
+2,268 s, over 1,500 s. It has been green on CI run 44190098653 (its first, 1,467 s with no cache), on the cold run
+(1,318 s: `checked_tree` 88 s, `USERPROFILE` 706 s, absorb 477 s with 96 of 96 tests) and on the confirmation run.
+Getting the leg green took these commits, each at its source:
+
+- `4e6d5a98c`: the wasm engine keeps native unwind information on Windows, where wasmtime refuses an engine without it;
+- `cf3c6a9bd`: an import's candidate key joined by `/`, so imports across directories resolve on Windows. It made an
+  absolute spec root on Linux `//tmp/...`, which a Linux test caught; `51d9cb739` fixed that by minting the candidate
+  key as a source key is minted;
+- `eb70dc17c` and `afe81f710`: two absorb refusal tests build the held path with the OS's separator;
+- `e4d095537`: `Ceiling` is imported only by the `cfg(unix)` test that uses it;
+- `c8f50af24`: the containment and reach tests of `specforge-ops` that link the Unix way now compile only on Unix,
+  which removes seven warnings from the Windows leg's build. They were Unix-only tests before; Linux runs the same 39.
+
+No test the subset names was made Unix-only. The gate's three workflow tests that run a step's own script under bash
+(two the budget check, one the clock) are `cfg(unix)`: the gate runs on Linux.
+
+**The prune program's dry run.** Read at 2026-11-18T01:04:47Z, without deleting anything: main held 12 entries,
+11,374,888,604 B (11.37 GB). `cache-prune`'s `STALE_CACHES` program over them selects 5 entries, the superseded
+generations of 2026-11-14 of lint, gsd, specs and both effect-plane legs, 4,427,543,229 B; an independent grouping of
+the same list selects the same 5. After them, 7 entries remain, 6,947,345,375 B. Its first deletions happen on main's
+first push after this change; a pull request never runs it.
+
+**Projected, confirmed after the merge.** A pull request saves no cache and does not run `dogfood` or `cache-prune`, so
+these figures are labelled projected, confirmed after the merge: projections from what was measured on the day, each
+against 10,000,000,000 B (10 GB; GitHub's cap is 10 GiB, 10,737,418,240 B, so 10 GB is the stricter reading).
+
+| Total | Bytes | Against 10,000,000,000 B |
+|-------|------:|--------------------------|
+| measured on 2026-11-18 at 01:04:47 UTC, 12 entries, all of the previous prefix | 11,374,888,604 (11.37 GB) | over |
+| after `cache-prune`'s selection on that list | 6,947,345,375 (6.95 GB) | under |
+| from the first main run until the previous prefix's entries are deleted | 13,894,690,750 (13.89 GB) | over |
+| one generation per key, the steady state | 6,947,345,375 (6.95 GB) | under |
+
+The steady state sums the newest entry of each of main's 7 groups, today's sizes standing in for the new prefix's
+(the `build` job's old `tests-build` entry for its new key). The new prefix adds one key no entry has yet,
+`windows-subset`; at the Windows effect-plane cache's size, 678,343,286 B, the steady state would be about 7.63 GB,
+still under. The total until the deletion counts the previous prefix's survivors and a full new generation side by
+side, and is expected over the cap, so GitHub may evict the least recently used entries until the maintainer deletes
+the previous prefix's entries (D2); that deletion is the maintainer's first check after the merge, and perf's nightly
+cache, which keeps rust-cache's default prefix, is not among them. `dogfood`'s slowest of 28 runs on main was 637 s,
+against its 840 s budget and its 1,200 s timeout; it has never had a cache hit, and now restores `specs`, so its first
+main run is expected faster than that.
+
+**Deviations from the decisions as first planned.** The switch from `key` to `shared-key` landed in the commit that
+bumped the prefix, not before it: renaming the saved keys makes every job as cold as the bump does, so one cold run
+measures both. Bootstrap's first budget, 1,080 s from an older run, failed its own step on its first run (1,297 s),
+the budget check's first live trip; it was set again from the runs on the code of the day, then from the cold run.
+
 ## Rejected
 
 - **One cache for lint, specs and build.** Their `target` contents differ by profile, one saver would make the three
