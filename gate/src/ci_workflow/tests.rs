@@ -1,6 +1,7 @@
 use super::*;
 use specforge_repo_root::repo_root;
 
+mod parse;
 #[cfg(unix)]
 mod prune;
 
@@ -359,10 +360,23 @@ fn only_ci_and_perf_save_a_cache() {
         files.contains(&"coverage.yml".to_string()) && files.contains(&"release.yml".to_string())
     );
     let mut ci_savers = 0;
-    for name in files.iter().filter(|name| *name != "perf.yml") {
+    for name in &files {
         let file = format!(".github/workflows/{name}");
         let workflow = read(&file);
-        for job in jobs(&workflow) {
+        let jobs = jobs(&workflow);
+        // A workflow read as no job, or a job as no step, would pass every check below on nothing.
+        assert!(!jobs.is_empty(), "{file}: the gate reads no job");
+        for job in &jobs {
+            assert!(
+                !job.steps().is_empty(),
+                "{file}: the gate reads no step of job `{}`",
+                job.id
+            );
+        }
+        if name == "perf.yml" {
+            continue;
+        }
+        for job in &jobs {
             for step in job.steps().iter().filter(|step| step.is_rust_cache()) {
                 assert_eq!(
                     name, "ci.yml",

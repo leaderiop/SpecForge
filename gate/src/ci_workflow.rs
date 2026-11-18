@@ -1,7 +1,9 @@
 //! The workflows' shape the gate holds: every job's timeout, and its build-time budget under it with the two steps
 //! that measure it (ADR 0375 D3); every cache keyed once, under the workflow's one prefix (ADR 0375 D1). A workflow is read line by line, as the gate's other workflow tests read it, with no
 //! YAML parser: a job is a line of exactly two spaces' indent ending in `:` under `jobs:`, a step an item `- ` under
-//! the job's `steps:`. Only the tests read the workflows, so this module is compiled only for them.
+//! the job's `steps:`, and a ` #` comment ends a line. What the reader cannot place it refuses rather than skips: a
+//! line at a job's indent that is no job header panics. Only the tests read the workflows, so this module is compiled
+//! only for them.
 
 /// The name of a job's first step, which records when the job started.
 pub const CLOCK: &str = "Start the build-time budget clock";
@@ -24,39 +26,51 @@ pub struct Step<'a> {
 }
 
 /// The jobs of a workflow's `jobs:` map, in order.
+///
+/// # Panics
+///
+/// On a line under `jobs:` at a job's indent (two spaces) that is no job header: a job the reader could not place
+/// would escape every check.
 pub fn jobs(workflow: &str) -> Vec<Job<'_>> {
     let mut jobs: Vec<Job<'_>> = Vec::new();
     let mut inside = false;
     for line in workflow.lines() {
-        if indent(line) == 0 && !line.trim().is_empty() && !line.starts_with('#') {
-            inside = line == "jobs:";
+        if bare(line).is_empty() {
+            if let Some(job) = jobs.last_mut().filter(|_| inside) {
+                job.lines.push(line);
+            }
+            continue;
+        }
+        if indent(line) == 0 {
+            inside = bare(line) == "jobs:";
             continue;
         }
         if !inside {
             continue;
         }
-        match job_header(line) {
-            Some(id) => jobs.push(Job {
+        if indent(line) == 2 {
+            let id = job_header(line).unwrap_or_else(|| {
+                panic!("a line under `jobs:` at a job's indent is no job header: `{line}`")
+            });
+            jobs.push(Job {
                 id,
                 lines: Vec::new(),
-            }),
-            None => {
-                if let Some(job) = jobs.last_mut() {
-                    job.lines.push(line);
-                }
-            }
+            });
+        } else if let Some(job) = jobs.last_mut() {
+            job.lines.push(line);
         }
     }
     jobs
 }
 
-/// The id of a line `  <id>:`, two spaces' indent and nothing after the colon.
+/// The id of a line `  <id>:`, two spaces' indent and nothing after the colon but a comment.
 fn job_header(line: &str) -> Option<&str> {
     let rest = line.strip_prefix("  ")?;
     if rest.starts_with([' ', '#']) {
         return None;
     }
-    rest.strip_suffix(':')
+    bare(rest)
+        .strip_suffix(':')
         .filter(|id| !id.is_empty() && !id.contains([' ', ':']))
 }
 
@@ -64,10 +78,52 @@ fn indent(line: &str) -> usize {
     line.len() - line.trim_start().len()
 }
 
-/// The value of `key: value` in `line` once its indent is gone; `None` when the line holds another key.
+/// `text` without a trailing YAML comment (a `#` that opens it or follows a space or a tab), what follows it, and the
+/// space before it. A value that opens with a quote keeps a `#` inside its quotes.
+fn uncommented(text: &str) -> &str {
+    let body = text.trim_start();
+    let start = text.len() - body.len();
+    let from = quoted_len(body);
+    let end = body[from..]
+        .char_indices()
+        .map(|(at, c)| (from + at, c))
+        .find(|&(at, c)| c == '#' && (at == 0 || body[..at].ends_with([' ', '\t'])))
+        .map_or(body.len(), |(at, _)| at);
+    text[..start + end].trim_end()
+}
+
+/// The length of the quoted scalar `body` opens with, its quotes included (a `\` escapes in `"`, a `''` is one `'`
+/// in `'`); 0 when it opens with no quote, all of it when the quote does not close on this line.
+fn quoted_len(body: &str) -> usize {
+    let mut chars = body.char_indices().peekable();
+    let quote = match chars.next() {
+        Some((_, quote @ ('"' | '\''))) => quote,
+        _ => return 0,
+    };
+    while let Some((at, c)) = chars.next() {
+        if quote == '"' && c == '\\' {
+            chars.next();
+        } else if c == quote {
+            if quote == '\'' && chars.peek().is_some_and(|&(_, next)| next == '\'') {
+                chars.next();
+            } else {
+                return at + 1;
+            }
+        }
+    }
+    body.len()
+}
+
+/// `line` without its indent and its comment: what a line that opens a block (`env:`, `steps:`) is compared by.
+fn bare(line: &str) -> &str {
+    uncommented(line).trim_start()
+}
+
+/// The value of `key: value` in `line` once its indent and its comment are gone; `None` when the line holds another
+/// key.
 fn value_of<'a>(line: &'a str, key: &str) -> Option<&'a str> {
     let rest = line.trim_start().strip_prefix(key)?.strip_prefix(':')?;
-    Some(unquote(rest.trim()))
+    Some(unquote(uncommented(rest).trim()))
 }
 
 /// A matrix entry's first line without its indent and its `- `.
@@ -80,9 +136,9 @@ fn entry_line(line: &str) -> &str {
 pub fn workflow_env<'a>(workflow: &'a str, name: &str) -> Option<&'a str> {
     workflow
         .lines()
-        .skip_while(|line| *line != "env:")
+        .skip_while(|line| !(indent(line) == 0 && bare(line) == "env:"))
         .skip(1)
-        .take_while(|line| line.trim().is_empty() || indent(line) > 0 || line.starts_with('#'))
+        .take_while(|line| bare(line).is_empty() || indent(line) > 0)
         .filter(|line| indent(line) == 2)
         .find_map(|line| value_of(line, name))
 }
@@ -112,9 +168,9 @@ impl<'a> Job<'a> {
     pub fn block(&self, key: &str) -> Vec<&'a str> {
         self.lines
             .iter()
-            .skip_while(|line| !(indent(line) == 4 && line.trim() == format!("{key}:")))
+            .skip_while(|line| !(indent(line) == 4 && bare(line) == format!("{key}:")))
             .skip(1)
-            .take_while(|line| line.trim().is_empty() || indent(line) > 4)
+            .take_while(|line| bare(line).is_empty() || indent(line) > 4)
             .copied()
             .collect()
     }
@@ -138,9 +194,9 @@ impl<'a> Job<'a> {
         let strategy = self.block("strategy");
         let matrix = strategy
             .iter()
-            .skip_while(|line| line.trim() != "matrix:")
+            .skip_while(|line| bare(line) != "matrix:")
             .skip(1)
-            .take_while(|line| line.trim().is_empty() || indent(line) > 6);
+            .take_while(|line| bare(line).is_empty() || indent(line) > 6);
         for line in matrix {
             if line.trim_start().starts_with("- ") {
                 entries.push(vec![line]);
@@ -248,17 +304,20 @@ impl<'a> Step<'a> {
         let at = self.key_indent();
         self.lines
             .iter()
-            .skip_while(|line| !(indent(line) == at && line.trim() == "with:"))
+            .skip_while(|line| !(indent(line) == at && bare(line) == "with:"))
             .skip(1)
-            .take_while(|line| line.trim().is_empty() || indent(line) > at)
+            .take_while(|line| bare(line).is_empty() || indent(line) > at)
             .filter(|line| indent(line) == at + 2)
             .find_map(|line| value_of(line, key))
     }
 
-    /// Whether the step runs `Swatinem/rust-cache`.
+    /// Whether the step runs `Swatinem/rust-cache`, its owner and repository in any case, as GitHub reads them.
     pub fn is_rust_cache(&self) -> bool {
-        self.key("uses")
-            .is_some_and(|uses| uses.starts_with("Swatinem/rust-cache@"))
+        const ACTION: &str = "swatinem/rust-cache@";
+        self.key("uses").is_some_and(|uses| {
+            uses.get(..ACTION.len())
+                .is_some_and(|head| head.eq_ignore_ascii_case(ACTION))
+        })
     }
 
     /// The step's `run: |` script, dedented, each line ending in a newline; `None` when it runs no block script.
