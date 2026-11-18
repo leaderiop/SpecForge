@@ -200,7 +200,8 @@ fn named(env: &Environment, history: &dyn Git, revision: &str) -> Result<(GitPla
 
 impl Snapshot {
     /// The project of `env` as the commit `revision` names holds it, compiled with `env`'s extensions (ADR 0376 D3),
-    /// its facts the stores its ledger records, read through `disk`. The revision is resolved by the git port in
+    /// its facts the stores its ledger records, read through `disk` when `env` loads a collected kind (none else, as
+    /// the working tree serves none). The revision is resolved by the git port in
     /// process, as [`since`] resolves it, never handed to a program; no collector runs.
     pub fn at_revision(
         env: &Environment,
@@ -218,7 +219,8 @@ impl Snapshot {
         })?;
         let wants = Wants {
             tree: false,
-            facts: Some(disk),
+            // the stores are sources only while a collected kind is loaded, as in the working tree
+            facts: env.reads_facts().then_some(disk),
             config: true,
         };
         let loaded = load_at(env, &*history, &place, &sha, wants).map_err(AtError::Unreadable)?;

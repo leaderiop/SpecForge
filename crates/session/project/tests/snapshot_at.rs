@@ -280,6 +280,24 @@ fn a_store_the_disk_no_longer_holds_was_not_collected() {
     );
 }
 
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_revision_compiled_with_no_collected_kind_serves_no_store_and_notes_nothing() {
+    let (project, _, commit) = collected_at_a_commit();
+    // the same project compiled with no extension: no kind is collected, and the working tree serves no store
+    let compiled = project.compile_bare();
+    let env = compiled.environment();
+    assert!(!env.reads_facts());
+    let disk = Recording::default();
+    let at = Snapshot::at_revision(env, &disk, &commit).unwrap();
+    assert!(disk.0.lock().unwrap().is_empty(), "no store is read");
+    assert!(at.facts.is_empty(), "{:?}", at.facts);
+    let now = Snapshot::of_project(&compiled);
+    let forms = env.registries().field_forms();
+    let Comparison { delta, notes } = compare(&at, &now, forms, DeltaBase::None);
+    assert!(notes.is_empty(), "{notes:?}");
+    assert!(delta.is_empty(), "{:?}", delta.payload());
+}
+
 /// The plain disk, recording every path it reads.
 #[derive(Default)]
 struct Recording(Mutex<Vec<PathBuf>>);
