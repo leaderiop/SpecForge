@@ -437,8 +437,6 @@ jobs:
       actions: write
     env:
       BUDGET_SECONDS: 300
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
       STALE_CACHES: 'group_by(.key | sub("-[0-9a-f]{8}-[0-9a-f]{8}$"; "")) | map(sort_by(.createdAt) | .[:-1]) | flatten | .[].id'
     steps:
       - name: Start the build-time budget clock
@@ -447,6 +445,9 @@ jobs:
           echo "BUDGET_T0=$(date +%s)" >> "$GITHUB_ENV"
       - name: Delete the cache entries a newer one of their group supersedes
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           stale=$(gh cache list --ref refs/heads/main --limit 100 --json id,key,createdAt --jq "$STALE_CACHES")
           for id in $stale; do

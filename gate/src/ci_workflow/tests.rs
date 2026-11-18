@@ -667,7 +667,8 @@ fn a_workflow_without_a_cache_prefix_is_a_finding() {
 }
 
 /// The one job that deletes caches runs only on a push (to main, the only branch `ci.yml` runs pushes for), after
-/// every job that saves a cache, with `actions: write` alone, and lists only main's entries (ADR 0375 D2).
+/// every job that saves a cache, with `actions: write` alone and its token in the one step that lists and deletes, and
+/// lists only main's entries (ADR 0375 D2).
 #[test]
 fn the_prune_job_runs_only_on_mains_pushes_with_actions_write_alone() {
     let workflow = read(CI);
@@ -708,15 +709,29 @@ fn the_prune_job_runs_only_on_mains_pushes_with_actions_write_alone() {
             .is_some_and(|uses| uses.starts_with("actions/checkout@"))),
         "the prune job checks out the repository"
     );
-    let delete = steps
+    let (deleter, delete) = steps
         .iter()
         .find_map(|step| {
             step.script()
                 .filter(|script| script.contains("gh cache delete"))
+                .map(|script| (step, script))
         })
         .expect("the prune job deletes nothing");
     assert!(
         delete.contains("gh cache list --ref refs/heads/main "),
         "{delete}"
+    );
+    assert_eq!(
+        deleter.env("GH_TOKEN").as_deref(),
+        Some("${{ github.token }}")
+    );
+    let holders: Vec<String> = steps
+        .iter()
+        .filter(|step| step.env("GH_TOKEN").is_some())
+        .filter_map(|step| step.key("name").map(String::from))
+        .collect();
+    assert!(
+        prune.env("GH_TOKEN").is_none() && holders.len() == 1,
+        "the token reaches more than the step that lists and deletes: the job's env, or {holders:?}"
     );
 }

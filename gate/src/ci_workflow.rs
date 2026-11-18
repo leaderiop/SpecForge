@@ -382,10 +382,21 @@ impl<'a> Step<'a> {
 
     /// An input of the step's `with:`.
     pub fn with(&self, key: &str) -> Option<Cow<'a, str>> {
+        self.nested("with", key)
+    }
+
+    /// A variable of the step's own `env:`.
+    pub fn env(&self, name: &str) -> Option<Cow<'a, str>> {
+        self.nested("env", name)
+    }
+
+    /// The value of `key` in the map under the step's key `block`.
+    fn nested(&self, block: &str, key: &str) -> Option<Cow<'a, str>> {
         let at = self.key_indent();
+        let opens = format!("{block}:");
         self.lines
             .iter()
-            .skip_while(|line| !(indent(line) == at && bare(line) == "with:"))
+            .skip_while(|line| !(indent(line) == at && bare(line) == opens))
             .skip(1)
             .take_while(|line| bare(line).is_empty() || indent(line) > at)
             .filter(|line| indent(line) == at + 2)
