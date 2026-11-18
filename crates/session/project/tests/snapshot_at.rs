@@ -1,13 +1,20 @@
-//! A project's graph at a git revision (ADR 0376 D1, D2): read through the git port with no checkout, built with
-//! the current environment, and keyed by the revision it was named by.
+//! A project's graph at a git revision (ADR 0376 D1, D2, D4): read through the git port with no checkout, built with
+//! the current environment, keyed by the revision it was named by, and served the fact stores its ledger records
+//! there, never collected.
 
-use std::sync::Arc;
+use std::io;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
-use specforge_effects::SharedGit;
+use serde_json::{Value, json};
+use specforge_effects::testing::{FakeProcess, MemoryConsent};
+use specforge_effects::{EffectsMode, SharedGit};
 use specforge_git::testing::Repo;
 use specforge_project::CompiledProject;
-use specforge_project::snapshot::{AtError, Snapshot, SnapshotKey};
-use specforge_project::testing::TestProject;
+use specforge_project::harness::{LEDGER_FILE, Ledger, Line};
+use specforge_project::snapshot::{AtError, FactsAt, Snapshot, SnapshotKey};
+use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, TestProject, stored};
+use specforge_registry::{Disk, PlainDisk};
 use specforge_test::prelude::*;
 
 const FIRST: &str = "thing x \"X\" {\n  note \"first\"\n}\n\nthing y \"Y\" {\n}\n";
@@ -46,7 +53,7 @@ fn note(graph: &specforge_graph::Graph, id: &str) -> Option<String> {
 fn a_revision_holds_the_graph_its_commit_wrote() {
     let (_project, compiled, first, _) = two_commits();
     let env = compiled.environment();
-    let at = Snapshot::at_revision(env, &first).unwrap();
+    let at = Snapshot::at_revision(env, &PlainDisk, &first).unwrap();
     assert_eq!(
         at.key,
         SnapshotKey::Revision {
@@ -69,7 +76,7 @@ fn a_revision_holds_the_graph_its_commit_wrote() {
 #[specforge_test(requirement = "FEATURE-142")]
 fn a_revision_by_name_resolves_to_its_commit() {
     let (_project, compiled, _, second) = two_commits();
-    let at = Snapshot::at_revision(compiled.environment(), "HEAD").unwrap();
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, "HEAD").unwrap();
     let SnapshotKey::Revision { name, sha } = &at.key else {
         panic!("a revision: {:?}", at.key)
     };
@@ -83,7 +90,7 @@ fn an_unknown_revision_is_refused() {
     let (_project, compiled, _, _) = two_commits();
     let env = compiled.environment();
     assert_eq!(
-        Snapshot::at_revision(env, "no-such-rev").unwrap_err(),
+        Snapshot::at_revision(env, &PlainDisk, "no-such-rev").unwrap_err(),
         AtError::UnknownRevision("no-such-rev".to_string())
     );
 }
@@ -94,7 +101,7 @@ fn an_option_like_revision_is_an_unknown_revision() {
     let env = compiled.environment();
     // the git port resolves it in process: an option is a name no commit has, never an argument to a program
     assert_eq!(
-        Snapshot::at_revision(env, "--upload-pack=x").unwrap_err(),
+        Snapshot::at_revision(env, &PlainDisk, "--upload-pack=x").unwrap_err(),
         AtError::UnknownRevision("--upload-pack=x".to_string())
     );
 }
@@ -106,7 +113,7 @@ fn a_project_outside_a_repository_has_no_revision() {
         .with_git(gix());
     let compiled = project.compile_bare();
     assert_eq!(
-        Snapshot::at_revision(compiled.environment(), "HEAD").unwrap_err(),
+        Snapshot::at_revision(compiled.environment(), &PlainDisk, "HEAD").unwrap_err(),
         AtError::NotARepository
     );
 }
@@ -117,7 +124,219 @@ fn no_git_port_is_unreadable() {
     Repo::init(project.root()).commit_all("c");
     let compiled = project.compile_bare();
     assert!(matches!(
-        Snapshot::at_revision(compiled.environment(), "HEAD"),
+        Snapshot::at_revision(compiled.environment(), &PlainDisk, "HEAD"),
         Err(AtError::Unreadable(_))
     ));
+}
+
+const KEY: &str = "0123456789abcdef0123456789abcdef01234567";
+const STORE: &str = ".specforge/facts/0123456789abcdef0123456789abcdef01234567/node.json";
+
+/// `node`'s facts: two tests of `a.test.js`.
+fn two_tests() -> Value {
+    json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "title": "adds", "fields": {"file": "a.test.js", "status": "passed"}},
+        {"kind": "test", "id": "js:a.test.js#subtracts", "fields": {"file": "a.test.js", "status": "failed"}},
+    ])
+}
+
+/// A project enabling the collected fixture (`node` writes `test` facts), whose store of [`two_tests`] under
+/// [`KEY`] and the ledger line recording it are committed: the project, its runtime, the commit.
+fn collected_at_a_commit() -> (
+    TestProject,
+    Arc<specforge_wasm::testing::InProcessRuntime>,
+    String,
+) {
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&COLLECTED_EXTENSIONS)
+        .installing_enabled()
+        .file("a.spec", FIRST);
+    stored(project.root(), "node", KEY, two_tests());
+    let commit = Repo::init(project.root()).commit_all("collected");
+    (
+        project.with_git(gix()),
+        Arc::new(Collected::new().runtime()),
+        commit,
+    )
+}
+
+/// How many `test` facts `snapshot`'s graph holds.
+fn tests_in(snapshot: &Snapshot) -> usize {
+    snapshot
+        .graph
+        .nodes()
+        .iter()
+        .filter(|n| n.kind.raw.as_str() == "test")
+        .count()
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_revision_serves_the_store_its_ledger_records() {
+    let (project, runtime, commit) = collected_at_a_commit();
+    let compiled = project.compile_in(runtime);
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, &commit).unwrap();
+    assert_eq!(
+        at.facts.get("node"),
+        Some(&FactsAt::Served),
+        "{:?}",
+        at.facts
+    );
+    assert_eq!(tests_in(&at), 2);
+    assert!(
+        at.graph.node("x").is_some(),
+        "the specs are served beside the facts"
+    );
+    // the working tree serves the same store
+    let now = Snapshot::of_project(&compiled);
+    assert_eq!(
+        now.facts.get("node"),
+        Some(&FactsAt::Served),
+        "{:?}",
+        now.facts
+    );
+    assert_eq!(tests_in(&now), 2);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_store_changed_since_the_revision_is_not_served_there() {
+    let (project, runtime, commit) = collected_at_a_commit();
+    let edited = project.read(STORE).replacen("failed", "passed", 1);
+    project.write(STORE, edited);
+    let compiled = project.compile_in(runtime);
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, &commit).unwrap();
+    let Some(FactsAt::Unrecorded(w191)) = at.facts.get("node") else {
+        panic!("unrecorded: {:?}", at.facts)
+    };
+    assert_eq!(w191.code, "W191", "{w191:?}");
+    assert_eq!(tests_in(&at), 0);
+    // the working tree says the same of it
+    let now = Snapshot::of_project(&compiled);
+    assert!(
+        matches!(now.facts.get("node"), Some(FactsAt::Unrecorded(d)) if d.code == "W191"),
+        "{:?}",
+        now.facts
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_store_the_disk_no_longer_holds_was_not_collected() {
+    let (project, runtime, commit) = collected_at_a_commit();
+    project.remove(STORE);
+    let compiled = project.compile_in(runtime);
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, &commit).unwrap();
+    assert_eq!(
+        at.facts.get("node"),
+        Some(&FactsAt::NotCollected),
+        "{:?}",
+        at.facts
+    );
+    assert_eq!(tests_in(&at), 0);
+    let now = Snapshot::of_project(&compiled);
+    assert_eq!(
+        now.facts.get("node"),
+        Some(&FactsAt::NotCollected),
+        "{:?}",
+        now.facts
+    );
+}
+
+/// The plain disk, recording every path it reads.
+#[derive(Default)]
+struct Recording(Mutex<Vec<PathBuf>>);
+
+impl Disk for Recording {
+    fn exists(&self, path: &Path) -> bool {
+        PlainDisk.exists(path)
+    }
+    fn list(&self, dir: &Path) -> Option<Vec<String>> {
+        PlainDisk.list(dir)
+    }
+    fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
+        self.0.lock().unwrap().push(path.to_path_buf());
+        PlainDisk.read(path)
+    }
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_ledger_line_naming_no_store_is_never_made_a_path() {
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&COLLECTED_EXTENSIONS)
+        .installing_enabled()
+        .file("a.spec", FIRST);
+    // a file each hostile line would reach, were it made a path
+    project.write("x.json", "{}");
+    project.write(".specforge/facts/c.json", "{}");
+    project.write(&format!(".specforge/facts/{KEY}/.c.json"), "{}");
+    let mut ledger = Ledger::default();
+    for (collector, key) in [
+        ("node", "../../x"),
+        ("../c", KEY),
+        (".c", KEY),
+        ("node", ""),
+    ] {
+        ledger.insert(Line::facts(collector, key, b"{}"));
+    }
+    ledger.insert(Line::stale("node", "../../x", b"{}", "file", "a", "b"));
+    project.write(LEDGER_FILE, ledger.canonical());
+    let commit = Repo::init(project.root()).commit_all("hostile");
+    let project = project.with_git(gix());
+    let compiled = project.compile_in(Arc::new(Collected::new().runtime()));
+    let disk = Recording::default();
+    let at = Snapshot::at_revision(compiled.environment(), &disk, &commit).unwrap();
+    let facts = project
+        .root()
+        .canonicalize()
+        .unwrap()
+        .join(".specforge/facts");
+    let read = disk.0.lock().unwrap().clone();
+    let outside: Vec<&PathBuf> = read
+        .iter()
+        .filter(|p| {
+            !p.starts_with(&facts) && !p.starts_with(project.root().join(".specforge/facts"))
+        })
+        .collect();
+    assert!(outside.is_empty(), "read outside the stores: {outside:?}");
+    assert!(
+        read.is_empty(),
+        "no line names a store, so nothing is read: {read:?}"
+    );
+    // the ledger at the revision held every hostile line, and each was refused; `unit` is loaded and named by none
+    assert_eq!(
+        at.facts.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["../c", ".c", "node", "unit"]
+    );
+    for (collector, at) in &at.facts {
+        assert_eq!(at, &FactsAt::NotCollected, "{collector}");
+    }
+    assert_eq!(tests_in(&at), 0);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn loading_at_a_revision_runs_no_collector_and_no_program() {
+    let (project, runtime, commit) = collected_at_a_commit();
+    let process = Arc::new(FakeProcess::new());
+    let ports = specforge_effects::Ports {
+        process: process.clone(),
+        ..specforge_effects::testing::ports()
+    };
+    let env = project.environment_in(runtime.clone());
+    let effects = specforge_project::effects::of(
+        EffectsMode::Online,
+        &ports,
+        &env,
+        &project.project_root(),
+        &MemoryConsent::default(),
+    );
+    let env = env.with_effects(effects).with_git(gix());
+    let before = runtime.calls().len();
+    let at = Snapshot::at_revision(&env, &PlainDisk, &commit).unwrap();
+    assert_eq!(at.facts.get("node"), Some(&FactsAt::Served));
+    let called: Vec<String> = runtime.calls()[before..]
+        .iter()
+        .map(|c| c.export.clone())
+        .collect();
+    assert!(called.is_empty(), "the extensions were called: {called:?}");
+    assert!(process.requests().is_empty(), "{:?}", process.requests());
 }

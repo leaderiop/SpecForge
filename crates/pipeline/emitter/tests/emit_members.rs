@@ -124,7 +124,7 @@ fn a_section_lists_methods_and_annotations() {
 
 #[specforge_test(requirement = "FEATURE-001")]
 fn a_facts_graph_node_carries_its_located_range() {
-    let store = ".specforge/facts/k/node.json";
+    let store = ".specforge/facts/worktree/node.json";
     let at = |file: &str, line| SourceSpan {
         file: file.into(),
         start_line: line,

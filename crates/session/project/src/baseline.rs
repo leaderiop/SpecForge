@@ -470,7 +470,8 @@ impl Baseline {
                         .registries()
                         .compute_passes()
                         .any(|pass| !pass.inputs().files().is_empty());
-                let loaded = load_at(env, history, place, commit, Wants { tree })?;
+                let wants = Wants { tree, facts: None };
+                let loaded = load_at(env, history, place, commit, wants)?;
                 let within = loaded.within.clone();
                 let within = within.as_path();
                 let failed = std::cell::RefCell::new(None);
@@ -555,7 +556,7 @@ impl Baseline {
         reads: CommitReads<'_>,
         checking: &Checking<'_>,
     ) -> Baseline {
-        let loaded = LoadedAt::of_files(env, revision, within.to_path_buf(), files, tree);
+        let loaded = LoadedAt::of_files(env, revision, within.to_path_buf(), files, tree, None);
         Self::compiled(env, loaded, reads, checking)
     }
 
@@ -574,6 +575,7 @@ impl Baseline {
             ledger,
             tree,
             built,
+            ..
         } = loaded;
         let tree: crate::baseline_reads::Tree = tree
             .into_iter()
