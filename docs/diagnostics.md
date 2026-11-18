@@ -2514,6 +2514,26 @@ Owner: core
 Level: info
 ```
 
+## I215
+
+```
+I215: Delta since a revision has no base
+
+`specforge check --since <rev>` (or MCP `specforge.validate` with `since`) runs
+a pass that declares the `delta` input (ADR 0376 D6), and the project at the
+merge-base of the revision and HEAD could not be had: the project is in no git
+repository, HEAD has no commit yet, the merge-base is not in this shallow clone,
+the revision and HEAD share no commit, or git could not read the merge-base's
+files. The delta is then taken from no base, as on a cold run (D7): the payload
+names base `none`, and every node of the kinds a pass reads is added. The passes
+still judge the whole project, only without knowing what changed. Fetch the
+history the merge-base needs (`fetch-depth: 0` in CI), or name a revision HEAD
+shares a commit with.
+
+Owner: core
+Level: info
+```
+
 ## I999
 
 ```

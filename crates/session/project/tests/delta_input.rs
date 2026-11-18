@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use serde_json::{Value, json};
-use specforge_effects::git::{Git, Located, Sha};
+use specforge_effects::git::{Git, GitError, Located, Sha};
 use specforge_effects::testing::FakeGit;
 use specforge_extension_sdk::prelude::*;
 use specforge_graph::Graph;
@@ -470,6 +470,64 @@ fn since_loads_no_graph_at_the_merge_base_when_no_pass_reads_the_delta() {
     let compiled = CompiledProject::of_since(env, "side").unwrap();
     assert_eq!(git.files_asked(), 1);
     assert!(matches!(compiled.delta_base(), DeltaBase::Revision { .. }));
+}
+
+/// The messages of the I215 `compiled` reports.
+fn no_base(compiled: &CompiledProject) -> Vec<String> {
+    compiled
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "I215")
+        .map(|d| d.message)
+        .collect()
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn since_a_revision_with_no_merge_base_says_why_the_delta_has_no_base() {
+    let project = project(&[("a.spec", AT_HEAD)]);
+    let git = |change: &dyn Fn(&mut FakeGit)| {
+        let mut git = FakeGit::repo(project.root(), &"c".repeat(40), Vec::new());
+        git.named
+            .push(("side".into(), Sha::new("d".repeat(40)), Vec::new()));
+        change(&mut git);
+        Arc::new(git)
+    };
+    // HEAD names no commit yet: no merge-base, and the check says so once
+    let unborn = git(&|git| git.head = Ok(None));
+    let runtime = runtime();
+    let env = project.environment_in(runtime.clone()).with_git(unborn);
+    let compiled = CompiledProject::of_since(env, "side").unwrap();
+    assert_eq!(delta_of(&runtime, "items")["base"], json!({"kind": "none"}));
+    assert_eq!(
+        no_base(&compiled),
+        [
+            "the delta since side has no base (HEAD names no commit yet): a pass that reads it is sent \
+          every node as added"
+        ]
+    );
+    // a merge-base whose files git cannot give
+    let lost = git(&|git| git.files = Err(GitError("the object store is gone".into())));
+    let env = project.environment_in(runtime.clone()).with_git(lost);
+    let compiled = CompiledProject::of_since(env, "HEAD").unwrap();
+    assert_eq!(compiled.delta_base(), DeltaBase::None);
+    let [notice] = no_base(&compiled)
+        .try_into()
+        .unwrap_or_else(|n| panic!("{n:?}"));
+    assert!(
+        notice.ends_with("cannot be read: the object store is gone): a pass that reads it is sent every node as added"),
+        "{notice}"
+    );
+    // no pass reads the delta: nothing to say
+    let plain = Arc::new(InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+        c.kind("item", |_| {});
+        c.kind("note", |_| {});
+        c
+    }));
+    let env = project
+        .environment_in(plain)
+        .with_git(git(&|git| git.head = Ok(None)));
+    assert!(no_base(&CompiledProject::of_since(env, "side").unwrap()).is_empty());
 }
 
 /// Whether every node `delta` names is of `kind`.

@@ -428,6 +428,9 @@ catalog! {
     I214: Info core,
         "A collector's syntax work",
         "`specforge collect` called a collector that asked the host to parse source files through `specforge:host/syntax` (ADR 0345), and says what that took (ADR 0353 D7): how many source files it read, how many were parsed now and how many were answered from the syntax cache (`.specforge/cache/syntax`, keyed by grammar, query and file digest). Once per collector that read a file; the same counts are its `syntax` in `specforge collect --format json`. A second collect of an unchanged tree parses none. Nothing is wrong with the project.";
+    I215: Info core,
+        "Delta since a revision has no base",
+        "`specforge check --since <rev>` (or MCP `specforge.validate` with `since`) runs a pass that declares the `delta` input (ADR 0376 D6), and the project at the merge-base of the revision and HEAD could not be had: the project is in no git repository, HEAD has no commit yet, the merge-base is not in this shallow clone, the revision and HEAD share no commit, or git could not read the merge-base's files. The delta is then taken from no base, as on a cold run (D7): the payload names base `none`, and every node of the kinds a pass reads is added. The passes still judge the whole project, only without knowing what changed. Fetch the history the merge-base needs (`fetch-depth: 0` in CI), or name a revision HEAD shares a commit with.";
     I999: Info core,
         "Diagnostic output truncated",
         "More diagnostics were produced than the 100-diagnostic display limit, so only the first batch is shown. Fix the listed diagnostics and rerun the compiler to see the rest.";

@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, LazyLock};
 
+use specforge_common::{Diagnostic, codes};
 use specforge_effects::git::Sha;
 use specforge_graph::Graph;
 use specforge_protocol_types::DeltaBase;
@@ -14,7 +15,7 @@ use super::CompiledProject;
 use crate::Environment;
 use crate::baseline::{Baseline, Checking, HeldBaseline, UnknownRevision, declared};
 use crate::ledger::Unrecorded;
-use crate::snapshot::{Since, Wants, load_at, served_by, since};
+use crate::snapshot::{NoBase, Since, Wants, load_at, served_by, since};
 
 /// The graph a check's delta is taken from, and the base the payload names.
 #[derive(Debug, Clone, Default)]
@@ -22,6 +23,8 @@ pub(crate) enum DeltaBasis {
     /// No base: the delta is taken from the empty graph.
     #[default]
     None,
+    /// No base though a revision was asked for, and the I215 that says why: the delta is taken from the empty graph.
+    Unresolved(Diagnostic),
     /// The project at the merge-base `sha`, compiled with the current extensions, and the collectors it serves a
     /// fact store of: a collector the check's graph does not serve too is left out of the delta (ADR 0376 D4).
     Revision {
@@ -40,7 +43,7 @@ impl DeltaBasis {
     /// The graph the delta is taken from: the empty one for no base.
     pub(crate) fn graph(&self) -> &Graph {
         match self {
-            DeltaBasis::None => &EMPTY,
+            DeltaBasis::None | DeltaBasis::Unresolved(_) => &EMPTY,
             DeltaBasis::Revision { graph, .. } | DeltaBasis::Previous(graph) => graph,
         }
     }
@@ -48,11 +51,19 @@ impl DeltaBasis {
     /// The base the delta payload names: the merge-base by its full sha.
     pub(crate) fn label(&self) -> DeltaBase {
         match self {
-            DeltaBasis::None => DeltaBase::None,
+            DeltaBasis::None | DeltaBasis::Unresolved(_) => DeltaBase::None,
             DeltaBasis::Revision { sha, .. } => DeltaBase::Revision {
                 id: sha.as_str().to_string(),
             },
             DeltaBasis::Previous(_) => DeltaBase::Previous,
+        }
+    }
+
+    /// The I215 that says why a revision asked for gave no base.
+    pub(crate) fn notice(&self) -> Option<&Diagnostic> {
+        match self {
+            DeltaBasis::Unresolved(notice) => Some(notice),
+            DeltaBasis::None | DeltaBasis::Revision { .. } | DeltaBasis::Previous(_) => None,
         }
     }
 }
@@ -94,7 +105,8 @@ impl CompiledProject {
 
     /// Pin the next check to `revision`, resolved once ([`since`]) for both: its baseline the merge-base's read, and
     /// its delta base the project at the merge-base when a loaded pass reads the delta. With no merge-base the delta
-    /// has no base (a cold run's), and the baseline read says why when history is declared (I204, W164).
+    /// has no base (a cold run's) and the check says why (I215), as the baseline read does when history is declared
+    /// (I204, W164); with no git port, history is never asked and neither says anything.
     fn pin_since(&mut self, revision: &str) -> Result<(), UnknownRevision> {
         let env = Arc::clone(&self.env);
         let reads_delta = env.registries().passes_reading_delta() > 0;
@@ -110,7 +122,13 @@ impl CompiledProject {
             read,
         }));
         self.delta_base = match resolved {
-            Since::Base { place, base, .. } if reads_delta => at_merge_base(&env, &place, base),
+            Since::Base { place, base, .. } if reads_delta => {
+                at_merge_base(&env, revision, &place, base)
+            }
+            Since::NoBase { why, .. } if reads_delta => match no_merge_base(&why) {
+                Some(why) => DeltaBasis::Unresolved(unresolved(revision, &why)),
+                None => DeltaBasis::None,
+            },
             _ => DeltaBasis::None,
         };
         Ok(())
@@ -127,11 +145,12 @@ impl CompiledProject {
     }
 }
 
-/// The project of `env` at the merge-base `base` of the repository `place`, built with the current extensions and
-/// served the fact stores its ledger records (a snapshot's graph): the revision base. One git cannot give is no
-/// base: the delta is then taken as on a cold run.
+/// The project of `env` at the merge-base `base` of `revision` and `HEAD` in the repository `place`, built with the
+/// current extensions and served the fact stores its ledger records (a snapshot's graph): the revision base. One git
+/// cannot give is no base, and I215 says why: the delta is then taken as on a cold run.
 fn at_merge_base(
     env: &Environment,
+    revision: &str,
     place: &specforge_effects::git::GitPlace,
     base: Sha,
 ) -> DeltaBasis {
@@ -152,6 +171,33 @@ fn at_merge_base(
             served: served_by(&loaded.built.graph),
             graph: Arc::new(loaded.built.graph.into_parts().0),
         },
-        Err(_) => DeltaBasis::None,
+        Err(why) => DeltaBasis::Unresolved(unresolved(
+            revision,
+            &format!(
+                "the project at the merge-base {} cannot be read: {why}",
+                base.as_str()
+            ),
+        )),
     }
+}
+
+/// Why `why` leaves a check since a revision with no merge-base, as I215 says it; `None` with no git port, where
+/// history is never asked.
+fn no_merge_base(why: &NoBase) -> Option<String> {
+    Some(match why {
+        NoBase::NoGitPort => return None,
+        NoBase::NotARepository => "the project is in no git repository".to_string(),
+        NoBase::UnbornHead => "HEAD names no commit yet".to_string(),
+        NoBase::Unreadable(why) | NoBase::Shallow(why) | NoBase::Unrelated(why) => why.clone(),
+    })
+}
+
+/// I215: the delta since `revision` has no base, and `why`.
+fn unresolved(revision: &str, why: &str) -> Diagnostic {
+    Diagnostic::new(
+        codes::I215,
+        format!(
+            "the delta since {revision} has no base ({why}): a pass that reads it is sent every node as added"
+        ),
+    )
 }

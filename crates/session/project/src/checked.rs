@@ -73,7 +73,7 @@ impl Environment {
                     served,
                     &crate::snapshot::served_by(build),
                 ),
-                DeltaBasis::None | DeltaBasis::Previous(_) => delta,
+                DeltaBasis::None | DeltaBasis::Unresolved(_) | DeltaBasis::Previous(_) => delta,
             }
         })
     }
@@ -195,6 +195,12 @@ impl Environment {
             && !diagnostics.iter().any(|d| d.code == unread.code)
         {
             diagnostics.push(unread);
+        }
+        // Why a check since a revision sends a delta from no base, beside why its history is not judged.
+        if delta.is_some()
+            && let Some(notice) = bases.delta.notice()
+        {
+            diagnostics.push(notice.clone());
         }
         match (baseline, &translated) {
             (Err(notice), _) => diagnostics.push(notice.clone()),
