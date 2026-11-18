@@ -103,6 +103,8 @@ pub struct ProjectConfig {
     pub inference: InferenceConfig,
     /// The checks `checks` attaches to declared fields, and whether their outcomes are published (ADR 0336).
     pub checks: ChecksConfig,
+    /// How the project keeps the fact stores a collect supersedes (ADR 0376 D4).
+    pub facts: FactsConfig,
     pub raw: Option<serde_json::Value>,
     /// The text `raw` was parsed from: what the settings resolver locates a key in (ADR 0288).
     pub text: Option<String>,
@@ -129,6 +131,29 @@ pub struct ChecksConfig {
     pub publish: bool,
 }
 
+/// `specforge.json` `facts`: how many superseded fact stores of each collector are kept (ADR 0376 D4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FactsConfig {
+    /// How many of a collector's superseded stores a collect keeps archived, the newest; from 1 to
+    /// [`Self::MAX_RETAIN`].
+    pub retain: u8,
+}
+
+impl FactsConfig {
+    /// `retain` when `specforge.json` does not set it.
+    pub const DEFAULT_RETAIN: u8 = 8;
+    /// The most `retain` can be: the archive a revision's facts are read from stays bounded.
+    pub const MAX_RETAIN: u8 = 100;
+}
+
+impl Default for FactsConfig {
+    fn default() -> Self {
+        FactsConfig {
+            retain: Self::DEFAULT_RETAIN,
+        }
+    }
+}
+
 /// Project-level inference hints that override/append to extension defaults.
 #[derive(Debug, Clone, Default)]
 pub struct InferenceConfig {
@@ -151,8 +176,9 @@ pub enum ConfigProblem {
     NotAnObject { path: PathBuf },
     /// A key the config defines has the wrong JSON type (`name`,
     /// `version`, `spec_root`: a string; `extensions`, `exclude`: an
-    /// array; `settings`, `effects`, `roots`, `checks`: an object; `checks.publish`: a bool; `checks.fields`: an
-    /// object of checks). That key's default is used; every other key is kept.
+    /// array; `settings`, `effects`, `roots`, `checks`, `facts`: an object; `checks.publish`: a bool; `checks.fields`:
+    /// an object of checks; `facts.retain`: an integer from 1 to 100). That key's default is used; every other key is
+    /// kept.
     WrongType {
         path: PathBuf,
         key: &'static str,
@@ -366,6 +392,7 @@ pub fn parse_project_config(path: &Path, content: &str) -> ConfigRead {
             "extensions" => config.extensions = list_key(&path, "extensions", item, &mut problems),
             "exclude" => config.exclude = exclude_key(&path, item, &mut problems),
             "checks" => config.checks = checks_key(&path, item, &mut problems),
+            "facts" => config.facts = facts_key(&path, item, &mut problems),
             // Read where they resolve (ADR 0288, ADR 0335 D2.3); here only their type.
             key @ ("settings" | "effects" | "roots") if !item.is_object() => {
                 problems.push(ConfigProblem::WrongType {
@@ -430,6 +457,38 @@ fn checks_key(
         Some(_) => wrong("checks.fields", "an object"),
     }
     checks
+}
+
+/// `facts`: an object whose `retain` is an integer from 1 to [`FactsConfig::MAX_RETAIN`]; anything else is a problem,
+/// and its default is used.
+fn facts_key(
+    path: &Path,
+    value: &serde_json::Value,
+    problems: &mut Vec<ConfigProblem>,
+) -> FactsConfig {
+    let mut wrong = |key: &'static str, expected: &'static str| {
+        problems.push(ConfigProblem::WrongType {
+            path: path.to_path_buf(),
+            key,
+            expected,
+        });
+    };
+    let mut facts = FactsConfig::default();
+    let Some(object) = value.as_object() else {
+        wrong("facts", "an object");
+        return facts;
+    };
+    if let Some(retain) = object.get("retain") {
+        let bounded = retain
+            .as_u64()
+            .filter(|n| (1..=u64::from(FactsConfig::MAX_RETAIN)).contains(n))
+            .and_then(|n| u8::try_from(n).ok());
+        match bounded {
+            Some(retain) => facts.retain = retain,
+            None => wrong("facts.retain", "an integer from 1 to 100"),
+        }
+    }
+    facts
 }
 
 /// The checks one `checks.fields` value writes: a checker's name, a check object, or a list of them; `None` when it

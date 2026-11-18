@@ -4,6 +4,11 @@
 /// Where a collect stores its facts, from the project root (ADR 0327): `<FACTS_DIR>/<key>/<collector>.json`.
 pub const FACTS_DIR: &str = ".specforge/facts";
 
+/// Where a collect archives the stores it supersedes, from the project root (ADR 0376 D4):
+/// `<FACTS_HISTORY_DIR>/<seq>-<key>/<collector>.json`. Outside [`FACTS_DIR`], so a compile never lists, serves or warns
+/// about an archived store; only a snapshot at a revision reads one, when its ledger line digests its bytes.
+pub const FACTS_HISTORY_DIR: &str = ".specforge/facts-history";
+
 /// The collector and the key the fact store `file` (a source key, from the project root) is filed under:
 /// `.specforge/facts/<key>/<collector>.json`, the key a store key ([`is_store_key`]) and the collector a collector's
 /// name ([`is_collector_name`]). `None` for any other file.
