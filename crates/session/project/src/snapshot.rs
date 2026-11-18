@@ -136,15 +136,11 @@ pub fn since(
     let Some(history) = env.git() else {
         return Ok(no_base(None, NoBase::NoGitPort));
     };
-    let place = match env.place(&*history) {
-        Located::Repo(place) => place,
-        Located::NotARepository => return Ok(no_base(None, NoBase::NotARepository)),
-        Located::Unavailable(why) => return Ok(no_base(None, NoBase::Unreadable(why))),
-    };
-    let named = match history.commit(&place, revision) {
-        Ok(Some(sha)) => sha,
-        Ok(None) => return Err(UnknownRevision(revision.to_string())),
-        Err(error) => return Ok(no_base(None, NoBase::Unreadable(error.to_string()))),
+    let (place, named) = match named(env, &*history, revision) {
+        Ok(found) => found,
+        Err(Unnamed::Unknown) => return Err(UnknownRevision(revision.to_string())),
+        Err(Unnamed::NotARepository) => return Ok(no_base(None, NoBase::NotARepository)),
+        Err(Unnamed::Unreadable(why)) => return Ok(no_base(None, NoBase::Unreadable(why))),
     };
     if !needs_base {
         return Ok(Since::Named { place, named });
@@ -172,35 +168,47 @@ pub fn since(
     Ok(Since::Base { place, named, base })
 }
 
+/// Why the git port gave no commit for a revision.
+enum Unnamed {
+    /// The project is in no git repository.
+    NotARepository,
+    /// Git could not be asked, or could not answer, and why.
+    Unreadable(String),
+    /// The repository names no commit by it.
+    Unknown,
+}
+
+/// The repository of `env`, located through `history`, and the commit `revision` names there, asked in process.
+fn named(env: &Environment, history: &dyn Git, revision: &str) -> Result<(GitPlace, Sha), Unnamed> {
+    let place = match env.place(history) {
+        Located::Repo(place) => place,
+        Located::NotARepository => return Err(Unnamed::NotARepository),
+        Located::Unavailable(why) => return Err(Unnamed::Unreadable(why)),
+    };
+    match history.commit(&place, revision) {
+        Ok(Some(sha)) => Ok((place, sha)),
+        Ok(None) => Err(Unnamed::Unknown),
+        Err(error) => Err(Unnamed::Unreadable(error.to_string())),
+    }
+}
+
 impl Snapshot {
     /// The project of `env` as the commit `revision` names holds it, compiled with `env`'s extensions (ADR 0376 D3),
     /// its facts the stores its ledger records, read through `disk`. The revision is resolved by the git port in
-    /// process ([`since`]), never handed to a program; no collector runs.
+    /// process, as [`since`] resolves it, never handed to a program; no collector runs.
     pub fn at_revision(
         env: &Environment,
         disk: &dyn Disk,
         revision: &str,
     ) -> Result<Snapshot, AtError> {
-        let (place, sha) = match since(env, revision, false) {
-            Ok(Since::Named { place, named }) | Ok(Since::Base { place, named, .. }) => {
-                (place, named)
-            }
-            // with no merge-base asked for, git stopped before or while resolving the revision
-            Ok(Since::NoBase { why, .. }) => {
-                return Err(match why {
-                    NoBase::NoGitPort => AtError::Unreadable("no git port is given".to_string()),
-                    NoBase::NotARepository => AtError::NotARepository,
-                    NoBase::Unreadable(why) | NoBase::Shallow(why) | NoBase::Unrelated(why) => {
-                        AtError::Unreadable(why)
-                    }
-                    NoBase::UnbornHead => AtError::UnknownRevision(revision.to_string()),
-                });
-            }
-            Err(UnknownRevision(name)) => return Err(AtError::UnknownRevision(name)),
-        };
         let history = env
             .git()
             .ok_or_else(|| AtError::Unreadable("no git port is given".to_string()))?;
+        let (place, sha) = named(env, &*history, revision).map_err(|unnamed| match unnamed {
+            Unnamed::NotARepository => AtError::NotARepository,
+            Unnamed::Unreadable(why) => AtError::Unreadable(why),
+            Unnamed::Unknown => AtError::UnknownRevision(revision.to_string()),
+        })?;
         let wants = Wants {
             tree: false,
             facts: Some(disk),
