@@ -5,7 +5,8 @@
 //! build ([`Environment::build_sources`]). `Baseline::at` builds through it too.
 //!
 //! Facts are never read from git (stores are git-ignored) and never collected for a past revision: a revision is
-//! served the store its own ledger records, read from the disk, only when its bytes are the ones that line digests.
+//! served the store its own ledger records, live or archived by a later collect ([`retain`]), read from the disk,
+//! only when its bytes are the ones that line digests.
 //!
 //! Both sides of a comparison are compiled with the current extensions, so a diff shows changes of content, not of
 //! toolchain (ADR 0376 D3); a revision whose `specforge.json` loads another extension set says so ([`ConfigAt`]).
@@ -22,8 +23,8 @@ use specforge_protocol_types::DeltaBase;
 use specforge_registry::Disk;
 
 use crate::delta::Delta;
-use crate::facts::{Store, recorded_by, served_text};
-use crate::harness::{Ledger, Line};
+use crate::facts::{Recorded, Store, recorded_by, retain, served_text};
+use crate::harness::Ledger;
 use crate::sources::Read;
 use crate::{CompiledProject, Environment, SourceBuild};
 
@@ -506,8 +507,9 @@ impl LoadedAt {
 }
 
 /// The fact stores the ledger `text` records, read through `disk` under `env`'s root: the text served of each one
-/// whose bytes its line digests, by source key, and what became of each collector a line names. A line whose collector
-/// or key is no store name is never made a path, and a store that is not there was not collected.
+/// whose bytes its line digests, live or archived ([`retain::find`]) and filed under its live source key as a compile
+/// files it, and what became of each collector a line names. A line whose collector or key is no store name is never
+/// made a path, and a store that is nowhere was not collected.
 fn served_stores(
     env: &Environment,
     disk: &dyn Disk,
@@ -516,19 +518,21 @@ fn served_stores(
     let recorded = recorded_by(disk, env.root(), Ledger::parse(text).ledger);
     let mut stores = BTreeMap::new();
     let mut facts = BTreeMap::new();
-    for (collector, key) in recorded.ledger.lines().filter_map(Line::facts_of) {
+    for line in recorded.ledger.lines() {
+        let Some((collector, key)) = line.facts_of() else {
+            continue;
+        };
         let at = if is_collector_name(collector) && is_store_key(key) {
             let path = Store::path(collector, key);
-            match disk.read(&env.root().join(&path)) {
-                Ok(bytes) => match served_text(&path, bytes, &recorded) {
+            match retain::find(disk, env.root(), collector, key, &line.digest) {
+                Some(bytes) => match served_text(&path, bytes, &recorded) {
                     Ok(served) => {
                         stores.insert(path, served);
                         FactsAt::Served
                     }
                     Err(diagnostic) => FactsAt::Unrecorded(diagnostic),
                 },
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => FactsAt::NotCollected,
-                Err(e) => FactsAt::Unrecorded(crate::facts::unreadable(&path, e)),
+                None => not_recorded(disk, env.root(), (collector, key), &recorded),
             }
         } else {
             FactsAt::NotCollected
@@ -536,6 +540,31 @@ fn served_stores(
         settle(&mut facts, collector, at);
     }
     (stores, facts)
+}
+
+/// What became of `collector`'s store filed under `key` when none of its stores under the project root `root` holds
+/// the bytes its line digests: the newest one there, live then archived, is unrecorded (its W191, or why it does not
+/// read); none there was not collected.
+fn not_recorded(
+    disk: &dyn Disk,
+    root: &Path,
+    (collector, key): (&str, &str),
+    recorded: &Recorded,
+) -> FactsAt {
+    let live = Store::path(collector, key);
+    for store in retain::stores(disk, root, collector, key) {
+        match disk.read(&root.join(&store)) {
+            // judged by the one rule, under the live key the ledger line names
+            Ok(bytes) => {
+                return served_text(&live, bytes, recorded)
+                    .err()
+                    .map_or(FactsAt::NotCollected, FactsAt::Unrecorded);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return FactsAt::Unrecorded(crate::facts::unreadable(&store, e)),
+        }
+    }
+    FactsAt::NotCollected
 }
 
 /// The source key of `path` (from the repository's top) under the project's directory `within`.

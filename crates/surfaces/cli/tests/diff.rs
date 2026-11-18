@@ -199,3 +199,63 @@ fn diff_notes_a_revision_loading_another_extension_set() {
         "{text}"
     );
 }
+
+/// A crate whose `rust-cargo` facts are collected, then committed with the ledger recording them (the store itself
+/// is git-ignored), then collected again once its version moved: the project and the commit.
+fn collected_twice() -> (TestProject, String) {
+    let project = TestProject::new()
+        .raw_config(
+            r#"{"name":"demo","version":"0.1.0","extensions":["@code/core","@rust/cargo"]}"#,
+        )
+        .file(
+            "Cargo.toml",
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+        )
+        .file("src/lib.rs", "")
+        .file(".gitignore", ".specforge/\n");
+    let repo = Repo::init(project.root());
+    repo.commit_all("the crate");
+    let cli = Cli::on(&project);
+    let collect = [
+        "collect",
+        "--runner",
+        "rust-cargo",
+        "--yes",
+        "--effects",
+        "online",
+        "--format",
+        "json",
+    ];
+    let first = cli.run(&collect);
+    assert_eq!(first.code, 0, "{}{}", first.stdout, first.stderr);
+    let a = repo.commit_all("collected");
+    project.write(
+        "Cargo.toml",
+        project.read("Cargo.toml").replace("0.1.0", "0.2.0"),
+    );
+    let second = cli.run(&collect);
+    assert_eq!(second.code, 0, "{}{}", second.stdout, second.stderr);
+    (project, a)
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-142")]
+fn diff_reads_a_revisions_facts_from_the_store_a_later_collect_archived() {
+    let (project, a) = collected_twice();
+    let history = project.root().join(".specforge/facts-history");
+    let archived = std::fs::read_dir(&history)
+        .unwrap_or_else(|e| panic!("{}: {e}", history.display()))
+        .count();
+    assert_eq!(archived, 1, "the second collect archived the first store");
+    let json = Cli::on(&project)
+        .run(&["diff", &a, "--format", "json"])
+        .exits(0)
+        .json();
+    assert_eq!(json["notes"], serde_json::json!([]), "{json}");
+    let versions_moved = json["nodes"].as_array().unwrap().iter().any(|n| {
+        n["change"] == "modified"
+            && n["fields"]
+                .as_array()
+                .is_some_and(|f| f.iter().any(|f| f == "version"))
+    });
+    assert!(versions_moved, "the crate's version changed: {json}");
+}

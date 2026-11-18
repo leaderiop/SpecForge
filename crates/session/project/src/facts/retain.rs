@@ -10,7 +10,8 @@ use std::path::Path;
 use specforge_common::facts::{FACTS_HISTORY_DIR, filed, is_collector_name, is_store_key};
 use specforge_registry::Disk;
 
-use super::superseded;
+use super::{Store, superseded};
+use crate::harness::Line;
 
 /// The digits of an archive's sequence number.
 const SEQ_DIGITS: usize = 6;
@@ -149,4 +150,35 @@ pub fn retire(disk: &dyn Disk, root: &Path, collector: &str, key: &str, retain: 
         }
     }
     retirement
+}
+
+/// Where `collector`'s store filed under `key` may be under the project root `root`, listed through `disk`: its live
+/// path, then each archived one under that key, newest first. Empty for a name that is no store's.
+pub fn stores(disk: &dyn Disk, root: &Path, collector: &str, key: &str) -> Vec<String> {
+    if !is_collector_name(collector) || !is_store_key(key) {
+        return Vec::new();
+    }
+    let archives = archived(disk, root, collector)
+        .into_iter()
+        .filter(|a| a.key == key)
+        .map(|a| a.path);
+    std::iter::once(Store::path(collector, key))
+        .chain(archives)
+        .collect()
+}
+
+/// The bytes of `collector`'s store filed under `key` that a `facts:` ledger line of `digest` records (the digest of
+/// its bytes, [`Line::facts`]), read through `disk` under the project root `root`: the first of [`stores`] that holds
+/// them. `None` when none of them is there with those bytes.
+pub fn find(
+    disk: &dyn Disk,
+    root: &Path,
+    collector: &str,
+    key: &str,
+    digest: &str,
+) -> Option<Vec<u8>> {
+    stores(disk, root, collector, key)
+        .into_iter()
+        .filter_map(|path| disk.read(&root.join(path)).ok())
+        .find(|bytes| Line::facts(collector, key, bytes).digest == digest)
 }

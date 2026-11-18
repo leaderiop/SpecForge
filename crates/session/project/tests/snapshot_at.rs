@@ -17,7 +17,7 @@ use specforge_project::snapshot::{
     compare,
 };
 use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, TestProject, stored};
-use specforge_protocol_types::DeltaBase;
+use specforge_protocol_types::{DeltaBase, DeltaChange};
 use specforge_registry::{Disk, PlainDisk};
 use specforge_test::prelude::*;
 
@@ -546,4 +546,119 @@ fn a_revision_with_no_config_loads_no_extension() {
     );
     assert!(at.graph.node("x").is_some());
     assert_eq!(config_notes(&at, &now).len(), 1);
+}
+
+/// The key a later collect files `node`'s facts under.
+const NEXT: &str = "89abcdef0123456789abcdef0123456789abcdef";
+/// Where that collect archives the store it supersedes: the first archive, of the store filed under [`KEY`].
+const ARCHIVED: &str =
+    ".specforge/facts-history/000001-0123456789abcdef0123456789abcdef01234567/node.json";
+
+/// [`collected_at_a_commit`], then superseded as a collect on [`NEXT`] leaves it: the store archived at [`ARCHIVED`],
+/// one test stored under [`NEXT`] and the ledger recording that store only. The project, compiled, and the commit.
+fn superseded_after_a() -> (TestProject, CompiledProject, String) {
+    let (project, runtime, a) = collected_at_a_commit();
+    project.write(ARCHIVED, project.read(STORE));
+    project.remove(STORE);
+    std::fs::remove_dir(project.root().join(format!(".specforge/facts/{KEY}"))).unwrap();
+    project.remove(LEDGER_FILE);
+    stored(project.root(), "node", NEXT, json!([two_tests()[0]]));
+    let compiled = project.compile_in(runtime);
+    (project, compiled, a)
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_revision_is_served_the_archived_store_its_ledger_records() {
+    let (_project, compiled, a) = superseded_after_a();
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, &a).unwrap();
+    assert_eq!(
+        at.facts.get("node"),
+        Some(&FactsAt::Served),
+        "{:?}",
+        at.facts
+    );
+    assert_eq!(tests_in(&at), 2);
+    // filed under its live key, as a compile files it: the test both sides hold is the same node
+    let now = Snapshot::of_project(&compiled);
+    assert_eq!(tests_in(&now), 1);
+    let forms = compiled.environment().registries().field_forms();
+    let Comparison { delta, notes } = compare(&at, &now, forms, DeltaBase::None);
+    assert!(notes.is_empty(), "{notes:?}");
+    let changed: Vec<(&str, DeltaChange)> = delta
+        .payload()
+        .nodes
+        .iter()
+        .filter(|n| n.kind == "test")
+        .map(|n| (n.id.as_str(), n.change))
+        .collect();
+    assert_eq!(changed, [("js:a.test.js#subtracts", DeltaChange::Removed)]);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn an_archived_store_edited_by_one_byte_is_unrecorded_and_left_out() {
+    let (project, compiled, a) = superseded_after_a();
+    project.write(
+        ARCHIVED,
+        project.read(ARCHIVED).replacen("failed", "passed", 1),
+    );
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, &a).unwrap();
+    let Some(FactsAt::Unrecorded(w191)) = at.facts.get("node") else {
+        panic!("unrecorded: {:?}", at.facts)
+    };
+    assert_eq!(w191.code, "W191", "{w191:?}");
+    assert_eq!(tests_in(&at), 0);
+    let forms = compiled.environment().registries().field_forms();
+    let now = Snapshot::of_project(&compiled);
+    let Comparison { delta, notes } = compare(&at, &now, forms, DeltaBase::None);
+    assert!(delta.payload().nodes.iter().all(|n| n.kind != "test"));
+    let sides: Vec<(Side, NoteAbout)> = notes.iter().map(|n| (n.side, n.about)).collect();
+    assert_eq!(sides, [(Side::From, NoteAbout::FactsUnrecorded)]);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_compile_of_the_working_tree_never_lists_or_warns_about_an_archive() {
+    let (project, _, _) = superseded_after_a();
+    // an archive no ledger line records, and the recorded one edited: neither is the compile's concern
+    project.write(
+        &format!(".specforge/facts-history/000002-{KEY}/node.json"),
+        "[]",
+    );
+    project.write(
+        ARCHIVED,
+        project.read(ARCHIVED).replacen("failed", "passed", 1),
+    );
+    let compiled = project.compile_in(Arc::new(Collected::new().runtime()));
+    let codes: Vec<String> = compiled
+        .diagnostics()
+        .iter()
+        .map(|d| d.code.to_string())
+        .collect();
+    assert!(
+        !codes.iter().any(|c| c == "W191" || c == "W192"),
+        "{codes:?}"
+    );
+    assert!(
+        compiled
+            .source_keys()
+            .iter()
+            .all(|key| !key.starts_with(".specforge/facts-history")),
+        "{:?}",
+        compiled.source_keys()
+    );
+    assert_eq!(tests_in(&Snapshot::of_project(&compiled)), 1);
+}
+
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_revision_whose_store_is_neither_live_nor_archived_was_not_collected() {
+    let (project, compiled, a) = superseded_after_a();
+    // pruned: the archive is gone
+    std::fs::remove_dir_all(project.root().join(".specforge/facts-history")).unwrap();
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, &a).unwrap();
+    assert_eq!(
+        at.facts.get("node"),
+        Some(&FactsAt::NotCollected),
+        "{:?}",
+        at.facts
+    );
+    assert_eq!(tests_in(&at), 0);
 }
