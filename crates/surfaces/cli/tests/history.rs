@@ -67,3 +67,16 @@ fn check_since_judges_against_the_merge_base() {
     assert_eq!(run.code, 2, "{}{}", run.stdout, run.stderr);
     assert!(run.stdout.contains("unknown_revision") || run.stderr.contains("unknown_revision"));
 }
+
+#[specforge_test_macros::test(requirement = "FEATURE-142")]
+fn check_since_head_on_a_clean_tree_reports_what_check_reports() {
+    let repo = fixture();
+    git_repo(repo.root());
+    // Resolved before the passes run: the merge-base is HEAD, so the report and the exit are the plain check's.
+    let plain = Cli::on(&repo).run(&["check", "--format", "json"]);
+    let since = Cli::on(&repo).run(&["check", "--since", "HEAD", "--format", "json"]);
+    assert_eq!(since.code, plain.code, "{}{}", since.stdout, since.stderr);
+    assert_eq!(since.stdout, plain.stdout);
+    let human = Cli::on(&repo).run(&["check", "--since", "HEAD"]);
+    assert_eq!(human.stderr, Cli::on(&repo).run(&["check"]).stderr);
+}

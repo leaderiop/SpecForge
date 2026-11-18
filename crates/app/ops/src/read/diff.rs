@@ -12,7 +12,7 @@ use specforge_project::snapshot::{
 use specforge_protocol_types::{DeltaAspect, DeltaBase, DeltaChange, DeltaPayload};
 
 use crate::view::ProjectView;
-use crate::{GIT_FAILED, NOT_A_REPOSITORY, OpError, OpErrorKind, Refusal, UNKNOWN_REVISION};
+use crate::{GIT_FAILED, NOT_A_REPOSITORY, OpError, OpErrorKind, Refusal};
 
 /// A range of the symmetric form `<a>...<b>`, which names a merge-base and hides which side changed.
 pub const SYMMETRIC_RANGE: &str = "symmetric_range";
@@ -325,11 +325,7 @@ fn aspect_name(aspect: DeltaAspect) -> &'static str {
 /// Why no snapshot was taken at a revision, as the read refuses it.
 fn refused(view: &ProjectView<'_>, error: AtError) -> OpError {
     match error {
-        AtError::UnknownRevision(revision) => OpError::new(
-            OpErrorKind::InvalidInput,
-            UNKNOWN_REVISION,
-            format!("unknown revision '{revision}'"),
-        ),
+        AtError::UnknownRevision(revision) => OpError::unknown_revision(&revision),
         AtError::NotARepository => OpError::new(
             OpErrorKind::PreconditionFailed,
             NOT_A_REPOSITORY,

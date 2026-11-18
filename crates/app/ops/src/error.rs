@@ -189,6 +189,16 @@ impl OpError {
         Self::new(kind, code.id(), message)
     }
 
+    /// [`UNKNOWN_REVISION`] ([`OpErrorKind::InvalidInput`]): the repository names no commit by `revision`, as
+    /// `check --since`, MCP `validate since` and `diff` refuse it.
+    pub fn unknown_revision(revision: &str) -> Self {
+        Self::new(
+            OpErrorKind::InvalidInput,
+            UNKNOWN_REVISION,
+            format!("unknown revision '{revision}'"),
+        )
+    }
+
     /// A failure reported as `diagnostic` (its code, message and suggestion), of the kind its
     /// raiser states: the one way a diagnostic a lower crate made becomes an operation's failure.
     pub fn of(kind: OpErrorKind, diagnostic: specforge_common::Diagnostic) -> Self {

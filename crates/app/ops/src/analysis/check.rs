@@ -12,7 +12,7 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_project::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile};
 
 use crate::view::ProjectView;
-use crate::{NOT_IN_JOURNAL, OpError, OpErrorKind, Refusal, UNKNOWN_REVISION};
+use crate::{NOT_IN_JOURNAL, OpError, OpErrorKind, Refusal};
 
 /// What to report. `Default` is a plain `specforge check`.
 #[derive(Debug, Clone, Default)]
@@ -188,14 +188,7 @@ pub fn check(
         .as_deref()
         .map(|revision| {
             base.judged_since(revision).map_err(|unknown| {
-                Refusal::about(
-                    CheckField::Since,
-                    OpError::new(
-                        OpErrorKind::InvalidInput,
-                        UNKNOWN_REVISION,
-                        format!("unknown revision '{}'", unknown.0),
-                    ),
-                )
+                Refusal::about(CheckField::Since, OpError::unknown_revision(&unknown.0))
             })
         })
         .transpose()?;
