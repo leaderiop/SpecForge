@@ -22,6 +22,7 @@ mod context_sections;
 mod copy;
 mod custom_rules;
 mod delta;
+mod delta_between;
 mod derived_references;
 mod directory_links;
 mod disk_changed;

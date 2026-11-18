@@ -29,6 +29,7 @@ mod compiled;
 mod compute;
 pub mod context;
 pub mod coverage;
+pub mod delta;
 mod diagnostics_delta;
 pub mod effects;
 pub mod facts;

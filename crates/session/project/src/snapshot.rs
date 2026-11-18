@@ -14,9 +14,11 @@ use std::sync::Arc;
 use specforge_common::facts::{filed, is_collector_name, is_fact_store, is_store_key};
 use specforge_common::{Diagnostic, codes};
 use specforge_effects::git::{CommitFile, Git, GitPlace, Located, Sha, TreeEntry};
-use specforge_graph::Graph;
+use specforge_graph::{FieldForms, Graph};
+use specforge_protocol_types::DeltaBase;
 use specforge_registry::Disk;
 
+use crate::delta::Delta;
 use crate::facts::{Store, recorded_by, served_text};
 use crate::harness::{Ledger, Line};
 use crate::sources::Read;
@@ -123,6 +125,101 @@ impl Snapshot {
             },
             graph: Arc::new(project.graph().clone()),
             facts,
+        }
+    }
+}
+
+/// Two snapshots compared: what changed between them, and what either side could not compare.
+#[derive(Debug, Clone)]
+pub struct Comparison {
+    /// The change, without the facts of a collector either side lacks.
+    pub delta: Delta,
+    pub notes: Vec<SnapshotNote>,
+}
+
+/// What one side of a comparison could not compare.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SnapshotNote {
+    pub side: Side,
+    pub about: NoteAbout,
+    /// The collector it is about.
+    pub subject: String,
+    pub message: String,
+}
+
+/// A side of a comparison.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    From,
+    To,
+}
+
+/// Why a side lacks a collector's facts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoteAbout {
+    /// No store its ledger records is there.
+    FactsNotCollected,
+    /// A store is there and is not the one recorded, or does not read (W191, W192).
+    FactsUnrecorded,
+}
+
+/// What changed from `from` to `to`, labelled `label` (ADR 0376 D4, D5). A collector served on one side only, or
+/// unrecorded on either, is left out of both: its stores' nodes are no change, and each side that lacks it gets a note
+/// (`facts not collected at <side>`, or its W191 or W192). A collector neither side collected needs no note.
+pub fn compare(from: &Snapshot, to: &Snapshot, forms: &FieldForms, label: DeltaBase) -> Comparison {
+    let mut notes = Vec::new();
+    let mut lacking = Vec::new();
+    let collectors: std::collections::BTreeSet<&String> =
+        from.facts.keys().chain(to.facts.keys()).collect();
+    for collector in collectors {
+        let sides = [(Side::From, from), (Side::To, to)];
+        let at = |snapshot: &Snapshot| {
+            snapshot
+                .facts
+                .get(collector)
+                .cloned()
+                .unwrap_or(FactsAt::NotCollected)
+        };
+        let (was, is) = (at(from), at(to));
+        let neither = was == FactsAt::NotCollected && is == FactsAt::NotCollected;
+        if (was == FactsAt::Served && is == FactsAt::Served) || neither {
+            continue;
+        }
+        lacking.push(collector.clone());
+        for (side, snapshot) in sides {
+            let (about, message) = match at(snapshot) {
+                FactsAt::Served => continue,
+                FactsAt::NotCollected => (
+                    NoteAbout::FactsNotCollected,
+                    format!("facts not collected at {}", snapshot.name()),
+                ),
+                FactsAt::Unrecorded(diagnostic) => (NoteAbout::FactsUnrecorded, diagnostic.message),
+            };
+            notes.push(SnapshotNote {
+                side,
+                about,
+                subject: collector.clone(),
+                message,
+            });
+        }
+    }
+    let delta = Delta::between(&from.graph, &to.graph, forms, label);
+    let delta = if lacking.is_empty() {
+        delta
+    } else {
+        delta.without(|file| {
+            filed(file).is_some_and(|(collector, _)| lacking.iter().any(|c| c == collector))
+        })
+    };
+    Comparison { delta, notes }
+}
+
+impl Snapshot {
+    /// How the snapshot is named to a reader: the revision as written, or `the working tree`.
+    pub fn name(&self) -> &str {
+        match &self.key {
+            SnapshotKey::Revision { name, .. } => name,
+            SnapshotKey::WorkingTree { .. } => "the working tree",
         }
     }
 }

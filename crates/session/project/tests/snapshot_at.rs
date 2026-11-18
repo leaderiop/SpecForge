@@ -12,8 +12,11 @@ use specforge_effects::{EffectsMode, SharedGit};
 use specforge_git::testing::Repo;
 use specforge_project::CompiledProject;
 use specforge_project::harness::{LEDGER_FILE, Ledger, Line};
-use specforge_project::snapshot::{AtError, FactsAt, Snapshot, SnapshotKey};
+use specforge_project::snapshot::{
+    AtError, Comparison, FactsAt, NoteAbout, Side, Snapshot, SnapshotKey, compare,
+};
 use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, TestProject, stored};
+use specforge_protocol_types::DeltaBase;
 use specforge_registry::{Disk, PlainDisk};
 use specforge_test::prelude::*;
 
@@ -339,4 +342,85 @@ fn loading_at_a_revision_runs_no_collector_and_no_program() {
         .collect();
     assert!(called.is_empty(), "the extensions were called: {called:?}");
     assert!(process.requests().is_empty(), "{:?}", process.requests());
+}
+
+/// The facts of a collector one side serves and the other did not collect are no change: the side that lacks them
+/// is named in a note, and the specs still compare.
+#[specforge_test(requirement = "FEATURE-142")]
+fn a_collector_one_side_lacks_is_a_note_and_no_change() {
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&COLLECTED_EXTENSIONS)
+        .installing_enabled()
+        .file("a.spec", FIRST);
+    let repo = Repo::init(project.root());
+    let bare = repo.commit_all("no facts");
+    project.write("a.spec", SECOND);
+    stored(project.root(), "node", KEY, two_tests());
+    let collected = repo.commit_all("collected");
+    let project = project.with_git(gix());
+    let compiled = project.compile_in(Arc::new(Collected::new().runtime()));
+    let env = compiled.environment();
+    let from = Snapshot::at_revision(env, &PlainDisk, &bare).unwrap();
+    let to = Snapshot::at_revision(env, &PlainDisk, &collected).unwrap();
+    assert_eq!(tests_in(&to), 2);
+    let forms = env.registries().field_forms();
+    let Comparison { delta, notes } = compare(&from, &to, forms, DeltaBase::None);
+    let changed: Vec<(&str, &str)> = delta
+        .payload()
+        .nodes
+        .iter()
+        .map(|n| (n.kind.as_str(), n.id.as_str()))
+        .collect();
+    assert_eq!(changed, [("thing", "x"), ("thing", "y"), ("thing", "z")]);
+    let [note] = notes.as_slice() else {
+        panic!("{notes:?}")
+    };
+    assert_eq!(
+        (note.side, note.about, note.subject.as_str()),
+        (Side::From, NoteAbout::FactsNotCollected, "node")
+    );
+    assert_eq!(note.message, format!("facts not collected at {bare}"));
+    // the other way round, the note is on the other side
+    let back = compare(&to, &from, forms, DeltaBase::None);
+    assert_eq!(back.notes.len(), 1);
+    assert_eq!(back.notes[0].side, Side::To);
+    assert!(back.delta.payload().nodes.iter().all(|n| n.kind == "thing"));
+}
+
+/// A store both sides hold and neither serves (W191 at the revision and in the working tree) is a note on each side,
+/// carrying its diagnostic; served on both, a collector needs none.
+#[specforge_test(requirement = "FEATURE-142")]
+fn an_unrecorded_store_is_a_note_on_each_side_that_holds_it() {
+    let (project, runtime, commit) = collected_at_a_commit();
+    let compiled = project.compile_in(runtime.clone());
+    let forms = compiled.environment().registries().field_forms();
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, &commit).unwrap();
+    let served = compare(
+        &at,
+        &Snapshot::of_project(&compiled),
+        forms,
+        DeltaBase::None,
+    );
+    assert!(served.notes.is_empty(), "{:?}", served.notes);
+    assert!(served.delta.is_empty(), "{:?}", served.delta.payload());
+
+    let edited = project.read(STORE).replacen("failed", "passed", 1);
+    project.write(STORE, edited);
+    let compiled = project.compile_in(runtime);
+    let at = Snapshot::at_revision(compiled.environment(), &PlainDisk, &commit).unwrap();
+    let now = Snapshot::of_project(&compiled);
+    let Comparison { notes, .. } = compare(&at, &now, forms, DeltaBase::None);
+    let sides: Vec<(Side, NoteAbout)> = notes.iter().map(|n| (n.side, n.about)).collect();
+    assert_eq!(
+        sides,
+        [
+            (Side::From, NoteAbout::FactsUnrecorded),
+            (Side::To, NoteAbout::FactsUnrecorded)
+        ]
+    );
+    assert!(
+        notes.iter().all(|n| n.message.starts_with("fact store '")),
+        "{notes:?}"
+    );
 }
