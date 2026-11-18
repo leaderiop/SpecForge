@@ -38,13 +38,22 @@ fn synthetic(timeout: &str, budget: &str) -> String {
     )
 }
 
-/// Runs `script` as Actions runs a `shell: bash` step, with only `PATH` and `vars` in its environment.
+/// The program `name` as the test process's `PATH` finds it.
+#[cfg(unix)]
+fn on_path(name: &str) -> Option<std::path::PathBuf> {
+    std::env::split_paths(&std::env::var_os("PATH")?)
+        .map(|dir| dir.join(name))
+        .find(|path| path.is_file())
+}
+
+/// Runs `script` as Actions runs a `shell: bash` step, with only `PATH` and `vars` in its environment. bash is the
+/// one the test process's `PATH` finds, so `vars` may set a `PATH` of its own.
 #[cfg(unix)]
 fn bash(script: &str, vars: &[(&str, &str)]) -> std::process::Output {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("step.sh");
     std::fs::write(&file, script).unwrap();
-    std::process::Command::new("bash")
+    std::process::Command::new(on_path("bash").expect("bash is on PATH"))
         .args(["--noprofile", "--norc", "-eo", "pipefail"])
         .arg(&file)
         .env_clear()

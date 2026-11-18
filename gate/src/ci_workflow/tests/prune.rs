@@ -3,6 +3,10 @@
 //! `cfg(unix)`: it runs bash and jq, and the gate runs on Linux, where the runner has both. A machine without jq fails
 //! the test, naming jq: CONTRIBUTING.md lists it beside z3.
 //!
+//! The step runs with an empty directory as its `PATH`, so the fake is the only `gh` it can reach: a `command gh`,
+//! `env gh`, `xargs gh` or `exec gh` finds no program and fails the test, and never runs a real `gh` with the
+//! machine's credentials. The fake calls jq by the path the test found it at.
+//!
 //! gh evaluates `--jq` with its embedded gojq (Go's RE2 regexes), and this test with jq (Oniguruma). `STALE_CACHES`
 //! uses only what both read the same: `group_by`, `sub` with a character-class regex, `sort_by`, a slice and
 //! `flatten`. A program that needs an Oniguruma-only feature (look-around, `\h`) would pass here and fail on the runner.
@@ -15,7 +19,7 @@ const DELETE: &str = "Delete the cache entries a newer one of their group supers
 /// A `gh` as a bash function, defined ahead of the step's script, so nothing runs from the temp dir (a `/tmp` mounted
 /// `noexec` cannot fail the test). It answers `cache list` with `$GH_FIXTURE/caches.json`, filtered by the `--jq`
 /// program it is given, records the `--ref` it was asked for in `$GH_FIXTURE/ref`, and appends each
-/// `cache delete <id>` to `$GH_FIXTURE/deleted`.
+/// `cache delete <id>` to `$GH_FIXTURE/deleted`. jq is `$JQ`, an absolute path: the step's `PATH` holds nothing.
 const FAKE_GH: &str = r#"gh() {
   case "$1 $2" in
     "cache list")
@@ -28,7 +32,7 @@ const FAKE_GH: &str = r#"gh() {
           *) shift ;;
         esac
       done
-      jq -r "$program" "$GH_FIXTURE/caches.json"
+      "$JQ" -r "$program" "$GH_FIXTURE/caches.json"
       ;;
     "cache delete") echo "$3" >> "$GH_FIXTURE/deleted" ;;
     *) echo "unexpected gh $*" >&2; return 2 ;;
@@ -45,10 +49,8 @@ fn entry(id: u32, key: &str, created: &str) -> String {
 /// unprefixed key in two generations; a key with no hashes, alone. Only each group's older entries go: 1 and 4.
 #[test]
 fn the_prune_step_deletes_only_what_a_newer_entry_of_its_group_supersedes() {
-    let jq = std::process::Command::new("jq").arg("--version").output();
-    assert!(
-        jq.is_ok_and(|out| out.status.success()),
-        "the prune test runs jq: install jq (`apt-get install jq`, `brew install jq`), as CONTRIBUTING.md lists"
+    let jq = on_path("jq").expect(
+        "the prune test runs jq: install jq (`apt-get install jq`, `brew install jq`), as CONTRIBUTING.md lists",
     );
     let workflow = read(CI);
     let jobs = jobs(&workflow);
@@ -59,6 +61,7 @@ fn the_prune_step_deletes_only_what_a_newer_entry_of_its_group_supersedes() {
     let delete = script(CI, PRUNE, DELETE);
 
     let dir = tempfile::tempdir().unwrap();
+    let no_programs = tempfile::tempdir().unwrap();
     let caches = [
         entry(
             2,
@@ -95,6 +98,8 @@ fn the_prune_step_deletes_only_what_a_newer_entry_of_its_group_supersedes() {
     let run = bash(
         &format!("{FAKE_GH}{delete}"),
         &[
+            ("PATH", no_programs.path().to_str().unwrap()),
+            ("JQ", jq.to_str().unwrap()),
             ("GH_FIXTURE", dir.path().to_str().unwrap()),
             ("STALE_CACHES", &program),
         ],
