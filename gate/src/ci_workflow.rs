@@ -365,13 +365,21 @@ impl<'a> Step<'a> {
 }
 
 /// What is wrong with one job's timeout and budget, each a sentence naming the file and the job: the clock that starts
-/// it and the check that ends it are each exactly `name`, `shell: bash` and `run`.
+/// it and the check that ends it are each exactly `name`, `shell: bash` and `run`, and the job has no
+/// `continue-on-error` of its own.
 pub fn job_findings(file: &str, job: &Job<'_>) -> Vec<String> {
     let mut findings = Vec::new();
     let mut say = |what: String| findings.push(format!("{file}: job `{}` {what}", job.id));
     let timeout = job.timeout_minutes();
     if timeout.is_none() {
         say("has no timeout-minutes".to_string());
+    }
+    // A job that may fail lets the run pass with the budget check failed, whatever its value (a matrix may set it).
+    if job.key("continue-on-error").is_some() {
+        say(
+            "has a job-level continue-on-error, which lets a job past its budget pass the run"
+                .to_string(),
+        );
     }
     match job.budgets() {
         Err(missing) => say(missing),

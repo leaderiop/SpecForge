@@ -59,7 +59,8 @@ timeout less 300 seconds, set from this change's own cold run. A job a pull requ
 runs on main (`dogfood`, which has never had a cache hit) or from its cap (`cache-prune`). The timeouts are unchanged:
 `ci` and `build` 40 minutes, `tests` and `effect-plane` 30, `dogfood` 20, `bootstrap` 45; the two jobs this change adds
 take `windows-subset` 30 and `cache-prune` 10. Gate tests hold every budget under its cap, every cap under its timeout,
-and the key rules of D1.
+and the key rules of D1. They also hold that nothing lets a run pass past a budget: the clock and the check are each
+exactly `name`, `shell: bash` and `run`, and no job has a `continue-on-error` of its own.
 
 The reason: a timeout cuts a job at the cap and says only that it ran long; a budget under it fails the run while the
 job still finishes, and so names the job that slipped before a cold run lands on the timeout.

@@ -267,6 +267,25 @@ fn a_budget_step_with_another_key_or_shell_is_a_finding() {
     }
 }
 
+/// A job of its own `continue-on-error`, a constant or a matrix value, lets the run pass with its budget check failed.
+#[test]
+fn a_job_level_continue_on_error_is_a_finding() {
+    let whole = synthetic("10", "300");
+    for value in ["true", "${{ matrix.experimental }}"] {
+        let workflow = whole.replace(
+            "    timeout-minutes: 10\n",
+            &format!("    timeout-minutes: 10\n    continue-on-error: {value}\n"),
+        );
+        let found = findings("x.yml", &workflow);
+        assert!(
+            found.len() == 1
+                && found[0].contains("job `only`")
+                && found[0].contains("job-level continue-on-error"),
+            "{value}: {found:?}\n{workflow}"
+        );
+    }
+}
+
 /// Every job of `ci.yml` and `bootstrap.yml` has a budget under its timeout, starts with the clock and ends with the
 /// check, and each runs the same two scripts the tests above run on the `build` job (ADR 0375 D3).
 #[test]
