@@ -9,11 +9,14 @@ fn a_comment_after_jobs_or_a_job_header_hides_no_job() {
     let workflow = "name: X\n\njobs:  # every job\n  first: # the first\n    runs-on: a\n  second:  \n    \
                     runs-on: b\n";
     let jobs = jobs(workflow);
-    let read: Vec<(&str, Option<&str>)> = jobs
+    let read: Vec<(&str, Option<String>)> = jobs
         .iter()
-        .map(|job| (job.id, job.key("runs-on")))
+        .map(|job| (job.id, job.key("runs-on").map(String::from)))
         .collect();
-    assert_eq!(read, [("first", Some("a")), ("second", Some("b"))]);
+    assert_eq!(
+        read,
+        [("first", Some("a".into())), ("second", Some("b".into()))]
+    );
 }
 
 /// A line at a job's indent that is no job header is refused, not appended to the job before it.
@@ -32,14 +35,39 @@ fn a_value_ends_at_its_comment() {
                     prefix-key: a#b\n";
     let jobs = jobs(workflow);
     let job = &jobs[0];
-    assert_eq!(job.key("runs-on"), Some("ubuntu-latest"));
+    assert_eq!(job.key("runs-on").as_deref(), Some("ubuntu-latest"));
     let steps = job.steps();
     assert_eq!(steps.len(), 1);
     let step = &steps[0];
-    assert_eq!(step.key("name"), Some("Fix #1"));
-    assert_eq!(step.with("shared-key"), Some("build"));
-    assert_eq!(step.with("key"), Some("it''s # x"));
-    assert_eq!(step.with("prefix-key"), Some("a#b"));
+    assert_eq!(step.key("name").as_deref(), Some("Fix #1"));
+    assert_eq!(step.with("shared-key").as_deref(), Some("build"));
+    assert_eq!(step.with("key").as_deref(), Some("it's # x"));
+    assert_eq!(step.with("prefix-key").as_deref(), Some("a#b"));
+}
+
+/// A quoted value reads as YAML reads it: `''` is one `'` in single quotes, and double quotes decode their escapes.
+#[test]
+fn a_quoted_value_reads_as_yaml_reads_it() {
+    assert_eq!(unquote("'it''s'"), "it's");
+    assert_eq!(unquote("''''"), "'");
+    assert_eq!(
+        unquote(r#""a\"b\\c\td\x41\u00e9\_\U0001F600\/""#),
+        "a\"b\\c\tdA\u{e9}\u{a0}\u{1F600}/"
+    );
+    assert_eq!(unquote(r#""C:\\Users""#), r"C:\Users");
+    for kept in ["plain", "'no''", r#""a\""#, r#""a" b"#, "\"", ""] {
+        assert_eq!(unquote(kept), kept, "{kept}");
+    }
+    // A value with nothing to decode is the line's own text.
+    assert!(matches!(unquote("'as is'"), Cow::Borrowed("as is")));
+    assert!(matches!(unquote(r#""as is""#), Cow::Borrowed("as is")));
+}
+
+/// An escape YAML does not define is refused, not read as two characters.
+#[test]
+#[should_panic(expected = "a double-quoted value holds an escape YAML does not define")]
+fn an_undefined_escape_panics() {
+    let _ = unquote(r#""\q""#);
 }
 
 /// Two savers of one key are reported though one names it with a comment after it.

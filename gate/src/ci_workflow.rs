@@ -5,6 +5,8 @@
 //! line at a job's indent that is no job header panics. Only the tests read the workflows, so this module is compiled
 //! only for them.
 
+use std::borrow::Cow;
+
 /// The name of a job's first step, which records when the job started.
 pub const CLOCK: &str = "Start the build-time budget clock";
 
@@ -119,9 +121,9 @@ fn bare(line: &str) -> &str {
     uncommented(line).trim_start()
 }
 
-/// The value of `key: value` in `line` once its indent and its comment are gone; `None` when the line holds another
-/// key.
-fn value_of<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+/// The value of `key: value` in `line` once its indent and its comment are gone, its quotes read as YAML reads them
+/// ([`unquote`]); `None` when the line holds another key.
+fn value_of<'a>(line: &'a str, key: &str) -> Option<Cow<'a, str>> {
     let rest = line.trim_start().strip_prefix(key)?.strip_prefix(':')?;
     Some(unquote(uncommented(rest).trim()))
 }
@@ -133,7 +135,7 @@ fn entry_line(line: &str) -> &str {
 }
 
 /// A variable of the workflow's own top-level `env`.
-pub fn workflow_env<'a>(workflow: &'a str, name: &str) -> Option<&'a str> {
+pub fn workflow_env<'a>(workflow: &'a str, name: &str) -> Option<Cow<'a, str>> {
     workflow
         .lines()
         .skip_while(|line| !(indent(line) == 0 && bare(line) == "env:"))
@@ -143,21 +145,86 @@ pub fn workflow_env<'a>(workflow: &'a str, name: &str) -> Option<&'a str> {
         .find_map(|line| value_of(line, name))
 }
 
-fn unquote(value: &str) -> &str {
-    for quote in ['"', '\''] {
-        if let Some(inner) = value
-            .strip_prefix(quote)
-            .and_then(|v| v.strip_suffix(quote))
-        {
-            return inner;
+/// A scalar as YAML reads it: a single-quoted one with each `''` one `'`, a double-quoted one with its escapes decoded
+/// ([`escaped`]), a plain one as written. A quoted value that does not close at its end (one continued on the next
+/// line, which the reader does not join) is kept as written.
+///
+/// # Panics
+///
+/// On a double-quoted value with an escape YAML does not define: a value the reader misread would escape every check.
+fn unquote(value: &str) -> Cow<'_, str> {
+    let quote = match value.chars().next() {
+        Some(quote @ ('"' | '\'')) => quote,
+        _ => return Cow::Borrowed(value),
+    };
+    let inner = &value[1..];
+    let mut read = String::new();
+    let mut decoded = false;
+    let mut chars = inner.char_indices();
+    while let Some((at, c)) = chars.next() {
+        if c == quote && quote == '\'' && inner[at + 1..].starts_with('\'') {
+            chars.next();
+            read.push('\'');
+            decoded = true;
+        } else if c == quote {
+            return match (at + 1 == inner.len(), decoded) {
+                (false, _) => Cow::Borrowed(value),
+                (true, false) => Cow::Borrowed(&inner[..at]),
+                (true, true) => Cow::Owned(read),
+            };
+        } else if c == '\\' && quote == '"' {
+            if at + 1 == inner.len() {
+                break;
+            }
+            read.push(escaped(&mut chars).unwrap_or_else(|| {
+                panic!("a double-quoted value holds an escape YAML does not define: `{value}`")
+            }));
+            decoded = true;
+        } else {
+            read.push(c);
         }
     }
-    value
+    Cow::Borrowed(value)
+}
+
+/// The character a double-quoted value's escape names, its `\` already read: YAML 1.2's escapes, `\x`, `\u` and `\U`
+/// with their hex digits. `None` for an escape YAML does not define.
+fn escaped(chars: &mut std::str::CharIndices<'_>) -> Option<char> {
+    let hex = |chars: &mut std::str::CharIndices<'_>, digits: usize| {
+        let code: String = chars.by_ref().take(digits).map(|(_, c)| c).collect();
+        u32::from_str_radix(&code, 16)
+            .ok()
+            .filter(|_| code.len() == digits && code.chars().all(|c| c.is_ascii_hexdigit()))
+            .and_then(char::from_u32)
+    };
+    Some(match chars.next()?.1 {
+        '0' => '\0',
+        'a' => '\u{7}',
+        'b' => '\u{8}',
+        't' | '\t' => '\t',
+        'n' => '\n',
+        'v' => '\u{b}',
+        'f' => '\u{c}',
+        'r' => '\r',
+        'e' => '\u{1b}',
+        ' ' => ' ',
+        '"' => '"',
+        '/' => '/',
+        '\\' => '\\',
+        'N' => '\u{85}',
+        '_' => '\u{a0}',
+        'L' => '\u{2028}',
+        'P' => '\u{2029}',
+        'x' => hex(chars, 2)?,
+        'u' => hex(chars, 4)?,
+        'U' => hex(chars, 8)?,
+        _ => return None,
+    })
 }
 
 impl<'a> Job<'a> {
     /// A key of the job itself (four spaces' indent).
-    pub fn key(&self, key: &str) -> Option<&'a str> {
+    pub fn key(&self, key: &str) -> Option<Cow<'a, str>> {
         self.lines
             .iter()
             .filter(|line| indent(line) == 4)
@@ -176,7 +243,7 @@ impl<'a> Job<'a> {
     }
 
     /// A variable of the job's own `env`.
-    pub fn env(&self, name: &str) -> Option<&'a str> {
+    pub fn env(&self, name: &str) -> Option<Cow<'a, str>> {
         self.block("env")
             .into_iter()
             .filter(|line| indent(line) == 6)
@@ -209,7 +276,7 @@ impl<'a> Job<'a> {
 
     /// The value of `key` in each entry of the job's matrix, with the entry's first line to name it by. An error is a
     /// sentence saying which entry lacks the key, or that the matrix has none.
-    fn matrix_values(&self, key: &str) -> Result<Vec<(&'a str, &'a str)>, String> {
+    fn matrix_values(&self, key: &str) -> Result<Vec<(&'a str, Cow<'a, str>)>, String> {
         let entries = self.matrix_entries();
         if entries.is_empty() {
             return Err(format!("reads its {key} from a matrix with no entries"));
@@ -277,7 +344,7 @@ impl<'a> Job<'a> {
     pub fn step(&self, name: &str) -> Option<Step<'a>> {
         self.steps()
             .into_iter()
-            .find(|step| step.key("name") == Some(name))
+            .find(|step| step.key("name").as_deref() == Some(name))
     }
 }
 
@@ -288,7 +355,7 @@ impl<'a> Step<'a> {
     }
 
     /// A key of the step itself (its `- ` line or a sibling of it), never one nested under `with:`.
-    pub fn key(&self, key: &str) -> Option<&'a str> {
+    pub fn key(&self, key: &str) -> Option<Cow<'a, str>> {
         let at = self.key_indent();
         let first = &self.lines[0][at..];
         value_of(first, key).or_else(|| {
@@ -314,7 +381,7 @@ impl<'a> Step<'a> {
     }
 
     /// An input of the step's `with:`.
-    pub fn with(&self, key: &str) -> Option<&'a str> {
+    pub fn with(&self, key: &str) -> Option<Cow<'a, str>> {
         let at = self.key_indent();
         self.lines
             .iter()
@@ -343,7 +410,7 @@ impl<'a> Step<'a> {
             .enumerate()
             .find(|(i, line)| {
                 let own = if *i == 0 { &line[at..] } else { line };
-                (*i == 0 || indent(line) == at) && value_of(own, "run") == Some("|")
+                (*i == 0 || indent(line) == at) && value_of(own, "run").as_deref() == Some("|")
             })?
             .0;
         let body: Vec<&str> = self.lines[start + 1..]
@@ -399,7 +466,7 @@ pub fn job_findings(file: &str, job: &Job<'_>) -> Vec<String> {
         (steps.first(), CLOCK, "start"),
         (steps.last(), CHECK, "end"),
     ] {
-        let Some(step) = step.filter(|step| step.key("name") == Some(name)) else {
+        let Some(step) = step.filter(|step| step.key("name").as_deref() == Some(name)) else {
             say(format!("does not {place} with the step `{name}`"));
             continue;
         };
@@ -407,7 +474,7 @@ pub fn job_findings(file: &str, job: &Job<'_>) -> Vec<String> {
         // step with no `shell: bash` runs in pwsh on Windows, where the script fails.
         let mut keys = step.keys();
         keys.sort_unstable();
-        if keys != ["name", "run", "shell"] || step.key("shell") != Some("bash") {
+        if keys != ["name", "run", "shell"] || step.key("shell").as_deref() != Some("bash") {
             say(format!(
                 "has the step `{name}` with the keys `{}`, not exactly `name`, `shell: bash` and `run`",
                 step.keys().join("`, `")
@@ -449,7 +516,7 @@ pub fn cache_keys(file: &str, workflow: &str) -> (Vec<CacheKey>, Vec<String>) {
             let mut say = |what: String| {
                 findings.push(format!("{file}: job `{}`'s rust-cache step {what}", job.id))
             };
-            if step.with("prefix-key") != Some(prefix.as_str()) {
+            if step.with("prefix-key").as_deref() != Some(prefix.as_str()) {
                 say(format!("does not read its prefix-key from `{prefix}`"));
             }
             if step.with("key").is_some() {
@@ -462,7 +529,7 @@ pub fn cache_keys(file: &str, workflow: &str) -> (Vec<CacheKey>, Vec<String>) {
                 say("names no `shared-key`".to_string());
                 continue;
             };
-            let saves = step.with("save-if") != Some("false");
+            let saves = step.with("save-if").as_deref() != Some("false");
             let matrix = shared
                 .strip_prefix("${{ matrix.")
                 .and_then(|rest| rest.strip_suffix(" }}"));
@@ -494,7 +561,7 @@ pub fn cache_keys(file: &str, workflow: &str) -> (Vec<CacheKey>, Vec<String>) {
 /// save over what the other restored), and a key a step only restores that no step saves.
 pub fn key_findings(file: &str, workflow: &str) -> Vec<String> {
     let mut findings = Vec::new();
-    if workflow_env(workflow, PREFIX).is_none_or(str::is_empty) {
+    if workflow_env(workflow, PREFIX).is_none_or(|prefix| prefix.is_empty()) {
         findings.push(format!(
             "{file}: the workflow's env has no {PREFIX}, the prefix-key of every cache"
         ));

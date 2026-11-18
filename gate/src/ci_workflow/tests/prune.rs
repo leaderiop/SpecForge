@@ -96,7 +96,7 @@ fn the_prune_step_deletes_only_what_a_newer_entry_of_its_group_supersedes() {
         &format!("{FAKE_GH}{delete}"),
         &[
             ("GH_FIXTURE", dir.path().to_str().unwrap()),
-            ("STALE_CACHES", program),
+            ("STALE_CACHES", &program),
         ],
     );
     assert!(

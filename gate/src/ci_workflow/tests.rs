@@ -357,24 +357,30 @@ fn the_windows_leg_runs_the_named_subset() {
     let jobs = jobs(&workflow);
     let windows: Vec<&Job<'_>> = jobs
         .iter()
-        .filter(|job| job.key("runs-on") == Some("windows-latest"))
+        .filter(|job| job.key("runs-on").as_deref() == Some("windows-latest"))
         .collect();
     assert_eq!(windows.len(), 1, "one job runs on windows-latest");
     let steps = windows[0].steps();
-    let runs: Vec<&str> = steps.iter().filter_map(|step| step.key("run")).collect();
+    let runs: Vec<String> = steps
+        .iter()
+        .filter_map(|step| step.key("run").map(String::from))
+        .collect();
     for filter in [
         "cargo nextest run --no-fail-fast -p gate -E 'test(/^checked_tree::/)'",
         "cargo nextest run --no-fail-fast -p specforge-component --lib -E 'test(/user_compile_cache/)'",
         "cargo nextest run --no-fail-fast -p xtask --bin absorb --test absorb_e2e",
     ] {
-        assert!(runs.contains(&filter), "{filter} is not run: {runs:?}");
+        assert!(
+            runs.iter().any(|run| run == filter),
+            "{filter} is not run: {runs:?}"
+        );
     }
     let checkout = steps
         .iter()
-        .position(|step| step.key("uses") == Some("actions/checkout@v4"))
+        .position(|step| step.key("uses").as_deref() == Some("actions/checkout@v4"))
         .expect("the Windows job checks out");
     let config = steps.iter().position(|step| {
-        step.key("shell") == Some("bash")
+        step.key("shell").as_deref() == Some("bash")
             && step.script().is_some_and(|script| {
                 script.contains("git config --global core.autocrlf false\n")
                     && script.contains("git config --global core.longpaths true\n")
@@ -441,6 +447,7 @@ fn only_ci_and_perf_save_a_cache() {
                     job.id
                 );
                 let save_if = step.with("save-if");
+                let save_if = save_if.as_deref();
                 if save_if == Some(main) {
                     ci_savers += 1;
                 } else {
@@ -498,7 +505,7 @@ fn matrix(entries: &[(&str, Option<&str>)]) -> String {
 fn every_cache_step_is_keyed_once_under_the_workflow_prefix() {
     let workflow = read(CI);
     assert_eq!(key_findings(CI, &workflow), Vec::<String>::new());
-    assert_eq!(workflow_env(&workflow, PREFIX), Some("v1-rust"));
+    assert_eq!(workflow_env(&workflow, PREFIX).as_deref(), Some("v1-rust"));
     let (keys, _) = cache_keys(CI, &workflow);
     let savers: Vec<&str> = keys
         .iter()
@@ -661,7 +668,7 @@ fn the_prune_job_runs_only_on_mains_pushes_with_actions_write_alone() {
     let jobs = jobs(&workflow);
     let prune = jobs.iter().find(|job| job.id == "cache-prune").unwrap();
     assert_eq!(
-        prune.key("if"),
+        prune.key("if").as_deref(),
         Some("github.event_name == 'push' && !cancelled()")
     );
     let permissions: Vec<&str> = prune
@@ -674,14 +681,14 @@ fn the_prune_job_runs_only_on_mains_pushes_with_actions_write_alone() {
     let savers: Vec<&str> = jobs
         .iter()
         .filter(|job| {
-            job.steps()
-                .iter()
-                .any(|step| step.is_rust_cache() && step.with("save-if") != Some("false"))
+            job.steps().iter().any(|step| {
+                step.is_rust_cache() && step.with("save-if").as_deref() != Some("false")
+            })
         })
         .map(|job| job.id)
         .collect();
     assert_eq!(
-        prune.key("needs"),
+        prune.key("needs").as_deref(),
         Some(format!("[{}]", savers.join(", ")).as_str())
     );
     let steps = prune.steps();
