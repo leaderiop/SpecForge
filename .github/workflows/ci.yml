@@ -35,12 +35,12 @@ jobs:
         include:
           - shard: lint
             checks: rustfmt,clippy,doctests,audit
-            budget: 1440
+            budget: 300
             cache: lint
           # The @gsd workspace on a runner of its own: its builds and black-box tests run beside lint and specs.
           - shard: gsd
             checks: gsd
-            budget: 2040
+            budget: 1440
             # Its shared-key names what it holds, the workspace crates too: rust-cache never saves over a key it
             # restored whole, so a key once saved without them would never gain them.
             cache: gsd-crates
@@ -49,7 +49,7 @@ jobs:
               gsd -> target/gsd
           - shard: specs
             checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs
-            budget: 2040
+            budget: 1980
             cache: specs
     env:
       BUDGET_SECONDS: ${{ matrix.budget }}
@@ -137,7 +137,7 @@ jobs:
     timeout-minutes: 40
     env:
       GATE_TEST_ARCHIVE: target/tests.tar.zst
-      BUDGET_SECONDS: 1680
+      BUDGET_SECONDS: 1440
     steps:
       - name: Start the build-time budget clock
         shell: bash
@@ -198,7 +198,7 @@ jobs:
     env:
       GATE_TEST_ARCHIVE: target/tests.tar.zst
       GATE_TEST_PARTITION: ${{ matrix.part }}/4
-      BUDGET_SECONDS: 480
+      BUDGET_SECONDS: 420
     strategy:
       fail-fast: false
       matrix:
@@ -270,7 +270,7 @@ jobs:
           - os: windows-latest
             budget: 1500
           - os: macos-latest
-            budget: 1380
+            budget: 1020
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
