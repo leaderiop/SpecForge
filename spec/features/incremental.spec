@@ -35,3 +35,21 @@ requirement FEATURE-051 "Incremental Graph Deltas" {
     round-tripping.
   """
 }
+
+requirement FEATURE-142 "Graph Diff and Delta Input" {
+  category "Feature"
+  tier     v1
+  text     """
+    A snapshot of the project, at a git revision or the working tree,
+    compiles with the current extensions. specforge diff names the nodes
+    and edges that changed between two snapshots, with the changed fields
+    and the content digests of each changed node. Facts at a revision are
+    read only from a retained store its ledger records there; otherwise
+    that side says its facts were not collected.
+
+    A pass that declares the delta input receives only the changed nodes
+    of the kinds it names, against a base the host names: a revision, the
+    previous check of a session, or none. With no base everything is
+    added, so a pass written for changes is correct on a cold run.
+  """
+}

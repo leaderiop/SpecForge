@@ -90,11 +90,11 @@ phase 01 "Phase 6: Incremental Compilation" {
   milestone        v0.5.0
   name             "Incremental Compilation"
   slug             "incremental-compilation"
-  requirements     [FEATURE-050, FEATURE-051]
+  requirements     [FEATURE-050, FEATURE-051, FEATURE-142]
   success_criteria [
     "A file change is detected within 100ms plus the debounce window, and an incremental update of a small project yields diagnostics in under 100ms",
     "Incremental rebuild matches a cold rebuild, checked by --verify-incremental on every fixture and by seeded random update sequences",
-    "Graph delta contains only added/removed/modified nodes and edges",
+    "Graph delta contains only added/removed/modified nodes and edges; specforge diff shows it between two snapshots and a pass can declare it as an input",
     "File change debouncing prevents redundant rebuilds",
     "Only changed files are re-parsed; imports are resolved again on every rebuild",
   ]
