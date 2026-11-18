@@ -19,8 +19,10 @@ env:
   # change: a changed path list is a new cache version, which orphans the old entry (ADR 0375 D1).
   CACHE_PREFIX: v1-rust
 
-# Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's wall time on a
-# cold run times 1.25, under its timeout less five minutes (ADR 0375 D3).
+# Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's slowest cold wall
+# time seen on the current code (the cold runs on this change and the 80-run history before it) times 1.25, rounded
+# up to a minute, under its timeout less five minutes (ADR 0375 D3). One cold run was too few: the same code ran gsd
+# in 1,054 s and in 1,602 s.
 jobs:
   ci:
     # `cargo gate ci`'s lint, specs and gsd shards; the `build` job below holds build, the `tests` jobs the tests.
@@ -35,12 +37,12 @@ jobs:
         include:
           - shard: lint
             checks: rustfmt,clippy,doctests,audit
-            budget: 300
+            budget: 1440
             cache: lint
           # The @gsd workspace on a runner of its own: its builds and black-box tests run beside lint and specs.
           - shard: gsd
             checks: gsd
-            budget: 1440
+            budget: 2040
             # Its shared-key names what it holds, the workspace crates too: rust-cache never saves over a key it
             # restored whole, so a key once saved without them would never gain them.
             cache: gsd-crates
@@ -49,7 +51,7 @@ jobs:
               gsd -> target/gsd
           - shard: specs
             checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs
-            budget: 1980
+            budget: 2040
             cache: specs
     env:
       BUDGET_SECONDS: ${{ matrix.budget }}
@@ -137,7 +139,7 @@ jobs:
     timeout-minutes: 40
     env:
       GATE_TEST_ARCHIVE: target/tests.tar.zst
-      BUDGET_SECONDS: 1440
+      BUDGET_SECONDS: 1680
     steps:
       - name: Start the build-time budget clock
         shell: bash
@@ -198,7 +200,7 @@ jobs:
     env:
       GATE_TEST_ARCHIVE: target/tests.tar.zst
       GATE_TEST_PARTITION: ${{ matrix.part }}/4
-      BUDGET_SECONDS: 420
+      BUDGET_SECONDS: 540
     strategy:
       fail-fast: false
       matrix:
@@ -270,7 +272,7 @@ jobs:
           - os: windows-latest
             budget: 1500
           - os: macos-latest
-            budget: 1020
+            budget: 1380
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:

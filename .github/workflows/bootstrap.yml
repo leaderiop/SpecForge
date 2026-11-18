@@ -34,8 +34,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-# Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's wall time on a
-# cold run times 1.25, under its timeout less five minutes (ADR 0375 D3).
+# Every job starts a clock first and fails past its BUDGET_SECONDS last: the budget is the job's slowest cold wall
+# time seen on the current code times 1.25, rounded up to a minute, under its timeout less five minutes (ADR 0375 D3).
 jobs:
   bootstrap:
     name: Fresh-clone bootstrap (builtin components)
@@ -45,8 +45,9 @@ jobs:
     # holds it).
     timeout-minutes: 45
     env:
-      # Every run is cold (no cache by design): 1.25 x 910 s, its run on the head whose cold CI run set every budget.
-      BUDGET_SECONDS: 1140
+      # Every run is cold (no cache by design): 1.25 x 1,360 s, its slowest run on the current code; its runs on one
+      # code have taken 910 s to 1,360 s.
+      BUDGET_SECONDS: 1740
     steps:
       - name: Start the build-time budget clock
         shell: bash
