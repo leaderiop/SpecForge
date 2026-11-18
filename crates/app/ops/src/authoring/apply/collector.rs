@@ -92,7 +92,7 @@ fn store(view: &ProjectView<'_>, facts: CollectedFacts, caller: Caller<'_>) -> R
         "cannot store the collected facts",
         [],
     )
-    .with_fact_stores(&key, files)
+    .with_fact_stores(&key, files, view.env().config().facts.retain)
     .keeping_ledger(
         view.project(),
         LedgerChange {

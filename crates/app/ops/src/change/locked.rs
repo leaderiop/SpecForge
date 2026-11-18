@@ -4,6 +4,7 @@
 //! sources and the install of a host's files (ADR 0292) are both written this way.
 
 use specforge_common::SourceRoot;
+use specforge_project::facts::retain::Retirement;
 
 use super::ProjectChange;
 use super::journal;
@@ -48,14 +49,15 @@ impl Stager<'_> {
         })
     }
 
-    /// The fact stores of `collector` filed under another key than `key`, listed now, under the lock, through the
-    /// caller's containment (ADR 0327 D4).
-    pub(crate) fn superseded_stores(&self, collector: &str, key: &str) -> Vec<String> {
-        specforge_project::facts::superseded(
+    /// What filing `collector`'s facts under `key` does to its stores under another key, `retain` of them kept
+    /// archived: listed now, under the lock, through the caller's containment (ADR 0327 D4, ADR 0376 D4).
+    pub(crate) fn retired_stores(&self, collector: &str, key: &str, retain: u8) -> Retirement {
+        specforge_project::facts::retain::retire(
             &self.caller.containment().disk(),
             self.sources.base(),
             collector,
             key,
+            retain,
         )
     }
 

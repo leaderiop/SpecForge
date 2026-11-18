@@ -695,5 +695,6 @@ fn digests(project: &CompiledProject) -> Vec<(&str, Vec<(&str, &str)>)> {
         .collect()
 }
 
+mod retained;
 mod rewritten;
 mod sent;

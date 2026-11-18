@@ -17,6 +17,7 @@ mod reads;
 mod refusals;
 mod report_first;
 mod report_paths;
+mod retained;
 mod runs;
 
 use std::path::{Path, PathBuf};

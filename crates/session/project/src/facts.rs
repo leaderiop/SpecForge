@@ -5,6 +5,7 @@
 //! the one reader of a store's text; [`Placed`] the one judge of whether a source file is the text a served store's
 //! places are in.
 
+pub mod retain;
 mod stale;
 mod written;
 
