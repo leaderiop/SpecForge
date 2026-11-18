@@ -22,6 +22,7 @@ mod credential_root;
 mod credential_store;
 mod cycle_agreement;
 mod determinism;
+mod diff;
 mod docs_relations;
 mod docs_truth;
 mod edit;

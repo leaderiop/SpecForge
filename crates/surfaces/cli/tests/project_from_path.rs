@@ -172,6 +172,7 @@ const ROWS: &[Row] = &[
     ),
     row("search", &["search", "foo", "--format", "json"], Kind::Read),
     row("refs", &["refs", "alpha", "--format", "json"], Kind::Read),
+    row("diff", &["diff", "--format", "json"], Kind::Read),
     row(
         "extensions search",
         &["extensions", "search", "foo", "--format", "json"],

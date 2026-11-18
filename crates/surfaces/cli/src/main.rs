@@ -16,6 +16,7 @@ mod caller;
 mod check;
 mod collect;
 mod context;
+mod diff;
 mod doctor;
 mod edit;
 mod effects;
@@ -128,6 +129,8 @@ enum Commands {
     Anchors(anchors::Args),
     /// List the references to an entity: where other entities name it, or where it names them
     Refs(refs::Args),
+    /// Name the nodes and edges that changed between two snapshots of the project
+    Diff(diff::Args),
     /// Coverage gaps around an entity, or of the whole project
     Review(review::Args),
     /// What to look for in code to write a kind's entities
@@ -338,6 +341,7 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::Explore(args) => args.run(terminal, ports),
         Commands::Anchors(args) => args.run(terminal, ports),
         Commands::Refs(args) => args.run(terminal, ports),
+        Commands::Diff(args) => args.run(terminal, ports),
         Commands::Review(args) => args.run(terminal, ports),
         Commands::InferGuide(args) => args.run(terminal, ports),
         Commands::Prompt(args) => args.run(terminal, ports),

@@ -27,6 +27,7 @@ mod declaration_names;
 mod defaults;
 mod determinism;
 mod diagnostics_json;
+mod diff;
 mod doctor;
 mod edit;
 mod enhancement_credit;

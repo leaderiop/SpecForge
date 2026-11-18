@@ -42,6 +42,7 @@ specforge context <route> <id> --record <entity>  # record the pack on <entity>;
 # MCP: specforge.context { route, subject, max_tokens?, format? }; the resource specforge://context/<id>?role=<route>
 specforge search <text> [--kinds k,..]  # entities by id, title or text (specforge.search)
 specforge refs <id> [--direction both]  # what references it (specforge.find_references)
+specforge diff [<rev>|<a>..<b>]      # nodes and edges changed since HEAD, a revision, or between two
 specforge schema                     # emit the Graph Protocol schema
 specforge model                      # render the logical data model
 specforge outline                    # render the extension architecture
