@@ -27,6 +27,18 @@ fn round_trips<T: DeserializeOwned + Serialize>(name: &str, without: Option<&str
     assert_eq!(written, golden, "{name}");
 }
 
+/// `name` read as a `T` and written back with its keys sorted, pretty, is the committed file byte for byte.
+fn encodes_byte_equal<T: DeserializeOwned + Serialize>(name: &str) {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/wire")
+        .join(name);
+    let text = std::fs::read_to_string(path).unwrap();
+    let typed: T = serde_json::from_str(&text).unwrap();
+    let written = serde_json::to_value(&typed).unwrap();
+    let written = serde_json::to_string_pretty(&written).unwrap() + "\n";
+    assert_eq!(written, text, "{name}");
+}
+
 #[test]
 fn every_golden_encodes_byte_equal() {
     round_trips::<CommandInput>("command.input.json", Some("graph"));
@@ -40,8 +52,11 @@ fn every_golden_encodes_byte_equal() {
         "pass.check.input.json",
         "pass.guard.input.json",
         "pass.judged.input.json",
+        "pass.delta.input.json",
+        "pass.delta.empty.input.json",
     ] {
         round_trips::<PassInput>(pass, None);
+        encodes_byte_equal::<PassInput>(pass);
     }
     round_trips::<Vec<RouteDescriptor>>("routes.items.json", None);
 }

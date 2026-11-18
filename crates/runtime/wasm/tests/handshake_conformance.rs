@@ -176,11 +176,30 @@ fn an_older_minor_of_the_hosts_major_still_loads() {
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-013")]
+fn a_2_2_guest_loads_and_a_2_2_host_refuses_a_guest_that_may_declare_the_delta() {
+    use specforge_protocol_types::{HandshakeResponse, ProtocolError};
+    use specforge_wasm::protocol::{check_protocol_version, load_declaration};
+
+    // 2.3.0 adds the delta input (ADR 0376): a guest built before it still loads on this host,
+    load_declaration(&guest_answering("2.2.0"), "@test/older").expect("a 2.2.0 guest loads");
+    // and a 2.2 host, which would not send the delta, refuses a guest built for it as newer.
+    let guest = HandshakeResponse {
+        protocol_version: "2.3.0".into(),
+        name: "@test/newer".into(),
+        ..HandshakeResponse::default()
+    };
+    assert!(matches!(
+        check_protocol_version("2.2.0", &guest),
+        Err(ProtocolError::NewerVersion { .. })
+    ));
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-013")]
 fn a_1_x_guest_is_refused_with_e088_as_older() {
     use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "2.2.0");
+    assert_eq!(PROTOCOL_VERSION, "2.3.0");
     // Every 1.x guest, the 1.15.0 every builtin was before 2.0.0 included, was built for the protocol of the `reads*`
     // keys: it is refused, named older.
     for version in [
@@ -228,7 +247,7 @@ fn a_newer_minor_protocol_is_refused() {
     load_declaration(&guest_answering(&patch), "@test/older").expect("a newer patch loads");
 }
 
-/// The minor after the host's (`2.3.0` under `2.2.0`): what a newer guest speaks.
+/// The minor after the host's (`2.4.0` under `2.3.0`): what a newer guest speaks.
 fn newer_minor() -> String {
     let mut parts = specforge_protocol_types::PROTOCOL_VERSION.split('.');
     let major = parts.next().unwrap();

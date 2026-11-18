@@ -70,7 +70,19 @@
 ///
 /// A 2.1.0 guest still loads; a 2.2.0 guest is refused by a 2.1 host (E088, newer).
 ///
+/// 2.3.0 adds:
+/// - a pass may declare the `delta` input (`kinds`, ADR 0376 D6): its input then carries `delta`
+///   ([`DeltaPayload`](crate::DeltaPayload)), what changed of those kinds since a base the host names. The base is
+///   `none` (the empty graph, so every node of the named kinds is added), `revision` with the full sha of the commit
+///   it is taken against, or `previous`, the graph of a long-lived session's last completed check (D7). Each changed
+///   node names its kind, its id and its change; a modified node also names the fields and aspects that changed and
+///   its content digests before and after, an added node its digest after, a removed node only its kind and id. The
+///   edges added and removed are those with an end of a named kind. The full content stays in `entities`; a pass
+///   that declares no `delta` input is sent no `delta`.
+///
+/// A 2.2.0 guest still loads; a 2.3.0 guest is refused by a 2.2 host (E088, newer).
+///
 /// A change that adds to the current minor (grants, host imports, value checks) adds its item here and to that
 /// minor's row of `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0
 /// included; it does not bump. A new describe category goes last.
-pub const PROTOCOL_VERSION: &str = "2.2.0";
+pub const PROTOCOL_VERSION: &str = "2.3.0";

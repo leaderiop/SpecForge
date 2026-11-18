@@ -1,0 +1,30 @@
+{
+  "delta": {
+    "base": {
+      "kind": "previous"
+    }
+  },
+  "edges": [],
+  "entities": [
+    {
+      "fields": {
+        "status": "active"
+      },
+      "id": "a",
+      "incoming_edge_count": 0,
+      "kind": "gadget",
+      "outgoing_edge_count": 0,
+      "owes_none": false,
+      "span": {
+        "end_col": 2,
+        "end_line": 4,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 1
+      },
+      "testable": true,
+      "verify_kinds": [],
+      "verify_texts": []
+    }
+  ]
+}

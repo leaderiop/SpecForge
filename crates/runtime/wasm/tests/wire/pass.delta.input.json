@@ -1,0 +1,73 @@
+{
+  "delta": {
+    "added_edges": [
+      {
+        "label": "needs",
+        "source": "a",
+        "target": "c"
+      }
+    ],
+    "base": {
+      "id": "1a2b3c4d00000000000000000000000000000000",
+      "kind": "revision"
+    },
+    "nodes": [
+      {
+        "after": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "aspects": [
+          "edges"
+        ],
+        "before": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "change": "modified",
+        "fields": [
+          "needs",
+          "status"
+        ],
+        "id": "a",
+        "kind": "gadget"
+      },
+      {
+        "change": "removed",
+        "id": "b",
+        "kind": "gadget"
+      },
+      {
+        "after": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "change": "added",
+        "id": "c",
+        "kind": "gadget"
+      }
+    ],
+    "removed_edges": [
+      {
+        "label": "needs",
+        "source": "a",
+        "target": "b"
+      }
+    ]
+  },
+  "edges": [],
+  "entities": [
+    {
+      "fields": {
+        "needs": "c",
+        "status": "active"
+      },
+      "id": "a",
+      "incoming_edge_count": 0,
+      "kind": "gadget",
+      "outgoing_edge_count": 1,
+      "owes_none": false,
+      "span": {
+        "end_col": 2,
+        "end_line": 5,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 1
+      },
+      "testable": true,
+      "verify_kinds": [],
+      "verify_texts": []
+    }
+  ]
+}
