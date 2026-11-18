@@ -1,5 +1,6 @@
 //! What the host read of the files a scan names. A path the host did not serve is never "missing": a
 //! `budget`, `too_large`, `denied` or `unreadable` error, a truncated read, or no fact at all means "not checked".
+//! A `not_utf8` file was read in full: it is a binary [`File`] with no text, not an unserved one.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -18,8 +19,10 @@ pub enum Served<'a> {
 #[derive(Clone, Copy)]
 pub struct File<'a> {
     pub lines: Option<u64>,
-    /// Absent when the file is past the host's text cap or the read asked for facts only.
+    /// Absent when the file is past the host's text cap, is binary, or the read asked for facts only.
     pub text: Option<&'a str>,
+    /// The host read the bytes and they are not UTF-8: there is no text to scan, and nothing was left unread.
+    pub binary: bool,
 }
 
 /// The facts of one read, by path.
@@ -59,7 +62,8 @@ pub fn reads<'a>(input: &'a PassInput, name: &str) -> Reads<'a> {
     reads.truncated = files.truncated;
     for fact in &files.facts {
         let path = key(&fact.path);
-        if fact.error.is_some() {
+        let binary = fact.exists && fact.error.as_deref() == Some("not_utf8");
+        if fact.error.is_some() && !binary {
             reads.unserved.insert(path);
         } else if !fact.exists {
             reads.absent.insert(path);
@@ -67,6 +71,7 @@ pub fn reads<'a>(input: &'a PassInput, name: &str) -> Reads<'a> {
             let file = File {
                 lines: fact.lines,
                 text: fact.text.as_deref(),
+                binary,
             };
             reads.facts.insert(path, file);
         }

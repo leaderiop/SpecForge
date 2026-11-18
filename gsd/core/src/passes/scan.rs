@@ -245,6 +245,8 @@ fn scanned(plans: &[&PassEntity], modified: &Reads) -> Scan {
                         marker: hit.marker,
                         plan: plan.id.clone(),
                     })),
+                    // A binary file holds no lexical anti-pattern: it was read, so the scan is whole.
+                    None if file.binary => {}
                     None => partial = true,
                 },
                 Served::Unserved => partial = true,
