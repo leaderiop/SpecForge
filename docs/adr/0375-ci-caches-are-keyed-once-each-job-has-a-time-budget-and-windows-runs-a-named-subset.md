@@ -50,6 +50,13 @@ the entries it read supersede and then fails the job. The previous prefix's entr
 maintainer, after the first main run on the new prefix, and not by CI: the prune job leaves each old group's newest
 entry alone.
 
+The entry a group keeps is its newest-created, not the one of the code on main: rust-cache's two hashes are its own
+digests of the toolchain, the environment and the manifests, which it does not output and no other step can compute.
+When two main runs overlap and the older commit's run saves last, its entry is kept and the current one deleted. The
+next run of that job then restores the kept entry through rust-cache's restore key (the key without its lockfile hash)
+when the toolchain's hash still matches, and no entry when it does not, builds what changed, and saves the current
+entry again: that job is cold, or partly cold, once, and the group is right from the next prune on.
+
 The reason: GitHub evicts the least recently used entries once the total passes its cap, and one a run restored counts
 as used, so a superseded generation stays alive and pushes the total past it; deleting a cache is a destructive act on
 a shared resource, so the job's reach is main's pushes, one group's older entries and nothing else.
