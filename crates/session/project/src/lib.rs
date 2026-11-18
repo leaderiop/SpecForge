@@ -49,6 +49,7 @@ pub mod select;
 mod session;
 mod settings;
 mod setup;
+pub mod snapshot;
 mod sources;
 #[cfg(feature = "testing")]
 pub mod testing;

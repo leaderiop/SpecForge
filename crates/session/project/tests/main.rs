@@ -72,6 +72,7 @@ mod session;
 mod settings;
 mod settings_declared;
 mod settings_rules;
+mod snapshot_at;
 mod source_disk;
 mod source_hops;
 mod structural_checks;
