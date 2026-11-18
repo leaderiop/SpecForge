@@ -117,14 +117,13 @@ impl CompiledProject {
     }
 
     /// Hold this project's graph as the base of its next check's delta (a session, after each check it runs), only
-    /// while a loaded pass reads the delta: with none, no graph is held. A project whose last update skipped the
-    /// checks keeps the base it had, the last completed check's, so the next check's delta covers every edit since.
+    /// while a loaded pass reads the delta: with none, no graph is held.
     pub(crate) fn hold_previous(&mut self) {
-        if self.env.registries().passes_reading_delta() == 0 {
-            self.delta_base = DeltaBasis::None;
-        } else if !self.checks_skipped {
-            self.delta_base = DeltaBasis::Previous(Arc::new(self.graph().clone()));
-        }
+        self.delta_base = if self.env.registries().passes_reading_delta() == 0 {
+            DeltaBasis::None
+        } else {
+            DeltaBasis::Previous(Arc::new(self.graph().clone()))
+        };
     }
 }
 

@@ -614,7 +614,9 @@ impl CompiledProject {
     }
 
     /// The checks are skipped for this state: none is reported, and the
-    /// memo is made over the graph on first use.
+    /// memo is made over the graph on first use. The delta base stays the
+    /// last completed check's, so the next check's delta covers every edit
+    /// since (ADR 0376 D7).
     pub(crate) fn skip_checks(&mut self) {
         self.check_diagnostics = Vec::new();
         self.value_checks = Arc::default();
