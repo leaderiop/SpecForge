@@ -1,9 +1,12 @@
 //! A lock plan bounds its own writes to its project, whatever bound its caller lends (ADR 0137).
 
-use super::commit::{K1, app, app_registry, base_project, staging};
+#[cfg(unix)]
+use super::commit::staging;
+use super::commit::{K1, app, app_registry, base_project};
 use super::*;
 use crate::config::testing::files_under;
 use crate::{Containment, OUTSIDE_ROOT};
+#[cfg(unix)]
 use std::path::PathBuf;
 
 /// A plan adding `@acme/app` over `installed`, opened with `caller`.
@@ -27,6 +30,7 @@ fn adding_app<'a>(
 }
 
 /// A bound wider than any project: the system temp directory, which holds the sibling too.
+#[cfg(unix)]
 fn wide() -> Containment {
     Containment::within(&std::env::temp_dir())
 }
