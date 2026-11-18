@@ -4,6 +4,7 @@
 
 use std::collections::HashSet;
 
+use specforge_common::structural::NODE_KINDS;
 use specforge_protocol_types::{
     ExtensionDeclaration, FieldWriter, FileRead, Input, InputKind, Root,
 };
@@ -123,8 +124,10 @@ pub fn setting_problem(owner: &str, extension: &str, name: &str) -> Option<&'sta
 
 /// The messages (W021) about the inputs `declaration` makes: an input its call kind is not served, a second input of
 /// a tag that is one per call (all but `files` and `setting`), a `setting` with a [`setting_problem`], a read with a
-/// [`read_problem`], a name two reads of one owner share, and a field no loaded extension declares. A facts input of a
-/// kind an unloaded optional peer declares is inert, as a route part into one is (ADR 0331 D7): served empty, untold.
+/// [`read_problem`], a name two reads of one owner share, a field no loaded extension declares, a facts input with no
+/// kind or a kind no loaded extension declares collector-written, and a delta input with no kind or a kind no loaded
+/// extension declares and no core node has (ADR 0376 D6). A facts or delta input of a kind an unloaded optional peer
+/// declares is inert, as a route part into one is (ADR 0331 D7): served empty, untold.
 pub(crate) fn problems(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
@@ -171,6 +174,26 @@ pub(crate) fn problems(
                         messages.push(said(
                             format!("the facts of kind '{kind}'"),
                             "no loaded extension declares it collector-written",
+                        ));
+                    }
+                    continue;
+                }
+                // What changed of the kinds named, as the facts input (ADR 0376 D6): any kind a loaded extension
+                // declares, authored or collector-written, or a core node kind.
+                Input::Delta { kinds } => {
+                    if !tags.insert(tag) {
+                        messages.push(said(format!("the input '{tag}'"), "it is declared twice"));
+                    } else if kinds.is_empty() {
+                        messages.push(said(format!("the input '{tag}'"), "it names no kind"));
+                    }
+                    for kind in kinds.iter().filter(|kind| {
+                        !declares_kind(loaded, kind)
+                            && !NODE_KINDS.contains(&kind.as_str())
+                            && !unloaded.declare(kind)
+                    }) {
+                        messages.push(said(
+                            format!("the delta of kind '{kind}'"),
+                            "no loaded extension declares it",
                         ));
                     }
                     continue;
@@ -237,6 +260,13 @@ pub(crate) fn problems(
         }
     }
     messages
+}
+
+/// Whether a loaded extension declares the kind `kind`, authored or collector-written.
+fn declares_kind(loaded: &[ExtensionDeclaration], kind: &str) -> bool {
+    loaded
+        .iter()
+        .any(|d| d.entities.iter().any(|k| keyword(k) == kind))
 }
 
 /// Whether a loaded extension declares `kind` collector-written (ADR 0327).
@@ -357,13 +387,24 @@ mod tests {
     /// The messages about `@acme/plans`, loaded alone, whose collector reads the facts of `item` and of `nothing`
     /// and whose optional peer is `@acme/code`, with the vocabulary `candidates` declare.
     fn plans_reading_item(candidates: &[ExtensionDeclaration]) -> Vec<String> {
+        plans_declaring(candidates, |c| {
+            c.collector("reader", |k| {
+                k.input(Input::facts(&["item", "nothing"]))
+                    .collect(|_| Ok(CollectOutput::default()));
+            });
+        })
+    }
+
+    /// The messages about `@acme/plans`, loaded alone, whose optional peer is `@acme/code`, declaring what `declare`
+    /// adds, with the vocabulary `candidates` declare.
+    fn plans_declaring(
+        candidates: &[ExtensionDeclaration],
+        declare: impl FnOnce(&mut ContributionsBuilder),
+    ) -> Vec<String> {
         let candidates = crate::CandidateVocabulary::of(candidates).unwrap();
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "1.0.0"));
         c.optional_peer("@acme/code", "^1.0");
-        c.collector("reader", |k| {
-            k.input(Input::facts(&["item", "nothing"]))
-                .collect(|_| Ok(CollectOutput::default()));
-        });
+        declare(&mut c);
         let declaration = c.declaration();
         let unloaded = UnloadedPeers::of(&declaration, &["@acme/plans"], &candidates);
         problems(&declaration, std::slice::from_ref(&declaration), &unloaded)
@@ -406,6 +447,112 @@ mod tests {
                  declares collector-written",
                 "extension '@acme/facts': collector 'reader' answers the kind 'nothing', which no loaded extension \
                  declares collector-written",
+            ]
+        );
+    }
+    #[specforge_test_macros::test(requirement = "FEATURE-142")]
+    fn a_pass_is_served_the_delta_input() {
+        let found = problems_of(|c| {
+            c.kind("note", |_| {});
+            for phase in ["check", "compute", "guard", "analyze"] {
+                c.pass(phase, |p| {
+                    // a collected kind, an authored kind and a core node kind
+                    p.phase(phase)
+                        .input(Input::delta(&["package", "note", "spec"]))
+                        .run(|_| Vec::new());
+                });
+            }
+        });
+        assert_eq!(found, Vec::<String>::new());
+    }
+
+    #[specforge_test_macros::test(requirement = "FEATURE-142")]
+    fn a_delta_input_declared_twice_or_naming_no_kind_is_w021() {
+        let found = problems_of(|c| {
+            c.pass("audit", |p| {
+                p.phase("check")
+                    .input(Input::delta(&[]))
+                    .input(Input::delta(&["package"]))
+                    .run(|_| Vec::new());
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': pass 'audit' declares the input 'delta', which is not served: it names \
+                 no kind",
+                "extension '@acme/facts': pass 'audit' declares the input 'delta', which is not served: it is \
+                 declared twice",
+            ]
+        );
+    }
+
+    #[specforge_test_macros::test(requirement = "FEATURE-142")]
+    fn a_delta_input_naming_an_unknown_kind_is_w021() {
+        let found = problems_of(|c| {
+            c.pass("audit", |p| {
+                p.phase("check")
+                    .input(Input::delta(&["package", "nothing"]))
+                    .run(|_| Vec::new());
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': pass 'audit' declares the delta of kind 'nothing', which is not served: \
+                 no loaded extension declares it"
+            ]
+        );
+    }
+
+    /// A pass reading the delta of a kind its optional peer declares: inert while the peer is not loaded; a kind no
+    /// candidate declares is still W021.
+    #[specforge_test_macros::test(requirement = "FEATURE-142")]
+    fn a_delta_input_of_an_unloaded_optional_peers_kind_is_inert() {
+        let found = plans_declaring(&[item_declared_by("@acme/code")], |c| {
+            c.pass("audit", |p| {
+                p.phase("check")
+                    .input(Input::delta(&["item", "nothing"]))
+                    .run(|_| Vec::new());
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/plans': pass 'audit' declares the delta of kind 'nothing', which is not served: \
+                 no loaded extension declares it"
+            ]
+        );
+    }
+
+    #[specforge_test_macros::test(requirement = "FEATURE-142")]
+    fn a_delta_input_is_served_to_a_pass_only() {
+        for kind in [
+            CallKind::Command,
+            CallKind::Prompt,
+            CallKind::Hook,
+            CallKind::Collector,
+        ] {
+            assert!(!served(kind, &Input::delta(&["package"])), "{kind:?}");
+        }
+        assert!(served(CallKind::Pass, &Input::delta(&["package"])));
+        let found = problems_of(|c| {
+            c.collector("reader", |k| {
+                k.input(Input::delta(&["package"]))
+                    .collect(|_| Ok(CollectOutput::default()));
+            });
+            c.hook("watch", HookEvent::PreTool, |h| {
+                h.input(Input::delta(&["package"]))
+                    .handler(|_| Ok(HookOutput::default()));
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': hook 'watch' declares the input 'delta', which is not served: its kind \
+                 of call is not served it",
+                "extension '@acme/facts': collector 'reader' declares the input 'delta', which is not served: its \
+                 kind of call is not served it",
             ]
         );
     }
