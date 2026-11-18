@@ -41,11 +41,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # Saves nothing: a tag-scoped cache no main run can read would only evict CI's (ADR 0375 D1).
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.target }}
-          save-if: false
+      # No rust-cache: a tag-scoped cache no main run can read would only evict CI's, and no job saves a key this one
+      # could restore (ADR 0375 D1).
 
       # The builtin extension blobs are committed and embedded, so no wasm
       # target is needed to build the CLI.

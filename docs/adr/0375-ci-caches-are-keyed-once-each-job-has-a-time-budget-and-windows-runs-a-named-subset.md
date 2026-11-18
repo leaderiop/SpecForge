@@ -31,9 +31,9 @@ version, which orphans the old entry, as the `build` job's did. Every step names
 the saved key carries no job id and a restore-only step can name a saver's key. The savers are `lint`, `gsd-crates`,
 `specs`, `build` and `effect-plane`, and `windows-subset`, the job D4's split made, each saved only on main.
 `dogfood` restores `specs`. The `tests` jobs carry no cache: they compile only `cargo gate`, and a restore of a
-2 GB cache costs more than that compile. `coverage.yml` and `release.yml` save nothing (`save-if: false`): the first
-would save an instrumented multi-GB cache the day its job passes, the second saves caches scoped to a tag, which nothing
-on main can read. `perf.yml` keeps its own nightly cache. A pull request saves nothing and reads main's.
+2 GB cache costs more than that compile. `coverage.yml` and `release.yml` carry no cache step: the first would save an
+instrumented multi-GB cache the day its job passes, the second would save caches scoped to a tag, which nothing on main
+can read, and no job saves a key either could restore. `perf.yml` keeps its own nightly cache. A pull request saves nothing and reads main's.
 
 The reason: with a `key` and no prefix, a job's key is its job id, so a restore-only job restored a key no job saved,
 and nothing could start every cache anew at once; one prefix is one bump, and a `shared-key` names a cache by what it

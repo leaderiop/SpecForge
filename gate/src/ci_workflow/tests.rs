@@ -339,9 +339,9 @@ fn the_tests_jobs_restore_no_cache() {
     );
 }
 
-/// Only `ci.yml` and the nightly `perf.yml` save a cache, and `ci.yml` saves only on main: a pull request never saves
-/// a cache main would restore, and coverage's instrumented or release's tag-scoped caches never evict CI's (ADR 0375
-/// D1).
+/// Only `ci.yml` and the nightly `perf.yml` carry a cache, and `ci.yml` saves only on main: a pull request never saves
+/// a cache main would restore, coverage's instrumented or release's tag-scoped caches never evict CI's, and no other
+/// workflow keeps a restore-only step whose key nothing saves (ADR 0375 D1).
 #[test]
 fn only_ci_and_perf_save_a_cache() {
     let main = "${{ github.ref == 'refs/heads/main' }}";
@@ -361,8 +361,13 @@ fn only_ci_and_perf_save_a_cache() {
         let workflow = read(&file);
         for job in jobs(&workflow) {
             for step in job.steps().iter().filter(|step| step.is_rust_cache()) {
+                assert_eq!(
+                    name, "ci.yml",
+                    "{file}: job `{}` restores a cache no workflow saves",
+                    job.id
+                );
                 let save_if = step.with("save-if");
-                if name == "ci.yml" && save_if == Some(main) {
+                if save_if == Some(main) {
                     ci_savers += 1;
                 } else {
                     assert_eq!(
