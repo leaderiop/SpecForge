@@ -238,6 +238,12 @@ Getting the leg green took these commits, each at its source:
 - `c8f50af24`: the containment and reach tests of `specforge-ops` that link the Unix way now compile only on Unix,
   which removes seven warnings from the Windows leg's build. They were Unix-only tests before; Linux runs the same 39.
 
+The resolver's own tests are not in the subset: on Windows an import across directories under a relative spec root is
+held end to end, by absorb's tests, whose fixture's sources import across directories and whose target checks clean.
+An absolute spec root on Windows, whose keys are written `\\?\C:\...`, has no Windows test; a `windows-subset` step
+running `-p specforge-resolver --test spec_dir`, with a case keyed `\\?\C:\...`, would close it once the job's budget
+has room for it.
+
 No test the subset names was made Unix-only. The gate's three workflow tests that run a step's own script under bash
 (two the budget check, one the clock) are `cfg(unix)`: the gate runs on Linux.
 

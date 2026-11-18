@@ -141,22 +141,3 @@ fn an_import_under_a_nested_spec_root_names_the_slash_joined_key() {
         Some("docs/spec/sub/index.spec")
     );
 }
-
-/// On Windows a relative spec root's keys are `/`-joined while a joined path is `\`-joined, and an absolute one's are
-/// the paths as Windows writes them.
-#[cfg(windows)]
-#[specforge_test(requirement = "FEATURE-109")]
-fn an_import_resolves_under_both_spellings_of_a_spec_root_on_windows() {
-    let relative: BTreeSet<&str> = ["spec/a.spec", "spec/sub/b.spec"].into();
-    assert_eq!(
-        import_target(&relative, Path::new("spec"), "spec/a.spec", "sub/b"),
-        Some("spec/sub/b.spec")
-    );
-    let absolute: BTreeSet<&str> =
-        [r"C:\elsewhere\real\a.spec", r"C:\elsewhere\real\sub\b.spec"].into();
-    let root = Path::new(r"C:\elsewhere\real");
-    assert_eq!(
-        import_target(&absolute, root, r"C:\elsewhere\real\a.spec", "./sub/b"),
-        Some(r"C:\elsewhere\real\sub\b.spec")
-    );
-}
