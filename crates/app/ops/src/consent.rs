@@ -6,7 +6,7 @@
 
 mod machine_roots;
 
-pub(crate) use specforge_effects::journal::user_home;
+pub(crate) use specforge_common::home::user_home;
 use std::ffi::{OsStr, OsString};
 use std::io::Read as _;
 use std::path::{Component, Path, PathBuf};

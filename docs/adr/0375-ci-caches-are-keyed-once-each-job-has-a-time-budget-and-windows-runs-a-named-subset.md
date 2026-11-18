@@ -117,7 +117,9 @@ that skips it, cannot pass on a platform it never exercised.
 
 The compile cache's directory (`user_compile_cache_dir`) reads the home as the effect journal, the consent store and the
 registry files already do: `HOME`, else `USERPROFILE`, and a relative home is no home. Each reader's lookup is a pure
-function its tests call with values, never by setting the process environment.
+function its tests call with values, never by setting the process environment. The rule has one home,
+`specforge_common::home`, which the effect journal, the consent store and the compile cache read; the compile cache's
+tests, which the Windows subset runs, reach it through `user_compile_cache_dir`'s own lookup.
 
 The reason: with `HOME` unset, as in a Windows shell, the wasm compile cache was off and every test that loads a builtin
 compiled it again; three readers agreeing and one not is a defect of the one, and a test that sets the process

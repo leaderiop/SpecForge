@@ -632,9 +632,9 @@ impl WasmRuntime for ComponentRuntime {
 /// Per-user Wasmtime compilation cache directory.
 ///
 /// `$SPECFORGE_WASMTIME_CACHE` overrides; setting it to `off` disables the
-/// cache. Default: `<home>/.cache/specforge/wasmtime`, where the home is `HOME`,
-/// else `USERPROFILE` (Windows), kept only when absolute: the rule of
-/// `specforge_effects::journal::user_home` (ADR 0375 D5). No cache with no home.
+/// cache. Default: `<home>/.cache/specforge/wasmtime`, where the home is
+/// `specforge_common::home`'s (`HOME`, else `USERPROFILE`, kept only when
+/// absolute; ADR 0375 D5). No cache with no home.
 /// The test drivers read it, so a child running under another `HOME` shares the cache of the test process
 /// (a cache of its own would compile every builtin again).
 pub fn user_compile_cache_dir() -> Option<PathBuf> {
@@ -646,8 +646,8 @@ pub fn user_compile_cache_dir() -> Option<PathBuf> {
 }
 
 /// [`user_compile_cache_dir`] over the variables' values: `cache` (`SPECFORGE_WASMTIME_CACHE`), `home` (`HOME`)
-/// and `profile` (`USERPROFILE`). A relative home is no home, so a project directory never holds compiled code
-/// the runtime would load.
+/// and `profile` (`USERPROFILE`), the home read by [`specforge_common::home::home_from`]. A relative home is no home,
+/// so a project directory never holds compiled code the runtime would load.
 fn compile_cache_dir_from(
     cache: Option<std::ffi::OsString>,
     home: Option<std::ffi::OsString>,
@@ -656,10 +656,7 @@ fn compile_cache_dir_from(
     match cache {
         Some(v) if v == "off" => None,
         Some(v) => Some(PathBuf::from(v)),
-        None => home
-            .or(profile)
-            .map(PathBuf::from)
-            .filter(|home| home.is_absolute())
+        None => specforge_common::home::home_from(home, profile)
             .map(|home| home.join(".cache").join("specforge").join("wasmtime")),
     }
 }

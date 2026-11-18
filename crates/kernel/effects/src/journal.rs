@@ -7,13 +7,13 @@
 //! [`RecordedRequest`], which has no place for a sensitive header's value, an environment value, a body or stdin,
 //! and every file and directory is written `0600`/`0700`.
 
-use std::ffi::OsString;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use specforge_common::ProjectRoot;
+use specforge_common::home::user_home;
 use specforge_package::Sha256;
 
 use crate::{EffectRequest, Outcome, OutcomeClass, UnixMillis};
@@ -477,24 +477,11 @@ pub struct EffectJournal {
 }
 
 /// The directory whose `.specforge` holds `root`'s host state (its journal, the verbs' `temp` root): `root` when it
-/// holds `specforge.json`, the user's home (`HOME`, `USERPROFILE` on Windows) for a loose root, none with no home.
+/// holds `specforge.json`, the user's home ([`user_home`]) for a loose root, none with no home.
 pub fn state_base(root: &ProjectRoot) -> Option<PathBuf> {
     root.configured_dir()
         .map(Path::to_path_buf)
         .or_else(user_home)
-}
-
-/// The user's home directory (`HOME`, else `USERPROFILE`); none when it is unset or relative. The compile cache's
-/// home (`specforge_component::user_compile_cache_dir`) follows the same rule (ADR 0375 D5).
-pub fn user_home() -> Option<PathBuf> {
-    home_from(std::env::var_os("HOME"), std::env::var_os("USERPROFILE"))
-}
-
-/// [`user_home`] over the variables' values: `home` (`HOME`), else `profile` (`USERPROFILE`), absolute only.
-fn home_from(home: Option<OsString>, profile: Option<OsString>) -> Option<PathBuf> {
-    home.or(profile)
-        .map(PathBuf::from)
-        .filter(|home| home.is_absolute())
 }
 
 impl EffectJournal {
