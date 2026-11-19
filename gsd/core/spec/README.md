@@ -1,6 +1,6 @@
 # `@gsd/core` model
 
-**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the eighteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/W205` is judged by the phase researcher and `gsd/E202` and `gsd/W203` by the `spec_phase` prompt (r40)) the twelve kinds of [plan.md](plan.md) with their non-judged rules (r37) and the plan checker's four judged rules, owed while the plan is open, and the nine kinds of [execute.md](execute.md) with `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408` and the two collectors (r38); the fourteen kinds of [verify.md](verify.md) with their computed values, the scan pass and the rules and gate guards listed in [rules.md](rules.md) (r39; E501 is judged by the verifier (r40), each verdict over what it cites, and E501 and W525 are owed once the plan is complete; `re_verify` lists the verdicts that no longer hold, ADR 0377); the rest is being designed. Tracks gsd-core 1.19.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
+**Status: the foundation is built (the eight kinds of [project.md](project.md), the code book, the settings and the roadmap checks) and so are the eighteen kinds of [discuss.md](discuss.md) with the rules built so far (`gsd/E201`, `gsd/W204`, `gsd/E206`, `gsd/W406`; `gsd/W205` is judged by the phase researcher and `gsd/E202` and `gsd/W203` by the `spec_phase` prompt) the twelve kinds of [plan.md](plan.md) with their non-judged rules and the plan checker's four judged rules, owed while the plan is open, and the nine kinds of [execute.md](execute.md) with `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408` and the two collectors; the fourteen kinds of [verify.md](verify.md) with their computed values, the scan pass and the rules and gate guards listed in [rules.md](rules.md) (E501 is judged by the verifier, each verdict over what it cites, and E501 and W525 are owed once the plan is complete; `re_verify` lists the verdicts that are not fresh, ADR 0377); the rest is being designed. Tracks gsd-core 1.19.0.** The kinds, edges, settings and rules `@gsd/core` declares. Every GSD
 file of `.planning/` maps to kinds here or in a capability extension ([the file table](#every-gsd-file-maps-to-a-kind));
 nothing is kept as Markdown.
 
@@ -261,7 +261,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`specforge <ext> help <cmd>` is gone for every extension.** T17 turned off clap's `help` subcommand on an
   extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
   `specforge gsd help` lists the commands.
-- **What stays after K17.** A truth's gsd/E501 verdict reads what it cites, and a judgment-tier
+- **What stays.** A truth's gsd/E501 verdict reads what it cites, and a judgment-tier
   prohibition's gsd/W525 verdict its plan's files and what it cites (ADR 0377), so `record_verdict` refuses either one
   that cites no file of the project and no test, which could never go stale on a code change; an artifact's and a key
   link's read their own files. A must-have owes its verdict once its plan is complete and a plan check while its plan

@@ -1,4 +1,4 @@
-//! The judged rules (K7): one table, read by `declare` and by `record_verdict`. Each rule names the agent or prompt
+//! The judged rules: one table, read by `declare` and by `record_verdict`. Each rule names the agent or prompt
 //! that judges it, the outcomes a verdict may record, and what it reads of each target (`spec/rules.md`, "Judged
 //! rules' inputs").
 //!

@@ -122,10 +122,10 @@ unrecorded and unreadable count anywhere in the project; missing counts only wit
 scope, a judgement whose rule's judge the workflow itself runs is excused: an agent step of the workflow, or the
 workflow itself as `prompt:<id>`. The excusal is not transitive: a workflow it continues with (a prompt step, such as
 `mvp_phase` continuing with `plan_phase`) runs behind its own gate and excuses nothing at this one. Another extension's
-rule is never excused by a core workflow. One E516 is reported per entity and rule, naming the subject. The code is retitled "Verdict not fresh blocks
-the workflow", and its setting is renamed `specforge.verdict_gate`, with no alias.
+rule is never excused by a core workflow. One E516 is reported per entity and rule, naming the subject. The code is
+retitled "Verdict not fresh blocks the workflow", and its setting is renamed `specforge.verdict_gate`, with no alias.
 
-The reason: a verdict on record that no longer holds refuses every step, and the workflow that records a verdict is its
+The reason: a verdict on record that is not fresh refuses every step, and the workflow that records a verdict is its
 remedy, not its victim.
 
 ## Rejected

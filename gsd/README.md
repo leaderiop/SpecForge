@@ -205,7 +205,7 @@ ADR 0300 serves a commit's source files to the baseline, so `re_verification` re
 - **`specforge <ext> help <cmd>` is gone for every extension.** T17 turned off clap's `help` subcommand on an
   extension's command line (the extension's own `help` command shadowed it). Use `specforge <ext> <cmd> --help`;
   `specforge gsd help` lists the commands.
-- **What stays after K17.** A truth's gsd/E501 verdict reads what it cites, and a judgment-tier
+- **What stays.** A truth's gsd/E501 verdict reads what it cites, and a judgment-tier
   prohibition's gsd/W525 verdict its plan's files and what it cites (ADR 0377), so `record_verdict` refuses either one
   that cites no file of the project and no test, which could never go stale on a code change; an artifact's and a key
   link's read their own files. A must-have owes its verdict once its plan is complete and a plan check while its plan
