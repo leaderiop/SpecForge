@@ -23,7 +23,7 @@ pub mod smart_entry;
 mod state;
 pub(crate) mod support;
 mod thread_plan;
-pub(crate) use support::natural;
+pub(crate) use support::{id_order, natural};
 mod edge_probe;
 mod plan_coverage;
 mod surface;

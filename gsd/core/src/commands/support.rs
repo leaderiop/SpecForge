@@ -86,6 +86,13 @@ pub fn natural(id: &str) -> (String, u64) {
     (head.to_string(), number.parse().unwrap_or(0))
 }
 
+/// The one order of plan and task ids, and of every tie between them: as a person reads them (`01-2` before `01-10`,
+/// `T9` before `T10`), then the id itself, so two spellings of one number (`01-02`, `01-2`) still keep one order. For
+/// zero-padded ids of one width it is the ids' own order.
+pub fn id_order(id: &str) -> ((String, u64), &str) {
+    (natural(id), id)
+}
+
 /// `value`, given as `arg`, is as a person wrote it: refused when it holds a control character, never stripped.
 pub(super) fn plain(arg: &str, value: &str) -> Result<(), String> {
     match control(value) {
@@ -238,7 +245,7 @@ pub fn fields<const N: usize>(pairs: [(&str, Value); N]) -> BTreeMap<String, Val
 
 #[cfg(test)]
 mod tests {
-    use super::control;
+    use super::{control, id_order};
 
     #[test]
     fn a_control_character_is_found_but_a_line_feed_and_a_tab_are_not() {
@@ -248,5 +255,37 @@ mod tests {
         assert_eq!(control("two\nlines\tand tab"), None);
         assert_eq!(control("a\u{202e}b").as_deref(), Some("U+202E"));
         assert_eq!(control("a\u{2028}b").as_deref(), Some("U+2028"));
+    }
+
+    #[test]
+    fn ids_order_as_a_person_reads_them_then_by_themselves() {
+        let mut ids = [
+            "v/1/01-10",
+            "v/1/01-2",
+            "v/1/01-02",
+            "v/1/01-1",
+            "T10",
+            "T9",
+        ];
+        ids.sort_by_key(|id| id_order(id));
+        assert_eq!(
+            ids,
+            [
+                "T9",
+                "T10",
+                "v/1/01-1",
+                "v/1/01-02",
+                "v/1/01-2",
+                "v/1/01-10"
+            ]
+        );
+        let mut padded = ["v/1/01-10", "v/1/01-02", "v/1/01-01"];
+        padded.sort_by_key(|id| id_order(id));
+        let mut lexical = padded;
+        lexical.sort_unstable();
+        assert_eq!(
+            padded, lexical,
+            "zero-padded ids of one width keep their own order"
+        );
     }
 }

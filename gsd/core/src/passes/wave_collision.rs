@@ -2,11 +2,12 @@
 //! runs and behind which plan (ADR 0378 D2). It reads the placement of `waves::placed`, never a second level
 //! computation.
 //!
-//! The plan that binds a push is the one it runs after with the highest strict wave, ties to the smaller id. A direct
-//! push (the binding plan shares a path with it and is not one of its `depends_on`) names the shared paths, the
-//! earlier plan, the tasks of either plan that name those paths and both strict waves; a transitive push names the
-//! plan it depends on. A shared path is never exempted: `coupling_justified` covers only non-file coupling.
-//! `gsd/W305`, gsd-core's own check of the declared waves, co-fires on a same-wave collision and stays as it is.
+//! The plan that binds a push is the one it runs after with the highest strict wave, ties to the smaller id as a person
+//! reads it (`01-2` before `01-10`, the placement's own order). A direct push (the binding plan shares a path with it
+//! and is not one of its `depends_on`) names the shared paths, the earlier plan, the tasks of either plan that name
+//! those paths and both strict waves; a transitive push names the plan it depends on. A shared path is never exempted:
+//! `coupling_justified` covers only non-file coupling. `gsd/W305`, gsd-core's own check of the declared waves,
+//! co-fires on a same-wave collision, calls the same plan later and stays as it is.
 
 use std::cmp::Reverse;
 use std::collections::BTreeSet;
@@ -15,6 +16,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::plans::{of_kind, strings};
 use super::waves::{Placed, placed};
+use crate::commands::id_order;
 use crate::scope::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -30,10 +32,12 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// One W526 per plan of `placement` pushed past its wave, in plan id order.
+/// One W526 per plan of `placement` pushed past its wave, in [`id_order`].
 fn collisions(input: &PassInput, placement: &Placed) -> Vec<PassDiagnostic> {
+    let mut plans: Vec<(&str, i64)> = placement.strict.iter().map(|(p, s)| (*p, *s)).collect();
+    plans.sort_by_key(|(plan, _)| id_order(plan));
     let mut found = Vec::new();
-    for (&plan, &strict) in &placement.strict {
+    for (plan, strict) in plans {
         let wave = placement.wave[plan];
         if strict <= wave {
             continue;
@@ -43,7 +47,7 @@ fn collisions(input: &PassInput, placement: &Placed) -> Vec<PassDiagnostic> {
             .get(plan)
             .into_iter()
             .flatten()
-            .max_by_key(|p| (placement.strict[**p], Reverse(**p)))
+            .max_by_key(|p| (placement.strict[**p], Reverse(id_order(p))))
         else {
             continue;
         };

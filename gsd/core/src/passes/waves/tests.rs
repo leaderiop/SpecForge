@@ -699,3 +699,29 @@ fn a_negative_weight_counts_0_and_a_sum_saturates() {
         (ids(&["v/1/a", "v/1/b"]), 0)
     );
 }
+
+#[test]
+fn unpadded_ids_compare_as_a_person_reads_them() {
+    // `01-10` sorts before `01-2` as text: the earlier plan of the pair is still `01-2`, so `01-10` is pushed.
+    let sharing = graph(
+        vec![
+            modifying("v/1/01-10", &["src/a.js"]),
+            modifying("v/1/01-2", &["src/a.js"]),
+        ],
+        &[],
+    );
+    assert_eq!(
+        strict_of(&sharing),
+        [("v/1/01-10".into(), 2), ("v/1/01-2".into(), 1)]
+    );
+    assert_eq!(
+        placed(&sharing)[0].shared,
+        BTreeMap::from([(("v/1/01-10", "v/1/01-2"), paths(&["src/a.js"]))])
+    );
+    // Of two chains of one weight and length, the one ending at the smaller id as read wins.
+    let apart = input(&[("v/1/01-10", false), ("v/1/01-2", false)], &[], vec![]);
+    assert_eq!(
+        heaviest_of(&apart, &[("v/1/01-10", 2), ("v/1/01-2", 2)]),
+        (ids(&["v/1/01-2"]), 2)
+    );
+}

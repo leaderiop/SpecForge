@@ -30,10 +30,14 @@ in the kernel and on MCP, and every decision below is a computed value, a check 
 
 The computed `plan.strict_wave` is the longest-path level over the phase's `depends_on` edges plus an implied edge from
 the earlier plan to the later one for every pair of plans of the phase that share a path. The earlier plan is the one
-of smaller declared wave, then of smaller id. A plan's paths are its `files_modified`, its `files_deleted` and the
-`files` of each of its tasks: a task's file outside its plan's lists is only a warning under gsd-compat (`gsd/W306`),
-so the plan's lists alone would miss it. Paths compare as written, and a path holding a comma is one path. The strict
-wave has the same offset as `wave` (0 when a plan of the phase is `wave0`, else 1).
+of smaller declared wave, then of smaller id. Ids compare as a person reads them, by the number that ends them, then
+as written (`01-2` before `01-10`, `01-02` before `01-2`): the one id order of the strict wave, `gsd/W526`, `gsd/W305`,
+the critical path, `thread_plan` and `progress-report`, which for zero-padded ids of one width is their own order.
+
+A plan's paths are its `files_modified`, its `files_deleted` and the `files` of each of its tasks: a task's file outside
+its plan's lists is only a warning under gsd-compat (`gsd/W306`), so the plan's lists alone would miss it. Paths compare
+as written, and a path holding a comma is one path. The strict wave has the same offset as `wave` (0 when a plan of the
+phase is `wave0`, else 1).
 
 One level function serves both fields: `wave` is that function over the `depends_on` edges, `strict_wave` the same
 function over those edges and the implied ones. Every implied edge goes from a smaller (wave, id) to a larger one, so

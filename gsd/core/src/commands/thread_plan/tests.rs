@@ -166,3 +166,23 @@ fn the_text_names_each_plan_its_wave_and_its_tasks() {
          `specforge trace --plan <file>`\n"
     );
 }
+
+#[test]
+fn unpadded_plan_ids_thread_as_a_person_reads_them() {
+    let wave = json!({ "wave": 1, "strict_wave": 1 });
+    let mut nodes = vec![node("v1.0/01", "phase", json!({}))];
+    let mut edges = Vec::new();
+    for plan in ["v1.0/01/01-10", "v1.0/01/01-2", "v1.0/01/01-1"] {
+        nodes.push(node(plan, "plan", wave.clone()));
+        edges.push(edge(plan, "phase", "v1.0/01"));
+    }
+    let report = thread(&CommandGraph::new(nodes, edges), "v1.0/01").expect("a thread");
+    assert_eq!(
+        listed(&report),
+        pairs(&[
+            ("v1.0/01/01-1", "execute"),
+            ("v1.0/01/01-2", "execute"),
+            ("v1.0/01/01-10", "execute"),
+        ])
+    );
+}

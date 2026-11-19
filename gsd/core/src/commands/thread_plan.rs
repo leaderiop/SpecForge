@@ -3,7 +3,8 @@
 //!
 //! The answer is `{plan_id, entries: [{entity_id, action}]}`, exactly the kernel's `AgentPlan`: the plans whose `phase`
 //! edge targets the phase (a quick plan has none, so it is in no phase's thread), ordered by the computed
-//! `strict_wave` then by id, each followed by its tasks (the tasks whose `plan` edge targets it) by id. A plan's action
+//! `strict_wave` then by id as a person reads it, each followed by its tasks (the tasks whose `plan` edge targets it)
+//! in the same order: the one order of the placement, the critical path and `progress-report`. A plan's action
 //! is `execute`, a task's `implement`. The order satisfies `depends_on` (a plan's strict wave is past each plan it
 //! depends on) and `task.plan` by construction, so a gap `trace --plan` finds in the unedited answer comes from an
 //! edge the strict waves do not order, such as a coupling peer that runs later, and one in an edited list from the
@@ -15,12 +16,7 @@ use std::collections::BTreeMap;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, natural, node_in, required, run, target};
-
-/// An id's place in its list: as a person reads it (`T9` before `T10`), then the id itself.
-fn order(id: &str) -> ((String, u64), &str) {
-    (natural(id), id)
-}
+use super::support::{answer, id_order, node_in, required, run, target};
 
 /// The agent plan of the phase `phase` names (its full path, or the end of one no other phase shares).
 pub fn thread(graph: &CommandGraph, phase: &str) -> Result<Value, String> {
@@ -38,7 +34,7 @@ pub fn thread(graph: &CommandGraph, phase: &str) -> Result<Value, String> {
         };
         plans.push((wave, plan.id.as_str()));
     }
-    plans.sort_by_key(|&(wave, id)| (wave, order(id)));
+    plans.sort_by_key(|&(wave, id)| (wave, id_order(id)));
     let mut tasks: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for task in graph.nodes_of_kind("task") {
         if let Some(plan) = target(graph, &task.id, "plan") {
@@ -49,7 +45,7 @@ pub fn thread(graph: &CommandGraph, phase: &str) -> Result<Value, String> {
     for (_, plan) in plans {
         entries.push(json!({ "entity_id": plan, "action": "execute" }));
         let mut of_plan = tasks.remove(plan).unwrap_or_default();
-        of_plan.sort_by_key(|id| order(id));
+        of_plan.sort_by_key(|id| id_order(id));
         entries.extend(
             of_plan
                 .into_iter()

@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::value;
-use crate::commands::natural;
+use crate::commands::id_order;
 use crate::passes::plans::of_kind;
 use crate::passes::waves::{self, Placed};
 use crate::scope::scope_of;
@@ -24,7 +24,7 @@ pub fn values(input: &PassInput) -> Vec<PassValue> {
         tasks.entry(scope_of(&task.id)).or_default().push(&task.id);
     }
     for of_plan in tasks.values_mut() {
-        of_plan.sort_by_cached_key(|id| natural(id));
+        of_plan.sort_by_key(|id| id_order(id));
     }
     waves::placed(input)
         .iter()

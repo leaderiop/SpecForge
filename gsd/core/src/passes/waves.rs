@@ -9,7 +9,8 @@
 //! GSD's structure check demands of every conforming plan.
 //!
 //! The strict wave is the same level function over the `depends_on` edges plus an implied edge from the earlier plan
-//! (by wave, then id) to the later one of every pair of the phase that shares a path; `wave` never moves (ADR 0370 D1).
+//! (by wave, then id as a person reads it: `01-2` before `01-10`) to the later one of every pair of the phase that
+//! shares a path; `wave` never moves (ADR 0370 D1).
 //!
 //! Also ports gsd-core bin/lib modules: file-overlap-partitioner.cjs.
 
@@ -18,6 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::{of_kind, strings, touched};
+use crate::commands::id_order;
 use crate::scope::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -38,7 +40,8 @@ pub struct Placed<'a> {
     pub wave: BTreeMap<&'a str, i64>,
     /// The in-phase `depends_on` edges: the plans each plan names.
     pub depends: BTreeMap<&'a str, BTreeSet<&'a str>>,
-    /// The paths each pair shares, keyed `(later, earlier)` by (wave, id); a pair that shares nothing is absent.
+    /// The paths each pair shares, keyed `(later, earlier)` by (wave, [`id_order`]); a pair that shares nothing is
+    /// absent.
     pub shared: BTreeMap<(&'a str, &'a str), BTreeSet<String>>,
     /// The plans each plan runs after: its `depends` plus the earlier plan of every pair it shares a path in.
     pub before: BTreeMap<&'a str, BTreeSet<&'a str>>,
@@ -101,10 +104,11 @@ fn place<'a>(
         level.into_iter().map(|(id, l)| (id, l + offset)).collect()
     };
     let wave = shift(levels(&ids, &depends)?);
-    // The earlier plan of a pair is the one of smaller (wave, id). A `depends_on` edge already goes from a smaller wave
-    // to a larger one, so every edge of `before` does: the implied edges close no cycle, and `levels` places them all.
+    // The earlier plan of a pair is the one of smaller (wave, id order). A `depends_on` edge already goes from a smaller
+    // wave to a larger one, so every edge of `before` does: the implied edges close no cycle, and `levels` places them
+    // all.
     let mut order: Vec<&str> = ids.iter().copied().collect();
-    order.sort_by_key(|id| (wave[id], *id));
+    order.sort_by_key(|id| (wave[id], id_order(id)));
     let none = BTreeSet::new();
     let paths_of = |id: &str| paths.get(id).unwrap_or(&none);
     let mut shared = BTreeMap::new();
@@ -163,13 +167,14 @@ fn levels<'a>(
 ///
 /// One pass is enough: in (strict wave, id) order every plan a plan runs after has a smaller strict wave, so the best
 /// chain ending at it is final before the plan is reached. Two chains compare by weight, then by their number of plans,
-/// then by the smaller id (of the plan a chain extends, and of the plan it ends at). The length breaks a weight tie so
-/// that a plan of weight 0 after a chain stays on it: the path names every plan of the chain it weighs.
+/// then by the smaller id in [`id_order`] (of the plan a chain extends, and of the plan it ends at). The length breaks a
+/// weight tie so that a plan of weight 0 after a chain stays on it: the path names every plan of the chain it weighs.
 pub fn heaviest<'a>(placed: &Placed<'a>, weight: impl Fn(&'a str) -> i64) -> (Vec<&'a str>, i64) {
     type Best<'p> = ((i64, usize), &'p str);
-    let better = |a: Best<'_>, b: Best<'_>| a.0 > b.0 || (a.0 == b.0 && a.1 < b.1);
+    let better =
+        |a: Best<'_>, b: Best<'_>| a.0 > b.0 || (a.0 == b.0 && id_order(a.1) < id_order(b.1));
     let mut order: Vec<&'a str> = placed.plans.keys().copied().collect();
-    order.sort_by_key(|id| (placed.strict.get(id).copied(), *id));
+    order.sort_by_key(|id| (placed.strict.get(id).copied(), id_order(id)));
     // The (weight, plans) of the best chain ending at each plan, and the plan before it on that chain.
     let mut best: BTreeMap<&'a str, ((i64, usize), Option<&'a str>)> = BTreeMap::new();
     for id in order {

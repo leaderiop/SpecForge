@@ -175,3 +175,43 @@ fn a_cycle_and_a_quick_plan_report_nothing() {
     );
     assert!(check(&input).is_empty());
 }
+
+#[test]
+fn unpadded_ids_bind_and_push_as_a_person_reads_them() {
+    // In one wave: `01-10` shares a path with `01-2` and `01-4` with `01-3`, so `01-10` and `01-4`, each the later as
+    // read, are pushed to strict wave 2. `01-20` shares a path with all four: of the two at strict wave 2, `01-4`
+    // binds, though `01-10` sorts first as text.
+    let input = graph(
+        vec![
+            plan("v/1/01-2", &["src/a.js"]),
+            plan("v/1/01-10", &["src/a.js"]),
+            plan("v/1/01-3", &["src/c.js"]),
+            plan("v/1/01-4", &["src/c.js"]),
+            plan("v/1/01-20", &["src/a.js", "src/c.js"]),
+        ],
+        &[],
+    );
+    assert_eq!(
+        reported(&input),
+        [
+            (
+                "v/1/01-4".to_string(),
+                "plan 'v/1/01-4' shares 'src/c.js' with 'v/1/01-3' (no task names them): it runs in strict wave 2, \
+                 after 'v/1/01-3' in strict wave 1, not in its wave 1"
+                    .to_string()
+            ),
+            (
+                "v/1/01-10".to_string(),
+                "plan 'v/1/01-10' shares 'src/a.js' with 'v/1/01-2' (no task names them): it runs in strict wave \
+                 2, after 'v/1/01-2' in strict wave 1, not in its wave 1"
+                    .to_string()
+            ),
+            (
+                "v/1/01-20".to_string(),
+                "plan 'v/1/01-20' shares 'src/c.js' with 'v/1/01-4' (no task names them): it runs in strict wave \
+                 3, after 'v/1/01-4' in strict wave 2, not in its wave 1"
+                    .to_string()
+            ),
+        ]
+    );
+}

@@ -55,8 +55,8 @@ pub const PLAN: Kind = Kind::new(
         int("strict_wave").c().doc(
             "the wave the plan runs in once plans of its phase that share a path are kept apart: the longest \
              `depends_on` path plus, for each pair sharing a path in `files_modified`, `files_deleted` or a task's \
-             `files`, the earlier plan (by wave, then id) first; equals `wave` unless a shared path pushes it \
-             (gsd/W526); absent where `wave` is",
+             `files`, the earlier plan (by wave, then id as a person reads it: `01-2` before `01-10`) first; equals \
+             `wave` unless a shared path pushes it (gsd/W526); absent where `wave` is",
         ),
         bool("autonomous")
             .c()

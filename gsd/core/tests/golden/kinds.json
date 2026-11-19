@@ -2033,7 +2033,7 @@
           },
           {
             "default_value": null,
-            "description": "the task ids of the phase's heaviest chain of plans, in execution order: the chain follows `depends_on` and shared paths (the strict waves), each plan weighing its `estimate.tokens`, else its task count; of two chains of equal weight the longer wins, then the smaller plan id; absent when no plan has a strict wave or the chain names no task",
+            "description": "the task ids of the phase's heaviest chain of plans, in execution order: the chain follows `depends_on` and shared paths (the strict waves), each plan weighing its `estimate.tokens`, else its task count; of two chains of equal weight the longer wins, then the smaller plan id as a person reads it (`01-2` before `01-10`); absent when no plan has a strict wave or the chain names no task",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -4838,7 +4838,7 @@
           },
           {
             "default_value": null,
-            "description": "the wave the plan runs in once plans of its phase that share a path are kept apart: the longest `depends_on` path plus, for each pair sharing a path in `files_modified`, `files_deleted` or a task's `files`, the earlier plan (by wave, then id) first; equals `wave` unless a shared path pushes it (gsd/W526); absent where `wave` is",
+            "description": "the wave the plan runs in once plans of its phase that share a path are kept apart: the longest `depends_on` path plus, for each pair sharing a path in `files_modified`, `files_deleted` or a task's `files`, the earlier plan (by wave, then id as a person reads it: `01-2` before `01-10`) first; equals `wave` unless a shared path pushes it (gsd/W526); absent where `wave` is",
             "edge": null,
             "field_type": "integer",
             "inverse_of": null,

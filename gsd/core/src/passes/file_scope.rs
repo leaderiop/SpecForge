@@ -4,8 +4,9 @@
 //! W305: plans of one wave share no path in `files_modified ∪ files_deleted` (the planner's rule,
 //! `agents/gsd-planner.md:753-761`; execute-phase then runs the wave sequentially, `workflows/execute-phase.md:548-578`).
 //! The wave is the computed `plan.wave` (a check pass sees the snapshot merged with computed values); a plan with no
-//! wave (a quick plan, a phase with a cycle) is not compared. W306 is SpecForge's own: a task's files are among its
-//! plan's.
+//! wave (a quick plan, a phase with a cycle) is not compared; the later plan of a pair is the later by id as a person
+//! reads it (`01-2` before `01-10`), as the strict wave and gsd/W526 order it. W306 is SpecForge's own: a task's files
+//! are among its plan's.
 //!
 //! Also ports gsd-core bin/lib modules: write-set.cjs.
 
@@ -14,6 +15,7 @@ use std::collections::BTreeSet;
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::{of_kind, strings, touched};
+use crate::commands::id_order;
 use crate::scope::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -32,7 +34,7 @@ fn same_wave_overlap(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut plans: Vec<(&PassEntity, &str, BTreeSet<String>)> = of_kind(input, "plan")
         .filter_map(|p| Some((p, p.fields.get("wave")?.as_str(), touched(p))))
         .collect();
-    plans.sort_by(|a, b| a.0.id.cmp(&b.0.id));
+    plans.sort_by(|a, b| id_order(&a.0.id).cmp(&id_order(&b.0.id)));
     let mut found = Vec::new();
     for (at, (later, wave, paths)) in plans.iter().enumerate() {
         for (earlier, other_wave, other_paths) in &plans[..at] {

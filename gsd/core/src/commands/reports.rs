@@ -8,7 +8,7 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, natural, run, target};
+use super::support::{answer, id_order, run, target};
 
 /// The label `progress json` gives a phase status (`phase-status.cts`).
 pub(crate) fn label(status: &str) -> Option<&'static str> {
@@ -174,7 +174,7 @@ fn estimate_errors(graph: &CommandGraph, phase: &str) -> String {
         .nodes_of_kind("plan")
         .filter(|plan| target(graph, &plan.id, "phase") == Some(phase))
         .collect();
-    plans.sort_by_key(|plan| natural(&plan.id));
+    plans.sort_by_key(|plan| id_order(&plan.id));
     let mut lines = String::new();
     for plan in plans {
         let Some(error) = plan.fields.get("estimate_error") else {

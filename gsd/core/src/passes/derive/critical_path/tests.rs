@@ -151,3 +151,19 @@ fn a_negative_estimate_weighs_0() {
         fields("v/1", &["v/1/a/T1", "v/1/a/T2", "v/1/b/T1"], 2)
     );
 }
+
+#[test]
+fn of_two_chains_of_one_weight_the_smaller_id_as_read_names_the_path() {
+    // `01-2` and `01-10` weigh one task each and share nothing: the chain is `01-2`'s, though `01-10` sorts first as
+    // text.
+    let input = graph(
+        vec![
+            plan("v/1/01-10", None),
+            plan("v/1/01-2", None),
+            task("v/1/01-10/T1"),
+            task("v/1/01-2/T1"),
+        ],
+        &[],
+    );
+    assert_eq!(found(&input), fields("v/1", &["v/1/01-2/T1"], 1));
+}
