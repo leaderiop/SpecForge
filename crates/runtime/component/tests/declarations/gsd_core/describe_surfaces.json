@@ -196,6 +196,7 @@
             "specforge:query",
             "specforge:search",
             "specforge:trace",
+            "specforge:gsd.thread_plan",
             "specforge:find_implementation",
             "specforge:find_references",
             "specforge:validate",
@@ -342,6 +343,7 @@
             "specforge:query",
             "specforge:search",
             "specforge:trace",
+            "specforge:gsd.thread_plan",
             "specforge:find_implementation",
             "specforge:find_references",
             "specforge:validate",
@@ -386,7 +388,8 @@
             "specforge:context",
             "specforge:edit",
             "specforge:collect",
-            "specforge:gsd.phase"
+            "specforge:gsd.phase",
+            "specforge:gsd.thread_plan"
           ]
         },
         {
@@ -1701,6 +1704,20 @@
         {
           "args": [
             {
+              "arg_type": "string",
+              "description": "the phase whose plans and tasks to thread",
+              "name": "phase",
+              "required": true
+            }
+          ],
+          "description": "Answer a phase's plans and tasks in the order they run, as the agent plan the kernel checks: each plan by its strict wave then its id, followed by its tasks. Write `specforge gsd thread-plan <phase> --format json` to a file and run `specforge trace --plan <file>`: an entry before a plan or task it depends on is an ordering gap, an entry naming no entity is E003",
+          "export": "cmd__thread_plan",
+          "id": "thread_plan",
+          "title": ""
+        },
+        {
+          "args": [
+            {
               "arg_type": {
                 "enum": {
                   "values": [
@@ -2668,6 +2685,11 @@
               "agent": "gsd-planner",
               "id": "plan",
               "title": "Create the phase's plans"
+            },
+            {
+              "command": "thread_plan",
+              "id": "thread",
+              "title": "Check the plans' order with specforge trace --plan and fix an ok: false result before the check (specforge gsd thread-plan <phase> --format json)"
             },
             {
               "agent": "gsd-plan-checker",
