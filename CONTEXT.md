@@ -2023,3 +2023,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   person at a terminal and refuses an agent's call, on every surface, with `human_only` (ADR 0301).
 - **Install record**: `.specforge/install/<host>.json`, what `specforge install` created (directories, files and
   containers); uninstall removes only that (ADR 0306).
+- **Strict wave**: the wave a plan runs in once the plans of its phase that share a path are kept apart: a plan's
+  computed `strict_wave`, above its `wave` exactly where a shared path pushes it (gsd/W526). gsd-core's `wave` is the
+  declared one, from `depends_on` alone (ADR 0378).
+- **Critical path**: a phase's heaviest chain of plans through the strict waves, named task by task, with its weight
+  (`critical_path` and `critical_weight`): each plan weighs its estimated tokens, else its task count (ADR 0378).
+- **Estimate error**: a completed plan's (actual - estimate) / estimate for each quantity it estimated, tokens and
+  tasks (`estimate_error`); a member is absent where either side is (ADR 0378).

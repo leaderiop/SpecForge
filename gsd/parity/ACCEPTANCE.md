@@ -57,6 +57,12 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   where upstream re-verifies the whole phase. The taskboard twin shows it
   (`core/tests/cli/fresh_taskboard.rs`): an edit re-judges exactly the verdicts that read the edited file, and every
   other verdict stays byte-identical.
+- Plan flow, SpecForge's own, beyond upstream (ADR 0378): a plan's computed `strict_wave` keeps the plans of a phase
+  that share a path apart, where upstream runs such a wave sequentially (`gsd/W305`), and `gsd/W526` says where a pushed
+  plan runs; `plan_phase` threads a phase's plans through `thread_plan` and `specforge trace --plan` before the plan
+  checker; a phase computes its critical path and its weight, and a completed plan its estimate error, which
+  `progress_report` prints. The taskboard and ledger twins show it (`core/tests/cli/flow_taskboard.rs`): with a
+  dependency dropped, two plans that share a path run in different strict waves, and the thread still passes.
 
 ## `@gsd/security` 1.0.0 against gsd-core 1.19.0
 

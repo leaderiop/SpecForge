@@ -102,6 +102,10 @@ Scoped by milestone.
 | critical_path | strs | C | the task ids of the phase's heaviest chain of plans, in execution order: the chain follows `depends_on` and shared paths (the strict waves), each plan weighing its `estimate.tokens`, else its task count; of two chains of equal weight the longer wins, then the smaller plan id; absent when no plan has a strict wave or the chain names no task |
 | critical_weight | int | C | the weight of that chain: tokens and task counts summed as they come, so a phase with and without estimates mixes units |
 
+A phase's `critical_path` is the chain of its plans that weighs most once the strict waves place them, named task by
+task, and `critical_weight` is its weight: each plan's `estimate.tokens`, else its task count, so the sum mixes units
+when some plans estimate and others do not (ADR 0378).
+
 ## workstream
 
 GSD: `.planning/workstreams/<name>/`. A scope (K2): its milestones, phases and plans are unique within it.

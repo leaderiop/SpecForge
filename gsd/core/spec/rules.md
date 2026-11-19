@@ -135,6 +135,8 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   `gsd/E515` is built as a guard over the requirement's `proof`. `gsd/W403` reads the recorded commits.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is built (r41) and reads the items in `values`.
+- `gsd/W526` is built beside `gsd/W305` and `gsd/W306`: where `gsd/W305` reports two plans of one declared wave that share a
+  path, `gsd/W526` says where the later one runs instead, the plan's computed `strict_wave` (ADR 0378).
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
 
 - **Kernel behaviour the rules rely on.** The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297), and pairs an extension's finding by its subject (ADR 0302); a collector's plan is judged for host errors only (ADR 0303). The human-only guarantee holds for every existing entity of a human-only kind and against deleting a person's value (K17, ADR 0298): an agent cannot change an `override` or delete a `milestone_audit` that carries a `debt_accepted`.

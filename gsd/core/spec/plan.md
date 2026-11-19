@@ -1,6 +1,6 @@
 # Plans and tasks
 
-**Status: built: the nine kinds below, with their non-judged rules in [rules.md](rules.md); the plan checker's four judged rules (gsd/W311, W313, W315, W316) are built and owed while the plan is open, and a judgment-tier prohibition owes the verifier gsd/W525 once the plan is complete; the review ledger waits for a later round; `gap_closure` is built. `commits` is read back from `commit`; the derive pass computes `status` there, `draft` and `checked` from the plan-check verdicts.**
+**Status: built: the nine kinds below, with their non-judged rules in [rules.md](rules.md); the plan checker's four judged rules (gsd/W311, W313, W315, W316) are built and owed while the plan is open, and a judgment-tier prohibition owes the verifier gsd/W525 once the plan is complete; the review ledger waits for a later round; `gap_closure` is built. `commits` is read back from `commit`; the derive pass computes `status` there, `draft` and `checked` from the plan-check verdicts. The plan flow is SpecForge's own, beyond gsd-core (ADR 0378): the computed `strict_wave` and gsd/W526 keep plans that share a path apart, `plan_phase` threads a phase's plans through `trace --plan` before the checker, and `estimate_error` measures a completed plan's estimate.**
 
 ```
  phase ─1──*─ plan ─1──*─ task
@@ -53,6 +53,19 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | estimate_slices | int | C | `estimate.tokens` over `workflow.smart_zone_tokens`, rounded up (at least 1): over 1 is a re-slice the plan checker recommends, never a block; absent without an estimate or a budget |
 | estimate_error | {tokens num, tasks num} | C | (actual - estimate) / estimate for a plan whose summary (the first by id) is complete, case-folded (ADR 0378 D5), rounded half away from zero to 4 decimal places: `tasks` against the plan's task count (as the summary's `actuals.tasks` counts it), `tokens` against the summary's `actuals.tokens`, which nothing writes until a harness records it. Each member only when both sides exist and the estimate is above 0, and left out when it still keeps more than 15 significant digits (ADR 0361): absent, never 0, and no block when no member is measured. `progress-report` prints it under the plan's phase |
 | context_pack | {route str, digest str, max_tokens int} | P O | the `gsd/executor` pack `start_plan` recorded, on every call (ADR 0356); it moves no digest, so no plan check goes stale, and while the plan is open a pack that moved since is gsd/W524 |
+
+### Where a plan runs
+
+`wave` is gsd-core's executed wave and nothing about overlap moves it. `strict_wave` is where the plan runs once the
+plans of its phase that share a path are kept apart: it adds an edge from the earlier plan (by `wave`, then id) to the
+later one for every path the two share in `files_modified`, `files_deleted` or a task's `files`, so two tasks that touch
+one path never run in one wave. gsd/W526 says where a pushed plan runs instead of its wave: directly, naming the shared
+paths, the earlier plan and the tasks that name them, or through a plan it depends on, naming that plan.
+`coupling_justified` exempts no shared path. `plan_phase` threads the phase's plans through `specforge gsd thread-plan`
+and `specforge trace --plan` before the plan checker; the order of the tasks inside a plan is not checked (a task has
+no `depends_on`). Once the plan's summary is complete, `estimate_error` measures each quantity the plan estimated above
+0 against what it took: `tasks` against its task count, `tokens` against the summary's `actuals.tokens`, which stays
+unwritten until a harness records it. A member with either side missing is absent, never 0.
 
 ## task
 
