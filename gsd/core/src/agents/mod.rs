@@ -26,7 +26,8 @@ pub fn recording(agent: &str) -> String {
     }
     let truths = if codes.iter().any(|c| c == "`gsd/E501`") {
         "A verdict on a truth reads only what it cites: it must cite the files (or the tests) the truth is about, or \
-         it is refused.\n\n\
+         it is refused. A verdict on a prohibition reads its plan's files and what it cites: it must cite the files \
+         (or the tests) you checked it in, or it is refused.\n\n\
          On re-verification, first run `specforge gsd re-verify <phase> --stale-only` (the MCP tool \
          `specforge.gsd.re_verify`): it lists the verdicts of the phase that no longer hold (stale, missing, \
          unrecorded or unreadable), each with the inputs that changed and their selectors. Judge exactly what it \

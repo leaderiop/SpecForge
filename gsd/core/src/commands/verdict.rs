@@ -49,7 +49,7 @@ fn gates(verdict: &Proposed<'_>) -> Result<(), String> {
 }
 
 /// Whether a cited path names a file of the project: relative, with no `..` segment, no root, drive or backslash
-/// prefix. The host digests any path inside its read roots; this is only what a truth's citation must be.
+/// prefix. The host digests any path inside its read roots; this is only what a citation of code must be.
 fn in_project(path: &str) -> bool {
     let drive = matches!(path.as_bytes(), [letter, b':', ..] if letter.is_ascii_alphabetic());
     !path.is_empty()
@@ -58,16 +58,26 @@ fn in_project(path: &str) -> bool {
         && path.split(['/', '\\']).all(|segment| segment != "..")
 }
 
-/// A verdict on a truth (`gsd/E501`) reads only what it cites, so one that cites no file of the project and no test
-/// could never go stale on a code edit: refused, whatever its outcome.
-fn truth_cites(verdict: &Proposed<'_>) -> Result<(), String> {
+/// The judged rules whose verdict must cite code, by rule and target kind: a truth's `gsd/E501` verdict reads only
+/// what it cites, and a judgment-tier prohibition's `gsd/W525` judges code beyond its plan's own files. A verdict that
+/// cites no file of the project and no test could never go stale on an edit to the code it judged.
+const CITE_CODE: &[(&str, &str)] = &[("E501", "truth"), ("W525", "prohibition")];
+
+/// [`CITE_CODE`]: refused, whatever its outcome, unless the verdict cites a file of the project or a test.
+fn cites_code(verdict: &Proposed<'_>) -> Result<(), String> {
     let cites_code = verdict.cited.iter().any(|cite| match cite {
         Cite::File { file } => in_project(file),
         Cite::Test { .. } => true,
         Cite::Entity { .. } => false,
     });
-    if verdict.rule.code == "E501" && verdict.kind == "truth" && !cites_code {
-        Err("cited: a verdict on a truth must cite a file of the project or a test, or it can never go stale on a code edit".to_string())
+    let bound = CITE_CODE
+        .iter()
+        .any(|(code, kind)| verdict.rule.code == *code && verdict.kind == *kind);
+    if bound && !cites_code {
+        Err(format!(
+            "cited: a verdict on a {} must cite a file of the project or a test, or it can never go stale on a code edit",
+            verdict.kind
+        ))
     } else {
         Ok(())
     }
@@ -78,7 +88,7 @@ static RECORDER: Recorder = Recorder {
     namespace: "gsd",
     extension: "@gsd/core",
     table: JUDGED,
-    checks: &[gates as Check, truth_cites],
+    checks: &[gates as Check, cites_code],
 };
 
 #[cfg(test)]

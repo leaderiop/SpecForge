@@ -1,10 +1,15 @@
 //! `gsd/W525`: a judgment-tier prohibition (one that names no enforcing test) owes the verifier a verdict once its
-//! plan is complete, as upstream's probe marks such an item unverified until it is judged.
+//! plan is complete, as upstream's probe marks such an item unverified until it is judged. The verdict reads the plan's
+//! files and what it cites (ADR 0377), so an edit to either stales it.
 
 use super::harness::{Project, judged, project};
+use super::judged::state;
 
 /// The fixture's one prohibition: `verification judgment`, no `test`, on plan 02-01.
 const PROHIBITION: &str = "v1.0/02/02-01/PR1";
+
+/// What a verdict on [`PROHIBITION`] cites: the plan's one file, where the verifier checked it.
+const CITED: &str = r#"[{"file":"src/store.js"}]"#;
 
 /// The `verify` project with plan 02-01 executed: a summary with `status complete` completes it.
 fn executed() -> Project {
@@ -52,9 +57,68 @@ fn a_judgment_tier_prohibition_of_a_complete_plan_is_w525() {
 #[test]
 fn a_held_verdict_silences_w525() {
     let p = executed();
-    let run = p.record(PROHIBITION, "W525", "held", &[]);
+    let run = p.record(PROHIBITION, "W525", "held", &["--cited", CITED]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(w525(&p), []);
+}
+
+/// A prohibition judges code, so, as a truth's, a verdict that cites no file of the project and no test is refused,
+/// whatever its outcome, and nothing is written.
+#[test]
+fn a_prohibition_verdict_that_cites_no_code_is_refused() {
+    let p = executed();
+    let spec = p.read("spec/plans.spec");
+    for (outcome, extra) in [
+        ("held", &[][..]),
+        ("violated", &["--cited", "[]"][..]),
+        (
+            "unverified",
+            &["--cited", r#"[{"entity":"v1.0/02/02-01"}]"#][..],
+        ),
+    ] {
+        let run = p.record(PROHIBITION, "W525", outcome, extra);
+        assert_ne!(run.code, 0, "{outcome}: {}", run.all());
+        assert!(
+            run.all()
+                .contains("a verdict on a prohibition must cite a file of the project or a test"),
+            "{outcome}: {}",
+            run.all()
+        );
+    }
+    assert_eq!(p.read("spec/plans.spec"), spec, "nothing is written");
+}
+
+/// The verdict reads the plan's files, so an edit anywhere in the plan's change stales it, though the verdict cites
+/// another file; and it reads what it cites, so an edit to a cited file outside the plan stales it too.
+#[test]
+fn an_edit_to_the_plans_files_or_to_a_cited_file_stales_w525() {
+    let p = executed();
+    let names: Vec<String> = p.inputs(PROHIBITION, "W525")["inputs"]
+        .as_array()
+        .expect("inputs")
+        .iter()
+        .filter_map(|i| Some(i["name"].as_str()?.to_string()))
+        .collect();
+    assert_eq!(names, ["prohibition", "plan", "phase", "files"]);
+    let cites_tasks = r#"[{"file":"src/tasks.js"}]"#;
+    let run = p.record(PROHIBITION, "W525", "held", &["--cited", cites_tasks]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(state(&p, PROHIBITION, "W525"), ("fresh".to_string(), true));
+    p.write(
+        "src/store.js",
+        &format!("{}\n// edited\n", p.read("src/store.js")),
+    );
+    let inputs = p.inputs(PROHIBITION, "W525");
+    assert_eq!(inputs["verdict"]["state"], "stale", "{inputs:#}");
+    assert_eq!(inputs["verdict"]["changed"], serde_json::json!(["files"]));
+    let run = p.record(PROHIBITION, "W525", "held", &["--cited", cites_tasks]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    p.write(
+        "src/tasks.js",
+        &format!("{}\n// edited\n", p.read("src/tasks.js")),
+    );
+    let inputs = p.inputs(PROHIBITION, "W525");
+    assert_eq!(inputs["verdict"]["changed"], serde_json::json!(["cited"]));
 }
 
 #[test]
@@ -85,6 +149,8 @@ fn a_violated_or_unverified_w525_verdict_is_the_rules_finding() {
             &[
                 "--findings",
                 r#"[{"severity": "warning", "message": "the store writes in place"}]"#,
+                "--cited",
+                CITED,
             ],
         );
         assert_eq!(run.code, 0, "{outcome}: {}", run.all());

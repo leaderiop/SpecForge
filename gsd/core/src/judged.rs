@@ -97,13 +97,17 @@ const E501: &[Target] = &[
 ];
 
 // A prohibition that names its enforcing `test` is E319's and the test's; one that names none is judged, upstream's
-// fail-closed rule for a judgment-tier item. A model's verdict is not authoritative, so its rule is a warning.
+// fail-closed rule for a judgment-tier item. A model's verdict is not authoritative, so its rule is a warning. A
+// prohibition judges its plan's whole change ("no code of the plan does X"), so its verdict reads the plan's files and,
+// as a truth's, what it cites (`record_verdict` refuses one that cites no code): an edit anywhere in the plan's change,
+// or to another file the verifier read, stales it.
 const W525: &[Target] = &[Target {
     kind: "prohibition",
     inputs: &[
         ("prohibition", "self"),
         ("plan", "self.plan"),
         ("phase", "self.plan.phase"),
+        ("files", "file(self.plan.files_modified)"),
     ],
     unless_set: &["test"],
     judged_while: Some(Owed::Complete),

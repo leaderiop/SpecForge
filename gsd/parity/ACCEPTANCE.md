@@ -52,7 +52,7 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
 - Verification: the verifier's `gsd/E501` verdict on a truth reads what it cites, files and tests, and one that cites
   nothing is refused; an artifact's reads its `path` and a key link's its `from` and `to` (ADR 0377). A must-have owes
   its verdict once its plan is complete, a plan check while its plan is open, and a judgment-tier prohibition owes
-  `gsd/W525`. `re_verify` lists the verdicts of a phase that no longer hold, and `execute_phase` runs it before the
+  `gsd/W525`, read over its plan's files and what it cites, and refused when it cites nothing. `re_verify` lists the verdicts of a phase that no longer hold, and `execute_phase` runs it before the
   verifier, which judges only those, where upstream re-verifies the whole phase. The taskboard twin shows it
   (`core/tests/cli/fresh_taskboard.rs`): an edit re-judges exactly the verdicts that read the edited file, and every
   other verdict stays byte-identical.

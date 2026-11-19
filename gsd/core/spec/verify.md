@@ -40,9 +40,11 @@ it would be judged the same again. Upstream re-verifies the whole phase. Under g
 also refuses every workflow step but the one that judges it (gsd/E516, [rules.md](rules.md)).
 
 **Prohibitions.** A judgment-tier prohibition, one that names no enforcing `test`, owes the verifier a verdict once its
-plan is complete (gsd/W525: `held`, `violated` or `unverified`, passing `held`), over the prohibition, its plan and its
-phase. It is a warning: a model's verdict on a prohibition is not authoritative, where upstream halts or marks it
-unverified. A prohibition that names its test is gsd/E319's and the test's, never judged.
+plan is complete (gsd/W525: `held`, `violated` or `unverified`, passing `held`), over the prohibition, its plan, its
+phase, the plan's `files_modified` and what the verdict cites: a prohibition judges the plan's whole change, and the
+verdict must cite the files (or tests) it was checked in, as a truth's must, so an edit to either stales it. It is a
+warning: a model's verdict on a prohibition is not authoritative, where upstream halts or marks it unverified. A
+prohibition that names its test is gsd/E319's and the test's, never judged.
 
 | GSD per-item status | Here |
 |---|---|

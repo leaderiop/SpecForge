@@ -91,7 +91,13 @@ refusals and output word for word the same.
 ## D6. Three more judged rules
 
 - `gsd/W525`: a judgment-tier prohibition owes the verifier a verdict. A warning, `unless_set test` (a prohibition
-  that names its enforcing test is checked by that test), judged once its plan is complete.
+  that names its enforcing test is checked by that test), judged once its plan is complete. A prohibition judges its
+  plan's whole change ("no code of the plan does X"), so its target reads `files`
+  `file(self.plan.files_modified)` beside the prohibition, its plan and its phase, the plan-wide input D1 removes from
+  a truth, whose text is about some files of the plan only. The verdict also reads what it cites, and the verdict
+  command refuses one that cites no file of the project and no test, as it refuses a truth's: what a prohibition
+  forbids may appear in code outside the plan's list, and the verifier cites where it looked. An edit to the plan's
+  files or to a cited file stales it.
 - `gsd.security/W302`: a closed threat's disposition holds over its `files`, judged by the prompt `secure_phase`, once
   the threat is closed. An edit to a file the threat names stales exactly the threats naming it.
 - `gsd.security/W303`: a phase's threat flags are judged against its threat register, by the prompt `secure_phase`.
