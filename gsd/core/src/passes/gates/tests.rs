@@ -240,40 +240,65 @@ fn a_summary_subject_scopes_its_plan_and_w404_names_the_summary() {
     );
 }
 
-#[test]
-fn an_executed_plans_stale_plan_check_does_not_count_but_another_stale_verdict_does() {
-    let entities = |summary: bool, rule: &str| {
-        let completed = json!({ "completed": "2026-10-29T10:00:00Z" });
-        let mut all = vec![
-            json!({ "id": "v1.0/01", "kind": "phase" }),
-            json!({ "id": "v1.0/01/01-01", "kind": "plan",
-                    "judgements": [{ "rule": rule, "state": "stale", "passed": false }] }),
-        ];
-        if summary {
-            all.push(json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary", "fields": completed }));
-        }
-        input(ship(None), all, phase_edge())
-    };
-    // A summary that is only created (no `completed`) is not an execution: the entry gate still refuses.
-    let created = input(
+/// A plan with `status` and, beside it, a summary that says `completed` or not, holding `judgements` as the host
+/// settled them.
+fn owned(status: &str, completed: bool, judgements: Value) -> PassInput {
+    let mut summary = json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" });
+    if completed {
+        summary["fields"] = json!({ "completed": "2026-10-29T10:00:00Z" });
+    }
+    input(
         ship(None),
         vec![
             json!({ "id": "v1.0/01", "kind": "phase" }),
-            json!({ "id": "v1.0/01/01-01", "kind": "plan",
-                    "judgements": [{ "rule": "gsd/W313", "state": "stale", "passed": false }] }),
-            json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" }),
+            json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "status": status },
+                    "judgements": judgements }),
+            summary,
         ],
         phase_edge(),
+    )
+}
+
+#[test]
+fn a_complete_plans_settled_away_plan_check_is_not_reported() {
+    // The plan check of a complete plan is not owed, so the host settles it away: nothing to count, whatever a summary
+    // says.
+    for completed in [true, false] {
+        let complete = owned("complete", completed, json!([]));
+        assert!(w318(&complete).is_empty());
+        assert!(e516(&complete).is_empty());
+    }
+}
+
+#[test]
+fn a_halted_plans_stale_plan_check_still_counts() {
+    // A summary that says `completed` does not make an executed plan: only the plan's `status` does, and a halted plan
+    // is open, so its plan check is owed and its stale one counts.
+    let stale = json!([{ "rule": "gsd/W313", "state": "stale", "passed": false }]);
+    for status in ["halted", "executing", "checked"] {
+        let open = owned(status, true, stale.clone());
+        assert_eq!(codes(w318(&open)), ["W318"], "{status}");
+        assert_eq!(codes(e516(&open)), ["E516"], "{status}");
+    }
+}
+
+#[test]
+fn another_rules_stale_judgement_counts_for_e516_on_any_entity() {
+    let stale = |rule: &str| json!([{ "rule": rule, "state": "stale", "passed": false }]);
+    // A complete plan carrying another rule's stale judgement (the host keeps what is owed).
+    assert_eq!(
+        codes(e516(&owned("complete", true, stale("gsd/E518")))),
+        ["E516"]
     );
-    assert_eq!(codes(w318(&created)), ["W318"]);
-    assert_eq!(codes(e516(&created)), ["E516"]);
-    assert_eq!(codes(w318(&entities(false, "gsd/W313"))), ["W318"]);
-    assert_eq!(codes(e516(&entities(false, "gsd/W313"))), ["E516"]);
-    // A plan that has run: its plan-check verdict is history.
-    assert!(w318(&entities(true, "gsd/W313")).is_empty());
-    assert!(e516(&entities(true, "gsd/W313")).is_empty());
-    // Any other judgement of it still counts.
-    assert_eq!(codes(e516(&entities(true, "gsd/E501"))), ["E516"]);
+    let truth = input(
+        ship(None),
+        vec![json!({ "id": "v1.0/01/01-01/TR1", "kind": "truth",
+                     "judgements": stale("gsd/E501") })],
+        vec![],
+    );
+    assert_eq!(codes(e516(&truth)), ["E516"]);
+    // W318 is the plan checks' alone: a truth is no plan.
+    assert!(w318(&truth).is_empty());
 }
 
 #[test]

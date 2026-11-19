@@ -8,6 +8,10 @@
 //! runs them through the SDK's MockHost.
 //!
 //! The scope of a gate is its subject (a phase, or a milestone and so its phases) or, with none, the whole project.
+//!
+//! W318 and E516 read the settled judgements alone: a judged target declares when its verdict is owed (a plan check
+//! while its plan is open, a must-have once its plan is complete), and the host settles away the rest, so no guard
+//! decides for itself whether a plan was executed.
 
 use std::collections::BTreeSet;
 
@@ -188,32 +192,15 @@ fn plans_in<'a>(input: &'a PassInput, subject: Option<&str>) -> Vec<&'a PassEnti
         .collect()
 }
 
-/// Whether `entity` has a stale judgement that counts at a gate. A plan-check verdict (W311, W313, W315, W316) of a
-/// plan whose summary is `completed` is history: the plan check judges a plan before it runs, and answering a checkpoint or
-/// confirming a setup mid-execution changes the digest it was recorded over (U33). The judgement itself stays stale.
-fn stale(input: &PassInput, entity: &PassEntity) -> bool {
-    // Executed means a summary with `completed` (as E517): a summary merely created before the run is not one.
-    let executed = entity.kind == "plan"
-        && of_kind(input, "summary")
-            .any(|s| scope_of(&s.id) == entity.id && s.fields.contains_key("completed"));
-    entity.judgements.iter().any(|j| {
-        let plan_check = j
-            .rule
-            .strip_prefix("gsd/")
-            .and_then(crate::judged::get)
-            .is_some_and(|r| r.judge == "gsd-plan-checker");
-        j.state == "stale" && !(executed && plan_check)
-    })
-}
-
-/// W318: a plan's plan-check verdict is stale.
+/// W318: a plan's plan-check verdict is stale. Its settled judgements hold a plan check only while it is owed (the
+/// plan is open, ADR 0377), so an executed plan's stale one is not there.
 fn w318(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input) else {
         return Vec::new();
     };
     plans_in(input, subject)
         .into_iter()
-        .filter(|p| stale(input, p))
+        .filter(|p| p.judgements.iter().any(|j| j.state == "stale"))
         .map(|p| {
             refuse(
                 "W318",
@@ -303,7 +290,7 @@ fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
     found
 }
 
-/// E516: no stale verdict is in scope.
+/// E516: no stale verdict is in scope, among the judgements owed now (the settled ones).
 fn e516(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input) else {
         return Vec::new();
@@ -311,7 +298,7 @@ fn e516(input: &PassInput) -> Vec<PassDiagnostic> {
     input
         .entities
         .iter()
-        .filter(|e| stale(input, e))
+        .filter(|e| e.judgements.iter().any(|j| j.state == "stale"))
         .map(|e| {
             // The host keeps a gate diagnostic only within the subject's scope: name the subject, so a stale
             // verdict anywhere refuses a scoped gate. The stale entity stays in the message.
