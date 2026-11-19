@@ -94,5 +94,8 @@ From `capabilities/security/capability.json`, answered by `security_hooks`:
 ## Prompt and agent
 
 `/gsd-secure-phase` is the prompt `secure_phase` (steps: the agent `gsd-security-auditor`, the command
-`record_security_audit`, the command `accept_risk`); the auditor is return-only (#2119): the orchestrator writes the
-audit with `record_security_audit`.
+`record_security_audit`, the command `record_security_verdict`, the command `accept_risk`); the auditor is return-only
+(#2119): the orchestrator writes the audit with `record_security_audit` and, the prompt being the judge of
+`gsd.security/W302`, each closed threat's verdict with `record_security_verdict`. The closing section lists the closed
+threats of the phase whose W302 verdict is not fresh (missing, stale, unrecorded or unreadable), so a re-run judges
+only those.
