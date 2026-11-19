@@ -28,7 +28,7 @@ fn fourth_plan(depends: &str, modified: &str) -> String {
 }
 
 /// The cycle of `plan_rules::plan_cycle_is_e102`: 01-01 and 01-02 depend on each other.
-fn with_a_cycle() -> Project {
+pub(super) fn with_a_cycle() -> Project {
     let p = project("plan");
     p.edit(
         "spec/plans.spec",
