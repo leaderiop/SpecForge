@@ -66,7 +66,7 @@ fn truth_cites(verdict: &Proposed<'_>) -> Result<(), String> {
         Cite::Test { .. } => true,
         Cite::Entity { .. } => false,
     });
-    if verdict.rule.code == "E501" && verdict.kind == Some("truth") && !cites_code {
+    if verdict.rule.code == "E501" && verdict.kind == "truth" && !cites_code {
         Err("cited: a verdict on a truth must cite a file of the project or a test, or it can never go stale on a code edit".to_string())
     } else {
         Ok(())

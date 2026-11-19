@@ -12,6 +12,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{Cite, Verdict};
 
 use super::{Judged, get};
+use crate::spelling::find;
 
 /// Every refusal of the command: `invalid_input`, exit 1.
 const INVALID: &str = "invalid_input";
@@ -31,11 +32,11 @@ pub struct Recorder {
 
 /// A verdict the command was asked to record, as its checks see it.
 pub struct Proposed<'a> {
-    /// The entity, as the caller named it.
+    /// The entity's path: the one entity the caller's spelling names, read as the host reads it
+    /// ([`crate::spelling::find`]). The verdict is recorded on this path, so the checks judge the entity it lands on.
     pub entity: &'a str,
-    /// The entity's kind in the command's graph: its exact path, else the one node of a kind the rule targets whose
-    /// path ends with `/<entity>`; none when neither names one node (the host refuses that verdict).
-    pub kind: Option<&'a str>,
+    /// The entity's kind, one the rule targets.
+    pub kind: &'a str,
     pub rule: &'static Judged,
     pub outcome: &'a str,
     pub values: &'a BTreeMap<String, Value>,
@@ -58,21 +59,28 @@ fn json<T>(
     }
 }
 
-/// The kind of the entity `id` names for `rule`, as [`Proposed::kind`] says.
-fn kind_of<'a>(call: &CommandCall<'a>, rule: &Judged, id: &str) -> Option<&'a str> {
-    let graph = call.graph();
-    if let Some(node) = graph.node(id) {
-        return Some(node.kind.as_str());
+/// The entity `spelling` names, of a kind `rule` judges: refused when it names none, several, or one of another kind.
+/// Failing closed here is what keeps a per-rule check from passing a spelling it could not read.
+fn judged_entity<'a>(
+    call: &CommandCall<'a>,
+    namespace: &str,
+    rule: &Judged,
+    spelling: &str,
+) -> Result<&'a GraphNode, String> {
+    let node = find(call.graph(), spelling)
+        .one(spelling)
+        .map_err(|why| format!("entity: {why}"))?;
+    if rule.targets.iter().any(|t| t.kind == node.kind) {
+        return Ok(node);
     }
-    let tail = format!("/{id}");
-    let mut found = graph
-        .nodes()
-        .iter()
-        .filter(|n| rule.targets.iter().any(|t| t.kind == n.kind) && n.id.ends_with(&tail));
-    match (found.next(), found.next()) {
-        (Some(one), None) => Some(one.kind.as_str()),
-        _ => None,
-    }
+    let kinds: Vec<&str> = rule.targets.iter().map(|t| t.kind).collect();
+    Err(format!(
+        "entity: '{}' is a {}, which {namespace}/{} does not judge (it judges: {})",
+        node.id,
+        node.kind,
+        rule.code,
+        kinds.join(", ")
+    ))
 }
 
 fn record(call: &CommandCall<'_>, recorder: &Recorder) -> Result<CommandOutput, String> {
@@ -99,9 +107,10 @@ fn record(call: &CommandCall<'_>, recorder: &Recorder) -> Result<CommandOutput, 
     let cited: Vec<Cite> = json(call, "cited", Vec::new(), |t| serde_json::from_str(t))?;
     let values: BTreeMap<String, Value> =
         json(call, "values", BTreeMap::new(), |t| serde_json::from_str(t))?;
+    let node = judged_entity(call, ns, rule, entity)?;
     let proposed = Proposed {
-        entity,
-        kind: kind_of(call, rule, entity),
+        entity: &node.id,
+        kind: &node.kind,
         rule,
         outcome,
         values: &values,
@@ -112,7 +121,7 @@ fn record(call: &CommandCall<'_>, recorder: &Recorder) -> Result<CommandOutput, 
     }
     let mut plan = call.plan();
     plan.set_verdict(Verdict {
-        entity: entity.to_string(),
+        entity: node.id.clone(),
         rule: format!("{ns}/{code}"),
         outcome: outcome.to_string(),
         judge: rule.judge.to_string(),
@@ -123,7 +132,7 @@ fn record(call: &CommandCall<'_>, recorder: &Recorder) -> Result<CommandOutput, 
         basis,
     });
     Ok(
-        CommandOutput::ok(format!("verdict {ns}/{code} {outcome} on {entity}\n"))
+        CommandOutput::ok(format!("verdict {ns}/{code} {outcome} on {}\n", node.id))
             .with_plan(plan.finish()),
     )
 }

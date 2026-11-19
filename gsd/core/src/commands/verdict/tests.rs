@@ -26,7 +26,7 @@ fn a_project_path_is_relative_and_stays_inside() {
 
 fn proposed<'a>(
     code: &str,
-    kind: Option<&'a str>,
+    kind: &'a str,
     outcome: &'a str,
     values: &'a BTreeMap<String, Value>,
     cited: &'a [Cite],
@@ -57,8 +57,8 @@ fn only_a_truths_e501_verdict_must_cite_code() {
         (&outside, "failed"),
         (&entity, "verified"),
     ] {
-        let why = truth_cites(&proposed("E501", Some("truth"), outcome, &values, cited))
-            .expect_err("refused");
+        let why =
+            truth_cites(&proposed("E501", "truth", outcome, &values, cited)).expect_err("refused");
         assert!(
             why.contains("must cite a file of the project or a test"),
             "{why}"
@@ -69,10 +69,10 @@ fn only_a_truths_e501_verdict_must_cite_code() {
         test: "test/tasks.test.js#adds".to_string(),
     }];
     for cited in [&inside[..], &test] {
-        assert!(truth_cites(&proposed("E501", Some("truth"), "verified", &values, cited)).is_ok());
+        assert!(truth_cites(&proposed("E501", "truth", "verified", &values, cited)).is_ok());
     }
     // An artifact and a key link read their own files; another rule binds no citation.
     for (code, kind) in [("E501", "artifact"), ("E501", "key_link"), ("W311", "plan")] {
-        assert!(truth_cites(&proposed(code, Some(kind), "verified", &values, none)).is_ok());
+        assert!(truth_cites(&proposed(code, kind, "verified", &values, none)).is_ok());
     }
 }

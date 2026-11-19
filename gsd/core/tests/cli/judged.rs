@@ -225,7 +225,7 @@ fn an_unknown_rule_is_refused() {
     let run = p.run(&["gsd", "record-verdict", PLAN, "W999", "passed", "m", &basis]);
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("W999"), "{}", run.all());
-    // a judged rule the entity's kind is not a target of
+    // a judged rule the entity's kind is not a target of: the command refuses it before the host would
     let run = p.run(&[
         "gsd",
         "record-verdict",
@@ -237,8 +237,9 @@ fn an_unknown_rule_is_refused() {
     ]);
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(
-        run.all()
-            .contains("is not an entity the rule 'gsd/W311' judges"),
+        run.all().contains(
+            "'v1.0/01/01-02/TR1' is a truth, which gsd/W311 does not judge (it judges: plan)"
+        ),
         "{}",
         run.all()
     );

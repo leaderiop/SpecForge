@@ -68,6 +68,69 @@ fn a_truth_verdict_that_cites_no_code_is_refused() {
     assert_eq!(p.read("spec/plans.spec"), spec, "nothing is written");
 }
 
+/// The command reads the entity's spelling as the host does (ADR 0284, ADR 0315): a rooted path or a zero-padded number
+/// names the truth too, so the uncited verdict is refused under every spelling, never recorded because the command could
+/// not tell it was a truth. A cited one is recorded on the truth's path, whatever the spelling.
+#[test]
+fn every_spelling_of_a_truth_is_held_to_its_citation() {
+    let p = bare();
+    let truth = "v1.0/01/01-01/TR1";
+    let basis = p.inputs(truth, "E501")["basis"].to_string();
+    let spec = p.read("spec/plans.spec");
+    let spellings = [
+        "/v1.0/01/01-01/TR1",
+        "v1.0/1/01-01/TR1",
+        "/v1.0/001/01-01/TR1",
+        "1/01-01/TR1",
+    ];
+    for spelling in spellings {
+        let run = p.record_over(spelling, "E501", "verified", &basis, &[]);
+        assert_ne!(run.code, 0, "{spelling}: {}", run.all());
+        assert!(
+            run.all()
+                .contains("a verdict on a truth must cite a file of the project or a test"),
+            "{spelling}: {}",
+            run.all()
+        );
+    }
+    assert_eq!(p.read("spec/plans.spec"), spec, "nothing is written");
+    let run = p.record(
+        "/v1.0/1/01-01/TR1",
+        "E501",
+        "verified",
+        &["--cited", r#"[{"file":"src/tasks.js"}]"#],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        run.stdout
+            .contains("verdict gsd/E501 verified on v1.0/01/01-01/TR1"),
+        "{}",
+        run.all()
+    );
+    assert_eq!(state(&p, truth, "E501"), ("fresh".to_string(), true));
+}
+
+/// A spelling that names no entity, several, or one the rule does not judge is the command's own refusal.
+#[test]
+fn a_verdict_on_an_entity_the_command_cannot_resolve_is_refused() {
+    let p = bare();
+    for (spelling, why) in [
+        (
+            "/01-01/TR1",
+            "entity: '/01-01/TR1' names no entity of the project",
+        ),
+        ("TR1", "entity: 'TR1' is ambiguous: "),
+        (
+            "v1.0/01/01-01",
+            "entity: 'v1.0/01/01-01' is a plan, which gsd/E501 does not judge (it judges: truth, artifact, key_link)",
+        ),
+    ] {
+        let run = p.record_over(spelling, "E501", "verified", "{}", &[]);
+        assert_ne!(run.code, 0, "{spelling}: {}", run.all());
+        assert!(run.all().contains(why), "{spelling}: {}", run.all());
+    }
+}
+
 /// A truth's verdict citing a file of the project, or only a test, records; an artifact's needs no citation (it reads
 /// the file it names).
 #[test]

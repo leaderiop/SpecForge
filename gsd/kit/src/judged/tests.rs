@@ -142,12 +142,13 @@ static BOUND: &[Judged] = &[
     },
 ];
 
-/// Refuses a `broken` W901 on a `thing` whose kind the command resolved, with the kind it saw.
+/// Refuses a `broken` W901, naming the entity and the kind the command resolved.
 fn no_broken_thing(verdict: &Proposed<'_>) -> Result<(), String> {
     if verdict.rule.code == "W901" && verdict.outcome == "broken" {
         return Err(format!(
-            "outcome: refused on {:?} citing {}",
+            "outcome: refused on the {} {} citing {}",
             verdict.kind,
+            verdict.entity,
             verdict.cited.len()
         ));
     }
@@ -228,12 +229,12 @@ fn a_table_that_binds_no_value_names_no_example() {
 }
 
 fn called(args: Value) -> CommandOutput {
-    let nodes = ["p/things/T1", "p/things/T2", "q/other/T1"]
+    let nodes = ["p/01/T1", "p/01/T2", "q/02/T1"]
         .iter()
         .map(|id| GraphNode {
             id: (*id).to_string(),
             kind: if id.starts_with("q/") {
-                "other"
+                "note"
             } else {
                 "thing"
             }
@@ -313,28 +314,54 @@ fn a_json_argument_that_does_not_parse_is_refused_by_its_name() {
 }
 
 #[test]
-fn a_check_refuses_with_its_own_text_and_sees_the_resolved_kind() {
+fn a_check_refuses_with_its_own_text_and_sees_the_resolved_entity() {
     let mut call = args("T2", "W901", "broken", "{}");
     call["cited"] = json!(r#"[{"file": "src/a.rs"}]"#);
     let why = refusal(call);
     assert!(
-        why.contains(r#"outcome: refused on Some("thing") citing 1"#),
+        why.contains("outcome: refused on the thing p/01/T2 citing 1"),
         "{why}"
     );
-    // `T1` ends two paths, but only one is of a kind the rule targets.
-    assert!(refusal(args("T1", "W901", "broken", "{}")).contains(r#"Some("thing")"#));
-    assert!(refusal(args("p/things/T2", "W901", "broken", "{}")).contains(r#"Some("thing")"#));
-    assert!(refusal(args("T9", "W901", "broken", "{}")).contains("None"));
+    // Every spelling the host reads names the same entity: its path, rooted or not, a suffix, a padded number.
+    for spelling in ["p/01/T2", "/p/01/T2", "01/T2", "p/1/T2", "/p/001/T2"] {
+        let why = refusal(args(spelling, "W901", "broken", "{}"));
+        assert!(why.contains("on the thing p/01/T2 "), "{spelling}: {why}");
+    }
+}
+
+/// The command reads a spelling as the host does and fails closed: a spelling that names no entity, several, or one of
+/// a kind the rule does not judge is refused before any check runs, so no check passes an entity it could not read.
+#[test]
+fn an_entity_the_command_cannot_resolve_to_a_target_is_refused() {
+    for (spelling, why) in [
+        ("T9", "entity: 'T9' names no entity of the project"),
+        ("/01/T2", "entity: '/01/T2' names no entity of the project"),
+        (
+            "T1",
+            "entity: 'T1' is ambiguous: p/01/T1, q/02/T1; name one by its path",
+        ),
+        (
+            "q/02/T1",
+            "entity: 'q/02/T1' is a note, which gsd.test/W901 does not judge (it judges: thing)",
+        ),
+    ] {
+        assert_eq!(
+            refusal(args(spelling, "W901", "holds", "{}")),
+            why,
+            "{spelling}"
+        );
+    }
 }
 
 #[test]
 fn a_passing_call_records_the_verdict_with_the_rules_own_judge() {
-    let mut call = args("T2", "W901", "holds", r#"{"thing": "sha256:aa"}"#);
+    let mut call = args("01/T2", "W901", "holds", r#"{"thing": "sha256:aa"}"#);
     call["cited"] = json!(r#"[{"file": "src/a.rs"}]"#);
     call["values"] = json!(r#"{"n": 1}"#);
     let out = called(call);
     assert_eq!(out.exit_code, 0, "{}", out.stderr);
-    assert_eq!(out.stdout, "verdict gsd.test/W901 holds on T2\n");
+    // Recorded on the path the spelling names, the entity the checks saw.
+    assert_eq!(out.stdout, "verdict gsd.test/W901 holds on p/01/T2\n");
     let plan = out.plan.expect("a plan");
     let [
         PlanOp::SetVerdict {
@@ -357,7 +384,7 @@ fn a_passing_call_records_the_verdict_with_the_rules_own_judge() {
             judge.as_str(),
             model.as_str()
         ),
-        ("T2", "gsd.test/W901", "holds", "gsd-judge", "a-model")
+        ("p/01/T2", "gsd.test/W901", "holds", "gsd-judge", "a-model")
     );
     let wire = serde_json::to_value(&plan.ops[0]).expect("JSON");
     assert_eq!(wire["cited"], json!([{"file": "src/a.rs"}]), "{wire}");
