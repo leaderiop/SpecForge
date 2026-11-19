@@ -1,23 +1,21 @@
 //! A plan's `estimate_error`: how far its `estimate` was from what the plan took, once its summary is complete.
 //!
-//! Each member of the estimate is measured against its actual, `(actual - estimate) / estimate`: `tasks` against the
-//! plan's task count (counted here, as the summary's `actuals.tasks` is), `tokens` against the summary's
-//! `actuals.tokens`. A member is present only when both sides exist and the estimate is above 0, so a missing actual
-//! is an absent member, never a zero; a plan with no member measured has no value at all. A plan is measured by its
-//! summary (the first by id, as the plan's status reads it) once that summary's status is `complete`: a halted plan
-//! took what it took and measures nothing.
+//! The estimate's `tasks` is measured against the plan's task count (counted here, as the summary's `actuals.tasks`
+//! is), `(actual - estimate) / estimate`. The member is present only when the estimate writes it above 0, so a plan
+//! with no task estimate has no value at all, never a zero. The estimate's `tokens` is not measured: gsd-core pairs it
+//! with the summary's `actuals.tokens`, which this model does not hold (`actuals` is computed, and the harness ledger
+//! vouches for no member of a block, so no command could record one). A plan is measured by its summary (the first by
+//! id, as the plan's status reads it) once that summary's status is `complete`: a halted plan took what it took and
+//! measures nothing.
 
 use std::collections::BTreeMap;
 
-use serde_json::{Map, Value};
+use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::{status_of, summaries, value};
 use crate::passes::plans::of_kind;
 use crate::scope::scope_of;
-
-/// The estimate's members, in the block's order.
-const MEMBERS: [&str; 2] = ["tokens", "tasks"];
 
 /// The decimal places a member keeps: a ratio such as -1/3 has more digits than a number holds (ADR 0361).
 const PLACES: u32 = 4;
@@ -41,7 +39,7 @@ fn error(actual: i64, estimate: i64) -> Option<Decimal> {
     Decimal::parse(&format!("{rounded}e-{PLACES}")).ok()
 }
 
-/// The computed field, for each plan whose estimate measures at least one member against a complete summary.
+/// The computed field, for each plan whose task estimate is measured against a complete summary.
 pub fn values(input: &PassInput) -> Vec<PassValue> {
     let summaries = summaries(input);
     let mut tasks: BTreeMap<&str, i64> = BTreeMap::new();
@@ -50,29 +48,18 @@ pub fn values(input: &PassInput) -> Vec<PassValue> {
     }
     of_kind(input, "plan")
         .filter_map(|plan| {
-            let estimate = plan.values.get("estimate")?;
+            let estimate = plan.values.get("estimate")?.get("tasks")?.as_i64()?;
             let summary = summaries.get(plan.id.as_str())?;
             if status_of(summary) != "complete" {
                 return None;
             }
-            // Nothing writes `actuals.tokens` until a harness records the tokens a plan took.
-            let tokens = summary
-                .values
-                .get("actuals")
-                .and_then(|actuals| actuals.get("tokens"))
-                .and_then(Value::as_i64);
-            let tasks = tasks.get(plan.id.as_str()).copied().unwrap_or(0);
-            let measured: Map<String, Value> = MEMBERS
-                .into_iter()
-                .zip([tokens, Some(tasks)])
-                .filter_map(|(member, actual)| {
-                    let estimate = estimate.get(member)?.as_i64()?;
-                    let error = error(actual?, estimate)?;
-                    Some((member.to_string(), Value::Number(error.to_json())))
-                })
-                .collect();
-            (!measured.is_empty())
-                .then(|| value(&plan.id, "estimate_error", Value::Object(measured)))
+            let actual = tasks.get(plan.id.as_str()).copied().unwrap_or(0);
+            let error = error(actual, estimate)?;
+            Some(value(
+                &plan.id,
+                "estimate_error",
+                json!({ "tasks": Value::Number(error.to_json()) }),
+            ))
         })
         .collect()
 }

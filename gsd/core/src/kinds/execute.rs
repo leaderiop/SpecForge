@@ -25,7 +25,8 @@ pub const PLAN_START: Kind = Kind::new(
 .scoped_by("plan");
 
 /// `NN-MM-SUMMARY.md`, named `03-02-SUMMARY` and scoped by its plan. It lives in the plan's own file, so the executors
-/// of one wave never write the same file. GSD's `actuals.tokens` is absent until a harness exists (decision U4).
+/// of one wave never write the same file. GSD's `actuals.tokens` is not held: `actuals` is computed, and the harness
+/// ledger vouches for no member of a block, so no command could record the tokens a plan took.
 // Paths are `strs`, not `files`: a commit may delete or rename a path, so the file check's E016 would fire on it.
 pub const SUMMARY: Kind = Kind::new(
     "summary",

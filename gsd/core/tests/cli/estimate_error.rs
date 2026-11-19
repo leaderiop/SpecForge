@@ -51,7 +51,7 @@ fn a_completed_plan_measures_its_task_estimate() {
 
 #[test]
 fn without_an_actual_the_member_is_absent_not_zero() {
-    // No harness records the tokens a plan took: the tokens member is absent, not 0.
+    // The summary holds no `actuals.tokens`: a token estimate alone measures nothing, so there is no value, not 0.
     let p = estimating(PLAN_01_01, "tokens 60000");
     assert_eq!(error_of(&p, "v1.0/01/01-01"), Value::Null);
 
@@ -63,6 +63,27 @@ fn without_an_actual_the_member_is_absent_not_zero() {
     for plan in ["v1.0/01/01-01", "v1.0/01/01-02", "v1.0/02/02-01"] {
         assert_eq!(error_of(&p, plan), Value::Null, "{plan}");
     }
+}
+
+/// gsd-core's `actuals.tokens` cannot be written: a summary's `actuals` is computed, so the host refuses the value
+/// (E082) and the token estimate stays unmeasured.
+#[test]
+fn a_written_actuals_tokens_is_refused_and_measures_nothing() {
+    let p = estimating(PLAN_01_01, "tokens 60000 tasks 2");
+    let patterns = "  tech_patterns          [\"a board is plain data: { tasks, nextId }\"]\n";
+    p.edit(
+        "spec/plans.spec",
+        patterns,
+        &format!("{patterns}  actuals                {{ tokens 90000 }}\n"),
+    );
+    let refused: Vec<(String, String)> = p
+        .report()
+        .into_iter()
+        .filter(|(code, _)| code == "E082")
+        .collect();
+    assert_eq!(refused.len(), 1, "{refused:?}");
+    assert!(refused[0].1.contains("actuals"), "{refused:?}");
+    assert_eq!(error_of(&p, "v1.0/01/01-01"), json!({ "tasks": 0 }));
 }
 
 /// The text `specforge gsd progress-report` prints.
@@ -87,7 +108,7 @@ const UNMEASURED: &str = "\
 67% of plans have a summary
 ";
 
-/// 01-01 with an estimate that measures nothing (no harness records its tokens): edited as a measured plan is, so its
+/// 01-01 with an estimate that measures nothing (a token estimate alone): edited as a measured plan is, so its
 /// verifier's verdicts are as stale, and the report differs from a measured plan's only by the estimate error.
 fn unmeasured() -> Project {
     estimating(PLAN_01_01, "tokens 60000")

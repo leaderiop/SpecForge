@@ -51,7 +51,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | quick | bool | C | no phase: a quick task |
 | files_touched | strs | C | the sorted, distinct files of its recorded commits; absent without one, as a summary's `files_created` |
 | estimate_slices | int | C | `estimate.tokens` over `workflow.smart_zone_tokens`, rounded up (at least 1): over 1 is a re-slice the plan checker recommends, never a block; absent without an estimate or a budget |
-| estimate_error | {tokens num, tasks num} | C | (actual - estimate) / estimate for a plan whose summary (the first by id) is complete, case-folded (ADR 0378 D5), rounded half away from zero to 4 decimal places: `tasks` against the plan's task count (as the summary's `actuals.tasks` counts it), `tokens` against the summary's `actuals.tokens`, which nothing writes until a harness records it. Each member only when both sides exist and the estimate is above 0, and left out when it still keeps more than 15 significant digits (ADR 0361): absent, never 0, and no block when no member is measured. `progress-report` prints it under the plan's phase |
+| estimate_error | {tasks num} | C | (actual - estimate) / estimate for a plan whose summary (the first by id) is complete, case-folded (ADR 0378 D5), rounded half away from zero to 4 decimal places: `tasks` against the plan's task count (as the summary's `actuals.tasks` counts it), only when the estimate writes `tasks` above 0: absent, never 0. `tokens` is not measured: gsd-core pairs it with the summary's `actuals.tokens`, which is not held (`actuals` is computed, and the harness ledger vouches for no member of a block). `progress-report` prints it under the plan's phase |
 | context_pack | {route str, digest str, max_tokens int} | P O | the `gsd/executor` pack `start_plan` recorded, on every call (ADR 0356); it moves no digest, so no plan check goes stale, and while the plan is open a pack that moved since is gsd/W524 |
 
 ### Where a plan runs
@@ -63,9 +63,9 @@ one path never run in one wave. gsd/W526 says where a pushed plan runs instead o
 paths, the earlier plan and the tasks that name them, or through a plan it depends on, naming that plan.
 `coupling_justified` exempts no shared path. `plan_phase` threads the phase's plans through `specforge gsd thread-plan`
 and `specforge trace --plan` before the plan checker; the order of the tasks inside a plan is not checked (a task has
-no `depends_on`). Once the plan's summary is complete, `estimate_error` measures each quantity the plan estimated above
-0 against what it took: `tasks` against its task count, `tokens` against the summary's `actuals.tokens`, which stays
-unwritten until a harness records it. A member with either side missing is absent, never 0.
+no `depends_on`). Once the plan's summary is complete, `estimate_error` measures the plan's `estimate.tasks`, when it is
+above 0, against its task count; without it the field is absent, never 0. `estimate.tokens` weighs the plan on the
+critical path and sizes its slices, but is not measured: the summary holds no `actuals.tokens` to measure it against.
 
 ## task
 

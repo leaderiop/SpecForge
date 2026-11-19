@@ -91,11 +91,16 @@ because it reads the strict placement.
 
 ## D5. A plan's estimate error is its estimate against what it took
 
-The plan's `estimate` gains `tasks`, which gsd-core writes. The computed `plan.estimate_error {tokens, tasks}` is
-`(actual - estimate) / estimate` for a plan whose summary is complete. Each member is present only when both sides
-exist and the estimate is above 0, rounded to 4 decimal places, and left out when that still exceeds 15 significant
-digits (ADR 0361). The task actual is the plan's task count, as the summary's `actuals.tasks` counts it.
+The plan's `estimate` gains `tasks`, which gsd-core writes. The computed `plan.estimate_error {tasks}` is
+`(actual - estimate) / estimate` for a plan whose summary is complete, present only when the estimate writes `tasks`
+above 0, rounded to 4 decimal places. The actual is the plan's task count, as the summary's `actuals.tasks` counts it.
 `progress-report` adds a line per measured plan.
+
+The token estimate is not measured. gsd-core pairs `estimate.tokens` with the summary's `actuals.tokens`, which its
+executor writes as chars/4 over the files the plan changed. Here a summary's `actuals` is computed, so nobody may write
+a member of it (E082), and the harness ledger vouches for a field, never for a member of a block: no command could
+record the tokens a plan took and have the host tell them from typed ones. A `tokens` member that could never be
+present would promise a measurement the model cannot make.
 
 The reason: an estimate is only worth recording if what it missed by is read back; absent, never zero, where nothing
 was measured.
@@ -116,7 +121,7 @@ was measured.
 - The order `thread_plan` answers satisfies `depends_on` and `task.plan` by construction, so a gap comes from a
   coupling peer that runs later or from a reordered list.
 - `missing_plan_entry` gaps count every testable entity of the project, and are warnings.
-- `actuals.tokens` has no writer until a harness records it, so the tokens member of the estimate error is absent.
+- The token estimate is not measured: a summary holds no `actuals.tokens` (D5).
 - Plans with and without an estimate weigh in different units on one critical path.
 
 ## Consequences
@@ -125,11 +130,12 @@ was measured.
 - A pushed plan says where it runs and behind which plan.
 - plan-phase hands the checker a phase order that `trace --plan` has already read.
 - A phase names the chain of tasks that bounds it.
-- A completed plan says how far its estimate was from what it took.
+- A completed plan says how far its task estimate was from the tasks it took.
 - The `@gsd/core` blob grows, within the budget of ADR 0373 D3 or by raising it there.
 
 ## Would reopen it
 
 - A `depends_on` on tasks, so task order inside a plan can be checked.
-- A harness that records a plan's tokens.
+- A harness ledger that vouches for a member of a block, so a command can record the tokens a plan took beside the
+  computed `actuals.tasks` and `actuals.commits`.
 - An executor that runs gsd-core's waves by the strict wave.

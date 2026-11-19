@@ -308,8 +308,8 @@ fn a_measured_plan_of_the_twin_reads_its_estimate_error() {
     for twin in &TWINS {
         let p = twin.unedited();
         assert!(!report_text(&p).contains("estimate error"), "{}", twin.name);
-        // 01-01 is complete with two tasks: two estimated held. No harness records its tokens, so that member is
-        // absent, not zero.
+        // 01-01 is complete with two tasks: two estimated held. The token estimate is not measured: the summary
+        // holds no `actuals.tokens`.
         p.edit(
             "spec/plans.spec",
             twin.first_plan,

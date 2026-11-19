@@ -4913,21 +4913,11 @@
           },
           {
             "default_value": null,
-            "description": "(actual - estimate) / estimate for a plan whose summary is complete, rounded to 4 decimal places: `tasks` against the plan's task count, `tokens` against the summary's `actuals.tokens`; each member only when both exist and the estimate is above 0, absent never 0",
+            "description": "(actual - estimate) / estimate for a plan whose summary is complete, rounded to 4 decimal places: `tasks` against the plan's task count, only when the estimate writes it above 0, absent never 0; `tokens` is not measured, since the summary holds no `actuals.tokens`",
             "edge": null,
             "field_type": "block",
             "inverse_of": null,
             "members": [
-              {
-                "default_value": null,
-                "description": null,
-                "edge": null,
-                "field_type": "number",
-                "inverse_of": null,
-                "name": "tokens",
-                "required": false,
-                "target_kind": null
-              },
               {
                 "default_value": null,
                 "description": null,

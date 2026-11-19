@@ -16,7 +16,7 @@ const PLAN_STATUS: &[&str] = &[
 ];
 const COUPLING: &[Field] = &[rf("peer", "plan").r(), str("reason").r()];
 const ESTIMATE: &[Field] = &[int("tokens"), int("tasks")];
-const ESTIMATE_ERROR: &[Field] = &[num("tokens"), num("tasks")];
+const ESTIMATE_ERROR: &[Field] = &[num("tasks")];
 
 /// `NN-MM-PLAN.md`, named `03-02` and scoped by its phase; a quick plan has no phase and is named by its quick id.
 pub const PLAN: Kind = Kind::new(
@@ -74,8 +74,8 @@ pub const PLAN: Kind = Kind::new(
         ),
         block("estimate_error", ESTIMATE_ERROR).c().doc(
             "(actual - estimate) / estimate for a plan whose summary is complete, rounded to 4 decimal places: \
-             `tasks` against the plan's task count, `tokens` against the summary's `actuals.tokens`; each member \
-             only when both exist and the estimate is above 0, absent never 0",
+             `tasks` against the plan's task count, only when the estimate writes it above 0, absent never 0; \
+             `tokens` is not measured, since the summary holds no `actuals.tokens`",
         ),
         context_record("context_pack")
             .o()

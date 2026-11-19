@@ -2028,5 +2028,6 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   declared one, from `depends_on` alone (ADR 0378).
 - **Critical path**: a phase's heaviest chain of plans through the strict waves, named task by task, with its weight
   (`critical_path` and `critical_weight`): each plan weighs its estimated tokens, else its task count (ADR 0378).
-- **Estimate error**: a completed plan's (actual - estimate) / estimate for each quantity it estimated, tokens and
-  tasks (`estimate_error`); a member is absent where either side is (ADR 0378).
+- **Estimate error**: a completed plan's (actual - estimate) / estimate for the tasks it estimated, against its task
+  count (`estimate_error`); absent, never 0, without a task estimate. The token estimate is not measured: a summary
+  holds no `actuals.tokens` (ADR 0378).

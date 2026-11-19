@@ -22,31 +22,26 @@ fn task(id: &str) -> PassEntity {
     }
 }
 
-/// A summary of plan `plan` with `status`, and `actuals.tokens` when given.
-fn summary(plan: &str, status: &str, tokens: Option<i64>) -> PassEntity {
+/// A summary of plan `plan` with `status`.
+fn summary(plan: &str, status: &str) -> PassEntity {
     let mut summary = PassEntity {
         id: format!("{plan}/SUMMARY"),
         kind: "summary".into(),
         ..Default::default()
     };
     summary.fields.insert("status".into(), status.into());
-    if let Some(tokens) = tokens {
-        summary
-            .values
-            .insert("actuals".into(), json!({ "tokens": tokens }));
-    }
     summary
 }
 
-/// Plan `v1/01/01` with `estimate`, two tasks and, when given, a summary of `status` with `actuals.tokens`.
-fn measured(estimate: Option<Value>, summary_of: Option<(&str, Option<i64>)>) -> PassInput {
+/// Plan `v1/01/01` with `estimate`, two tasks and, when given, a summary of that status.
+fn measured(estimate: Option<Value>, status: Option<&str>) -> PassInput {
     let mut entities = vec![
         plan("v1/01/01", estimate),
         task("v1/01/01/T1"),
         task("v1/01/01/T2"),
     ];
-    if let Some((status, tokens)) = summary_of {
-        entities.push(summary("v1/01/01", status, tokens));
+    if let Some(status) = status {
+        entities.push(summary("v1/01/01", status));
     }
     PassInput {
         entities,
@@ -68,29 +63,33 @@ fn error_of(input: &PassInput) -> Option<Value> {
 }
 
 #[test]
-fn both_members_are_measured_against_their_actuals() {
+fn the_task_estimate_is_measured_against_the_task_count() {
     let input = measured(
         Some(json!({ "tokens": 1000, "tasks": 3 })),
-        Some(("complete", Some(1500))),
-    );
-    assert_eq!(
-        error_of(&input),
-        Some(json!({ "tokens": 0.5, "tasks": -0.3333 }))
-    );
-}
-
-#[test]
-fn a_missing_actual_leaves_its_member_out() {
-    let input = measured(
-        Some(json!({ "tokens": 1000, "tasks": 3 })),
-        Some(("complete", None)),
+        Some("complete"),
     );
     assert_eq!(error_of(&input), Some(json!({ "tasks": -0.3333 })));
 }
 
 #[test]
+fn the_token_estimate_is_never_measured() {
+    // gsd-core's `actuals.tokens` is not held: a summary's `actuals` is computed, so a pass input that carried one
+    // anyway (a written value the host reports as E082) still measures tasks only.
+    let mut input = measured(
+        Some(json!({ "tokens": 1000, "tasks": 2 })),
+        Some("complete"),
+    );
+    input.entities[3]
+        .values
+        .insert("actuals".into(), json!({ "tokens": 1500 }));
+    assert_eq!(error_of(&input), Some(json!({ "tasks": 0 })));
+    let input = measured(Some(json!({ "tokens": 1000 })), Some("complete"));
+    assert_eq!(error_of(&input), None, "no task estimate: no value at all");
+}
+
+#[test]
 fn an_estimate_that_held_is_a_measured_zero() {
-    let input = measured(Some(json!({ "tasks": 2 })), Some(("complete", None)));
+    let input = measured(Some(json!({ "tasks": 2 })), Some("complete"));
     let error = error_of(&input).expect("a value");
     assert_eq!(error, json!({ "tasks": 0 }));
     assert!(error["tasks"].is_i64(), "zero is held as the host holds it");
@@ -98,51 +97,27 @@ fn an_estimate_that_held_is_a_measured_zero() {
 
 #[test]
 fn an_estimate_at_or_below_zero_measures_nothing() {
-    let input = measured(
-        Some(json!({ "tokens": 0, "tasks": 3 })),
-        Some(("complete", Some(1500))),
-    );
-    assert_eq!(error_of(&input), Some(json!({ "tasks": -0.3333 })));
-    let input = measured(
-        Some(json!({ "tokens": 1000, "tasks": 0 })),
-        Some(("complete", Some(1500))),
-    );
-    assert_eq!(error_of(&input), Some(json!({ "tokens": 0.5 })));
-    let input = measured(
-        Some(json!({ "tokens": -5, "tasks": -1 })),
-        Some(("complete", Some(1500))),
-    );
-    assert_eq!(error_of(&input), None, "neither member: no value at all");
+    for tasks in [0, -1] {
+        let input = measured(Some(json!({ "tasks": tasks })), Some("complete"));
+        assert_eq!(error_of(&input), None, "{tasks}");
+    }
 }
 
 #[test]
 fn without_an_estimate_or_a_complete_summary_nothing_is_measured() {
-    assert_eq!(
-        error_of(&measured(None, Some(("complete", Some(1500))))),
-        None
-    );
-    let estimate = || Some(json!({ "tokens": 1000, "tasks": 3 }));
+    assert_eq!(error_of(&measured(None, Some("complete"))), None);
+    let estimate = || Some(json!({ "tasks": 3 }));
     assert_eq!(error_of(&measured(estimate(), None)), None, "no summary");
     assert_eq!(
-        error_of(&measured(estimate(), Some(("halted", Some(1500))))),
+        error_of(&measured(estimate(), Some("halted"))),
         None,
         "a halted summary"
     );
     assert_eq!(
-        error_of(&measured(estimate(), Some(("Complete", None)))),
+        error_of(&measured(estimate(), Some("Complete"))),
         Some(json!({ "tasks": -0.3333 })),
         "the status is case-folded"
     );
-}
-
-#[test]
-fn a_ratio_a_number_cannot_hold_is_left_out() {
-    // 9007199254740992 / 1 keeps 16 significant digits after rounding: a number holds 15.
-    let input = measured(
-        Some(json!({ "tokens": 1, "tasks": 2 })),
-        Some(("complete", Some(9_007_199_254_740_993))),
-    );
-    assert_eq!(error_of(&input), Some(json!({ "tasks": 0 })));
 }
 
 #[test]

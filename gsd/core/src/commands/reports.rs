@@ -154,7 +154,7 @@ fn progress_json(milestone: Option<&GraphNode>, found: &[Phase]) -> Value {
 }
 
 /// The members of a plan's `estimate_error`, in the block's order (`kinds/plan.rs`).
-const ESTIMATE_MEMBERS: [&str; 2] = ["tokens", "tasks"];
+const ESTIMATE_MEMBERS: [&str; 1] = ["tasks"];
 
 /// An estimate error as a signed percent: at most two decimals with trailing zeros trimmed, `+` before a positive
 /// value, `0%` for zero.
@@ -168,7 +168,7 @@ fn signed_percent(error: f64) -> String {
 }
 
 /// The `estimate error` line of each plan of phase `phase` whose computed `estimate_error` holds a member, in id
-/// order (ADR 0378 D5): `  estimate error 01-01: tokens +12.5%, tasks -33.33%`.
+/// order (ADR 0378 D5): `  estimate error 01-01: tasks -33.33%`.
 fn estimate_errors(graph: &CommandGraph, phase: &str) -> String {
     let mut plans: Vec<&GraphNode> = graph
         .nodes_of_kind("plan")

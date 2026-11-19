@@ -47,7 +47,7 @@ one wave never write the same file. Name: the GSD file stem (`03-02-SUMMARY`), s
 | halted_because | str | | required when `status halted` |
 | started, completed | ts | H | `completed:`; both written by `complete_plan` (`started` from the plan's `plan_start`, `completed` the host's clock, `now`, protocol 1.11.0, K14): no summary exists when a plan starts, and one made without its required fields is refused |
 | duration | str | C | `duration:`: `completed` − `started`, as `45 min` under an hour and `1h 5m` from there; absent until both are recorded |
-| actuals | {tasks int, commits int} | C | `actuals:`: tasks from the plan, commits from the recorded commits (0 with none). GSD's `tokens` is absent until a harness exists (it stays out of the core rounds, decision U4) |
+| actuals | {tasks int, commits int} | C | `actuals:`: tasks from the plan, commits from the recorded commits (0 with none). GSD's `tokens` is not held: the field is computed, and the harness ledger vouches for no member of a block, so no command could record the tokens a plan took |
 | files_created, files_modified | strs | C | `key-files:`: from the plan's commits: `created` is the sorted union of their `created`, `modified` the other paths they touch; both absent with no commit. Paths are text, not `files`: a commit may delete or rename a path, and the host's E016 would fire on it |
 
 ## deliverable
