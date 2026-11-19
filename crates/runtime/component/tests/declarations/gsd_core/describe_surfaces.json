@@ -196,7 +196,6 @@
             "specforge:query",
             "specforge:search",
             "specforge:trace",
-            "specforge:gsd.thread_plan",
             "specforge:find_implementation",
             "specforge:find_references",
             "specforge:validate",
@@ -343,14 +342,14 @@
             "specforge:query",
             "specforge:search",
             "specforge:trace",
-            "specforge:gsd.thread_plan",
             "specforge:find_implementation",
             "specforge:find_references",
             "specforge:validate",
             "specforge:explain",
             "specforge:context",
             "specforge:verdict_inputs",
-            "specforge:gsd.record_verdict"
+            "specforge:gsd.record_verdict",
+            "specforge:gsd.thread_plan"
           ]
         },
         {
