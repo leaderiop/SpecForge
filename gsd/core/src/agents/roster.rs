@@ -259,7 +259,7 @@ pub const AGENTS: &[Agent] = &[
         role: &VERIFIER,
         description: "Verifies phase goal achievement through goal-backward analysis. Checks codebase delivers what phase promised, not just that tasks completed. Creates VERIFICATION.md report.",
         tools: &["read", "write", "shell", "search", "skill"],
-        grants: &["specforge:edit"],
+        grants: &["specforge:edit", "specforge:gsd.re_verify"],
         color: "green",
         full: include_str!("../../assets/agents/gsd-verifier.md"),
         compact: None,

@@ -14,6 +14,7 @@ mod milestone_branches;
 mod phase;
 mod probe_rows;
 mod quick;
+mod re_verify;
 mod refactor;
 mod reference;
 pub(crate) mod reports;
@@ -104,6 +105,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     probe_rows::declare(c);
     plan_coverage::declare(c);
     verification_debt::declare(c);
+    re_verify::declare(c);
     gate::declare(c);
     automated_guard::declare(c);
     branch_check::declare(c);

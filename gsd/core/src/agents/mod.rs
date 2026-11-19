@@ -26,9 +26,24 @@ pub fn recording(agent: &str) -> String {
     }
     let truths = if codes.iter().any(|c| c == "`gsd/E501`") {
         "A verdict on a truth reads only what it cites: it must cite the files (or the tests) the truth is about, or \
-         it is refused.\n\n"
+         it is refused.\n\n\
+         On re-verification, first run `specforge gsd re-verify <phase> --stale-only` (the MCP tool \
+         `specforge.gsd.re_verify`): it lists the verdicts of the phase that no longer hold (stale, missing, \
+         unrecorded or unreadable), each with the inputs that changed and their selectors. Judge exactly what it \
+         lists and record each with `record-verdict`; leave every other verdict as recorded: its inputs have not \
+         changed, so judging it again would answer the same.\n\n"
     } else {
         ""
+    };
+    // Name `specforge check` only to a judge granted it: the phase researcher judges W205 but does not validate.
+    let validates = roster::AGENTS
+        .iter()
+        .find(|a| a.id == agent)
+        .is_some_and(|a| a.granted(true).contains(&"specforge:validate"));
+    let check = if validates {
+        "`specforge check`"
+    } else {
+        "the project's check"
     };
     format!(
         "\n## Recording a verdict (@gsd/core)\n\n\
@@ -48,7 +63,7 @@ pub fn recording(agent: &str) -> String {
          and its status is read with them) and `--values '{{...}}'` \
          for the fields the rule binds.\n\n\
          {truths}A verdict recorded over a `basis` that has since changed is refused (`stale_revision`): read the inputs again. \
-         A failing outcome is recorded, whatever the rule's severity, and replaces an earlier pass: `specforge check` \
+         A failing outcome is recorded, whatever the rule's severity, and replaces an earlier pass: {check} \
          then reports it as the rule's finding. A verdict on an entity a person owns is refused (`human_only`). Do not \
          edit the spec to get around a refusal; report the findings to the user instead.\n",
         codes.join(", ")

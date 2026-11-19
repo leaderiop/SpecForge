@@ -46,6 +46,7 @@ fn execute_phase_renders_under_default() {
         step_ids(&rendered),
         [
             "execute",
+            "re_verify",
             "verify",
             "record_verdict",
             "record_window",

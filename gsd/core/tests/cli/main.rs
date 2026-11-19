@@ -123,6 +123,7 @@ mod prompts_workspace;
 mod proof;
 mod queries;
 mod quick_context;
+mod re_verify;
 mod reference;
 mod render_prompts;
 mod rendered_lines;

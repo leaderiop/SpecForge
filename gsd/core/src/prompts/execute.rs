@@ -24,6 +24,11 @@ const PHASE_STEPS: &[Step] = &[
         does: Do::Prompt("execute_plan"),
     },
     Step {
+        id: "re_verify",
+        title: "List the verdicts that no longer hold (specforge gsd re-verify <phase> --stale-only)",
+        does: Do::Command("re_verify"),
+    },
+    Step {
         id: "verify",
         title: "Verify the phase goal",
         does: Do::Agent("gsd-verifier"),
