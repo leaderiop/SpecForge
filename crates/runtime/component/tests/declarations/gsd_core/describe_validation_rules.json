@@ -305,6 +305,7 @@
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -377,6 +378,7 @@
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -449,6 +451,7 @@
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -521,6 +524,7 @@
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -567,12 +571,9 @@
               {
                 "name": "tests",
                 "selector": "test(self<test.names)"
-              },
-              {
-                "name": "files",
-                "selector": "file(self.plan.files_modified)"
               }
             ],
+            "judged_while": "complete",
             "kind": "truth"
           },
           {
@@ -590,6 +591,7 @@
                 "selector": "file(self.path)"
               }
             ],
+            "judged_while": "complete",
             "kind": "artifact"
           },
           {
@@ -611,6 +613,7 @@
                 "selector": "file(self.to)"
               }
             ],
+            "judged_while": "complete",
             "kind": "key_link",
             "unless_set": [
               "pattern"
@@ -620,6 +623,51 @@
       },
       "message_template": "{kind} '{id}' has no fresh verifier verdict",
       "severity": "error",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "W525",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-verifier",
+        "outcomes": [
+          "held",
+          "violated",
+          "unverified"
+        ],
+        "passing": [
+          "held"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "prohibition",
+                "selector": "self"
+              },
+              {
+                "name": "plan",
+                "selector": "self.plan"
+              },
+              {
+                "name": "phase",
+                "selector": "self.plan.phase"
+              }
+            ],
+            "judged_while": "complete",
+            "kind": "prohibition",
+            "unless_set": [
+              "test"
+            ]
+          }
+        ]
+      },
+      "message_template": "{kind} '{id}' has no fresh verifier verdict",
+      "severity": "warning",
       "target_kind": null,
       "wasm_function": null
     },

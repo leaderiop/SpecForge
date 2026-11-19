@@ -269,6 +269,11 @@ expression: "digest(&load(&runtime, &[name]))"
       "route": "gsd verification-debt"
     },
     {
+      "export": "cmd__re_verify",
+      "extension": "@gsd/core",
+      "route": "gsd re-verify"
+    },
+    {
       "export": "cmd__gate_command",
       "extension": "@gsd/core",
       "route": "gsd gate-command"
@@ -12273,6 +12278,7 @@ expression: "digest(&load(&runtime, &[name]))"
                       "W315",
                       "W316",
                       "E501",
+                      "W525",
                       "E518",
                       "E202",
                       "W203",
@@ -13478,6 +13484,29 @@ expression: "digest(&load(&runtime, &[name]))"
           {
             "args": [
               {
+                "arg_type": "string",
+                "default_value": null,
+                "description": "the phase or the plan whose verdicts to list",
+                "name": "subject",
+                "required": true
+              },
+              {
+                "arg_type": "bool",
+                "default_value": null,
+                "description": "list only the verdicts that are not fresh: stale, missing, unrecorded or unreadable",
+                "name": "stale_only",
+                "required": false
+              }
+            ],
+            "category": null,
+            "description": "List the verifier's verdicts within a phase or a plan and whether each still holds: its state, each input that changed since it was recorded with its selector, and what it cites. `--stale-only` keeps the verdicts that no longer hold, so the verifier judges exactly those",
+            "export": "cmd__re_verify",
+            "id": "re_verify",
+            "title": ""
+          },
+          {
+            "args": [
+              {
                 "arg_type": {
                   "enum": {
                     "values": [
@@ -14108,12 +14137,9 @@ expression: "digest(&load(&runtime, &[name]))"
               {
                 "name": "tests",
                 "selector": "test(self<test.names)"
-              },
-              {
-                "name": "files",
-                "selector": "file(self.plan.files_modified)"
               }
             ],
+            "judged_while": "complete",
             "kind": "truth"
           },
           {
@@ -14131,6 +14157,7 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "file(self.path)"
               }
             ],
+            "judged_while": "complete",
             "kind": "artifact"
           },
           {
@@ -14152,6 +14179,7 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "file(self.to)"
               }
             ],
+            "judged_while": "complete",
             "kind": "key_link",
             "unless_set": [
               "pattern"
@@ -14350,6 +14378,7 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -14423,6 +14452,7 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -14496,6 +14526,7 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -14569,11 +14600,58 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
       },
       "message_template": "plan '{id}' is not checked against the agent instructions and mapped patterns",
+      "owner": "@gsd/core",
+      "severity": "Warning",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "gsd/W525",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-verifier",
+        "outcomes": [
+          "held",
+          "violated",
+          "unverified"
+        ],
+        "passing": [
+          "held"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "prohibition",
+                "selector": "self"
+              },
+              {
+                "name": "plan",
+                "selector": "self.plan"
+              },
+              {
+                "name": "phase",
+                "selector": "self.plan.phase"
+              }
+            ],
+            "judged_while": "complete",
+            "kind": "prohibition",
+            "unless_set": [
+              "test"
+            ]
+          }
+        ]
+      },
+      "message_template": "{kind} '{id}' has no fresh verifier verdict",
       "owner": "@gsd/core",
       "severity": "Warning",
       "target_kind": null,

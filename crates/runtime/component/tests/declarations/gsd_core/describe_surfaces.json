@@ -536,7 +536,8 @@
             "specforge:collect",
             "specforge:verdict_inputs",
             "specforge:gsd.record_verdict",
-            "specforge:edit"
+            "specforge:edit",
+            "specforge:gsd.re_verify"
           ]
         }
       ],
@@ -558,6 +559,7 @@
                     "W315",
                     "W316",
                     "E501",
+                    "W525",
                     "E518",
                     "E202",
                     "W203",
@@ -1674,6 +1676,26 @@
           "description": "Count the UAT tests still open (pending or missing, blocked, an issue with an open gap, a skip without a `Deferred follow-up` reason) in a milestone and in the shipped ones, and list a phase's",
           "export": "cmd__verification_debt",
           "id": "verification_debt",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the phase or the plan whose verdicts to list",
+              "name": "subject",
+              "required": true
+            },
+            {
+              "arg_type": "bool",
+              "description": "list only the verdicts that are not fresh: stale, missing, unrecorded or unreadable",
+              "name": "stale_only",
+              "required": false
+            }
+          ],
+          "description": "List the verifier's verdicts within a phase or a plan and whether each still holds: its state, each input that changed since it was recorded with its selector, and what it cites. `--stale-only` keeps the verdicts that no longer hold, so the verifier judges exactly those",
+          "export": "cmd__re_verify",
+          "id": "re_verify",
           "title": ""
         },
         {
@@ -2941,6 +2963,11 @@
               "id": "execute",
               "prompt": "execute_plan",
               "title": "Execute each plan of the wave (the prompt execute_plan)"
+            },
+            {
+              "command": "re_verify",
+              "id": "re_verify",
+              "title": "List the verdicts that no longer hold (specforge gsd re-verify <phase> --stale-only)"
             },
             {
               "agent": "gsd-verifier",
