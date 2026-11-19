@@ -6,33 +6,9 @@
 
 use specforge_extension_sdk::prelude::*;
 
+use gsd_kit::judged::{Judged, Target};
+
 use crate::codes::{CODES, Severity};
-
-/// What a rule reads of the entities of one kind.
-pub struct Target {
-    pub kind: &'static str,
-    /// `(name, selector)`, the named inputs of the verdict.
-    pub inputs: &'static [(&'static str, &'static str)],
-    /// An entity that writes any of these fields is not judged.
-    pub unless_set: &'static [&'static str],
-}
-
-/// One judged rule.
-pub struct Judged {
-    /// The local code: `W311`.
-    pub code: &'static str,
-    /// The diagnostic's message; the host adds `: no verdict`, `: stale …` or the verdict's outcome.
-    pub message: &'static str,
-    /// An agent of this extension, or `prompt:<id>`.
-    pub judge: &'static str,
-    pub outcomes: &'static [&'static str],
-    pub passing: &'static [&'static str],
-    pub targets: &'static [Target],
-    /// `kind.field`s set from the verdict's `values`.
-    pub values: &'static [&'static str],
-    /// `kind.field`s that hold the verdict's outcome.
-    pub outcome_fields: &'static [&'static str],
-}
 
 /// What the plan checks read of a plan; the `gsd/plan-checker` route serves the same sections.
 pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
@@ -76,6 +52,7 @@ const PLAN_CHECK: &[Target] = &[Target {
     kind: "plan",
     inputs: PLAN_CHECK_INPUTS,
     unless_set: &[],
+    judged_while: None,
 }];
 
 // E501 reads the files a truth's plan, an artifact and a key link name (ADR 0304); the plan checks read none: they
@@ -91,6 +68,7 @@ const E501: &[Target] = &[
             ("files", "file(self.plan.files_modified)"),
         ],
         unless_set: &[],
+        judged_while: None,
     },
     Target {
         kind: "artifact",
@@ -100,6 +78,7 @@ const E501: &[Target] = &[
             ("file", "file(self.path)"),
         ],
         unless_set: &[],
+        judged_while: None,
     },
     // A key link with a `pattern` is not judged: a pass searches the pattern (`passes::scan`).
     Target {
@@ -111,6 +90,7 @@ const E501: &[Target] = &[
             ("to", "file(self.to)"),
         ],
         unless_set: &["pattern"],
+        judged_while: None,
     },
 ];
 
@@ -167,6 +147,7 @@ pub const JUDGED: &[Judged] = &[
             kind: "milestone_audit",
             inputs: INTEGRATION_INPUTS,
             unless_set: &[],
+            judged_while: None,
         }],
         values: &[],
         outcome_fields: &["milestone_audit.integration"],
@@ -185,6 +166,7 @@ pub const JUDGED: &[Judged] = &[
                 ("phase", "self.phase"),
             ],
             unless_set: &[],
+            judged_while: None,
         }],
         values: &["phase_spec.scores"],
         outcome_fields: &[],
@@ -199,6 +181,7 @@ pub const JUDGED: &[Judged] = &[
             kind: "locked_req",
             inputs: &[("req", "self"), ("traces", "self.traces")],
             unless_set: &[],
+            judged_while: None,
         }],
         values: &[],
         outcome_fields: &[],
@@ -213,6 +196,7 @@ pub const JUDGED: &[Judged] = &[
             kind: "package_audit",
             inputs: &[("audit", "self")],
             unless_set: &[],
+            judged_while: None,
         }],
         values: &[],
         outcome_fields: &["package_audit.legitimacy"],
@@ -221,7 +205,7 @@ pub const JUDGED: &[Judged] = &[
 
 /// The judged rule with this local code.
 pub fn get(code: &str) -> Option<&'static Judged> {
-    JUDGED.iter().find(|j| j.code == code)
+    gsd_kit::judged::get(JUDGED, code)
 }
 
 fn severity(code: &str) -> ValidationSeverity {
@@ -233,29 +217,5 @@ fn severity(code: &str) -> ValidationSeverity {
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {
-    for j in JUDGED {
-        c.rule(j.code, |r| {
-            r.severity(severity(j.code))
-                .message_template(j.message)
-                .judged(j.judge, |b| {
-                    b.outcomes(j.outcomes).passing(j.passing);
-                    for t in j.targets {
-                        b.target(t.kind, |tb| {
-                            for (name, selector) in t.inputs {
-                                tb.input(name, selector);
-                            }
-                            if !t.unless_set.is_empty() {
-                                tb.unless_set(t.unless_set);
-                            }
-                        });
-                    }
-                    if !j.values.is_empty() {
-                        b.values(j.values);
-                    }
-                    if !j.outcome_fields.is_empty() {
-                        b.outcome_fields(j.outcome_fields);
-                    }
-                });
-        });
-    }
+    gsd_kit::judged::declare(c, JUDGED, severity);
 }

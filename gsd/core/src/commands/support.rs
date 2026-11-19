@@ -42,19 +42,6 @@ pub fn answer(
     }
 }
 
-/// The optional JSON arg `name` as `T`, `default` when it is not given.
-pub fn json<T>(
-    call: &CommandCall<'_>,
-    name: &str,
-    default: T,
-    parse: impl FnOnce(&str) -> serde_json::Result<T>,
-) -> Result<T, String> {
-    match call.str(name) {
-        None => Ok(default),
-        Some(text) => parse(text).map_err(|e| format!("{name}: not the JSON it takes: {e}")),
-    }
-}
-
 /// The host's clock; a call the host gave none is refused, never written as `""`.
 pub fn now<'a>(call: &'a CommandCall<'_>) -> Result<&'a str, String> {
     match call.now() {
