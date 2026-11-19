@@ -277,7 +277,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `resolve_edge <requirement> <category> <status> [--verification V] [--resolution TEXT] [--reason TEXT]` (`specforge gsd resolve-edge`; ADR 0333, no gsd-tools verb: upstream's agent edited a resolutions JSON file) | an `edge` of the requirement's spec, created when no edge holds the pair: its `status`, `verification`, `resolution` and `reason`, set or unset in one plan so the row holds exactly the resolution given, judged by the probe engine first (gsd/E523 refuses a half-written row) |
 | `resolve_prohibition <prohibition> <status> [--verification V] [--reason TEXT]` (`specforge gsd resolve-prohibition`; ADR 0333) | a `spec_prohibition`'s `status`, `verification` and `reason` in one plan, its `check_*` descriptor cleared unless the row is resolved with the `test` tier (upstream's descriptor rides only a resolved/test row) |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
-| `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
+| `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict`, under a `gsd/` rule only (`@gsd/security` writes its own with `record_security_verdict`); a truth's verdict that cites no file of the project and no test is refused, since it reads only what it cites (ADR 0377) |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
 
 ## Agents

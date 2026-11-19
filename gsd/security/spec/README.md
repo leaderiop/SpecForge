@@ -1,6 +1,6 @@
 # `@gsd/security` model
 
-**Status: built. Tracks gsd-core 1.19.0.** The kinds, computed values, rules, settings, commands and hooks that
+**Status: built, with its two judged rules, `W302` (a closed threat's mitigation) and `W303` (a phase's threat flags), recorded by `secure_phase` ([Judged mitigation](#judged-mitigation)). Tracks gsd-core 1.19.0.** The kinds, computed values, rules, settings, commands and hooks that
 `@gsd/security` declares beside `@gsd/core` ([ADR gsd/0002](../../adr/0002-a-capability-extension-plugs-into-core-at-its-hook-points.md)).
 GSD's `<threat_model>` blocks and `NN-SECURITY.md` are entities here; nothing is kept as Markdown. Field flags are
 those of [`gsd/core/spec/README.md`](../../core/spec/README.md): `R` required, `I` immutable, `C` computed, `H` written
@@ -55,13 +55,40 @@ prompt `secure_phase`: the auditor returns its findings and the orchestrator rec
 | gsd.security/W302 | threat | `threat` self · `plan` self.plan · `files` file(self.files) · `accepted` self<accepted_risk.threat · `rows` self<validation_row.threat; judged once the threat is closed (`judged_while complete`) | — |
 | gsd.security/W303 | security_audit | `audit` self · `summaries` self.phase<plan.phase<summary.plan · `threats` self.phase<plan.phase<threat.plan | — |
 
-W302's outcomes are `holds` and `broken` (passing `holds`): for `mitigate`, the mitigation is in its files; for
-`accept`, an accepted risk records it; for `transfer`, the transfer is documented. An open threat owes none (W301 says
-the audit has it open). W303's outcomes are `mapped` and `unregistered` (passing `mapped`): every threat flag the
-phase's summaries raise maps to a threat of its register, or one does not (upstream's `unregistered_flag`, named in the
-verdict's findings). It reads whole summaries, since a selector cannot pick one string-list field: an edit to any field
-of a summary of the phase stales it, the safe side. It is owed from the audit's creation. A verdict never changes a
-threat's `blocking` or the audit's `threats_open`.
+## Judged mitigation
+
+Upstream's auditor checks each threat of the register by its disposition and writes the result into `SECURITY.md`,
+where nothing checks it again once the code changes. Here each result is a judged rule's verdict (ADR 0377), so it goes
+stale when what it read changes, and the workflow judges again exactly the verdicts that no longer hold.
+
+- **What W302 judges.** A closed threat claims its disposition holds: for `mitigate`, the mitigation is in its files;
+  for `accept`, an accepted risk records it; for `transfer`, the transfer is documented. The outcomes are `holds` and
+  `broken` (passing `holds`); `broken` carries the auditor's findings and is the rule's finding.
+- **When it is owed.** Once the threat is closed (`status` `closed`, its kind's `complete_when`, ADR 0362). An open
+  threat owes none: W301 already says the audit has it open.
+- **What it reads.** The threat, its plan, the files it names in `files`, the accepted risks that name it and the
+  `VALIDATION.md` rows that secure it (the inputs above). `files` is written with the threat, a SpecForge field that
+  upstream's register has no column for: an edit to a file a threat names stales exactly the threats that name it, and
+  a threat that names none is judged over the rest. The vault twin's closed threats name theirs
+  ([fixtures/vault](../../parity/fixtures/vault/README.md)).
+- **W303.** A phase's audit says whether every threat flag its summaries raise maps to a threat of its register:
+  `mapped`, or `unregistered` with the unmapped flags as findings (upstream's `unregistered_flag`). It reads the audit
+  and the phase's whole summaries and threats, since a selector cannot pick one string-list field: an edit to any field
+  of a summary of the phase stales it, the safe side. It is owed from the audit's creation.
+- **Who records.** The prompt `secure_phase` is the judge of both. After `record_security_audit` its step `judge` reads
+  each verdict's inputs (`specforge query <entity> --inputs gsd.security/W302 --format json`) and records the outcome
+  with `specforge gsd record-security-verdict <entity> <W302|W303> <outcome> <model> '<basis>'` (MCP
+  `specforge.gsd.record_security_verdict`). Its closing section lists the closed threats of the phase whose W302 verdict
+  is not fresh (missing, stale, unrecorded or unreadable) and the audit while its W303 verdict is not, so a re-run
+  judges only those. Each extension writes its own rules: core's `record_verdict` refuses `gsd.security/` rules and
+  `record_security_verdict` refuses core's.
+- **At a gate.** Under gsd-plus, `gsd/E516` refuses a workflow step on a verdict that is not fresh. Its exception for
+  the workflow that judges a verdict covers `gsd/` rules only, so a stale, unrecorded or unreadable `gsd.security/`
+  verdict refuses every core gate, wherever it is, until `secure_phase` judges it again, and a missing one refuses the
+  gates whose scope holds its threat or audit.
+
+Both rules are warnings, gated by `workflow.security_enforcement`. A verdict never changes a threat's `blocking` or the
+audit's `threats_open`.
 
 ## Settings
 

@@ -1,6 +1,6 @@
 # Plans and tasks
 
-**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the plan checker's four judged rules (gsd/W311, W313, W315, W316) are built (r40), the review ledger waits for a later round; `gap_closure` is built (r39). `commits` is read back from `commit` (r38); the derive pass computes `status` there, `draft` and `checked` from the plan-check verdicts (r40).**
+**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the plan checker's four judged rules (gsd/W311, W313, W315, W316) are built (r40) and owed while the plan is open, and a judgment-tier prohibition owes the verifier gsd/W525 once the plan is complete; the review ledger waits for a later round; `gap_closure` is built (r39). `commits` is read back from `commit` (r38); the derive pass computes `status` there, `draft` and `checked` from the plan-check verdicts (r40).**
 
 ```
  phase ─1──*─ plan ─1──*─ task
@@ -104,7 +104,7 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 | truth | `plan R I`, `text str R` (user-observable), `verification enum{explicit, backstop}` (`explicit`: a named passing test; `backstop`: judged, and a verifier abstains on it with no explicit evidence. The planner writes `backstop` for a lifted backstop edge, as upstream's `{ statement, verification: backstop }`; a person may change it). Name `TR1`. |
 | artifact | `plan R I`, `path path<planned> R` (a path the plan creates: checked once the plan is complete, E016), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
 | key_link | `plan R I`, `from path<planned> R`, `to path<planned> R` (paths the plan creates: checked once the plan is complete, E016), `via str R`, `pattern str`. Name `KL1`. |
-| prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |
+| prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319; one that names none owes the verifier a gsd/W525 verdict once the plan is complete, [verify.md](verify.md#what-changes-from-gsd)). Name `PR1`. |
 
 ## disposition
 
@@ -115,7 +115,7 @@ GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-co
 
 GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R I`, `service str R`, `why str R`,
 `env_vars` (a list of `{name str R, source str}`), `dashboard` (a list of `{task str, location str, details str}`, GSD's `dashboard_config`), `local_dev strs`;
-`done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`). Both it and a checkpoint's `answer` are inputs of the plan check, so recording one stales the plan's W311-W316 verdicts; once the plan has a summary with `completed` that is history and the gates W318 and E516 skip it (a summary merely created does not count).
+`done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`). Both it and a checkpoint's `answer` are inputs of the plan check, so recording one stales the plan's W311-W316 verdicts while the plan is open; once its `status` is `complete` the plan check is no longer owed, so it is history and the gates W318 and E516 do not count it (ADR 0377).
 
 ## Reviews and revision conflicts
 
@@ -186,7 +186,9 @@ declarative rules or passes; the rest are **judged** (K7): the checker agent rec
 the verdict goes stale when any of the plan-check inputs changes ([rules.md](rules.md#judged-rules-inputs)): the plan
 and its tasks and must-haves, its phase, its requirements, the phase's and the project's decisions, the context,
 the research, its sibling plans, the agent instruction files, and what the checker cited. A plan is `checked` only
-with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose plans are not. The mapping is in
+with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose plans are not. A plan check is owed while
+the plan is open: once its `status` is `complete` the check is history, and neither a missing nor a stale one is
+reported (ADR 0377). The mapping is in
 [rules.md](rules.md#plan).
 
 ```spec

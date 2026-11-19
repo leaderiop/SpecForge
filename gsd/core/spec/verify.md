@@ -21,9 +21,28 @@ File: `verify.spec` in the phase folder; broken windows in `ops/windows.spec`.
 GSD's verifier writes `NN-VERIFICATION.md` with a status, a score and per-truth tables, and nothing stops an agent
 from writing `status: passed`. Here the verifier records **verdicts** as `verdict` members on each truth, artifact and key
 link it judged (K7), the collectors record **evidence** (test results, DOM checks), and every status below is computed from
-the two. A verdict whose inputs changed since it was recorded is stale, and a stale verdict never counts as a pass:
-the item and its plan, the code the item or its plan names, and every file the verifier cited
-([rules.md](rules.md#judged-rules-inputs)).
+the two. A verdict whose inputs changed since it was recorded is stale, and a stale verdict never counts as a pass.
+A verdict reads what it is about ([rules.md](rules.md#judged-rules-inputs), ADR 0377): a truth's verdict reads the
+truth, its plan and phase, the tests that name it, and what the verifier cited, files and tests; an artifact's reads its
+`path`; a key link's its `from` and `to`. So an edit stales exactly the verdicts that read the edited file, and a
+truth's verdict that cites no file of the project and no test is refused: it could never go stale on a code edit.
+
+**When a verdict is owed.** A must-have (a truth, an artifact, a key link, a judgment-tier prohibition) owes the
+verifier a verdict once its plan is complete, its `status` `complete`; a plan check is owed while its plan is open
+([plan.md](plan.md#the-plan-check)). The owner state decides it (ADR 0362): an unexecuted plan's must-haves owe nothing
+yet, so nothing reports them missing, and an executed plan's plan check is history, so no gate counts it.
+
+**Re-verification.** `specforge gsd re-verify <phase|plan> --stale-only` (the command `re_verify`) lists the verifier's
+verdicts of the subject that no longer hold: stale, missing, unrecorded or unreadable, each with the inputs that changed
+and the selector the rule reads them with. `/gsd-execute-phase` runs it before the verifier, which judges exactly what it
+lists; every other verdict stays as recorded, byte for byte. A fresh verdict, passing or failing, is never listed, since
+it would be judged the same again. Upstream re-verifies the whole phase. Under gsd-plus a verdict that is not fresh
+also refuses every workflow step but the one that judges it (gsd/E516, [rules.md](rules.md)).
+
+**Prohibitions.** A judgment-tier prohibition, one that names no enforcing `test`, owes the verifier a verdict once its
+plan is complete (gsd/W525: `held`, `violated` or `unverified`, passing `held`), over the prohibition, its plan and its
+phase. It is a warning: a model's verdict on a prohibition is not authoritative, where upstream halts or marks it
+unverified. A prohibition that names its test is gsd/E319's and the test's, never judged.
 
 | GSD per-item status | Here |
 |---|---|

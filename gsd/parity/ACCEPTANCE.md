@@ -49,6 +49,13 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
 - Codes: 70 of the 70 codes fire and stay silent in a named test.
+- Verification: the verifier's `gsd/E501` verdict on a truth reads what it cites, files and tests, and one that cites
+  nothing is refused; an artifact's reads its `path` and a key link's its `from` and `to` (ADR 0377). A must-have owes
+  its verdict once its plan is complete, a plan check while its plan is open, and a judgment-tier prohibition owes
+  `gsd/W525`. `re_verify` lists the verdicts of a phase that no longer hold, and `execute_phase` runs it before the
+  verifier, which judges only those, where upstream re-verifies the whole phase. The taskboard twin shows it
+  (`core/tests/cli/fresh_taskboard.rs`): an edit re-judges exactly the verdicts that read the edited file, and every
+  other verdict stays byte-identical.
 
 ## `@gsd/security` 1.0.0 against gsd-core 1.19.0
 
@@ -71,6 +78,11 @@ Suites: 74 cases are accounted, 67 of `secure-phase.test.cjs`, 5 of `injection-b
 `secure-phase-single-writer.test.cjs` (`security/tests/accounting.rs`, `security/tests/port.rs`). The suites and files of
 the upstream tree about the node CLI's hardening library, its CI scans and its documentation are not applicable, each
 with a reason in `parity_roster.rs`. Gate-cutover verdicts of security: 0.
+
+Codes: `gsd.security/E101`, `W301` and the two judged rules, `W302` (a closed threat's mitigation holds, read over the
+files the threat names) and `W303` (a phase's threat flags map to its register), which `secure_phase` judges and
+`record_security_verdict` records; each fires and stays silent in a named test. The vault twin shows W302 going stale
+on exactly the threats whose files an edit touches (`security/tests/cli/fresh_vault.rs`).
 
 ## The four checks
 

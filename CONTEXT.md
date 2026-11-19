@@ -1995,7 +1995,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   every path.
 - **Judged rule**: a rule of `check: "judged"` that holds while a fresh verdict of a passing outcome says so; it names
   its judge, outcomes and per-kind inputs (ADR 0290). A finding the rule reports is the judged evaluation's own; only
-  such a finding is exempt from E080 (ADR 0302).
+  such a finding is exempt from E080 (ADR 0302). A target may wait for its **owner state**, owing a verdict only once its
+  owner is complete or only while it is pending (ADR 0362), and an extension declares and writes its own judged rules
+  through its own verdict command, under its own namespace (ADR 0377).
 - **Verdict**: a `verdict <rule> <outcome> { … }` statement, an entity's own member written by `set_verdict`; not the
   registry's custom-rule pass or fail, and not a coverage verdict.
 - **Judgement**: where one judged rule stands on one entity: `fresh`, `stale`, `missing`, `unrecorded` or `unreadable`,
