@@ -16,7 +16,8 @@ const PLAN_STATUS: &[&str] = &[
 ];
 const COUPLING: &[Field] = &[rf("peer", "plan").r(), str("reason").r()];
 const ESTIMATE: &[Field] = &[int("tokens"), int("tasks")];
-const ESTIMATE_ERROR: &[Field] = &[num("tasks")];
+/// The members of `plan.estimate_error`: the one list the derive pass measures and `progress-report` prints.
+pub const ESTIMATE_ERROR: &[Field] = &[num("tasks")];
 
 /// `NN-MM-PLAN.md`, named `03-02` and scoped by its phase; a quick plan has no phase and is named by its quick id.
 pub const PLAN: Kind = Kind::new(

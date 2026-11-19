@@ -10,6 +10,25 @@ pub fn of_kind<'a>(input: &'a PassInput, kind: &'a str) -> impl Iterator<Item = 
     input.entities.iter().filter(move |e| e.kind == kind)
 }
 
+/// The tasks of each plan that has one, a task being its plan's by the scope of its id, in [`id_order`]: the one count
+/// a summary's `actuals.tasks`, a plan's `estimate_error` and its weight on the critical path read, and the one order
+/// of the critical path's tasks.
+///
+/// [`id_order`]: crate::commands::id_order
+pub fn tasks_by_plan(input: &PassInput) -> BTreeMap<&str, Vec<&str>> {
+    let mut tasks: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for task in of_kind(input, "task") {
+        tasks
+            .entry(crate::scope::scope_of(&task.id))
+            .or_default()
+            .push(&task.id);
+    }
+    for of_plan in tasks.values_mut() {
+        of_plan.sort_by_key(|id| crate::commands::id_order(id));
+    }
+    tasks
+}
+
 /// The id of the phase a plan is in, through its resolved `phase` edge; `None` for a quick plan (and for a `phase`
 /// that names nothing, which the host reports).
 pub fn phase_of<'a>(input: &'a PassInput, plan: &str) -> Option<&'a str> {

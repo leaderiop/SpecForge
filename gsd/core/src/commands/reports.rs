@@ -153,9 +153,6 @@ fn progress_json(milestone: Option<&GraphNode>, found: &[Phase]) -> Value {
     })
 }
 
-/// The members of a plan's `estimate_error`, in the block's order (`kinds/plan.rs`).
-const ESTIMATE_MEMBERS: [&str; 1] = ["tasks"];
-
 /// An estimate error as a signed percent: at most two decimals with trailing zeros trimmed, `+` before a positive
 /// value, `0%` for zero.
 fn signed_percent(error: f64) -> String {
@@ -180,11 +177,11 @@ fn estimate_errors(graph: &CommandGraph, phase: &str) -> String {
         let Some(error) = plan.fields.get("estimate_error") else {
             continue;
         };
-        let members: Vec<String> = ESTIMATE_MEMBERS
+        let members: Vec<String> = crate::kinds::ESTIMATE_ERROR
             .iter()
             .filter_map(|member| {
-                let error = error.get(*member)?.as_f64()?;
-                Some(format!("{member} {}", signed_percent(error)))
+                let error = error.get(member.name)?.as_f64()?;
+                Some(format!("{} {}", member.name, signed_percent(error)))
             })
             .collect();
         if !members.is_empty() {

@@ -63,6 +63,13 @@ fn error_of(input: &PassInput) -> Option<Value> {
 }
 
 #[test]
+fn every_member_of_the_kinds_block_is_measured() {
+    for member in ESTIMATE_ERROR {
+        assert_eq!(actual(member.name, 3), Some(3), "{}", member.name);
+    }
+}
+
+#[test]
 fn the_task_estimate_is_measured_against_the_task_count() {
     let input = measured(
         Some(json!({ "tokens": 1000, "tasks": 3 })),

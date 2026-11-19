@@ -12,20 +12,12 @@ use std::collections::BTreeMap;
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::value;
-use crate::commands::id_order;
-use crate::passes::plans::of_kind;
+use crate::passes::plans::tasks_by_plan;
 use crate::passes::waves::{self, Placed};
-use crate::scope::scope_of;
 
 /// The two fields of every placed phase.
 pub fn values(input: &PassInput) -> Vec<PassValue> {
-    let mut tasks: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for task in of_kind(input, "task") {
-        tasks.entry(scope_of(&task.id)).or_default().push(&task.id);
-    }
-    for of_plan in tasks.values_mut() {
-        of_plan.sort_by_key(|id| id_order(id));
-    }
+    let tasks = tasks_by_plan(input);
     waves::placed(input)
         .iter()
         .flat_map(|placed| of_phase(placed, &tasks))
