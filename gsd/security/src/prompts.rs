@@ -91,32 +91,45 @@ fn latest_complete(call: &PromptCall<'_>) -> Option<String> {
         .map(|n| n.id.clone())
 }
 
-/// The entities of `phase` this prompt judges whose judgement is not fresh (missing, stale, unrecorded or unreadable),
-/// as `(rule, id)` sorted: each closed threat of its plans (by the threat's `plan` edge and the plan's `phase`) for
-/// W302, its security audit for W303. What the judge step records, so a re-run judges only those.
+/// Whether `workflow.security_enforcement` is on (its default): off, the host gates W302 and W303 off, so neither is
+/// evaluated and no verdict is owed.
+fn enforced() -> bool {
+    Settings::current()
+        .bool("workflow.security_enforcement")
+        .unwrap_or(true)
+}
+
+/// The entities of `phase` this prompt judges whose verdict is owed and not fresh (missing, stale, unrecorded or
+/// unreadable), as `(rule, id)` sorted: each threat of its plans for W302, its security audit for W303. A threat is
+/// the phase's by its `plan` edge and that plan's `phase` edge, an audit by its `phase` edge: the references as the
+/// kernel resolved them, never the text they were written as (`plan 01-01` names a plan as its full path does). An
+/// entity that carries no judgement of the rule owes none (an open threat's W302, which waits for it to close, or a
+/// rule gated off). What the judge step records, so a re-run judges only those.
 fn not_fresh(call: &PromptCall<'_>, phase: &str) -> Vec<(&'static str, String)> {
-    let nodes: &[_] = call.graph().map_or(&[], |g| &g.nodes);
-    let in_phase = |plan: &str| {
-        nodes
+    let Some(graph) = call.graph() else {
+        return Vec::new();
+    };
+    let edge = |id: &str, label: &str| {
+        graph
+            .edges
             .iter()
-            .any(|n| n.kind == "plan" && n.id == plan && n.text("phase") == Some(phase))
+            .find(|e| e.source == id && e.label == label)
+            .map(|e| e.target.as_str())
     };
     let owed = |n: &GraphNode| match n.kind.as_str() {
-        "threat" if n.text("status") == Some("closed") && n.text("plan").is_some_and(in_phase) => {
+        "threat" if edge(&n.id, "plan").and_then(|plan| edge(plan, "phase")) == Some(phase) => {
             Some(MITIGATION)
         }
-        "security_audit" if n.text("phase") == Some(phase) => Some(FLAGS),
+        "security_audit" if edge(&n.id, "phase") == Some(phase) => Some(FLAGS),
         _ => None,
     };
-    let mut left: Vec<(&'static str, String)> = nodes
+    let mut left: Vec<(&'static str, String)> = graph
+        .nodes
         .iter()
         .filter_map(|n| {
             let rule = owed(n)?;
-            let fresh = n
-                .judgements
-                .iter()
-                .any(|j| j.rule == rule && j.state == "fresh");
-            (!fresh).then(|| (rule, n.id.clone()))
+            let judgement = n.judgements.iter().find(|j| j.rule == rule)?;
+            (judgement.state != "fresh").then(|| (rule, n.id.clone()))
         })
         .collect();
     left.sort();
@@ -126,7 +139,11 @@ fn not_fresh(call: &PromptCall<'_>, phase: &str) -> Vec<(&'static str, String)> 
 /// The judged rules this prompt records, how, and the verdicts of the phase it has left to record.
 fn judging(call: &PromptCall<'_>, phase: &str) -> String {
     let left = not_fresh(call, phase);
-    let list = if left.is_empty() {
+    let list = if !enforced() {
+        "`workflow.security_enforcement` is off: neither rule is evaluated and no verdict is owed, so none is left to \
+         judge."
+            .to_string()
+    } else if left.is_empty() {
         "Every verdict this prompt judges is fresh: none is left to judge.".to_string()
     } else {
         let lines: Vec<String> = left

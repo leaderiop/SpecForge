@@ -407,3 +407,44 @@ fn a_threat_of_another_phase_is_never_listed() {
     assert_eq!(left_to_judge(&p, PHASE, W302).0, CLOSED);
     assert_eq!(left_to_judge(&p, "v1.0/02", W302).0, [threat]);
 }
+
+/// The list follows the references as the kernel resolved them, not as they were written: a threat whose `plan` and an
+/// audit whose `phase` are written in a short form are the phase's as much as those written as full paths.
+#[test]
+fn a_reference_written_in_a_short_form_is_followed_to_its_phase() {
+    let p = vault();
+    p.edit(
+        "spec/plans.spec",
+        "threat T-01-01 \"Seal under a key that stays off the disk\" {\n  plan        v1.0/01/01-01",
+        "threat T-01-01 \"Seal under a key that stays off the disk\" {\n  plan        01-01",
+    );
+    p.edit(
+        "spec/security.spec",
+        "security_audit 01-SECURITY \"Phase 1 security\" {\n  phase v1.0/01",
+        "security_audit 01-SECURITY \"Phase 1 security\" {\n  phase 01",
+    );
+    let (ids, section) = left_to_judge(&p, PHASE, W302);
+    assert_eq!(ids, CLOSED, "{section}");
+    assert_eq!(left_to_judge(&p, PHASE, W303).0, [AUDIT], "{section}");
+}
+
+/// With `workflow.security_enforcement` off the host evaluates neither rule, so no verdict is owed and none is listed
+/// as left to judge, though none is recorded.
+#[test]
+fn enforcement_off_leaves_nothing_to_judge() {
+    let p = vault();
+    p.settings_of(
+        "@gsd/security",
+        json!({"workflow.security_enforcement": false}),
+    );
+    for rule in [W302, W303] {
+        let (ids, section) = left_to_judge(&p, PHASE, rule);
+        assert!(ids.is_empty(), "{rule}: {section}");
+        assert!(
+            section.contains(
+                "`workflow.security_enforcement` is off: neither rule is evaluated and no verdict is owed"
+            ),
+            "{section}"
+        );
+    }
+}
