@@ -75,7 +75,7 @@
     ]
   },
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "47370bc9ea90dc35be130ca4720f8706610ad7d9", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "601334ae1eaf46483229dc59dbfce60f24e810c6", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
       "baseline": [
         "I213 -:0", "gsd/E501 spec/plans.spec:223", "gsd/E501 spec/plans.spec:228", "gsd/E501 spec/plans.spec:233",
         "gsd/E501 spec/plans.spec:238", "gsd/E501 spec/plans.spec:245", "gsd/W311 spec/plans.spec:1", "gsd/W311 spec/plans.spec:192",
@@ -97,7 +97,7 @@
         "gsd/W316 spec/plans.spec:103", "gsd/W316 spec/plans.spec:194", "gsd/W407 spec/plans.spec:117",
         "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:23"
       ] },
-    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "cfc4b0306287248a63cf36239dc09e2398e4b3ae", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"],
+    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "b463648ae3502b91f4f2722bf0fda77707d945ee", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"],
       "baseline": [
         "I213 -:0", "gsd/E501 spec/plans.spec:241", "gsd/E501 spec/plans.spec:246", "gsd/E501 spec/plans.spec:251",
         "gsd/E501 spec/plans.spec:258", "gsd/E501 spec/quick.spec:20", "gsd/E501 spec/quick.spec:25", "gsd/W311 spec/plans.spec:1",

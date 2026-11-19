@@ -15,4 +15,6 @@ and how the goldens are recorded.
   summary's coverage item (`deliverable`), whose check names the test (`test/tasks.test.js#<test name>`, matched to a
   fact `@code/core` serves once `@javascript/node-test` has collected it).
 - `specforge-harness`: the ledger lines of phase 1's seven verifier verdicts (recorded over the collected tests) and of
-  the UAT results and the twin research's `context_pack`.
+  the UAT results and the twin research's `context_pack`. Each truth's verdict cites the files its truth is about
+  (`src/tasks.js`, `test/tasks.test.js`), so an edit to `src/cli.js` stales no truth, only 01-02's artifact and key
+  link that name it; an artifact or a key link cites nothing and reads the files it names.
