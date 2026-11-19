@@ -9,9 +9,11 @@
 //! depends on) and `task.plan` by construction, so a gap `trace --plan` finds in the unedited answer comes from an
 //! edge the strict waves do not order, such as a coupling peer that runs later, and one in an edited list from the
 //! reordering. The order of the tasks inside a plan is not checked: a task carries no `depends_on`. A phase whose
-//! `depends_on` has a cycle has no strict wave, and is refused. The command reads; it declares no write.
+//! `depends_on` has a cycle has no strict wave, and is refused naming gsd/E102; a plan without a strict wave whose
+//! phase holds no cycle is a graph computed without the plan flow, refused naming `specforge check` (ADR 0299 D4). The
+//! command reads; it declares no write.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
@@ -21,16 +23,26 @@ use super::support::{answer, id_order, node_in, required, run, target};
 /// The agent plan of the phase `phase` names (its full path, or the end of one no other phase shares).
 pub fn thread(graph: &CommandGraph, phase: &str) -> Result<Value, String> {
     let phase = node_in(graph, "phase", phase)?;
-    let mut plans = Vec::new();
-    for plan in graph
+    let of_phase: Vec<&GraphNode> = graph
         .nodes_of_kind("plan")
         .filter(|p| target(graph, &p.id, "phase") == Some(phase.id.as_str()))
-    {
+        .collect();
+    let mut plans = Vec::new();
+    for plan in &of_phase {
         let Some(wave) = plan.fields.get("strict_wave").and_then(Value::as_i64) else {
-            return Err(format!(
-                "the plans of '{}' have no strict wave: their depends_on has a cycle (gsd/E102)",
-                phase.id
-            ));
+            let ids: Vec<&str> = of_phase.iter().map(|p| p.id.as_str()).collect();
+            return Err(if cyclic(graph, &ids) {
+                format!(
+                    "the plans of '{}' have no strict wave: their depends_on has a cycle (gsd/E102)",
+                    phase.id
+                )
+            } else {
+                format!(
+                    "plan '{}' of '{}' has no computed strict wave, and the phase's depends_on holds no cycle: run \
+                     `specforge check`",
+                    plan.id, phase.id
+                )
+            });
         };
         plans.push((wave, plan.id.as_str()));
     }
@@ -53,6 +65,30 @@ pub fn thread(graph: &CommandGraph, phase: &str) -> Result<Value, String> {
         );
     }
     Ok(json!({ "plan_id": phase.id, "entries": entries }))
+}
+
+/// Whether the `depends_on` edges among `plans` hold a cycle (Kahn's algorithm): what leaves the plans of a phase
+/// without a strict wave on a graph the plan flow computed.
+fn cyclic(graph: &CommandGraph, plans: &[&str]) -> bool {
+    let mut left: BTreeSet<&str> = plans.iter().copied().collect();
+    loop {
+        let ready: Vec<&str> = left
+            .iter()
+            .copied()
+            .filter(|plan| {
+                graph
+                    .edges_from(plan)
+                    .iter()
+                    .all(|e| e.label != "depends_on" || !left.contains(e.target.as_str()))
+            })
+            .collect();
+        if ready.is_empty() {
+            return !left.is_empty();
+        }
+        for plan in ready {
+            left.remove(plan);
+        }
+    }
 }
 
 /// The text form: one line per plan (its strict wave, its id and how many tasks follow it), then how to check it.

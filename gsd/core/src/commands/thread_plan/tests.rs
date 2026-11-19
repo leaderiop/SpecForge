@@ -124,6 +124,27 @@ fn a_plan_without_a_strict_wave_refuses_naming_the_cycle() {
 }
 
 #[test]
+fn a_plan_without_a_strict_wave_and_no_cycle_is_a_graph_to_check_again() {
+    // A graph computed without the plan flow: no strict wave, and no cycle to blame.
+    let nodes = vec![
+        node("v1.0/01", "phase", json!({})),
+        node("v1.0/01/A", "plan", json!({ "wave": 1 })),
+        node("v1.0/01/B", "plan", json!({ "wave": 2 })),
+    ];
+    let edges = vec![
+        edge("v1.0/01/A", "phase", "v1.0/01"),
+        edge("v1.0/01/B", "phase", "v1.0/01"),
+        edge("v1.0/01/B", "depends_on", "v1.0/01/A"),
+    ];
+    let refused = thread(&CommandGraph::new(nodes, edges), "v1.0/01").expect_err("no strict wave");
+    assert_eq!(
+        refused,
+        "plan 'v1.0/01/A' of 'v1.0/01' has no computed strict wave, and the phase's depends_on holds no cycle: run \
+         `specforge check`"
+    );
+}
+
+#[test]
 fn an_unknown_and_an_ambiguous_phase_are_refused() {
     assert_eq!(
         thread(&graph(), "v1.0/09").expect_err("unknown"),
