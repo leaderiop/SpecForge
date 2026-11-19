@@ -15,7 +15,8 @@ const PLAN_STATUS: &[&str] = &[
     "blocked",
 ];
 const COUPLING: &[Field] = &[rf("peer", "plan").r(), str("reason").r()];
-const ESTIMATE: &[Field] = &[int("tokens")];
+const ESTIMATE: &[Field] = &[int("tokens"), int("tasks")];
+const ESTIMATE_ERROR: &[Field] = &[num("tokens"), num("tasks")];
 
 /// `NN-MM-PLAN.md`, named `03-02` and scoped by its phase; a quick plan has no phase and is named by its quick id.
 pub const PLAN: Kind = Kind::new(
@@ -70,6 +71,11 @@ pub const PLAN: Kind = Kind::new(
         int("estimate_slices").c().doc(
             "how many plans `estimate.tokens` makes under `workflow.smart_zone_tokens`, rounded up: over 1 is a \
              re-slice to recommend, never a block; absent without an estimate",
+        ),
+        block("estimate_error", ESTIMATE_ERROR).c().doc(
+            "(actual - estimate) / estimate for a plan whose summary is complete, rounded to 4 decimal places: \
+             `tasks` against the plan's task count, `tokens` against the summary's `actuals.tokens`; each member \
+             only when both exist and the estimate is above 0, absent never 0",
         ),
         context_record("context_pack")
             .o()

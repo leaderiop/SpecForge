@@ -37,7 +37,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
 | gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (a reference union, ADR 0285 D5) |
 | agent_hint | str | | `agent_hint:` |
-| estimate | {tokens int} | | `estimate:` |
+| estimate | {tokens int, tasks int} | | `estimate:`: the tokens and the tasks the planner expects the plan to take |
 | objective | str | R | `<objective>` |
 | purpose, output | str | | `Purpose:` / `Output:` |
 | context_refs | paths<present> | | `<context>` @-refs: paths that exist now, checked on every value (E016) |
@@ -51,6 +51,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | quick | bool | C | no phase: a quick task |
 | files_touched | strs | C | the sorted, distinct files of its recorded commits; absent without one, as a summary's `files_created` |
 | estimate_slices | int | C | `estimate.tokens` over `workflow.smart_zone_tokens`, rounded up (at least 1): over 1 is a re-slice the plan checker recommends, never a block; absent without an estimate or a budget |
+| estimate_error | {tokens num, tasks num} | C | (actual - estimate) / estimate for a plan whose summary (the first by id) is complete, case-folded (ADR 0378 D5), rounded half away from zero to 4 decimal places: `tasks` against the plan's task count (as the summary's `actuals.tasks` counts it), `tokens` against the summary's `actuals.tokens`, which nothing writes until a harness records it. Each member only when both sides exist and the estimate is above 0, and left out when it still keeps more than 15 significant digits (ADR 0361): absent, never 0, and no block when no member is measured. `progress-report` prints it under the plan's phase |
 | context_pack | {route str, digest str, max_tokens int} | P O | the `gsd/executor` pack `start_plan` recorded, on every call (ADR 0356); it moves no digest, so no plan check goes stale, and while the plan is open a pack that moved since is gsd/W524 |
 
 ## task

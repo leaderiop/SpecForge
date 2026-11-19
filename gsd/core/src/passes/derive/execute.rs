@@ -40,7 +40,7 @@ pub fn summaries(input: &PassInput) -> BTreeMap<&str, &PassEntity> {
 }
 
 /// A summary's `status`, case-folded: GSD reads it that way (`plan-dependency-graph.cts:47-60`).
-fn status_of(summary: &PassEntity) -> String {
+pub(super) fn status_of(summary: &PassEntity) -> String {
     text(summary, "status").unwrap_or_default().to_lowercase()
 }
 

@@ -49,6 +49,7 @@ mod decision_coverage;
 mod discuss;
 mod e502_probe;
 mod engine_tools;
+mod estimate_error;
 mod execute;
 mod execute_rules;
 mod execute_status;

@@ -4731,6 +4731,16 @@
                 "name": "tokens",
                 "required": false,
                 "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "integer",
+                "inverse_of": null,
+                "name": "tasks",
+                "required": false,
+                "target_kind": null
               }
             ],
             "name": "estimate",
@@ -4897,6 +4907,39 @@
             "field_type": "integer",
             "inverse_of": null,
             "name": "estimate_slices",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "(actual - estimate) / estimate for a plan whose summary is complete, rounded to 4 decimal places: `tasks` against the plan's task count, `tokens` against the summary's `actuals.tokens`; each member only when both exist and the estimate is above 0, absent never 0",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "number",
+                "inverse_of": null,
+                "name": "tokens",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "number",
+                "inverse_of": null,
+                "name": "tasks",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "estimate_error",
             "required": false,
             "target_kind": null,
             "writer": "computed"
