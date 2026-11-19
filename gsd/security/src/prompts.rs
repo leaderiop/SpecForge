@@ -33,6 +33,8 @@ pub fn asset(path: &str) -> Option<&'static str> {
 pub const ID: &str = "secure_phase";
 /// The judged rule this prompt records on each closed threat.
 const MITIGATION: &str = "gsd.security/W302";
+/// The judged rule this prompt records on the phase's security audit.
+const FLAGS: &str = "gsd.security/W303";
 const TEMPLATE: &str = "gsd-core/templates/SECURITY.md";
 const DESCRIPTION: &str = "Retroactively verify threat mitigations for a completed phase";
 
@@ -89,58 +91,70 @@ fn latest_complete(call: &PromptCall<'_>) -> Option<String> {
         .map(|n| n.id.clone())
 }
 
-/// The closed threats of `phase`'s plans (by the threat's `plan` edge and the plan's `phase`) whose
-/// `gsd.security/W302` judgement is not fresh, sorted: what the judge step records, so a re-run judges only those.
-fn not_fresh(call: &PromptCall<'_>, phase: &str) -> Vec<String> {
+/// The entities of `phase` this prompt judges whose judgement is not fresh (missing, stale, unrecorded or unreadable),
+/// as `(rule, id)` sorted: each closed threat of its plans (by the threat's `plan` edge and the plan's `phase`) for
+/// W302, its security audit for W303. What the judge step records, so a re-run judges only those.
+fn not_fresh(call: &PromptCall<'_>, phase: &str) -> Vec<(&'static str, String)> {
     let nodes: &[_] = call.graph().map_or(&[], |g| &g.nodes);
     let in_phase = |plan: &str| {
         nodes
             .iter()
             .any(|n| n.kind == "plan" && n.id == plan && n.text("phase") == Some(phase))
     };
-    let mut ids: Vec<String> = nodes
+    let owed = |n: &GraphNode| match n.kind.as_str() {
+        "threat" if n.text("status") == Some("closed") && n.text("plan").is_some_and(in_phase) => {
+            Some(MITIGATION)
+        }
+        "security_audit" if n.text("phase") == Some(phase) => Some(FLAGS),
+        _ => None,
+    };
+    let mut left: Vec<(&'static str, String)> = nodes
         .iter()
-        .filter(|n| n.kind == "threat" && n.text("status") == Some("closed"))
-        .filter(|n| n.text("plan").is_some_and(in_phase))
-        .filter(|n| {
-            !n.judgements
+        .filter_map(|n| {
+            let rule = owed(n)?;
+            let fresh = n
+                .judgements
                 .iter()
-                .any(|j| j.rule == MITIGATION && j.state == "fresh")
+                .any(|j| j.rule == rule && j.state == "fresh");
+            (!fresh).then(|| (rule, n.id.clone()))
         })
-        .map(|n| n.id.clone())
         .collect();
-    ids.sort();
-    ids
+    left.sort();
+    left
 }
 
-/// The judged rule this prompt records, how, and the verdicts of the phase it has left to record.
+/// The judged rules this prompt records, how, and the verdicts of the phase it has left to record.
 fn judging(call: &PromptCall<'_>, phase: &str) -> String {
     let left = not_fresh(call, phase);
     let list = if left.is_empty() {
-        "Every closed threat's mitigation verdict is fresh: none is left to judge.".to_string()
+        "Every verdict this prompt judges is fresh: none is left to judge.".to_string()
     } else {
         let lines: Vec<String> = left
             .iter()
-            .map(|id| format!("- `{MITIGATION}` on `{id}`"))
+            .map(|(rule, id)| format!("- `{rule}` on `{id}`"))
             .collect();
         format!(
-            "The closed threats whose mitigation verdict is not fresh, the ones to judge:\n\n{}",
+            "The verdicts that are not fresh, the ones to judge:\n\n{}",
             lines.join("\n")
         )
     };
     format!(
         "## The judged verdicts here (@gsd/security)
 
-This prompt judges `gsd.security/W302` on each closed threat of the phase: its disposition holds (`mitigate`, the \
-mitigation is in its files; `accept`, an accepted risk records it; `transfer`, the transfer is documented). The \
-auditor returns its findings and records nothing; after the audit is recorded, you record each verdict:
+This prompt judges two rules. The auditor returns its findings and records nothing; after the audit is recorded, you \
+record each verdict:
 
-1. read its inputs: `specforge query <threat> --inputs gsd.security/W302 --format json`;
-2. judge them, then record the outcome over the `basis` it printed: `specforge gsd record-security-verdict <threat> \
-W302 <holds|broken> <model> '<basis>'` (`--cited '[{{\"file\": \"<path>\"}}]'` names what shows it).
+- `{MITIGATION}` on each closed threat of the phase: its disposition holds (`mitigate`, the mitigation is in its \
+files; `accept`, an accepted risk records it; `transfer`, the transfer is documented). Outcome `holds` or `broken`.
+- `{FLAGS}` on the phase's security audit: every threat flag the phase's summaries raise maps to a threat of its \
+register (`mapped`), or one does not (`unregistered`, the auditor's unregistered flag: name each in `--findings`).
 
-A verdict stays fresh until one of its inputs changes: an edit to a file the threat names makes it stale, and only the \
-stale ones are judged again.
+For each, read its inputs with `specforge query <entity> --inputs <rule> --format json`, judge them, then record the \
+outcome over the `basis` it printed: `specforge gsd record-security-verdict <entity> <W302|W303> <outcome> <model> \
+'<basis>'` (`--cited '[{{\"file\": \"<path>\"}}]'` names what shows it).
+
+A verdict stays fresh until one of its inputs changes: an edit to a file a threat names stales its W302, a new or \
+edited summary or threat of the phase stales the audit's W303, and only the stale ones are judged again.
 
 {list}"
     )
@@ -242,7 +256,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 .command("record_security_audit");
         });
         p.step("judge", |s| {
-            s.title("Judge each closed threat's mitigation and record it (specforge gsd record-security-verdict <threat> W302 <holds|broken> <model> '<basis>')")
+            s.title("Judge each closed threat's mitigation (W302) and the phase's threat flags (W303) and record them (specforge gsd record-security-verdict <entity> <W302|W303> <outcome> <model> '<basis>')")
                 .command("record_security_verdict");
         });
         p.step("accept", |s| {

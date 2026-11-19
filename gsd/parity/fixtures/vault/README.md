@@ -24,9 +24,9 @@ An encrypted store for secrets on the command line: `VAULT_KEY=<hex> node src/cl
   its one error is the duplicate `T-01-02` (`gsd.security/E101`, once per claim) that the fixture exists to carry,
   besides the verifier's `no verdict` on each truth, artifact and key link of an executed plan (phase 1's: no
   verifier has run, as `.planning/` has no `VERIFICATION.md`; phase 2's unexecuted plan owes none yet), and the
-  security workflow's `no verdict` (`gsd.security/W302`, a warning) on each closed threat: five, all but plan 01-02's
-  open `T-01-02`, which owes none while it is open. With the summaries, the ported state detection finds them, as
-  upstream's does.
+  security workflow's `no verdict` (warnings) on each closed threat (`gsd.security/W302`: five, all but plan 01-02's
+  open `T-01-02`, which owes none while it is open) and on phase 1's audit (`gsd.security/W303`, its threat flags).
+  With the summaries, the ported state detection finds them, as upstream's does.
   A threat's `status` and `evidence` and the audit run's counts are harness fields (written by
   `record-security-audit`, never by hand); the twin holds them as the audit left them, and `specforge-harness` vouches
   for each, as the taskboard's verdicts are. The threats' statuses are `01-SECURITY.md`'s (`T-01-02` of plan 01-02 open,

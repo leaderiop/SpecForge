@@ -8,9 +8,10 @@ for a phase with open threats at or above `workflow.security_block_on`. Peer: `@
 ## What is here
 
 - The model: [spec/README.md](spec/README.md) (kinds `trust_boundary`, `threat`, `security_audit`, `accepted_risk`,
-  `audit_run`; computed values; the codes `gsd.security/E101`, `W301` and the judged `W302` with its inputs; the four
-  settings; the hooks).
-- The judged rules (`src/judged.rs`): `gsd.security/W302`, a closed threat's mitigation, judged by `secure_phase`.
+  `audit_run`; computed values; the codes `gsd.security/E101`, `W301` and the judged `W302` and `W303` with their
+  inputs; the four settings; the hooks).
+- The judged rules (`src/judged.rs`): `gsd.security/W302`, a closed threat's mitigation, and `gsd.security/W303`, a
+  phase's threat flags against its register, both judged by `secure_phase`.
 - Commands (`src/commands/`): `security_hooks <point>`, `threat_ids`, `security_gate`, `record_security_audit`,
   `accept_risk` (human-attested), `record_security_verdict` (a judged rule's verdict).
 - The prompt `secure_phase` and its slash `/gsd-secure-phase` (`src/prompts.rs`), the agent `gsd-security-auditor` in

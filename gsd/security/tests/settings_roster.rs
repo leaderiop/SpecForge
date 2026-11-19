@@ -87,7 +87,10 @@ fn the_security_keys_match_gsd_core() {
 #[test]
 fn workflow_security_enforcement_gates_the_audit_and_its_judged_rules() {
     let enforcement = setting(&items(), "workflow.security_enforcement");
-    assert_eq!(enforcement["gates"], serde_json::json!(["W301", "W302"]));
+    assert_eq!(
+        enforcement["gates"],
+        serde_json::json!(["W301", "W302", "W303"])
+    );
 }
 
 #[test]

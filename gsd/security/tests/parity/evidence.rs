@@ -2,7 +2,7 @@
 //! that project's twin. Both are `#[test]` fns under `tests/` whose name or body names the code;
 //! `parity_rules.rs` checks that they exist, `parity_roster.rs` counts them.
 
-pub const RULE_EVIDENCE: [(&str, &str, &str); 3] = [
+pub const RULE_EVIDENCE: [(&str, &str, &str); 4] = [
     (
         "E101",
         "a_duplicate_is_one_e101_per_claiming_threat_and_the_supply_chain_row_never_counts",
@@ -17,5 +17,10 @@ pub const RULE_EVIDENCE: [(&str, &str, &str); 3] = [
         "W302",
         "a_closed_threat_without_a_verdict_reports_w302",
         "an_open_threat_and_a_fresh_holds_are_silent_w302",
+    ),
+    (
+        "W303",
+        "a_security_audit_without_a_verdict_reports_w303",
+        "a_mapped_verdict_is_silent_and_a_summary_edit_stales_w303",
     ),
 ];

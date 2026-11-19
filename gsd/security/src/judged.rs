@@ -21,18 +21,44 @@ const W302: &[Target] = &[Target {
     judged_while: Some(Owed::Complete),
 }];
 
-pub static JUDGED: &[Judged] = &[Judged {
-    code: "W302",
-    message: "threat '{id}' has no fresh mitigation verdict",
-    judge: "prompt:secure_phase",
-    outcomes: &["holds", "broken"],
-    passing: &["holds"],
-    targets: W302,
-    values: &[],
-    outcome_fields: &[],
+/// A phase's audit says whether every threat flag its summaries raise maps to a threat of its register, as upstream's
+/// auditor reports an `unregistered_flag`. It reads the whole summaries: a selector cannot pick one string-list field,
+/// so an edit to any field of a summary stales it, the safe side. Owed from the audit's creation.
+const W303: &[Target] = &[Target {
+    kind: "security_audit",
+    inputs: &[
+        ("audit", "self"),
+        ("summaries", "self.phase<plan.phase<summary.plan"),
+        ("threats", "self.phase<plan.phase<threat.plan"),
+    ],
+    unless_set: &[],
+    judged_while: None,
 }];
 
-/// A model's verdict on a mitigation is not authoritative: every judged rule of the extension is a warning, as W301 is.
+pub static JUDGED: &[Judged] = &[
+    Judged {
+        code: "W302",
+        message: "threat '{id}' has no fresh mitigation verdict",
+        judge: "prompt:secure_phase",
+        outcomes: &["holds", "broken"],
+        passing: &["holds"],
+        targets: W302,
+        values: &[],
+        outcome_fields: &[],
+    },
+    Judged {
+        code: "W303",
+        message: "security audit '{id}' has no fresh threat-flag verdict",
+        judge: "prompt:secure_phase",
+        outcomes: &["mapped", "unregistered"],
+        passing: &["mapped"],
+        targets: W303,
+        values: &[],
+        outcome_fields: &[],
+    },
+];
+
+/// A model's verdict is not authoritative: every judged rule of the extension is a warning, as W301 is.
 fn severity(_code: &str) -> ValidationSeverity {
     ValidationSeverity::Warning
 }

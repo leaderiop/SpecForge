@@ -117,8 +117,8 @@ fn the_settings_are_filled_bare_into_the_assignments() {
     assert!(text.contains("SECURITY_BLOCK_ON=\"medium\""), "{text}");
 }
 
-/// The auditor, then the audit recorded, then each closed threat's mitigation verdict recorded by the orchestrator (the
-/// prompt is the judge of `gsd.security/W302`), then a person's accepted risk.
+/// The auditor, then the audit recorded, then the verdicts recorded by the orchestrator (the prompt is the judge of
+/// `gsd.security/W302` and `W303`), then a person's accepted risk.
 #[test]
 fn the_steps_are_the_auditor_and_the_three_commands() {
     let p = model();
@@ -136,9 +136,9 @@ fn the_steps_are_the_auditor_and_the_three_commands() {
     assert_eq!(of("record")["tool"], "specforge.gsd.record_security_audit");
     assert_eq!(of("judge")["tool"], "specforge.gsd.record_security_verdict");
     assert!(
-        of("judge")["title"]
-            .as_str()
-            .is_some_and(|t| t.contains("specforge gsd record-security-verdict <threat> W302")),
+        of("judge")["title"].as_str().is_some_and(
+            |t| t.contains("specforge gsd record-security-verdict <entity> <W302|W303>")
+        ),
         "{steps:#?}"
     );
     assert_eq!(of("accept")["tool"], "specforge.gsd.accept_risk");
@@ -326,6 +326,9 @@ fn vault() -> Project {
 }
 
 const W302: &str = "gsd.security/W302";
+const W303: &str = "gsd.security/W303";
+/// The vault's phase 01 audit.
+const AUDIT: &str = "v1.0/01/01-SECURITY";
 
 /// The closed threats of the vault's phase 01.
 const CLOSED: [&str; 5] = [
@@ -356,19 +359,21 @@ fn left_to_judge(p: &Project, phase: &str, rule: &str) -> (Vec<String>, String) 
     (ids, section)
 }
 
-/// The closing section names the judged rule and its command, and lists every closed threat of the phase whose
-/// `gsd.security/W302` verdict is not fresh; once each holds, none is left.
+/// The closing section names the judged rules and their command, and lists every closed threat of the phase whose
+/// `gsd.security/W302` verdict is not fresh and the phase's audit while its `W303` verdict is not; once each holds,
+/// none is left.
 #[test]
-fn the_tail_lists_the_closed_threats_whose_w302_is_not_fresh() {
+fn the_tail_lists_the_verdicts_of_the_phase_that_are_not_fresh() {
     let p = vault();
     let (ids, section) = left_to_judge(&p, PHASE, W302);
     assert_eq!(ids, CLOSED, "{section}");
+    assert_eq!(left_to_judge(&p, PHASE, W303).0, [AUDIT], "{section}");
     assert!(
-        section.contains("specforge query <threat> --inputs gsd.security/W302 --format json"),
+        section.contains("specforge query <entity> --inputs <rule> --format json"),
         "{section}"
     );
     assert!(
-        section.contains("specforge gsd record-security-verdict <threat> W302 <holds|broken>"),
+        section.contains("specforge gsd record-security-verdict <entity> <W302|W303> <outcome>"),
         "{section}"
     );
     assert_eq!(p.record(CLOSED[0], W302, "holds", &[]).code, 0);
@@ -379,9 +384,12 @@ fn the_tail_lists_the_closed_threats_whose_w302_is_not_fresh() {
     }
     let (ids, section) = left_to_judge(&p, PHASE, W302);
     assert!(ids.is_empty(), "{section}");
+    assert_eq!(left_to_judge(&p, PHASE, W303).0, [AUDIT], "{section}");
+    assert_eq!(p.record(AUDIT, W303, "mapped", &[]).code, 0);
+    let (ids, section) = left_to_judge(&p, PHASE, W303);
+    assert!(ids.is_empty(), "{section}");
     assert!(
-        section
-            .contains("Every closed threat's mitigation verdict is fresh: none is left to judge."),
+        section.contains("Every verdict this prompt judges is fresh: none is left to judge."),
         "{section}"
     );
 }

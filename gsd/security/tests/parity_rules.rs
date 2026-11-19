@@ -133,6 +133,7 @@ fn the_code_book_is_the_codes_table() {
     assert!(gated("E101").starts_with("none"));
     assert_eq!(gated("W301"), "`workflow.security_enforcement`");
     assert_eq!(gated("W302"), "`workflow.security_enforcement`");
+    assert_eq!(gated("W303"), "`workflow.security_enforcement`");
 }
 
 #[test]

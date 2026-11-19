@@ -41,6 +41,7 @@ Computed, severity order critical > high > medium > low, `none` blocks nothing:
 | `gsd.security/E101` | threat | error | none (upstream applies it whatever the hook) | "threat ID `<id>` is claimed by more than one plan of phase `<p>`: `<plans>`; renumber after the phase's highest `T-<p>-NN`" (digit-suffixed IDs only; `-SC` never) | #4683 |
 | `gsd.security/W301` | phase | warning | `workflow.security_enforcement` | "`<p>-SECURITY` is missing / is still draft / has `<n>` threat(s) open: run /gsd-secure-phase `<p>`", on a phase whose status is `complete`; one line per phase (open threats before draft), where upstream can say both | #4972 |
 | `gsd.security/W302` | threat | warning | `workflow.security_enforcement` | "threat '`<id>`' has no fresh mitigation verdict: no verdict / the verdict of `<at>` is stale: `<inputs>` changed / the verdict of `<at>` is 'broken'", on a closed threat; a judged rule (below) | the auditor's per-threat verification (`gsd-security-auditor`, Threat Verification) |
+| `gsd.security/W303` | security_audit | warning | `workflow.security_enforcement` | "security audit '`<id>`' has no fresh threat-flag verdict: no verdict / the verdict of `<at>` is stale: `<inputs>` changed / the verdict of `<at>` is 'unregistered'"; a judged rule (below) | the auditor's `unregistered_flag` and SECURITY.md's Unregistered Flags (`gsd-security-auditor`) |
 
 ## Judged rules' inputs
 
@@ -52,16 +53,21 @@ prompt `secure_phase`: the auditor returns its findings and the orchestrator rec
 | Rules | Target | Inputs | Binds |
 |---|---|---|---|
 | gsd.security/W302 | threat | `threat` self · `plan` self.plan · `files` file(self.files) · `accepted` self<accepted_risk.threat · `rows` self<validation_row.threat; judged once the threat is closed (`judged_while complete`) | — |
+| gsd.security/W303 | security_audit | `audit` self · `summaries` self.phase<plan.phase<summary.plan · `threats` self.phase<plan.phase<threat.plan | — |
 
 W302's outcomes are `holds` and `broken` (passing `holds`): for `mitigate`, the mitigation is in its files; for
 `accept`, an accepted risk records it; for `transfer`, the transfer is documented. An open threat owes none (W301 says
-the audit has it open). A verdict never changes a threat's `blocking` or the audit's `threats_open`.
+the audit has it open). W303's outcomes are `mapped` and `unregistered` (passing `mapped`): every threat flag the
+phase's summaries raise maps to a threat of its register, or one does not (upstream's `unregistered_flag`, named in the
+verdict's findings). It reads whole summaries, since a selector cannot pick one string-list field: an edit to any field
+of a summary of the phase stales it, the safe side. It is owed from the audit's creation. A verdict never changes a
+threat's `blocking` or the audit's `threats_open`.
 
 ## Settings
 
 | Key | Type | Default | Notes |
 |---|---|---|---|
-| `workflow.security_enforcement` | bool | `true` | gates `W301` and `W302`; the `when` of all three hooks |
+| `workflow.security_enforcement` | bool | `true` | gates `W301`, `W302` and `W303`; the `when` of all three hooks |
 | `workflow.security_asvs_level` | int 1..3 | `1` | the level the audit runs at |
 | `workflow.security_block_on` | enum critical, high, medium, low, none | `high` | the lowest blocking severity |
 | `security.injection_blocking` | bool | `false` | read by `@gsd/core`'s injection scanner (`[blocking-needs-security]`) |
@@ -96,6 +102,6 @@ From `capabilities/security/capability.json`, answered by `security_hooks`:
 `/gsd-secure-phase` is the prompt `secure_phase` (steps: the agent `gsd-security-auditor`, the command
 `record_security_audit`, the command `record_security_verdict`, the command `accept_risk`); the auditor is return-only
 (#2119): the orchestrator writes the audit with `record_security_audit` and, the prompt being the judge of
-`gsd.security/W302`, each closed threat's verdict with `record_security_verdict`. The closing section lists the closed
-threats of the phase whose W302 verdict is not fresh (missing, stale, unrecorded or unreadable), so a re-run judges
-only those.
+`gsd.security/W302` and `W303`, each closed threat's verdict and the audit's with `record_security_verdict`. The
+closing section lists the closed threats of the phase whose W302 verdict is not fresh (missing, stale, unrecorded or
+unreadable) and the audit while its W303 verdict is not, so a re-run judges only those.

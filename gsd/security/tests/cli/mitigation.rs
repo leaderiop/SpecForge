@@ -1,11 +1,16 @@
-//! `gsd.security/W302`: a closed threat owes a judged verdict that its declared disposition holds, written by
-//! `@gsd/security`'s own `record_security_verdict` under its qualified rule, and stale once a file it reads changes.
+//! The judged rules of `@gsd/security`, written by its own `record_security_verdict` under their qualified rule:
+//! `gsd.security/W302`, a closed threat owes a verdict that its declared disposition holds, stale once a file it reads
+//! changes; `gsd.security/W303`, a phase's audit owes a verdict that every threat flag of its summaries maps to a
+//! threat of its register, stale once a summary or a threat of the phase changes.
 
 use serde_json::{Value, json};
 
 use super::harness::{Project, Run, judged, vault};
 
 const W302: &str = "gsd.security/W302";
+const W303: &str = "gsd.security/W303";
+/// The security audit of the vault's phase 01.
+const AUDIT: &str = "v1.0/01/01-SECURITY";
 /// A closed threat of plan 01-01, with no `files`.
 const THREAT: &str = "v1.0/01/01-01/T-01-01";
 /// The one open threat of the vault.
@@ -30,10 +35,15 @@ fn json_of(run: &Run) -> Value {
 
 /// `(entity, message)` of every `gsd.security/W302` diagnostic of `specforge check`, sorted.
 fn w302(p: &Project) -> Vec<(String, String)> {
+    of_rule(p, W302)
+}
+
+/// `(entity, message)` of every diagnostic of `rule` of `specforge check`, sorted.
+fn of_rule(p: &Project, rule: &str) -> Vec<(String, String)> {
     let mut found: Vec<(String, String)> = p
         .report_all()
         .into_iter()
-        .filter(|(code, _)| code == W302)
+        .filter(|(code, _)| code == rule)
         .map(|(_, message)| {
             let id = message.split('\'').nth(1).expect("an entity").to_string();
             (id, message)
@@ -43,9 +53,14 @@ fn w302(p: &Project) -> Vec<(String, String)> {
     found
 }
 
-/// The verdict's state and whether it passes, as `query --inputs` answers them.
+/// The W302 verdict's state and whether it passes, as `query --inputs` answers them.
 fn state(p: &Project, entity: &str) -> (String, bool) {
-    let verdict = &p.inputs(entity, W302)["verdict"];
+    state_of(p, entity, W302)
+}
+
+/// The verdict of `rule` on `entity`: its state and whether it passes.
+fn state_of(p: &Project, entity: &str, rule: &str) -> (String, bool) {
+    let verdict = &p.inputs(entity, rule)["verdict"];
     (
         verdict["state"].as_str().unwrap_or_default().to_string(),
         verdict["passed"].as_bool().unwrap_or(false),
@@ -245,14 +260,94 @@ fn a_hand_edited_outcome_is_unrecorded() {
     assert!(w302(&p).iter().any(|(id, _)| id == THREAT));
 }
 
-/// With `workflow.security_enforcement` off, W302 is never evaluated.
+/// With `workflow.security_enforcement` off, neither W302 nor W303 is evaluated.
 #[test]
-fn enforcement_off_gates_w302() {
+fn enforcement_off_gates_w302_and_w303() {
     let p = project();
     p.settings_of(
         "@gsd/security",
         json!({"workflow.security_enforcement": false}),
     );
     assert_eq!(w302(&p), Vec::<(String, String)>::new());
-    assert_eq!(judged(&p.report_all()), p.expected_judged(&["W302"]));
+    assert_eq!(of_rule(&p, W303), Vec::<(String, String)>::new());
+    assert_eq!(
+        judged(&p.report_all()),
+        p.expected_judged(&["W302", "W303"])
+    );
+}
+
+/// The vault's audit owes W303 a verdict from its creation and has none; it reads the audit, the phase's summaries and
+/// its threats.
+#[test]
+fn a_security_audit_without_a_verdict_reports_w303() {
+    let p = project();
+    let found = of_rule(&p, W303);
+    assert_eq!(
+        found,
+        [(
+            AUDIT.to_string(),
+            format!("security audit '{AUDIT}' has no fresh threat-flag verdict: no verdict")
+        )]
+    );
+    let names: Vec<String> = p.inputs(AUDIT, W303)["inputs"]
+        .as_array()
+        .expect("inputs")
+        .iter()
+        .filter_map(|i| Some(i["name"].as_str()?.to_string()))
+        .collect();
+    assert_eq!(names, ["audit", "summaries", "threats"]);
+    let check = p.run(&["check", "--format", "json"]);
+    let all: Value = serde_json::from_str(&check.stdout).expect("check prints JSON");
+    let w303: Vec<&Value> = all
+        .as_array()
+        .expect("a list")
+        .iter()
+        .filter(|d| d["code"] == W303)
+        .collect();
+    assert_eq!(w303.len(), 1);
+    assert_eq!(w303[0]["severity"], "Warning");
+}
+
+/// A `mapped` verdict answers the audit; a summary of the phase that raises a new flag makes it stale, naming
+/// `summaries`, until it is judged again.
+#[test]
+fn a_mapped_verdict_is_silent_and_a_summary_edit_stales_w303() {
+    let p = project();
+    assert_eq!(p.record(AUDIT, W303, "mapped", &[]).code, 0);
+    assert_eq!(state_of(&p, AUDIT, W303), ("fresh".to_string(), true));
+    assert_eq!(of_rule(&p, W303), Vec::<(String, String)>::new());
+    p.edit(
+        "spec/plans.spec",
+        "summary 01-01-SUMMARY \"The sealed store: summary\" {\n",
+        "summary 01-01-SUMMARY \"The sealed store: summary\" {\n  threat_flags [\"the key is read from the environment\"]\n",
+    );
+    let inputs = p.inputs(AUDIT, W303);
+    assert_eq!(inputs["verdict"]["state"], "stale", "{inputs:#}");
+    assert_eq!(
+        inputs["verdict"]["changed"],
+        json!(["summaries"]),
+        "{inputs:#}"
+    );
+    let found = of_rule(&p, W303);
+    assert!(
+        found.len() == 1 && found[0].1.contains("is stale: summaries changed"),
+        "{found:#?}"
+    );
+    assert_eq!(p.record(AUDIT, W303, "mapped", &[]).code, 0);
+    assert_eq!(of_rule(&p, W303), Vec::<(String, String)>::new());
+}
+
+/// `unregistered` is recorded with its flags as findings and reported as the rule's finding.
+#[test]
+fn an_unregistered_flag_is_reported_w303() {
+    let p = project();
+    let findings = r#"[{"severity":"warning","message":"the key is read from the environment: no threat maps it"}]"#;
+    let run = p.record(AUDIT, W303, "unregistered", &["--findings", findings]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(state_of(&p, AUDIT, W303), ("fresh".to_string(), false));
+    let found = of_rule(&p, W303);
+    assert!(
+        found.len() == 1 && found[0].1.ends_with("is 'unregistered' (1 finding)"),
+        "{found:#?}"
+    );
 }

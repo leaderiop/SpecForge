@@ -29,6 +29,16 @@ pub const CODES: &[(&str, &str, &str)] = &[
          /gsd-secure-phase, which records it with `specforge gsd record-security-verdict`. A warning; switched off by \
          workflow.security_enforcement.",
     ),
+    (
+        "W303",
+        "a phase's threat flags are not judged against its register",
+        "A phase's security audit has no fresh verdict on whether every threat flag its plans' summaries raise maps to \
+         a threat of the phase's register: upstream's auditor logs a flag with no mapping as an `unregistered_flag` and \
+         SECURITY.md lists it under Unregistered Flags. The verdict reads the audit, the phase's summaries and its \
+         threats, so a new summary or threat makes it stale: run /gsd-secure-phase, which records `mapped` or \
+         `unregistered` with `specforge gsd record-security-verdict`. A warning; switched off by \
+         workflow.security_enforcement.",
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
