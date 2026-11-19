@@ -31,14 +31,14 @@ pub fn declare(c: &mut ContributionsBuilder) {
 /// One phase's plans placed twice: by their `depends_on` edges (`wave`) and once the plans that share a path are kept
 /// apart (`strict`). Every map is keyed by plan id.
 #[derive(Debug)]
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the phase, the edges and the shared paths are read by the checks and values built on the placement"
-    )
-)]
 pub struct Placed<'a> {
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "the values computed on a phase from its placement read it"
+        )
+    )]
     pub phase: &'a str,
     pub plans: BTreeMap<&'a str, &'a PassEntity>,
     /// gsd-core's wave.

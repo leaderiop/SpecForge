@@ -644,6 +644,14 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
         Severity::Warning,
     ),
+    code(
+        "W526",
+        "Wave collision",
+        "A plan that shares a path with an earlier plan of its phase, or depends on one that does, runs after it: its strict wave is above its declared wave",
+        "plan",
+        Severity::Warning,
+        Severity::Warning,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

@@ -307,8 +307,9 @@ pub(super) fn third_plan(depends: &str, modified: &str, deleted: &str) -> String
 fn same_wave_overlap_is_w305() {
     // 01-01 is wave 1, and so is a plan with no `depends_on` that also modifies `src/tasks.js`.
     let p = with(&third_plan("", "\"src/tasks.js\"", ""));
-    assert_eq!(p.codes(), ["gsd/W305"]);
-    assert!(only(&p, "gsd/W305").contains(
+    // gsd/W526 says where 01-03 runs instead (`strict_wave::a_same_wave_overlap_pushes_the_later_plan_w526`).
+    assert_eq!(p.codes(), ["gsd/W305", "gsd/W526"]);
+    assert!(message(&p, "gsd/W305").contains(
         "plans 'v1.0/01/01-01' and 'v1.0/01/01-03' of wave 1 both modify 'src/tasks.js': under gsd-compat the wave runs sequentially"
     ));
 }
@@ -318,7 +319,7 @@ fn a_deleted_file_counts_as_overlap() {
     let p = with(&third_plan("", "\"src/third.js\"", "\"src/tasks.js\""));
     // A pending plan deletes a file that is there (E016 otherwise, ADR 0350).
     p.write("src/tasks.js", "// to delete\n");
-    assert_eq!(p.codes(), ["gsd/W305"]);
+    assert_eq!(p.codes(), ["gsd/W305", "gsd/W526"]);
 }
 
 #[test]

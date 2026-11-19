@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 71] = [
     (
         "E101",
         Evidence::Tests {
@@ -498,6 +498,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
         Evidence::Tests {
             fires: "a_judgment_tier_prohibition_of_a_complete_plan_is_w525",
             silent: "a_held_verdict_silences_w525",
+        },
+    ),
+    (
+        "W526",
+        Evidence::Tests {
+            fires: "a_same_wave_overlap_pushes_the_later_plan_w526",
+            silent: "plans_of_different_waves_sharing_a_path_are_not_pushed",
         },
     ),
 ];

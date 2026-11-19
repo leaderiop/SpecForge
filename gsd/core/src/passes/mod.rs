@@ -22,6 +22,7 @@ pub(crate) mod thread;
 mod traceability;
 mod verify_paths;
 mod verify_rules;
+mod wave_collision;
 mod waves;
 mod windows;
 pub(crate) mod words;
@@ -60,6 +61,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     decision_coverage::declare(c);
     fails_when::declare(c);
     file_scope::declare(c);
+    wave_collision::declare(c);
     scope::declare(c);
     verify_paths::declare(c);
     nyquist::declare(c);
