@@ -311,7 +311,7 @@ how the judge records its verdict; its body also ends with a section that names 
 | `gsd-phase-researcher` | `gsd/W205` (a package audit) |
 | `gsd-integration-checker` | `gsd/E518` (a milestone audit) |
 | prompt `spec_phase` | `gsd/E202` (a phase spec), `gsd/W203` (a locked requirement) |
-| `gsd-verifier` | `gsd/E501` (a truth, an artifact, a key link without a `pattern`) |
+| `gsd-verifier` | `gsd/E501` (a truth, an artifact, a key link without a `pattern`), `gsd/W525` (a prohibition that names no `test`) |
 
 Every other core agent judges nothing.
 

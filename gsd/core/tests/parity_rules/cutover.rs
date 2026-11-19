@@ -336,7 +336,7 @@ pub const GATE_CUTOVER: [(&str, Class); 171] = [
     (
         "prohibition-enforcement-request-file-judgment-mode",
         Class::Diverges(
-            "upstream flags a judgment-tier prohibition without evidence as unverified; E319 judges the test tier only, so the twin is silent where upstream flags",
+            "upstream flags a judgment-tier prohibition without evidence and halts or marks it unverified; W525 warns at check until the verifier records a fresh verdict, a model's and not authoritative, so it never halts",
         ),
     ),
     (

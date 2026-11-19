@@ -96,6 +96,19 @@ const E501: &[Target] = &[
     },
 ];
 
+// A prohibition that names its enforcing `test` is E319's and the test's; one that names none is judged, upstream's
+// fail-closed rule for a judgment-tier item. A model's verdict is not authoritative, so its rule is a warning.
+const W525: &[Target] = &[Target {
+    kind: "prohibition",
+    inputs: &[
+        ("prohibition", "self"),
+        ("plan", "self.plan"),
+        ("phase", "self.plan.phase"),
+    ],
+    unless_set: &["test"],
+    judged_while: Some(Owed::Complete),
+}];
+
 const fn plan_check(code: &'static str, message: &'static str) -> Judged {
     Judged {
         code,
@@ -136,6 +149,16 @@ pub const JUDGED: &[Judged] = &[
         ],
         passing: &["verified", "verified_coincidental"],
         targets: E501,
+        values: &[],
+        outcome_fields: &[],
+    },
+    Judged {
+        code: "W525",
+        message: "{kind} '{id}' has no fresh verifier verdict",
+        judge: "gsd-verifier",
+        outcomes: &["held", "violated", "unverified"],
+        passing: &["held"],
+        targets: W525,
         values: &[],
         outcome_fields: &[],
     },

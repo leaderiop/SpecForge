@@ -114,6 +114,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/W520 | a complete plan's commits touched every path it planned, and the files it deletes are gone (ADR 0351): on a `complete` plan with at least one recorded commit (`files_touched` written), one warning on the plan naming each path of `files_modified` and of its artifacts' `path` that no commit touched (a directory path is touched by any file under it), and one naming each `files_deleted` path the host serves as still present (a path it did not serve is not judged). Plan paths and a commit's paths are both project-relative (the git collector writes them so, ADR 0352), in a project under a subdirectory of its repository too; a missing planned file is E016's (ADR 0350), never this rule's. The setting `specforge.plan_paths_touched` (on in gsd-strict and gsd-plus) gates it | pass | — | W | (new: the git collector) |
 | gsd/E521 | a task commit names its task by its `Gsd-Task:` trailer (ADR 0351, amending ADR 0331 D3): one error per recorded commit, on the commit, when the gsd-git collector found its task by the subject's title (`linked_by title`), or when it names no task and its type is one of the executor's task types other than `docs` (`feat`, `fix`, `test`, `refactor`, `perf`, `style`, `chore`). A `docs` commit (a plan's metadata commit) and a commit with no type are not judged. The setting `specforge.task_trailers` (on in gsd-plus) gates it; a collector's plan is never refused for it (ADR 0303) | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/W522 | a code item a recorded commit changed is anchored by a plan that reaches a requirement (ADR 0352 D7, amended by ADR 0371 D6): for each item a `commit.items_changed` names (the anchor is the commit's plan), the commits of a quick plan dropped, when some remain and none of their plans reaches a requirement (a `requirements` entry that resolves to one), one warning on the first anchoring commit by id, naming the item and the plans. A commit whose `items_changed` is unwritten anchors nothing. The item need not be held. On under every profile | pass | W | W | (new: the items a commit changed) |
+| gsd/W525 | a judgment-tier prohibition (one that names no enforcing `test`) carries a fresh verifier verdict once its plan is complete: outcomes `held`, `violated` or `unverified`, passing `held`. A prohibition that names its `test` is E319's and the test's, never judged here. A warning: a model's verdict on a prohibition is not authoritative, where upstream halts or marks the item unverified (ADR 0377) | judged (verifier) | W | W | verifier prohibitions, `probe-core.cts` `dispositionForProhibition` |
 
 ## Retired and kernel-provided
 
@@ -175,6 +176,7 @@ is neither fresh nor stale.
 | gsd/E501 | truth | `truth` self · `plan` self.plan · `phase` self.plan.phase · `tests` test(self<test.names); judged once its plan is complete (`judged_while complete`) | — |
 | gsd/E501 | artifact | `artifact` self · `plan` self.plan · `file` file(self.path); judged once its plan is complete (`judged_while complete`) | — |
 | gsd/E501 | key_link | `link` self · `plan` self.plan · `from` file(self.from) · `to` file(self.to); not judged while `pattern` is set (`unless_set pattern`: a pass searches it). A literal pattern the scan finds (`wired`) verifies the link; a regular expression is `unchecked`, which is neither a pass nor a failure, so the phase stays `pending` until the pattern is literal; judged once its plan is complete (`judged_while complete`) | — |
+| gsd/W525 | prohibition | `prohibition` self · `plan` self.plan · `phase` self.plan.phase; not judged while `test` is set (`unless_set test`: E319 and the test it names hold it); judged once its plan is complete (`judged_while complete`) | — |
 | gsd/E202 | phase_spec | `spec` self · `items` self<locked_req\|interview.spec · `phase` self.phase | `scores` (its recorded values) |
 | gsd/W203 | locked_req | `req` self · `traces` self.traces | — |
 | gsd/W205 | package_audit | `audit` self | `legitimacy` (its outcome: legitimate \| suspicious \| unknown, passing legitimate) |
@@ -188,9 +190,9 @@ missing file digests `absent`). `covered_files` lists the cited files and the ar
 checks read no file: they judge the plan before its files exist, and a code edit must not stale an in-flight check.
 
 A target's owner state says when a verdict is owed (ADR 0362, ADR 0377): a plan check while its plan is open (its
-`status` is not `complete`), a truth, an artifact or a key link once its plan is complete. A verdict that is not owed is
-not reported, whatever its state, and no gate counts it: an unexecuted plan's must-haves owe the verifier nothing yet,
-and an executed plan's plan check is history.
+`status` is not `complete`), a truth, an artifact, a key link or a prohibition once its plan is complete. A verdict that
+is not owed is not reported, whatever its state, and no gate counts it: an unexecuted plan's must-haves owe the verifier
+nothing yet, and an executed plan's plan check is history.
 
 A summary is no plan-check input (writing it after execution stales nothing), and no verifier input either (its claims
 are not evidence).

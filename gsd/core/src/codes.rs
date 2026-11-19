@@ -636,6 +636,14 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
         Severity::Warning,
     ),
+    code(
+        "W525",
+        "Judgment-tier prohibition has no fresh verifier verdict",
+        "The verifier's verdict on a judgment-tier prohibition (one that names no enforcing test) is fresh once its plan is complete",
+        "verify",
+        Severity::Warning,
+        Severity::Warning,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

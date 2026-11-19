@@ -73,6 +73,7 @@ mod install_hosts;
 mod install_skills;
 mod judged;
 mod judged_flow;
+mod judged_prohibition;
 mod judged_refusals;
 mod ladder;
 #[path = "../common/ledger.rs"]
