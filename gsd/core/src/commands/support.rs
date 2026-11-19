@@ -132,7 +132,11 @@ pub fn required<'a>(call: &'a CommandCall<'_>, arg: &str) -> Result<&'a str, Str
 
 /// The entity of `kind` that `id` names: its full path, or the end of one that no other entity of the kind shares.
 pub fn node<'a>(call: &CommandCall<'a>, kind: &str, id: &str) -> Result<&'a GraphNode, String> {
-    let graph = call.graph();
+    node_in(call.graph(), kind, id)
+}
+
+/// [`node`] over `graph`, for a function that reads a graph rather than a call.
+pub fn node_in<'a>(graph: &'a CommandGraph, kind: &str, id: &str) -> Result<&'a GraphNode, String> {
     if let Some(found) = graph.node(id).filter(|n| n.kind == kind) {
         return Ok(found);
     }

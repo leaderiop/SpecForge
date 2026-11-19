@@ -214,11 +214,12 @@ fn an_installed_agent_is_granted_only_its_roles_specforge_tools() {
     let checker = claude_agent(&p, "gsd-plan-checker");
     let (front, _) = split(&checker);
     let tools = value(&front, "tools").expect("a tools line");
-    // The checker's reads and the judge's inputs, in catalogue order, then the command recording a verdict.
+    // The checker's reads and the judge's inputs, engine tools in catalogue order, then its commands (the role's
+    // read-only ones and the one recording a verdict) by MCP name.
     let granted: Vec<&str> = gsd_kit::agent::CHECKER
         .reads
         .iter()
-        .chain(&["specforge:verdict_inputs"])
+        .chain(gsd_kit::agent::JUDGE)
         .map(|c| c.trim_start_matches("specforge:"))
         .collect();
     let mut want: Vec<String> = ["Read", "Bash", "Glob", "Grep", "Skill"]
@@ -230,7 +231,20 @@ fn an_installed_agent_is_granted_only_its_roles_specforge_tools() {
             .filter(|t| granted.contains(&t.name))
             .map(|t| format!("mcp__specforge__specforge_{}", t.name)),
     );
-    want.push("mcp__specforge__specforge_gsd_record_verdict".into());
+    let mut commands: Vec<String> = granted
+        .iter()
+        .filter_map(|c| c.strip_prefix("gsd."))
+        .map(|id| format!("mcp__specforge__specforge_gsd_{id}"))
+        .collect();
+    commands.sort();
+    assert_eq!(
+        commands,
+        [
+            "mcp__specforge__specforge_gsd_record_verdict",
+            "mcp__specforge__specforge_gsd_thread_plan"
+        ]
+    );
+    want.extend(commands);
     assert_eq!(tools.split(", ").collect::<Vec<_>>(), want);
 
     let root = p.root().join(".claude");

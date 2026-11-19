@@ -68,6 +68,7 @@ pub const CHECKER: Role = Role {
         "specforge:query",
         "specforge:search",
         "specforge:trace",
+        "specforge:gsd.thread_plan",
         "specforge:find_implementation",
         "specforge:find_references",
         "specforge:validate",

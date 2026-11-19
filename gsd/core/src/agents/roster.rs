@@ -197,7 +197,7 @@ pub const AGENTS: &[Agent] = &[
             "mcp:context7/*",
             "mcp:plugin_context7_context7/*",
         ],
-        grants: &[],
+        grants: &["specforge:gsd.thread_plan"],
         color: "green",
         full: include_str!("../../assets/agents/gsd-planner.md"),
         compact: None,

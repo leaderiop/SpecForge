@@ -22,6 +22,7 @@ mod review;
 pub mod smart_entry;
 mod state;
 pub(crate) mod support;
+mod thread_plan;
 pub(crate) use support::natural;
 mod edge_probe;
 mod plan_coverage;
@@ -106,6 +107,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     plan_coverage::declare(c);
     verification_debt::declare(c);
     re_verify::declare(c);
+    thread_plan::declare(c);
     gate::declare(c);
     automated_guard::declare(c);
     branch_check::declare(c);
