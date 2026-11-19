@@ -4,7 +4,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 const GATES: &[&str] = &["E516"];
 
@@ -113,8 +113,5 @@ static ADD_TESTS: Spec = Spec {
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &VERIFY_WORK);
-    workflow::declare(c, &VALIDATE_PHASE);
-    workflow::declare(c, &ADD_TESTS);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&VERIFY_WORK, &VALIDATE_PHASE, &ADD_TESTS];

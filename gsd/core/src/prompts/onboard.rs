@@ -6,7 +6,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 /// Ingestion writes entities, not the files GSD wrote.
 fn ingested(_call: &PromptCall<'_>) -> String {
@@ -101,7 +101,5 @@ static ONBOARD: Spec = Spec {
     tail: Some(onboarding),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &INGEST_DOCS);
-    workflow::declare(c, &ONBOARD);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&INGEST_DOCS, &ONBOARD];

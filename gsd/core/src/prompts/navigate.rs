@@ -132,8 +132,5 @@ static MANAGER: Spec = Spec {
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &NEXT);
-    workflow::declare(c, &PROGRESS);
-    workflow::declare(c, &MANAGER);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&NEXT, &PROGRESS, &MANAGER];

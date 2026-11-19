@@ -2,7 +2,7 @@
 
 use serde_json::json;
 
-use super::cmd_execute::stale_plan_check;
+use super::cmd_execute::{stale_plan_check, stale_verification};
 use super::commands_support::{json, plus, twin};
 use super::harness::{Project, project};
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
@@ -278,11 +278,21 @@ fn ultraplan_phase_gate_refuses_a_context_without_canonical_refs() {
     assert!(run.all().contains("E201"), "{}", run.all());
 }
 
+/// Under gsd-plus a stale verdict the convergence loop does not judge refuses it; the stale plan check of its own phase
+/// does not: re-checking the plans is what the loop runs.
 #[test]
-fn convergence_gate_refuses_a_stale_verdict_under_plus() {
+fn convergence_gate_refuses_a_stale_verdict_it_does_not_judge_under_plus() {
     let p = twin();
     stale_plan_check(&p);
     plus(&p);
+    let rendered = payload(&prompt(
+        &p,
+        "plan_review_convergence",
+        &[PHASE],
+        "claude-code",
+    ));
+    assert_eq!(rendered["payload"]["subject"], PHASE);
+    stale_verification(&p);
     let run = prompt(&p, "plan_review_convergence", &[PHASE], "claude-code");
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());

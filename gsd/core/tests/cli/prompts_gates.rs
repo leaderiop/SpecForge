@@ -260,6 +260,35 @@ fn e516_counts_a_stale_verdict_on_an_executed_plans_truth() {
     assert!(codes.contains(&"gsd/E516".to_string()), "{codes:?}");
 }
 
+/// A verdict owed and never given blocks every step but the one that judges it: with phase 01's verifier verdicts
+/// stripped, gsd-plus refuses `ship` for each, and `execute_phase`, which runs the verifier, renders.
+#[test]
+fn e516_a_missing_verdict_refuses_ship_but_not_the_execution_that_judges_it() {
+    let t = twin();
+    t.strip_verdicts();
+    plus(&t);
+    let found = gate_failed(&prompt(&t, "ship", &["v1.0/01"], "claude-code"));
+    let missing: Vec<&str> = found["data"]["failing"]
+        .as_array()
+        .expect("failing")
+        .iter()
+        .filter(|d| d["code"] == "gsd/E516")
+        .filter_map(|d| d["message"].as_str())
+        .collect();
+    assert_eq!(
+        missing.len(),
+        7,
+        "one per must-have of phase 01: {missing:?}"
+    );
+    assert!(
+        missing.iter().all(
+            |m| m.starts_with("the gsd/E501 verdict on 'v1.0/01/") && m.ends_with("is missing")
+        ),
+        "{missing:?}"
+    );
+    renders(&t, "execute_phase", &["v1.0/01"]);
+}
+
 #[test]
 fn the_convergence_gates_are_the_planning_gates() {
     let declaration = gsd_core::build().declaration();

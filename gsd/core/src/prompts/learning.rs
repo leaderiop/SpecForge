@@ -4,7 +4,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 /// The summary is a report, not a file.
 fn shown(_call: &PromptCall<'_>) -> String {
@@ -69,7 +69,5 @@ static EXTRACT_LEARNINGS: Spec = Spec {
     tail: Some(recorded),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &MILESTONE_SUMMARY);
-    workflow::declare(c, &EXTRACT_LEARNINGS);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&MILESTONE_SUMMARY, &EXTRACT_LEARNINGS];

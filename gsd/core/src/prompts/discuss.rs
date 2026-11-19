@@ -1,10 +1,8 @@
 //! `discuss_phase` (D-r42-1 row 3): gathers a phase's context. The command routes in prose between the discuss and
 //! assumptions workflows and the nine modes, which are read on demand with `specforge gsd reference`.
 
-use specforge_extension_sdk::prelude::*;
-
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 const ARGS: &[Arg] = &[
     Arg::reference("phase", "phase"),
@@ -63,6 +61,5 @@ static DISCUSS_PHASE: Spec = Spec {
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &DISCUSS_PHASE);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&DISCUSS_PHASE];

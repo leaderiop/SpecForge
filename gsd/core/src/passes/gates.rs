@@ -11,7 +11,8 @@
 //!
 //! W318 and E516 read the settled judgements alone: a judged target declares when its verdict is owed (a plan check
 //! while its plan is open, a must-have once its plan is complete), and the host settles away the rest, so no guard
-//! decides for itself whether a plan was executed.
+//! decides for itself whether a plan was executed. E516, which also reads the workflow a gate is for, lives in
+//! `gates/e516.rs`.
 
 use std::collections::BTreeSet;
 
@@ -21,6 +22,9 @@ use super::derive::{ladder::window_status, verify::by_phase};
 use super::plans::{link, links, of_kind, phase_of, text};
 use super::thread::{Proof, requirement_proven};
 use crate::scope::scope_of;
+
+mod e516;
+use e516::e516;
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
 
@@ -288,29 +292,6 @@ fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
         }
     }
     found
-}
-
-/// E516: no stale verdict is in scope, among the judgements owed now (the settled ones).
-fn e516(input: &PassInput) -> Vec<PassDiagnostic> {
-    let Some(subject) = gate(input) else {
-        return Vec::new();
-    };
-    input
-        .entities
-        .iter()
-        .filter(|e| e.judgements.iter().any(|j| j.state == "stale"))
-        .map(|e| {
-            // The host keeps a gate diagnostic only within the subject's scope: name the subject, so a stale
-            // verdict anywhere refuses a scoped gate. The stale entity stays in the message.
-            refuse(
-                "E516",
-                PassSeverity::Error,
-                subject.unwrap_or(&e.id),
-                format!("the verdict on '{}' is stale", e.id),
-                "record the verdict again over the current inputs",
-            )
-        })
-        .collect()
 }
 
 #[cfg(test)]

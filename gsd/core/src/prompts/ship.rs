@@ -1,10 +1,8 @@
 //! `complete_milestone` and `ship` (D-r42-1 rows 16-17, D-r42-9): the two prompts gated by their guards. The
 //! milestone prompt carries `close_milestone`'s codes, so both refuse together; `ship` adds the broken-window guard.
 
-use specforge_extension_sdk::prelude::*;
-
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 const COMPLETE_STEPS: &[Step] = &[Step {
     id: "close",
@@ -61,7 +59,5 @@ static SHIP: Spec = Spec {
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &COMPLETE_MILESTONE);
-    workflow::declare(c, &SHIP);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&COMPLETE_MILESTONE, &SHIP];

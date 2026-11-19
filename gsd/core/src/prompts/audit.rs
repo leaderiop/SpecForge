@@ -4,7 +4,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 const UAT_STEPS: &[Step] = &[Step {
     id: "uat",
@@ -74,7 +74,5 @@ static AUDIT_MILESTONE: Spec = Spec {
     tail: Some(integration),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &AUDIT_UAT);
-    workflow::declare(c, &AUDIT_MILESTONE);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&AUDIT_UAT, &AUDIT_MILESTONE];

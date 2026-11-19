@@ -186,6 +186,18 @@ pub(super) fn stale_plan_check(p: &crate::harness::Project) {
     assert_eq!(p.inputs(PLAN, "W311")["verdict"]["state"], "stale");
 }
 
+/// The twin's phase 01 verifier verdicts gone stale: `src/tasks.js`, which they cite, edited.
+pub(super) fn stale_verification(p: &crate::harness::Project) {
+    p.write(
+        "src/tasks.js",
+        &format!("{}\n// edited\n", p.read("src/tasks.js")),
+    );
+    assert_eq!(
+        p.inputs("v1.0/01/01-01/TR1", "E501")["verdict"]["state"],
+        "stale"
+    );
+}
+
 #[test]
 fn start_plan_is_refused_by_a_stale_plan_check_under_strict() {
     let p = twin();
@@ -422,7 +434,8 @@ fn confirm_setup_writes_done() {
 const SECOND_SUMMARY: &str = "summary 01-02-SUMMARY \"Completion: summary\" {\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Completion\"\n  subsystem              \"tasks\"\n  requirements_completed [TASK-02]\n}\n";
 
 /// An answered checkpoint stales the plan check; once the plan is executed (its summary is `complete`, so its status
-/// is) the plan check is owed no more (its owner state), and a gate lets it by.
+/// is) the plan check is owed no more (its owner state): a gate no longer names it, only the verifier verdicts the
+/// executed plan's must-haves now owe.
 #[test]
 fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     let p = super::harness::project("execute");
@@ -452,7 +465,12 @@ fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
         "no plan check is owed: {inputs}"
     );
     let run = gsd(&p, "start-plan", &[SECOND_PLAN]);
-    assert_eq!(run.code, 0, "{}", run.all());
+    refused(
+        &run,
+        "gate_failed",
+        &["the gsd/E501 verdict on 'v1.0/01/01-02/TR1' is missing"],
+    );
+    assert!(!run.all().contains("W311"), "{}", run.all());
 }
 
 /// A plan whose summary is `halted` is not executed (its status is `halted`, not `complete`): its plan check is still

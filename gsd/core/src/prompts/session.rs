@@ -1,8 +1,6 @@
 //! `pause_work` and `resume_work` (D-r43-1 rows 8-9): the session handoff. Pausing writes a `handoff` entity and a
 //! `pause` that names it; resuming reads both and `resume` removes them.
 
-use specforge_extension_sdk::prelude::*;
-
 use super::args::Arg;
 use super::workflow::{self, Do, Slash, Spec, Step};
 
@@ -54,7 +52,5 @@ static RESUME_WORK: Spec = Spec {
     tail: Some(workflow::workstream_tail),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &PAUSE_WORK);
-    workflow::declare(c, &RESUME_WORK);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&PAUSE_WORK, &RESUME_WORK];

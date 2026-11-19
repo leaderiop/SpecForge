@@ -4,7 +4,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Slash, Spec};
+use super::workflow::{Slash, Spec};
 
 /// What differs from GSD's `config.json`: one writer, and what is not a setting here.
 fn writes(call: &PromptCall<'_>) -> String {
@@ -73,7 +73,5 @@ static CONFIG: Spec = Spec {
     tail: Some(writes),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &SETTINGS);
-    workflow::declare(c, &CONFIG);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&SETTINGS, &CONFIG];

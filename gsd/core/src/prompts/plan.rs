@@ -5,7 +5,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
 use super::ns::served;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 const ARGS: &[Arg] = &[
     Arg::subject("phase", "phase"),
@@ -199,8 +199,5 @@ static ULTRAPLAN_PHASE: Spec = Spec {
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &PLAN_PHASE);
-    workflow::declare(c, &PLAN_REVIEW_CONVERGENCE);
-    workflow::declare(c, &ULTRAPLAN_PHASE);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&PLAN_PHASE, &PLAN_REVIEW_CONVERGENCE, &ULTRAPLAN_PHASE];

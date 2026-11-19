@@ -441,7 +441,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 70] = [
         "E516",
         Evidence::Tests {
             fires: "e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus",
-            silent: "e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus",
+            silent: "e516_a_missing_verdict_refuses_ship_but_not_the_execution_that_judges_it",
         },
     ),
     (

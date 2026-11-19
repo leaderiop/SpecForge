@@ -1,6 +1,6 @@
 //! `verify_work`, `validate_phase` and `add_tests` (T8).
 
-use super::cmd_execute::stale_plan_check;
+use super::cmd_execute::{stale_plan_check, stale_verification};
 use super::commands_support::{plus, twin};
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
@@ -57,11 +57,16 @@ fn add_tests_renders_for_three_hosts() {
     );
 }
 
+/// Under gsd-plus a stale verdict verify_work does not judge refuses it; the stale plan check of its own phase does not:
+/// it checks its gap plans.
 #[test]
-fn verify_work_gate_refuses_a_stale_verdict_under_plus() {
+fn verify_work_gate_refuses_a_stale_verdict_it_does_not_judge_under_plus() {
     let p = twin();
     stale_plan_check(&p);
     plus(&p);
+    let rendered = payload(&prompt(&p, "verify_work", &["v1.0/02"], "claude-code"));
+    assert_eq!(rendered["payload"]["subject"], "v1.0/02");
+    stale_verification(&p);
     let run = prompt(&p, "verify_work", &["v1.0/02"], "claude-code");
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());
