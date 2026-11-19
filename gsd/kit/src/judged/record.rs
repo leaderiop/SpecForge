@@ -41,6 +41,8 @@ pub struct Proposed<'a> {
     pub outcome: &'a str,
     pub values: &'a BTreeMap<String, Value>,
     pub cited: &'a [Cite],
+    /// The command's graph, for a check that reads what a citation names.
+    pub graph: &'a CommandGraph,
 }
 
 /// A check of a [`Proposed`] verdict: its `Err` is the refusal.
@@ -115,6 +117,7 @@ fn record(call: &CommandCall<'_>, recorder: &Recorder) -> Result<CommandOutput, 
         outcome,
         values: &values,
         cited: &cited,
+        graph: call.graph(),
     };
     for check in recorder.checks {
         check(&proposed)?;

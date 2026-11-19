@@ -38,6 +38,12 @@ file inputs, which already name only their own files. The verdict command refuse
 the project and no test, whatever its outcome: with nothing cited, the verdict could never go stale on a code edit. No
 field is added to `truth` (ADR 0370 D1): the citations are the verdict's own record.
 
+What a citation must name is checked as far as the graph can: the host refuses an entity or a file the project does
+not hold, and the verdict command refuses, on every rule, a cited test that names no collected test fact (`@code/core`'s
+`test`), read as E502 reads a verdict's `cited_tests`: by the fact's id or `[file#]name`, else whole as its name. A
+test that names no fact would be a citation nothing reads. Whether what a verdict cites is what the judge relied on
+cannot be checked: it stays the judge's word.
+
 A recorded input that the target no longer names is not compared, so the verdicts already committed stay fresh after
 the input is dropped; they are re-recorded with their citations.
 

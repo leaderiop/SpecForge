@@ -6,6 +6,7 @@ use super::harness::{Project, Run, project};
 use super::judged::{PLAN, record_all, state, status_of};
 use super::verify_verdicts::{bare, verification, verified};
 use serde_json::json;
+use specforge_extension_sdk::prelude::TestStatus;
 
 const ITEMS: [&str; 6] = [
     "v1.0/01/01-01/TR1",
@@ -131,16 +132,21 @@ fn a_verdict_on_an_entity_the_command_cannot_resolve_is_refused() {
     }
 }
 
-/// A truth's verdict citing a file of the project, or only a test, records; an artifact's needs no citation (it reads
-/// the file it names).
+/// A truth's verdict citing a file of the project, or only a collected test fact, records; an artifact's needs no
+/// citation (it reads the file it names).
 #[test]
 fn a_truth_verdict_citing_a_file_or_a_test_records() {
     let truth = "v1.0/01/01-01/TR1";
-    for cited in [
-        r#"[{"file":"src/tasks.js"}]"#,
-        r#"[{"test":"test/tasks.test.js#a task is added"}]"#,
+    for (cited, collect) in [
+        (r#"[{"file":"src/tasks.js"}]"#, false),
+        (r#"[{"test":"test/tasks.test.js#a task is added"}]"#, true),
     ] {
         let p = bare();
+        if collect {
+            let run =
+                p.node_tests(&[("test/tasks.test.js", "a task is added", TestStatus::Passed)]);
+            assert_eq!(run.code, 0, "{}", run.all());
+        }
         let run = p.record(truth, "E501", "verified", &["--cited", cited]);
         assert_eq!(run.code, 0, "{cited}: {}", run.all());
         assert_eq!(
@@ -152,6 +158,62 @@ fn a_truth_verdict_citing_a_file_or_a_test_records() {
     let p = bare();
     let run = p.record("v1.0/01/01-01/AR1", "E501", "verified", &[]);
     assert_eq!(run.code, 0, "{}", run.all());
+}
+
+/// What a verdict cites must exist: the host refuses a file the project does not hold, and the command a test that
+/// names no collected test fact (with none collected, or another test collected), on any rule, so a citation is never
+/// one that nothing reads and no edit stales. Nothing is written.
+#[test]
+fn a_cited_file_or_test_that_does_not_exist_is_refused() {
+    let truth = "v1.0/01/01-01/TR1";
+    let p = bare();
+    let spec = p.read("spec/plans.spec");
+    let run = p.record_over(
+        truth,
+        "E501",
+        "verified",
+        "{}",
+        &["--cited", r#"[{"file":"src/missing.js"}]"#],
+    );
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all()
+            .contains("it cites 'src/missing.js', which the project does not hold"),
+        "{}",
+        run.all()
+    );
+    let made_up = r#"[{"test":"test/tasks.test.js#a task is added"}]"#;
+    let run = p.record(truth, "E501", "verified", &["--cited", made_up]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all().contains(
+            "cited: 'test/tasks.test.js#a task is added' names no collected test fact; none is collected"
+        ),
+        "{}",
+        run.all()
+    );
+    let run = p.node_tests(&[("test/tasks.test.js", "a task is added", TestStatus::Passed)]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    for (rule, entity) in [("E501", truth), ("E501", "v1.0/01/01-01/AR1")] {
+        let run = p.record(
+            entity,
+            rule,
+            "verified",
+            &[
+                "--cited",
+                r#"[{"test":"test/tasks.test.js#a task is removed"}]"#,
+            ],
+        );
+        assert_ne!(run.code, 0, "{entity}: {}", run.all());
+        assert!(
+            run.all().contains(
+                "cited: 'test/tasks.test.js#a task is removed' names no collected test fact; cite a test fact by its id"
+            ),
+            "{entity}: {}",
+            run.all()
+        );
+    }
+    assert_eq!(p.read("spec/plans.spec"), spec, "nothing is written");
 }
 
 /// A truth's inputs name no plan-wide file list: its code inputs are its verdict's citations. An artifact still reads

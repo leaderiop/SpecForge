@@ -18,7 +18,7 @@ mod roadmap;
 mod scan;
 mod schema_drift;
 mod scope;
-mod thread;
+pub(crate) mod thread;
 mod traceability;
 mod verify_paths;
 mod verify_rules;

@@ -9,6 +9,7 @@ use specforge_extension_sdk::Cite;
 use specforge_extension_sdk::prelude::*;
 
 use crate::judged::JUDGED;
+use crate::passes::thread::{TEST, names_a_test_fact};
 use crate::prompts::GATES;
 
 /// A `passed` on `gsd/E202` needs the five scores, each 0..=100, and every one within its gate (the judge's own
@@ -58,16 +59,46 @@ fn in_project(path: &str) -> bool {
         && path.split(['/', '\\']).all(|segment| segment != "..")
 }
 
+/// Every test a verdict cites names a collected test fact (`@code/core`'s `test`), by its id or `[file#]name`, else
+/// whole as its name: the reading E502 and `derive` give a verdict's `cited_tests` (`passes::thread`). The host
+/// refuses an entity or a file a verdict cites that the project does not hold, and digests a cited test whatever it
+/// names; a test that names no fact would be a citation nothing reads, so it is refused here.
+fn cited_tests(verdict: &Proposed<'_>) -> Result<(), String> {
+    let unknown: Vec<&str> = verdict
+        .cited
+        .iter()
+        .filter_map(|cite| match cite {
+            Cite::Test { test } if !names_a_test_fact(verdict.graph, test) => Some(test.as_str()),
+            _ => None,
+        })
+        .collect();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    let names: Vec<String> = unknown.iter().map(|t| format!("'{t}'")).collect();
+    let verb = if unknown.len() == 1 { "names" } else { "name" };
+    let how = if verdict.graph.nodes_of_kind(TEST).next().is_some() {
+        "cite a test fact by its id, as `specforge trace --format json` prints it, or as `file#name`"
+    } else {
+        "none is collected: collect the tests (`specforge collect`) or cite the files"
+    };
+    Err(format!(
+        "cited: {} {verb} no collected test fact; {how}",
+        names.join(", ")
+    ))
+}
+
 /// The judged rules whose verdict must cite code, by rule and target kind: a truth's `gsd/E501` verdict reads only
 /// what it cites, and a judgment-tier prohibition's `gsd/W525` judges code beyond its plan's own files. A verdict that
 /// cites no file of the project and no test could never go stale on an edit to the code it judged.
 const CITE_CODE: &[(&str, &str)] = &[("E501", "truth"), ("W525", "prohibition")];
 
-/// [`CITE_CODE`]: refused, whatever its outcome, unless the verdict cites a file of the project or a test.
+/// [`CITE_CODE`]: refused, whatever its outcome, unless the verdict cites a file of the project (the host refuses one
+/// that does not exist) or a collected test fact ([`cited_tests`] refuses any other).
 fn cites_code(verdict: &Proposed<'_>) -> Result<(), String> {
     let cites_code = verdict.cited.iter().any(|cite| match cite {
         Cite::File { file } => in_project(file),
-        Cite::Test { .. } => true,
+        Cite::Test { test } => names_a_test_fact(verdict.graph, test),
         Cite::Entity { .. } => false,
     });
     let bound = CITE_CODE
@@ -88,7 +119,7 @@ static RECORDER: Recorder = Recorder {
     namespace: "gsd",
     extension: "@gsd/core",
     table: JUDGED,
-    checks: &[gates as Check, cites_code],
+    checks: &[gates as Check, cited_tests, cites_code],
 };
 
 #[cfg(test)]
