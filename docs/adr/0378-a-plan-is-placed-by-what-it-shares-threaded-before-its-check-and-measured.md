@@ -77,8 +77,10 @@ strict-wave then id order, each followed by its tasks in id order. The `plan_pha
 entity, `E003`, or an ordering gap) is fixed before the check, and the result is passed to the plan checker as its
 `**Thread:**` line. A section of `@gsd/core`'s own after the checker's ported body says what that line holds, that an
 `ok: false` result is a blocker on the plans' order, and how to read the thread itself without the line.
-gsd-planner holds the command in its grants, and the checker's role reads it. The ported upstream workflow text and
-the checker's ported body are not edited. `plan_review_convergence` re-runs `plan_phase`, so it threads too; `ultraplan_phase` only checks.
+gsd-planner and gsd-plan-checker each hold the read-only command as a read of their own (the roster's `reads`, granted
+whatever an agent's upstream tools), not through a shared role: the integration checker and `@gsd/security`'s auditor,
+which share the checker's role, are not granted it. The ported upstream workflow text and the checker's ported body
+are not edited. `plan_review_convergence` re-runs `plan_phase`, so it threads too; `ultraplan_phase` only checks.
 
 The reason: a step's command is the extension's own, and the order of a phase is a graph answer the kernel already
 checks; the extension only has to state the order it means to run.

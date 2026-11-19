@@ -243,12 +243,18 @@ fn an_installed_agent_is_granted_only_its_roles_specforge_tools() {
     let checker = claude_agent(&p, "gsd-plan-checker");
     let (front, _) = split(&checker);
     let tools = value(&front, "tools").expect("a tools line");
-    // The checker's reads and the judge's inputs, engine tools in catalogue order, then its commands (the role's
-    // read-only ones and the one recording a verdict) by MCP name.
+    // The checker's reads, the judge's inputs and its own reads, engine tools in catalogue order, then its commands
+    // (its own read-only one and the one recording a verdict) by MCP name.
+    let own = AGENTS
+        .iter()
+        .find(|a| a.id == "gsd-plan-checker")
+        .expect("the plan checker")
+        .reads;
     let granted: Vec<&str> = gsd_kit::agent::CHECKER
         .reads
         .iter()
         .chain(gsd_kit::agent::JUDGE)
+        .chain(own)
         .map(|c| c.trim_start_matches("specforge:"))
         .collect();
     let mut want: Vec<String> = ["Read", "Bash", "Glob", "Grep", "Skill"]
@@ -275,6 +281,18 @@ fn an_installed_agent_is_granted_only_its_roles_specforge_tools() {
     );
     want.extend(commands);
     assert_eq!(tools.split(", ").collect::<Vec<_>>(), want);
+    // `thread_plan` is the plan checker's own read and the planner's: no other agent of either role is granted it.
+    for agent in AGENTS {
+        let (front, _) = split(&claude_agent(&p, agent.id));
+        let granted = value(&front, "tools")
+            .is_some_and(|tools| tools.contains("mcp__specforge__specforge_gsd_thread_plan"));
+        assert_eq!(
+            granted,
+            matches!(agent.id, "gsd-plan-checker" | "gsd-planner"),
+            "{}",
+            agent.id
+        );
+    }
 
     let root = p.root().join(".claude");
     let mut files = Vec::new();

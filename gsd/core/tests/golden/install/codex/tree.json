@@ -20,8 +20,8 @@
     "sha256": "fdb138c8583b71b844d4d15af9c7b2a712251157c5662d0fbccc1e01e14ac22c"
   },
   ".codex/agents/gsd-integration-checker.toml": {
-    "bytes": 21104,
-    "sha256": "371a20e3bd55795e5ee9164df8385533c30a1459e03aef10d573aface91e0c4b"
+    "bytes": 20880,
+    "sha256": "0829a31ec7cbc3ee05919f2d1c1dddf1262119f1366e0696a900fe9fb4244626"
   },
   ".codex/agents/gsd-nyquist-auditor.toml": {
     "bytes": 9939,

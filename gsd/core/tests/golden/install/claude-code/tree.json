@@ -20,8 +20,8 @@
     "sha256": "fcedc36e32e21a5d6c3f31a1938f4a694de2f0443f2b1ca61ed0d5054ac5c227"
   },
   ".claude/agents/gsd-integration-checker.md": {
-    "bytes": 21545,
-    "sha256": "b19d832a55ada7f39f91ba39765aa989c35e840d7df07e2daa57d139ab19f359"
+    "bytes": 21278,
+    "sha256": "a3da5b098a7f7497cbe17abf56fff0ad1645df67d003aa7ecc4dbde0e32c4b04"
   },
   ".claude/agents/gsd-nyquist-auditor.md": {
     "bytes": 10375,
