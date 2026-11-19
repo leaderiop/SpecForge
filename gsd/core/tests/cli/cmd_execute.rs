@@ -421,8 +421,8 @@ fn confirm_setup_writes_done() {
 
 const SECOND_SUMMARY: &str = "summary 01-02-SUMMARY \"Completion: summary\" {\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Completion\"\n  subsystem              \"tasks\"\n  requirements_completed [TASK-02]\n}\n";
 
-/// An answered checkpoint stales the plan check; once the plan is executed (its summary is `completed`) that is
-/// history, and a gate lets it by.
+/// An answered checkpoint stales the plan check; once the plan is executed (its summary is `complete`, so its status
+/// is) the plan check is owed no more (its owner state), and a gate lets it by.
 #[test]
 fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     let p = super::harness::project("execute");
@@ -446,18 +446,19 @@ fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     let summary = format!("{SECOND_PLAN}/01-02-SUMMARY");
     let run = gsd(&p, "complete-plan", &[&summary]);
     assert_eq!(run.code, 0, "{}", run.all());
-    assert_eq!(
-        p.inputs(SECOND_PLAN, "W311")["verdict"]["state"],
-        "stale",
-        "still stale in check"
+    let inputs = p.inputs(SECOND_PLAN, "W311");
+    assert!(
+        inputs.get("verdict").is_none(),
+        "no plan check is owed: {inputs}"
     );
     let run = gsd(&p, "start-plan", &[SECOND_PLAN]);
     assert_eq!(run.code, 0, "{}", run.all());
 }
 
-/// A summary created before the run is not an execution: the entry gate still refuses (U33).
+/// A plan whose summary is `halted` is not executed (its status is `halted`, not `complete`): its plan check is still
+/// owed, so a stale one still refuses the entry gate.
 #[test]
-fn starting_a_plan_with_an_uncompleted_summary_is_still_refused() {
+fn starting_a_halted_plan_with_a_stale_plan_check_is_still_refused() {
     let p = super::harness::project("execute");
     checked(&p);
     assert_eq!(
@@ -469,7 +470,15 @@ fn starting_a_plan_with_an_uncompleted_summary_is_still_refused() {
         .code,
         0
     );
-    plant(&p, "spec/plans.spec", SECOND_SUMMARY);
+    plant(
+        &p,
+        "spec/plans.spec",
+        &SECOND_SUMMARY.replace(
+            "status                 complete",
+            "status                 halted",
+        ),
+    );
+    assert_eq!(p.fields_of(SECOND_PLAN)["status"], "halted");
     plus(&p);
     let before = bytes(&p);
     let run = gsd(&p, "start-plan", &[SECOND_PLAN]);

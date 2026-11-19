@@ -171,10 +171,10 @@ is neither fresh nor stale.
 
 | Rules | Target | Inputs | Binds |
 |---|---|---|---|
-| gsd/W311, W313, W315, W316 (plan check) | plan | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements · `phase_decisions` self.phase<decision.phase · `all_decisions` decision (a superset: the selector grammar cannot filter on an unset `phase`, so any decision change stales the plan check, the safe side, and the checker sees a contradiction with a decision of another phase or of the project) · `context` self.phase<context\|deferred_idea[origin=discussion].phase · `research` self.phase<research.phase · `research_items` self.phase<research.phase<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research · `siblings` self.phase<plan.phase · `instructions` file("CLAUDE.md", "AGENTS.md") | — |
-| gsd/E501 | truth | `truth` self · `plan` self.plan · `phase` self.plan.phase · `tests` test(self<test.names) | — |
-| gsd/E501 | artifact | `artifact` self · `plan` self.plan · `file` file(self.path) | — |
-| gsd/E501 | key_link | `link` self · `plan` self.plan · `from` file(self.from) · `to` file(self.to); not judged while `pattern` is set (`unless_set pattern`: a pass searches it). A literal pattern the scan finds (`wired`) verifies the link; a regular expression is `unchecked`, which is neither a pass nor a failure, so the phase stays `pending` until the pattern is literal | — |
+| gsd/W311, W313, W315, W316 (plan check) | plan | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements · `phase_decisions` self.phase<decision.phase · `all_decisions` decision (a superset: the selector grammar cannot filter on an unset `phase`, so any decision change stales the plan check, the safe side, and the checker sees a contradiction with a decision of another phase or of the project) · `context` self.phase<context\|deferred_idea[origin=discussion].phase · `research` self.phase<research.phase · `research_items` self.phase<research.phase<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research · `siblings` self.phase<plan.phase · `instructions` file("CLAUDE.md", "AGENTS.md"); judged while the plan is open (`judged_while pending`) | — |
+| gsd/E501 | truth | `truth` self · `plan` self.plan · `phase` self.plan.phase · `tests` test(self<test.names); judged once its plan is complete (`judged_while complete`) | — |
+| gsd/E501 | artifact | `artifact` self · `plan` self.plan · `file` file(self.path); judged once its plan is complete (`judged_while complete`) | — |
+| gsd/E501 | key_link | `link` self · `plan` self.plan · `from` file(self.from) · `to` file(self.to); not judged while `pattern` is set (`unless_set pattern`: a pass searches it). A literal pattern the scan finds (`wired`) verifies the link; a regular expression is `unchecked`, which is neither a pass nor a failure, so the phase stays `pending` until the pattern is literal; judged once its plan is complete (`judged_while complete`) | — |
 | gsd/E202 | phase_spec | `spec` self · `items` self<locked_req\|interview.spec · `phase` self.phase | `scores` (its recorded values) |
 | gsd/W203 | locked_req | `req` self · `traces` self.traces | — |
 | gsd/W205 | package_audit | `audit` self | `legitimacy` (its outcome: legitimate \| suspicious \| unknown, passing legitimate) |
@@ -186,6 +186,11 @@ cites no file of the project and no test (it could never go stale on a code edit
 (`path`) and a key link its own (`from`, `to`) (ADR 0304: a `file()` input may end at a string or string-list field; a
 missing file digests `absent`). `covered_files` lists the cited files and the artifacts' and key links' files. The plan
 checks read no file: they judge the plan before its files exist, and a code edit must not stale an in-flight check.
+
+A target's owner state says when a verdict is owed (ADR 0362, ADR 0377): a plan check while its plan is open (its
+`status` is not `complete`), a truth, an artifact or a key link once its plan is complete. A verdict that is not owed is
+not reported, whatever its state, and no gate counts it: an unexecuted plan's must-haves owe the verifier nothing yet,
+and an executed plan's plan check is history.
 
 A summary is no plan-check input (writing it after execution stales nothing), and no verifier input either (its claims
 are not evidence).

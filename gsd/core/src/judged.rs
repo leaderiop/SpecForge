@@ -6,7 +6,7 @@
 
 use specforge_extension_sdk::prelude::*;
 
-use gsd_kit::judged::{Judged, Target};
+use gsd_kit::judged::{Judged, Owed, Target};
 
 use crate::codes::{CODES, Severity};
 
@@ -48,11 +48,13 @@ pub(crate) const INTEGRATION_INPUTS: &[(&str, &str)] = &[
     ),
 ];
 
+// A plan check is owed while its plan is open: it judges a plan before it runs, and an executed plan's check is history
+// (ADR 0377). A must-have is owed once its plan is complete: the verifier judges what was built.
 const PLAN_CHECK: &[Target] = &[Target {
     kind: "plan",
     inputs: PLAN_CHECK_INPUTS,
     unless_set: &[],
-    judged_while: None,
+    judged_while: Some(Owed::Open),
 }];
 
 // A truth's verdict reads the files and tests it cites (the host digests every verdict's `cited`, ADR 0377), so an
@@ -68,7 +70,7 @@ const E501: &[Target] = &[
             ("tests", "test(self<test.names)"),
         ],
         unless_set: &[],
-        judged_while: None,
+        judged_while: Some(Owed::Complete),
     },
     Target {
         kind: "artifact",
@@ -78,7 +80,7 @@ const E501: &[Target] = &[
             ("file", "file(self.path)"),
         ],
         unless_set: &[],
-        judged_while: None,
+        judged_while: Some(Owed::Complete),
     },
     // A key link with a `pattern` is not judged: a pass searches the pattern (`passes::scan`).
     Target {
@@ -90,7 +92,7 @@ const E501: &[Target] = &[
             ("to", "file(self.to)"),
         ],
         unless_set: &["pattern"],
-        judged_while: None,
+        judged_while: Some(Owed::Complete),
     },
 ];
 

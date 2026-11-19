@@ -2,13 +2,84 @@
 //! and playing a judge (reading a rule's inputs and recording its verdict). A child of `harness.rs`, so it reaches
 //! [`Project`]'s fields; `@gsd/security`'s tests compile it through their include of `harness.rs`.
 
+use std::collections::BTreeMap;
+
+use gsd_kit::judged::{Judged, Owed};
+use serde_json::Value;
+
 use super::cites::cite_flags;
 use super::{Project, Run};
 
-/// Whether a diagnostic code (`gsd/W311`) is one of the judged rules'.
+/// One extension's judged rules as the harness reads them: its table, the command that records their verdicts, its
+/// kinds (for the owner states that say when a verdict is owed) and its codes' severities. Each test crate root lists
+/// the books it knows in `crate::BOOKS`.
+pub struct Book {
+    /// The extension, as `specforge.json` loads it: `@gsd/core`.
+    pub extension: &'static str,
+    /// The namespace of its codes: `gsd`, so a rule is `gsd/E501`.
+    pub namespace: &'static str,
+    pub table: &'static [Judged],
+    /// The `specforge gsd` command that records a verdict on one of its rules.
+    pub command: &'static str,
+    /// Its kinds, as `describe("entities")` answers them.
+    pub kinds: fn() -> Value,
+    /// Whether one of its local codes is an Error.
+    pub is_error: fn(&str) -> bool,
+}
+
+fn core_kinds() -> Value {
+    let host = specforge_extension_sdk::testing::MockHost::new(gsd_core::build());
+    let text = host.describe_json("entities").expect("the entities");
+    serde_json::from_str(&text).expect("describe answers JSON")
+}
+
+fn core_error(code: &str) -> bool {
+    gsd_core::codes::CODES
+        .iter()
+        .any(|k| k.id == code && k.severity == gsd_core::codes::Severity::Error)
+}
+
+impl Book {
+    pub const CORE: Book = Book {
+        extension: "@gsd/core",
+        namespace: "gsd",
+        table: gsd_core::judged::JUDGED,
+        command: "record-verdict",
+        kinds: core_kinds,
+        is_error: core_error,
+    };
+
+    /// The qualified code of a local one: `gsd/E501`.
+    fn qualified(&self, local: &str) -> String {
+        format!("{}/{local}", self.namespace)
+    }
+}
+
+/// The book whose table holds `code` and its local code: a qualified code (`gsd/W311`) by its namespace, a local
+/// one (`W311`) in the first book that has it.
+fn book_of(code: &str) -> Option<(&'static Book, &str)> {
+    crate::BOOKS.iter().find_map(|book| {
+        let local = match code.rsplit_once('/') {
+            Some((namespace, local)) if namespace == book.namespace => local,
+            Some(_) => return None,
+            None => code,
+        };
+        book.table
+            .iter()
+            .any(|j| j.code == local)
+            .then_some((book, local))
+    })
+}
+
+/// The book of a local or qualified code a test names: a test that names no judged rule is wrong.
+fn book(code: &str) -> (&'static Book, &str) {
+    book_of(code)
+        .unwrap_or_else(|| panic!("'{code}' is no judged rule of any book in crate::BOOKS"))
+}
+
+/// Whether a diagnostic code (`gsd/W311`) is one of the judged rules' of a book.
 pub fn is_judged(code: &str) -> bool {
-    let local = code.strip_prefix("gsd/").unwrap_or(code);
-    gsd_core::judged::JUDGED.iter().any(|j| j.code == local)
+    book_of(code).is_some()
 }
 
 /// The `(code, entity)` pairs of the judged rules' diagnostics in a report from [`Project::report_all`], sorted. The
@@ -38,34 +109,100 @@ pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Whether the entity `id` is pending, as the host decides an owner state: its own kind's `complete_when`, else the
+/// nearest scope ancestor's (its id with the last segment cut) whose kind declares one, does not hold; with none on
+/// the chain, it is not pending. `when` maps a kind to its `complete_when` field and values.
+fn pending(
+    nodes: &BTreeMap<String, Value>,
+    when: &BTreeMap<String, (String, Vec<String>)>,
+    id: &str,
+) -> bool {
+    let mut at = Some(id);
+    while let Some(id) = at {
+        let declared = nodes
+            .get(id)
+            .and_then(|node| Some((node, when.get(node["kind"].as_str()?)?)));
+        if let Some((node, (field, values))) = declared {
+            return !node["fields"][field]
+                .as_str()
+                .is_some_and(|value| values.iter().any(|v| v == value));
+        }
+        at = id.rsplit_once('/').map(|(parent, _)| parent);
+    }
+    false
+}
+
 impl Project {
-    /// The `(code, entity)` pairs every judged rule reports on a project that records no verdict, sorted: one for each
-    /// entity of each kind the rule targets (the graph says which, not the judged diagnostics), except the rules in
-    /// `off` (a gate that is off), an entity that writes a field the target says to skip and an entity that already
-    /// carries a fresh passing verdict of the rule.
-    pub fn expected_judged(&self, off: &[&str]) -> Vec<(String, String)> {
-        let mut out = Vec::new();
-        for rule in gsd_core::judged::JUDGED
+    /// The books of `crate::BOOKS` whose extension the project loads.
+    fn books(&self) -> Vec<&'static Book> {
+        let loaded = self.extensions.borrow();
+        crate::BOOKS
             .iter()
-            .filter(|r| !off.contains(&r.code))
-        {
-            for target in rule.targets {
-                for node in self.nodes_of(target.kind) {
-                    let skipped = target
-                        .unless_set
-                        .iter()
-                        .any(|f| node["fields"].get(f).is_some_and(|v| !v.is_null()));
-                    // A fresh passing verdict on the node (the twin carries its verifier's) answers the rule.
-                    let judged = node["judgements"].as_array().is_some_and(|all| {
-                        all.iter().any(|j| {
-                            j["rule"] == format!("gsd/{}", rule.code).as_str()
-                                && j["state"] == "fresh"
-                                && j["passed"] == true
-                        })
-                    });
-                    if !skipped && !judged {
-                        let id = node["id"].as_str().expect("an id").to_string();
-                        out.push((format!("gsd/{}", rule.code), id));
+            .filter(|book| loaded.iter().any(|(name, _)| name == book.extension))
+            .collect()
+    }
+
+    /// The `(code, entity)` pairs every judged rule reports on a project that records no verdict, sorted: one for each
+    /// entity of each kind the rule targets that owes a verdict now (the graph and the books' tables and kinds say
+    /// which, not the judged diagnostics), except the rules in `off` (a gate that is off), an entity that writes a
+    /// field the target says to skip and an entity that already carries a fresh passing verdict of the rule. A target
+    /// that waits for its owner state owes one only once its owner is complete (`Owed::Complete`) or while it is
+    /// pending (`Owed::Open`).
+    pub fn expected_judged(&self, off: &[&str]) -> Vec<(String, String)> {
+        let books = self.books();
+        let mut when = BTreeMap::new();
+        for book in &books {
+            let kinds = (book.kinds)();
+            for kind in kinds["items"].as_array().expect("the kinds") {
+                let complete = &kind["complete_when"];
+                let (Some(name), Some(field)) = (kind["name"].as_str(), complete["field"].as_str())
+                else {
+                    continue;
+                };
+                let values = complete["values"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|v| Some(v.as_str()?.to_string()))
+                    .collect();
+                when.insert(name.to_string(), (field.to_string(), values));
+            }
+        }
+        let run = self.run(&["export", "--format", "graph"]);
+        let graph: Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("export prints JSON ({e}): {}", run.all()));
+        let nodes: BTreeMap<String, Value> = graph["nodes"]
+            .as_array()
+            .expect("nodes")
+            .iter()
+            .map(|n| (n["id"].as_str().expect("an id").to_string(), n.clone()))
+            .collect();
+        let mut out = Vec::new();
+        for book in books {
+            for rule in book.table.iter().filter(|r| !off.contains(&r.code)) {
+                let code = book.qualified(rule.code);
+                for target in rule.targets {
+                    for (id, node) in nodes.iter().filter(|(_, n)| n["kind"] == target.kind) {
+                        let owed = match target.judged_while {
+                            None => true,
+                            Some(Owed::Complete) => !pending(&nodes, &when, id),
+                            Some(Owed::Open) => pending(&nodes, &when, id),
+                        };
+                        let skipped = target
+                            .unless_set
+                            .iter()
+                            .any(|f| node["fields"].get(f).is_some_and(|v| !v.is_null()));
+                        // A fresh passing verdict on the node (the twin carries its verifier's) answers the rule.
+                        let judged = node["judgements"].as_array().is_some_and(|all| {
+                            all.iter().any(|j| {
+                                j["rule"] == code.as_str()
+                                    && j["state"] == "fresh"
+                                    && j["passed"] == true
+                            })
+                        });
+                        if owed && !skipped && !judged {
+                            out.push((code.clone(), id.clone()));
+                        }
                     }
                 }
             }
@@ -86,10 +223,8 @@ impl Project {
         assert_eq!(found, expected, "{report:#?}");
         // `check` exits 1 exactly when a judged rule that is an Error (under gsd-compat) reports.
         let errors = expected.iter().any(|(code, _)| {
-            let local = code.strip_prefix("gsd/").unwrap_or(code);
-            gsd_core::codes::CODES
-                .iter()
-                .any(|k| k.id == local && k.severity == gsd_core::codes::Severity::Error)
+            let (book, local) = book(code);
+            (book.is_error)(local)
         });
         assert_eq!(run.code, i32::from(errors), "check: {}", run.all());
         assert!(
@@ -133,11 +268,12 @@ impl Project {
 
     /// `specforge query <entity> --inputs gsd/<code> --format json`: what the judge reads, and the basis to record.
     pub fn inputs(&self, entity: &str, code: &str) -> serde_json::Value {
+        let (book, local) = book(code);
         let run = self.run(&[
             "query",
             entity,
             "--inputs",
-            &format!("gsd/{code}"),
+            &book.qualified(local),
             "--format",
             "json",
         ]);
@@ -154,7 +290,8 @@ impl Project {
             .position(|a| *a == "--cited")
             .map(|at| extra.get(at + 1).expect("--cited takes a JSON list"));
         let flags = cited.map(|list| cite_flags(list)).unwrap_or_default();
-        let rule = format!("gsd/{code}");
+        let (book, local) = book(code);
+        let rule = book.qualified(local);
         let mut args = vec!["query", entity, "--inputs", &rule, "--format", "json"];
         args.extend(flags.iter().map(String::as_str));
         let run = self.run(&args);
@@ -189,11 +326,12 @@ impl Project {
         basis: &str,
         extra: &[&str],
     ) -> Run {
+        let (book, local) = book(code);
         let mut args = vec![
             "gsd",
-            "record-verdict",
+            book.command,
             entity,
-            code,
+            local,
             outcome,
             "test-model",
             basis,

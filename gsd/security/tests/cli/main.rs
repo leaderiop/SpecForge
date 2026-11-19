@@ -40,6 +40,9 @@ mod threat_ids;
 
 use specforge_extension_sdk::testing::MockHost;
 
+/// The judged rules the harness knows: each extension's book (`harness::Book`).
+pub static BOOKS: &[harness::Book] = &[harness::Book::CORE];
+
 /// A project that loads both extensions: core's `empty` project plus `@gsd/security` from `GSD_SECURITY_WASM`.
 fn both() -> harness::Project {
     harness::project("empty").with_extension("@gsd/security", "GSD_SECURITY_WASM")

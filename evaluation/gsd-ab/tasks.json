@@ -77,34 +77,22 @@
   "fixtures": [
     { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "601334ae1eaf46483229dc59dbfce60f24e810c6", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
       "baseline": [
-        "I213 -:0", "gsd/E501 spec/plans.spec:223", "gsd/E501 spec/plans.spec:228", "gsd/E501 spec/plans.spec:233",
-        "gsd/E501 spec/plans.spec:238", "gsd/E501 spec/plans.spec:245", "gsd/W311 spec/plans.spec:1", "gsd/W311 spec/plans.spec:192",
-        "gsd/W311 spec/plans.spec:87", "gsd/W313 spec/plans.spec:1", "gsd/W313 spec/plans.spec:192", "gsd/W313 spec/plans.spec:87",
-        "gsd/W315 spec/plans.spec:1", "gsd/W315 spec/plans.spec:192", "gsd/W315 spec/plans.spec:87", "gsd/W316 spec/plans.spec:1",
-        "gsd/W316 spec/plans.spec:192", "gsd/W316 spec/plans.spec:87", "gsd/W407 spec/plans.spec:101", "gsd/W407 spec/plans.spec:110",
-        "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:23"
+        "I213 -:0", "gsd/W311 spec/plans.spec:192", "gsd/W313 spec/plans.spec:192", "gsd/W315 spec/plans.spec:192",
+        "gsd/W316 spec/plans.spec:192", "gsd/W407 spec/plans.spec:101", "gsd/W407 spec/plans.spec:110", "gsd/W407 spec/plans.spec:14",
+        "gsd/W407 spec/plans.spec:23"
       ] },
-    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "9a979604cccf2c1e38037fb52254ca8fed1909b8", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"],
+    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "bf374361049752de04b0dac13c4e54b61400f630", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"],
       "baseline": [
-        "I213 -:0", "W019 -:0", "gsd.security/E101 spec/plans.spec:163",
-        "gsd.security/E101 spec/plans.spec:81", "gsd/E501 spec/plans.spec:126", "gsd/E501 spec/plans.spec:131",
-        "gsd/E501 spec/plans.spec:138", "gsd/E501 spec/plans.spec:225", "gsd/E501 spec/plans.spec:230",
-        "gsd/E501 spec/plans.spec:237", "gsd/E501 spec/plans.spec:32", "gsd/E501 spec/plans.spec:37",
-        "gsd/E501 spec/plans.spec:44", "gsd/W103 spec/v1.0.spec:17", "gsd/W311 spec/plans.spec:1",
-        "gsd/W311 spec/plans.spec:103", "gsd/W311 spec/plans.spec:194", "gsd/W313 spec/plans.spec:1",
-        "gsd/W313 spec/plans.spec:103", "gsd/W313 spec/plans.spec:194", "gsd/W315 spec/plans.spec:1",
-        "gsd/W315 spec/plans.spec:103", "gsd/W315 spec/plans.spec:194", "gsd/W316 spec/plans.spec:1",
-        "gsd/W316 spec/plans.spec:103", "gsd/W316 spec/plans.spec:194", "gsd/W407 spec/plans.spec:117",
+        "I213 -:0", "W019 -:0", "gsd.security/E101 spec/plans.spec:163", "gsd.security/E101 spec/plans.spec:81",
+        "gsd/E501 spec/plans.spec:126", "gsd/E501 spec/plans.spec:131", "gsd/E501 spec/plans.spec:138", "gsd/E501 spec/plans.spec:32",
+        "gsd/E501 spec/plans.spec:37", "gsd/E501 spec/plans.spec:44", "gsd/W103 spec/v1.0.spec:17", "gsd/W311 spec/plans.spec:194",
+        "gsd/W313 spec/plans.spec:194", "gsd/W315 spec/plans.spec:194", "gsd/W316 spec/plans.spec:194", "gsd/W407 spec/plans.spec:117",
         "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:23"
       ] },
     { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "b463648ae3502b91f4f2722bf0fda77707d945ee", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"],
       "baseline": [
-        "I213 -:0", "gsd/E501 spec/plans.spec:241", "gsd/E501 spec/plans.spec:246", "gsd/E501 spec/plans.spec:251",
-        "gsd/E501 spec/plans.spec:258", "gsd/E501 spec/quick.spec:20", "gsd/E501 spec/quick.spec:25", "gsd/W311 spec/plans.spec:1",
-        "gsd/W311 spec/plans.spec:105", "gsd/W311 spec/plans.spec:210", "gsd/W311 spec/quick.spec:1", "gsd/W313 spec/plans.spec:1",
-        "gsd/W313 spec/plans.spec:105", "gsd/W313 spec/plans.spec:210", "gsd/W313 spec/quick.spec:1", "gsd/W315 spec/plans.spec:1",
-        "gsd/W315 spec/plans.spec:105", "gsd/W315 spec/plans.spec:210", "gsd/W315 spec/quick.spec:1", "gsd/W316 spec/plans.spec:1",
-        "gsd/W316 spec/plans.spec:105", "gsd/W316 spec/plans.spec:210", "gsd/W316 spec/quick.spec:1", "gsd/W407 spec/plans.spec:119",
+        "I213 -:0", "gsd/E501 spec/quick.spec:20", "gsd/E501 spec/quick.spec:25", "gsd/W311 spec/plans.spec:210",
+        "gsd/W313 spec/plans.spec:210", "gsd/W315 spec/plans.spec:210", "gsd/W316 spec/plans.spec:210", "gsd/W407 spec/plans.spec:119",
         "gsd/W407 spec/plans.spec:128", "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:23", "gsd/W407 spec/quick.spec:11",
         "gsd/W408 spec/plans.spec:300"
       ] }

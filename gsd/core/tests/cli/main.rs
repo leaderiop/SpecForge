@@ -144,6 +144,9 @@ mod verify_verdicts;
 
 use harness::project;
 
+/// The judged rules the harness knows: each extension's book (`harness::Book`).
+pub static BOOKS: &[harness::Book] = &[harness::Book::CORE];
+
 #[test]
 fn an_empty_project_loads_gsd_core_and_checks_clean() {
     let p = project("empty");

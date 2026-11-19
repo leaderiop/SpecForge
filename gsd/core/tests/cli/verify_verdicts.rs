@@ -26,12 +26,17 @@ pub(super) fn verification(p: &Project) -> serde_json::Value {
     p.fields_of(VERIFICATION)
 }
 
-/// The fixture's override, gap and human item removed: nothing is accepted by a person, nothing is open.
+/// A summary that completes plan 01-02, so its must-haves owe the verifier a verdict (they wait for their plan).
+pub(super) const SECOND_SUMMARY: &str = "summary 01-02-SUMMARY \"Completion: summary\" {\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Completion\"\n  subsystem              \"tasks\"\n  requirements_completed [TASK-02]\n}\n";
+
+/// The fixture's override, gap and human item removed: nothing is accepted by a person, nothing is open. Both plans of
+/// phase 01 are executed, so each of their truths, artifacts and key links owes a verdict.
 pub(super) fn bare() -> Project {
     let p = verify();
     let text = p.read("spec/verify.spec");
     let at = text.find("verify_gap VG1").expect("the gap");
     p.write("spec/verify.spec", &format!("{}\n", text[..at].trim_end()));
+    p.write("spec/summary.spec", SECOND_SUMMARY);
     p
 }
 

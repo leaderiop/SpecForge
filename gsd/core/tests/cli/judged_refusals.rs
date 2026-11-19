@@ -159,7 +159,8 @@ fn w203_failed_records_under_strict() {
     assert_eq!(state(&p, &req, "W203"), ("fresh".to_string(), false));
 }
 
-/// M5: creating a judged target adds a `no verdict` finding, which is owed a verdict and refuses nothing.
+/// M5: creating a judged target adds a `no verdict` finding, which is owed a verdict and refuses nothing. The must-haves
+/// are created in the executed plan 01-01: a must-have owes its verdict once its plan is complete.
 // An artifact is not created here: `--path` is the CLI's own project option, so the CLI cannot spell its `path` field.
 // Each creation, with the id it makes and the rule that owes it a verdict.
 const CREATIONS: [(&str, &[&str]); 3] = [
@@ -171,7 +172,7 @@ const CREATIONS: [(&str, &[&str]); 3] = [
             "TR9",
             "A new claim",
             "--plan",
-            "v1.0/01/01-02",
+            "v1.0/01/01-01",
             "--text",
             "A new claim",
         ],
@@ -184,11 +185,11 @@ const CREATIONS: [(&str, &[&str]); 3] = [
             "KL9",
             "Another link",
             "--plan",
-            "v1.0/01/01-02",
+            "v1.0/01/01-01",
             "--from",
-            "a.js",
+            "test/tasks.test.js",
             "--to",
-            "b.js",
+            "src/tasks.js",
             "--via",
             "x",
         ],
@@ -221,8 +222,8 @@ fn an_agent_creates_a_judged_target() {
     }
     // Each is owed a verdict and has none.
     for (id, rule) in [
-        ("v1.0/01/01-02/TR9", "E501"),
-        ("v1.0/01/01-02/KL9", "E501"),
+        ("v1.0/01/01-01/TR9", "E501"),
+        ("v1.0/01/01-01/KL9", "E501"),
         ("v1.0/A2", "E518"),
     ] {
         assert_eq!(state(&p, id, rule), ("missing".to_string(), false), "{id}");

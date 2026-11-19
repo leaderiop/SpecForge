@@ -20,16 +20,21 @@ fn close_milestone_on_the_twin_is_refused_e106_and_e511() {
     unchanged(&p, &before);
 }
 
-/// A one-phase milestone whose phase is verified (nothing to verify) and whose audit passes with tech debt a person
-/// accepted: nothing for the gates to refuse.
+/// A one-phase milestone whose one plan is executed (its summary is `complete`) and verified, and whose audit passes
+/// with tech debt a person accepted: nothing for the gates to refuse.
 pub(super) fn ready() -> Project {
     let p = project("empty");
     p.write(
         "spec/m.spec",
         "milestone v1.0 \"M\" {\n  name \"M\"\n}\n\nphase 01 \"Core\" {\n  milestone v1.0\n  name \"Core\"\n  slug \"core\"\n  goal \"Do it\"\n  success_criteria [\"It is done\"]\n}\n\nplan 01-01 \"P\" {\n  phase v1.0/01\n  type execute\n  objective \"Do it\"\n  files_modified [\"src/done.js\"]\n}\n\ntruth TR1 \"T\" {\n  plan v1.0/01/01-01\n  text \"It is done\"\n}\n\nverification 01-VERIFICATION \"V\" {\n  phase v1.0/01\n}\n\nmilestone_audit A1 \"A\" {\n  milestone v1.0\n}\n",
     );
-    // The truth's verdict cites the file its plan modifies (`Project::cites`).
+    // The plan is executed, so its truth owes the verifier a verdict, which cites the file the plan modifies
+    // (`Project::cites`).
     p.write("src/done.js", "export const done = true;\n");
+    p.write(
+        "spec/summary.spec",
+        "summary 01-01-SUMMARY \"S\" {\n  plan                   v1.0/01/01-01\n  status                 complete\n  one_liner              \"It is done\"\n  subsystem              \"core\"\n  requirements_completed []\n}\n",
+    );
     assert_eq!(p.verify_phase("v1.0/01"), 1);
     p
 }
