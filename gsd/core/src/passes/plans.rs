@@ -118,6 +118,14 @@ pub fn strings(entity: &PassEntity, field: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// The paths a plan names, `files_modified ∪ files_deleted`, as exact strings (`partitionByFileOverlap` compares them
+/// as written).
+pub fn touched(plan: &PassEntity) -> BTreeSet<String> {
+    let mut paths: BTreeSet<String> = strings(plan, "files_modified").into_iter().collect();
+    paths.extend(strings(plan, "files_deleted"));
+    paths
+}
+
 /// The rows of a block list (`values`), each member as its text; a member that is itself a list or block is its
 /// compact JSON.
 pub fn rows(entity: &PassEntity, field: &str) -> Vec<BTreeMap<String, String>> {

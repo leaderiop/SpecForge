@@ -77,14 +77,14 @@ fn w323_is_an_error_under_gsd_strict() {
 }
 
 /// A fresh copy of the plan project with `more` appended as `spec/more.spec`.
-fn with(more: &str) -> Project {
+pub(super) fn with(more: &str) -> Project {
     let p = project("plan");
     p.write("spec/more.spec", more);
     p
 }
 
 /// An `auto` task of `plan` with its files and an automated verify, so no plan-shape rule fires on the task itself.
-fn auto(name: &str, plan: &str) -> String {
+pub(super) fn auto(name: &str, plan: &str) -> String {
     format!(
         "task {name} \"Auto {name}\" {{\n  plan   {plan}\n  type   auto\n  files  [\"src/tasks.js\"]\n  action \"Do it\"\n  verify [\n    {{ automated \"node --test test/tasks.test.js\" fails_when \"a test fails\" }}\n  ]\n  done   \"Done\"\n}}\n\n"
     )
@@ -297,7 +297,7 @@ fn a_plan_depending_on_another_phase_is_e102() {
 }
 
 /// A third plan of phase 01 with the must-haves W309 wants, modifying `modified` and deleting `deleted`.
-fn third_plan(depends: &str, modified: &str, deleted: &str) -> String {
+pub(super) fn third_plan(depends: &str, modified: &str, deleted: &str) -> String {
     format!(
         "plan 01-03 \"Third\" {{\n  phase          v1.0/01\n  type           execute\n{depends}  files_modified [{modified}]\n  files_deleted  [{deleted}]\n  requirements   [TASK-01]\n  objective      \"A third plan\"\n}}\n\ntruth TR1 \"Third\" {{\n  plan v1.0/01/01-03\n  text \"Third\"\n}}\n\nartifact AR1 \"Third\" {{\n  plan     v1.0/01/01-03\n  path     \"src/third.js\"\n  provides \"third\"\n}}\n"
     )

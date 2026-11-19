@@ -138,6 +138,7 @@ mod settings;
 mod source_items;
 #[path = "../common/specforge_only.rs"]
 mod specforge_only;
+mod strict_wave;
 #[path = "../common/tool_names.rs"]
 mod tool_names;
 mod verify_paths;

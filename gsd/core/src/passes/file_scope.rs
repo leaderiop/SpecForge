@@ -13,7 +13,7 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{of_kind, strings};
+use super::plans::{of_kind, strings, touched};
 use crate::scope::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -26,13 +26,6 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut found = same_wave_overlap(input);
     found.extend(task_files(input));
     found
-}
-
-/// `files_modified ∪ files_deleted`, exact strings (`partitionByFileOverlap` compares them as written).
-fn touched(plan: &PassEntity) -> BTreeSet<String> {
-    let mut paths: BTreeSet<String> = strings(plan, "files_modified").into_iter().collect();
-    paths.extend(strings(plan, "files_deleted"));
-    paths
 }
 
 fn same_wave_overlap(input: &PassInput) -> Vec<PassDiagnostic> {

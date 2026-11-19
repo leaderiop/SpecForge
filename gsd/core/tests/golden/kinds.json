@@ -4806,6 +4806,17 @@
           },
           {
             "default_value": null,
+            "description": "the wave the plan runs in once plans of its phase that share a path are kept apart: the longest `depends_on` path plus, for each pair sharing a path in `files_modified`, `files_deleted` or a task's `files`, the earlier plan (by wave, then id) first; equals `wave` unless a shared path pushes it (gsd/W526); absent where `wave` is",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "name": "strict_wave",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
             "description": "false exactly when the plan has a checkpoint",
             "edge": null,
             "field_type": "bool",

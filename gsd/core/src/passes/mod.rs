@@ -34,6 +34,7 @@ use specforge_extension_sdk::prelude::*;
 pub const CLAIMED: &[&str] = &[
     "plan.wave",
     "plan.autonomous",
+    "plan.strict_wave",
     "task.verify_paths",
     "artifact.state",
     "key_link.state",
