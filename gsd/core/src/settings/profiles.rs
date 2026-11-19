@@ -14,11 +14,11 @@ const PROFILES: [&str; 3] = [COMPAT, "gsd-strict", "gsd-plus"];
 const PRESETS: &[(&str, [bool; 3])] = &[
     ("workflow.windows_enforce", [false, true, true]),
     ("specforge.task_commits", [false, true, true]),
-    ("specforge.traceability_gate", [false, false, true]),
-    ("specforge.verdict_gate", [false, false, true]),
+    ("specforge.traceability_gate", [false, true, true]),
+    ("specforge.verdict_gate", [false, true, true]),
     ("specforge.cross_workstream_conflicts", [false, false, true]),
     ("specforge.plan_paths_touched", [false, true, true]),
-    ("specforge.task_trailers", [false, false, true]),
+    ("specforge.task_trailers", [false, true, true]),
 ];
 
 /// `(setting, environment variable)`: the key half of each search availability flag. A secret may not share a
@@ -45,7 +45,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.setting("profile", |s| {
         s.enum_values(&PROFILES)
             .default(COMPAT)
-            .describe("gsd-compat is GSD as it is; gsd-strict blocks where GSD warns; gsd-plus adds traceability gates.");
+            .describe(
+                "gsd-compat is GSD as it is; gsd-strict blocks where GSD warns and gates fresh verdicts, traced \
+                 requirements and task trailers; gsd-plus adds cross-workstream conflicts.",
+            );
     });
     c.preset("profile", |p| {
         for (index, profile) in PROFILES.iter().enumerate() {

@@ -89,12 +89,13 @@ pub fn ledgered(p: &Project, entity: &str, field: &str, value_json: &str) -> boo
         .any(|l| l == ledger_line(entity, field, value_json))
 }
 
-/// A project under the `gsd-strict` profile (W318, W404 and the rest of GSD's warnings are errors).
+/// A project under the `gsd-strict` profile (W318, W404 and the rest of GSD's warnings are errors, and the verdict,
+/// traceability and task-trailer gates E516, E515 and E521 are on).
 pub fn strict(p: &Project) {
     p.settings(serde_json::json!({ "profile": "gsd-strict" }));
 }
 
-/// A project under `gsd-plus` (strict, and E516 and the traceability gates).
+/// A project under `gsd-plus` (strict, and cross-workstream conflicts, gsd/E517).
 pub fn plus(p: &Project) {
     p.settings(serde_json::json!({ "profile": "gsd-plus" }));
 }

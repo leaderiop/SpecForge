@@ -13,9 +13,9 @@ for a phase with open threats at or above `workflow.security_block_on`. Peer: `@
 - The judged rules (`src/judged.rs`): `gsd.security/W302`, a closed threat's mitigation, owed once the threat is
   closed and read over the files the threat names, and `gsd.security/W303`, a phase's threat flags against its
   register, owed from the audit's creation. `secure_phase` judges both and lists the verdicts of its phase that are not
-  fresh, so a re-run judges only those. Under gsd-plus a `gsd.security/` verdict that is not fresh also refuses core's
-  workflow gates (`gsd/E516`, whose exception covers `gsd/` rules only) until `secure_phase` judges it again:
-  [spec/README.md](spec/README.md#judged-mitigation).
+  fresh, so a re-run judges only those. Under gsd-strict and gsd-plus a `gsd.security/` verdict that is not fresh
+  also refuses core's workflow gates (`gsd/E516`, whose exception covers `gsd/` rules only) until `secure_phase`
+  judges it again: [spec/README.md](spec/README.md#judged-mitigation).
 - Commands (`src/commands/`): `security_hooks <point>`, `threat_ids`, `security_gate`, `record_security_audit`,
   `accept_risk` (human-attested), `record_security_verdict` (a judged rule's verdict).
 - The prompt `secure_phase` and its slash `/gsd-secure-phase` (`src/prompts.rs`), the agent `gsd-security-auditor` in

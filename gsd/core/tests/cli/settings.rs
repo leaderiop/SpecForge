@@ -140,21 +140,24 @@ fn specforge_task_commits_off_gates_w407() {
     let gated = |p: &crate::harness::Project| {
         let r = resolved(p, &[]);
         let all = strings(&r["gated"]);
-        ["gsd/W407", "gsd/E515", "gsd/E516", "gsd/E517"].map(|code| all.contains(&code))
+        [
+            "gsd/W407", "gsd/E515", "gsd/E516", "gsd/E517", "gsd/W520", "gsd/E521",
+        ]
+        .map(|code| all.contains(&code))
     };
-    assert_eq!(gated(&p), [true; 4], "gsd-compat gates all four");
+    assert_eq!(gated(&p), [true; 6], "gsd-compat gates all six");
     p.settings(serde_json::json!({ "profile": "gsd-strict" }));
     assert_eq!(
         gated(&p),
-        [false, true, true, true],
-        "strict switches on task commits"
+        [false, false, false, true, false, false],
+        "strict switches on all but cross-workstream conflicts"
     );
     p.settings(serde_json::json!({ "profile": "gsd-plus" }));
-    assert_eq!(gated(&p), [false; 4], "plus switches on all four");
+    assert_eq!(gated(&p), [false; 6], "plus switches on all six");
     p.settings(serde_json::json!({ "profile": "gsd-plus", "specforge.task_commits": false }));
     assert_eq!(
         gated(&p),
-        [true, false, false, false],
+        [true, false, false, false, false, false],
         "an explicit setting beats the profile"
     );
 }

@@ -563,9 +563,14 @@ fn without_a_report_w408_does_not_judge_checks() {
 fn a_git_only_collect_leaves_the_checks_unjudged_even_under_strict() {
     let p = repository();
     p.settings(json!({ "profile": "gsd-strict" }));
-    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    // Each commit ends with the trailer gsd-core's executor writes, so gsd/E521 stays silent under strict.
     p.git_commit(
-        "test(01-01): Store tests",
+        "feat(01-01): Store module\n\nGsd-Task: 01-01/T1\n",
+        &[("src/tasks.js", "a\n")],
+        T0,
+    );
+    p.git_commit(
+        "test(01-01): Store tests\n\nGsd-Task: 01-01/T2\n",
         &[("test/tasks.test.js", "t\n")],
         T1,
     );
@@ -579,7 +584,7 @@ fn a_git_only_collect_leaves_the_checks_unjudged_even_under_strict() {
     assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
 }
 
-/// D-K20a-7: E515 is a ship-gate guard under gsd-plus, never a check.
+/// E515 is a ship-gate guard under gsd-strict and gsd-plus, never a check.
 #[test]
 fn e515_refuses_close_milestone_under_plus_until_the_requirement_traces() {
     let p = repository();

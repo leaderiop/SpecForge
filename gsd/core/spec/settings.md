@@ -86,8 +86,8 @@ setting.
 | Profile | Behaves as |
 |---|---|
 | `gsd-compat` (default) | GSD at the tracked version: every rule GSD only warns about warns, every check GSD leaves to a prompt is still judged but does not block. The parity suite runs on it. |
-| `gsd-strict` | the same rules, blocking where GSD warns: same-wave file conflicts, a stale plan-check verdict, a backstop truth without evidence, and an open broken window at ship. |
-| `gsd-plus` | strict, and what GSD cannot do: requirement → task → commit → test traceability as a gate, stale-verdict blocking at every step, cross-workstream conflict detection. |
+| `gsd-strict` | the same rules, blocking where GSD warns: same-wave file conflicts, a stale plan-check verdict, a backstop truth without evidence, and an open broken window at ship; and, beyond GSD, a verdict that is not fresh at any step (gsd/E516), a complete requirement no commit and passing test trace (gsd/E515) and a task commit without its `Gsd-Task:` trailer (gsd/E521). |
+| `gsd-plus` | strict, and cross-workstream conflict detection (gsd/E517). |
 
 A profile presets these settings:
 
@@ -95,11 +95,11 @@ A profile presets these settings:
 |---|---|---|---|
 | `workflow.windows_enforce` | false | true | true |
 | `specforge.task_commits` | false | true | true |
-| `specforge.traceability_gate` | false | false | true |
-| `specforge.verdict_gate` | false | false | true |
+| `specforge.traceability_gate` | false | true | true |
+| `specforge.verdict_gate` | false | true | true |
 | `specforge.cross_workstream_conflicts` | false | false | true |
 | `specforge.plan_paths_touched` | false | true | true |
-| `specforge.task_trailers` | false | false | true |
+| `specforge.task_trailers` | false | true | true |
 
 ## Other presets
 

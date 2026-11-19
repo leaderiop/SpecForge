@@ -318,9 +318,10 @@ fn render_golden(row: &Row) {
     }
 }
 
-/// The gated prompts that render on the twin: under `gsd-plus` a stale plan check inside the subject refuses (E516)
-/// every prompt but those that run the plan checker, and a stale verifier verdict of phase 01 (no row's remedy) refuses
-/// each; under the default preset the same project renders. The other guards have their own tests (`prompts_*`).
+/// The gated prompts that render on the twin: under `gsd-strict` and `gsd-plus` a stale plan check inside the subject
+/// refuses (E516) every prompt but those that run the plan checker, and a stale verifier verdict of phase 01 (no row's
+/// remedy) refuses each; under the default preset the same project renders. The other guards have their own tests
+/// (`prompts_*`).
 #[test]
 fn every_gated_prompt_refuses_and_allows() {
     let gated = [

@@ -82,10 +82,10 @@ stale when what it read changes, and the workflow judges again exactly the verdi
   is not fresh (missing, stale, unrecorded or unreadable) and the audit while its W303 verdict is not, so a re-run
   judges only those. Each extension writes its own rules: core's `record_verdict` refuses `gsd.security/` rules and
   `record_security_verdict` refuses core's.
-- **At a gate.** Under gsd-plus, `gsd/E516` refuses a workflow step on a verdict that is not fresh. Its exception for
-  the workflow that judges a verdict covers `gsd/` rules only, so a stale, unrecorded or unreadable `gsd.security/`
-  verdict refuses every core gate, wherever it is, until `secure_phase` judges it again, and a missing one refuses the
-  gates whose scope holds its threat or audit.
+- **At a gate.** Under gsd-strict and gsd-plus, `gsd/E516` refuses a workflow step on a verdict that is not fresh. Its
+  exception for the workflow that judges a verdict covers `gsd/` rules only, so a stale, unrecorded or unreadable
+  `gsd.security/` verdict refuses every core gate, wherever it is, until `secure_phase` judges it again, and a missing
+  one refuses the gates whose scope holds its threat or audit.
 
 Both rules are warnings, gated by `workflow.security_enforcement`. A verdict never changes a threat's `blocking` or the
 audit's `threats_open`.

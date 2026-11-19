@@ -66,6 +66,25 @@ fn discuss_file(file: &str) -> String {
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"))
 }
 
+/// The verdicts of the `discuss` project's phase 02 that gsd-strict's verdict gate owes at every planning prompt, as
+/// their judges record them: `spec_phase`'s on the spec's ambiguity scores (gsd/E202) and on each locked requirement
+/// (gsd/W203), and the researcher's on each package it audited (gsd/W205).
+fn judge_discussion(p: &Project) {
+    let scores =
+        r#"{"scores":{"goal":90,"boundary":80,"constraint":70,"acceptance":80,"ambiguity":10}}"#;
+    let run = p.record("v1.0/02/02-SPEC", "E202", "passed", &["--values", scores]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    for (kind, code, outcome) in [
+        ("locked_req", "W203", "passed"),
+        ("package_audit", "W205", "legitimate"),
+    ] {
+        for node in p.nodes_of(kind) {
+            let run = p.record(node["id"].as_str().expect("an id"), code, outcome, &[]);
+            assert_eq!(run.code, 0, "{}", run.all());
+        }
+    }
+}
+
 #[test]
 fn e201_a_context_without_canonical_refs_refuses_the_planning_prompts() {
     let p = project("discuss");
@@ -100,6 +119,7 @@ fn w204_an_open_research_question_refuses_every_planning_prompt_under_strict() {
         refused_by(&p, id, &[PHASE], "W204");
     }
     p.write("spec/research.spec", &spec);
+    judge_discussion(&p);
     for id in PLANNING {
         renders(&p, id, &[PHASE]);
     }
@@ -227,8 +247,8 @@ fn e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus() {
 }
 
 /// A plan check is owed while its plan is open: on the twin's executed 01-02 a stale one is owed nothing and is no
-/// E516 under gsd-plus, where the draft 02-01's is (the case above). The twin's ship is refused under gsd-plus by its
-/// untraced requirements (E515) either way.
+/// E516 under gsd-strict and gsd-plus, where the draft 02-01's is (the case above). The twin's ship is refused under
+/// gsd-strict and gsd-plus by its untraced requirements (E515) either way.
 #[test]
 fn e516_counts_no_stale_plan_check_of_an_executed_plan() {
     let t = twin();

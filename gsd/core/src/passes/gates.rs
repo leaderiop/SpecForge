@@ -253,10 +253,10 @@ fn w404(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// E515: each complete requirement of a phase in scope traces to a task, a commit and a passing test (gsd-plus): its
-/// computed `proof` is `proven` (`thread::requirement_proven`). The gate's graph carries the computed values, so the
-/// guard reads the thread's state the derive pass wrote and names its first missing link. Like a window, a requirement
-/// is outside a phase's path, so the diagnostic names the gate's subject.
+/// E515: each complete requirement of a phase in scope traces to a task, a commit and a passing test (on under
+/// gsd-strict and gsd-plus): its computed `proof` is `proven` (`thread::requirement_proven`). The gate's graph carries
+/// the computed values, so the guard reads the thread's state the derive pass wrote and names its first missing link.
+/// Like a window, a requirement is outside a phase's path, so the diagnostic names the gate's subject.
 fn e515(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input) else {
         return Vec::new();

@@ -1,5 +1,5 @@
-//! `audit_uat` and `audit_milestone` (D-r42-1 rows 14-15): the audits that read across phases. `audit_uat` has no
-//! subject and no gate; `audit_milestone` is about one milestone and refuses under `gsd-plus` while a verdict is stale.
+//! `audit_uat` and `audit_milestone`: the audits that read across phases. `audit_uat` has no subject and no gate;
+//! `audit_milestone` is about one milestone and refuses under `gsd-strict` and `gsd-plus` while a verdict is stale.
 
 use specforge_extension_sdk::prelude::*;
 

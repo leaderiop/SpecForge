@@ -1,6 +1,6 @@
 //! `complete_milestone` and `ship` (T10): the prompts gated by their guards. E512 is proved here black-box.
 
-use super::commands_support::{gsd, strict, twin};
+use super::commands_support::{gsd, twin};
 use super::harness::taskboard;
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
@@ -22,7 +22,10 @@ fn with_open_window() -> super::harness::Project {
 #[test]
 fn ship_gate_refuses_an_open_window() {
     let p = with_open_window();
-    strict(&p);
+    // The twin records no commit, so its requirements trace to none (gsd/E515): off here, the subject is gsd/E512.
+    p.settings(
+        serde_json::json!({ "profile": "gsd-strict", "specforge.traceability_gate": false }),
+    );
     let before = p.read("specforge.json");
     let run = prompt(&p, "ship", &[PHASE], "claude-code");
     assert_ne!(run.code, 0, "{}", run.all());

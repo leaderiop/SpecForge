@@ -57,8 +57,8 @@ fn add_tests_renders_for_three_hosts() {
     );
 }
 
-/// Under gsd-plus a stale verdict verify_work does not judge refuses it; the stale plan check of its own phase does not:
-/// it checks its gap plans.
+/// Under gsd-strict and gsd-plus a stale verdict verify_work does not judge refuses it; the stale plan check of its own
+/// phase does not: it checks its gap plans.
 #[test]
 fn verify_work_gate_refuses_a_stale_verdict_it_does_not_judge_under_plus() {
     let p = twin();

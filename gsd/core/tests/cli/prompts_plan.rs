@@ -326,8 +326,8 @@ fn ultraplan_phase_gate_refuses_a_context_without_canonical_refs() {
     assert!(run.all().contains("E201"), "{}", run.all());
 }
 
-/// Under gsd-plus a stale verdict the convergence loop does not judge refuses it; the stale plan check of its own phase
-/// does not: re-checking the plans is what the loop runs.
+/// Under gsd-strict and gsd-plus a stale verdict the convergence loop does not judge refuses it; the stale plan check of
+/// its own phase does not: re-checking the plans is what the loop runs.
 #[test]
 fn convergence_gate_refuses_a_stale_verdict_it_does_not_judge_under_plus() {
     let p = twin();

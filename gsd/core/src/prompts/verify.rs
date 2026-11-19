@@ -1,5 +1,5 @@
-//! `verify_work`, `validate_phase` and `add_tests` (D-r42-1 rows 11-13): the audit-and-review prompts of one phase.
-//! Their gate is E516 alone: under `gsd-plus` a stale verdict refuses them.
+//! `verify_work`, `validate_phase` and `add_tests`: the audit-and-review prompts of one phase. Their gate is E516
+//! alone: under `gsd-strict` and `gsd-plus` a stale verdict refuses them.
 
 use specforge_extension_sdk::prelude::*;
 
