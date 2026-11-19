@@ -71,6 +71,31 @@ pub fn recording(agent: &str) -> String {
     )
 }
 
+/// The section added after gsd-plan-checker's ported body: how it reads the plans' thread, the result the `thread`
+/// step of `plan_phase` passes it as a `**Thread:**` line (ADR 0378 D3). Upstream's checker takes no such line, and
+/// its body is not edited.
+const THREAD: &str = "\n## The plans' thread (@gsd/core)\n\n\
+     Your prompt's `**Thread:**` line, when it has one, is what `specforge trace --plan` answered for the phase's \
+     plans and tasks in the order `specforge gsd thread-plan <phase>` gives them (the MCP tool \
+     `specforge.gsd.thread_plan`). Without the line, or once the plans were revised, read it yourself: write the \
+     answer of `specforge gsd thread-plan <phase> --format json` to a file, then run \
+     `specforge trace --plan <file> --format json`.\n\n\
+     A result with `ok: false` is a blocker on the plans' order: an `unresolved_entity` gap (E003) is an entry that \
+     names no entity, and an `ordering` gap an entry before a plan or task it depends on, such as a coupling peer \
+     that runs later. `missing_plan_entry` gaps are warnings over every testable entity of the project and block \
+     nothing. The order of the tasks inside a plan is not checked: a task carries no `depends_on`.\n";
+
+/// What follows an agent's ported body, SpecForge's own: the plan checker's reading of the plans' thread, then a
+/// judge's [`recording`] section.
+pub fn after_body(agent: &str) -> String {
+    let thread = if agent == "gsd-plan-checker" {
+        THREAD
+    } else {
+        ""
+    };
+    format!("{thread}{}", recording(agent))
+}
+
 /// `text` as an installed agent reads it: its references point at `specforge gsd reference` (D-r42-5).
 pub fn repointed(text: &str) -> String {
     crate::prompts::repoint::repoint(text)
@@ -103,6 +128,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
             ("claude-code", _, _) | (_, None, _) | (_, _, None) => agent.full,
             (_, Some(_), Some(compact)) => compact,
         };
-        Ok(repointed(&format!("{body}{}", recording(agent.id))))
+        Ok(repointed(&format!("{body}{}", after_body(agent.id))))
     });
 }

@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 116668,
+  "bytes": 116713,
   "end": [
     "- `--gaps` — Gap closure mode (reads VERIFICATION.md, skips research)",
     "- `--skip-verify` — Skip verification loop",
@@ -102,7 +102,7 @@
     "",
     "A result with `ok: false` is a finding the planner fixes before the check: an `unresolved_entity` gap (E003) is an entry that names no entity, and an `ordering` gap is an entry before a plan or task it depends on, such as a coupling peer that runs later. Fix the plan's `depends_on`, its coupling peer or the order, then run the step again. `missing_plan_entry` gaps are warnings over every testable entity of the project: they do not fail the thread.",
     "",
-    "Pass the final result to the plan checker as its `**Thread:**` line; the checker may run both commands itself. The order of the tasks inside a plan is not checked: a task carries no `depends_on`."
+    "Pass the final result to the plan checker as its `**Thread:**` line: its own section reads that line, and without it the checker runs both commands itself. The order of the tasks inside a plan is not checked: a task carries no `depends_on`."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f5ba5ae80736ceaa542ac849b0d3a2b05e9808ba184c1f9b21f9338889aa7039",
+    "digest": "sha256:3811d95739d7d440f54b8209d91dbc89e4d7674a39b77e0a5b7854ead039c41f",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -247,5 +247,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "f5ba5ae80736ceaa542ac849b0d3a2b05e9808ba184c1f9b21f9338889aa7039"
+  "sha256": "3811d95739d7d440f54b8209d91dbc89e4d7674a39b77e0a5b7854ead039c41f"
 }

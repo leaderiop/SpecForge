@@ -124,7 +124,8 @@ const THREADING: &str = "\n## Threading the plans\n\n\
      coupling peer that runs later. Fix the plan's `depends_on`, its coupling peer or the order, then run the step \
      again. `missing_plan_entry` gaps are warnings over every testable entity of the project: they do not fail the \
      thread.\n\n\
-     Pass the final result to the plan checker as its `**Thread:**` line; the checker may run both commands itself. \
+     Pass the final result to the plan checker as its `**Thread:**` line: its own section reads that line, and \
+     without it the checker runs both commands itself. \
      The order of the tasks inside a plan is not checked: a task carries no `depends_on`.\n";
 
 /// How this install serves `/gsd-graphify`: the planner's graph-context gate, read from the served slash commands

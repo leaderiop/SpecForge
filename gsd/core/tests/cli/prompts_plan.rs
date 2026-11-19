@@ -122,7 +122,7 @@ fn plan_phase_threads_the_plans_before_the_check() {
             "an `ordering` gap is an entry before a plan or task it depends on",
             "`missing_plan_entry` gaps are warnings over every testable entity of the project: they do not fail \
              the thread",
-            "Pass the final result to the plan checker as its `**Thread:**` line",
+            "Pass the final result to the plan checker as its `**Thread:**` line: its own section reads that line",
             "The order of the tasks inside a plan is not checked",
         ] {
             assert!(

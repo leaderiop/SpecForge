@@ -93,11 +93,12 @@ fn the_body_is_the_asset() {
     installed(&p, "claude-code");
     for agent in AGENTS {
         // The asset's header line is a comment about the port; the host's own notice follows the body.
-        // A judging agent's body is followed by the section that names `record_verdict`.
+        // The plan checker's body is followed by its reading of the plans' thread, and a judging agent's by the
+        // section that names `record_verdict`.
         let asset = repointed(&format!(
             "{}{}",
             agent.full,
-            gsd_core::agents::recording(agent.id)
+            gsd_core::agents::after_body(agent.id)
         ));
         let installed = body(&claude_agent(&p, agent.id));
         assert_eq!(installed, asset.trim(), "{}", agent.id);
@@ -139,6 +140,34 @@ fn a_judge_is_told_how_to_record_its_verdict() {
             "gsd-verifier"
         ]
     );
+}
+
+/// The plan checker, and no other agent, is told what the `**Thread:**` line `plan_phase` passes it holds, and how to
+/// read the thread itself without one (ADR 0378 D3).
+#[test]
+fn the_plan_checker_reads_the_thread_line() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    for agent in AGENTS {
+        let text = body(&claude_agent(&p, agent.id));
+        let told = text.contains("## The plans' thread (@gsd/core)");
+        assert_eq!(told, agent.id == "gsd-plan-checker", "{}", agent.id);
+        assert_eq!(text.contains("**Thread:**"), told, "{}", agent.id);
+        if told {
+            for said in [
+                "`specforge gsd thread-plan <phase> --format json`",
+                "`specforge trace --plan <file> --format json`",
+                "A result with `ok: false` is a blocker on the plans' order",
+            ] {
+                assert!(text.contains(said), "`{said}` is not said:\n{text}");
+            }
+            // The thread section comes before the verdict section, after the ported body.
+            assert!(
+                text.find("## The plans' thread") < text.find("## Recording a verdict"),
+                "{text}"
+            );
+        }
+    }
 }
 
 /// D-r42-5: an installed body reads its references through `specforge gsd reference`, never a `~/.claude` path.
