@@ -31,5 +31,10 @@ An encrypted store for secrets on the command line: `VAULT_KEY=<hex> node src/cl
   `record-security-audit`, never by hand); the twin holds them as the audit left them, and `specforge-harness` vouches
   for each, as the taskboard's verdicts are. The threats' statuses are `01-SECURITY.md`'s (`T-01-02` of plan 01-02 open,
   the rest closed), so the audit's computed `threats_open` is 1, the frontmatter's.
+  Each closed threat names in `files` the files its disposition rests on, taken from its `evidence` (`src/vault.js`
+  for the seal and the auth tag, `package.json` for the package installs) or, for the accepted `T-01-03` that has
+  none, its `component` (`src/cli.js`). `files` is a SpecForge-only field with no `.planning/` counterpart, authored
+  rather than vouched, and `gsd.security/W302` reads it: a recorded mitigation verdict goes stale when one of those
+  files changes, and only then.
 - `.planning/config.json` sets `security.injection_blocking: false` explicitly. That is a recording choice, not a product
   divergence: gsd-tools' `config-get` errors on a key that is unset, while `specforge settings` answers the default.

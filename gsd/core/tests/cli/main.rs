@@ -53,6 +53,7 @@ mod execute_rules;
 mod execute_status;
 #[path = "../common/files.rs"]
 mod files;
+mod fresh_taskboard;
 mod gates;
 mod harness;
 mod hooks_community;

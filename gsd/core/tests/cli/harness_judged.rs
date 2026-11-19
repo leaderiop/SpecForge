@@ -319,6 +319,136 @@ impl Project {
         items.len()
     }
 
+    /// The answer of `specforge gsd re-verify <subject> [--stale-only] --format json`: the verifier's verdicts of a
+    /// phase or a plan and whether each still holds.
+    pub fn re_verify(&self, subject: &str, stale_only: bool) -> Value {
+        let mut args = vec!["gsd", "re-verify", subject];
+        if stale_only {
+            args.push("--stale-only");
+        }
+        args.extend(["--format", "json"]);
+        let run = self.run(&args);
+        assert_eq!(run.code, 0, "{}", run.all());
+        serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("re-verify prints JSON ({e}): {}", run.all()))
+    }
+
+    /// Every recorded verdict of the project, byte for byte: each `verdict <rule> …` block of `spec/` by its entity
+    /// and rule, each ledger line by its entity and rule, and the ledger's other lines.
+    pub fn verdicts(&self) -> Verdicts {
+        let mut blocks = BTreeMap::new();
+        let dir = self.root.join("spec");
+        let mut files: Vec<_> = std::fs::read_dir(&dir)
+            .expect("the spec dir")
+            .map(|entry| entry.expect("an entry").path())
+            .collect();
+        files.sort();
+        for path in files {
+            let text = std::fs::read_to_string(&path).expect("a spec file");
+            blocks.extend(verdict_blocks(&text));
+        }
+        let mut ledger = BTreeMap::new();
+        let mut other = Vec::new();
+        for line in self.read("specforge-harness").lines() {
+            let mut words = line.split(' ');
+            match (
+                words.next(),
+                words.next().and_then(|w| w.strip_prefix("verdict:")),
+            ) {
+                (Some(entity), Some(rule)) => {
+                    let key = (entity.to_string(), rule.to_string());
+                    assert!(ledger.insert(key, line.to_string()).is_none(), "{line}");
+                }
+                _ => other.push(line.to_string()),
+            }
+        }
+        Verdicts {
+            blocks,
+            ledger,
+            other,
+        }
+    }
+}
+
+/// The recorded verdicts of a project at one moment (see [`Project::verdicts`]): blocks and ledger lines are keyed by
+/// `(entity, rule)`.
+#[derive(Debug, PartialEq)]
+pub struct Verdicts {
+    pub blocks: BTreeMap<(String, String), String>,
+    pub ledger: BTreeMap<(String, String), String>,
+    pub other: Vec<String>,
+}
+
+impl Verdicts {
+    /// That `after` differs from `self` in exactly the `(entity, rule)` verdicts of `rejudged`, each of which was
+    /// recorded again (its block and its ledger line both changed): every other block and line is byte-identical.
+    pub fn assert_only(&self, after: &Verdicts, rejudged: &[(String, String)]) {
+        assert_eq!(self.other, after.other, "the ledger's other lines");
+        for (name, before, now) in [
+            ("block", &self.blocks, &after.blocks),
+            ("ledger line", &self.ledger, &after.ledger),
+        ] {
+            let keys: Vec<_> = before.keys().chain(now.keys()).collect();
+            for key in keys {
+                let (old, new) = (before.get(key), now.get(key));
+                if rejudged.contains(key) {
+                    assert!(
+                        old.is_some() && new.is_some() && old != new,
+                        "{name} {key:?} is recorded again: {old:?} -> {new:?}"
+                    );
+                } else {
+                    assert_eq!(old, new, "{name} {key:?} is untouched");
+                }
+            }
+        }
+    }
+}
+
+/// The `verdict` blocks of one `.spec` text by `(entity, rule)`. A block's entity is the top-level statement it sits
+/// in: its name, under the `plan` or `phase` it names when it names one (`truth TR1` with `plan v1.0/01/01-01` is
+/// `v1.0/01/01-01/TR1`), as the graph's ids are scoped.
+fn verdict_blocks(text: &str) -> BTreeMap<(String, String), String> {
+    let mut out = BTreeMap::new();
+    let mut lines = text.lines().peekable();
+    while let Some(header) = lines.next() {
+        if header.starts_with([' ', '}']) || !header.ends_with('{') {
+            continue;
+        }
+        let name = header.split(' ').nth(1).unwrap_or_default().to_string();
+        let mut scope = None;
+        while let Some(line) = lines.next_if(|l| *l != "}") {
+            let trimmed = line.trim_start();
+            if scope.is_none() && line.len() - trimmed.len() == 2 {
+                scope = ["plan ", "phase "]
+                    .iter()
+                    .find_map(|field| Some(trimmed.strip_prefix(field)?.trim().to_string()));
+            }
+            let Some(rest) = trimmed.strip_prefix("verdict ") else {
+                continue;
+            };
+            let rule = rest.split(' ').next().unwrap_or_default().to_string();
+            let close = format!("{}}}", &line[..line.len() - trimmed.len()]);
+            let mut block = vec![line];
+            for inner in lines.by_ref() {
+                block.push(inner);
+                if inner == close {
+                    break;
+                }
+            }
+            let entity = scope
+                .as_ref()
+                .map_or(name.clone(), |s| format!("{s}/{name}"));
+            let key = (entity, rule);
+            assert!(
+                out.insert(key.clone(), block.join("\n")).is_none(),
+                "two verdicts {key:?}"
+            );
+        }
+    }
+    out
+}
+
+impl Project {
     /// [`Project::record`] over a `basis` the caller read earlier.
     pub fn record_over(
         &self,

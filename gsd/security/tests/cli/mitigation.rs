@@ -11,7 +11,7 @@ const W302: &str = "gsd.security/W302";
 const W303: &str = "gsd.security/W303";
 /// The security audit of the vault's phase 01.
 const AUDIT: &str = "v1.0/01/01-SECURITY";
-/// A closed threat of plan 01-01, with no `files`.
+/// A closed threat of plan 01-01, whose `files` name `src/vault.js`.
 const THREAT: &str = "v1.0/01/01-01/T-01-01";
 /// The one open threat of the vault.
 const OPEN: &str = "v1.0/01/01-02/T-01-02";
@@ -111,8 +111,8 @@ fn the_qualified_rule_is_read_recorded_and_read_back_w302() {
     assert_eq!(again["verdict"]["passed"], true, "{again:#}");
 }
 
-/// Every closed threat of the vault, none of which names a file, owes W302 a verdict and has none; the open one owes
-/// none. The threat's own `complete_when` under its plan's raises no W112.
+/// Every closed threat of the vault owes W302 a verdict and has none; the open one owes none. The threat's own
+/// `complete_when` under its plan's raises no W112.
 #[test]
 fn a_closed_threat_without_a_verdict_reports_w302() {
     let p = project();
@@ -140,7 +140,6 @@ fn a_closed_threat_without_a_verdict_reports_w302() {
             assert_eq!(d["severity"], "Warning", "{d}");
         }
     }
-    // a closed threat without files is owed a verdict over its other inputs
     assert_eq!(state(&p, THREAT), ("missing".to_string(), false));
 }
 
@@ -165,11 +164,7 @@ fn an_open_threat_and_a_fresh_holds_are_silent_w302() {
 #[test]
 fn an_edit_to_a_threats_file_stales_w302() {
     let p = project();
-    p.edit(
-        "spec/plans.spec",
-        "  mitigation  \"AES-256-GCM under a key that never reaches the disk\"\n",
-        "  mitigation  \"AES-256-GCM under a key that never reaches the disk\"\n  files       [\"src/vault.js\"]\n",
-    );
+    assert_eq!(p.fields_of(THREAT)["files"], json!(["src/vault.js"]));
     assert_eq!(p.record(THREAT, W302, "holds", &[]).code, 0);
     assert_eq!(state(&p, THREAT), ("fresh".to_string(), true));
     p.write(

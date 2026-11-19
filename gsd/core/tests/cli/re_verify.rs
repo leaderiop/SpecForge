@@ -3,18 +3,7 @@
 
 use serde_json::Value;
 
-use super::harness::{Project, taskboard};
-
-/// The answer of `re-verify <args> --format json`.
-fn re_verify(p: &Project, args: &[&str]) -> Value {
-    let mut all = vec!["gsd", "re-verify"];
-    all.extend_from_slice(args);
-    all.extend(["--format", "json"]);
-    let run = p.run(&all);
-    assert_eq!(run.code, 0, "{}", run.all());
-    serde_json::from_str(&run.stdout)
-        .unwrap_or_else(|e| panic!("re-verify prints JSON ({e}): {}", run.all()))
-}
+use super::harness::taskboard;
 
 /// `(entity, state)` of each listed item, in answer order.
 fn listed(answer: &Value) -> Vec<(String, String)> {
@@ -32,7 +21,7 @@ fn listed(answer: &Value) -> Vec<(String, String)> {
 #[test]
 fn every_verdict_of_the_verified_phase_holds() {
     let p = taskboard();
-    let all = re_verify(&p, &["v1.0/01"]);
+    let all = p.re_verify("v1.0/01", false);
     let items = listed(&all);
     assert_eq!(items.len(), 7, "{all:#}");
     assert!(items.iter().all(|(_, state)| state == "fresh"), "{all:#}");
@@ -40,7 +29,7 @@ fn every_verdict_of_the_verified_phase_holds() {
         (all["holding"].as_u64(), all["not_holding"].as_u64()),
         (Some(7), Some(0))
     );
-    let stale = re_verify(&p, &["v1.0/01", "--stale-only"]);
+    let stale = p.re_verify("v1.0/01", true);
     assert_eq!(listed(&stale), []);
     let text = p.run(&["gsd", "re-verify", "v1.0/01", "--stale-only"]);
     assert_eq!(text.code, 0, "{}", text.all());
@@ -58,7 +47,7 @@ fn an_edit_lists_exactly_the_verdicts_that_read_the_file() {
         "src/tasks.js",
         &format!("{}\n// edited\n", p.read("src/tasks.js")),
     );
-    let answer = re_verify(&p, &["v1.0/01", "--stale-only"]);
+    let answer = p.re_verify("v1.0/01", true);
     let items = answer["items"].as_array().expect("items");
     let by_entity = |id: &str| {
         items
@@ -114,9 +103,9 @@ fn an_edit_lists_exactly_the_verdicts_that_read_the_file() {
 #[test]
 fn a_phase_whose_plans_are_unexecuted_owes_no_verdict() {
     let p = taskboard();
-    let answer = re_verify(&p, &["v1.0/02", "--stale-only"]);
+    let answer = p.re_verify("v1.0/02", true);
     assert_eq!(listed(&answer), []);
-    assert_eq!(re_verify(&p, &["v1.0/02"])["holding"], 0);
+    assert_eq!(p.re_verify("v1.0/02", false)["holding"], 0);
     let text = p.run(&["gsd", "re-verify", "v1.0/02"]);
     assert!(
         text.stdout.contains("no verdict is owed in v1.0/02"),
@@ -128,7 +117,7 @@ fn a_phase_whose_plans_are_unexecuted_owes_no_verdict() {
 #[test]
 fn a_plan_subject_lists_its_own_verdicts_and_an_unknown_one_is_refused() {
     let p = taskboard();
-    let plan = re_verify(&p, &["v1.0/01/01-01"]);
+    let plan = p.re_verify("v1.0/01/01-01", false);
     assert_eq!(
         listed(&plan)
             .into_iter()

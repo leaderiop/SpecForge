@@ -27,6 +27,7 @@ mod accept;
 mod advisory;
 mod compute;
 mod core_calls;
+mod fresh_vault;
 mod gate;
 mod hooks;
 mod injection;
