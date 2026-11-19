@@ -55,8 +55,9 @@ const PLAN_CHECK: &[Target] = &[Target {
     judged_while: None,
 }];
 
-// E501 reads the files a truth's plan, an artifact and a key link name (ADR 0304); the plan checks read none: they
-// judge the plan before its files exist, and a code edit must not stale an in-flight check.
+// A truth's verdict reads the files and tests it cites (the host digests every verdict's `cited`, ADR 0377), so an
+// edit stales only the truths that cite the file; an artifact and a key link read the files they name (ADR 0304). The
+// plan checks read none: they judge the plan before its files exist, and a code edit must not stale an in-flight check.
 const E501: &[Target] = &[
     Target {
         kind: "truth",
@@ -65,7 +66,6 @@ const E501: &[Target] = &[
             ("plan", "self.plan"),
             ("phase", "self.plan.phase"),
             ("tests", "test(self<test.names)"),
-            ("files", "file(self.plan.files_modified)"),
         ],
         unless_set: &[],
         judged_while: None,

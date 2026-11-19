@@ -463,7 +463,12 @@ fn a_test_naming_a_truth_stales_its_verdict() {
     cases.push(tagged);
     let run = p.node_tests(&cases);
     assert_eq!(run.code, 0, "{}", run.all());
-    assert_eq!(p.record(truth, "E501", "verified", &[]).code, 0);
+    let cited = p.cites(truth);
+    assert_eq!(
+        p.record(truth, "E501", "verified", &["--cited", &cited])
+            .code,
+        0
+    );
     assert_eq!(state(&p, truth, "E501").0, "fresh");
     *cases.last_mut().expect("the tagged test") = (tagged.0, tagged.1, TestStatus::Failed);
     let run = p.node_tests(&cases);

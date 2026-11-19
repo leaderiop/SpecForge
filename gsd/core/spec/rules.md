@@ -172,7 +172,7 @@ is neither fresh nor stale.
 | Rules | Target | Inputs | Binds |
 |---|---|---|---|
 | gsd/W311, W313, W315, W316 (plan check) | plan | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements · `phase_decisions` self.phase<decision.phase · `all_decisions` decision (a superset: the selector grammar cannot filter on an unset `phase`, so any decision change stales the plan check, the safe side, and the checker sees a contradiction with a decision of another phase or of the project) · `context` self.phase<context\|deferred_idea[origin=discussion].phase · `research` self.phase<research.phase · `research_items` self.phase<research.phase<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research · `siblings` self.phase<plan.phase · `instructions` file("CLAUDE.md", "AGENTS.md") | — |
-| gsd/E501 | truth | `truth` self · `plan` self.plan · `phase` self.plan.phase · `tests` test(self<test.names) · `files` file(self.plan.files_modified) | — |
+| gsd/E501 | truth | `truth` self · `plan` self.plan · `phase` self.plan.phase · `tests` test(self<test.names) | — |
 | gsd/E501 | artifact | `artifact` self · `plan` self.plan · `file` file(self.path) | — |
 | gsd/E501 | key_link | `link` self · `plan` self.plan · `from` file(self.from) · `to` file(self.to); not judged while `pattern` is set (`unless_set pattern`: a pass searches it). A literal pattern the scan finds (`wired`) verifies the link; a regular expression is `unchecked`, which is neither a pass nor a failure, so the phase stays `pending` until the pattern is literal | — |
 | gsd/E202 | phase_spec | `spec` self · `items` self<locked_req\|interview.spec · `phase` self.phase | `scores` (its recorded values) |
@@ -180,7 +180,12 @@ is neither fresh nor stale.
 | gsd/W205 | package_audit | `audit` self | `legitimacy` (its outcome: legitimate \| suspicious \| unknown, passing legitimate) |
 | gsd/E518 | milestone_audit | `audit` self · `phases` self.milestone<phase.milestone · `verifications` self.milestone<phase.milestone<verification.phase · `requirements` self.milestone<phase.milestone.requirements | `integration` (its outcome: passed \| issues, passing passed) |
 
-gsd/E501 reads the files a truth's plan (`files_modified`), an artifact (`path`) and a key link (`from`, `to`) name (ADR 0304: a `file()` input may end at a string or string-list field; a missing file digests `absent`), so a code edit stales the verdict, and `covered_files` lists them. The plan checks read no file: they judge the plan before its files exist, and a code edit must not stale an in-flight check.
+A verdict of gsd/E501 on a truth reads what it cites (ADR 0377): its `cited` files and tests are its code inputs, so an
+edit stales exactly the truths whose verdicts cite the edited file, and `record_verdict` refuses a truth's verdict that
+cites no file of the project and no test (it could never go stale on a code edit). An artifact reads its own file
+(`path`) and a key link its own (`from`, `to`) (ADR 0304: a `file()` input may end at a string or string-list field; a
+missing file digests `absent`). `covered_files` lists the cited files and the artifacts' and key links' files. The plan
+checks read no file: they judge the plan before its files exist, and a code edit must not stale an in-flight check.
 
 A summary is no plan-check input (writing it after execution stales nothing), and no verifier input either (its claims
 are not evidence).

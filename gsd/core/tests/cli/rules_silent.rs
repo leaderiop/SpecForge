@@ -77,7 +77,7 @@ fn a_passing_verdict_silences_each_judged_code() {
     let p = project("verify");
     let truth = "v1.0/01/01-01/TR1";
     assert!(owed(&p, "E501", truth));
-    let run = p.record(truth, "E501", "verified", &[]);
+    let run = p.record(truth, "E501", "verified", &["--cited", &p.cites(truth)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert!(!owed(&p, "E501", truth));
     let audit = "v1.0/A1";

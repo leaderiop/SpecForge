@@ -29,13 +29,84 @@ fn passed() -> Project {
 #[test]
 fn a_failing_verdict_replaces_a_pass() {
     let p = passed();
-    let run = p.record("v1.0/01/01-01/TR1", "E501", "failed", &[]);
+    let truth = "v1.0/01/01-01/TR1";
+    let run = p.record(truth, "E501", "failed", &["--cited", &p.cites(truth)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(verification(&p)["status"], "gaps_found");
     assert_eq!(
         state(&p, "v1.0/01/01-01/TR1", "E501"),
         ("fresh".to_string(), false)
     );
+}
+
+/// A verdict on a truth reads only what it cites (ADR 0377), so one that cites no file of the project and no test could
+/// never go stale on a code edit: refused, whatever its outcome, before the host reads its basis.
+#[test]
+fn a_truth_verdict_that_cites_no_code_is_refused() {
+    let p = bare();
+    let truth = "v1.0/01/01-01/TR1";
+    let basis = p.inputs(truth, "E501")["basis"].to_string();
+    let spec = p.read("spec/plans.spec");
+    let uncited: [(&str, &[&str]); 6] = [
+        ("verified", &[]),
+        ("verified", &["--cited", "[]"]),
+        ("verified", &["--cited", r#"[{"file":"../outside.js"}]"#]),
+        ("verified", &["--cited", r#"[{"file":"/etc/hosts"}]"#]),
+        ("verified", &["--cited", r#"[{"entity":"v1.0/01"}]"#]),
+        ("failed", &[]),
+    ];
+    for (outcome, extra) in uncited {
+        let run = p.record_over(truth, "E501", outcome, &basis, extra);
+        assert_ne!(run.code, 0, "{extra:?}: {}", run.all());
+        assert!(
+            run.all()
+                .contains("a verdict on a truth must cite a file of the project or a test"),
+            "{extra:?}: {}",
+            run.all()
+        );
+    }
+    assert_eq!(p.read("spec/plans.spec"), spec, "nothing is written");
+}
+
+/// A truth's verdict citing a file of the project, or only a test, records; an artifact's needs no citation (it reads
+/// the file it names).
+#[test]
+fn a_truth_verdict_citing_a_file_or_a_test_records() {
+    let truth = "v1.0/01/01-01/TR1";
+    for cited in [
+        r#"[{"file":"src/tasks.js"}]"#,
+        r#"[{"test":"test/tasks.test.js#a task is added"}]"#,
+    ] {
+        let p = bare();
+        let run = p.record(truth, "E501", "verified", &["--cited", cited]);
+        assert_eq!(run.code, 0, "{cited}: {}", run.all());
+        assert_eq!(
+            state(&p, truth, "E501"),
+            ("fresh".to_string(), true),
+            "{cited}"
+        );
+    }
+    let p = bare();
+    let run = p.record("v1.0/01/01-01/AR1", "E501", "verified", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+}
+
+/// A truth's inputs name no plan-wide file list: its code inputs are its verdict's citations. An artifact still reads
+/// its own file.
+#[test]
+fn a_truths_inputs_are_its_citations_not_its_plans_files() {
+    let p = bare();
+    let names = |id: &str| -> Vec<String> {
+        p.inputs(id, "E501")["inputs"]
+            .as_array()
+            .expect("inputs")
+            .iter()
+            .filter_map(|i| Some(i["name"].as_str()?.to_string()))
+            .collect()
+    };
+    let truth = names("v1.0/01/01-01/TR1");
+    assert!(!truth.iter().any(|n| n == "files"), "{truth:?}");
+    assert!(names("v1.0/01/01-01/AR1").iter().any(|n| n == "file"));
 }
 
 #[test]

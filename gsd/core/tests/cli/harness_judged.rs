@@ -2,6 +2,7 @@
 //! and playing a judge (reading a rule's inputs and recording its verdict). A child of `harness.rs`, so it reaches
 //! [`Project`]'s fields; `@gsd/security`'s tests compile it through their include of `harness.rs`.
 
+use super::cites::cite_flags;
 use super::{Project, Run};
 
 /// Whether a diagnostic code (`gsd/W311`) is one of the judged rules'.
@@ -144,15 +145,26 @@ impl Project {
             .unwrap_or_else(|e| panic!("inputs are JSON ({e}): {}", run.all()))
     }
 
-    /// Plays the judge: reads the inputs of `gsd/<code>` on `entity`, then records `outcome` over their basis with
-    /// `specforge gsd record-verdict`. `extra` are further options (`--findings`, `--cited`, `--values`).
+    /// Plays the judge: reads the inputs of `gsd/<code>` on `entity`, naming what `--cited` in `extra` cites, then
+    /// records `outcome` over their basis with `specforge gsd record-verdict`. `extra` are further options
+    /// (`--findings`, `--cited`, `--values`).
     pub fn record(&self, entity: &str, code: &str, outcome: &str, extra: &[&str]) -> Run {
-        let basis = self.inputs(entity, code)["basis"].to_string();
-        self.record_over(entity, code, outcome, &basis, extra)
+        let cited = extra
+            .iter()
+            .position(|a| *a == "--cited")
+            .map(|at| extra.get(at + 1).expect("--cited takes a JSON list"));
+        let flags = cited.map(|list| cite_flags(list)).unwrap_or_default();
+        let rule = format!("gsd/{code}");
+        let mut args = vec!["query", entity, "--inputs", &rule, "--format", "json"];
+        args.extend(flags.iter().map(String::as_str));
+        let run = self.run(&args);
+        let inputs: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("inputs are JSON ({e}): {}", run.all()));
+        self.record_over(entity, code, outcome, &inputs["basis"].to_string(), extra)
     }
 
     /// Plays the verifier on every item of `phase` (`v1.0/01`): a `verified` verdict on each truth, artifact and key
-    /// link that `gsd/E501` reports. Answers how many it recorded.
+    /// link that `gsd/E501` reports, a truth's citing what [`Project::cites`] says. Answers how many it recorded.
     pub fn verify_phase(&self, phase: &str) -> usize {
         let items: Vec<String> = judged(&self.report_all())
             .into_iter()
@@ -160,7 +172,9 @@ impl Project {
             .map(|(_, id)| id)
             .collect();
         for id in &items {
-            let run = self.record(id, "E501", "verified", &[]);
+            let citing = self.citing(id);
+            let extra: Vec<&str> = citing.iter().map(String::as_str).collect();
+            let run = self.record(id, "E501", "verified", &extra);
             assert_eq!(run.code, 0, "{id}: {}", run.all());
         }
         items.len()

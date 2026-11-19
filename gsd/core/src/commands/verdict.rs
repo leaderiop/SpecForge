@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use gsd_kit::judged::record::{Check, Proposed, Recorder, declare_record};
 use serde_json::Value;
+use specforge_extension_sdk::Cite;
 use specforge_extension_sdk::prelude::*;
 
 use crate::judged::JUDGED;
@@ -47,13 +48,41 @@ fn gates(verdict: &Proposed<'_>) -> Result<(), String> {
     }
 }
 
+/// Whether a cited path names a file of the project: relative, with no `..` segment, no root, drive or backslash
+/// prefix. The host digests any path inside its read roots; this is only what a truth's citation must be.
+fn in_project(path: &str) -> bool {
+    let drive = matches!(path.as_bytes(), [letter, b':', ..] if letter.is_ascii_alphabetic());
+    !path.is_empty()
+        && !drive
+        && !path.starts_with(['/', '\\'])
+        && path.split(['/', '\\']).all(|segment| segment != "..")
+}
+
+/// A verdict on a truth (`gsd/E501`) reads only what it cites, so one that cites no file of the project and no test
+/// could never go stale on a code edit: refused, whatever its outcome.
+fn truth_cites(verdict: &Proposed<'_>) -> Result<(), String> {
+    let cites_code = verdict.cited.iter().any(|cite| match cite {
+        Cite::File { file } => in_project(file),
+        Cite::Test { .. } => true,
+        Cite::Entity { .. } => false,
+    });
+    if verdict.rule.code == "E501" && verdict.kind == Some("truth") && !cites_code {
+        Err("cited: a verdict on a truth must cite a file of the project or a test, or it can never go stale on a code edit".to_string())
+    } else {
+        Ok(())
+    }
+}
+
 static RECORDER: Recorder = Recorder {
     command: "record_verdict",
     namespace: "gsd",
     extension: "@gsd/core",
     table: JUDGED,
-    checks: &[gates as Check],
+    checks: &[gates as Check, truth_cites],
 };
+
+#[cfg(test)]
+mod tests;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     declare_record(c, &RECORDER);

@@ -19,6 +19,9 @@ pub mod ab;
 pub mod answer_check;
 use answer_check::answers_listed;
 
+#[path = "harness_cites.rs"]
+mod cites;
+
 #[path = "harness_judged.rs"]
 mod judged;
 pub use judged::{is_judged, judged, unjudged};

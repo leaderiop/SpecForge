@@ -47,7 +47,7 @@ fn a_verified_verdict_the_tests_contradict_is_refused_naming_e502() {
     let p = project("execute");
     report(&p, FAILING);
     let spec = p.read("spec/plans.spec");
-    let run = p.record(TRUTH, "E501", "verified", &[]);
+    let run = p.record(TRUTH, "E501", "verified", &["--cited", &p.cites(TRUTH)]);
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E080"), "{}", run.all());
     assert!(run.all().contains("gsd/E502"), "{}", run.all());
@@ -59,7 +59,7 @@ fn a_verified_verdict_the_tests_contradict_is_refused_naming_e502() {
 fn a_failed_verdict_the_tests_explain_records() {
     let p = project("execute");
     report(&p, FAILING);
-    let run = p.record(TRUTH, "E501", "failed", &[]);
+    let run = p.record(TRUTH, "E501", "failed", &["--cited", &p.cites(TRUTH)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(e502(&p), 0);
 }
@@ -68,7 +68,7 @@ fn a_failed_verdict_the_tests_explain_records() {
 fn a_verified_verdict_with_a_passing_linked_test_records() {
     let p = project("execute");
     report(&p, PASSING);
-    let run = p.record(TRUTH, "E501", "verified", &[]);
+    let run = p.record(TRUTH, "E501", "verified", &["--cited", &p.cites(TRUTH)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(state(&p), "fresh");
     assert_eq!(e502(&p), 0);
@@ -77,7 +77,7 @@ fn a_verified_verdict_with_a_passing_linked_test_records() {
 #[test]
 fn e502_is_silent_without_a_report() {
     let p = project("execute");
-    let run = p.record(TRUTH, "E501", "verified", &[]);
+    let run = p.record(TRUTH, "E501", "verified", &["--cited", &p.cites(TRUTH)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(e502(&p), 0);
 }
@@ -100,7 +100,7 @@ fn a_backstop_truth_is_never_e502() {
         "verification backstop",
     );
     report(&p, FAILING);
-    let run = p.record(TRUTH, "E501", "verified", &[]);
+    let run = p.record(TRUTH, "E501", "verified", &["--cited", &p.cites(TRUTH)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(e502(&p), 0);
 }
@@ -109,7 +109,11 @@ fn a_backstop_truth_is_never_e502() {
 #[test]
 fn a_failing_report_after_a_pass_stales_the_pass_and_is_never_refused() {
     let p = project("execute");
-    assert_eq!(p.record(TRUTH, "E501", "verified", &[]).code, 0);
+    assert_eq!(
+        p.record(TRUTH, "E501", "verified", &["--cited", &p.cites(TRUTH)])
+            .code,
+        0
+    );
     assert_eq!(state(&p), "fresh");
     report(&p, FAILING);
     assert_eq!(state(&p), "stale");

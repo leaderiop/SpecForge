@@ -24,6 +24,12 @@ pub fn recording(agent: &str) -> String {
     if codes.is_empty() {
         return String::new();
     }
+    let truths = if codes.iter().any(|c| c == "`gsd/E501`") {
+        "A verdict on a truth reads only what it cites: it must cite the files (or the tests) the truth is about, or \
+         it is refused.\n\n"
+    } else {
+        ""
+    };
     format!(
         "\n## Recording a verdict (@gsd/core)\n\n\
          You judge {}. Where the ported text above says to write a report or a status, record a verdict instead: only a \
@@ -41,7 +47,7 @@ pub fn recording(agent: &str) -> String {
          you relied on by its id, as `specforge trace --format json` prints it: a cited test joins the entity's tests, \
          and its status is read with them) and `--values '{{...}}'` \
          for the fields the rule binds.\n\n\
-         A verdict recorded over a `basis` that has since changed is refused (`stale_revision`): read the inputs again. \
+         {truths}A verdict recorded over a `basis` that has since changed is refused (`stale_revision`): read the inputs again. \
          A failing outcome is recorded, whatever the rule's severity, and replaces an earlier pass: `specforge check` \
          then reports it as the rule's finding. A verdict on an entity a person owns is refused (`human_only`). Do not \
          edit the spec to get around a refusal; report the findings to the user instead.\n",

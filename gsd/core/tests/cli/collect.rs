@@ -607,7 +607,12 @@ fn a_failing_test_never_refuses_the_commits_of_a_collect() {
     let p = repository();
     p.settings(serde_json::json!({ "profile": "gsd-strict" }));
     let truth = "v1.0/01/01-01/TR1";
-    assert_eq!(p.record(truth, "E501", "verified", &[]).code, 0);
+    let cited = p.cites(truth);
+    assert_eq!(
+        p.record(truth, "E501", "verified", &["--cited", &cited])
+            .code,
+        0
+    );
     let run = p.node_tests(&[
         (FILE, "adds a task", TestStatus::Failed),
         (FILE, "[gsd:01-01/TR1] fails", TestStatus::Failed),
