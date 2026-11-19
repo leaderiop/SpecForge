@@ -241,7 +241,7 @@ fn a_failing_gate_refuses_and_an_off_setting_allows() {
     unchanged(&p, &kept);
     plus(&p);
     refused(&gsd(&p, "start-plan", &[PLAN]), "gate_failed", &["E516"]);
-    p.settings(json!({ "profile": "gsd-plus", "workflow.plan_check": false, "specforge.stale_verdict_gate": false }));
+    p.settings(json!({ "profile": "gsd-plus", "workflow.plan_check": false, "specforge.verdict_gate": false }));
     assert_eq!(gsd(&p, "start-plan", &[PLAN]).code, 0);
 
     // complete-plan: W404 under strict with tdd mode on.

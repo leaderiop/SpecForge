@@ -370,8 +370,8 @@
     {
       "code": "E516",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A stale verdict blocks every workflow step. It is an error.",
-      "title": "Stale verdict blocks the workflow"
+      "explanation": "A stale, missing, unrecorded or unreadable verdict blocks every workflow step but the one that judges it. It is an error.",
+      "title": "Verdict not fresh blocks the workflow"
     },
     {
       "code": "E517",

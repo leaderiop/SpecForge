@@ -15,7 +15,7 @@ const PRESETS: &[(&str, [bool; 3])] = &[
     ("workflow.windows_enforce", [false, true, true]),
     ("specforge.task_commits", [false, true, true]),
     ("specforge.traceability_gate", [false, false, true]),
-    ("specforge.stale_verdict_gate", [false, false, true]),
+    ("specforge.verdict_gate", [false, false, true]),
     ("specforge.cross_workstream_conflicts", [false, false, true]),
     ("specforge.plan_paths_touched", [false, true, true]),
     ("specforge.task_trailers", [false, false, true]),

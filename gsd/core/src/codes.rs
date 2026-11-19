@@ -574,8 +574,8 @@ pub static CODES: &[Code] = &[
     ),
     code(
         "E516",
-        "Stale verdict blocks the workflow",
-        "A stale verdict blocks every workflow step",
+        "Verdict not fresh blocks the workflow",
+        "A stale, missing, unrecorded or unreadable verdict blocks every workflow step but the one that judges it",
         "verify",
         Severity::Error,
         Severity::Error,

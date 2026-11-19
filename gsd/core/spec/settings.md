@@ -96,7 +96,7 @@ A profile presets these settings:
 | `workflow.windows_enforce` | false | true | true |
 | `specforge.task_commits` | false | true | true |
 | `specforge.traceability_gate` | false | false | true |
-| `specforge.stale_verdict_gate` | false | false | true |
+| `specforge.verdict_gate` | false | false | true |
 | `specforge.cross_workstream_conflicts` | false | false | true |
 | `specforge.plan_paths_touched` | false | true | true |
 | `specforge.task_trailers` | false | false | true |
@@ -124,7 +124,7 @@ because the host takes a variant setting only as a string or enum; `workflow.com
 |---|---|
 | `specforge.task_commits` | every task of a complete plan has a commit (gsd/W407) |
 | `specforge.traceability_gate` | a complete requirement traces to a task, a commit and a passing test (gsd/E515) |
-| `specforge.stale_verdict_gate` | a stale verdict blocks every workflow step, not only execution (gsd/E516) |
+| `specforge.verdict_gate` | a stale, missing, unrecorded or unreadable verdict blocks every workflow step but the one that judges it (gsd/E516) |
 | `specforge.cross_workstream_conflicts` | active plans of different workstreams share no file (gsd/E517) |
 | `specforge.plan_paths_touched` | a complete plan's commits touched every path it planned, and the files it deletes are gone (gsd/W520) |
 | `specforge.task_trailers` | a task commit names its task by its `Gsd-Task:` trailer (gsd/E521) |
