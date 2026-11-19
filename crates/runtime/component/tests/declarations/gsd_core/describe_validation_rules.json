@@ -656,6 +656,10 @@
               {
                 "name": "phase",
                 "selector": "self.plan.phase"
+              },
+              {
+                "name": "files",
+                "selector": "file(self.plan.files_modified)"
               }
             ],
             "judged_while": "complete",
