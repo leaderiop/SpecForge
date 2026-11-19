@@ -1693,7 +1693,7 @@
               "required": false
             }
           ],
-          "description": "List the verifier's verdicts within a phase or a plan and whether each still holds: its state, each input that changed since it was recorded with its selector, and what it cites. `--stale-only` keeps the verdicts that no longer hold, so the verifier judges exactly those",
+          "description": "List the verifier's verdicts within a phase or a plan and whether each still holds: its state, each input that changed since it was recorded with its selector, and what it cites. `specforge gsd re-verify <subject> --stale-only` keeps the verdicts that no longer hold, so the verifier judges exactly those",
           "export": "cmd__re_verify",
           "id": "re_verify",
           "title": ""

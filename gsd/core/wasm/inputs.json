@@ -1,6 +1,6 @@
 {
   "artifact": "gsd_core.wasm",
-  "artifact_sha256": "f105f0091c58f18607f958e8ae30db92b15d4d890344cbc49da086d023beb975",
+  "artifact_sha256": "9d27c7991696d7161b3b0e6992254ad8a3696f8ffac253072a7ae03f72cb26cc",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -409,7 +409,7 @@
     "gsd/core/src/commands/plan_coverage.rs": "8d33b2f0624436e583491621383edad0a9576bfc7bc6834c0e3a835cfa2d8eb0",
     "gsd/core/src/commands/probe_rows.rs": "4c0c2210ef27c106d3f345a4bb7dec9aca5e768f1acc7b357fb9a62f62e1d2eb",
     "gsd/core/src/commands/quick.rs": "3bab2cbae0e1ff569033077d6d6281c04750393f7d5e1df416c4a7c884ab4f8e",
-    "gsd/core/src/commands/re_verify.rs": "fd474cfd454c6bd653c94249383dfd060794b20f8c90da6e3718c0363ead2f74",
+    "gsd/core/src/commands/re_verify.rs": "5451b4ded609a4f3dfa759dfe18f3135f48c873391f066f3f081d5154984575e",
     "gsd/core/src/commands/refactor.rs": "5b4e9add1b95aaea0287208cdde722a1b8bc729eb4badb9fd0adcb33b4e68aef",
     "gsd/core/src/commands/reference.rs": "5d9ad1702c50b44a12d2e46de46fbb992d55a321a2c2d8e09cc7887853b433bd",
     "gsd/core/src/commands/reports.rs": "4620adfedcfa01cbd4d0f54508f6ce9e74d043b9920dcee649dd9f837dd6809f",

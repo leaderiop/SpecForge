@@ -184,7 +184,7 @@ fn re_verify_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("re_verify", |cmd| {
-        cmd.description("List the verifier's verdicts within a phase or a plan and whether each still holds: its state, each input that changed since it was recorded with its selector, and what it cites. `--stale-only` keeps the verdicts that no longer hold, so the verifier judges exactly those")
+        cmd.description("List the verifier's verdicts within a phase or a plan and whether each still holds: its state, each input that changed since it was recorded with its selector, and what it cites. `specforge gsd re-verify <subject> --stale-only` keeps the verdicts that no longer hold, so the verifier judges exactly those")
             .arg("subject", |a| {
                 a.required()
                     .description("the phase or the plan whose verdicts to list");
