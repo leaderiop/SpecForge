@@ -251,7 +251,8 @@ fn the_tracked_release_is_the_manifests() {
     assert_eq!(gsd_security::TRACKS, gsd_core::TRACKS);
 }
 
-/// A threat's files are the mitigation its plan writes: checked once the plan is complete (ADR 0350).
+/// A threat's files are the mitigation its plan writes: checked once the threat is closed, its own owner state
+/// (ADR 0350, ADR 0362).
 #[test]
 fn threat_files_is_a_planned_path() {
     let entities = describe("entities");
@@ -268,4 +269,99 @@ fn threat_files_is_a_planned_path() {
         "{files}"
     );
     assert_eq!(files["checks_while"], "complete", "{files}");
+}
+
+/// A threat is complete once it is closed, under its plan's own `complete_when`: the owner state its files and its
+/// mitigation verdict wait for.
+#[test]
+fn a_threat_is_complete_once_closed() {
+    let entities = describe("entities");
+    let threat = entities["items"]
+        .as_array()
+        .and_then(|kinds| kinds.iter().find(|k| k["name"] == "threat"))
+        .cloned()
+        .expect("threat");
+    assert_eq!(
+        threat["complete_when"],
+        serde_json::json!({"field": "status", "values": ["closed"]})
+    );
+}
+
+/// One row of the security spec's "Judged rules' inputs" table: `(code, target, inputs, judged_while)`.
+type JudgedRow = (String, String, Vec<(String, String)>, Option<String>);
+
+fn judged_rows() -> Vec<JudgedRow> {
+    let table = gsd_kit::markdown::tables(include_str!("../spec/README.md"))
+        .into_iter()
+        .find(|t| t.heading == "Judged rules' inputs")
+        .expect("the judged inputs table");
+    table
+        .rows
+        .iter()
+        .filter_map(|cells| {
+            let [rule, target, inputs, _binds] = &cells[..] else {
+                panic!("a judged row has four cells: {cells:?}");
+            };
+            let code = rule.strip_prefix("gsd.security/")?.to_string();
+            let (list, note) = inputs.split_once(';').unwrap_or((inputs, ""));
+            let inputs = list
+                .split(" · ")
+                .map(|piece| {
+                    let rest = piece.trim().strip_prefix('`').expect("a quoted input name");
+                    let (name, selector) = rest.split_once('`').expect("a closing quote");
+                    (name.to_string(), selector.trim().to_string())
+                })
+                .collect();
+            let judged_while = note
+                .split("`judged_while ")
+                .nth(1)
+                .and_then(|r| r.split('`').next())
+                .map(String::from);
+            Some((code, target.clone(), inputs, judged_while))
+        })
+        .collect()
+}
+
+/// Each judged rule's descriptor reads exactly what the spec's table lists for it: its target, its inputs in order and
+/// its owner state; and the table lists every judged rule of the code book's table.
+#[test]
+fn the_judged_inputs_are_the_spec_table() {
+    let rows = judged_rows();
+    let codes: Vec<&str> = rows.iter().map(|(code, ..)| code.as_str()).collect();
+    let table: Vec<&str> = gsd_security::judged::JUDGED
+        .iter()
+        .map(|j| j.code)
+        .collect();
+    assert_eq!(codes, table);
+    let rules = describe("validation_rules");
+    for (code, target, inputs, judged_while) in rows {
+        let descriptor = rules["items"]
+            .as_array()
+            .expect("rules")
+            .iter()
+            .find(|r| r["code"] == code.as_str() && r["check"] == "judged")
+            .unwrap_or_else(|| panic!("{code} is not judged"));
+        let judged = &descriptor["judged"];
+        assert_eq!(judged["judge"], "prompt:secure_phase", "{code}");
+        let targets = judged["targets"].as_array().expect("targets");
+        assert_eq!(targets.len(), 1, "{code}");
+        assert_eq!(targets[0]["kind"], target.as_str(), "{code}");
+        let declared: Vec<(String, String)> = targets[0]["inputs"]
+            .as_array()
+            .expect("inputs")
+            .iter()
+            .map(|i| {
+                (
+                    i["name"].as_str().expect("name").to_string(),
+                    i["selector"].as_str().expect("selector").to_string(),
+                )
+            })
+            .collect();
+        assert_eq!(declared, inputs, "{code}");
+        assert_eq!(
+            targets[0]["judged_while"].as_str(),
+            judged_while.as_deref(),
+            "{code}"
+        );
+    }
 }

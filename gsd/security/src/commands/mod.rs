@@ -6,6 +6,7 @@ pub mod hooks;
 pub mod record;
 pub mod support;
 pub mod threat_ids;
+pub mod verdict;
 
 use specforge_extension_sdk::prelude::*;
 
@@ -15,4 +16,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     hooks::declare(c);
     record::declare(c);
     threat_ids::declare(c);
+    verdict::declare(c);
 }

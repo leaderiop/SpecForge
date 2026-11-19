@@ -65,7 +65,7 @@ codes and the divergence tags below. The first table above counts `@gsd/core` an
 | Capabilities | 1 | 1 | 0 | 0 | 0 | `security/spec/README.md` |
 | Hooks | 3 | 3 | 0 | 0 | 0 | `security/src/commands/hooks.rs` |
 | Config keys | 4 | 4 | 0 | 0 | 0 | `security/src/settings.rs` |
-| Codes | 2 | 2 | 0 | 0 | 0 | `security/tests/parity/evidence.rs` |
+| Codes | 3 | 3 | 0 | 0 | 0 | `security/tests/parity/evidence.rs` |
 
 Suites: 74 cases are accounted, 67 of `secure-phase.test.cjs`, 5 of `injection-blocking-config.test.cjs` (#1577) and 2 of
 `secure-phase-single-writer.test.cjs` (`security/tests/accounting.rs`, `security/tests/port.rs`). The suites and files of

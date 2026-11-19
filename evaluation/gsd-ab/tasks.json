@@ -52,6 +52,7 @@
       "mcp__specforge__specforge_gsd_raise_blocker", "mcp__specforge__specforge_gsd_record_automated_uat",
       "mcp__specforge__specforge_gsd_record_conflict", "mcp__specforge__specforge_gsd_record_research",
       "mcp__specforge__specforge_gsd_record_review", "mcp__specforge__specforge_gsd_record_security_audit",
+      "mcp__specforge__specforge_gsd_record_security_verdict",
       "mcp__specforge__specforge_gsd_record_spec", "mcp__specforge__specforge_gsd_record_validation",
       "mcp__specforge__specforge_gsd_record_verdict", "mcp__specforge__specforge_gsd_record_window",
       "mcp__specforge__specforge_gsd_resolve_blocker", "mcp__specforge__specforge_gsd_resolve_conflict",
@@ -69,7 +70,7 @@
       "gsd complete-plan", "gsd confirm-setup", "gsd dispose-refactor", "gsd fix-window", "gsd graduate-lessons",
       "gsd pause", "gsd phase", "gsd propose-refactor", "gsd raise-blocker", "gsd record-automated-uat",
       "gsd record-conflict", "gsd record-research", "gsd record-review", "gsd record-security-audit",
-      "gsd record-spec", "gsd record-validation", "gsd record-verdict", "gsd record-window", "gsd resolve-blocker",
+      "gsd record-security-verdict", "gsd record-spec", "gsd record-validation", "gsd record-verdict", "gsd record-window", "gsd resolve-blocker",
       "gsd resolve-conflict", "gsd resolve-edge", "gsd resolve-prohibition", "gsd resume", "gsd set-uat-result",
       "gsd start-batch", "gsd start-plan", "gsd waive-window", "gsd workstreams"
     ]
@@ -81,13 +82,14 @@
         "gsd/W316 spec/plans.spec:192", "gsd/W407 spec/plans.spec:101", "gsd/W407 spec/plans.spec:110", "gsd/W407 spec/plans.spec:14",
         "gsd/W407 spec/plans.spec:23"
       ] },
-    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "bf374361049752de04b0dac13c4e54b61400f630", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"],
+    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "07d3ccbeef218c40658da2181329b3396e19c037", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"],
       "baseline": [
         "I213 -:0", "W019 -:0", "gsd.security/E101 spec/plans.spec:163", "gsd.security/E101 spec/plans.spec:81",
-        "gsd/E501 spec/plans.spec:126", "gsd/E501 spec/plans.spec:131", "gsd/E501 spec/plans.spec:138", "gsd/E501 spec/plans.spec:32",
-        "gsd/E501 spec/plans.spec:37", "gsd/E501 spec/plans.spec:44", "gsd/W103 spec/v1.0.spec:17", "gsd/W311 spec/plans.spec:194",
-        "gsd/W313 spec/plans.spec:194", "gsd/W315 spec/plans.spec:194", "gsd/W316 spec/plans.spec:194", "gsd/W407 spec/plans.spec:117",
-        "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:23"
+        "gsd.security/W302 spec/plans.spec:173", "gsd.security/W302 spec/plans.spec:183", "gsd.security/W302 spec/plans.spec:70", "gsd.security/W302 spec/plans.spec:81",
+        "gsd.security/W302 spec/plans.spec:92", "gsd/E501 spec/plans.spec:126", "gsd/E501 spec/plans.spec:131", "gsd/E501 spec/plans.spec:138",
+        "gsd/E501 spec/plans.spec:32", "gsd/E501 spec/plans.spec:37", "gsd/E501 spec/plans.spec:44", "gsd/W103 spec/v1.0.spec:17",
+        "gsd/W311 spec/plans.spec:194", "gsd/W313 spec/plans.spec:194", "gsd/W315 spec/plans.spec:194", "gsd/W316 spec/plans.spec:194",
+        "gsd/W407 spec/plans.spec:117", "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:23"
       ] },
     { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "b463648ae3502b91f4f2722bf0fda77707d945ee", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"],
       "baseline": [

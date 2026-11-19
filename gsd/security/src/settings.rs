@@ -59,7 +59,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
         });
     });
     c.setting("workflow.security_enforcement", |s| {
-        s.bool().default(true).gates(&["W301"]).describe(
+        s.bool().default(true).gates(&["W301", "W302"]).describe(
             "Verify threat mitigations at phase close and block shipping while threats are open.",
         );
     });

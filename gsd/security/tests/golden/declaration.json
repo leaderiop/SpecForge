@@ -64,6 +64,12 @@
       "verify_kinds": []
     },
     {
+      "complete_when": {
+        "field": "status",
+        "values": [
+          "closed"
+        ]
+      },
       "description": "A threat to a plan's component, with the disposition planned for it (GSD STRIDE register row)",
       "dot_color": null,
       "dot_fillcolor": null,
@@ -160,7 +166,7 @@
           ],
           "checks_while": "complete",
           "default_value": null,
-          "description": "the files the auditor checks for the mitigation: checked once the plan is complete (E016)",
+          "description": "the files the auditor checks for the mitigation: checked once the threat is closed (E016)",
           "edge": null,
           "field_type": "string_list",
           "inverse_of": null,

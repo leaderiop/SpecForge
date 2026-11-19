@@ -11,7 +11,7 @@ by a command (a harness field), `U` a person's. Codes are `gsd.security/<letter>
 | Kind | Name | Scoped by | Fields | GSD |
 |---|---|---|---|---|
 | `trust_boundary` | `TB1` | its plan | `plan → plan R I`, `boundary str R`, `description str R`, `data_crossing str` | `<threat_model>` Trust Boundaries; SECURITY.md Trust Boundaries |
-| `threat` | `T-03-01`, `T-03-SC` | its plan | `plan → plan R I`, `category enum{spoofing, tampering, repudiation, information_disclosure, denial_of_service, elevation_of_privilege} R`, `component str R`, `severity enum{critical, high, medium, low} R`, `disposition enum{mitigate, accept, transfer} R`, `mitigation str R`, `files paths<planned>` (checked once the plan is complete, E016), `status enum{open, closed} H`, `evidence str H`, `retroactive bool H`, `blocking bool C` | STRIDE register row |
+| `threat` | `T-03-01`, `T-03-SC` | its plan | `plan → plan R I`, `category enum{spoofing, tampering, repudiation, information_disclosure, denial_of_service, elevation_of_privilege} R`, `component str R`, `severity enum{critical, high, medium, low} R`, `disposition enum{mitigate, accept, transfer} R`, `mitigation str R`, `files paths<planned>` (checked once the threat is closed, E016), `status enum{open, closed} H`, `evidence str H`, `retroactive bool H`, `blocking bool C`; complete when `status` is `closed` | STRIDE register row |
 | `security_audit` | `03-SECURITY` | its phase | `phase → phase R I`, `asvs_level int{1..3} H`, `created ts H`, `threats_open int C`, `status enum{draft, verified} C`, `register_planned bool C` | `NN-SECURITY.md` frontmatter |
 | `accepted_risk` | `AR1` | its audit | `audit → security_audit R I`, `threat → threat R I`, `rationale str R I`, `accepted_by str R I`, `at date H I`; append-only | Accepted Risks Log |
 | `audit_run` | `AU1` | its audit | `audit → security_audit R I`, `at ts H I`, `total int H I`, `closed int H I`, `open int H I`, `run_by str H I`; append-only | Security Audit Trail / `## Security Audit` |
@@ -40,12 +40,28 @@ Computed, severity order critical > high > medium > low, `none` blocks nothing:
 |---|---|---|---|---|---|
 | `gsd.security/E101` | threat | error | none (upstream applies it whatever the hook) | "threat ID `<id>` is claimed by more than one plan of phase `<p>`: `<plans>`; renumber after the phase's highest `T-<p>-NN`" (digit-suffixed IDs only; `-SC` never) | #4683 |
 | `gsd.security/W301` | phase | warning | `workflow.security_enforcement` | "`<p>-SECURITY` is missing / is still draft / has `<n>` threat(s) open: run /gsd-secure-phase `<p>`", on a phase whose status is `complete`; one line per phase (open threats before draft), where upstream can say both | #4972 |
+| `gsd.security/W302` | threat | warning | `workflow.security_enforcement` | "threat '`<id>`' has no fresh mitigation verdict: no verdict / the verdict of `<at>` is stale: `<inputs>` changed / the verdict of `<at>` is 'broken'", on a closed threat; a judged rule (below) | the auditor's per-threat verification (`gsd-security-auditor`, Threat Verification) |
+
+## Judged rules' inputs
+
+A judged rule (ADR 0377) is answered by a verdict that `record_security_verdict` writes, under the qualified rule
+(`verdict gsd.security/W302 holds { … }`), with a line in `specforge-harness`. Its named inputs are digested when it is
+recorded; an edit to one makes it stale. Every verdict also digests its `cited` and `cited_tests` lists. The judge is the
+prompt `secure_phase`: the auditor returns its findings and the orchestrator records. A gated rule is never evaluated.
+
+| Rules | Target | Inputs | Binds |
+|---|---|---|---|
+| gsd.security/W302 | threat | `threat` self · `plan` self.plan · `files` file(self.files) · `accepted` self<accepted_risk.threat · `rows` self<validation_row.threat; judged once the threat is closed (`judged_while complete`) | — |
+
+W302's outcomes are `holds` and `broken` (passing `holds`): for `mitigate`, the mitigation is in its files; for
+`accept`, an accepted risk records it; for `transfer`, the transfer is documented. An open threat owes none (W301 says
+the audit has it open). A verdict never changes a threat's `blocking` or the audit's `threats_open`.
 
 ## Settings
 
 | Key | Type | Default | Notes |
 |---|---|---|---|
-| `workflow.security_enforcement` | bool | `true` | gates `W301`; the `when` of all three hooks |
+| `workflow.security_enforcement` | bool | `true` | gates `W301` and `W302`; the `when` of all three hooks |
 | `workflow.security_asvs_level` | int 1..3 | `1` | the level the audit runs at |
 | `workflow.security_block_on` | enum critical, high, medium, low, none | `high` | the lowest blocking severity |
 | `security.injection_blocking` | bool | `false` | read by `@gsd/core`'s injection scanner (`[blocking-needs-security]`) |
@@ -63,6 +79,7 @@ Computed, severity order critical > high > medium > low, `none` blocks nothing:
 | `threat_ids <phase>` | no | `{threat_id_duplicates: [{id, plans}], threat_id_duplicate_count}` | `init execute-phase` / `init plan-phase` fields |
 | `record_security_audit <phase> --verdict '<json>' [--run-by <who>]` | yes | `{appended, threats_open}`; creates the audit, writes each named threat's `status` and `evidence`, creates retroactive threats in a plan of the phase, appends an `audit_run` only if (total, closed, open) changed | workflow step 6 and `verification.append-audit` |
 | `accept_risk <threat> <rationale> <by>` | yes, `human` | an `accepted_risk` under the phase's audit (created if absent) | workflow step 4, option 2 |
+| `record_security_verdict <entity> <rule> <outcome> <model> '<basis>'` | yes | a `verdict gsd.security/<rule>` on the entity and its ledger line; refuses a rule that is not this extension's, an outcome that is not the rule's, and a basis that is not JSON; `--findings`, `--cited`, `--values` as core's `record_verdict` | the auditor's threat verdicts, which the workflow writes |
 
 ## Hooks
 

@@ -19,6 +19,16 @@ pub const CODES: &[(&str, &str, &str)] = &[
          above workflow.security_block_on: run /gsd-secure-phase for the phase. A warning, never a refusal (gsd-core \
          #4972); switched off by workflow.security_enforcement.",
     ),
+    (
+        "W302",
+        "a closed threat's mitigation is not judged",
+        "A closed threat claims its disposition holds, and no fresh verdict of the security workflow says so: for \
+         `mitigate`, that the mitigation is in its files; for `accept`, that an accepted risk records it; for \
+         `transfer`, that the transfer is documented. The verdict reads the threat, its plan, its files, its accepted \
+         risks and the VALIDATION.md rows that secure it, so an edit to one of its files makes it stale: run \
+         /gsd-secure-phase, which records it with `specforge gsd record-security-verdict`. A warning; switched off by \
+         workflow.security_enforcement.",
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

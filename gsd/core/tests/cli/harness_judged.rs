@@ -266,7 +266,8 @@ impl Project {
         self.write("specforge-harness", &format!("{}\n", kept.join("\n")));
     }
 
-    /// `specforge query <entity> --inputs gsd/<code> --format json`: what the judge reads, and the basis to record.
+    /// `specforge query <entity> --inputs <namespace>/<code> --format json`: what the judge reads, and the basis to
+    /// record. `code` is local (`E501`) or qualified (`gsd.security/W302`), and names its book.
     pub fn inputs(&self, entity: &str, code: &str) -> serde_json::Value {
         let (book, local) = book(code);
         let run = self.run(&[
@@ -281,9 +282,10 @@ impl Project {
             .unwrap_or_else(|e| panic!("inputs are JSON ({e}): {}", run.all()))
     }
 
-    /// Plays the judge: reads the inputs of `gsd/<code>` on `entity`, naming what `--cited` in `extra` cites, then
-    /// records `outcome` over their basis with `specforge gsd record-verdict`. `extra` are further options
-    /// (`--findings`, `--cited`, `--values`).
+    /// Plays the judge: reads the inputs of the rule `code` on `entity`, naming what `--cited` in `extra` cites, then
+    /// records `outcome` over their basis with its book's command (`specforge gsd record-verdict`, or
+    /// `record-security-verdict` for a `gsd.security/` rule). `extra` are further options (`--findings`, `--cited`,
+    /// `--values`).
     pub fn record(&self, entity: &str, code: &str, outcome: &str, extra: &[&str]) -> Run {
         let cited = extra
             .iter()

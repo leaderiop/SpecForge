@@ -196,6 +196,18 @@
       "version": "v1.19.0"
     },
     "digest": "sha256:aed4f7589303b3753430d008a4b901c867f1706f9a9fd57cba94b9ba4a16adbb",
+    "judged": [
+      {
+        "outcomes": [
+          "holds",
+          "broken"
+        ],
+        "passing": [
+          "holds"
+        ],
+        "rule": "gsd.security/W302"
+      }
+    ],
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
