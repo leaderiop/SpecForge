@@ -5,7 +5,7 @@ use crate::harness::{Project, project};
 use crate::strict_wave::with_a_cycle;
 
 /// `(critical_path, critical_weight)` of phase `id`, `None` for a field the phase does not have.
-fn critical(p: &Project, id: &str) -> (Option<Vec<String>>, Option<i64>) {
+pub(super) fn critical(p: &Project, id: &str) -> (Option<Vec<String>>, Option<i64>) {
     let fields = p.fields_of(id);
     let path = fields["critical_path"].as_array().map(|ids| {
         ids.iter()

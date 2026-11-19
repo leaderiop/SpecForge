@@ -55,6 +55,7 @@ mod execute_rules;
 mod execute_status;
 #[path = "../common/files.rs"]
 mod files;
+mod flow_taskboard;
 mod fresh_taskboard;
 mod gates;
 mod harness;

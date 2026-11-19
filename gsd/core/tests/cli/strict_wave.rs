@@ -6,13 +6,13 @@ use crate::harness::{Project, project};
 use crate::plan_rules::{auto, third_plan, with};
 
 /// `(wave, strict_wave)` of plan `id`, `None` for a field the plan does not have.
-fn placed(p: &Project, id: &str) -> (Option<i64>, Option<i64>) {
+pub(super) fn placed(p: &Project, id: &str) -> (Option<i64>, Option<i64>) {
     let fields = p.fields_of(id);
     (fields["wave"].as_i64(), fields["strict_wave"].as_i64())
 }
 
 /// The messages of the `gsd/W526` findings, sorted.
-fn w526(p: &Project) -> Vec<String> {
+pub(super) fn w526(p: &Project) -> Vec<String> {
     p.findings()
         .into_iter()
         .filter(|(code, _)| code == "gsd/W526")

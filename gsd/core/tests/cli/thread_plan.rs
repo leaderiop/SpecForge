@@ -7,7 +7,7 @@ use super::harness::{Project, Run, project};
 use super::plan_rules::{third_plan, with};
 
 /// The JSON answer of `gsd thread-plan <phase>`.
-fn thread(p: &Project, phase: &str) -> Value {
+pub(super) fn thread(p: &Project, phase: &str) -> Value {
     let run = p.run(&["gsd", "thread-plan", phase, "--format", "json"]);
     assert_eq!(run.code, 0, "{}", run.all());
     serde_json::from_str(&run.stdout)
@@ -15,7 +15,7 @@ fn thread(p: &Project, phase: &str) -> Value {
 }
 
 /// `specforge trace --plan` over `plan`, written to a file under the project: its run and its JSON outcome.
-fn trace(p: &Project, plan: &Value) -> (Run, Value) {
+pub(super) fn trace(p: &Project, plan: &Value) -> (Run, Value) {
     p.write("agent-plan.json", &plan.to_string());
     let file = p.root().join("agent-plan.json");
     let run = p.run(&[

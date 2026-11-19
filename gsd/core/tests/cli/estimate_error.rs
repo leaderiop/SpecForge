@@ -25,7 +25,7 @@ fn estimating(anchor: &str, estimate: &str) -> Project {
 }
 
 /// The `estimate_error` of plan `id`, `Null` when the plan has none.
-fn error_of(p: &Project, id: &str) -> Value {
+pub(super) fn error_of(p: &Project, id: &str) -> Value {
     p.fields_of(id)["estimate_error"].clone()
 }
 
@@ -66,7 +66,7 @@ fn without_an_actual_the_member_is_absent_not_zero() {
 }
 
 /// The text `specforge gsd progress-report` prints.
-fn report_text(p: &Project) -> String {
+pub(super) fn report_text(p: &Project) -> String {
     let run = p.run(&["gsd", "progress-report"]);
     assert_eq!(run.code, 0, "{}", run.all());
     run.stdout
