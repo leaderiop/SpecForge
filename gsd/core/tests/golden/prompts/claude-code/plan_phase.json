@@ -61,19 +61,8 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 114611,
+  "bytes": 115667,
   "end": [
-    "</file>",
-    "</execution_context>",
-    "",
-    "",
-    "",
-    "<context>",
-    "Phase number: the `<arguments>` block (required here — the prompt needs the phase to scope its gates; upstream's `[phase]` defaults to the next unplanned phase)",
-    "",
-    "**Flags:**",
-    "- `--research` — Force re-research even if the phase has research",
-    "- `--skip-research` — Skip research, go straight to planning",
     "- `--gaps` — Gap closure mode (reads VERIFICATION.md, skips research)",
     "- `--skip-verify` — Skip verification loop",
     "- `--prd <file>` — Use a PRD/acceptance criteria file instead of discuss-phase. Parses requirements into CONTEXT.md automatically. Skips discuss-phase entirely.",
@@ -102,7 +91,18 @@
     "",
     "- `/gsd-graphify`: not served on this project",
     "",
-    "Pass this line to the planner as its `**Graph context:**`."
+    "Pass this line to the planner as its `**Graph context:**`.",
+    "",
+    "## Threading the plans",
+    "",
+    "After the planner writes the phase's plans, and before the plan checker runs, check their order against the graph:",
+    "",
+    "1. Write the answer of `specforge gsd thread-plan <phase> --format json` (the MCP tool `specforge.gsd.thread_plan`) to a file. Its entries are the phase's plans in strict-wave order, each followed by its tasks.",
+    "2. Run `specforge trace --plan <file> --format json`.",
+    "",
+    "A result with `ok: false` is a finding the planner fixes before the check: an `unresolved_entity` gap (E003) is an entry that names no entity, and an `ordering` gap is an entry before a plan or task it depends on, such as a coupling peer that runs later. Fix the plan's `depends_on`, its coupling peer or the order, then run the step again. `missing_plan_entry` gaps are warnings over every testable entity of the project: they do not fail the thread.",
+    "",
+    "Pass the final result to the plan checker as its `**Thread:**` line; the checker may run both commands itself. The order of the tasks inside a plan is not checked: a task carries no `depends_on`."
   ],
   "head": [
     "<specforge_gsd_preamble>",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 1957,
+  "lines": 1968,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6ad03426322c2095389330166d61aeaf49b4c651bfa3b8fde50179cd6cd1c6a4",
+    "digest": "sha256:0eb0fb3c9c0581ae5c0801fd482de899875558aa2bea57c1f67a7a40f2244922",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -221,6 +221,13 @@
         "title": "Create the phase's plans"
       },
       {
+        "cli": "specforge gsd thread-plan --host claude-code",
+        "gate": [],
+        "id": "thread",
+        "title": "Check the plans' order with specforge trace --plan and fix an ok: false result before the check (specforge gsd thread-plan <phase> --format json)",
+        "tool": "specforge.gsd.thread_plan"
+      },
+      {
         "agent": "gsd-plan-checker",
         "id": "check",
         "title": "Check the plans against the phase goal"
@@ -240,5 +247,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "6ad03426322c2095389330166d61aeaf49b4c651bfa3b8fde50179cd6cd1c6a4"
+  "sha256": "0eb0fb3c9c0581ae5c0801fd482de899875558aa2bea57c1f67a7a40f2244922"
 }

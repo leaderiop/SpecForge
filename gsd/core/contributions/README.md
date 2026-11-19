@@ -138,7 +138,7 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 | `discuss_phase` | none | assumptions analyzer, advisor researcher; `plan_phase` |
 | `spec_phase` | none | `record_spec`; `discuss_phase` |
 | `mvp_phase` | E516 | `plan_phase` |
-| `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `record_verdict`, `record_conflict`, `resolve_conflict`; `execute_phase` |
+| `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `thread_plan` (the step `thread` between the planner and the plan checker, its answer checked by `specforge trace --plan`), `record_verdict`, `record_conflict`, `resolve_conflict`; `execute_phase` |
 | `plan_review_convergence` | E201, W204, E206, W406, E516 | `plan_phase`; plan checker |
 | `ultraplan_phase` | E201, W204, E206, W406, E516 | plan checker; `record_verdict` |
 | `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; `re_verify`; verifier; `record_verdict`, `record_window`, `raise_blocker` (a tripped TDD gate); `verify_work` |
