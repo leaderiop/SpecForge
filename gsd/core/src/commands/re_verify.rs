@@ -1,5 +1,6 @@
-//! `re_verify <subject> [--stale-only]`: the verifier's verdicts within a phase or a plan, and whether each still
-//! holds, so that the verifier judges exactly what no longer does (ADR 0377).
+//! `re_verify <subject> [--stale-only]`: the verifier's verdicts within a phase or a plan, and whether each is fresh,
+//! so that the verifier judges exactly those that are not (ADR 0377). Fresh says the inputs are unchanged since the
+//! verdict, not that it passed: a fresh `failed` verdict is fresh, and its outcome says it fails.
 //!
 //! For each rule `gsd-verifier` judges (`gsd/E501` on a truth, an artifact or a key link, `gsd/W525` on a
 //! prohibition), each entity of a target kind whose plan is the subject or a plan of the subject phase (by the `phase`
@@ -70,12 +71,13 @@ fn selector<'a>(target: &'a Target, name: &'a str) -> &'a str {
         .map_or(name, |(_, selector)| selector)
 }
 
-/// The answer over `graph` for the phase or plan `subject`: `{subject, items, holding, not_holding}`, where `holding`
-/// and `not_holding` count every verdict of the subject (fresh, and not), whatever `stale_only` keeps in `items`.
+/// The answer over `graph` for the phase or plan `subject`: `{subject, items, fresh, not_fresh}`, where `fresh` and
+/// `not_fresh` count every verdict of the subject by its state, whatever its outcome and whatever `stale_only` keeps
+/// in `items`.
 pub fn re_verify(graph: &CommandGraph, subject: &str, stale_only: bool) -> Result<Value, String> {
     let subject = self::subject(graph, subject)?;
     let plans = plans(graph, subject);
-    let (mut items, mut holding, mut not_holding) = (Vec::new(), 0, 0);
+    let (mut items, mut fresh_count, mut not_fresh_count) = (Vec::new(), 0, 0);
     for rule in crate::judged::JUDGED.iter().filter(|j| j.judge == VERIFIER) {
         let code = format!("gsd/{}", rule.code);
         for t in rule.targets {
@@ -86,9 +88,9 @@ pub fn re_verify(graph: &CommandGraph, subject: &str, stale_only: bool) -> Resul
                 for j in node.judgements.iter().filter(|j| j.rule == code) {
                     let fresh = j.state == "fresh";
                     if fresh {
-                        holding += 1;
+                        fresh_count += 1;
                     } else {
-                        not_holding += 1;
+                        not_fresh_count += 1;
                     }
                     if stale_only && fresh {
                         continue;
@@ -131,8 +133,8 @@ pub fn re_verify(graph: &CommandGraph, subject: &str, stale_only: bool) -> Resul
     Ok(json!({
         "subject": subject.id,
         "items": items,
-        "holding": holding,
-        "not_holding": not_holding,
+        "fresh": fresh_count,
+        "not_fresh": not_fresh_count,
     }))
 }
 
@@ -162,14 +164,14 @@ fn human(report: &Value) -> String {
         out.push('\n');
     }
     let count = |key: &str| report[key].as_u64().unwrap_or_default();
-    let (holding, not_holding) = (count("holding"), count("not_holding"));
+    let (fresh, not_fresh) = (count("fresh"), count("not_fresh"));
     let subject = report["subject"].as_str().unwrap_or_default();
-    out.push_str(&match (holding, not_holding) {
+    out.push_str(&match (fresh, not_fresh) {
         (0, 0) => format!("no verdict is owed in {subject}\n"),
-        (_, 0) => format!("every verdict holds ({holding})\n"),
+        (_, 0) => format!("every verdict is fresh ({fresh})\n"),
         _ => format!(
-            "{not_holding} of {} verdict(s) no longer hold\n",
-            holding + not_holding
+            "{not_fresh} of {} verdict(s) are not fresh\n",
+            fresh + not_fresh
         ),
     });
     out
@@ -184,7 +186,7 @@ fn re_verify_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("re_verify", |cmd| {
-        cmd.description("List the verifier's verdicts within a phase or a plan and whether each still holds: its state, each input that changed since it was recorded with its selector, and what it cites. `specforge gsd re-verify <subject> --stale-only` keeps the verdicts that no longer hold, so the verifier judges exactly those")
+        cmd.description("List the verifier's verdicts within a phase or a plan and whether each is fresh (its inputs unchanged since it was recorded, whatever its outcome): its state, each input that changed since it was recorded with its selector, and what it cites. `specforge gsd re-verify <subject> --stale-only` keeps the verdicts that are not fresh, so the verifier judges exactly those")
             .arg("subject", |a| {
                 a.required()
                     .description("the phase or the plan whose verdicts to list");

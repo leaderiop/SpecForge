@@ -64,14 +64,16 @@ nodes, so it cannot say what changed since a verdict. No gsd pass declares the d
 The reason: the per-input digests are exact, already memoised per entity and per file stamp, and recorded at the
 verdict itself.
 
-## D4. `re_verify` names what no longer holds
+## D4. `re_verify` names the verdicts that are not fresh
 
 `re_verify <phase|plan> [--stale-only]` is a read-only command of `@gsd/core` over the judgements the command graph
 already carries, for the rules the verifier judges. It answers each judgement with its state, its outcome, and its
 changed inputs mapped to their selectors from the rule's target; `cited` and `cited_tests` map to the verdict's
 citations. `--stale-only` keeps the judgements that are not fresh: stale, missing, unrecorded and unreadable. A fresh
 verdict, passing or failing, is never listed, since judging unchanged inputs again would answer the same. The execute
-workflow runs it before the verifier, who judges exactly what it lists and leaves every other verdict as recorded.
+workflow runs it before the verifier, who judges exactly what it lists and leaves every other verdict as recorded. It
+counts the judgements by state, `fresh` and `not_fresh`, and says so in those words: fresh means the inputs are
+unchanged since the verdict, not that it passes, and a fresh `failed` verdict is counted fresh.
 
 The reason: the verifier should spend its judgement on what changed, and the table that declares a rule already owns
 the selectors of its inputs.
@@ -141,7 +143,7 @@ remedy, not its victim.
 ## Consequences
 
 - An edit to one file re-judges exactly the truths whose verdict cites it.
-- The verifier sees, before it judges, which must-haves no longer hold and why.
+- The verifier sees, before it judges, which must-haves' verdicts are not fresh and why.
 - A plan check is owed while its plan is open, a must-have once its plan is complete, a threat's disposition once it is
   closed.
 - `@gsd/security` declares and writes its own judged rules.

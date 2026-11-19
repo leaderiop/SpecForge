@@ -59,7 +59,7 @@ prompt `secure_phase`: the auditor returns its findings and the orchestrator rec
 
 Upstream's auditor checks each threat of the register by its disposition and writes the result into `SECURITY.md`,
 where nothing checks it again once the code changes. Here each result is a judged rule's verdict (ADR 0377), so it goes
-stale when what it read changes, and the workflow judges again exactly the verdicts that no longer hold.
+stale when what it read changes, and the workflow judges again exactly the verdicts that are not fresh.
 
 - **What W302 judges.** A closed threat claims its disposition holds: for `mitigate`, the mitigation is in its files;
   for `accept`, an accepted risk records it; for `transfer`, the transfer is documented. The outcomes are `holds` and

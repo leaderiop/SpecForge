@@ -25,7 +25,7 @@ const PHASE_STEPS: &[Step] = &[
     },
     Step {
         id: "re_verify",
-        title: "List the verdicts that no longer hold (specforge gsd re-verify <phase> --stale-only)",
+        title: "List the verdicts that are not fresh (specforge gsd re-verify <phase> --stale-only)",
         does: Do::Command("re_verify"),
     },
     Step {

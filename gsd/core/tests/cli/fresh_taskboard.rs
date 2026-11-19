@@ -119,7 +119,7 @@ fn an_edit_to_the_task_model_re_judges_exactly_the_verdicts_citing_it() {
         assert_eq!(run.code, 0, "{id}: {}", run.all());
     }
     assert_eq!(stale(&p), []);
-    assert_eq!(p.re_verify(PHASE, false)["holding"], 7);
+    assert_eq!(p.re_verify(PHASE, false)["fresh"], 7);
     let rejudged: Vec<(String, String)> = listed
         .into_iter()
         .map(|(id, _)| (id, "gsd/E501".to_string()))

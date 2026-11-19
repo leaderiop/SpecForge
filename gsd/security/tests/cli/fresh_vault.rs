@@ -108,7 +108,7 @@ fn w302(p: &Project) -> Vec<(String, String)> {
 fn nothing_is_stale_once_the_phase_is_judged() {
     let p = judged_phase();
     assert_eq!(stale(&p), []);
-    assert_eq!(p.re_verify(PHASE, false)["holding"], 6);
+    assert_eq!(p.re_verify(PHASE, false)["fresh"], 6);
     assert_eq!(stale_threats(&p), []);
     assert_eq!(w302(&p), []);
 }

@@ -29,7 +29,7 @@ pub fn recording(agent: &str) -> String {
          it is refused. A verdict on a prohibition reads its plan's files and what it cites: it must cite the files \
          (or the tests) you checked it in, or it is refused.\n\n\
          On re-verification, first run `specforge gsd re-verify <phase> --stale-only` (the MCP tool \
-         `specforge.gsd.re_verify`): it lists the verdicts of the phase that no longer hold (stale, missing, \
+         `specforge.gsd.re_verify`): it lists the verdicts of the phase that are not fresh (stale, missing, \
          unrecorded or unreadable), each with the inputs that changed and their selectors. Judge exactly what it \
          lists and record each with `record-verdict`; leave every other verdict as recorded: its inputs have not \
          changed, so judging it again would answer the same.\n\n"

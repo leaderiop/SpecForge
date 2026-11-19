@@ -320,7 +320,7 @@ impl Project {
     }
 
     /// The answer of `specforge gsd re-verify <subject> [--stale-only] --format json`: the verifier's verdicts of a
-    /// phase or a plan and whether each still holds.
+    /// phase or a plan and whether each is fresh.
     pub fn re_verify(&self, subject: &str, stale_only: bool) -> Value {
         let mut args = vec!["gsd", "re-verify", subject];
         if stale_only {

@@ -119,7 +119,7 @@ fn stale_only_lists_what_no_longer_holds_sorted_by_entity_then_rule() {
     );
     assert_eq!(report["subject"], "v1.0/01");
     assert_eq!(
-        (report["holding"].clone(), report["not_holding"].clone()),
+        (report["fresh"].clone(), report["not_fresh"].clone()),
         (json!(1), json!(3))
     );
 }
@@ -226,17 +226,42 @@ fn an_unknown_subject_is_refused() {
 }
 
 #[test]
-fn the_text_names_what_changed_and_counts_what_holds() {
+fn the_text_names_what_changed_and_counts_what_is_fresh() {
     let stale = re_verify(&graph(), "v1.0/01", true).expect("an answer");
     assert_eq!(
         human(&stale),
         "gsd/E501 v1.0/01/01-01/AR1 stale: file (file(self.path))\n\
          gsd/E501 v1.0/01/01-01/TR1 stale: cited (cited)\n\
          gsd/W525 v1.0/01/01-02/PR1 missing\n\
-         3 of 4 verdict(s) no longer hold\n"
+         3 of 4 verdict(s) are not fresh\n"
     );
-    let fresh = json!({ "subject": "v1.0/01", "items": [], "holding": 7, "not_holding": 0 });
-    assert_eq!(human(&fresh), "every verdict holds (7)\n");
-    let none = json!({ "subject": "v1.0/02", "items": [], "holding": 0, "not_holding": 0 });
+    let fresh = json!({ "subject": "v1.0/01", "items": [], "fresh": 7, "not_fresh": 0 });
+    assert_eq!(human(&fresh), "every verdict is fresh (7)\n");
+    let none = json!({ "subject": "v1.0/02", "items": [], "fresh": 0, "not_fresh": 0 });
     assert_eq!(human(&none), "no verdict is owed in v1.0/02\n");
+}
+
+/// Fresh is about the inputs, not the outcome: a plan whose one verdict is a fresh `failed` counts it fresh, and the
+/// text never says it holds or passes.
+#[test]
+fn a_fresh_failing_verdict_is_counted_fresh_and_never_said_to_hold() {
+    let graph = CommandGraph::new(
+        vec![
+            node("v1.0/01/01-02", "plan", json!([])),
+            node(
+                "v1.0/01/01-02/TR1",
+                "truth",
+                json!([{ "rule": "gsd/E501", "state": "fresh", "passed": false, "outcome": "failed" }]),
+            ),
+        ],
+        vec![edge("v1.0/01/01-02/TR1", "plan", "v1.0/01/01-02")],
+    );
+    let report = re_verify(&graph, "v1.0/01/01-02", false).expect("an answer");
+    assert_eq!(
+        (report["fresh"].clone(), report["not_fresh"].clone()),
+        (json!(1), json!(0))
+    );
+    let text = human(&report);
+    assert!(text.ends_with("every verdict is fresh (1)\n"), "{text}");
+    assert!(!text.contains("hold"), "{text}");
 }
