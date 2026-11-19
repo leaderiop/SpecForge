@@ -42,15 +42,15 @@ fn collisions(input: &PassInput, placement: &Placed) -> Vec<PassDiagnostic> {
         if strict <= wave {
             continue;
         }
-        let Some(&binding) = placement
+        // `levels` gives a plan that runs after none the phase's base, which is its wave: a strict wave above the wave
+        // is reached only through a plan it runs after.
+        let &binding = placement
             .before
             .get(plan)
             .into_iter()
             .flatten()
             .max_by_key(|p| (placement.strict[**p], Reverse(id_order(p))))
-        else {
-            continue;
-        };
+            .expect("a plan pushed past its wave runs after some plan");
         let after = placement.strict[binding];
         let depends = placement
             .depends
