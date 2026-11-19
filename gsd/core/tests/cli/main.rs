@@ -44,6 +44,7 @@ mod commands;
 mod commands_support;
 mod context_proxy;
 mod contexts;
+mod critical_path;
 mod decision_coverage;
 mod discuss;
 mod e502_probe;

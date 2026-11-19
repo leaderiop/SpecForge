@@ -32,13 +32,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
 /// apart (`strict`). Every map is keyed by plan id.
 #[derive(Debug)]
 pub struct Placed<'a> {
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "the values computed on a phase from its placement read it"
-        )
-    )]
     pub phase: &'a str,
     pub plans: BTreeMap<&'a str, &'a PassEntity>,
     /// gsd-core's wave.
@@ -163,6 +156,53 @@ fn levels<'a>(
         level.extend(ready);
     }
     Some(level)
+}
+
+/// The heaviest chain of `placed`'s plans through `before` (the edges of the strict wave), in execution order, and its
+/// weight: each plan weighs `weight(id)`, a negative weight counting 0, and the sums saturate.
+///
+/// One pass is enough: in (strict wave, id) order every plan a plan runs after has a smaller strict wave, so the best
+/// chain ending at it is final before the plan is reached. Two chains compare by weight, then by their number of plans,
+/// then by the smaller id (of the plan a chain extends, and of the plan it ends at). The length breaks a weight tie so
+/// that a plan of weight 0 after a chain stays on it: the path names every plan of the chain it weighs.
+pub fn heaviest<'a>(placed: &Placed<'a>, weight: impl Fn(&'a str) -> i64) -> (Vec<&'a str>, i64) {
+    type Best<'p> = ((i64, usize), &'p str);
+    let better = |a: Best<'_>, b: Best<'_>| a.0 > b.0 || (a.0 == b.0 && a.1 < b.1);
+    let mut order: Vec<&'a str> = placed.plans.keys().copied().collect();
+    order.sort_by_key(|id| (placed.strict.get(id).copied(), *id));
+    // The (weight, plans) of the best chain ending at each plan, and the plan before it on that chain.
+    let mut best: BTreeMap<&'a str, ((i64, usize), Option<&'a str>)> = BTreeMap::new();
+    for id in order {
+        let from = placed
+            .before
+            .get(id)
+            .into_iter()
+            .flatten()
+            .filter_map(|earlier| best.get(earlier).map(|(pair, _)| (*pair, *earlier)))
+            .reduce(|a, b| if better(b, a) { b } else { a });
+        let ((below, plans), earlier) = from.map_or(((0, 0), None), |(pair, e)| (pair, Some(e)));
+        best.insert(
+            id,
+            (
+                (weight(id).max(0).saturating_add(below), plans + 1),
+                earlier,
+            ),
+        );
+    }
+    let Some(((total, _), mut at)) = best
+        .iter()
+        .map(|(id, (pair, _))| (*pair, *id))
+        .reduce(|a, b| if better(b, a) { b } else { a })
+    else {
+        return (Vec::new(), 0);
+    };
+    let mut chain = vec![at];
+    while let Some(earlier) = best[at].1 {
+        chain.push(earlier);
+        at = earlier;
+    }
+    chain.reverse();
+    (chain, total)
 }
 
 fn compute(input: &PassInput) -> PassOutput {

@@ -109,6 +109,16 @@ pub const PHASE: Kind = Kind::new(
             .c()
             .doc("Progress: Plans Complete, N/M"),
         date("completed").c().doc("Progress: Completed"),
+        strs("critical_path").c().doc(
+            "the task ids of the phase's heaviest chain of plans, in execution order: the chain follows `depends_on` \
+             and shared paths (the strict waves), each plan weighing its `estimate.tokens`, else its task count; of \
+             two chains of equal weight the longer wins, then the smaller plan id; absent when no plan has a strict \
+             wave or the chain names no task",
+        ),
+        int("critical_weight").c().doc(
+            "the weight of that chain: tokens and task counts summed as they come, so a phase with and without \
+             estimates mixes units",
+        ),
     ],
 )
 .scoped_by("milestone")

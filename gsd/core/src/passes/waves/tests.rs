@@ -553,3 +553,149 @@ fn compute_answers_strict_wave_beside_wave() {
         [("v/1/1-01".into(), 1), ("v/1/1-02".into(), 2)]
     );
 }
+
+/// `heaviest` over the one phase of `input`, each plan weighing its entry in `weights` (0 when absent).
+fn heaviest_of(input: &PassInput, weights: &[(&str, i64)]) -> (Vec<String>, i64) {
+    let placed = placed(input);
+    let [phase] = placed.as_slice() else {
+        panic!("one phase, not {}", placed.len())
+    };
+    let weights: BTreeMap<&str, i64> = weights.iter().copied().collect();
+    let (chain, weight) = heaviest(phase, |id| weights.get(id).copied().unwrap_or(0));
+    (chain.into_iter().map(String::from).collect(), weight)
+}
+
+fn ids(ids: &[&str]) -> Vec<String> {
+    ids.iter().map(|id| (*id).to_string()).collect()
+}
+
+#[test]
+fn the_heaviest_chain_sums_its_plans() {
+    let input = input(
+        &[("v/1/a", false), ("v/1/b", false)],
+        &[("v/1/b", "v/1/a")],
+        vec![],
+    );
+    let found = heaviest_of(&input, &[("v/1/a", 2), ("v/1/b", 1)]);
+    assert_eq!(found, (ids(&["v/1/a", "v/1/b"]), 3));
+}
+
+#[test]
+fn of_two_independent_plans_the_heavier_is_the_chain_and_a_tie_takes_the_smaller_id() {
+    let input = input(&[("v/1/a", false), ("v/1/b", false)], &[], vec![]);
+    assert_eq!(
+        heaviest_of(&input, &[("v/1/a", 1), ("v/1/b", 2)]),
+        (ids(&["v/1/b"]), 2)
+    );
+    assert_eq!(
+        heaviest_of(&input, &[("v/1/a", 2), ("v/1/b", 2)]),
+        (ids(&["v/1/a"]), 2)
+    );
+}
+
+#[test]
+fn a_zero_weight_plan_after_a_chain_stays_on_it() {
+    let input = input(
+        &[("v/1/a", false), ("v/1/b", false)],
+        &[("v/1/b", "v/1/a")],
+        vec![],
+    );
+    let found = heaviest_of(&input, &[("v/1/a", 2), ("v/1/b", 0)]);
+    assert_eq!(found, (ids(&["v/1/a", "v/1/b"]), 2));
+}
+
+#[test]
+fn of_two_chains_of_equal_weight_the_longer_wins_then_the_smaller_id() {
+    // a (2) before b (0), and c (2) alone: the longer chain.
+    let longer = input(
+        &[("v/1/a", false), ("v/1/b", false), ("v/1/c", false)],
+        &[("v/1/b", "v/1/a")],
+        vec![],
+    );
+    let weights = [("v/1/a", 2), ("v/1/b", 0), ("v/1/c", 2)];
+    assert_eq!(
+        heaviest_of(&longer, &weights),
+        (ids(&["v/1/a", "v/1/b"]), 2)
+    );
+    // a (2) alone, and b (2) before c (0): the longer chain, though it starts at the larger id.
+    let later = input(
+        &[("v/1/a", false), ("v/1/b", false), ("v/1/c", false)],
+        &[("v/1/c", "v/1/b")],
+        vec![],
+    );
+    let weights = [("v/1/a", 2), ("v/1/b", 2), ("v/1/c", 0)];
+    assert_eq!(heaviest_of(&later, &weights), (ids(&["v/1/b", "v/1/c"]), 2));
+    // a (2) and c (2), each alone: the smaller id.
+    let alone = input(&[("v/1/a", false), ("v/1/c", false)], &[], vec![]);
+    let weights = [("v/1/a", 2), ("v/1/c", 2)];
+    assert_eq!(heaviest_of(&alone, &weights), (ids(&["v/1/a"]), 2));
+}
+
+#[test]
+fn a_diamond_takes_its_heavier_side_and_a_tie_the_smaller_id() {
+    let diamond = input(
+        &[
+            ("v/1/a", false),
+            ("v/1/b", false),
+            ("v/1/c", false),
+            ("v/1/d", false),
+        ],
+        &[
+            ("v/1/b", "v/1/a"),
+            ("v/1/c", "v/1/a"),
+            ("v/1/d", "v/1/b"),
+            ("v/1/d", "v/1/c"),
+        ],
+        vec![],
+    );
+    let heavier_b = [("v/1/a", 1), ("v/1/b", 5), ("v/1/c", 1), ("v/1/d", 1)];
+    assert_eq!(
+        heaviest_of(&diamond, &heavier_b),
+        (ids(&["v/1/a", "v/1/b", "v/1/d"]), 7)
+    );
+    let heavier_c = [("v/1/a", 1), ("v/1/b", 1), ("v/1/c", 5), ("v/1/d", 1)];
+    assert_eq!(
+        heaviest_of(&diamond, &heavier_c),
+        (ids(&["v/1/a", "v/1/c", "v/1/d"]), 7)
+    );
+    let equal = [("v/1/a", 1), ("v/1/b", 3), ("v/1/c", 3), ("v/1/d", 1)];
+    assert_eq!(
+        heaviest_of(&diamond, &equal),
+        (ids(&["v/1/a", "v/1/b", "v/1/d"]), 5)
+    );
+}
+
+#[test]
+fn a_shared_path_chains_plans_like_a_dependency() {
+    // Two plans of wave 1 that share a path: the later one runs after the earlier, so the chain holds both.
+    let input = graph(
+        vec![
+            modifying("v/1/a", &["src/a.js"]),
+            modifying("v/1/b", &["src/a.js"]),
+        ],
+        &[],
+    );
+    let found = heaviest_of(&input, &[("v/1/a", 1), ("v/1/b", 1)]);
+    assert_eq!(found, (ids(&["v/1/a", "v/1/b"]), 2));
+}
+
+#[test]
+fn a_negative_weight_counts_0_and_a_sum_saturates() {
+    let chain = input(
+        &[("v/1/a", false), ("v/1/b", false)],
+        &[("v/1/b", "v/1/a")],
+        vec![],
+    );
+    assert_eq!(
+        heaviest_of(&chain, &[("v/1/a", -5), ("v/1/b", 1)]),
+        (ids(&["v/1/a", "v/1/b"]), 1)
+    );
+    assert_eq!(
+        heaviest_of(&chain, &[("v/1/a", i64::MAX), ("v/1/b", i64::MAX - 1)]),
+        (ids(&["v/1/a", "v/1/b"]), i64::MAX)
+    );
+    assert_eq!(
+        heaviest_of(&chain, &[("v/1/a", i64::MIN), ("v/1/b", i64::MIN)]),
+        (ids(&["v/1/a", "v/1/b"]), 0)
+    );
+}

@@ -75,7 +75,9 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "frontend",
             "status",
             "plans_complete",
-            "completed"
+            "completed",
+            "critical_path",
+            "critical_weight"
         ]
     );
 }
@@ -143,9 +145,10 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 2: the requirement's `shapes` and `text_en`, which the spec-less edge probe reads (ADR 0333).
     // + 2: the lesson's `graduated` and `status`; + 2: the milestone's `goal` and `target_features`.
     // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks' commits changed).
+    // + 2: the phase's computed `critical_path` and `critical_weight` (its heaviest chain of plans).
     assert_eq!(
         total,
-        68 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2,
+        68 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2 + 2,
         "the kinds' fields"
     );
 }
