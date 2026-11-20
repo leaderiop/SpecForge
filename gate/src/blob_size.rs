@@ -28,9 +28,9 @@ pub const CAP: u64 = cap!();
 /// after the review of that plan flow, 5,643,233 B once gsd-strict preset the traceability, verdict and trailer
 /// gates, 5,653,802 B once a gsd/E516 refusal named the prompts that remedy it and every phase holding the verdict,
 /// the trailer reader took a task's full path and gsd/E521 suggested the trailer to add, 5,678,141 B once each
-/// workflow declared the judges it runs again and the refusal listed what blocks every named run, and 5,683,226 B
-/// once a commit carried a person's waiver, `waive_trailer` recorded it at a terminal and one rule said what gsd/E521
-/// judges.
+/// workflow declared the judges it runs again and the refusal listed what blocks every named run, 5,683,226 B once a
+/// commit carried a person's waiver, `waive_trailer` recorded it at a terminal and one rule said what gsd/E521 judges,
+/// and 5,683,413 B once that rule also said why it does not judge a commit and the refusal named the reason.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_700_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].
