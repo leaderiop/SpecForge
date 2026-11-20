@@ -75,6 +75,16 @@ fn every_verdict_the_ship_gate_reads_is_fresh_under_strict() {
     assert!(f.refused.is_empty() && f.gate_passes, "{f:#?}");
 }
 
+/// The control of a gate switched off: `specforge.verdict_gate: false` beside the profile beats the preset, and a
+/// gate that refuses nothing cannot be measured, so the measure panics instead of printing 100%.
+#[test]
+#[should_panic(expected = "the verdict gate is off")]
+fn the_measure_refuses_a_verdict_gate_switched_off_beside_strict() {
+    let p = taskboard();
+    p.settings(json!({ "profile": "gsd-strict", "specforge.verdict_gate": false }));
+    p.ship_freshness(PHASE);
+}
+
 /// An edit to `src/tasks.js` stales the six verdicts that read it (all but 01-02's artifact, which names
 /// `src/cli.js`): freshness drops and ship is refused under gsd/E516 for each; one recorded again is not enough, all
 /// six are.

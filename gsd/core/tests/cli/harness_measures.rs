@@ -83,7 +83,19 @@ impl Project {
     /// judgements on its nodes) and `specforge prompt gsd.ship --format json -- <phase>` (exit 0: it renders; exit 1:
     /// the `gate_failed` answer, its `gsd/E516` diagnostics and gate entry). A refusal by another gate (gsd/E515 on a
     /// twin that records no commit) leaves the measure to E516's own entry and diagnostics.
+    ///
+    /// The verdict gate must be on: a switched-off `gsd/E516` refuses nothing and its entry passes, so the measure
+    /// would read 100% whatever the verdicts are. It panics when `specforge settings` lists the code as gated off, or
+    /// when the refused ship's entry for it says `off`.
     pub fn ship_freshness(&self, phase: &str) -> Freshness {
+        let run = self.run(&["settings", "--format", "json"]);
+        let settings: Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("settings prints JSON ({e}): {}", run.all()));
+        let gated = settings["gated"].as_array().expect("gated");
+        assert!(
+            !gated.iter().any(|code| code == E516),
+            "the verdict gate is off: settings gate {E516} off ({gated:?})"
+        );
         let run = self.run(&["export", "--format", "graph"]);
         let graph: Value = serde_json::from_str(&run.stdout)
             .unwrap_or_else(|e| panic!("export prints JSON ({e}): {}", run.all()));
@@ -131,8 +143,12 @@ impl Project {
     }
 }
 
+/// The code of the verdict gate.
+const E516: &str = "gsd/E516";
+
 /// The `gsd/E516` part of a refused prompt's `gate_failed` answer: each judgement a diagnostic names (one diagnostic
-/// each: a second on the same judgement panics), and whether the gate's entry passes.
+/// each: a second on the same judgement panics), and whether the gate's entry passes. The host lists an entry for
+/// every gated code of the prompt, a switched-off one too (`off: true`, passing): that one panics.
 fn refused_by_e516(all: &str) -> (BTreeMap<Verdict, String>, bool) {
     let start = all
         .find("{\"code\"")
@@ -142,7 +158,7 @@ fn refused_by_e516(all: &str) -> (BTreeMap<Verdict, String>, bool) {
     assert_eq!(answer["code"], "gate_failed", "{all}");
     let mut refused = BTreeMap::new();
     for diagnostic in answer["data"]["failing"].as_array().expect("failing") {
-        if diagnostic["code"] != "gsd/E516" {
+        if diagnostic["code"] != E516 {
             continue;
         }
         let (verdict, says) = e516_verdict(diagnostic["message"].as_str().expect("a message"));
@@ -155,8 +171,12 @@ fn refused_by_e516(all: &str) -> (BTreeMap<Verdict, String>, bool) {
         .as_array()
         .expect("gates")
         .iter()
-        .find(|g| g["code"] == "gsd/E516")
-        .unwrap_or_else(|| panic!("ship has no gsd/E516 gate (is the verdict gate on?): {all}"));
+        .find(|g| g["code"] == E516)
+        .unwrap_or_else(|| panic!("ship's gates hold no {E516} entry: {all}"));
+    assert_eq!(
+        gate["off"], false,
+        "the verdict gate is off: ship's {E516} entry says off: {all}"
+    );
     (refused, gate["passes"].as_bool().expect("passes"))
 }
 

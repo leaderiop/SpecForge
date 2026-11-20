@@ -82,7 +82,8 @@ for what nobody checked.
   equal to its table. Bar: 12 or more.
 
 Each measure has a control that makes it fail (a stale verdict, stripped verdicts, a skipped or a whole-phase
-re-verification), so it cannot pass on nothing.
+re-verification), so it cannot pass on nothing. The freshness measure also refuses to read a verdict gate switched
+off (`specforge.verdict_gate: false`): such a gate refuses nothing, and would read 100% whatever the verdicts are.
 
 The reason: a gate is only as honest as the verdicts it reads, and a number a test computes from the CLI's output can
 neither drift from the code nor be typed in.

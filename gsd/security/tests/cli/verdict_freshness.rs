@@ -84,6 +84,16 @@ fn every_verdict_the_ship_gate_reads_is_fresh_on_the_vault_under_strict() {
     assert!(f.refused.is_empty() && f.gate_passes, "{f:#?}");
 }
 
+/// The control of a gate switched off: the judged vault with `specforge.verdict_gate: false` beside gsd-strict has no
+/// verdict gate to measure, so the measure panics instead of printing 100%.
+#[test]
+#[should_panic(expected = "the verdict gate is off")]
+fn the_measure_refuses_a_verdict_gate_switched_off_on_the_vault() {
+    let p = judged_strict();
+    p.settings(json!({ "profile": "gsd-strict", "specforge.verdict_gate": false }));
+    p.ship_freshness(PHASE);
+}
+
 /// `package.json` is named by the two supply-chain threats only: their mitigation verdicts go stale and core's ship
 /// gate refuses them under gsd-strict, until the security auditor records them again.
 #[test]
