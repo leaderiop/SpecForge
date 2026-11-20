@@ -322,21 +322,27 @@ fn a_second_waiver_is_refused_and_the_first_stays() {
     judged(&p, 1);
 }
 
-/// gsd/E521 judges a commit whose task its subject's title found; a trailer-linked commit and a plan's `docs` commit
-/// have nothing to waive.
+/// gsd/E521 judges a commit whose task its subject's title found; a trailer-linked commit, a plan's `docs` commit and
+/// one that names no task and has no task type have nothing to waive, and each refusal names the exclusion that
+/// applied.
 #[test]
-fn a_commit_gsd_e521_does_not_judge_is_refused() {
+fn a_commit_gsd_e521_does_not_judge_is_refused_with_why() {
     let p = committed(&[
         "feat(01-01): Store module",
         "fix(01-01): Store module\n\nGsd-Task: 01-01/T1\n",
+        "wip(01-01): an unplanned change",
     ]);
     strict(&p);
     judged(&p, 1);
     let before = bytes(&p);
-    for kind in ["fix", "docs"] {
+    for (kind, why) in [
+        ("fix", "a Gsd-Task trailer links its task"),
+        ("docs", "it is a docs commit"),
+        ("wip", "it names no task and its type is not a task type"),
+    ] {
         let commit = commit_of(&p, kind);
         let run = waive(&p, &[&commit, "a reason", "ada"]);
-        refused(&run, "invalid_input", &["does not judge", &commit]);
+        refused(&run, "invalid_input", &["does not judge", &commit, why]);
         assert!(p.fields_of(&commit)["waiver"].is_null(), "{kind}");
     }
     unchanged(&p, &before);

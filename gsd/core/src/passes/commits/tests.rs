@@ -75,39 +75,42 @@ type Row = (
     Option<&'static str>,
     Option<&'static str>,
     Option<LinkedBy>,
-    Option<Unlinked<'static>>,
+    Result<Unlinked<'static>, Unjudged>,
 );
 
-/// The rule of what gsd/E521 judges, row by row.
+/// The rule of what gsd/E521 judges, row by row, and why it does not judge the rest.
 #[test]
 fn the_rule_of_what_e521_judges() {
     const PLAN: Option<&str> = Some("v/1/1-01");
     const TASK: Option<&str> = Some("v/1/1-01/T1");
-    let by_title = Some(Unlinked::ByTitle {
+    let by_title = Ok(Unlinked::ByTitle {
         task: "v/1/1-01/T1",
     });
-    let no_task = Some(Unlinked::NoTask { plan: "v/1/1-01" });
+    let no_task = Ok(Unlinked::NoTask { plan: "v/1/1-01" });
     let title = Some(LinkedBy::Title);
     let trailer = Some(LinkedBy::Trailer);
     let mut rows: Vec<Row> = vec![
         // A task found by the subject's title.
         (PLAN, TASK, Some("feat"), title, by_title),
-        // A task found by the trailer is linked.
-        (PLAN, TASK, Some("feat"), trailer, None),
+        // A task found by the trailer is linked, whatever the type.
+        (PLAN, TASK, Some("feat"), trailer, Err(Unjudged::NotByTitle)),
+        (PLAN, TASK, None, trailer, Err(Unjudged::NotByTitle)),
         // A docs commit is a plan's metadata commit, whatever it names.
-        (PLAN, TASK, Some("docs"), title, None),
-        (PLAN, None, Some("docs"), None, None),
+        (PLAN, TASK, Some("docs"), title, Err(Unjudged::Docs)),
+        (PLAN, TASK, Some("docs"), trailer, Err(Unjudged::Docs)),
+        (PLAN, None, Some("docs"), None, Err(Unjudged::Docs)),
         // No type, or another word: a task by title is still judged, no task is not.
-        (PLAN, None, None, None, None),
-        (PLAN, None, Some("wip"), None, None),
+        (PLAN, None, None, None, Err(Unjudged::NoTaskType)),
+        (PLAN, None, Some("wip"), None, Err(Unjudged::NoTaskType)),
         (PLAN, TASK, None, title, by_title),
+        (PLAN, TASK, Some("wip"), title, by_title),
     ];
     for kind in ["feat", "fix", "test", "refactor", "perf", "style", "chore"] {
         rows.push((PLAN, None, Some(kind), None, no_task));
     }
     // With no plan nothing is judged: the collector records only a commit that names one.
     for (_, task, kind, linked_by, _) in rows.clone() {
-        rows.push((None, task, kind, linked_by, None));
+        rows.push((None, task, kind, linked_by, Err(Unjudged::NoPlan)));
     }
     for (plan, task, kind, linked_by, expected) in rows {
         let kind = kind.and_then(CommitType::parse);

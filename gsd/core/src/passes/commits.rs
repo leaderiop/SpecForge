@@ -81,32 +81,47 @@ pub enum Unlinked<'a> {
     NoTask { plan: &'a str },
 }
 
+/// Why gsd/E521 does not judge a commit: what [`unlinked`] answers for one it does not judge, so a refusal to waive it
+/// names the exclusion that applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unjudged {
+    /// It names no plan: gsd-git records none such.
+    NoPlan,
+    /// It is a `docs` commit, a plan's metadata commit, whatever it names.
+    Docs,
+    /// Its subject's title did not find its task: its `Gsd-Task:` trailer did (gsd-git writes `linked_by` with every
+    /// task it finds).
+    NotByTitle,
+    /// It names no task and its type is not a task type: its subject has no `type:` header, or another word.
+    NoTaskType,
+}
+
 /// The rule of what gsd/E521 judges, read by the pass and by `waive_trailer` so they cannot disagree (ADR 0381 D3): a
 /// commit of a plan that is not `docs` (a plan's metadata commit) and whose task its subject's title found
-/// ([`Unlinked::ByTitle`]), or whose type is a task type and that names no task ([`Unlinked::NoTask`]). Anything else,
-/// a trailer-linked commit, a `docs` one, one with no type that names no task or one of no plan, it does not judge. A
-/// waived commit is still one the rule judges: the pass skips it before reading the rule.
+/// ([`Unlinked::ByTitle`]), or whose type is a task type and that names no task ([`Unlinked::NoTask`]). Anything else
+/// it does not judge, and it says why ([`Unjudged`]). A waived commit is still one the rule judges: the pass skips it
+/// before reading the rule.
 pub fn unlinked<'a>(
     plan: Option<&'a str>,
     task: Option<&'a str>,
     kind: Option<CommitType>,
     linked_by: Option<LinkedBy>,
-) -> Option<Unlinked<'a>> {
-    // The collector records only a commit that names a plan.
-    let plan = plan?;
+) -> Result<Unlinked<'a>, Unjudged> {
+    let plan = plan.ok_or(Unjudged::NoPlan)?;
     if kind == Some(CommitType::Docs) {
-        return None;
+        return Err(Unjudged::Docs);
     }
     match (task, linked_by) {
-        (Some(task), Some(LinkedBy::Title)) => Some(Unlinked::ByTitle { task }),
-        (None, _) if kind.is_some_and(CommitType::is_task) => Some(Unlinked::NoTask { plan }),
-        _ => None,
+        (Some(task), Some(LinkedBy::Title)) => Ok(Unlinked::ByTitle { task }),
+        (Some(_), _) => Err(Unjudged::NotByTitle),
+        (None, _) if kind.is_some_and(CommitType::is_task) => Ok(Unlinked::NoTask { plan }),
+        (None, _) => Err(Unjudged::NoTaskType),
     }
 }
 
 impl Commit {
     /// [`unlinked`] over the commit's own plan, task, type and `linked_by`.
-    pub fn unlinked(&self) -> Option<Unlinked<'_>> {
+    pub fn unlinked(&self) -> Result<Unlinked<'_>, Unjudged> {
         unlinked(
             self.plan.as_deref(),
             self.task.as_deref(),

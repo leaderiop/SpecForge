@@ -141,7 +141,7 @@ fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
             if commit.waived {
                 return None;
             }
-            let (message, suggestion) = match commit.unlinked()? {
+            let (message, suggestion) = match commit.unlinked().ok()? {
                 Unlinked::ByTitle { task } => (
                     format!(
                         "commit '{}' names task '{task}' by its subject's title, not by a Gsd-Task trailer",
