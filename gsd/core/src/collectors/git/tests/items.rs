@@ -200,6 +200,71 @@ fn a_commit_recorded_before_items_gets_them_once() {
     assert!(repo.asked.borrow().is_empty(), "no diff is asked");
 }
 
+/// The entity an op touches and the field it names; `None` for an op on the whole entity.
+fn touched(op: &PlanOp) -> (&str, Option<&str>) {
+    match op {
+        PlanOp::Create { id, .. } => (id, None),
+        PlanOp::Set { entity, field, .. }
+        | PlanOp::Unset { entity, field, .. }
+        | PlanOp::Append { entity, field, .. }
+        | PlanOp::Remove { entity, field, .. }
+        | PlanOp::Link { entity, field, .. }
+        | PlanOp::Unlink { entity, field, .. } => (entity, Some(field)),
+        PlanOp::Retitle { entity, .. }
+        | PlanOp::AddVerify { entity, .. }
+        | PlanOp::RemoveVerify { entity, .. }
+        | PlanOp::Delete { entity, .. }
+        | PlanOp::Rename { entity, .. }
+        | PlanOp::SetVerdict { entity, .. }
+        | PlanOp::RecordContext { entity, .. } => (entity, None),
+    }
+}
+
+/// A person's waiver sits beside what gsd-git recorded (ADR 0381): the collector backfills a held, waived commit's
+/// `items_changed` and writes nothing else of it, and never a `waiver`.
+#[test]
+fn a_waived_commit_recorded_before_items_gets_them_and_nothing_else() {
+    let held = &HASH[..12];
+    let mut graph = plan_graph().expect("a graph");
+    let mut commit = node(held, "commit", "plan");
+    commit.fields.insert(
+        "waiver".into(),
+        json!({ "reason": "recorded before the trailer existed", "by": "ada", "at": "2026-10-29T10:00:00Z" }),
+    );
+    graph.nodes.push(commit);
+    let input = |graph: GraphWire| CollectInput {
+        graph: Some(graph),
+        facts: facts(),
+        ..Default::default()
+    };
+    let file = || ranged("src/a.js", vec![hunk((6, 7), (6, 7))]);
+    let output = served(repo(file(), vec![]), &input(graph.clone()))
+        .0
+        .expect("an answer");
+    assert_eq!(
+        set(&output),
+        [(held.to_string(), json!(["js:app/src/a.js::B"]))]
+    );
+    let ops = &output.plan.as_ref().expect("a plan").ops;
+    for op in ops {
+        let (entity, field) = touched(op);
+        assert_ne!(field, Some("waiver"), "{op:?}");
+        if let PlanOp::Create { fields, .. } = op {
+            assert!(!fields.contains_key("waiver"), "{op:?}");
+        }
+        if entity == held {
+            assert_eq!(field, Some("items_changed"), "{op:?}");
+            assert!(matches!(op, PlanOp::Set { .. }), "{op:?}");
+        }
+    }
+    // Once written, the next collect answers no plan.
+    let last = graph.nodes.last_mut().expect("the commit");
+    last.fields
+        .insert("items_changed".into(), json!(["js:app/src/a.js::B"]));
+    let (output, _) = served(repo(file(), vec![]), &input(graph));
+    assert!(output.expect("an answer").plan.is_none());
+}
+
 /// Counted: two diffs per recorded commit with items (its own, and against the worktree), none for a held one.
 #[test]
 fn two_diffs_per_recorded_commit_with_items() {

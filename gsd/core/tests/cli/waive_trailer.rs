@@ -1,7 +1,11 @@
 //! A person waives gsd/E521 on a recorded commit at a terminal (ADR 0381), and the commit keeps what gsd-git
 //! recorded: the waiver is one block set beside it, and the sibling commit with the same fault keeps its error.
 
-use super::commands_support::{bytes, gsd_as_person, refused, strict, unchanged, unledger};
+use std::collections::BTreeSet;
+
+use serde_json::Value;
+
+use super::commands_support::{bytes, gsd_as_person, json, refused, strict, unchanged, unledger};
 use super::harness::{Project, Run};
 use super::profile_gates::{committed, e521_errors};
 
@@ -134,6 +138,97 @@ fn the_e521_help_names_a_waiver_that_clears_it() {
     assert_eq!(forms, ["by title", "no task"]);
     assert_eq!(e521_errors(&p), (0, Vec::new()));
 }
+
+/// The ledger lines of `id`'s recorded values, one `<id> <field> <digest>` per value, in the ledger's order.
+fn ledger_of(p: &Project, id: &str) -> Vec<String> {
+    p.read("specforge-harness")
+        .lines()
+        .filter(|l| l.starts_with(&format!("{id} ")))
+        .map(str::to_string)
+        .collect()
+}
+
+/// `fields` without the commit's `waiver`.
+fn without_waiver(mut fields: Value) -> Value {
+    fields.as_object_mut().expect("fields").remove("waiver");
+    fields
+}
+
+/// A ledger line holds the digest of the exact value, so equal lines prove byte-identical recorded values.
+#[test]
+fn a_waived_commit_keeps_every_field_gsd_git_recorded() {
+    let p = title_linked();
+    strict(&p);
+    let id = commit_of(&p, "feat");
+    let fields = p.fields_of(&id);
+    assert!(fields.get("waiver").is_none(), "{fields}");
+    let lines = ledger_of(&p, &id);
+    assert!(lines.len() > 1, "one line per recorded field: {lines:?}");
+    let before = bytes(&p);
+
+    let run = gsd_as_person(
+        &p,
+        "waive-trailer",
+        &[&id, "recorded before the trailer existed", "Grace Hopper"],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    // The waiver wrote the plan file that holds the commit and the ledger, nothing else.
+    let after_waiver = bytes(&p);
+    let moved: Vec<&String> = after_waiver
+        .keys()
+        .chain(before.keys())
+        .filter(|k| before.get(*k) != after_waiver.get(*k))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let [file, ledger] = &moved[..] else {
+        panic!("two files moved: {moved:?}");
+    };
+    assert_eq!(ledger.as_str(), "specforge-harness", "{moved:?}");
+    assert!(
+        file.ends_with(".spec") && after_waiver[*file].contains(&id),
+        "{file}"
+    );
+    let waived = ledger_of(&p, &id);
+    let (added, kept): (Vec<String>, Vec<String>) = waived
+        .iter()
+        .cloned()
+        .partition(|l| l.starts_with(&format!("{id} waiver ")));
+    assert_eq!((added.len(), &kept), (1, &lines), "{waived:?}");
+    let waived_fields = p.fields_of(&id);
+
+    // A collect with nothing new proves gsd-git skips the commit it holds: no plan, not a byte written.
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        json(&run)["runners"][0].get("plan").is_none(),
+        "{}",
+        run.stdout
+    );
+    unchanged(&p, &after_waiver);
+    assert_eq!(without_waiver(p.fields_of(&id)), fields);
+    assert_eq!(ledger_of(&p, &id), waived);
+
+    // A collect that records another commit proves the plan it writes leaves this one, waiver included, alone.
+    p.git_commit(
+        "test(01-01): Store module\n\nGsd-Task: 01-01/T1\n",
+        &[("src/tasks.js", &"a\n".repeat(3))],
+        LATER,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        json(&run)["runners"][0].get("plan").is_some(),
+        "{}",
+        run.stdout
+    );
+    assert_eq!(commit_of(&p, "test").len(), 12);
+    assert_eq!(p.fields_of(&id), waived_fields);
+    assert_eq!(ledger_of(&p, &id), waived);
+}
+
+/// After `title_linked`'s plan metadata commit.
+const LATER: &str = "2026-10-29T10:00:00Z";
 
 /// `specforge gsd waive-trailer <args>`, as a person at a terminal runs it.
 fn waive(p: &Project, args: &[&str]) -> Run {
