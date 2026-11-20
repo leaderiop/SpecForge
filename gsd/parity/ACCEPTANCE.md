@@ -201,9 +201,10 @@ Not verified:
   upstream's own rule (any single mode but `whitespace` refuses), a change from the old gsd behaviour (D-K20c-3).
 - `[cwd-branch]` `workflow_guard` judges a `git -C <dir> add -f` by the branch of the hook's cwd, not of `<dir>` (upstream
   probes the target); upgrade when the host can be asked another directory's branch (ADR 0320).
-- The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
-  `approve_validation`, `waive_window`, `dispose_refactor`) are run by the person at a terminal and refused to an agent
-  (ADR 0301); upstream's agent transcribes the person's reply. `pause` stays an agent's. An automated UAT result
+- The seven commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+  `approve_validation`, `waive_window`, `dispose_refactor`, `waive_trailer`) are run by the person at a terminal and
+  refused to an agent (ADR 0301); upstream's agent transcribes the person's reply. `waive_trailer` (a person's waiver of
+  gsd/E521 on a recorded commit, ADR 0381) has no upstream counterpart: upstream records no commit. `pause` stays an agent's. An automated UAT result
   (upstream's `auto_passed`, recorded without asking the person) is the agent's: `record_automated_uat` writes
   `source: automated`, and `set_uat_result --source automated` is refused with a hint naming it (REVIEW-k20a M1).
 - Limit of the human-attested commands: the proof is that stdin is a terminal, and the kernel's `core.human_guard`
