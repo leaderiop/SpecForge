@@ -483,22 +483,67 @@ fn a_verdict_that_cites_no_file_names_none() {
     assert!(!message.contains("''"), "{message}");
 }
 
-#[test]
-fn a_file_the_verdict_at_the_base_did_not_read_is_not_named_changed() {
+/// TR1's stale verdict cites `src/tasks.js` at `C` and `src/added.js`; at the base it cited `then`.
+fn with_a_file_added_since(then: &[(&str, &str)]) -> PassInput {
     let now = verdict(
         "stale",
         &["cited"],
         &[("src/tasks.js", "C"), ("src/added.js", "N")],
     );
-    let then = verdict("fresh", &[], &[("src/tasks.js", "A")]);
-    let input = input(
+    input(
         vec![now],
-        json!({ "delta": delta(revision(), vec![]), "previous": baseline(R, then) }),
+        json!({ "delta": delta(revision(), vec![]), "previous": baseline(R, verdict("fresh", &[], then)) }),
+    )
+}
+
+#[test]
+fn a_file_the_verdict_at_the_base_did_not_read_is_named_apart() {
+    let message = on_tr1(&with_a_file_added_since(&[("src/tasks.js", "A")])).message;
+    assert!(
+        message.ends_with(
+            "only the files it cites changed: 'src/tasks.js'; it did not cite 'src/added.js' at the base"
+        ),
+        "{message}"
+    );
+}
+
+/// The base's verdict cited no file, another file, or one unchanged file beside the one cited since: no file it read
+/// then changed, and one it did not read may have, so the pass claims nothing about the files.
+#[test]
+fn no_change_among_the_files_cited_at_the_base_claims_nothing_of_the_others() {
+    for then in [
+        &[][..],
+        &[("src/old.js", "A")][..],
+        &[("src/tasks.js", "C")][..],
+    ] {
+        let message = on_tr1(&with_a_file_added_since(then)).message;
+        assert!(
+            message.ends_with(
+                "the spec it reads is unchanged; it cites 'src/tasks.js', 'src/added.js'"
+            ),
+            "{then:?}: {message}"
+        );
+        assert!(!message.contains("no file it cites changed"), "{message}");
+        assert!(!message.contains("neither"), "{message}");
+        assert!(!message.contains("did not cite"), "{message}");
+    }
+}
+
+#[test]
+fn a_spec_change_over_a_base_that_cited_no_file_claims_nothing_of_the_files() {
+    let input = input(
+        vec![stale_after_an_edit()],
+        json!({
+            "delta": delta(revision(), vec![modified("truth", TR1, &["text"], &[])]),
+            "previous": baseline(R, verdict("fresh", &[], &[])),
+        }),
     );
     let message = on_tr1(&input).message;
     assert!(
-        message.ends_with("only the files it cites changed: 'src/tasks.js'"),
+        message.ends_with(&format!(
+            "the spec it reads changed: truth '{TR1}' (text); it cites 'src/tasks.js', 'test/tasks.test.js'"
+        )),
         "{message}"
     );
-    assert!(!message.contains("src/added.js"), "{message}");
+    assert!(!message.contains("no file it cites changed"), "{message}");
 }

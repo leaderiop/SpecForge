@@ -81,7 +81,9 @@ The reason: the advisory explains a verdict another rule already judges; it is n
 - A file edit is not in the graph delta.
 - A truth whose verdict is missing, unrecorded or unreadable is not named, though `re_verify --stale-only` lists it.
 - The files a stale truth cites that changed are named only under a `revision` base, from the judgements at the base
-  and now; a path the judgement at the base does not list is not named as changed.
+  and now. A path the judgement at the base does not list has no digest there: it is never called unchanged. Beside a
+  file that changed it is named as not cited at the base; with no file the base lists changed, the message names the
+  files the truth cites without claiming which changed, as under a session's base.
 - Cited entities and test results are named only through the judgement's changed input names.
 - What is named is what changed since the base, not since the verdict; ADR 0377's Limit that a verdict records one
   digest for all its citations stands.

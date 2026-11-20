@@ -8,7 +8,8 @@
 //!
 //! With no base (a plain `check`, every node added) it says nothing: `gsd/E501` already reports the verdict. The files
 //! half is exact only under a `revision` base whose baseline was read at the same commit; under a session's last check
-//! it names the files the truth cites without claiming which changed.
+//! it names the files the truth cites without claiming which changed, and so it does under a revision when none of the
+//! files the verdict at the base read changed but it cites one now that it did not cite then.
 
 use specforge_extension_sdk::prelude::*;
 
@@ -51,7 +52,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
             let read = read_by(input, truth, plan);
             let spec = spec_changes(delta, &read);
             let files = changed_files(input, delta, truth, &verdict);
-            let message = message(&truth.id, &verdict, &base, &spec, files.as_deref());
+            let message = message(&truth.id, &verdict, &base, &spec, files.as_ref());
             let found =
                 PassDiagnostic::new("I527", PassSeverity::Info, message).with_entity(&truth.id);
             match plan {
@@ -174,27 +175,41 @@ fn aspect_name(aspect: &DeltaAspect) -> String {
     }
 }
 
-/// The files the truth's verdict cites whose digest at the base differs from now, in the current judgement's order;
-/// `None` (unknown) unless the base is a revision the baseline was read at and the truth's judgement there lists its
-/// files ([`files_at_base`]). A path the judgement at the base does not list is not named.
+/// What the pass can say of the files a stale verdict cites, against the truth's judgement at the base.
+struct Files<'a> {
+    /// The files it cites whose digest at the base differs from now, in the current judgement's order.
+    changed: Vec<&'a str>,
+    /// The files it cites that the judgement at the base does not list: whether they changed is not known.
+    uncited: Vec<&'a str>,
+}
+
+/// The files the truth's verdict cites, each changed since the base, unchanged or not cited there; `None` (unknown)
+/// unless the base is a revision the baseline was read at and the truth's judgement there lists its files
+/// ([`files_at_base`]). Also `None` when no file the judgement at the base lists changed but one it does not list is
+/// cited now: such a file may have changed, so the pass cannot say that none did.
 fn changed_files<'a>(
     input: &PassInput,
     delta: &DeltaPayload,
     truth: &PassEntity,
     now: &Verdict<'a>,
-) -> Option<Vec<&'a str>> {
+) -> Option<Files<'a>> {
     let DeltaBase::Revision { id } = &delta.base else {
         return None;
     };
     let previous = input.previous.as_ref().filter(|p| p.revision == *id)?;
     let then = files_at_base(previous.entities.get(&truth.id)?)?;
-    Some(
-        now.files
-            .iter()
-            .filter(|(path, digest)| then.iter().any(|(p, d)| p == path && d != digest))
-            .map(|(path, _)| *path)
-            .collect(),
-    )
+    let mut files = Files {
+        changed: Vec::new(),
+        uncited: Vec::new(),
+    };
+    for (path, digest) in &now.files {
+        match then.iter().find(|(p, _)| p == path) {
+            Some((_, before)) if before != digest => files.changed.push(*path),
+            Some(_) => {}
+            None => files.uncited.push(*path),
+        }
+    }
+    (files.uncited.is_empty() || !files.changed.is_empty()).then_some(files)
 }
 
 /// The advisory: the verdict, the inputs it says changed since it was recorded, then what changed since the base.
@@ -203,7 +218,7 @@ fn message(
     verdict: &Verdict,
     base: &str,
     spec: &[String],
-    files: Option<&[&str]>,
+    files: Option<&Files>,
 ) -> String {
     let changed = if verdict.changed.is_empty() {
         String::new()
@@ -219,7 +234,7 @@ fn message(
     } else {
         format!("; it cites {cites}")
     };
-    let cause = match (spec.is_empty(), files) {
+    let cause = match (spec.is_empty(), files.map(|f| f.changed.as_slice())) {
         (false, Some([])) => format!(
             "the spec it reads changed: {}; no file it cites changed",
             spec.join(", ")
@@ -237,7 +252,16 @@ fn message(
         ),
         (true, None) => format!("the spec it reads is unchanged{it_cites}"),
     };
-    format!("the verifier's verdict on truth '{truth}' is stale{changed}: since {base}, {cause}")
+    let uncited = match files {
+        Some(files) if !files.uncited.is_empty() => format!(
+            "; it did not cite {} at the base",
+            quoted(files.uncited.iter().copied())
+        ),
+        _ => String::new(),
+    };
+    format!(
+        "the verifier's verdict on truth '{truth}' is stale{changed}: since {base}, {cause}{uncited}"
+    )
 }
 
 /// Each path in single quotes, escaped so a message stays one line, joined by `, `.
