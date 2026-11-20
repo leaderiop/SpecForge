@@ -28,14 +28,15 @@ extensions and the profiles declare it as their peer.
 A setting is declared before the round that reads it, so most are inert today; `specforge settings` lists what a
 project resolves them to. A rule whose code is in the book is silent until its round.
 
-Under gsd-strict and gsd-plus an edit to a file a verdict cites refuses every gated step in every phase, not only in
-the phase that holds the verdict, until that verdict is judged again. The refusal (`gsd/E516`) names the prompt to run
-and the phase to run it on, and every other phase that holds an owed verdict of the same judge. Each such phase needs
-its own run, and a prompt run on one is refused while another's verdict is owed, so with several holders record them
-with `specforge gsd re-verify <phase> --stale-only` (it lists the stale verifier verdicts) and
-`specforge gsd record-verdict`, which no gate refuses. An unreadable verdict elsewhere refuses too but is not listed as
-a holder: its own diagnostic says what to fix. `specforge.verdict_gate: false` beside the profile is the way out for a
-project that will not judge again.
+Under gsd-strict and gsd-plus an edit to a file a verdict cites refuses every gated step, in every phase and
+milestone, but the prompts that judge that verdict again on the phase or milestone that holds it, until the verdict is
+recorded again. The refusal (`gsd/E516`) names those prompts and that holder, with the flags a run needs
+(`/gsd-plan-phase <phase> --research` for a researcher verdict), and every verdict that refuses each run it names: one
+owed in another phase or milestone, or one of another judge in the same phase. Record those with
+`specforge gsd record-verdict`, which no gate refuses; `specforge gsd re-verify <plan> --stale-only` lists the
+verifier's verdicts that are not fresh and records nothing. A verdict no prompt's run records again (a quick plan's,
+or a researcher's in a complete phase) names `specforge gsd record-verdict` alone. `specforge.verdict_gate: false`
+beside the profile is the way out for a project that will not judge again.
 
 ## Build, test, load
 

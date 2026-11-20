@@ -36,10 +36,10 @@ yet, so nothing reports them missing, and an executed plan's plan check is histo
 verdicts of the subject that are not fresh: stale, missing, unrecorded or unreadable, each with the inputs that changed
 and the selector the rule reads them with. `/gsd-execute-phase` runs it before the verifier, which judges exactly what it
 lists; every other verdict stays as recorded, byte for byte. A fresh verdict, passing or failing, is never listed, since
-it would be judged the same again. Upstream re-verifies the whole phase. Under gsd-strict and gsd-plus a verdict that
-is not fresh also refuses every workflow step but the one that judges it, in any phase, and the refusal's help names
-the prompt to run and the phase that holds the verdict, and every other phase that holds one when there are several,
-each of which needs its own run (gsd/E516, [rules.md](rules.md)).
+it would be judged the same again. Upstream re-verifies the whole phase. Under gsd-strict and gsd-plus a verdict that is
+not fresh also refuses every workflow step, in any phase, but the ones that judge it on the phase that holds it, and the
+refusal's help names the prompt to run on that phase and every verdict, in another phase or of another judge, that
+refuses that run (gsd/E516, [rules.md](rules.md)).
 
 **Prohibitions.** A judgment-tier prohibition, one that names no enforcing `test`, owes the verifier a verdict once its
 plan is complete (gsd/W525: `held`, `violated` or `unverified`, passing `held`), over the prohibition, its plan, its

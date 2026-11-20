@@ -126,7 +126,9 @@ Two different values, or one of another form, is unreadable (as upstream's `ship
 `gate-status:` as missing). An unreadable trailer, or one that names no task, falls back to the subject, and the plan's
 title notes `(trailer of <12 hex> names no task: <value or "unreadable">)`. A revert names no task, even with a trailer.
 GSD's executor writes the trailer: `gsd-executor.md`'s commit step ends the message with it as a second `-m`, its last
-paragraph (ADR 0351).
+paragraph (ADR 0351). A commit already recorded keeps its fields: a trailer added later links only the commits
+recorded from then on, and amending a commit to add one gives a new hash, recorded beside the old commit, whose
+`linked_by` and gsd/E521 stay (ADR 0380).
 
 A plan op refused `stale_revision` (the plan's file changed since the compile) writes
 nothing, and the next run records the same commits. Merges are read for their parents and never recorded.

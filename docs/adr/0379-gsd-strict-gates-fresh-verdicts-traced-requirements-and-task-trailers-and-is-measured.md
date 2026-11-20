@@ -199,16 +199,21 @@ Each holds once the change this ADR opens lands.
   and passing test trace, and has an error on a task commit without its `Gsd-Task:` trailer.
 - Under gsd-strict any verdict that is stale, unrecorded or unreadable anywhere in the project refuses every gate (ADR
   0377 D7), including after ordinary edits to files a closed phase's verdicts cite, until the verdict is recorded
-  again. The refusal (`gsd/E516`) names the prompt that records the verdict again and the phase it runs on, as a
-  slash command and as `specforge prompt gsd.<id> <subject>`: `/gsd-execute-phase` on the phase that holds a verifier
-  verdict (running it on the gated phase does not excuse a verdict another phase holds), and for another rule the
-  prompt that runs its judge; for a verifier verdict, `specforge gsd re-verify <phase> --stale-only` lists the
-  verifier's verdicts that are not fresh first. When several phases hold the same judge's stale or unrecorded
-  verdicts, the refusal names every holder and each needs its own run: a prompt run on one holder is refused while
-  another holder's verdict is owed (it sits outside the prompt's scope), so the verdicts of several holders are
-  recorded with `specforge gsd re-verify` and `specforge gsd record-verdict`, which no gate refuses. An unreadable
-  verdict in another phase refuses every gate too but is not listed among the holders, because its own diagnostic
-  carries its fix (the inputs it cannot read). The way out for a project that will not re-judge is the explicit
+  again. The refusal (`gsd/E516`) names the prompts whose run records the verdict again, each on the phase or
+  milestone that holds it, as a slash command and as `specforge prompt gsd.<id> <subject>`, with the flags the run
+  needs. Each workflow declares the judges whose verdicts its run records again: `/gsd-execute-phase` the verifier's,
+  `/gsd-plan-phase` and `/gsd-plan-review-convergence` the plan checker's, `/gsd-plan-phase --research` the phase
+  researcher's (without the flag it reuses the research it finds), `/gsd-audit-milestone` the integration checker's
+  and `/gsd-spec-phase` its own. A prompt that runs a judge only over what it makes (`/gsd-verify-work` its fix plans,
+  `/gsd-ultraplan-phase` the plans it imports) is not named. Running a prompt on the gated phase does not excuse a
+  verdict another phase holds. A run excuses only the verdicts inside its scope whose judge it runs, so the refusal
+  also names every verdict that refuses each run it names, by its holder and its judge: one owed in another phase, or
+  one of another judge or extension in the same phase (a stale verifier verdict beside a stale researcher verdict
+  refuses both prompts). Those are recorded with `specforge gsd record-verdict`, which no gate refuses; for a verifier
+  verdict, `specforge gsd re-verify <plan> --stale-only` lists the verifier's verdicts that are not fresh and records
+  nothing. A verdict no prompt's run records again names `specforge gsd record-verdict` alone: one on an entity no
+  phase or milestone scopes (a quick plan, the project's research), or a researcher verdict in a complete phase, where
+  `/gsd-plan-phase` stops. The way out for a project that will not re-judge is the explicit
   `specforge.verdict_gate: false` beside the profile, which beats the preset; the profile test shows it.
 - Under gsd-strict a verdict that is missing inside a gate's scope refuses it too, unless the gate's own workflow runs
   the verdict's judge (ADR 0377 D7). Spec and research judging therefore come before planning. A phase whose SPEC

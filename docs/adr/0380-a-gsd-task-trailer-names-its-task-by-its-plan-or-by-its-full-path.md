@@ -42,13 +42,16 @@ across milestones.
 
 ## D2. gsd/E521's suggestion names the trailer to add
 
-The suggestion is derived from the commit it judges:
+The suggestion is derived from the commit it judges, and names the trailer the later commits add:
 
-- For a commit the subject's title linked, it names the trailer `Gsd-Task:` followed by the task's full id.
-- For a task commit that names no task, it names the trailer `Gsd-Task:` followed by the plan's full id and `/<task>`,
-  naming one of the plan's tasks.
+- For a commit the subject's title linked, the task's later commits end with `Gsd-Task:` followed by the task's full
+  id.
+- For a task commit that names no task, the plan's later task commits end with `Gsd-Task:` followed by the plan's
+  full id and `/<task>`, naming one of the plan's tasks.
 
-Both add that `<plan>/<task>`, with the plan as a subject's scope writes it, reads the same.
+Both add the plan-local form, written out from the id (`01-01/T1`, `01-01/<task>`), which reads the same while one
+plan has that name; a quick plan's id is its own plan-local form. Both say that the commit judged keeps its fields
+(Limits), so its own error stays.
 
 The reason: the diagnostic that asks for a trailer says which forms the collector reads, and its author can paste it.
 
@@ -62,11 +65,14 @@ The reason: the diagnostic that asks for a trailer says which forms the collecto
 
 ## Limits
 
-- The shape accepts any depth and the graph decides, so a value of another depth (`a/b/c/T1`) names no task and falls
-  back to the subject.
+- The shape accepts any depth and the graph decides: a value that is a task's exact id or a unique `/`-boundary suffix
+  of one resolves at any depth (`01/01-01/T1` names `v1.0/01/01-01/T1`), and one that is neither (`a/b/c/T1`) names
+  no task and falls back to the subject.
 - A trailer is an author's claim, as before: it can name another plan's task, which the trace then shows.
 - A commit is recorded once (its 12-hex name is the key), so a commit recorded before this decision without its task
-  keeps the fields it was written with; the wider reading links commits gsd-git records from now on.
+  keeps the fields it was written with; the wider reading links commits gsd-git records from now on. Amending a
+  commit to add the trailer gives a new hash, recorded beside the old commit, which keeps its `linked_by` and its
+  `gsd/E521`.
 
 ## What each decision becomes
 
@@ -87,7 +93,8 @@ ADR 0331: 1 amended. ADRs 0352 and 0351: 1 kept each.
   names no plan no longer loses the commit.
 - Two milestones that both have a plan `01-01` are told apart by the full id; the plan-local form stays ambiguous there
   and falls back to the subject.
-- `gsd/E521`'s suggestion is a trailer the author can paste.
+- `gsd/E521`'s suggestion is a trailer the author can paste on the later commits, and says that the commit judged
+  keeps its error.
 - A hostile value (a tab, a separator, a `:`, a rooted or doubled slash) stays unreadable, and a value is only a graph
   lookup, never a path.
 - `gsd-compat` reads the same trailers as the other profiles, so a full-path trailer that was unreadable now links
@@ -98,3 +105,5 @@ ADR 0331: 1 amended. ADRs 0352 and 0351: 1 kept each.
 
 - A task or plan id with a character outside the set.
 - Adopters who write a trailer of another depth and expect it to resolve.
+- Adopters who need a recorded commit corrected: gsd-git would drop a commit entity whose hash has left the log, a
+  decision of its own.
