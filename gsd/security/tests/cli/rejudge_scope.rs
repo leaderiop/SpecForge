@@ -43,6 +43,22 @@ fn listed(p: &Project) -> BTreeSet<Verdict> {
     listed
 }
 
+/// The selectors of the inputs of `rule` (qualified) that read project files, from `@gsd/security`'s code book.
+fn file_inputs(rule: &str) -> Vec<&'static str> {
+    let local = rule.strip_prefix("gsd.security/").expect("a security rule");
+    let judged = gsd_security::judged::JUDGED
+        .iter()
+        .find(|j| j.code == local)
+        .unwrap_or_else(|| panic!("{rule} is not in the code book"));
+    judged
+        .targets
+        .iter()
+        .flat_map(|t| t.inputs)
+        .map(|(_, selector)| *selector)
+        .filter(|selector| selector.contains("file("))
+        .collect()
+}
+
 #[test]
 fn re_verification_and_the_secure_phase_list_exactly_the_stale_verdicts_after_any_single_file_edit()
 {
@@ -96,6 +112,12 @@ fn re_verification_and_the_secure_phase_list_exactly_the_stale_verdicts_after_an
             .collect();
         assert_eq!(scope.per_edit[file], expected, "{file}");
     }
+    // The oracle's read sets of the two security rules, against their code book: a threat's verdict reads the files
+    // its `files` field names, and the audit's reads no file at all, so no single-file edit stales it. The sweep shows
+    // only that W303 is never wrongly listed (0 of 0), not that its re-judgement is exact.
+    assert_eq!(file_inputs(W302), ["file(self.files)"]);
+    assert_eq!(file_inputs(W303), Vec::<&str>::new());
+    assert_eq!(scope.by_rule[W303], (0, 0), "{scope:#?}");
     let supply_chain: BTreeSet<Verdict> = ["v1.0/01/01-01/T-01-SC", "v1.0/01/01-02/T-01-SC"]
         .iter()
         .map(|threat| (W302.to_string(), threat.to_string()))

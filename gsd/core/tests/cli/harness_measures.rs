@@ -306,6 +306,11 @@ impl Project {
     /// `query --inputs`): a truth's verifier verdict reads what it cites ([`Project::cites`]), an artifact's its
     /// `path`, a key link's its `from` and `to`; a threat's mitigation verdict reads its `files`; the audit's mapping
     /// verdict no project file. Any other rule or kind panics, so a new one gets its read set on purpose.
+    ///
+    /// The audit's mapping verdict (`gsd.security/W303`) has no `file(…)` input: it reads entities only (the audit, its
+    /// phase's summaries and threats), and an edit that appends a line break changes no entity's fields, so no
+    /// single-file edit can stale it. `@gsd/security`'s scope test asserts that against its code book, so the empty
+    /// set here is not taken on trust.
     pub fn reads(&self, rule: &str, entity: &str) -> BTreeSet<String> {
         let node = self.node(entity);
         let fields = &node["fields"];

@@ -114,6 +114,9 @@ SpecForge's users could fill.
 ## Limits
 
 - The measures run on two twins and one gate (`/gsd-ship`).
+- On the vault, the audit's mapping verdict (`gsd.security/W303`) reads entities only (the audit, its phase's
+  summaries and threats), no file, so no single-file edit stales it: its `0 of 0` shows it is never wrongly listed,
+  not that its re-judgement is exact. The scope test asserts its code book declares no file input for it.
 - `gsd/E521` reads the commits gsd-git records, so it is silent on a project that records none.
 - On a twin whose requirements no recorded commit traces, the ship gate is refused by `gsd/E515` whatever the verdicts
   are, so the freshness measure reads `gsd/E516`'s own gate entry and diagnostics.
