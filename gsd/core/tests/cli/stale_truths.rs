@@ -7,16 +7,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 
+use super::fresh_taskboard::touch;
 use super::harness::{Project, judged, taskboard};
 
 const I527: &str = "gsd/I527";
-
-/// Appends one comment line to a file of the project.
-fn touch(p: &Project, file: &str) {
-    let text = p.read(file);
-    assert!(text.ends_with('\n'), "{file} ends with a line break");
-    p.write(file, &format!("{text}// edited\n"));
-}
 
 /// `{nodes, edges}` of `specforge diff --kind truth --kind plan --kind phase`: what the delta of the pass holds since
 /// `HEAD`.

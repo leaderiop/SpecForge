@@ -16,7 +16,7 @@ const TRUTHS: [&str; 3] = [
 ];
 
 /// Appends one comment line to a file of the project.
-fn touch(p: &Project, file: &str) {
+pub(super) fn touch(p: &Project, file: &str) {
     let text = p.read(file);
     assert!(text.ends_with('\n'), "{file} ends with a line break");
     p.write(file, &format!("{text}// edited\n"));

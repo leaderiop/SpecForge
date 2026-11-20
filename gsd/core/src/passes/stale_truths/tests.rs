@@ -258,23 +258,48 @@ fn the_suggestion_names_re_verify_on_the_truths_plan() {
     );
 }
 
+/// The kind `selector` reaches from a truth, through each reference field it names (`self.plan.phase`: truth's
+/// `plan`, then that plan's `phase`), as the kinds declare them; `None` for one that reads no entity (a fact query).
+fn kind_from_a_truth(selector: &str) -> Option<&'static str> {
+    if selector.contains('(') {
+        return None;
+    }
+    let mut fields = selector.split('.');
+    if fields.next() != Some("self") {
+        return None;
+    }
+    fields.try_fold("truth", |kind, name| {
+        let kind = crate::kinds::KINDS.iter().find(|k| k.name == kind)?;
+        match kind.fields.iter().find(|f| f.name == name)?.ty {
+            gsd_kit::dsl::Ty::Ref(target) => Some(target),
+            _ => None,
+        }
+    })
+}
+
 #[test]
-fn the_delta_kinds_are_the_entities_a_truths_verdict_reads() {
-    let reads_an_entity = |selector: &str| {
-        (selector == "self" || selector.starts_with("self.")) && !selector.contains('(')
-    };
-    let entities: Vec<&str> = crate::judged::TRUTH_INPUTS
+fn the_delta_kinds_are_the_kinds_a_truths_verdict_reads() {
+    let (entities, facts): (Vec<_>, Vec<_>) = crate::judged::TRUTH_INPUTS
         .iter()
-        .filter(|(_, selector)| reads_an_entity(selector))
-        .map(|(name, _)| *name)
-        .collect();
-    assert_eq!(entities, super::READS);
-    let left_out: Vec<&str> = crate::judged::TRUTH_INPUTS
+        .partition(|(_, selector)| kind_from_a_truth(selector).is_some());
+    let kinds: Vec<&str> = entities
         .iter()
-        .filter(|(_, selector)| !reads_an_entity(selector))
-        .map(|(name, _)| *name)
+        .filter_map(|(_, selector)| kind_from_a_truth(selector))
         .collect();
+    assert_eq!(kinds, READS);
+    // `read_by` follows the same edges: the truth's `plan`, then the plan's `phase`.
+    let selectors: Vec<&str> = entities.iter().map(|(_, selector)| *selector).collect();
+    assert_eq!(selectors, ["self", "self.plan", "self.plan.phase"]);
+    let left_out: Vec<&str> = facts.iter().map(|(name, _)| *name).collect();
     assert_eq!(left_out, ["tests"]);
+}
+
+#[test]
+fn a_selector_through_another_reference_reaches_another_kind() {
+    assert_eq!(kind_from_a_truth("self.plan.phase"), Some("phase"));
+    assert_ne!(kind_from_a_truth("self.plan.milestone"), Some("phase"));
+    assert_eq!(kind_from_a_truth("self.text"), None);
+    assert_eq!(kind_from_a_truth("test(self<test.names)"), None);
 }
 
 #[test]
@@ -608,4 +633,73 @@ fn an_id_or_a_name_with_a_line_break_stays_on_one_line() {
         "{suggestion}"
     );
     assert!(!suggestion.contains('\n'), "{suggestion}");
+}
+
+/// TR1's plan and phase both changed since `R`, TR1's verdict stale after the edit, and the edges `label` dropped.
+fn without_edge(label: &str) -> PassInput {
+    let nodes = vec![
+        modified("plan", PLAN, &["objective"], &[]),
+        modified("phase", PHASE, &[], &["title"]),
+    ];
+    let mut input = since_r(nodes, stale_after_an_edit());
+    input.edges.retain(|e| e.label != label);
+    input
+}
+
+#[test]
+fn a_stale_truth_with_no_plan_names_no_plan_and_suggests_nothing() {
+    let advisory = on_tr1(&without_edge("plan"));
+    assert_eq!(advisory.suggestion, None);
+    assert!(
+        advisory
+            .message
+            .ends_with("only the files it cites changed: 'src/tasks.js'"),
+        "{}",
+        advisory.message
+    );
+}
+
+#[test]
+fn a_plan_with_no_phase_names_its_plan_and_not_the_phase() {
+    let advisory = on_tr1(&without_edge("phase"));
+    assert!(
+        advisory.message.contains(&format!(
+            "the spec it reads changed: plan '{PLAN}' (objective); the files it cites changed too: 'src/tasks.js'"
+        )),
+        "{}",
+        advisory.message
+    );
+    assert!(
+        !advisory.message.contains("phase '"),
+        "{}",
+        advisory.message
+    );
+    assert!(advisory.suggestion.is_some());
+}
+
+/// At the base TR1 held a missing or unrecorded verdict, whose files the host does not fill, or none: the files it
+/// cites are named without a claim of which changed.
+#[test]
+fn a_truth_with_no_verdict_listing_files_at_the_base_claims_no_file() {
+    let at_the_base = [
+        vec![verdict("missing", &[], &[])],
+        vec![verdict("unrecorded", &[], &[])],
+        vec![],
+    ];
+    for judgements in at_the_base {
+        let input = input(
+            vec![stale_after_an_edit()],
+            json!({
+                "delta": delta(revision(), vec![]),
+                "previous": { "revision": R, "entities": { TR1: { "kind": "truth", "judgements": judgements } } },
+            }),
+        );
+        let message = on_tr1(&input).message;
+        assert!(
+            message.ends_with(
+                "the spec it reads is unchanged; it cites 'src/tasks.js', 'test/tasks.test.js'"
+            ),
+            "{judgements:?}: {message}"
+        );
+    }
 }
