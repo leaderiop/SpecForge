@@ -72,6 +72,50 @@ impl CommitType {
     }
 }
 
+/// Why gsd/E521 judges a commit: what [`unlinked`] answers for one it judges.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unlinked<'a> {
+    /// Its subject's title found `task`, and no `Gsd-Task:` trailer names it.
+    ByTitle { task: &'a str },
+    /// It is a task commit of `plan` that names no task.
+    NoTask { plan: &'a str },
+}
+
+/// The rule of what gsd/E521 judges, read by the pass and by `waive_trailer` so they cannot disagree (ADR 0381 D3): a
+/// commit of a plan that is not `docs` (a plan's metadata commit) and whose task its subject's title found
+/// ([`Unlinked::ByTitle`]), or whose type is a task type and that names no task ([`Unlinked::NoTask`]). Anything else,
+/// a trailer-linked commit, a `docs` one, one with no type that names no task or one of no plan, it does not judge. A
+/// waived commit is still one the rule judges: the pass skips it before reading the rule.
+pub fn unlinked<'a>(
+    plan: Option<&'a str>,
+    task: Option<&'a str>,
+    kind: Option<CommitType>,
+    linked_by: Option<LinkedBy>,
+) -> Option<Unlinked<'a>> {
+    // The collector records only a commit that names a plan.
+    let plan = plan?;
+    if kind == Some(CommitType::Docs) {
+        return None;
+    }
+    match (task, linked_by) {
+        (Some(task), Some(LinkedBy::Title)) => Some(Unlinked::ByTitle { task }),
+        (None, _) if kind.is_some_and(CommitType::is_task) => Some(Unlinked::NoTask { plan }),
+        _ => None,
+    }
+}
+
+impl Commit {
+    /// [`unlinked`] over the commit's own plan, task, type and `linked_by`.
+    pub fn unlinked(&self) -> Option<Unlinked<'_>> {
+        unlinked(
+            self.plan.as_deref(),
+            self.task.as_deref(),
+            self.kind,
+            self.linked_by,
+        )
+    }
+}
+
 pub fn target<'a>(input: &'a PassInput, source: &str, label: &str) -> Option<&'a str> {
     input
         .edges

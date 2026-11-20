@@ -1,7 +1,7 @@
 //! The passes of `@gsd/core`.
 
 mod citations;
-mod commits;
+pub(crate) mod commits;
 mod cross_plan;
 mod decision_coverage;
 pub(crate) mod derive;

@@ -8,9 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_extension_sdk::prelude::*;
 
-use super::commits::{CommitType, commits};
+use super::commits::{Unlinked, commits};
 use super::plans::{children, links, of_kind, phase_of, strings, text};
-use crate::collectors::LinkedBy;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("traceability", |p| {
@@ -122,12 +121,11 @@ fn plan_local(id: &str, segments: usize) -> Option<&str> {
     Some(&id[at + 1..])
 }
 
-/// E521, on the commit: a recorded commit whose task its subject's title found, or one of a task type that names no
-/// task, carries no `Gsd-Task:` trailer that links it. A commit with no type, or a `docs` one (even one whose subject
-/// matches a task's title), is not judged. The suggestion names the trailer the later commits add, as gsd-git reads it
-/// (ADR 0380): the task's full id, or the plan's full id and `/<task>`, and the plan-local form as written (`01-01/T1`).
-/// A recorded commit keeps its fields, so the suggestion says its own error stays. A commit a person waived (its
-/// `waiver` is set) is not judged (ADR 0381).
+/// E521, on the commit: a recorded commit the rule of [`unlinked`](super::commits::unlinked) judges, one whose task its
+/// subject's title found or one of a task type that names no task, carries no `Gsd-Task:` trailer that links it. The
+/// suggestion names the trailer the later commits add, as gsd-git reads it (ADR 0380): the task's full id, or the
+/// plan's full id and `/<task>`, and the plan-local form as written (`01-01/T1`). A recorded commit keeps its fields,
+/// so the suggestion says its own error stays. A commit a person waived (its `waiver` is set) is not judged (ADR 0381).
 fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
     commits(input)
         .into_iter()
@@ -135,13 +133,8 @@ fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
             if commit.waived {
                 return None;
             }
-            // The collector records only a commit that names a plan; a plan's metadata commit is `docs`.
-            let plan = commit.plan.as_deref()?;
-            if commit.kind == Some(CommitType::Docs) {
-                return None;
-            }
-            let (message, suggestion) = match (&commit.task, commit.linked_by) {
-                (Some(task), Some(LinkedBy::Title)) => (
+            let (message, suggestion) = match commit.unlinked()? {
+                Unlinked::ByTitle { task } => (
                     format!(
                         "commit '{}' names task '{task}' by its subject's title, not by a Gsd-Task trailer",
                         commit.id
@@ -154,7 +147,7 @@ fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
                             .unwrap_or_default()
                     ),
                 ),
-                (None, _) if commit.kind.is_some_and(CommitType::is_task) => (
+                Unlinked::NoTask { plan } => (
                     format!(
                         "commit '{}' of plan '{plan}' is a task commit that names no task",
                         commit.id
@@ -167,7 +160,6 @@ fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
                             .unwrap_or_default()
                     ),
                 ),
-                _ => return None,
             };
             Some(
                 PassDiagnostic::new("E521", PassSeverity::Error, message)

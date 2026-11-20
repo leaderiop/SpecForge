@@ -1,11 +1,14 @@
 //! `waive_trailer` records a person's waiver of gsd/E521 on a recorded commit, beside the fields gsd-git recorded,
 //! which it never changes (ADR 0381). The waiver is an immutable harness value: a commit is waived once, and the
-//! command refuses a second waiver before the host's `I` check would.
+//! command refuses a second waiver before the host's `I` check would. It waives only a commit gsd/E521 judges, by the
+//! rule the pass reads ([`unlinked`]).
 
-use serde_json::json;
+use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, node, now, required, run};
+use super::support::{answer, node, now, required, run, target};
+use crate::collectors::LinkedBy;
+use crate::passes::commits::{CommitType, unlinked};
 
 /// `waive_trailer <commit> <reason> <by>`.
 fn waive(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
@@ -13,6 +16,21 @@ fn waive(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     if commit.has_field("waiver") {
         return Err(format!(
             "commit '{}' is already waived: a commit's waiver is recorded once",
+            commit.id
+        ));
+    }
+    let graph = call.graph();
+    let read = |field: &str| commit.fields.get(field).and_then(Value::as_str);
+    let judged = unlinked(
+        target(graph, &commit.id, "plan"),
+        target(graph, &commit.id, "task"),
+        read("type").and_then(CommitType::parse),
+        read("linked_by").and_then(LinkedBy::parse),
+    );
+    if judged.is_none() {
+        return Err(format!(
+            "gsd/E521 does not judge commit '{}': it judges a commit of a plan, not a docs one, whose task its \
+             subject's title found or that names no task, so there is nothing to waive",
             commit.id
         ));
     }
