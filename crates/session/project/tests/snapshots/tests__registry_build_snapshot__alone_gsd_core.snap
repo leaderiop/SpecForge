@@ -173,6 +173,11 @@ expression: "digest(&load(&runtime, &[name]))"
       "route": "gsd fix-window"
     },
     {
+      "export": "cmd__waive_trailer",
+      "extension": "@gsd/core",
+      "route": "gsd waive-trailer"
+    },
+    {
       "export": "cmd__propose_refactor",
       "extension": "@gsd/core",
       "route": "gsd propose-refactor"
@@ -3443,6 +3448,22 @@ expression: "digest(&load(&runtime, &[name]))"
       "exempts_obligations": false,
       "field_name": "type",
       "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "commit",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@gsd/core",
+      "target_kind": null
+    },
+    "commit.waiver": {
+      "derived_from": null,
+      "description": "a person's waiver of gsd/E521 on this commit, written once by `waive_trailer` (human-attested), never by the collector",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "waiver",
+      "field_type": "Block",
       "headline": false,
       "inverse_of": null,
       "kind_name": "commit",
@@ -10775,6 +10796,7 @@ expression: "digest(&load(&runtime, &[name]))"
       "commit.subject": "string",
       "commit.task": "reference",
       "commit.type": "string",
+      "commit.waiver": "block",
       "context.boundary": "string",
       "context.canonical_refs": "block_list",
       "context.discretion": "string_list",
@@ -12997,6 +13019,36 @@ expression: "digest(&load(&runtime, &[name]))"
               {
                 "arg_type": "string",
                 "default_value": null,
+                "description": "the commit, by the 12-hex name gsd/E521 prints",
+                "name": "commit",
+                "required": true
+              },
+              {
+                "arg_type": "string",
+                "default_value": null,
+                "description": "why its trailer error is waived, in the person's words",
+                "name": "reason",
+                "required": true
+              },
+              {
+                "arg_type": "string",
+                "default_value": null,
+                "description": "who waives it",
+                "name": "by",
+                "required": true
+              }
+            ],
+            "category": null,
+            "description": "Waive gsd/E521 on a recorded commit with a reason and who waives it, at the host's clock; the commit keeps every field gsd-git recorded, and a waiver is recorded once",
+            "export": "cmd__waive_trailer",
+            "id": "waive_trailer",
+            "title": ""
+          },
+          {
+            "args": [
+              {
+                "arg_type": "string",
+                "default_value": null,
                 "description": "the phase whose plans' files are scored",
                 "name": "phase",
                 "required": true
@@ -14920,6 +14972,42 @@ expression: "digest(&load(&runtime, &[name]))"
       "owner": "",
       "severity": "Error",
       "target_kind": "checkpoint",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "E006",
+      "constraint": null,
+      "edge_type": null,
+      "field": "waiver.at",
+      "message_template": "commit '{id}' is missing required member 'waiver.at'",
+      "owner": "",
+      "severity": "Error",
+      "target_kind": "commit",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "E006",
+      "constraint": null,
+      "edge_type": null,
+      "field": "waiver.by",
+      "message_template": "commit '{id}' is missing required member 'waiver.by'",
+      "owner": "",
+      "severity": "Error",
+      "target_kind": "commit",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "E006",
+      "constraint": null,
+      "edge_type": null,
+      "field": "waiver.reason",
+      "message_template": "commit '{id}' is missing required member 'waiver.reason'",
+      "owner": "",
+      "severity": "Error",
+      "target_kind": "commit",
       "wasm_function": null
     },
     {

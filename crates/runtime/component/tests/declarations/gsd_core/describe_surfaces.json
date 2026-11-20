@@ -1160,6 +1160,34 @@
           "args": [
             {
               "arg_type": "string",
+              "description": "the commit, by the 12-hex name gsd/E521 prints",
+              "name": "commit",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "why its trailer error is waived, in the person's words",
+              "name": "reason",
+              "required": true
+            },
+            {
+              "arg_type": "string",
+              "description": "who waives it",
+              "name": "by",
+              "required": true
+            }
+          ],
+          "description": "Waive gsd/E521 on a recorded commit with a reason and who waives it, at the host's clock; the commit keeps every field gsd-git recorded, and a waiver is recorded once",
+          "export": "cmd__waive_trailer",
+          "human": true,
+          "id": "waive_trailer",
+          "title": "",
+          "writes": true
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
               "description": "the phase whose plans' files are scored",
               "name": "phase",
               "required": true

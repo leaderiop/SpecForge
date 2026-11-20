@@ -256,7 +256,7 @@ requirement PORTABILITY-01 "Wasm Binary Size Limit" {
     Each extension .wasm binary SHOULD be under 5MB. Binaries exceeding 10MB
     MUST produce a warning diagnostic at install time. This ensures
     reasonable download times and first-compilation latency.
-    One exception: the vendored builtin @gsd/core (5,678,141 B, about
+    One exception: the vendored builtin @gsd/core (5,683,226 B, about
     half of it its prompt and agent assets) is held to its own
     allowance, 5,700,000 B, which the blob-size check enforces
     (gate/src/blob_size.rs, ADR 0366 D3).
