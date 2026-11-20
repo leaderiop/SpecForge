@@ -140,7 +140,7 @@ fn only_a_stale_verifier_verdict_on_a_truth_is_named() {
         vec![verdict("fresh", &[], &[("src/tasks.js", "C")])],
         json!({ "delta": delta(revision(), vec![]) }),
     );
-    let stale_plan_check = serde_json::from_value(verdict_of("gsd/W311", "stale", &["self"], &[]))
+    let stale_plan_check = serde_json::from_value(verdict_of("gsd/W311", "stale", &["plan"], &[]))
         .expect("a judgement");
     let stale_artifact =
         serde_json::from_value(verdict("stale", &["file"], &[("src/tasks.js", "C")]))
@@ -233,7 +233,7 @@ fn the_last_check_names_the_cited_files_without_claiming_them() {
 fn a_truth_changed_since_the_base_is_the_spec() {
     let now = verdict(
         "stale",
-        &["self"],
+        &["truth"],
         &[("src/tasks.js", "A"), ("test/tasks.test.js", "B")],
     );
     let input = since_r(vec![modified("truth", TR1, &["text"], &[])], now);
@@ -255,5 +255,122 @@ fn the_suggestion_names_re_verify_on_the_truths_plan() {
             "`specforge gsd re-verify v1.0/01/01-01 --stale-only` lists the verdicts for the verifier to record \
              again"
         )
+    );
+}
+
+#[test]
+fn the_delta_kinds_are_the_entities_a_truths_verdict_reads() {
+    let reads_an_entity = |selector: &str| {
+        (selector == "self" || selector.starts_with("self.")) && !selector.contains('(')
+    };
+    let entities: Vec<&str> = crate::judged::TRUTH_INPUTS
+        .iter()
+        .filter(|(_, selector)| reads_an_entity(selector))
+        .map(|(name, _)| *name)
+        .collect();
+    assert_eq!(entities, super::READS);
+    let left_out: Vec<&str> = crate::judged::TRUTH_INPUTS
+        .iter()
+        .filter(|(_, selector)| !reads_an_entity(selector))
+        .map(|(name, _)| *name)
+        .collect();
+    assert_eq!(left_out, ["tests"]);
+}
+
+#[test]
+fn a_verdict_recorded_since_the_base_is_not_a_spec_change() {
+    let recorded = json!({
+        "kind": "truth", "id": TR1, "change": "modified", "aspects": ["verdicts"],
+        "before": "d0", "after": "d0",
+    });
+    let message = on_tr1(&since_r(vec![recorded], stale_after_an_edit())).message;
+    assert!(
+        message.contains("only the files it cites changed: 'src/tasks.js'"),
+        "{message}"
+    );
+    assert!(!message.contains("the spec it reads changed"), "{message}");
+}
+
+#[test]
+fn its_plan_or_its_phase_changed_is_the_spec() {
+    let plan = modified("plan", PLAN, &["objective"], &[]);
+    let phase = modified("phase", PHASE, &[], &["title"]);
+    let now = || {
+        verdict(
+            "stale",
+            &["plan"],
+            &[("src/tasks.js", "A"), ("test/tasks.test.js", "B")],
+        )
+    };
+    let message = on_tr1(&since_r(vec![plan.clone()], now())).message;
+    assert!(
+        message.contains(&format!(
+            "the spec it reads changed: plan '{PLAN}' (objective)"
+        )),
+        "{message}"
+    );
+    let message = on_tr1(&since_r(vec![phase.clone()], now())).message;
+    assert!(
+        message.contains(&format!(
+            "the spec it reads changed: phase '{PHASE}' (title)"
+        )),
+        "{message}"
+    );
+    // The delta lists the phase first; the message names what the verdict reads in its order.
+    let message = on_tr1(&since_r(vec![phase, plan], now())).message;
+    assert!(
+        message.contains(&format!(
+            "the spec it reads changed: plan '{PLAN}' (objective), phase '{PHASE}' (title)"
+        )),
+        "{message}"
+    );
+}
+
+#[test]
+fn a_truth_added_since_the_base_is_named_added() {
+    let added = json!({ "kind": "truth", "id": TR1, "change": "added", "after": "d1" });
+    let input = input(
+        vec![stale_after_an_edit()],
+        json!({
+            "delta": delta(revision(), vec![added]),
+            "previous": { "revision": R, "entities": {} },
+        }),
+    );
+    let message = on_tr1(&input).message;
+    assert!(
+        message.contains(&format!(
+            "the spec it reads changed: truth '{TR1}' (added); it cites 'src/tasks.js', 'test/tasks.test.js'"
+        )),
+        "{message}"
+    );
+}
+
+#[test]
+fn another_truths_change_is_not_this_ones() {
+    let nodes = vec![
+        modified("truth", "v1.0/01/01-02/TR1", &["text"], &[]),
+        modified("plan", "v1.0/01/01-02", &["objective"], &[]),
+    ];
+    let message = on_tr1(&since_r(nodes, stale_after_an_edit())).message;
+    assert!(!message.contains("the spec it reads changed"), "{message}");
+    assert!(
+        message.contains("only the files it cites changed: 'src/tasks.js'"),
+        "{message}"
+    );
+}
+
+#[test]
+fn the_spec_and_a_cited_file_both_changed() {
+    let now = verdict(
+        "stale",
+        &["truth", "cited"],
+        &[("src/tasks.js", "C"), ("test/tasks.test.js", "B")],
+    );
+    let message = on_tr1(&since_r(vec![modified("truth", TR1, &["text"], &[])], now)).message;
+    assert!(
+        message.contains(&format!(
+            "the spec it reads changed: truth '{TR1}' (text); the files it cites changed too: 'src/tasks.js'"
+        )),
+        "{message}"
     );
 }

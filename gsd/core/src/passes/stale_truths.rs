@@ -16,7 +16,9 @@ use crate::commands::id_order;
 /// The verifier's rule, whose stale judgement on a truth is the stale set.
 const RULE: &str = "gsd/E501";
 
-/// The entities a truth's verifier verdict reads, in the order a message names them: the delta's kinds.
+/// The entities a truth's verifier verdict reads, in the order a message names them: the delta's kinds, which are the
+/// entity inputs of [`TRUTH_INPUTS`](crate::judged::TRUTH_INPUTS). Its `tests` input is left out: a test is a fact,
+/// named only through the judgement's changed inputs.
 pub(crate) const READS: [&str; 3] = ["truth", "plan", "phase"];
 
 pub fn declare(c: &mut ContributionsBuilder) {
