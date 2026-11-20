@@ -1,12 +1,17 @@
 //! What `@gsd/security` declares, pinned through the SDK's runtime-free `MockHost`: the five kinds as the model lists
-//! them, the enhancement on core's `validation_row`, and the map from SECURITY.md's columns to the fields.
+//! them, the enhancement on core's `validation_row`, and the map from SECURITY.md's columns to the fields; and the
+//! judged rules both code books declare, counted.
 
 use gsd_security::build;
 use serde_json::Value;
 use specforge_extension_sdk::testing::MockHost;
 
 fn describe(category: &str) -> Value {
-    let host = MockHost::new(build());
+    describe_of(&MockHost::new(build()), category)
+}
+
+/// What `host`'s extension answers to `describe(category)`, parsed.
+fn describe_of(host: &MockHost, category: &str) -> Value {
     let text = host
         .describe_json(category)
         .unwrap_or_else(|| panic!("no category {category}"));
@@ -364,4 +369,68 @@ fn the_judged_inputs_are_the_spec_table() {
             "{code}"
         );
     }
+}
+
+/// The codes of the validation rules `host`'s extension declares with `check: judged`, sorted, and how many rules it
+/// declares with another check.
+fn judged_codes(host: &MockHost) -> (Vec<String>, usize) {
+    let rules = describe_of(host, "validation_rules");
+    let (judged, others): (Vec<&Value>, Vec<&Value>) = rules["items"]
+        .as_array()
+        .expect("rules")
+        .iter()
+        .partition(|r| r["check"] == "judged");
+    let mut codes: Vec<String> = judged
+        .iter()
+        .map(|r| r["code"].as_str().expect("a rule's code").to_string())
+        .collect();
+    codes.sort();
+    (codes, others.len())
+}
+
+/// The codes of a code book's judged table, sorted.
+fn sorted<'a>(codes: impl Iterator<Item = &'a str>) -> Vec<String> {
+    let mut codes: Vec<String> = codes.map(String::from).collect();
+    codes.sort();
+    codes
+}
+
+/// Counts the judged rules from the declaration both extensions answer, the one `rules.md` is checked against: each
+/// extension declares exactly its code book's judged table, each code once, and the answers also hold rules that are not
+/// judged, which the count leaves out; at least twelve in all, so removing a judged rule fails here (ADR 0379).
+#[test]
+fn the_code_books_declare_at_least_twelve_judged_rules() {
+    let books = [
+        (
+            "@gsd/core",
+            MockHost::new(gsd_core::build()),
+            sorted(gsd_core::judged::JUDGED.iter().map(|j| j.code)),
+        ),
+        (
+            "@gsd/security",
+            MockHost::new(build()),
+            sorted(gsd_security::judged::JUDGED.iter().map(|j| j.code)),
+        ),
+    ];
+    let mut counts = Vec::new();
+    let mut not_judged = 0;
+    for (name, host, table) in &books {
+        let (judged, others) = judged_codes(host);
+        let mut once = judged.clone();
+        once.dedup();
+        assert_eq!(once, judged, "{name} declares a judged rule twice");
+        assert_eq!(&judged, table, "{name}'s judged rules are its table");
+        counts.push(judged.len());
+        not_judged += others;
+    }
+    // @gsd/security declares only its two judged rules; core's answer holds the rules the filter leaves out.
+    assert!(not_judged > 0, "the filter excludes no rule");
+    let [core, security] = counts[..] else {
+        unreachable!("two code books")
+    };
+    let total = core + security;
+    assert!(total >= 12, "{total} judged rules, fewer than twelve");
+    eprintln!(
+        "judged rules declared: {core} by @gsd/core and {security} by @gsd/security, {total} in all"
+    );
 }
