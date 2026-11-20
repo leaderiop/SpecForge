@@ -1,8 +1,10 @@
 //! The stale-truths pass: `gsd/I527`, one advisory per truth whose verifier verdict is stale, saying what changed since
 //! the base the host names (ADR 0382). The stale set is `gsd/E501`'s judgements, never a digest of its own, so it
-//! names exactly what `re_verify --stale-only` lists. What changed comes in two halves: the spec it reads, from the
-//! graph delta of the truth, its plan and its phase; and the files it cites, from the truth's judgement at the base
-//! and now, since a one-file edit is not in the delta (files are not graph nodes).
+//! names exactly the truths `re_verify --stale-only` lists as stale. That command also lists a verdict that is
+//! missing, unrecorded or unreadable; the pass names none of those, since such a verdict has no cited input that
+//! changed since a base, and `gsd/E501` already reports each. What changed comes in two halves: the spec it reads,
+//! from the graph delta of the truth, its plan and its phase; and the files it cites, from the truth's judgement at
+//! the base and now, since a one-file edit is not in the delta (files are not graph nodes).
 //!
 //! With no base (a plain `check`, every node added) it says nothing: `gsd/E501` already reports the verdict. The files
 //! half is exact only under a `revision` base whose baseline was read at the same commit; under a session's last check

@@ -38,7 +38,8 @@ and the selector the rule reads them with. A check with a base, `specforge check
 or a session's next check, adds gsd/I527, an Info under every profile, on each truth whose verdict is stale: it names
 the base and whether the spec the verdict reads (the truth, its plan, its phase) changed since then, read from the graph
 delta, and, under `--since`, which of the files it cites changed, read from the truth's judgement at the base
-(ADR 0382). It names exactly the truths `--stale-only` lists, and a plain `check`, which has no base, says nothing.
+(ADR 0382). It names exactly the truths `--stale-only` lists as stale, never one whose verdict is missing, unrecorded
+or unreadable (gsd/E501 reports those), and a plain `check`, which has no base, says nothing.
 `/gsd-execute-phase` runs `re_verify` before the verifier, which judges exactly what it lists; every other verdict stays
 as recorded, byte for byte. A fresh verdict, passing or failing, is never listed, since it would be judged the same
 again. Upstream re-verifies the whole phase. Under gsd-strict and gsd-plus a verdict that is not fresh also refuses

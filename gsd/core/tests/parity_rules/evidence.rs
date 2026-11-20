@@ -510,7 +510,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 72] = [
     (
         "I527",
         Evidence::Tests {
-            fires: "an_edit_to_a_cited_file_names_the_truths_re_verify_lists",
+            fires: "an_edit_to_a_cited_file_names_the_stale_truths_re_verify_lists",
             silent: "the_unedited_twin_names_nothing_since_its_commit",
         },
     ),

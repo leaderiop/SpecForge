@@ -333,15 +333,30 @@ impl Project {
             .unwrap_or_else(|e| panic!("re-verify prints JSON ({e}): {}", run.all()))
     }
 
-    /// The truths of `subject` (a phase or a plan) whose verdict is not fresh, as `re-verify --stale-only` lists them.
-    pub fn stale_truths(&self, subject: &str) -> BTreeSet<String> {
+    /// The truths of `subject` (a phase or a plan) whose verdict is not fresh, as `re-verify --stale-only` lists them,
+    /// each with its verdict's state: `stale`, `missing`, `unrecorded` or `unreadable`.
+    pub fn listed_truths(&self, subject: &str) -> BTreeMap<String, String> {
         let answer = self.re_verify(subject, true);
         answer["items"]
             .as_array()
             .unwrap_or_else(|| panic!("re-verify lists items: {answer}"))
             .iter()
             .filter(|item| item["kind"] == "truth")
-            .map(|item| item["entity"].as_str().expect("an entity").to_string())
+            .map(|item| {
+                let entity = item["entity"].as_str().expect("an entity").to_string();
+                let state = item["state"].as_str().expect("a state").to_string();
+                (entity, state)
+            })
+            .collect()
+    }
+
+    /// The truths of `subject` whose verdict is stale: the stale entries of [`Project::listed_truths`], the set
+    /// `gsd/I527` names under a check with a base.
+    pub fn stale_truths(&self, subject: &str) -> BTreeSet<String> {
+        self.listed_truths(subject)
+            .into_iter()
+            .filter(|(_, state)| state == "stale")
+            .map(|(truth, _)| truth)
             .collect()
     }
 

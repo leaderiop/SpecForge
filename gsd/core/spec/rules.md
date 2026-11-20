@@ -141,7 +141,8 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   path, `gsd/W526` says where the later one runs instead, the plan's computed `strict_wave` (ADR 0378).
 - `gsd/I527` is built on the graph delta (ADR 0382): it reads `gsd/E501`'s stale judgements, never a digest of its
   own, and the delta of the truth, its plan and its phase, so it names exactly the truths `re_verify --stale-only`
-  lists; a file edit is not in the delta, so the files it names come from the truth's judgement at the base and now.
+  lists as stale (a missing, unrecorded or unreadable verdict, which it also lists, is gsd/E501's alone); a file
+  edit is not in the delta, so the files it names come from the truth's judgement at the base and now.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
 
 - **Kernel behaviour the rules rely on.** The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297), and pairs an extension's finding by its subject (ADR 0302); a collector's plan is judged for host errors only (ADR 0303). The human-only guarantee holds for every existing entity of a human-only kind and against deleting a person's value (K17, ADR 0298): an agent cannot change an `override` or delete a `milestone_audit` that carries a `debt_accepted`.

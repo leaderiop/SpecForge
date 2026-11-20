@@ -1,12 +1,13 @@
 //! A check since a commit says what changed under each stale truth (`gsd/I527`), on the taskboard twin, and names
-//! exactly the truths `re-verify --stale-only` lists: the stale set is the verifier's judgements, and the graph delta
-//! and the judgement at the base say why.
+//! exactly the truths `re-verify --stale-only` lists as stale: the stale set is the verifier's judgements, and the
+//! graph delta and the judgement at the base say why. A truth no verdict was recorded on is listed there too, and is
+//! `gsd/E501`'s alone.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 
-use super::harness::{Project, taskboard};
+use super::harness::{Project, judged, taskboard};
 
 const I527: &str = "gsd/I527";
 
@@ -38,7 +39,7 @@ fn codes_since(p: &Project, revision: &str) -> Vec<String> {
 }
 
 #[test]
-fn an_edit_to_a_cited_file_names_the_truths_re_verify_lists() {
+fn an_edit_to_a_cited_file_names_the_stale_truths_re_verify_lists() {
     let p = taskboard();
     p.commit();
     let base: String = p.head().chars().take(12).collect();
@@ -277,4 +278,38 @@ fn the_baseline_of_a_fork_is_read_at_its_merge_base() {
             "{truth}: {text}"
         );
     }
+}
+
+/// A truth added to a complete plan owes a verdict no one recorded: `re-verify --stale-only` lists it as `missing`
+/// and `gsd/E501` reports it, but no input it cites changed since a base, so the advisory names the stale truths and
+/// not it.
+#[test]
+fn a_truth_no_verdict_was_recorded_on_is_listed_by_re_verify_and_not_named() {
+    const UNJUDGED: &str = "v1.0/01/01-01/TR9";
+    let p = taskboard();
+    p.commit();
+    let truth = r#"
+truth TR9 "A new board holds no task" {
+  plan v1.0/01/01-01
+  text "A new board holds no task"
+}
+"#;
+    let plans = p.read("spec/plans.spec");
+    p.write("spec/plans.spec", &format!("{plans}{truth}"));
+    touch(&p, "src/tasks.js");
+    let listed = p.listed_truths("v1.0/01");
+    assert_eq!(
+        listed.get(UNJUDGED).map(String::as_str),
+        Some("missing"),
+        "{listed:#?}"
+    );
+    let owed = judged(&p.report_all());
+    assert!(
+        owed.contains(&("gsd/E501".to_string(), UNJUDGED.to_string())),
+        "{owed:?}"
+    );
+    let named: BTreeSet<String> = p.advisories(I527, "HEAD").into_keys().collect();
+    assert!(!named.contains(UNJUDGED), "{named:?}");
+    assert_eq!(named, p.stale_truths("v1.0/01"));
+    assert_eq!(named, citing_tasks_js());
 }

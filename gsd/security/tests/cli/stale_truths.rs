@@ -1,20 +1,20 @@
 //! A check since the judged commit says what changed under each stale truth of the vault (`gsd/I527`), and names
-//! exactly the truths `re-verify --stale-only` lists. The twin's two truths share `src/vault.js` and each cites one
-//! file of its own (`test/vault.test.js`, `src/cli.js`), so one edit names one truth or both, each with that file
-//! alone.
+//! exactly the truths `re-verify --stale-only` lists as stale, never one no verdict was recorded on. The twin's two
+//! truths share `src/vault.js` and each cites one file of its own (`test/vault.test.js`, `src/cli.js`), so one edit
+//! names one truth or both, each with that file alone.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 
 use super::fresh_vault::{COMMAND_LINE, SEALED, judged_phase, touch};
-use super::harness::Project;
+use super::harness::{Project, judged};
 
 const I527: &str = "gsd/I527";
 const PHASE: &str = "v1.0/01";
 
 /// The vault judged and committed, then `file` edited: each `gsd/I527` of a check since that commit, by its truth. The
-/// truths it names are exactly those `re-verify --stale-only` lists, and the check finds its base (no `W021`).
+/// truths it names are exactly those `re-verify --stale-only` lists as stale, and the check finds its base (no `W021`).
 fn named_after(file: &str) -> (Project, BTreeMap<String, Value>) {
     let p = judged_phase();
     p.commit();
@@ -90,5 +90,40 @@ fn an_edit_to_the_tests_names_the_sealed_store_truth_only() {
         SEALED,
         "test/vault.test.js",
         "src/vault.js",
+    );
+}
+
+/// A truth added to the judged plan owes a verdict no one recorded: `re-verify --stale-only` lists it as `missing` and
+/// `gsd/E501` reports it, but the advisory names only the truths whose verdict the edit staled.
+#[test]
+fn a_truth_no_verdict_was_recorded_on_is_listed_by_re_verify_and_not_named() {
+    const UNJUDGED: &str = "v1.0/01/01-01/TR9";
+    let p = judged_phase();
+    p.commit();
+    let truth = r#"
+truth TR9 "A vault with no secret opens to nothing" {
+  plan v1.0/01/01-01
+  text "A vault with no secret opens to nothing"
+}
+"#;
+    let plans = p.read("spec/plans.spec");
+    p.write("spec/plans.spec", &format!("{plans}{truth}"));
+    touch(&p, "src/vault.js");
+    let listed = p.listed_truths(PHASE);
+    assert_eq!(
+        listed.get(UNJUDGED).map(String::as_str),
+        Some("missing"),
+        "{listed:#?}"
+    );
+    let owed = judged(&p.report_all());
+    assert!(
+        owed.contains(&("gsd/E501".to_string(), UNJUDGED.to_string())),
+        "{owed:?}"
+    );
+    let advisories = p.advisories(I527, "HEAD");
+    assert_eq!(truths(&advisories), [SEALED, COMMAND_LINE], "{I527}");
+    assert_eq!(
+        advisories.into_keys().collect::<BTreeSet<_>>(),
+        p.stale_truths(PHASE)
     );
 }

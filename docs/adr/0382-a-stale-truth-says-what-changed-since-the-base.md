@@ -27,8 +27,10 @@ protocol change, no kernel change and no new setting.
 ## D1. The stale set is the digests'
 
 The pass names exactly the truths whose `gsd/E501` judgement is `stale`, read from the judgement the host sends, never
-from a digest of its own. So it names the truths `re_verify --stale-only` lists, by construction; a test on each twin
-proves it.
+from a digest of its own. So it names the stale subset of what `re_verify --stale-only` lists, by construction; a test
+on each twin proves it. That command also lists a verdict that is missing, unrecorded or unreadable: the pass names
+none of those, since a verdict never recorded, or one it cannot read, has no cited input that changed since a base,
+and `gsd/E501` already reports each; a test on each twin proves that too.
 
 The reason: one account of staleness cannot disagree with itself, and the digests are the exact one (ADR 0377 D3).
 
@@ -77,6 +79,7 @@ The reason: the advisory explains a verdict another rule already judges; it is n
 ## Limits
 
 - A file edit is not in the graph delta.
+- A truth whose verdict is missing, unrecorded or unreadable is not named, though `re_verify --stale-only` lists it.
 - The files a stale truth cites that changed are named only under a `revision` base, from the judgements at the base
   and now; a path the judgement at the base does not list is not named as changed.
 - Cited entities and test results are named only through the judgement's changed input names.
