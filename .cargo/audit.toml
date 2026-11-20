@@ -2,8 +2,25 @@
 # compresses and decompresses wasmtime's own on-disk compile cache. No SpecForge input reaches
 # them, and wasmtime 50.0.0 still pins the same zstd, so no upgrade clears these yet.
 # Drop the list when wasmtime moves to zstd >= 0.14 / zstd-safe >= 8.2 / zstd-sys >= 2.1.2.
+#
+# heapless 0.8 arrives only through faster-hex 0.10 (gix-hash), and only in faster-hex's no-alloc
+# build; the advisories name Deque, Spsc, IndexMap, SortedLinkedList, the Treiber stack and Drop
+# of structures faster-hex does not use. gix has no release on faster-hex >= 0.11 yet.
+# Drop RUSTSEC-2026-0574..0582 when gix moves to a faster-hex that depends on heapless >= 0.9.4.
+# chrono (RUSTSEC-2026-0543) is flagged unmaintained with no fixed version; it comes through croner
+# and the CLI's timestamps. Drop it when a maintained replacement is chosen.
 [advisories]
 ignore = [
+  "RUSTSEC-2026-0543",
+  "RUSTSEC-2026-0574",
+  "RUSTSEC-2026-0575",
+  "RUSTSEC-2026-0576",
+  "RUSTSEC-2026-0577",
+  "RUSTSEC-2026-0578",
+  "RUSTSEC-2026-0579",
+  "RUSTSEC-2026-0580",
+  "RUSTSEC-2026-0581",
+  "RUSTSEC-2026-0582",
   "RUSTSEC-2026-0391",
   "RUSTSEC-2026-0395",
   "RUSTSEC-2026-0396",
