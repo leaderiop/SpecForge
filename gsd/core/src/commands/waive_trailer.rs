@@ -1,7 +1,8 @@
 //! `waive_trailer` records a person's waiver of gsd/E521 on a recorded commit, beside the fields gsd-git recorded,
-//! which it never changes (ADR 0381). The waiver is an immutable harness value: a commit is waived once, and the
-//! command refuses a second waiver before the host's `I` check would. It waives only a commit gsd/E521 judges, by the
-//! rule the pass reads ([`unlinked`]), and a refusal names why the rule does not judge the commit ([`Unjudged`]).
+//! which it never changes (ADR 0381); gsd-git's one-time `items_changed` backfill may later add that field beside
+//! it. The waiver is an immutable harness value: a commit is waived once, and the command refuses a second waiver
+//! before the host's `I` check would. It waives only a commit gsd/E521 judges, by the rule the pass reads
+//! ([`unlinked`]), and a refusal names why the rule does not judge the commit ([`Unjudged`]).
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;

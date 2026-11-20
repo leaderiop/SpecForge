@@ -131,8 +131,9 @@ GSD's executor writes the trailer: `gsd-executor.md`'s commit step ends the mess
 paragraph (ADR 0351). A commit already recorded keeps its fields: a trailer added later links only the commits
 recorded from then on, and amending a commit to add one gives a new hash, recorded beside the old commit, whose
 `linked_by` and gsd/E521 stay (ADR 0380) unless a person waives the error: the waiver sets the `waiver` block beside the
-recorded fields and leaves them as they were through every later collect, and gsd/E521's suggestion names its command
-line with the commit's name (ADR 0381).
+recorded fields and leaves every field gsd-git recorded as it was through every later collect, bar the one-time
+`items_changed` backfill onto a commit recorded before item facts were served, and gsd/E521's suggestion names its
+command line with the commit's name (ADR 0381).
 
 A plan op refused `stale_revision` (the plan's file changed since the compile) writes
 nothing, and the next run records the same commits. Merges are read for their parents and never recorded.

@@ -18,7 +18,8 @@ change, no kernel change, no new code and no new setting.
 ## Context
 
 - **Under gsd-strict a recorded commit keeps its error for ever.** gsd-git records a commit once, keyed by its 12-hex
-  name, and never rewrites what it recorded. A commit recorded before it carried its `Gsd-Task:` trailer keeps its
+  name, and never rewrites what it recorded: it only backfills `items_changed`, once, onto a commit it recorded
+  before item facts were served. A commit recorded before it carried its `Gsd-Task:` trailer keeps its
   `linked_by title` (or its missing task) and so its `gsd/E521`, and gsd-strict refuses the project for it.
 - **The two ways out today are both wrong.** Rewriting history does not help: an amended commit is a new hash,
   recorded beside the old one, whose error stays; and the rewrite changes every clone's history. Turning
@@ -30,7 +31,8 @@ change, no kernel change, no new code and no new setting.
 ## D1. A commit carries a `waiver` block
 
 The commit kind gains a last field, `waiver`: a block of `reason`, `by` and `at`, each required. It is harness-written
-and immutable, set once beside the fields gsd-git recorded, which it never changes. The collector never writes it: no
+and immutable, set once beside the fields gsd-git recorded, which it never changes; gsd-git's own one-time
+`items_changed` backfill (ADR 0352) is the one field a later collect adds beside it. The collector never writes it: no
 plan of gsd-git sets, creates or removes a `waiver`. The block shares one declaration with the broken window's waiver,
 so a waiver reads the same wherever a person records one.
 
@@ -44,7 +46,7 @@ The reason: a waiver is a fact about the record, not part of it; set beside it, 
   so `by` is never defaulted, derived from the host or filled in by an agent. `at` is the host's clock.
 - **The commit is named by the 12-hex name `gsd/E521` prints**, resolved as a graph id (exact, or a unique
   `/`-boundary suffix, which a commit id has none of), never as a path or a git revision.
-- **It refuses**, writing nothing: an unknown or ambiguous commit; a blank reason or `by`, or one that holds a control
+- **It refuses**, writing nothing: an unknown commit; a blank reason or `by`, or one that holds a control
   character other than a tab or a line feed; a commit already waived, before the host's immutability error would
   refuse it; and a commit `gsd/E521` does not judge.
 - **It writes one value** through the plan file that already holds the commit, and the host writes its one ledger line.

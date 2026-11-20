@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use serde_json::Value;
 
 use super::commands_support::{bytes, gsd_as_person, json, refused, strict, unchanged, unledger};
-use super::harness::{Project, Run};
+use super::harness::{Project, Run, taskboard};
 use super::profile_gates::{committed, e521_errors};
 
 /// The `execute` project with two commits of plan `01-01` whose subjects' title found task `T1`, a `feat` and a `fix`,
@@ -287,7 +287,7 @@ fn only_the_twelve_hex_name_resolves() {
 }
 
 #[test]
-fn a_control_character_in_the_reason_is_refused_and_a_tab_or_line_feed_is_kept() {
+fn a_control_character_in_the_reason_or_by_is_refused_and_a_tab_or_line_feed_is_kept() {
     let p = title_linked();
     strict(&p);
     let feat = commit_of(&p, "feat");
@@ -297,6 +297,15 @@ fn a_control_character_in_the_reason_is_refused_and_a_tab_or_line_feed_is_kept()
         &run,
         "invalid_input",
         &["'reason' holds a control character (U+001B)"],
+    );
+    unchanged(&p, &before);
+    judged(&p, 2);
+    // `by` goes through the same check: a name that would forge a ledger or terminal line is refused.
+    let run = waive(&p, &[&feat, "a reason", "ada\u{1b}[2J"]);
+    refused(
+        &run,
+        "invalid_input",
+        &["'by' holds a control character (U+001B)"],
     );
     unchanged(&p, &before);
     judged(&p, 2);
@@ -364,4 +373,81 @@ fn a_waiver_without_its_ledger_line_is_e083() {
     assert!(codes.iter().any(|c| c == "E083"), "{codes:?}");
     let run = p.run(&["check"]);
     assert_ne!(run.code, 0, "{}", run.all());
+}
+
+/// A waiver does not depend on the setting (ADR 0381 D3): one a person gives under the default profile, where gsd/E521
+/// is silent, still holds when gsd-strict turns the gate on later.
+#[test]
+fn a_waiver_given_before_gsd_strict_holds_when_it_turns_the_gate_on() {
+    let p = title_linked();
+    let (feat, fix) = (commit_of(&p, "feat"), commit_of(&p, "fix"));
+    assert_eq!(e521_errors(&p).1, Vec::<Value>::new());
+    let run = waive(&p, &[&feat, "recorded before the trailer existed", "ada"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    strict(&p);
+    let (code, errors) = e521_errors(&p);
+    assert_eq!((code, errors.len()), (1, 1), "{errors:?}");
+    let message = errors[0]["message"].as_str().unwrap_or_default();
+    assert!(
+        message.contains(&fix) && !message.contains(&feat),
+        "{message}"
+    );
+}
+
+/// The E521 errors under gsd-strict whose message names `id`.
+fn e521_on(p: &Project, id: &str) -> Vec<Value> {
+    e521_errors(p)
+        .1
+        .into_iter()
+        .filter(|e| e["message"].as_str().unwrap_or_default().contains(id))
+        .collect()
+}
+
+/// gsd-git backfills `items_changed` once onto a commit it recorded before item facts were served (ADR 0352): on a
+/// waived commit the host applies that one set beside the waiver, which stays byte-identical with its ledger line, and
+/// every other recorded field and line stays too.
+#[test]
+fn a_waived_commit_recorded_before_items_gets_them_and_keeps_its_waiver() {
+    let p = taskboard();
+    strict(&p);
+    let source = p.read("src/tasks.js");
+    let sha = p.git_commit(
+        "feat(01-01): The task model",
+        &[("src/tasks.js", &source)],
+        "2026-10-28T09:00:00Z",
+    );
+    let id = &sha[..12];
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let recorded = p.fields_of(id);
+    assert_eq!(recorded["linked_by"], "title", "{recorded:#}");
+    assert!(recorded.get("items_changed").is_none(), "{recorded:#}");
+    assert_eq!(e521_on(&p, id).len(), 1);
+
+    let run = waive(&p, &[id, "recorded before the trailer existed", "ada"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let waived = p.fields_of(id);
+    let lines = ledger_of(&p, id);
+    assert!(e521_on(&p, id).is_empty());
+
+    let run = p.collect(&["--runner", "javascript-source"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let mut fields = p.fields_of(id);
+    let items = fields
+        .as_object_mut()
+        .expect("fields")
+        .remove("items_changed")
+        .expect("the backfilled items_changed");
+    assert!(
+        items.as_array().is_some_and(|items| !items.is_empty()),
+        "{items}"
+    );
+    assert_eq!(fields, waived);
+    let (added, kept): (Vec<String>, Vec<String>) = ledger_of(&p, id)
+        .into_iter()
+        .partition(|l| l.starts_with(&format!("{id} items_changed ")));
+    assert_eq!((added.len(), &kept), (1, &lines), "{added:?}");
+    assert!(e521_on(&p, id).is_empty());
 }
