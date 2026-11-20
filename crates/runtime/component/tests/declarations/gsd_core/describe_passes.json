@@ -295,6 +295,25 @@
     },
     {
       "after": null,
+      "baseline": [
+        "truth"
+      ],
+      "before": null,
+      "inputs": [
+        {
+          "input": "delta",
+          "kinds": [
+            "truth",
+            "plan",
+            "phase"
+          ]
+        }
+      ],
+      "name": "stale_truths",
+      "phase": "check"
+    },
+    {
+      "after": null,
       "before": null,
       "name": "windows",
       "phase": "check"

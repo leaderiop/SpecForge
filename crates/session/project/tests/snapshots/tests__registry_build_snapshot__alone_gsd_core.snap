@@ -70,6 +70,10 @@ expression: "digest(&load(&runtime, &[name]))"
     },
     {
       "extension": "@gsd/core",
+      "name": "stale_truths"
+    },
+    {
+      "extension": "@gsd/core",
       "name": "windows"
     },
     {

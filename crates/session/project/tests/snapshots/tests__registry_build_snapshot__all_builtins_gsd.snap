@@ -78,6 +78,10 @@ expression: "digest(&load(&runtime, &gsd))"
     },
     {
       "extension": "@gsd/core",
+      "name": "stale_truths"
+    },
+    {
+      "extension": "@gsd/core",
       "name": "windows"
     },
     {
