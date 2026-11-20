@@ -13,7 +13,9 @@ prompt of its extension may judge),
 [ADR 0286](0286-a-diagnostic-code-is-namespaced-by-its-extension.md) D1 (each extension owns its number space) and
 [ADR 0370](0370-gsd-core-holds-exactly-gsd-cores-kinds-and-fields.md) D1 (no new authored field on `truth`). No protocol
 change and no kernel change: the host's judged machinery, owner states, gate triggers and verdict origin check already
-do what these decisions need.
+do what these decisions need. D3's last sentence and its "Would reopen it" item on the graph delta are answered by
+[ADR 0382](0382-a-stale-truth-says-what-changed-since-the-base.md): a pass reads the delta to say what changed under a
+stale truth, and staleness is still read from the digests.
 
 ## Context
 
