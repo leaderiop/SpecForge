@@ -128,7 +128,33 @@ SpecForge's users could fill.
 | Re-verification scope | verdicts re-verification lists ÷ verdicts not fresh, over every single-file edit; over- and under-judged sets empty | `gsd/core/tests/cli/rejudge_scope.rs`, `gsd/security/tests/cli/rejudge_scope.rs` | exactly 1.0 |
 | Judged rules | the judged validation rules of `@gsd/core` and `@gsd/security` | `gsd/security/tests/declaration.rs` | 12 or more |
 
-The measured values are recorded here, each with the command that printed it, once the tests exist.
+Measured on 2026-11-20, each line as the named test prints it. The black-box tests run the `specforge` binary built
+from the tree and the `@gsd/security` component, so each command runs from the `gsd/` directory with `SPECFORGE_BIN`
+and `GSD_SECURITY_WASM` set as `gsd/core/README.md` says.
+
+- **Verdict freshness at the ship gate, taskboard twin:**
+  `verdict freshness at ship on the taskboard twin: 7 of 7 fresh (100%)`, printed by
+  `cargo nextest run --locked -p gsd-core -E 'test(=verdict_freshness::every_verdict_the_ship_gate_reads_is_fresh_under_strict)' --no-capture`.
+- **Verdict freshness at the ship gate, vault twin:**
+  `verdict freshness at ship on the vault twin: 12 of 12 fresh (100%)`, printed by
+  `cargo nextest run --locked -p gsd-security -E 'test(=verdict_freshness::every_verdict_the_ship_gate_reads_is_fresh_on_the_vault_under_strict)' --no-capture`.
+- **Re-verification scope, taskboard twin:**
+  `re-verification scope on the taskboard twin: 12 re-judged of 12 stale over 30 single-file edits (0 over-judged, 0 under-judged): 1.0`,
+  printed by
+  `cargo nextest run --locked -p gsd-core -E 'test(=rejudge_scope::re_verification_lists_exactly_the_stale_verdicts_after_any_single_file_edit)' --no-capture`.
+- **Re-verification scope, vault twin, split by rule:**
+  `re-verification scope on the vault twin: 15 re-judged of 15 stale over 23 single-file edits (0 over-judged, 0 under-judged; gsd.security/W302 5 of 5, gsd.security/W303 0 of 0, gsd/E501 10 of 10): 1.0`,
+  printed by
+  `cargo nextest run --locked -p gsd-security -E 'test(=rejudge_scope::re_verification_and_the_secure_phase_list_exactly_the_stale_verdicts_after_any_single_file_edit)' --no-capture`.
+- **Judged rules:** `judged rules declared: 10 by @gsd/core and 2 by @gsd/security, 12 in all`, printed by
+  `cargo nextest run --locked -p gsd-security -E 'test(=the_code_books_declare_at_least_twelve_judged_rules)' --no-capture`
+  (it runs on the SDK's `MockHost` and needs neither variable).
+- **The repository's own check under each profile**, the re-measure of ADR 0374's three-profile claim: in a copy of the
+  repository (`git archive HEAD`), `specforge settings set @gsd/core profile <profile>` then `specforge check --format
+  json` exits 0 with no diagnostic (`[]`) under gsd-compat, gsd-strict and gsd-plus, and the three outputs are
+  byte-identical.
+
+Each bar is asserted by the test that prints it, so a regression fails the build rather than this record.
 
 ## What each decision becomes
 
