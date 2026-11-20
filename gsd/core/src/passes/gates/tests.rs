@@ -2,18 +2,18 @@ use serde_json::{Value, json};
 
 use super::*;
 
-fn input(trigger: Value, entities: Vec<Value>, edges: Vec<Value>) -> PassInput {
+pub(super) fn input(trigger: Value, entities: Vec<Value>, edges: Vec<Value>) -> PassInput {
     serde_json::from_value(crate::passes::plans::with_field_edges(
         json!({ "entities": entities, "edges": edges, "trigger": trigger }),
     ))
     .expect("a pass input")
 }
 
-fn ship(subject: Option<&str>) -> Value {
+pub(super) fn ship(subject: Option<&str>) -> Value {
     gate_of("ship", subject)
 }
 
-fn codes(found: Vec<PassDiagnostic>) -> Vec<String> {
+pub(super) fn codes(found: Vec<PassDiagnostic>) -> Vec<String> {
     found.into_iter().map(|d| d.code).collect()
 }
 
@@ -21,7 +21,7 @@ fn window(id: &str, extra: Value) -> Value {
     json!({ "id": id, "kind": "broken_window", "fields": extra })
 }
 
-fn phase_edge() -> Vec<Value> {
+pub(super) fn phase_edge() -> Vec<Value> {
     vec![json!({ "source": "v1.0/01/01-01", "target": "v1.0/01", "label": "phase" })]
 }
 
@@ -457,17 +457,17 @@ fn e515_names_the_subject() {
 }
 
 /// A gate of the workflow (or command) `command`, scoped to `subject`.
-fn gate_of(command: &str, subject: Option<&str>) -> Value {
+pub(super) fn gate_of(command: &str, subject: Option<&str>) -> Value {
     json!({ "kind": "gate", "command": command, "subject": subject })
 }
 
-fn judged(rule: &str, state: &str, changed: &[&str]) -> Value {
+pub(super) fn judged(rule: &str, state: &str, changed: &[&str]) -> Value {
     json!({ "rule": rule, "state": state, "passed": false, "changed": changed })
 }
 
 /// Phase 01 (plan 01-01, whose truth TR1 holds `here`) and phase 02 (plan 02-01, whose truth TR1 holds `there`), at
 /// the gate `trigger`.
-fn two_phases(trigger: Value, here: Vec<Value>, there: Vec<Value>) -> PassInput {
+pub(super) fn two_phases(trigger: Value, here: Vec<Value>, there: Vec<Value>) -> PassInput {
     input(
         trigger,
         vec![
@@ -486,7 +486,7 @@ fn two_phases(trigger: Value, here: Vec<Value>, there: Vec<Value>) -> PassInput 
 }
 
 /// `(entity, message)` of each E516.
-fn refused(found: Vec<PassDiagnostic>) -> Vec<(String, String)> {
+pub(super) fn refused(found: Vec<PassDiagnostic>) -> Vec<(String, String)> {
     found
         .into_iter()
         .map(|d| (d.entity.unwrap_or_default(), d.message))
@@ -696,51 +696,4 @@ fn e516_never_excuses_another_extensions_rule() {
              gsd.security/W302` names its judge)"
         )
     );
-}
-
-/// The suggestion of a stale or unrecorded verdict names its remedy by the rule's judge: `re_verify` lists only the
-/// verifier's verdicts, so it is named for those alone, with the entity's plan; a plan check is recorded again by the
-/// step that runs its checker, and another extension's rule by its own step, which the inputs query names.
-#[test]
-fn e516_names_the_remedy_of_a_verdict_by_its_judge() {
-    let entity = |id: &str, kind: &str, rule: &str, state: &str| {
-        json!({ "id": id, "kind": kind, "fields": { "plan": "v1.0/01/01-01" },
-                "judgements": [judged(rule, state, &["plan"])] })
-    };
-    let found = e516(&input(
-        ship(Some("v1.0/01")),
-        vec![
-            json!({ "id": "v1.0/01", "kind": "phase" }),
-            json!({ "id": "v1.0/01/01-01", "kind": "plan",
-                    "judgements": [judged("gsd/W311", "stale", &["body"])] }),
-            entity("v1.0/01/01-01/TR1", "truth", "gsd/E501", "stale"),
-            entity("v1.0/01/01-01/PR1", "prohibition", "gsd/W525", "unrecorded"),
-            entity("v1.0/01/01-01/T1", "threat", "gsd.security/W302", "stale"),
-        ],
-        phase_edge(),
-    ));
-    let how = |id: &str| {
-        found
-            .iter()
-            .find(|d| d.message.contains(&format!("'{id}'")))
-            .and_then(|d| d.suggestion.clone())
-            .unwrap_or_else(|| panic!("no E516 on {id}: {found:?}"))
-    };
-    let verifier = "record the verdict again over the current inputs: `specforge gsd re-verify v1.0/01/01-01 \
-        --stale-only` lists the verifier's verdicts that are not fresh";
-    assert_eq!(how("v1.0/01/01-01/TR1"), verifier);
-    assert_eq!(how("v1.0/01/01-01/PR1"), verifier);
-    assert_eq!(
-        how("v1.0/01/01-01"),
-        "run the step that judges it again (its judge: gsd-plan-checker): it records the verdict over the current \
-         inputs (`specforge query v1.0/01/01-01 --inputs gsd/W311`)"
-    );
-    assert_eq!(
-        how("v1.0/01/01-01/T1"),
-        "run the step of its extension that judges it again: it records the verdict over the current inputs \
-         (`specforge query v1.0/01/01-01/T1 --inputs gsd.security/W302` names its judge)"
-    );
-    for id in ["v1.0/01/01-01", "v1.0/01/01-01/T1"] {
-        assert!(!how(id).contains("re-verify"), "{id}");
-    }
 }

@@ -115,6 +115,15 @@ pub(crate) fn judges_run_by(id: &str) -> BTreeSet<String> {
         .collect()
 }
 
+/// The workflows with a subject whose own steps run `judge` (an agent id, or `prompt:<id>`), in registry order: the
+/// prompts a user runs on a phase or milestone to give or renew that judge's verdict. A workflow with no subject
+/// judges only its own quick plan, so it is left out.
+pub(crate) fn prompts_running(judge: &str) -> Vec<&'static Spec> {
+    workflows()
+        .filter(|s| s.subject.is_some() && judges_run_by(s.id).contains(judge))
+        .collect()
+}
+
 pub fn declare(c: &mut ContributionsBuilder) {
     for spec in workflows() {
         workflow::declare(c, spec);
