@@ -1,6 +1,6 @@
 {
   "artifact": "gsd_core.wasm",
-  "artifact_sha256": "e40e8912ed55110ba7dbef69d591f668f6b2404e9296e871a8b7b6123ea1e6e3",
+  "artifact_sha256": "994eca178099bf7219e881a5e1aab13ceab5936a52d6de613e13eccc8d953fce",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -509,7 +509,7 @@
     "gsd/core/src/passes/scan/patterns.rs": "33c1cb492ab275da361e095e623290f1725c6c4f74d52669ff727449edfee197",
     "gsd/core/src/passes/schema_drift.rs": "536f6ea532ac93e8344e9b01bcdf846ad9a17373f1ef45c7773377157268e2f7",
     "gsd/core/src/passes/scope.rs": "9ca0a70d5583ad967e1df799c78515052df524b389d3f5281d00abdd87e79b2d",
-    "gsd/core/src/passes/stale_truths.rs": "89db785574ae06b68be0cb1d6ee09a872a5e0cba9a5090b2b0499e5f999baf0f",
+    "gsd/core/src/passes/stale_truths.rs": "1297a5fcd8be77c1ee2e5cbcfd7941c52c828292de33e26c0b3e899ca5c9d3d3",
     "gsd/core/src/passes/thread.rs": "357eeb73f0b765bf6f112b5a64ed908951e95e3e23ec84431db5df204faec704",
     "gsd/core/src/passes/traceability.rs": "878bf0fd15094ab2f7b454dfeeba99d2e016c60ea777d71fd389fd772d75a9a0",
     "gsd/core/src/passes/verify_paths.rs": "61dbd01d4c1a68fb8dc82b1134476a758a90d5852154008e909e1094334134ed",

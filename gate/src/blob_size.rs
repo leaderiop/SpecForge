@@ -32,7 +32,8 @@ pub const CAP: u64 = cap!();
 /// commit carried a person's waiver, `waive_trailer` recorded it at a terminal and one rule said what gsd/E521 judges,
 /// 5,683,413 B once that rule also said why it does not judge a commit and the refusal named the reason, and
 /// 5,704,569 B once a check since a revision said what changed under each stale truth (gsd/I527), which took the
-/// allowance to 5,800,000 B.
+/// allowance to 5,800,000 B, and 5,702,268 B once that advisory stopped claiming files it could not compare unchanged
+/// and escaped every id and name it echoes.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_800_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].
