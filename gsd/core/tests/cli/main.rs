@@ -48,6 +48,7 @@ mod critical_path;
 mod decision_coverage;
 mod discuss;
 mod e502_probe;
+mod e516_remedy;
 mod engine_tools;
 mod estimate_error;
 mod execute;

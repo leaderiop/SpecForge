@@ -10,7 +10,7 @@ use super::harness::{Project, Run, project};
 use super::prompts_support::{payload, prompt};
 
 /// The `gate_failed` JSON a refusal printed.
-fn gate_failed(run: &Run) -> Value {
+pub(super) fn gate_failed(run: &Run) -> Value {
     assert_eq!(run.code, 1, "{}", run.all());
     let all = run.all();
     let start = all
@@ -19,6 +19,27 @@ fn gate_failed(run: &Run) -> Value {
     let found: Value = serde_json::from_str(&all[start..]).unwrap_or_else(|e| panic!("{e}: {all}"));
     assert_eq!(found["code"], "gate_failed", "{all}");
     found
+}
+
+/// The prompt is not refused by `code`: it renders, or its refusal names other codes only. This is how a test shows
+/// that a remedy clears one refusal while another gate may still refuse the prompt.
+pub(super) fn not_refused_by(p: &Project, id: &str, args: &[&str], code: &str) {
+    let run = prompt(p, id, args, "claude-code");
+    if run.code == 0 {
+        return;
+    }
+    let full = format!("gsd/{code}");
+    let found = gate_failed(&run);
+    let failing: Vec<&str> = found["data"]["failing"]
+        .as_array()
+        .expect("failing")
+        .iter()
+        .filter_map(|d| d["code"].as_str())
+        .collect();
+    assert!(
+        !failing.contains(&full.as_str()),
+        "{id} {args:?}: {failing:?}"
+    );
 }
 
 /// The prompt is refused with `code` among its failing diagnostics and the gate marked as not passing, and nothing is
