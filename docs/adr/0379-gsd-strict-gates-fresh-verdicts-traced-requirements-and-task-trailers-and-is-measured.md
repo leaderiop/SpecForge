@@ -11,10 +11,10 @@ for `gsd/E521`) and ADR 0371 D1 (`gsd/E519` left with `truth.requirement`). It a
 [ADR 0351](0351-a-plan-lists-its-decisions-and-the-threads-gaps-have-codes.md) D6 and D8 (as ADR 0371 left them),
 [ADR 0358](0358-a-risk-is-rated-and-an-invariant-is-judged.md) D12's gate bullet,
 [ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md)'s context line on `gsd/E516` and the last sentence of
-[gsd ADR 0002](../../gsd/adr/0002-a-capability-extension-plugs-into-core-at-its-hook-points.md) D-S-5, and it
-re-measures the three-profile claim of
-[ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md). No protocol change, no kernel
-change, no new code and no new setting: one table of `@gsd/core` moves.
+[gsd ADR 0002](../../gsd/adr/0002-a-capability-extension-plugs-into-core-at-its-hook-points.md) D-S-5. It keeps
+the three-profile claim of [ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md): no
+check the root runs can see the three gates (Consequences). No protocol change, no kernel change, no new code and no
+new setting: one table of `@gsd/core` moves.
 
 ## Context
 
@@ -150,10 +150,6 @@ and `GSD_SECURITY_WASM` set as `gsd/core/README.md` says.
 - **Judged rules:** `judged rules declared: 10 by @gsd/core and 2 by @gsd/security, 12 in all`, printed by
   `cargo nextest run --locked -p gsd-security -E 'test(=the_code_books_declare_at_least_twelve_judged_rules)' --no-capture`
   (it runs on the SDK's `MockHost` and needs neither variable).
-- **The repository's own check under each profile**, the re-measure of ADR 0374's three-profile claim: in a copy of the
-  repository (`git archive HEAD`), `specforge settings set @gsd/core profile <profile>` then `specforge check --format
-  json` exits 0 with no diagnostic (`[]`) under gsd-compat, gsd-strict and gsd-plus, and the three outputs are
-  byte-identical.
 
 Each bar is asserted by the test that prints it, so a regression fails the build rather than this record.
 
@@ -169,10 +165,10 @@ change named.
 | 0358 | D12, the gate bullet | amended | a stale verdict on an invariant in force refuses a scoped gate under gsd-strict and gsd-plus (D1) |
 | 0362 | Context, the `gsd/E516` line | amended | the same, for an early verdict on a pending target (D1) |
 | gsd 0002 | D-S-5, the last sentence | amended | judged mitigation is built (ADR 0377 D6), and refuses core's gates under gsd-strict and gsd-plus (D3) |
-| 0374 | As built, "The three profiles" | re-measured | the root checks under the new presets (see Measures and Consequences) |
+| 0374 | As built, "The three profiles" | kept | the three gates are guards, silent outside a gate, and `gsd/E521` reads recorded commits, of which the root has none, so no check of the root sees the new presets (Consequences); nothing here re-measures it |
 | 0371 | D1 | kept | `gsd/E519` stays gone (D5) |
 
-ADR 0351: 2 amended. ADRs 0358 and 0362 and gsd ADR 0002: 1 amended each. ADR 0374: 1 re-measured. ADR 0371: 1 kept.
+ADR 0351: 2 amended. ADRs 0358 and 0362 and gsd ADR 0002: 1 amended each. ADRs 0374 and 0371: 1 kept each.
 
 ## Consequences
 
