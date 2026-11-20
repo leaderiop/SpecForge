@@ -430,7 +430,13 @@ fn the_code_books_declare_at_least_twelve_judged_rules() {
     };
     let total = core + security;
     assert!(total >= 12, "{total} judged rules, fewer than twelve");
-    eprintln!(
+    let line = format!(
         "judged rules declared: {core} by @gsd/core and {security} by @gsd/security, {total} in all"
+    );
+    eprintln!("{line}");
+    // The line ADR 0379 quotes.
+    assert_eq!(
+        line,
+        "judged rules declared: 10 by @gsd/core and 2 by @gsd/security, 12 in all"
     );
 }

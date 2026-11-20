@@ -163,7 +163,9 @@ and `GSD_SECURITY_WASM` set as `gsd/core/README.md` says.
   `cargo nextest run --locked -p gsd-security -E 'test(=the_code_books_declare_at_least_twelve_judged_rules)' --no-capture`
   (it runs on the SDK's `MockHost` and needs neither variable).
 
-Each bar is asserted by the test that prints it, so a regression fails the build rather than this record.
+Each bar, and each line quoted above, is asserted by the test that prints it, so a regression fails the build rather
+than this record, and a line that changes fails until this record quotes it again. The number of single-file edits is
+the twin's file count, which the test reads from the fixture: a file added to a twin moves it without a failure.
 
 ## What each decision becomes
 

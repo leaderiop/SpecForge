@@ -60,7 +60,17 @@ fn re_verification_lists_exactly_the_stale_verdicts_after_any_single_file_edit()
     let universe = universe(&p);
     let files = p.fixture_files();
     let scope = p.rejudge_scope(&files, &universe, &|p| listed(p, true));
-    eprintln!("{}", scope.line("taskboard"));
+    let line = scope.line("taskboard");
+    eprintln!("{line}");
+    // The line ADR 0379 quotes; the edits are the fixture's files, one each.
+    assert_eq!(
+        line,
+        format!(
+            "re-verification scope on the taskboard twin: 12 re-judged of 12 stale over {} single-file edits (0 \
+             over-judged, 0 under-judged): 1.0",
+            files.len()
+        )
+    );
     assert!(scope.exact(), "{scope:#?}");
     assert_eq!(scope.ratio(), 1.0);
     assert_eq!(scope.edits, files.len());

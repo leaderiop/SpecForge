@@ -79,7 +79,13 @@ fn touch(p: &Project, file: &str) {
 fn every_verdict_the_ship_gate_reads_is_fresh_on_the_vault_under_strict() {
     let p = judged_strict();
     let f = measured(&p);
-    eprintln!("{}", f.line("vault"));
+    let line = f.line("vault");
+    eprintln!("{line}");
+    // The line ADR 0379 quotes.
+    assert_eq!(
+        line,
+        "verdict freshness at ship on the vault twin: 12 of 12 fresh (100%)"
+    );
     assert_eq!(f.ratio(), 1.0, "{f:#?}");
     assert!(f.refused.is_empty() && f.gate_passes, "{f:#?}");
 }

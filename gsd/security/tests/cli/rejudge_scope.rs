@@ -64,7 +64,18 @@ fn re_verification_and_the_secure_phase_list_exactly_the_stale_verdicts_after_an
     );
     let files = p.fixture_files();
     let scope = p.rejudge_scope(&files, &universe, &listed);
-    eprintln!("{}", scope.line("vault"));
+    let line = scope.line("vault");
+    eprintln!("{line}");
+    // The line ADR 0379 quotes; the edits are the fixture's files, one each.
+    assert_eq!(
+        line,
+        format!(
+            "re-verification scope on the vault twin: 15 re-judged of 15 stale over {} single-file edits (0 \
+             over-judged, 0 under-judged; gsd.security/W302 5 of 5, gsd.security/W303 0 of 0, gsd/E501 10 of 10): \
+             1.0",
+            files.len()
+        )
+    );
     assert!(scope.exact(), "{scope:#?}");
     assert_eq!(scope.ratio(), 1.0);
     assert_eq!(scope.edits, files.len());

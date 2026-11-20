@@ -70,7 +70,13 @@ fn every_verdict_the_ship_gate_reads_is_fresh_under_strict() {
         })
         .collect();
     assert_eq!(f.required, listed);
-    eprintln!("{}", f.line("taskboard"));
+    let line = f.line("taskboard");
+    eprintln!("{line}");
+    // The line ADR 0379 quotes.
+    assert_eq!(
+        line,
+        "verdict freshness at ship on the taskboard twin: 7 of 7 fresh (100%)"
+    );
     assert_eq!(f.ratio(), 1.0, "{f:#?}");
     assert!(f.refused.is_empty() && f.gate_passes, "{f:#?}");
 }
