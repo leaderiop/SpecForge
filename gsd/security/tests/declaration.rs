@@ -388,38 +388,37 @@ fn judged_codes(host: &MockHost) -> (Vec<String>, usize) {
     (codes, others.len())
 }
 
-/// The codes of a code book's judged table, sorted.
-fn sorted<'a>(codes: impl Iterator<Item = &'a str>) -> Vec<String> {
-    let mut codes: Vec<String> = codes.map(String::from).collect();
-    codes.sort();
-    codes
-}
+/// The judged rules of each code book, by name: the twelve ADR 0379 counts. Written here rather than read from the
+/// code books' `JUDGED` tables, which generate the declaration and so would equal it by construction.
+const NAMED: [(&str, &[&str]); 2] = [
+    (
+        "@gsd/core",
+        &[
+            "E202", "E501", "E518", "W203", "W205", "W311", "W313", "W315", "W316", "W525",
+        ],
+    ),
+    ("@gsd/security", &["W302", "W303"]),
+];
 
 /// Counts the judged rules from the declaration both extensions answer, the one `rules.md` is checked against: each
-/// extension declares exactly its code book's judged table, each code once, and the answers also hold rules that are not
-/// judged, which the count leaves out; at least twelve in all, so removing a judged rule fails here (ADR 0379).
+/// extension declares exactly the judged rules [`NAMED`] lists, each code once, so a rule removed or added fails by
+/// name; the answers also hold rules that are not judged, which the count leaves out; and the sum reaches the bar of
+/// twelve, which holds on its own (ADR 0379).
 #[test]
 fn the_code_books_declare_at_least_twelve_judged_rules() {
     let books = [
-        (
-            "@gsd/core",
-            MockHost::new(gsd_core::build()),
-            sorted(gsd_core::judged::JUDGED.iter().map(|j| j.code)),
-        ),
-        (
-            "@gsd/security",
-            MockHost::new(build()),
-            sorted(gsd_security::judged::JUDGED.iter().map(|j| j.code)),
-        ),
+        ("@gsd/core", MockHost::new(gsd_core::build())),
+        ("@gsd/security", MockHost::new(build())),
     ];
     let mut counts = Vec::new();
     let mut not_judged = 0;
-    for (name, host, table) in &books {
+    for ((name, host), (named, rules)) in books.iter().zip(NAMED) {
+        assert_eq!(*name, named);
         let (judged, others) = judged_codes(host);
         let mut once = judged.clone();
         once.dedup();
         assert_eq!(once, judged, "{name} declares a judged rule twice");
-        assert_eq!(&judged, table, "{name}'s judged rules are its table");
+        assert_eq!(judged, rules, "{name}'s judged rules");
         counts.push(judged.len());
         not_judged += others;
     }

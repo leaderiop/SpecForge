@@ -78,12 +78,16 @@ for what nobody checked.
   <phase> --stale-only` lists (and on the vault, those `/gsd-secure-phase` lists), divided by the verdicts `specforge
   query <entity> --inputs <rule>` says are not fresh, with the over-judged and the under-judged sets both empty. An
   edit that stales nothing must list nothing, and adds to neither sum. Bar: exactly 1.0.
-- **Judged rules.** The validation rules `@gsd/core` and `@gsd/security` declare as judged, each extension's count
-  equal to its table. Bar: 12 or more.
+- **Judged rules.** The validation rules `@gsd/core` and `@gsd/security` declare as judged, each extension's set
+  equal to the rules the test names. Bar: 12 or more.
 
-Each measure has a control that makes it fail (a stale verdict, stripped verdicts, a skipped or a whole-phase
-re-verification), so it cannot pass on nothing. The freshness measure also refuses to read a verdict gate switched
-off (`specforge.verdict_gate: false`): such a gate refuses nothing, and would read 100% whatever the verdicts are.
+The first two measures each have a control that makes them fail (a stale verdict, stripped verdicts, a skipped or a
+whole-phase re-verification), so they cannot pass on nothing. The freshness measure also refuses to read a verdict
+gate switched off (`specforge.verdict_gate: false`): such a gate refuses nothing, and would read 100% whatever the
+verdicts are. The judged-rules count has no control, since nothing it counts can be staled; it is pinned instead. The
+test names the twelve rules, so a judged rule removed from a declaration fails by name, and the sum must reach the
+bar on its own. The code books' tables generate the declarations, so a comparison with them would hold by
+construction and is not made.
 
 The reason: a gate is only as honest as the verdicts it reads, and a number a test computes from the CLI's output can
 neither drift from the code nor be typed in.
