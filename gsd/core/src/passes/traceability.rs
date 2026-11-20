@@ -113,7 +113,8 @@ fn plan_paths(input: &PassInput) -> Vec<PassDiagnostic> {
 
 /// E521, on the commit: a recorded commit whose task its subject's title found, or one of a task type that names no
 /// task, carries no `Gsd-Task:` trailer that links it. A commit with no type, or a `docs` one (even one whose subject
-/// matches a task's title), is not judged.
+/// matches a task's title), is not judged. The suggestion names the trailer to add, as gsd-git reads it (ADR 0380):
+/// the task's full id, or the plan's full id and `/<task>`; the plan-local form reads the same.
 fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
     commits(input)
         .into_iter()
@@ -123,20 +124,32 @@ fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
             if commit.kind == Some(CommitType::Docs) {
                 return None;
             }
-            let message = match (&commit.task, commit.linked_by) {
-                (Some(task), Some(LinkedBy::Title)) => format!(
-                    "commit '{}' names task '{task}' by its subject's title, not by a Gsd-Task trailer",
-                    commit.id
+            let (message, suggestion) = match (&commit.task, commit.linked_by) {
+                (Some(task), Some(LinkedBy::Title)) => (
+                    format!(
+                        "commit '{}' names task '{task}' by its subject's title, not by a Gsd-Task trailer",
+                        commit.id
+                    ),
+                    format!(
+                        "end the message with the trailer 'Gsd-Task: {task}' (the task's full id; '<plan>/<task>' \
+                         with the plan as a subject's scope writes it reads the same), then collect"
+                    ),
                 ),
-                (None, _) if commit.kind.is_some_and(CommitType::is_task) => format!(
-                    "commit '{}' of plan '{plan}' is a task commit that names no task",
-                    commit.id
+                (None, _) if commit.kind.is_some_and(CommitType::is_task) => (
+                    format!(
+                        "commit '{}' of plan '{plan}' is a task commit that names no task",
+                        commit.id
+                    ),
+                    format!(
+                        "end the message with the trailer 'Gsd-Task: {plan}/<task>', naming one of the plan's tasks \
+                         (or '<plan>/<task>' with the plan as a subject's scope writes it), then collect"
+                    ),
                 ),
                 _ => return None,
             };
             Some(
                 PassDiagnostic::new("E521", PassSeverity::Error, message)
-                    .with_suggestion("end the message with the trailer 'Gsd-Task: <plan>/<task>', then collect")
+                    .with_suggestion(suggestion)
                     .with_entity(&commit.id),
             )
         })

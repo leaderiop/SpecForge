@@ -49,6 +49,14 @@ fn a_title_linked_commit_is_e521() {
         found[0].message,
         "commit '0123456789ab' names task 'v/1/1-01/T1' by its subject's title, not by a Gsd-Task trailer"
     );
+    // The trailer to paste: the task's full id, which gsd-git reads.
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some(
+            "end the message with the trailer 'Gsd-Task: v/1/1-01/T1' (the task's full id; '<plan>/<task>' with the \
+             plan as a subject's scope writes it reads the same), then collect"
+        )
+    );
 }
 
 #[test]
@@ -59,6 +67,15 @@ fn a_task_type_commit_naming_no_task_is_e521() {
         assert_eq!(
             found[0].message,
             "commit '0123456789ab' of plan 'v/1/1-01' is a task commit that names no task"
+        );
+        // The trailer to add: the plan's full id and one of its tasks.
+        assert_eq!(
+            found[0].suggestion.as_deref(),
+            Some(
+                "end the message with the trailer 'Gsd-Task: v/1/1-01/<task>', naming one of the plan's tasks (or \
+                 '<plan>/<task>' with the plan as a subject's scope writes it), then collect"
+            ),
+            "{kind}"
         );
     }
 }

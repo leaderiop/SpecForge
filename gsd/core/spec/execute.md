@@ -75,8 +75,9 @@ refuses any other writer). The collector (`gsd-git`) reads the whole log through
 named explicitly (`specforge collect --runner gsd-git`) or detected; an incremental `{since}` is not needed at core's
 scale. It reads GSD's
 own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`), and matches the
-task by its title. A `Gsd-Task: <plan>/<task>` trailer comes first (ADR 0331 D3): one that names a task fixes the plan
-and the task, whatever the subject says (`linked_by Gsd-Task`); otherwise the subject decides (`linked_by title`). A
+task by its title. A `Gsd-Task:` trailer, `<plan>/<task>` or the task's full id, comes first (ADR 0331 D3, ADR 0380):
+one that names a task fixes the plan and the task, whatever the subject says (`linked_by Gsd-Task`); otherwise the
+subject decides (`linked_by title`). A
 commit whose description is no task's title (the metadata commit `docs(03-02): complete … plan`) names its plan
 only. A commit that names no plan is not recorded. Each is recorded in its plan's file (so executors of one wave never
 write the same file), in the project scope, named by the first 12 hex digits of its hash.
@@ -115,8 +116,12 @@ leaves the commit naming its plan.
 
 **The trailer.** git prints the `Gsd-Task:` trailer values unfolded on the header line, before the subject, so a value
 never starts a line of its own and a unit separator in a subject stays in the subject. The values are trimmed, blank
-ones dropped and repeats counted once. One value of the form `<plan>/<task>` (each side ASCII letters, digits, `.`, `_`
-and `-`) is resolved as a task over the graph, as written or with the `project_code` prefix stripped from its plan.
+ones dropped and repeats counted once. One value of the form `<scope>/<task>`, split at its last `/` (ADR 0380), is
+the plan as a subject's scope writes it (`01-01/T1`, with the `project_code` prefix stripped) or the task's full id as
+`specforge query` prints it (`v1.0/01/01-01/T1`, the form that names one task when two milestones both have a plan
+`01-01`); each `/`-separated segment is ASCII letters, digits, `.`, `_` and `-`, so a leading, doubled or trailing `/`,
+a `:`, a space or a control character is no value. It is resolved as a task over the graph: the exact id, else a
+unique `/`-boundary suffix, else with the `project_code` prefix stripped from its scope.
 Two different values, or one of another form, is unreadable (as upstream's `ship.md:335` counts a doubled
 `gate-status:` as missing). An unreadable trailer, or one that names no task, falls back to the subject, and the plan's
 title notes `(trailer of <12 hex> names no task: <value or "unreadable">)`. A revert names no task, even with a trailer.
