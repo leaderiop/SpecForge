@@ -128,7 +128,8 @@ fn complete_reports_unshipped_milestones() {
     unchanged(&p, &before);
 }
 
-fn codes_e517(p: &Project) -> Vec<String> {
+/// The messages of the gsd/E517 diagnostics of `p`'s report.
+pub(super) fn codes_e517(p: &Project) -> Vec<String> {
     p.report_all()
         .into_iter()
         .filter(|(c, _)| c == "gsd/E517")

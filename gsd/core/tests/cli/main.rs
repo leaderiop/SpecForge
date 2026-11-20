@@ -102,6 +102,7 @@ mod planned_paths;
 #[path = "../common/planning_names.rs"]
 mod planning_names;
 mod product;
+mod profile_gates;
 mod progress;
 mod prompts_audit;
 mod prompts_autonomous;

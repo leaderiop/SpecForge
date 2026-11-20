@@ -203,7 +203,7 @@ fn plan_check_state(p: &Project, plan: &str) -> Option<String> {
 }
 
 /// The codes of the gate diagnostics that refuse `id`.
-fn failing(p: &Project, id: &str, args: &[&str]) -> Vec<String> {
+pub(super) fn failing(p: &Project, id: &str, args: &[&str]) -> Vec<String> {
     gate_failed(&prompt(p, id, args, "claude-code"))["data"]["failing"]
         .as_array()
         .expect("failing")
