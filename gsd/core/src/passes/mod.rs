@@ -18,6 +18,7 @@ mod roadmap;
 mod scan;
 mod schema_drift;
 mod scope;
+mod stale_truths;
 pub(crate) mod thread;
 mod traceability;
 mod verify_paths;
@@ -66,6 +67,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     verify_paths::declare(c);
     nyquist::declare(c);
     verify_rules::declare(c);
+    stale_truths::declare(c);
     windows::declare(c);
     workstreams::declare(c);
     gates::declare(c);

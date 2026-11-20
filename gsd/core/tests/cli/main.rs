@@ -145,6 +145,7 @@ mod settings;
 mod source_items;
 #[path = "../common/specforge_only.rs"]
 mod specforge_only;
+mod stale_truths;
 mod strict_wave;
 mod thread_plan;
 #[path = "../common/tool_names.rs"]

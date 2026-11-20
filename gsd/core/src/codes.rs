@@ -652,6 +652,14 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
         Severity::Warning,
     ),
+    code(
+        "I527",
+        "What changed under a stale truth since the base",
+        "On a check with a base (check --since a revision, read at its merge-base, or a session's last check), each truth whose verifier verdict is stale says what changed since that base: the spec it reads (the truth, its plan or its phase) or only the files its verdict cites; silent on a plain check",
+        "verify",
+        Severity::Info,
+        Severity::Info,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

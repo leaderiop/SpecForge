@@ -1,6 +1,7 @@
 //! The harness's repository and collects: a project's git history, written with a pinned identity and pinned dates,
 //! and `specforge collect` over it.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;
 
@@ -31,6 +32,40 @@ impl Project {
         self.git(&["commit", "-q", "--allow-empty", "-m", subject], at);
         let head = self.git(&["rev-parse", "HEAD"], at);
         head.trim().to_string()
+    }
+
+    /// The full hash of the commit `HEAD` names.
+    pub fn head(&self) -> String {
+        self.git(&["rev-parse", "HEAD"], BASELINE_AT)
+            .trim()
+            .to_string()
+    }
+
+    /// Every diagnostic of `specforge check --since <revision> --format json`, each as printed, in report order.
+    pub fn checked_since(&self, revision: &str) -> Vec<serde_json::Value> {
+        let run = self.run(&["check", "--since", revision, "--format", "json"]);
+        match serde_json::from_str(&run.stdout) {
+            Ok(serde_json::Value::Array(found)) => found,
+            _ => panic!("check --since prints a JSON list: {}", run.all()),
+        }
+    }
+
+    /// Each diagnostic of `code` (`gsd/I527`) in [`Project::checked_since`] by its entity, one per entity.
+    pub fn advisories(&self, code: &str, revision: &str) -> BTreeMap<String, serde_json::Value> {
+        let mut found = BTreeMap::new();
+        for d in self.checked_since(revision) {
+            if d["code"] != code {
+                continue;
+            }
+            let entity = d["data"]["entity"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{code} names its entity: {d}"))
+                .to_string();
+            if let Some(twice) = found.insert(entity, d) {
+                panic!("{code} twice on one entity: {twice}");
+            }
+        }
+        found
     }
 
     /// `git init` in the project, with no commit; a repository already there is left as it is.
