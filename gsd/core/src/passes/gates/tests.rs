@@ -13,7 +13,7 @@ pub(super) fn ship(subject: Option<&str>) -> Value {
     gate_of("ship", subject)
 }
 
-pub(super) fn codes(found: Vec<PassDiagnostic>) -> Vec<String> {
+fn codes(found: Vec<PassDiagnostic>) -> Vec<String> {
     found.into_iter().map(|d| d.code).collect()
 }
 
@@ -467,7 +467,7 @@ pub(super) fn judged(rule: &str, state: &str, changed: &[&str]) -> Value {
 
 /// Phase 01 (plan 01-01, whose truth TR1 holds `here`) and phase 02 (plan 02-01, whose truth TR1 holds `there`), at
 /// the gate `trigger`.
-pub(super) fn two_phases(trigger: Value, here: Vec<Value>, there: Vec<Value>) -> PassInput {
+fn two_phases(trigger: Value, here: Vec<Value>, there: Vec<Value>) -> PassInput {
     input(
         trigger,
         vec![

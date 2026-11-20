@@ -3,8 +3,9 @@
 //! recorded.
 
 use super::commands_support::{strict, twin};
+use super::e516_remedy::e516_suggestions;
 use super::harness::Project;
-use super::prompts_gates::{PHASE, failing, gate_failed, not_refused_by, refused_by, renders};
+use super::prompts_gates::{PHASE, failing, not_refused_by, refused_by, renders};
 use super::prompts_support::{payload, prompt};
 use super::thread_plan::{thread, trace};
 
@@ -66,14 +67,8 @@ fn execute_phase_is_refused_under_strict_until_the_plan_checks_are_recorded() {
             "gsd/E516", "gsd/E516", "gsd/E516", "gsd/E516", "gsd/W311", "gsd/W313", "gsd/W315"
         ]
     );
-    let found = gate_failed(&prompt(&t, "execute_phase", &[PHASE], "claude-code"));
-    let messages: Vec<&str> = found["data"]["failing"]
-        .as_array()
-        .expect("failing")
-        .iter()
-        .filter(|d| d["code"] == "gsd/E516")
-        .map(|d| d["message"].as_str().expect("a message"))
-        .collect();
+    let found = e516_suggestions(&t, "execute_phase", &[PHASE]);
+    let messages: Vec<&str> = found.iter().map(|(message, _)| message.as_str()).collect();
     for rule in PLAN_CHECKS {
         let missing = format!("the gsd/{rule} verdict on '{PLAN}' is missing");
         let naming: Vec<&&str> = messages.iter().filter(|m| m.ends_with(&missing)).collect();

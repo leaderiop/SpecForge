@@ -554,3 +554,32 @@ fn a_researcher_verdict_in_a_complete_phase_names_the_gate_free_route() {
             + &tail("v1.0/01 (gsd-phase-researcher), v1.0/01 (gsd-verifier)")
     );
 }
+
+/// A stale plan check beside a stale researcher verdict in one open phase: `plan_phase` runs both judges, so the plan
+/// check's refusal lists no verdict, though `plan_review_convergence`, also named, does not run the researcher. A
+/// verdict enters the list only when it refuses every run named.
+#[test]
+fn a_verdict_that_refuses_only_some_named_runs_is_not_listed() {
+    let found = e516(&input(
+        ship(None),
+        vec![
+            json!({ "id": "v1.0", "kind": "milestone" }),
+            json!({ "id": "v1.0/02", "kind": "phase", "fields": { "status": "planned" } }),
+            json!({ "id": "v1.0/02/02-01", "kind": "plan",
+                    "judgements": [judged("gsd/W311", "stale", &["body"])] }),
+            json!({ "id": "v1.0/02/02-RESEARCH", "kind": "research" }),
+            json!({ "id": "v1.0/02/02-RESEARCH/PA1", "kind": "package_audit",
+                    "judgements": [judged("gsd/W205", "stale", &["audit"])] }),
+        ],
+        vec![json!({ "source": "v1.0/02/02-01", "target": "v1.0/02", "label": "phase" })],
+    ));
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert_eq!(
+        how(&found, "v1.0/02/02-01"),
+        again("gsd/W311", "gsd-plan-checker", "v1.0/02/02-01", "v1.0/02")
+    );
+    assert!(
+        !how(&found, "v1.0/02/02-RESEARCH/PA1").contains("also refused"),
+        "{found:?}"
+    );
+}
