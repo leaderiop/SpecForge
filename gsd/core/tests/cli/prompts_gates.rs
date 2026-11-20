@@ -212,8 +212,9 @@ pub(super) fn failing(p: &Project, id: &str, args: &[&str]) -> Vec<String> {
         .collect()
 }
 
+/// gsd-strict turns the verdict gate on (gsd-plus presets the same gate, as `profile_gates.rs` shows).
 #[test]
-fn e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus() {
+fn e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_strict() {
     // complete_milestone: the one-phase milestone whose audit passes, beside a planned milestone whose open plan's
     // plan check is stale (a stale verdict anywhere counts)
     let p = ready();
@@ -227,7 +228,7 @@ fn e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus() {
         Some("stale")
     );
     renders(&p, "complete_milestone", &["v1.0"]);
-    plus(&p);
+    strict(&p);
     refused_by(&p, "complete_milestone", &["v1.0"], "E516");
     p.settings(json!({}));
     renders(&p, "complete_milestone", &["v1.0"]);
@@ -240,7 +241,7 @@ fn e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus() {
         Some("stale")
     );
     renders(&t, "ship", &["v1.0/01"]);
-    plus(&t);
+    strict(&t);
     refused_by(&t, "ship", &["v1.0/01"], "E516");
     t.settings(json!({}));
     renders(&t, "ship", &["v1.0/01"]);

@@ -134,8 +134,11 @@ fn gsd_strict_raises_w103_to_an_error() {
     assert!(raised_to_error(&resolved(&p, &[])).contains(&"gsd/W103"));
 }
 
+/// The SpecForge gates each profile switches on, as `specforge settings` lists the codes it leaves gated off: none
+/// under gsd-compat, all but cross-workstream conflicts (gsd/E517) under gsd-strict, all six under gsd-plus; and an
+/// explicit setting beside the profile beats its preset.
 #[test]
-fn specforge_task_commits_off_gates_w407() {
+fn each_profile_switches_on_its_specforge_gates_and_an_explicit_setting_wins() {
     let p = project("empty");
     let gated = |p: &crate::harness::Project| {
         let r = resolved(p, &[]);

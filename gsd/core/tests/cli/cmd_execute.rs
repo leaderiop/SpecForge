@@ -224,11 +224,12 @@ fn start_plan_is_allowed_under_default() {
     );
 }
 
+/// gsd-strict turns the verdict gate on (gsd-plus presets the same gate).
 #[test]
-fn start_plan_is_refused_by_a_stale_verdict_under_plus() {
+fn start_plan_is_refused_by_a_stale_verdict_under_strict() {
     let p = twin();
     stale_plan_check(&p);
-    plus(&p);
+    strict(&p);
     let run = gsd(&p, "start-plan", &[PLAN]);
     refused(&run, "gate_failed", &["E516"]);
 }
@@ -572,9 +573,9 @@ fn the_executors_new_examples_run() {
     assert_eq!(decision.code, 0, "{}", decision.all());
 }
 
-/// E516 names the gate's subject, so a stale verdict anywhere refuses the step.
+/// E516 names the gate's subject, so a stale verdict anywhere refuses the step under gsd-strict (and gsd-plus).
 #[test]
-fn a_stale_verdict_anywhere_refuses_start_plan_under_plus() {
+fn a_stale_verdict_anywhere_refuses_start_plan_under_strict() {
     let p = super::harness::project("execute");
     checked(&p);
     assert_eq!(
@@ -586,7 +587,7 @@ fn a_stale_verdict_anywhere_refuses_start_plan_under_plus() {
         .code,
         0
     );
-    plus(&p);
+    strict(&p);
     refused(
         &gsd(&p, "start-plan", &["v1.0/01/01-01"]),
         "gate_failed",

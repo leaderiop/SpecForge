@@ -433,14 +433,14 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 71] = [
     (
         "E515",
         Evidence::Tests {
-            fires: "e515_refuses_close_milestone_under_plus_until_the_requirement_traces",
+            fires: "e515_blocks_close_milestone_under_strict_and_plus_until_the_requirement_traces",
             silent: "e515_is_silent_by_default",
         },
     ),
     (
         "E516",
         Evidence::Tests {
-            fires: "e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_plus",
+            fires: "e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_strict",
             silent: "e516_a_missing_verdict_refuses_ship_but_not_the_execution_that_judges_it",
         },
     ),

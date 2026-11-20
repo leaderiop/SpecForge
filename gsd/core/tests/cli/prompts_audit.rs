@@ -1,7 +1,7 @@
 //! `audit_uat` and `audit_milestone` (T9).
 
 use super::cmd_execute::stale_plan_check;
-use super::commands_support::{plus, twin};
+use super::commands_support::{strict, twin};
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
 const MILESTONE: &str = "v1.0";
@@ -48,11 +48,12 @@ fn audit_milestone_refuses_a_missing_milestone() {
     assert!(run.all().contains("E003"), "{}", run.all());
 }
 
+/// gsd-strict turns the verdict gate on (gsd-plus presets the same gate).
 #[test]
-fn audit_milestone_gate_refuses_a_stale_verdict_under_plus() {
+fn audit_milestone_gate_refuses_a_stale_verdict_under_strict() {
     let p = twin();
     stale_plan_check(&p);
-    plus(&p);
+    strict(&p);
     let run = prompt(&p, "audit_milestone", &[MILESTONE], "claude-code");
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());

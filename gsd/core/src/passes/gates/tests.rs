@@ -322,8 +322,9 @@ fn e516_names_the_subject_of_a_scoped_gate() {
     assert_eq!(project[0].entity.as_deref(), Some("v1.0/01/01-02"));
 }
 
+/// The guard itself knows no profile: whether a gate asks it is the verdict gate's setting.
 #[test]
-fn a_stale_verdict_is_e516_under_plus() {
+fn a_stale_verdict_is_e516_and_a_fresh_one_is_not() {
     let stale = |state: &str| {
         input(
             ship(None),
