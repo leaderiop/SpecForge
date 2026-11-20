@@ -153,7 +153,7 @@ fn spec_changes(delta: &DeltaPayload, read: &[(&str, &str)]) -> Vec<String> {
                         node.aspects
                             .iter()
                             .filter(|a| **a != DeltaAspect::Verdicts)
-                            .map(aspect_name),
+                            .map(|a| aspect_name(a).to_string()),
                     )
                     .collect(),
                 DeltaChange::Modified | DeltaChange::Removed => return None,
@@ -167,11 +167,14 @@ fn spec_changes(delta: &DeltaPayload, read: &[(&str, &str)]) -> Vec<String> {
         .collect()
 }
 
-/// An aspect's wire name (`title`, `obligations`).
-fn aspect_name(aspect: &DeltaAspect) -> String {
-    match serde_json::to_value(aspect) {
-        Ok(serde_json::Value::String(name)) => name,
-        other => unreachable!("an aspect serializes as its name, not {other:?}"),
+/// An aspect's wire name (`title`, `obligations`): a `match`, so a new aspect fails to compile until it is named.
+fn aspect_name(aspect: &DeltaAspect) -> &'static str {
+    match aspect {
+        DeltaAspect::Title => "title",
+        DeltaAspect::Methods => "methods",
+        DeltaAspect::Obligations => "obligations",
+        DeltaAspect::Verdicts => "verdicts",
+        DeltaAspect::Edges => "edges",
     }
 }
 

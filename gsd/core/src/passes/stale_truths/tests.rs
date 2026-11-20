@@ -547,3 +547,20 @@ fn a_spec_change_over_a_base_that_cited_no_file_claims_nothing_of_the_files() {
     );
     assert!(!message.contains("no file it cites changed"), "{message}");
 }
+
+#[test]
+fn an_aspect_is_named_as_the_wire_names_it() {
+    for aspect in [
+        DeltaAspect::Title,
+        DeltaAspect::Methods,
+        DeltaAspect::Obligations,
+        DeltaAspect::Verdicts,
+        DeltaAspect::Edges,
+    ] {
+        assert_eq!(
+            serde_json::to_value(aspect).expect("an aspect serializes"),
+            json!(aspect_name(&aspect)),
+            "{aspect:?}"
+        );
+    }
+}
