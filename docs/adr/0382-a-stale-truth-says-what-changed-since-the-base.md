@@ -106,9 +106,16 @@ ADR 0377: 2 kept, 1 amended, 1 answered. ADR 0376: 1 kept.
 ## Consequences
 
 - Once `@gsd/core` is loaded the host takes the delta of its three kinds on every check; it takes none while no pass
-  declares it, and with base none it digests every truth, plan and phase.
-- A long-lived session holds its last checked graph while the pass is loaded (ADR 0376 D7).
-- `check --since` loads the merge-base's graph for the delta.
+  declares it, and with base none it digests every truth, plan and phase. The pinned declaration of `@gsd/core`
+  (`crates/runtime/component/tests/declarations/gsd_core/describe_passes.json`) holds the `stale_truths` pass and its
+  delta of `truth`, `plan` and `phase`; the host's side is ADR 0376 D6, held by
+  `crates/session/project/tests/delta_input.rs`: `a_cold_compile_sends_every_node_of_the_named_kinds_added` and
+  `no_delta_is_taken_when_no_pass_declares_it`.
+- A long-lived session holds its last checked graph while the pass is loaded (ADR 0376 D7), and none without it: in
+  the same file, `a_session_sends_the_changes_since_its_last_check` and `a_session_with_no_delta_pass_holds_no_graph`.
+- `check --since` loads the merge-base's graph for the delta, and none when no pass reads it: in the same file,
+  `since_names_the_merge_base` and `since_loads_no_graph_at_the_merge_base_when_no_pass_reads_the_delta`; on the
+  taskboard twin, `the_baseline_of_a_fork_is_read_at_its_merge_base` (`gsd/core/tests/cli/stale_truths.rs`).
 - The verifier reads, before it judges again, whether the spec or only the files a truth cites moved.
 - The code book gains one code.
 - The `@gsd/core` blob is re-vendored.
