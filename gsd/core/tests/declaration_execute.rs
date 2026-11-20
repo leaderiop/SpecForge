@@ -167,7 +167,8 @@ fn the_commit_kind_is_harness_written() {
             "insertions",
             "deletions",
             "descends_from",
-            "items_changed"
+            "items_changed",
+            "waiver"
         ]
     );
     for field in fields_of("commit") {
@@ -175,6 +176,24 @@ fn the_commit_kind_is_harness_written() {
         assert_ne!(field_of("commit", &field)["required"], true, "{field}");
     }
     assert_eq!(field_of("commit", "hash")["immutable"], true);
+    // A person's waiver of gsd/E521, set once beside what the collector recorded: why, who and when, each required.
+    let waiver = field_of("commit", "waiver");
+    assert_eq!(
+        (&waiver["field_type"], &waiver["immutable"]),
+        (&"block".into(), &true.into())
+    );
+    let members: Vec<(&str, bool)> = waiver["members"]
+        .as_array()
+        .expect("members")
+        .iter()
+        .map(|m| {
+            (
+                m["name"].as_str().unwrap_or_default(),
+                m["required"] == true,
+            )
+        })
+        .collect();
+    assert_eq!(members, [("reason", true), ("by", true), ("at", true)]);
     // Written once: the items a commit changed are what held when it was recorded (a history reference).
     let items = field_of("commit", "items_changed");
     assert_eq!(
@@ -322,8 +341,8 @@ fn the_model_counts_its_fields() {
     .iter()
     .map(|k| fields_of(k).len())
     .sum();
-    // + 1: the blocker's `gate`; + 5: the quick batch.
-    assert_eq!(total, 22 + 6 + 5 + 13 + 6 + 10 + 5 + 1 + 5);
+    // + 1: the blocker's `gate`; + 5: the quick batch; the commit's 14 hold its `waiver`.
+    assert_eq!(total, 22 + 6 + 5 + 14 + 6 + 10 + 5 + 1 + 5);
 }
 
 #[test]

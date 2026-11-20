@@ -54,3 +54,17 @@ fn an_unwritten_items_changed_is_none_and_a_written_empty_one_is_empty() {
         [None, Some(vec![]), Some(vec!["js:a/x.js::A".to_string()])]
     );
 }
+
+#[test]
+fn a_commit_reads_whether_it_is_waived() {
+    let input: PassInput = serde_json::from_value(json!({
+        "entities": [
+            {"id": "0123456789ab", "kind": "commit",
+             "fields": {"at": "2026-10-28T09:00:00Z", "waiver": "reason, by, at"}},
+            {"id": "0123456789ac", "kind": "commit", "fields": {"at": "2026-10-28T09:00:01Z"}},
+        ],
+    }))
+    .expect("a pass input");
+    let found: Vec<bool> = commits(&input).into_iter().map(|c| c.waived).collect();
+    assert_eq!(found, [true, false]);
+}

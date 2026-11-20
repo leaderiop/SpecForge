@@ -27,6 +27,14 @@ use specforge_extension_sdk::prelude::*;
 /// An option weighed: a checkpoint's options (GSD `<options>`).
 const OPTION: &[dsl::Field] = &[dsl::str("name").r(), dsl::strs("pros"), dsl::strs("cons")];
 
+/// The waiver a person records on a resolved broken window or on a commit gsd/E521 judges: why, who and when, each
+/// required.
+const WAIVER: &[dsl::Field] = &[
+    dsl::str("reason").r(),
+    dsl::str("by").r(),
+    dsl::ts("at").r(),
+];
+
 /// Every kind declared so far, in the order of the model's files.
 pub(crate) const KINDS: &[&Kind] = &[
     &project::PROJECT,

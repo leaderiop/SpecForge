@@ -106,6 +106,18 @@ fn cases() -> Vec<Case> {
             shows: "waiver",
         },
         Case {
+            command: "waive-trailer",
+            project: super::waive_trailer::title_linked,
+            args: |p| {
+                strs(&[
+                    &super::waive_trailer::commit_of(p, "feat"),
+                    "a reason",
+                    "ada",
+                ])
+            },
+            shows: "waiver",
+        },
+        Case {
             command: "fix-window",
             project: || project("verify"),
             args: |_| strs(&["BW1"]),
@@ -272,7 +284,7 @@ fn a_failing_gate_refuses_and_an_off_setting_allows() {
 
 #[test]
 fn every_command_refuses_an_unknown_entity_with_its_name() {
-    let unknown: [(&str, Vec<&str>); 23] = [
+    let unknown: [(&str, Vec<&str>); 24] = [
         ("start-plan", vec!["NOPE"]),
         ("complete-plan", vec!["NOPE"]),
         (
@@ -283,6 +295,7 @@ fn every_command_refuses_an_unknown_entity_with_its_name() {
         ("propose-refactor", vec!["NOPE"]),
         ("dispose-refactor", vec!["NOPE", "accepted", "ada"]),
         ("waive-window", vec!["NOPE", "why", "ada"]),
+        ("waive-trailer", vec!["NOPE", "why", "ada"]),
         ("fix-window", vec!["NOPE"]),
         ("resume", vec!["NOPE"]),
         ("resolve-blocker", vec!["NOPE", "done"]),

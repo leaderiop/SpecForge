@@ -59,7 +59,8 @@
       "mcp__specforge__specforge_gsd_resolve_edge", "mcp__specforge__specforge_gsd_resolve_prohibition",
       "mcp__specforge__specforge_gsd_resume", "mcp__specforge__specforge_gsd_set_uat_result",
       "mcp__specforge__specforge_gsd_start_batch", "mcp__specforge__specforge_gsd_start_plan",
-      "mcp__specforge__specforge_gsd_waive_window", "mcp__specforge__specforge_gsd_workstreams"
+      "mcp__specforge__specforge_gsd_waive_trailer", "mcp__specforge__specforge_gsd_waive_window",
+      "mcp__specforge__specforge_gsd_workstreams"
     ],
     "cli": [
       "format", "new", "set", "unset", "link", "unlink", "delete", "init", "add", "remove", "migrate",
@@ -72,7 +73,7 @@
       "gsd record-conflict", "gsd record-research", "gsd record-review", "gsd record-security-audit",
       "gsd record-security-verdict", "gsd record-spec", "gsd record-validation", "gsd record-verdict", "gsd record-window", "gsd resolve-blocker",
       "gsd resolve-conflict", "gsd resolve-edge", "gsd resolve-prohibition", "gsd resume", "gsd set-uat-result",
-      "gsd start-batch", "gsd start-plan", "gsd waive-window", "gsd workstreams"
+      "gsd start-batch", "gsd start-plan", "gsd waive-trailer", "gsd waive-window", "gsd workstreams"
     ]
   },
   "fixtures": [

@@ -126,11 +126,15 @@ fn plan_local(id: &str, segments: usize) -> Option<&str> {
 /// task, carries no `Gsd-Task:` trailer that links it. A commit with no type, or a `docs` one (even one whose subject
 /// matches a task's title), is not judged. The suggestion names the trailer the later commits add, as gsd-git reads it
 /// (ADR 0380): the task's full id, or the plan's full id and `/<task>`, and the plan-local form as written (`01-01/T1`).
-/// A recorded commit keeps its fields, so the suggestion says its own error stays.
+/// A recorded commit keeps its fields, so the suggestion says its own error stays. A commit a person waived (its
+/// `waiver` is set) is not judged (ADR 0381).
 fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
     commits(input)
         .into_iter()
         .filter_map(|commit| {
+            if commit.waived {
+                return None;
+            }
             // The collector records only a commit that names a plan; a plan's metadata commit is `docs`.
             let plan = commit.plan.as_deref()?;
             if commit.kind == Some(CommitType::Docs) {

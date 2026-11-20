@@ -95,7 +95,7 @@ fn e515_blocks_close_milestone_under_strict_and_plus_until_the_requirement_trace
 }
 
 /// `specforge check`'s exit and its gsd/E521 errors.
-fn e521_errors(p: &Project) -> (i32, Vec<Value>) {
+pub(super) fn e521_errors(p: &Project) -> (i32, Vec<Value>) {
     let run = p.run(&["check", "--format", "json"]);
     let found: Value =
         serde_json::from_str(&run.stdout).unwrap_or_else(|e| panic!("{e}: {}", run.all()));
@@ -109,11 +109,18 @@ fn e521_errors(p: &Project) -> (i32, Vec<Value>) {
     (run.code, errors)
 }
 
-/// The `execute` project with one task commit `message`, a plan's metadata commit, a git collect, passing tests, its
-/// plans checked and its phase verified over the committed files: gsd/E521 is the only error it can hold.
-fn committed(message: &str) -> Project {
+/// The `execute` project with one task commit of `src/tasks.js` per message, a plan's metadata commit, a git collect,
+/// passing tests, its plans checked and its phase verified over the committed files: gsd/E521 is the only error it can
+/// hold. The task commits are a minute apart from `T0`, each adding a line so each has a diff, all before the metadata
+/// commit at `T1`, half an hour later.
+pub(super) fn committed(messages: &[&str]) -> Project {
+    assert!(messages.len() < 30, "the task commits end before T1");
     let p = repository();
-    p.git_commit(message, &[("src/tasks.js", "a\n")], T0);
+    let hour = T0.strip_suffix("00:00Z").expect("T0 is on the hour");
+    for (i, message) in messages.iter().enumerate() {
+        let at = format!("{hour}{i:02}:00Z");
+        p.git_commit(message, &[("src/tasks.js", &"a\n".repeat(i + 1))], &at);
+    }
     p.git_commit("docs(01-01): complete the task store plan", &[], T1);
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
@@ -139,13 +146,13 @@ fn committed(message: &str) -> Project {
 #[test]
 fn e521_is_an_error_under_strict_and_plus_until_the_commit_carries_its_trailer() {
     for (profile, blocks) in PROFILES {
-        let p = committed("feat(01-01): Store module");
+        let p = committed(&["feat(01-01): Store module"]);
         select(&p, profile);
         let (code, errors) = e521_errors(&p);
         assert_eq!(errors.len(), usize::from(blocks), "{profile:?}: {errors:?}");
         assert_eq!(code, i32::from(blocks), "{profile:?}: {errors:?}");
         // The trailer gsd-core's executor writes links the commit to its task.
-        let p = committed("feat(01-01): Store module\n\nGsd-Task: 01-01/T1\n");
+        let p = committed(&["feat(01-01): Store module\n\nGsd-Task: 01-01/T1\n"]);
         select(&p, profile);
         assert_eq!(e521_errors(&p), (0, Vec::new()), "{profile:?}");
     }
@@ -155,7 +162,7 @@ fn e521_is_an_error_under_strict_and_plus_until_the_commit_carries_its_trailer()
 #[test]
 fn e521_is_silent_under_strict_and_plus_for_a_trailer_naming_the_task_by_its_full_id() {
     for (profile, _) in PROFILES.into_iter().filter(|&(_, blocks)| blocks) {
-        let p = committed("feat(01-01): Store module\n\nGsd-Task: v1.0/01/01-01/T1\n");
+        let p = committed(&["feat(01-01): Store module\n\nGsd-Task: v1.0/01/01-01/T1\n"]);
         select(&p, profile);
         assert_eq!(e521_errors(&p), (0, Vec::new()), "{profile:?}");
     }

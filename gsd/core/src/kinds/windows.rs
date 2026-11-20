@@ -18,7 +18,6 @@ const REASONS: &[&str] = &["threshold", "jump"];
 const PROPOSAL_STATUS: &[&str] = &["proposed", "accepted", "declined"];
 const OUTCOME: &[&str] = &["accepted", "declined"];
 
-const WAIVER: &[Field] = &[str("reason").r(), str("by").r(), ts("at").r()];
 const CANDIDATES: &[Field] = &[
     str("file"),
     str("function"),
@@ -46,7 +45,7 @@ pub const BROKEN_WINDOW: Kind = Kind::new(
         ),
         int("line").doc("`line`"),
         str("description").r().doc("`description`"),
-        block("waiver", WAIVER)
+        block("waiver", super::WAIVER)
             .h()
             .i()
             .doc("`waive` (a reason is required); written by the command that waives it"),

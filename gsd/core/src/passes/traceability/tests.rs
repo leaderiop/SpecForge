@@ -93,6 +93,24 @@ fn a_trailer_linked_or_docs_commit_is_not_e521() {
     assert!(check(&commit("docs", Some("v/1/1-01/T1"), Some("title"))).is_empty());
 }
 
+/// A person's waiver clears gsd/E521 on its own commit only: a sibling with the same fault is still judged.
+#[test]
+fn a_waived_commit_is_not_judged_and_its_sibling_still_is() {
+    let mut input = commit("feat", Some("v/1/1-01/T1"), Some("title"));
+    input.entities[2]
+        .fields
+        .insert("waiver".into(), "reason, by, at".into()); // a block's text is its keys
+    let mut sibling = entity("0123456789ac", "commit");
+    sibling.fields.insert("type".into(), "feat".into());
+    sibling.fields.insert("linked_by".into(), "title".into());
+    input.entities.push(sibling);
+    input.edges.push(edge("0123456789ac", "v/1/1-01", "plan"));
+    input
+        .edges
+        .push(edge("0123456789ac", "v/1/1-01/T1", "task"));
+    assert_eq!(codes_of(&check(&input)), [("E521", Some("0123456789ac"))]);
+}
+
 /// Complete plan `v/1/1-01` planning `src/a.js` and `src/lib` (its artifact's path), deleting `src/old.js`, whose
 /// commits touched `touched` (unwritten when `None`); the host served `present` as existing.
 fn paths(touched: Option<&[&str]>, present: &[&str]) -> PassInput {

@@ -1,5 +1,5 @@
 //! What the passes read from the recorded commits: each commit's plan, task, how the task was found, type, subject,
-//! time and files, from the entity and its resolved `plan` and `task` edges.
+//! time, files and whether a person waived its gsd/E521, from the entity and its resolved `plan` and `task` edges.
 
 use specforge_extension_sdk::prelude::*;
 
@@ -32,6 +32,8 @@ pub struct Commit {
     pub deletions: i64,
     /// The ids of the recorded commits of its plan it descends from; `None` when the collector wrote no ancestry.
     pub descends_from: Option<Vec<String>>,
+    /// A person waived gsd/E521 on it: its `waiver` block is set (ADR 0381).
+    pub waived: bool,
 }
 
 /// A commit's type, as its subject's `type(scope):` header names it: the executor's commit types
@@ -120,6 +122,7 @@ pub fn commits(input: &PassInput) -> Vec<Commit> {
                             .map(|d| d.target.clone())
                             .collect()
                     }),
+                    waived: e.fields.contains_key("waiver"),
                 },
                 place,
             )

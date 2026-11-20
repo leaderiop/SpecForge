@@ -1,18 +1,22 @@
-//! The commands that record a person's answer (C1 of the r41 review): `answer_checkpoint`, `confirm_setup`,
-//! `set_uat_result`, `approve_validation`, `waive_window` and `dispose_refactor` are human-attested (ADR 0301): a
-//! person at a terminal runs them, and an agent's call is refused `human_only`. `pause` stays an agent's: no gate reads a
+//! The seven commands that record a person's answer (C1 of the r41 review): `answer_checkpoint`, `confirm_setup`,
+//! `set_uat_result`, `approve_validation`, `waive_window`, `dispose_refactor` and `waive_trailer` are human-attested
+//! (ADR 0301): a person at a terminal runs them, and an agent's call is refused `human_only`. `pause` stays an agent's: no gate reads a
 //! pause, and `/gsd-pause-work` is the agent's own act.
 
 use super::cmd_execute::{CHECKPOINT, SETUP};
 use super::commands_support::*;
 use super::harness::{Project, Run, project};
 
+/// The entity of a case's own project that holds the attestation.
+type Holder = fn(&Project) -> String;
+
 struct Case {
     command: &'static str,
     project: fn() -> Project,
-    args: fn(&str) -> Vec<String>,
-    /// The entity and field that hold the attestation, when the kind has a place for it.
-    holds: Option<(&'static str, &'static str)>,
+    /// The arguments for `by`, naming what they need of the case's own project.
+    args: fn(&Project, &str) -> Vec<String>,
+    /// The entity (named from the project) and field that hold the attestation, when the kind has a place for it.
+    holds: Option<(Holder, &'static str)>,
 }
 
 fn strs(args: &[&str]) -> Vec<String> {
@@ -24,51 +28,63 @@ fn cases() -> Vec<Case> {
         Case {
             command: "answer-checkpoint",
             project: || project("execute"),
-            args: |by| strs(&[CHECKPOINT, "--option", "flag", "--by", by]),
-            holds: Some((CHECKPOINT, "answer")),
+            args: |_, by| strs(&[CHECKPOINT, "--option", "flag", "--by", by]),
+            holds: Some((|_| CHECKPOINT.to_string(), "answer")),
         },
         Case {
             command: "confirm-setup",
             project: || project("execute"),
-            args: |by| strs(&[SETUP, "--by", by]),
-            holds: Some((SETUP, "done")),
+            args: |_, by| strs(&[SETUP, "--by", by]),
+            holds: Some((|_| SETUP.to_string(), "done")),
         },
         Case {
             command: "set-uat-result",
             project: super::cmd_verify::unanswered,
-            args: |by| strs(&["v1.0/01/01-UAT/U1", "pass", "--by", by]),
+            args: |_, by| strs(&["v1.0/01/01-UAT/U1", "pass", "--by", by]),
             // A uat_test has no `by`: the attestation is echoed, not stored.
             holds: None,
         },
         Case {
             command: "approve-validation",
             project: super::commands::unapproved,
-            args: |by| strs(&["v1.0/01/01-VALIDATION", by]),
-            holds: Some(("v1.0/01/01-VALIDATION", "approval")),
+            args: |_, by| strs(&["v1.0/01/01-VALIDATION", by]),
+            holds: Some((|_| "v1.0/01/01-VALIDATION".to_string(), "approval")),
         },
         Case {
             command: "waive-window",
             project: || project("verify"),
-            args: |by| strs(&["BW1", "tracked elsewhere", by]),
-            holds: Some(("BW1", "waiver")),
+            args: |_, by| strs(&["BW1", "tracked elsewhere", by]),
+            holds: Some((|_| "BW1".to_string(), "waiver")),
         },
         Case {
             command: "dispose-refactor",
             project: || project("verify"),
-            args: |by| strs(&["RP1", "accepted", by]),
-            holds: Some(("RP1", "disposition")),
+            args: |_, by| strs(&["RP1", "accepted", by]),
+            holds: Some((|_| "RP1".to_string(), "disposition")),
+        },
+        Case {
+            command: "waive-trailer",
+            project: super::waive_trailer::title_linked,
+            args: |p, by| {
+                strs(&[
+                    &super::waive_trailer::commit_of(p, "feat"),
+                    "recorded before the trailer existed",
+                    by,
+                ])
+            },
+            holds: Some((|p| super::waive_trailer::commit_of(p, "feat"), "waiver")),
         },
     ]
 }
 
 fn run(p: &Project, case: &Case, by: &str) -> Run {
-    let args = (case.args)(by);
+    let args = (case.args)(p, by);
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     gsd(p, case.command, &args)
 }
 
 fn run_as_person(p: &Project, case: &Case, by: &str) -> Run {
-    let args = (case.args)(by);
+    let args = (case.args)(p, by);
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     gsd_as_person(p, case.command, &args)
 }
@@ -81,7 +97,8 @@ fn a_person_records_whatever_by_names() {
         let result = run_as_person(&p, &case, "Grace Hopper");
         assert_eq!(result.code, 0, "{}: {}", case.command, result.all());
         if let Some((entity, field)) = case.holds {
-            let held = p.fields_of(entity)[field].to_string();
+            let entity = entity(&p);
+            let held = p.fields_of(&entity)[field].to_string();
             assert!(
                 held.contains("Grace Hopper"),
                 "{}: {entity}.{field} = {held}",

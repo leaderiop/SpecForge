@@ -154,6 +154,7 @@ mod verify_paths;
 mod verify_rules;
 mod verify_status;
 mod verify_verdicts;
+mod waive_trailer;
 
 use harness::project;
 
