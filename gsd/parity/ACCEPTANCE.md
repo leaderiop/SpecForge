@@ -56,7 +56,9 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   verdicts of a phase that are not fresh, and `execute_phase` runs it before the verifier, which judges only those,
   where upstream re-verifies the whole phase. The taskboard twin shows it
   (`core/tests/cli/fresh_taskboard.rs`): an edit re-judges exactly the verdicts that read the edited file, and every
-  other verdict stays byte-identical.
+  other verdict stays byte-identical. A check since a commit names what changed under each stale truth (`gsd/I527`,
+  ADR 0382): on both twins exactly the truths `re_verify` lists, with the one edited file
+  (`core/tests/cli/stale_truths.rs`, `security/tests/cli/stale_truths.rs`).
 - Plan flow, SpecForge's own, beyond upstream (ADR 0378): a plan's computed `strict_wave` keeps the plans of a phase
   that share a path apart, where upstream runs such a wave sequentially (`gsd/W305`), and `gsd/W526` says where a pushed
   plan runs; `plan_phase` threads a phase's plans through `thread_plan` and `specforge trace --plan` before the plan

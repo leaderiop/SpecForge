@@ -482,3 +482,23 @@ fn a_verdict_that_cites_no_file_names_none() {
     assert!(!message.contains("it cites"), "{message}");
     assert!(!message.contains("''"), "{message}");
 }
+
+#[test]
+fn a_file_the_verdict_at_the_base_did_not_read_is_not_named_changed() {
+    let now = verdict(
+        "stale",
+        &["cited"],
+        &[("src/tasks.js", "C"), ("src/added.js", "N")],
+    );
+    let then = verdict("fresh", &[], &[("src/tasks.js", "A")]);
+    let input = input(
+        vec![now],
+        json!({ "delta": delta(revision(), vec![]), "previous": baseline(R, then) }),
+    );
+    let message = on_tr1(&input).message;
+    assert!(
+        message.ends_with("only the files it cites changed: 'src/tasks.js'"),
+        "{message}"
+    );
+    assert!(!message.contains("src/added.js"), "{message}");
+}

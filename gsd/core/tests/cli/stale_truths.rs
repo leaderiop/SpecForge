@@ -247,3 +247,34 @@ fn the_advisory_is_info_under_every_profile_and_repeats_byte_for_byte() {
     assert_eq!(first.0, citing_tasks_js().len(), "{}", first.1);
     assert_eq!(first, i527());
 }
+
+/// On a fork, `check --since <branch>` reads the baseline at the merge-base of the branch and `HEAD`, the commit the
+/// delta's base names, never at the branch's own commit or at `HEAD`: so it can say which cited file changed.
+#[test]
+fn the_baseline_of_a_fork_is_read_at_its_merge_base() {
+    let p = taskboard();
+    p.commit();
+    let judged = p.head();
+    let at = "2026-11-20T10:00:00Z";
+    p.git(&["checkout", "-q", "-b", "side"], at);
+    let readme = format!("{}A line on the side branch.\n", p.read("README.md"));
+    let side = p.git_commit("side", &[("README.md", &readme)], at);
+    p.git(&["checkout", "-q", "main"], at);
+    touch(&p, "src/tasks.js");
+    p.commit();
+    let advisories = p.advisories(I527, "side");
+    let named: BTreeSet<String> = advisories.keys().cloned().collect();
+    assert_eq!(named, citing_tasks_js());
+    for (truth, advisory) in &advisories {
+        let text = message(advisory);
+        assert!(
+            text.contains(&format!("since {}", &judged[..12])),
+            "{truth}: {text}"
+        );
+        assert!(!text.contains(&side[..12]), "{truth}: {text}");
+        assert!(
+            text.contains("only the files it cites changed: 'src/tasks.js'"),
+            "{truth}: {text}"
+        );
+    }
+}

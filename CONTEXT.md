@@ -443,8 +443,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   when either end is of a named kind. A pass that declares the delta input (`Input::Delta { kinds }`, protocol 2.3.0)
   is sent it restricted to its kinds as `PassInput.delta`, which names its base: `none`, `revision` (the merge-base
   under `check --since`) or `previous` (a long-lived session's last completed check, or the project before a write
-  for a guard pass). Base none is the empty graph, so every node is added and a pass written for changes is correct
-  on a cold run; a node whose kind changed is a removal and an addition.
+  for a guard pass). `@gsd/core`'s `stale_truths` reads it (`gsd/I527`, ADR 0382): it names each truth whose verifier
+  verdict is stale and says whether the spec it reads or only the files it cites changed since the base; a file edit
+  is not in the delta, so the files come from the truth's judgement at the base. Base none is the empty graph, so
+  every node is added and a pass written for changes is correct on a cold run; a node whose kind changed is a removal
+  and an addition.
 - **Snapshot**: a project's compiled graph, its fact nodes included, at one key: a git revision, or the working tree
   (`specforge_project::snapshot::Snapshot`, ADR 0376). Not the **entity snapshot** of one build. A revision's is
   built from the `.spec` files, the harness ledger and `specforge.json` the commit holds, read through the **Git
