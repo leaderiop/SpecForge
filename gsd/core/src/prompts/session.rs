@@ -31,6 +31,7 @@ static PAUSE_WORK: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
@@ -49,6 +50,7 @@ static RESUME_WORK: Spec = Spec {
         effort: None,
     }),
     inputs: &[specforge_extension_sdk::Input::State],
+    rejudges: &[],
     tail: Some(workflow::workstream_tail),
 };
 

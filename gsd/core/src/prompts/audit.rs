@@ -4,7 +4,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{Do, Slash, Spec, Step};
+use super::workflow::{Do, Rejudge, Slash, Spec, Step};
 
 const UAT_STEPS: &[Step] = &[Step {
     id: "uat",
@@ -53,6 +53,7 @@ static AUDIT_UAT: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
@@ -71,6 +72,11 @@ static AUDIT_MILESTONE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[Rejudge {
+        judge: "gsd-integration-checker",
+        flags: &[],
+        stops_on_complete: false,
+    }],
     tail: Some(integration),
 };
 

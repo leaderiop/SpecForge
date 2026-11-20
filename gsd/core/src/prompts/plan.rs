@@ -5,7 +5,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
 use super::ns::served;
-use super::workflow::{Do, Slash, Spec, Step};
+use super::workflow::{Do, Rejudge, Slash, Spec, Step};
 
 const ARGS: &[Arg] = &[
     Arg::subject("phase", "phase"),
@@ -102,6 +102,19 @@ static PLAN_PHASE: Spec = Spec {
         effort: Some("max"),
     }),
     inputs: &[specforge_extension_sdk::Input::SlashCommands],
+    // The closed-phase gate stops a run on a complete phase; a research found is reused unless `--research`.
+    rejudges: &[
+        Rejudge {
+            judge: "gsd-phase-researcher",
+            flags: &["research"],
+            stops_on_complete: true,
+        },
+        Rejudge {
+            judge: "gsd-plan-checker",
+            flags: &[],
+            stops_on_complete: true,
+        },
+    ],
     tail: Some(tail),
 };
 
@@ -193,6 +206,12 @@ static PLAN_REVIEW_CONVERGENCE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    // It replans through plan_phase, which stops on a complete phase.
+    rejudges: &[Rejudge {
+        judge: "gsd-plan-checker",
+        flags: &[],
+        stops_on_complete: true,
+    }],
     tail: None,
 };
 
@@ -224,6 +243,7 @@ static ULTRAPLAN_PHASE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 

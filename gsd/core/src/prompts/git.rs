@@ -50,6 +50,7 @@ static UNDO: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(revert),
 };
 
@@ -68,6 +69,7 @@ static PR_BRANCH: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(filtered),
 };
 

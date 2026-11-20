@@ -87,6 +87,7 @@ static AUTONOMOUS: Spec = Spec {
         effort: Some("max"),
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(unattended),
 };
 

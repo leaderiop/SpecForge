@@ -48,6 +48,7 @@ static MILESTONE_SUMMARY: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(shown),
 };
 
@@ -66,6 +67,7 @@ static EXTRACT_LEARNINGS: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(recorded),
 };
 

@@ -53,6 +53,7 @@ static UPDATE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 

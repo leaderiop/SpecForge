@@ -519,8 +519,8 @@ fn e516_a_stale_verdict_anywhere_refuses_a_scoped_gate_naming_what_changed() {
         found[0]
             .suggestion
             .as_deref()
-            .is_some_and(|s| s.contains("specforge gsd re-verify")),
-        "{found:?}"
+            .is_some_and(|s| s.contains("/gsd-execute-phase v1.0/02 ")),
+        "the phase that holds it: {found:?}"
     );
 }
 

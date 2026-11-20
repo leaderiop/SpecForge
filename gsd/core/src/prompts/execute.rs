@@ -5,7 +5,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{Do, Slash, Spec, Step};
+use super::workflow::{Do, Rejudge, Slash, Spec, Step};
 
 const GATES: &[&str] = &["W318", "E516"];
 
@@ -102,6 +102,7 @@ static EXECUTE_PLAN: Spec = Spec {
     steps: PLAN_STEPS,
     slash: None,
     inputs: &[],
+    rejudges: &[],
     tail: Some(sequential),
 };
 
@@ -122,6 +123,11 @@ static EXECUTE_PHASE: Spec = Spec {
         effort: Some("max"),
     }),
     inputs: &[],
+    rejudges: &[Rejudge {
+        judge: "gsd-verifier",
+        flags: &[],
+        stops_on_complete: false,
+    }],
     tail: Some(sequential),
 };
 

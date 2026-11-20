@@ -75,6 +75,7 @@ static NEW_PROJECT: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(idea),
 };
 
@@ -93,6 +94,7 @@ static NEW_MILESTONE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(name),
 };
 

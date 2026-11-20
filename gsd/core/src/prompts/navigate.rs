@@ -85,6 +85,7 @@ static NEXT: Spec = Spec {
         effort: Some("low"),
     }),
     inputs: &[specforge_extension_sdk::Input::SlashCommands],
+    rejudges: &[],
     tail: Some(not_installed),
 };
 
@@ -109,6 +110,7 @@ static PROGRESS: Spec = Spec {
         effort: Some("low"),
     }),
     inputs: &[specforge_extension_sdk::Input::State],
+    rejudges: &[],
     tail: Some(workflow::workstream_tail),
 };
 
@@ -129,6 +131,7 @@ static MANAGER: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 

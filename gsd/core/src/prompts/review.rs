@@ -53,6 +53,7 @@ static REVIEW: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(shown),
 };
 
@@ -77,6 +78,7 @@ static REVIEW_BACKLOG: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 

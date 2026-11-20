@@ -38,6 +38,7 @@ static COMPLETE_MILESTONE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
@@ -56,6 +57,7 @@ static SHIP: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 

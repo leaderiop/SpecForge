@@ -112,6 +112,7 @@ static QUICK: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(quick_plan),
 };
 
@@ -137,6 +138,7 @@ static QUICK_BATCH: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(quick_batch_plan),
 };
 
@@ -155,6 +157,7 @@ static FAST: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 

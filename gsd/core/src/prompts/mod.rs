@@ -36,7 +36,8 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use workflow::{Do, Spec};
+use workflow::Do;
+pub(crate) use workflow::{Rejudge, Spec};
 
 pub use spec::GATES;
 
@@ -115,12 +116,17 @@ pub(crate) fn judges_run_by(id: &str) -> BTreeSet<String> {
         .collect()
 }
 
-/// The workflows with a subject whose own steps run `judge` (an agent id, or `prompt:<id>`), in registry order: the
-/// prompts a user runs on a phase or milestone to give or renew that judge's verdict. A workflow with no subject
-/// judges only its own quick plan, so it is left out.
-pub(crate) fn prompts_running(judge: &str) -> Vec<&'static Spec> {
+/// The prompts whose run records `judge`'s verdicts on their subject again (their `rejudges`), in registry order, each
+/// with what the run needs: what a `gsd/E516` refusal names as the remedy. Every one has a subject, a slash command and
+/// runs the judge (the registry's tests hold it).
+pub(crate) fn rejudging(judge: &str) -> Vec<(&'static Spec, &'static Rejudge)> {
     workflows()
-        .filter(|s| s.subject.is_some() && judges_run_by(s.id).contains(judge))
+        .flat_map(|s| {
+            s.rejudges
+                .iter()
+                .filter(move |r| r.judge == judge)
+                .map(move |r| (s, r))
+        })
         .collect()
 }
 

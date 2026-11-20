@@ -2,16 +2,20 @@ use serde_json::{Value, json};
 
 use super::*;
 use crate::passes::gates::tests::{gate_of, input, judged, phase_edge, refused, ship};
-use crate::prompts::workflows;
+use crate::prompts::{rejudging, workflows};
 
-/// The items naming each prompt that runs `judge` on `at`, as the suggestion writes them, derived from the registry.
+/// The items naming each prompt whose run records `judge`'s verdict again on `at`, with its flags, as the suggestion
+/// writes them, derived from the registry.
 fn items(judge: &str, at: &str) -> String {
-    prompts_running(judge)
+    rejudging(judge)
         .into_iter()
-        .map(|s| {
-            assert!(s.slash.is_some(), "{} has a slash command", s.id);
+        .map(|(s, r)| {
+            let run = std::iter::once(at.to_string())
+                .chain(r.flags.iter().map(|f| format!("--{f}")))
+                .collect::<Vec<_>>()
+                .join(" ");
             format!(
-                "/gsd-{} {at} (`specforge prompt gsd.{} {at}`)",
+                "/gsd-{} {run} (`specforge prompt gsd.{} {run}`)",
                 s.command, s.id
             )
         })
@@ -19,12 +23,20 @@ fn items(judge: &str, at: &str) -> String {
         .join(" or ")
 }
 
-/// The tail naming the other holders `at`.
-fn tail(at: &str) -> String {
+/// The tail naming the verdicts that refuse every named run, `blockers` as `<holder> (<judge>)`, joined.
+fn tail(blockers: &str) -> String {
     format!(
-        "; the same judge's verdicts are also owed on {at}: each of those needs its own run, and a run is refused \
-         while another holder's verdict is owed (it sits outside its scope), so record them with `specforge gsd \
-         record-verdict`, which no gate refuses"
+        "; every run named here is also refused by the verdicts owed on {blockers}, outside its scope or of a judge it \
+         does not run: record those first, a gsd rule's with `specforge gsd record-verdict`, which no gate refuses"
+    )
+}
+
+/// The suggestion of a stale or unrecorded verdict of another core judge than the verifier on `entity`, held on `at`.
+fn again(rule: &str, judge: &str, entity: &str, at: &str) -> String {
+    format!(
+        "run {} to judge it again (its judge: {judge}): it records the verdict over the current inputs (`specforge \
+         query {entity} --inputs {rule}`)",
+        items(judge, at)
     )
 }
 
@@ -77,9 +89,10 @@ fn how(found: &[PassDiagnostic], id: &str) -> String {
         .unwrap_or_else(|| panic!("no E516 on {id}: {found:?}"))
 }
 
-/// The suggestion of a stale or unrecorded verdict names its remedy by the rule's judge: the prompts that run it on the
-/// verdict's phase, and `re_verify` for the verifier's verdicts alone, with the entity's plan; another extension's rule
-/// is named by its own step, which the inputs query names.
+/// The suggestion of a stale or unrecorded verdict names its remedy by the rule's judge: the prompts that record it
+/// again on the verdict's phase, and `re_verify` for the verifier's verdicts alone, with the entity's plan; another
+/// extension's rule is named by its own step, which the inputs query names. Each also names the verdicts of the other
+/// judges and extensions in the phase, which refuse its runs.
 #[test]
 fn e516_names_the_remedy_of_a_verdict_by_its_judge() {
     let entity = |id: &str, kind: &str, rule: &str, state: &str| {
@@ -98,26 +111,26 @@ fn e516_names_the_remedy_of_a_verdict_by_its_judge() {
         ],
         phase_edge(),
     ));
-    let exact = "record the verdict again over the current inputs: run /gsd-execute-phase v1.0/01 (`specforge \
-        prompt gsd.execute_phase v1.0/01`); `specforge gsd re-verify v1.0/01/01-01 --stale-only` lists the verifier's \
-        verdicts that are not fresh";
+    let exact = format!(
+        "record the verdict again over the current inputs: run /gsd-execute-phase v1.0/01 (`specforge prompt \
+         gsd.execute_phase v1.0/01`); `specforge gsd re-verify v1.0/01/01-01 --stale-only` lists the verifier's \
+         verdicts that are not fresh{}",
+        tail("v1.0/01 (gsd-plan-checker), v1.0/01 (gsd.security/W302)")
+    );
     assert_eq!(how(&found, "v1.0/01/01-01/TR1"), exact);
     assert_eq!(how(&found, "v1.0/01/01-01/PR1"), exact);
     let checker = how(&found, "v1.0/01/01-01");
     assert!(
         checker.starts_with(
             "run /gsd-plan-phase v1.0/01 (`specforge prompt gsd.plan_phase v1.0/01`) or /gsd-plan-review-convergence \
-             v1.0/01 (`specforge prompt gsd.plan_review_convergence v1.0/01`) or "
+             v1.0/01 (`specforge prompt gsd.plan_review_convergence v1.0/01`) to judge it again"
         ),
         "{checker}"
     );
     assert_eq!(
         checker,
-        format!(
-            "run {} to judge it again (its judge: gsd-plan-checker): it records the verdict over the current inputs \
-             (`specforge query v1.0/01/01-01 --inputs gsd/W311`)",
-            items("gsd-plan-checker", "v1.0/01")
-        )
+        again("gsd/W311", "gsd-plan-checker", "v1.0/01/01-01", "v1.0/01")
+            + &tail("v1.0/01 (gsd-verifier), v1.0/01 (gsd.security/W302)")
     );
     assert_eq!(
         how(&found, "v1.0/01/01-01/T1"),
@@ -129,20 +142,20 @@ fn e516_names_the_remedy_of_a_verdict_by_its_judge() {
     }
 }
 
+/// A missing plan check names the prompts that check the phase's plans again; `verify_work` and `ultraplan_phase` run
+/// the plan checker only over the plans they make, so neither is named.
 #[test]
-fn a_missing_plan_check_names_every_prompt_that_runs_the_checker() {
+fn a_missing_plan_check_names_every_prompt_that_checks_it_again() {
     let found = e516(&project(
         gate_of("execute_phase", Some("v1.0/02")),
         &["02"],
         &[("v1.0/02/02-01", judged("gsd/W311", "missing", &[]))],
     ));
     let suggestion = how(&found, "v1.0/02/02-01");
-    assert!(
-        suggestion.starts_with(
-            "run /gsd-plan-phase v1.0/02 (`specforge prompt gsd.plan_phase v1.0/02`) or \
-             /gsd-plan-review-convergence v1.0/02 (`specforge prompt gsd.plan_review_convergence v1.0/02`) or "
-        ),
-        "{suggestion}"
+    assert_eq!(
+        suggestion,
+        "run /gsd-plan-phase v1.0/02 (`specforge prompt gsd.plan_phase v1.0/02`) or /gsd-plan-review-convergence \
+         v1.0/02 (`specforge prompt gsd.plan_review_convergence v1.0/02`) to judge it (its judge: gsd-plan-checker)"
     );
     assert_eq!(
         suggestion,
@@ -151,9 +164,8 @@ fn a_missing_plan_check_names_every_prompt_that_runs_the_checker() {
             items("gsd-plan-checker", "v1.0/02")
         )
     );
-    for spec in prompts_running("gsd-plan-checker") {
-        let cli = format!("`specforge prompt gsd.{} v1.0/02`", spec.id);
-        assert!(suggestion.contains(&cli), "{cli}");
+    for prompt in ["verify-work", "verify_work", "ultraplan"] {
+        assert!(!suggestion.contains(prompt), "{prompt}: {suggestion}");
     }
 }
 
@@ -176,18 +188,13 @@ fn a_stale_verdict_in_another_phase_names_that_phase() {
             .all(|(entity, _)| entity == "v1.0/02"),
         "{found:?}"
     );
-    let exact = "record the verdict again over the current inputs: run /gsd-execute-phase v1.0/01 (`specforge \
-        prompt gsd.execute_phase v1.0/01`); `specforge gsd re-verify v1.0/01/01-01 --stale-only` lists the verifier's \
-        verdicts that are not fresh";
+    let exact = verifier("v1.0/01", "v1.0/01/01-01") + &tail("v1.0/01 (gsd-plan-checker)");
     assert_eq!(how(&found, "v1.0/01/01-01/TR1"), exact);
     assert_eq!(how(&found, "v1.0/01/01-01/PR1"), exact);
     assert_eq!(
         how(&found, "v1.0/01/01-01"),
-        format!(
-            "run {} to judge it again (its judge: gsd-plan-checker): it records the verdict over the current inputs \
-             (`specforge query v1.0/01/01-01 --inputs gsd/W311`)",
-            items("gsd-plan-checker", "v1.0/01")
-        )
+        again("gsd/W311", "gsd-plan-checker", "v1.0/01/01-01", "v1.0/01")
+            + &tail("v1.0/01 (gsd-verifier)")
     );
     for d in &found {
         let suggestion = d.suggestion.as_deref().unwrap_or_default();
@@ -233,37 +240,54 @@ fn a_prompt_judged_rule_names_its_own_prompt() {
     );
 }
 
+/// A quick plan has no phase or milestone above it: no prompt's run covers it, so its verdict names the gate-free
+/// `record-verdict`, never a placeholder, and it refuses every run another verdict names (it sits outside each scope).
 #[test]
-fn an_entity_with_no_phase_above_it_names_a_placeholder() {
+fn an_entity_no_phase_scopes_names_the_gate_free_route_and_refuses_the_named_runs() {
     let found = e516(&input(
         ship(None),
-        vec![json!({ "id": "X1", "kind": "truth", "judgements": [
-            judged("gsd/W311", "stale", &[]),
-            judged("gsd/E501", "missing", &[]),
-        ] })],
-        vec![],
+        vec![
+            json!({ "id": "v1.0/01", "kind": "phase" }),
+            json!({ "id": "v1.0/01/01-01", "kind": "plan" }),
+            json!({ "id": "v1.0/01/01-01/TR1", "kind": "truth", "fields": { "plan": "v1.0/01/01-01" },
+                    "judgements": [judged("gsd/E501", "stale", &["cited"])] }),
+            json!({ "id": "260321-a1b", "kind": "plan",
+                    "judgements": [judged("gsd/W311", "stale", &["body"])] }),
+            json!({ "id": "260321-a1b/TR1", "kind": "truth",
+                    "judgements": [judged("gsd/E501", "missing", &[])] }),
+        ],
+        phase_edge(),
     ));
-    let suggestions: Vec<&str> = found
-        .iter()
-        .filter_map(|d| d.suggestion.as_deref())
-        .collect();
     assert_eq!(
-        suggestions,
-        [
-            format!(
-                "run {} to judge it again (its judge: gsd-plan-checker): it records the verdict over the current \
-                 inputs (`specforge query X1 --inputs gsd/W311`)",
-                items("gsd-plan-checker", "<its phase>")
-            ),
-            format!(
-                "run {} to judge it (its judge: gsd-verifier)",
-                items(VERIFIER, "<its phase>")
-            ),
-        ]
+        how(&found, "260321-a1b"),
+        "no prompt judges it again where no phase or milestone scopes it: record its verdict with `specforge gsd \
+         record-verdict 260321-a1b W311 <outcome> <model> '<basis>'` over its inputs (`specforge query 260321-a1b \
+         --inputs gsd/W311`), which no gate refuses (its judge: gsd-plan-checker)"
     );
+    assert_eq!(
+        how(&found, "260321-a1b/TR1"),
+        "no prompt judges it where no phase or milestone scopes it: record its verdict with `specforge gsd \
+         record-verdict 260321-a1b/TR1 E501 <outcome> <model> '<basis>'` over its inputs (`specforge query \
+         260321-a1b/TR1 --inputs gsd/E501`), which no gate refuses (its judge: gsd-verifier)"
+    );
+    // The missing verdict refuses only a gate that covers it: no run on a phase does.
+    assert_eq!(
+        how(&found, "v1.0/01/01-01/TR1"),
+        verifier("v1.0/01", "v1.0/01/01-01") + &tail("260321-a1b (gsd-plan-checker)")
+    );
+    for d in &found {
+        assert!(
+            !d.suggestion
+                .as_deref()
+                .unwrap_or_default()
+                .contains("<its "),
+            "{d:?}"
+        );
+    }
 }
 
-/// Every core judged rule, missing or stale, names a prompt in both forms, and never a workflow without a subject.
+/// Every core judged rule, missing or stale, names a prompt in both forms, and never a workflow without a subject nor
+/// one that does not record the verdict again.
 #[test]
 fn every_judged_rule_names_a_prompt_when_missing_or_stale() {
     let subjectless: Vec<_> = workflows().filter(|s| s.subject.is_none()).collect();
@@ -285,7 +309,7 @@ fn every_judged_rule_names_a_prompt_when_missing_or_stale() {
                 "{}: {suggestion}",
                 rule.code
             );
-            for spec in &subjectless {
+            for spec in workflows().filter(|s| s.rejudges.iter().all(|r| r.judge != rule.judge)) {
                 assert!(
                     !suggestion.contains(&format!("/gsd-{} ", spec.command))
                         && !suggestion.contains(&format!("gsd.{} ", spec.id)),
@@ -296,36 +320,6 @@ fn every_judged_rule_names_a_prompt_when_missing_or_stale() {
             }
         }
     }
-}
-
-/// A judge no prompt runs keeps the step text it is named by, and its verdicts name no holder.
-#[test]
-fn a_judge_no_prompt_runs_keeps_the_step_text() {
-    let p = project(ship(None), &["01"], &[]);
-    let kinds = kinds(&p);
-    assert_eq!(remedies(&kinds, "v1.0/01/01-01", "no-such-judge"), None);
-    assert_eq!(
-        elsewhere(&owed(&p, &kinds), &kinds, "v1.0/01/01-01", "no-such-judge"),
-        ""
-    );
-    let none = || {
-        Some((
-            "no-such-judge",
-            Remedy {
-                run: None,
-                tail: String::new(),
-            },
-        ))
-    };
-    assert_eq!(
-        first("v1.0/01/01-01", "gsd/W311", none()),
-        "run the step that judges it (its judge: no-such-judge)"
-    );
-    assert_eq!(
-        again(&p, "v1.0/01/01-01", "gsd/W311", none()),
-        "run the step that judges it again (its judge: no-such-judge): it records the verdict over the current \
-         inputs (`specforge query v1.0/01/01-01 --inputs gsd/W311`)"
-    );
 }
 
 /// A prompt run on either of two holders is refused by the other's verdict (outside its scope): each diagnostic names
@@ -344,36 +338,30 @@ fn a_verdict_owed_in_two_phases_names_both_and_the_gate_free_route() {
     assert_eq!(found.len(), 2, "{found:?}");
     assert_eq!(
         how(&found, "v1.0/01/01-01/TR1"),
-        format!(
-            "{}{}",
-            verifier("v1.0/01", "v1.0/01/01-01"),
-            tail("v1.0/03")
-        )
+        verifier("v1.0/01", "v1.0/01/01-01") + &tail("v1.0/03 (gsd-verifier)")
     );
     assert_eq!(
         how(&found, "v1.0/03/03-01/TR1"),
-        format!(
-            "{}{}",
-            verifier("v1.0/03", "v1.0/03/03-01"),
-            tail("v1.0/01")
-        )
+        verifier("v1.0/03", "v1.0/03/03-01") + &tail("v1.0/01 (gsd-verifier)")
     );
-    // Three holders: the tail lists the other two, sorted.
+    // Three holders: the tail lists the other two, in natural order.
     let found = e516(&project(
         ship(Some("v1.0/02")),
-        &["01", "02", "03", "04"],
+        &["01", "02", "9", "10"],
         &[
-            ("v1.0/04/04-01/TR1", stale()),
-            ("v1.0/03/03-01/TR1", stale()),
+            ("v1.0/10/10-01/TR1", stale()),
+            ("v1.0/9/9-01/TR1", stale()),
             ("v1.0/01/01-01/TR1", stale()),
         ],
     ));
     assert!(
-        how(&found, "v1.0/01/01-01/TR1").ends_with(&tail("v1.0/03, v1.0/04")),
+        how(&found, "v1.0/01/01-01/TR1")
+            .ends_with(&tail("v1.0/9 (gsd-verifier), v1.0/10 (gsd-verifier)")),
         "{found:?}"
     );
     assert!(
-        how(&found, "v1.0/04/04-01/TR1").ends_with(&tail("v1.0/01, v1.0/03")),
+        how(&found, "v1.0/10/10-01/TR1")
+            .ends_with(&tail("v1.0/01 (gsd-verifier), v1.0/9 (gsd-verifier)")),
         "{found:?}"
     );
 }
@@ -394,16 +382,12 @@ fn a_holder_the_gate_excuses_is_still_named_for_another_holder() {
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(
         how(&found, "v1.0/03/03-01/TR1"),
-        format!(
-            "{}{}",
-            verifier("v1.0/03", "v1.0/03/03-01"),
-            tail("v1.0/01")
-        )
+        verifier("v1.0/03", "v1.0/03/03-01") + &tail("v1.0/01 (gsd-verifier)")
     );
 }
 
 /// A missing verdict within the gate's scope names a stale verdict of the same judge held elsewhere; a missing verdict
-/// outside the scope is no diagnostic and no holder.
+/// outside a run's scope does not refuse it, so it is named by no tail.
 #[test]
 fn a_missing_verdict_names_a_stale_holder_elsewhere() {
     let found = e516(&project(
@@ -421,16 +405,12 @@ fn a_missing_verdict_names_a_stale_holder_elsewhere() {
         format!(
             "run {} to judge it (its judge: gsd-plan-checker){}",
             items("gsd-plan-checker", "v1.0/02"),
-            tail("v1.0/03")
+            tail("v1.0/03 (gsd-plan-checker)")
         )
     );
     assert_eq!(
         how(&found, "v1.0/03/03-01"),
-        format!(
-            "run {} to judge it again (its judge: gsd-plan-checker): it records the verdict over the current inputs \
-             (`specforge query v1.0/03/03-01 --inputs gsd/W311`)",
-            items("gsd-plan-checker", "v1.0/03")
-        )
+        again("gsd/W311", "gsd-plan-checker", "v1.0/03/03-01", "v1.0/03")
     );
     for d in &found {
         assert!(
@@ -464,10 +444,10 @@ fn one_phase_holding_several_verdicts_adds_no_tail() {
     }
 }
 
-/// Neither an unreadable verdict's text nor another extension's rule names a prompt, and an unreadable verdict is no
-/// holder: its diagnostic carries its own fix.
+/// An unreadable verdict keeps its own text (what to fix), and it refuses every run another verdict names, like any
+/// verdict on record outside a run's scope; another extension's rule names no prompt.
 #[test]
-fn an_unreadable_verdict_keeps_its_text_and_is_no_holder() {
+fn an_unreadable_verdict_keeps_its_text_and_refuses_the_named_runs() {
     let found = e516(&project(
         ship(Some("v1.0/02")),
         &["01", "02"],
@@ -482,6 +462,95 @@ fn an_unreadable_verdict_keeps_its_text_and_is_no_holder() {
     );
     assert_eq!(
         how(&found, "v1.0/02/02-01/TR1"),
-        verifier("v1.0/02", "v1.0/02/02-01")
+        verifier("v1.0/02", "v1.0/02/02-01") + &tail("v1.0/01 (gsd-verifier)")
+    );
+}
+
+/// Phase `v1.0/01` (complete when `closed`) holding a stale verifier verdict on its plan's truth and a stale package
+/// legitimacy verdict on its research, and phase `v1.0/02` holding a stale plan check on its open plan, at a project
+/// gate that runs no judge.
+fn cross_judges(closed: bool, researched: bool) -> PassInput {
+    let status = if closed { "complete" } else { "executed" };
+    let mut entities = vec![
+        json!({ "id": "v1.0", "kind": "milestone" }),
+        json!({ "id": "v1.0/01", "kind": "phase", "fields": { "status": status } }),
+        json!({ "id": "v1.0/01/01-01", "kind": "plan" }),
+        json!({ "id": "v1.0/01/01-01/TR1", "kind": "truth", "fields": { "plan": "v1.0/01/01-01" },
+                "judgements": [judged("gsd/E501", "stale", &["cited"])] }),
+        json!({ "id": "v1.0/02", "kind": "phase", "fields": { "status": "planned" } }),
+        json!({ "id": "v1.0/02/02-01", "kind": "plan",
+                "judgements": [judged("gsd/W311", "stale", &["body"])] }),
+    ];
+    if researched {
+        entities.push(json!({ "id": "v1.0/01/01-RESEARCH", "kind": "research" }));
+        entities.push(
+            json!({ "id": "v1.0/01/01-RESEARCH/PA1", "kind": "package_audit",
+                              "judgements": [judged("gsd/W205", "stale", &["audit"])] }),
+        );
+    }
+    input(
+        ship(None),
+        entities,
+        vec![
+            json!({ "source": "v1.0/01/01-01", "target": "v1.0/01", "label": "phase" }),
+            json!({ "source": "v1.0/02/02-01", "target": "v1.0/02", "label": "phase" }),
+        ],
+    )
+}
+
+/// A stale verifier verdict in a closed phase and a stale plan check of an open plan in another: `execute_phase` on
+/// the first is refused by the plan check and `plan_phase` on the second by the verifier verdict, so each diagnostic
+/// names the other's verdict and the gate-free route.
+#[test]
+fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route() {
+    let found = e516(&cross_judges(true, false));
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert_eq!(
+        how(&found, "v1.0/01/01-01/TR1"),
+        verifier("v1.0/01", "v1.0/01/01-01") + &tail("v1.0/02 (gsd-plan-checker)")
+    );
+    assert_eq!(
+        how(&found, "v1.0/02/02-01"),
+        again("gsd/W311", "gsd-plan-checker", "v1.0/02/02-01", "v1.0/02")
+            + &tail("v1.0/01 (gsd-verifier)")
+    );
+}
+
+/// A stale researcher verdict beside a stale verifier verdict in one open phase: the prompt of each does not run the
+/// other's judge, so each names the other, with `--research` for the research that `plan_phase` would reuse.
+#[test]
+fn verdicts_of_two_judges_in_one_phase_name_each_other() {
+    let found = e516(&cross_judges(false, true));
+    assert_eq!(
+        how(&found, "v1.0/01/01-RESEARCH/PA1"),
+        "run /gsd-plan-phase v1.0/01 --research (`specforge prompt gsd.plan_phase v1.0/01 --research`) to judge it \
+         again (its judge: gsd-phase-researcher): it records the verdict over the current inputs (`specforge query \
+         v1.0/01/01-RESEARCH/PA1 --inputs gsd/W205`)"
+            .to_string()
+            + &tail("v1.0/01 (gsd-verifier), v1.0/02 (gsd-plan-checker)")
+    );
+    assert_eq!(
+        how(&found, "v1.0/01/01-01/TR1"),
+        verifier("v1.0/01", "v1.0/01/01-01")
+            + &tail("v1.0/01 (gsd-phase-researcher), v1.0/02 (gsd-plan-checker)")
+    );
+}
+
+/// `plan_phase` stops on a complete phase, so a stale researcher verdict there names the gate-free route; it still
+/// refuses the runs other verdicts name.
+#[test]
+fn a_researcher_verdict_in_a_complete_phase_names_the_gate_free_route() {
+    let found = e516(&cross_judges(true, true));
+    assert_eq!(
+        how(&found, "v1.0/01/01-RESEARCH/PA1"),
+        "no prompt judges it again on the complete phase v1.0/01, where /gsd-plan-phase stops: record its verdict \
+         with `specforge gsd record-verdict v1.0/01/01-RESEARCH/PA1 W205 <outcome> <model> '<basis>'` over its \
+         inputs (`specforge query v1.0/01/01-RESEARCH/PA1 --inputs gsd/W205`), which no gate refuses (its judge: \
+         gsd-phase-researcher)"
+    );
+    assert_eq!(
+        how(&found, "v1.0/02/02-01"),
+        again("gsd/W311", "gsd-plan-checker", "v1.0/02/02-01", "v1.0/02")
+            + &tail("v1.0/01 (gsd-phase-researcher), v1.0/01 (gsd-verifier)")
     );
 }

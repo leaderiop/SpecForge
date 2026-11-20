@@ -64,6 +64,7 @@ static INGEST_DOCS: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(ingested),
 };
 
@@ -98,6 +99,7 @@ static ONBOARD: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(onboarding),
 };
 

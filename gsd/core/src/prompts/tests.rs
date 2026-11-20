@@ -56,47 +56,60 @@ fn an_id_that_is_no_workflow_runs_no_judge() {
     assert!(judges_run_by("").is_empty());
 }
 
-fn running(judge: &str) -> Vec<&'static str> {
-    prompts_running(judge).into_iter().map(|s| s.id).collect()
+/// The prompts that record `judge`'s verdicts again, with the flags their run needs.
+fn rejudged(judge: &str) -> Vec<(&'static str, &'static [&'static str])> {
+    rejudging(judge)
+        .into_iter()
+        .map(|(s, r)| (s.id, r.flags))
+        .collect()
 }
 
-/// The prompts that run a judge, in registry order: the inverse of `judges_run_by` over the workflows with a subject.
+/// The prompts that record each judge's verdicts again, in registry order, as each workflow declares them.
 #[test]
-fn the_prompts_running_a_judge_are_the_workflows_with_a_subject_whose_steps_run_it() {
-    assert_eq!(running("gsd-verifier"), ["execute_phase"]);
+fn the_prompts_that_rejudge_a_verdict_are_declared_by_each_workflow() {
+    let none: &[&str] = &[];
+    assert_eq!(rejudged("gsd-verifier"), [("execute_phase", none)]);
     assert_eq!(
-        running("gsd-plan-checker"),
-        [
-            "plan_phase",
-            "plan_review_convergence",
-            "ultraplan_phase",
-            "verify_work"
-        ]
+        rejudged("gsd-plan-checker"),
+        [("plan_phase", none), ("plan_review_convergence", none)]
     );
-    assert_eq!(running("gsd-integration-checker"), ["audit_milestone"]);
-    assert_eq!(running("prompt:spec_phase"), ["spec_phase"]);
-    assert_eq!(running("gsd-phase-researcher"), ["plan_phase"]);
+    assert_eq!(
+        rejudged("gsd-integration-checker"),
+        [("audit_milestone", none)]
+    );
+    assert_eq!(rejudged("prompt:spec_phase"), [("spec_phase", none)]);
+    // plan-phase reuses a research it finds unless `--research` is given (`plan-phase.md` § 5).
+    assert_eq!(
+        rejudged("gsd-phase-researcher"),
+        [("plan_phase", &["research"][..])]
+    );
 }
 
-/// Every judged rule of `@gsd/core` has a prompt a user can run on a phase or milestone to give its verdict, and each
-/// such prompt runs the rule's judge; a workflow without a subject is never one of them.
+/// `verify_work` checks the fix plans it writes and `ultraplan_phase` the plans it imports: each runs the plan checker
+/// (so the gate excuses its verdicts inside their scope) but records no check of a plan already there again.
 #[test]
-fn every_judged_rule_has_a_prompt_that_runs_its_judge() {
+fn a_prompt_that_judges_only_what_it_makes_rejudges_nothing() {
+    for id in ["verify_work", "ultraplan_phase"] {
+        assert!(judges_run_by(id).contains("gsd-plan-checker"), "{id}");
+        let spec = workflows().find(|s| s.id == id).expect("a workflow");
+        assert!(spec.rejudges.is_empty(), "{id}");
+    }
+}
+
+/// Every judged rule of `@gsd/core` has a prompt whose run records its verdict again on a phase or milestone. Each such
+/// prompt runs the rule's judge, has a slash command (E516 names it by it) and a subject that references an entity
+/// kind, and each flag it needs is one of its flags.
+#[test]
+fn every_judged_rule_has_a_prompt_that_rejudges_it() {
     for rule in crate::judged::JUDGED {
-        let prompts = prompts_running(rule.judge);
+        let prompts = rejudging(rule.judge);
         assert!(
             !prompts.is_empty(),
-            "{}: no prompt runs {}",
+            "{}: no prompt rejudges {}",
             rule.code,
             rule.judge
         );
-        for spec in prompts {
-            assert!(
-                spec.subject.is_some(),
-                "{}: {} has no subject",
-                rule.code,
-                spec.id
-            );
+        for (spec, rejudge) in prompts {
             assert!(
                 judges_run_by(spec.id).contains(rule.judge),
                 "{}: {} does not run {}",
@@ -104,31 +117,69 @@ fn every_judged_rule_has_a_prompt_that_runs_its_judge() {
                 spec.id,
                 rule.judge
             );
+            assert!(
+                spec.slash.is_some(),
+                "{}: {} has no slash command",
+                rule.code,
+                spec.id
+            );
+            // One kind: E516 climbs from the verdict's entity to the subject of that kind.
+            let kind = spec.subject_kind().unwrap_or_default();
+            assert!(
+                !kind.is_empty() && !kind.contains('|'),
+                "{}: {} subject kind {kind:?}",
+                rule.code,
+                spec.id
+            );
+            for flag in rejudge.flags {
+                assert!(
+                    spec.args
+                        .iter()
+                        .any(|a| a.name == *flag && matches!(a.kind, args::Kind::Flag)),
+                    "{}: --{flag} is no flag of {}",
+                    rule.code,
+                    spec.id
+                );
+            }
         }
     }
 }
 
-/// `quick` and `quick_batch` run the plan checker, the verifier and the researcher on their own quick plan: no
-/// judge's prompts name them, since a user cannot remedy a phase's verdict with them.
+/// A workflow's subject names one of its arguments, which references the entity kind the subject is.
 #[test]
-fn a_workflow_without_a_subject_runs_no_remedy() {
-    let subjectless: Vec<&str> = workflows()
-        .filter(|s| s.subject.is_none())
-        .map(|s| s.id)
-        .collect();
-    assert!(subjectless.contains(&"quick"), "{subjectless:?}");
-    let judges: BTreeSet<String> = workflows().flat_map(|s| judges_run_by(s.id)).collect();
-    for judge in &judges {
-        for id in running(judge) {
-            assert!(!subjectless.contains(&id), "{judge}: {id}");
+fn every_subject_names_an_argument_that_references_a_kind() {
+    for spec in workflows().filter(|s| s.subject.is_some()) {
+        let kind = spec.subject_kind().unwrap_or_else(|| panic!("{}", spec.id));
+        assert!(!kind.is_empty(), "{}", spec.id);
+    }
+    let kind = |id: &str| {
+        workflows()
+            .find(|s| s.id == id)
+            .and_then(|s| s.subject_kind())
+    };
+    assert_eq!(kind("execute_phase"), Some("phase"));
+    assert_eq!(kind("plan_phase"), Some("phase"));
+    assert_eq!(kind("audit_milestone"), Some("milestone"));
+    assert_eq!(kind("execute_plan"), Some("plan"));
+    assert_eq!(kind("quick"), None);
+}
+
+/// A declared judge is one the workflow runs: no workflow rejudges a judge it does not run, and `quick`, which has no
+/// subject, rejudges none of the judges it runs on its own quick plan.
+#[test]
+fn a_workflow_rejudges_only_judges_it_runs() {
+    for spec in workflows() {
+        for rejudge in spec.rejudges {
+            assert!(
+                judges_run_by(spec.id).contains(rejudge.judge),
+                "{}: {}",
+                spec.id,
+                rejudge.judge
+            );
+            assert!(spec.subject.is_some(), "{}", spec.id);
         }
     }
     assert!(judges_run_by("quick").contains("gsd-plan-checker"));
-}
-
-#[test]
-fn no_prompt_runs_a_judge_no_workflow_has() {
-    assert!(prompts_running("prompt:secure_phase").is_empty());
-    assert!(prompts_running("no-such-judge").is_empty());
-    assert!(prompts_running("").is_empty());
+    assert!(rejudging("no-such-judge").is_empty());
+    assert!(rejudging("prompt:secure_phase").is_empty());
 }

@@ -8,19 +8,24 @@
 //! its agent steps, or the workflow as `prompt:<id>`) is excused: that workflow is the verdict's remedy. A workflow it
 //! continues with runs behind its own gate, so it excuses nothing here. A rule of another extension is never excused
 //! by a core workflow. A fresh verdict, passing or failing, is never E516: a failing outcome is the rule's own
-//! finding. Silent outside a gate. The suggestion of a core rule's verdict names the prompts that run its judge
-//! (`prompts_running`), each on the phase or milestone that holds the verdict, and every other holder of the same
-//! judge's owed verdicts: a prompt excuses a verdict only inside its own scope, so running it on the gated subject does
-//! not clear a verdict held elsewhere, and a run on one holder is refused by the others'. `re_verify` lists the
-//! verifier's verdicts only.
+//! finding. Silent outside a gate.
+//!
+//! The suggestion of a core rule's verdict names the prompts whose run records its judge's verdicts again (each
+//! workflow's `rejudges`), with the flags the run needs, on the phase or milestone that holds the verdict. A run
+//! excuses a verdict only inside its own scope and only for a judge it runs, so the suggestion also names every
+//! verdict, of any judge or extension, that refuses every run it names, and the gate-free `record-verdict`. With no
+//! such run (no phase or milestone scopes the entity, or the prompt stops on its complete phase) it names
+//! `record-verdict` alone. `re_verify` lists the verifier's verdicts only.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_extension_sdk::prelude::*;
 
 use super::{gate, phases, plans_in, refuse};
+use crate::commands::id_order;
 use crate::passes::commits::target;
-use crate::prompts::prompts_running;
+use crate::passes::plans::text;
+use crate::prompts::{Rejudge, Spec, judges_run_by, rejudging};
 use crate::scope::scope_of;
 
 /// The ids whose scope a gate covers: the subject, its phases and their plans (a milestone's phases are linked, not
@@ -56,181 +61,319 @@ fn within(covered: Option<&BTreeSet<String>>, id: &str) -> bool {
     false
 }
 
-/// The judge of a core rule (`gsd/E501` is gsd-verifier's); `None` for another extension's rule.
-fn core_judge(rule: &str) -> Option<&'static str> {
+/// The local code and judge of a core rule (`gsd/E501` is gsd-verifier's `E501`); `None` for another extension's rule.
+fn core(rule: &str) -> Option<(&str, &'static str)> {
     let local = rule.strip_prefix("gsd/")?;
-    crate::judged::get(local).map(|j| j.judge)
+    crate::judged::get(local).map(|j| (local, j.judge))
 }
 
 /// The judge whose verdicts `re_verify` lists.
 const VERIFIER: &str = "gsd-verifier";
 
-/// Each entity's kind, by id: what `subject_of` climbs through, built once per gate.
-type Kinds<'a> = BTreeMap<&'a str, &'a str>;
-
-fn kinds(input: &PassInput) -> Kinds<'_> {
-    input
-        .entities
-        .iter()
-        .map(|e| (e.id.as_str(), e.kind.as_str()))
-        .collect()
+/// Whether a judgement on record refuses a gate whose workflow runs the judges `runs`: a stale, unrecorded or
+/// unreadable verdict wherever it is, a `missing` one only `inside` the gate's scope, unless it is inside and the
+/// workflow runs its core `judge` (that workflow is its remedy). The gate and every run its suggestion names read it.
+fn refuses(inside: bool, missing: bool, runs: &BTreeSet<String>, judge: Option<&str>) -> bool {
+    (inside || !missing) && !(inside && judge.is_some_and(|judge| runs.contains(judge)))
 }
 
-/// The entity of kind `kind` that scopes `entity`, itself included, climbing `scope_of` to the empty scope: the phase
-/// of a truth, plan or phase spec, the milestone of a phase or an audit.
-fn subject_of<'e>(kinds: &Kinds, entity: &'e str, kind: &str) -> Option<&'e str> {
-    let mut at = entity;
-    while !at.is_empty() {
-        if kinds.get(at) == Some(&kind) {
-            return Some(at);
-        }
-        at = scope_of(at);
-    }
-    None
+/// A prompt whose run records a judge's verdicts again: the workflow, what its run needs, and the kind its subject
+/// references (one kind: the registry's tests hold it).
+#[derive(Clone, Copy)]
+struct Remedy {
+    spec: &'static Spec,
+    rejudge: &'static Rejudge,
+    kind: &'static str,
 }
 
-/// The subject kinds of the prompts that run `judge`. A prompt's `Spec.subject` is an argument name equal to the entity
-/// kind for every current workflow (`phase`, `milestone`), which is why it is read as a kind.
-fn subject_kinds(judge: &str) -> BTreeSet<&'static str> {
-    prompts_running(judge)
-        .into_iter()
-        .filter_map(|s| s.subject)
-        .collect()
+/// A judgement on record that refuses some gate: the entity, its rule, the rule's core judge (`None` for another
+/// extension's) and whether it is only missing.
+struct Owing<'a> {
+    entity: &'a str,
+    rule: &'a str,
+    judge: Option<&'static str>,
+    missing: bool,
 }
 
-/// The prompts that give or renew `judge`'s verdict on `entity`, each on the phase or milestone that holds it (`<its
-/// phase>` when none scopes it), as its slash command and its CLI form, joined by ` or `; `None` when no prompt runs
-/// the judge. A prompt without a slash binding is named by its CLI form alone.
-fn remedies(kinds: &Kinds, entity: &str, judge: &str) -> Option<String> {
-    let items: Vec<String> = prompts_running(judge)
-        .into_iter()
-        .filter_map(|spec| {
-            let kind = spec.subject?;
-            let at = subject_of(kinds, entity, kind)
-                .map_or_else(|| format!("<its {kind}>"), str::to_string);
-            let cli = format!("`specforge prompt gsd.{} {at}`", spec.id);
-            Some(match spec.slash {
-                Some(_) => format!("/gsd-{} {at} ({cli})", spec.command),
-                None => cli,
-            })
-        })
-        .collect();
-    (!items.is_empty()).then(|| items.join(" or "))
+/// A verdict that refuses a named run: the phase or milestone that holds it, and its judge (another extension's rule
+/// when it has no core judge).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Blocker<'a> {
+    holder: &'a str,
+    by: &'a str,
 }
 
-/// The holders of each core judge's owed verdicts: the phases or milestones its prompts run on.
-type Owed<'a> = BTreeMap<&'static str, BTreeSet<&'a str>>;
+/// Prompt runs: each remedy with the subject it runs on.
+type Runs<'a> = Vec<(Remedy, &'a str)>;
 
-/// Where each core judge's verdicts are owed again: for every stale or unrecorded verdict in the project, excused by
-/// the gate or not, the phase or milestone its judge's prompts run on. A missing verdict is no holder (it refuses only
-/// a gate that covers it), nor is an unreadable one (it refuses every gate too, but its diagnostic carries its own
-/// fix).
-fn owed<'a>(input: &'a PassInput, kinds: &Kinds) -> Owed<'a> {
-    let mut owed = Owed::new();
-    for entity in &input.entities {
-        for j in &entity.judgements {
-            let Some(judge) = core_judge(&j.rule) else {
-                continue;
-            };
-            if !matches!(j.state.as_str(), "stale" | "unrecorded") {
-                continue;
-            }
-            owed.entry(judge).or_default().extend(
-                subject_kinds(judge)
-                    .into_iter()
-                    .filter_map(|kind| subject_of(kinds, &entity.id, kind)),
-            );
-        }
-    }
-    owed
-}
-
-/// The tail naming every holder of `judge`'s owed verdicts but the one `entity` is in, sorted: a run on one holder is
-/// refused while another's verdict is owed, since it sits outside the run's scope. Empty with one holder.
-fn elsewhere(owed: &Owed, kinds: &Kinds, entity: &str, judge: &str) -> String {
-    let own: BTreeSet<&str> = subject_kinds(judge)
-        .into_iter()
-        .filter_map(|kind| subject_of(kinds, entity, kind))
-        .collect();
-    let others: Vec<&str> = owed
-        .get(judge)
-        .into_iter()
-        .flatten()
-        .copied()
-        .filter(|at| !own.contains(at))
-        .collect();
-    if others.is_empty() {
-        return String::new();
-    }
+/// `/gsd-<command> <at> <flags>` and its CLI form: one prompt run a suggestion names.
+fn item(remedy: &Remedy, at: &str) -> String {
+    let run = std::iter::once(at.to_string())
+        .chain(
+            remedy
+                .rejudge
+                .flags
+                .iter()
+                .map(|flag| format!("--{}", flag.replace('_', "-"))),
+        )
+        .collect::<Vec<_>>()
+        .join(" ");
     format!(
-        "; the same judge's verdicts are also owed on {}: each of those needs its own run, and a run is refused while \
-         another holder's verdict is owed (it sits outside its scope), so record them with `specforge gsd \
-         record-verdict`, which no gate refuses",
-        others.join(", ")
+        "/gsd-{} {run} (`specforge prompt gsd.{} {run}`)",
+        remedy.spec.command, remedy.spec.id
     )
 }
 
-/// What the suggestion of a core rule's verdict names: the prompts that run its judge (`None` when none does) and the
-/// tail naming the other holders.
-struct Remedy {
-    run: Option<String>,
-    tail: String,
+/// What the suggestions of one gate read, built at its first refusal: every entity by id, the prompts that record each
+/// core judge's verdicts again (read from the registry once), every judgement that refuses some gate, and, per named
+/// run, the verdicts that refuse it.
+struct Index<'a> {
+    input: &'a PassInput,
+    entities: BTreeMap<&'a str, &'a PassEntity>,
+    remedies: BTreeMap<&'static str, Vec<Remedy>>,
+    /// The kinds a remedy prompt runs on (`phase`, `milestone`): what holds a verdict.
+    holders: BTreeSet<&'static str>,
+    owing: Vec<Owing<'a>>,
+    /// By `(prompt, subject)`: the verdicts that refuse its run.
+    blocking: BTreeMap<(&'static str, &'a str), BTreeSet<Blocker<'a>>>,
 }
 
-/// How the verdict of `rule` on `entity`, on record and no longer usable, is recorded again over its current inputs,
-/// by its judge (`judge`, `None` for another extension's rule): the prompts that run the judge, on the phase or
-/// milestone holding the verdict, and for the verifier's `re_verify` over the entity's plan (its `plan` edge); without
-/// such a prompt, the step that runs the judge; another extension's rule is named by the inputs query, which prints
-/// its judge.
-fn again(input: &PassInput, entity: &str, rule: &str, judge: Option<(&str, Remedy)>) -> String {
-    match judge {
-        Some((VERIFIER, Remedy { run, tail })) => format!(
-            "record the verdict again over the current inputs: {}`specforge gsd re-verify {} --stale-only` lists the \
-             verifier's verdicts that are not fresh{tail}",
-            run.map(|run| format!("run {run}; ")).unwrap_or_default(),
-            target(input, entity, "plan").unwrap_or("<its plan>")
-        ),
-        Some((
-            judge,
-            Remedy {
-                run: Some(run),
-                tail,
-            },
-        )) => format!(
-            "run {run} to judge it again (its judge: {judge}): it records the verdict over the current inputs \
-             (`specforge query {entity} --inputs {rule}`){tail}"
-        ),
-        Some((judge, Remedy { run: None, tail })) => format!(
-            "run the step that judges it again (its judge: {judge}): it records the verdict over the current inputs \
-             (`specforge query {entity} --inputs {rule}`){tail}"
-        ),
-        None => format!(
-            "run the step of its extension that judges it again: it records the verdict over the current inputs \
-             (`specforge query {entity} --inputs {rule}` names its judge)"
-        ),
+impl<'a> Index<'a> {
+    fn new(input: &'a PassInput) -> Self {
+        let judges: BTreeSet<&'static str> =
+            crate::judged::JUDGED.iter().map(|j| j.judge).collect();
+        let remedies: BTreeMap<&'static str, Vec<Remedy>> = judges
+            .into_iter()
+            .map(|judge| {
+                let found = rejudging(judge)
+                    .into_iter()
+                    .filter_map(|(spec, rejudge)| {
+                        Some(Remedy {
+                            spec,
+                            rejudge,
+                            kind: spec.subject_kind()?,
+                        })
+                    })
+                    .collect();
+                (judge, found)
+            })
+            .collect();
+        let holders = remedies.values().flatten().map(|r| r.kind).collect();
+        let owing = input
+            .entities
+            .iter()
+            .flat_map(|e| {
+                e.judgements.iter().filter_map(move |j| {
+                    let missing = match j.state.as_str() {
+                        "missing" => true,
+                        "stale" | "unrecorded" | "unreadable" => false,
+                        _ => return None,
+                    };
+                    Some(Owing {
+                        entity: e.id.as_str(),
+                        rule: j.rule.as_str(),
+                        judge: core(&j.rule).map(|(_, judge)| judge),
+                        missing,
+                    })
+                })
+            })
+            .collect();
+        Index {
+            input,
+            entities: input.entities.iter().map(|e| (e.id.as_str(), e)).collect(),
+            remedies,
+            holders,
+            owing,
+            blocking: BTreeMap::new(),
+        }
     }
-}
 
-/// How a missing verdict of `rule` on `entity` is given: the prompts that run its judge, on the phase or milestone
-/// holding it, for a core rule (the step that judges it when no prompt does), and the inputs query for another
-/// extension's.
-fn first(entity: &str, rule: &str, judge: Option<(&str, Remedy)>) -> String {
-    match judge {
-        Some((
-            judge,
-            Remedy {
-                run: Some(run),
-                tail,
-            },
-        )) => {
-            format!("run {run} to judge it (its judge: {judge}){tail}")
+    /// The kind of the entity `id`, when there is one.
+    fn kind(&self, id: &str) -> Option<&'a str> {
+        self.entities.get(id).map(|e| e.kind.as_str())
+    }
+
+    /// The entity of kind `kind` that scopes `entity`, itself included, climbing `scope_of`: the phase of a truth, plan
+    /// or phase spec, the milestone of an audit.
+    fn subject_of(&self, entity: &'a str, kind: &str) -> Option<&'a str> {
+        let mut at = entity;
+        while !at.is_empty() {
+            if self.kind(at) == Some(kind) {
+                return Some(at);
+            }
+            at = scope_of(at);
         }
-        Some((judge, Remedy { run: None, tail })) => {
-            format!("run the step that judges it (its judge: {judge}){tail}")
+        None
+    }
+
+    /// The phase or milestone that holds a verdict on `entity`, else its outermost scope (a quick plan, the project's
+    /// research).
+    fn holder(&self, entity: &'a str) -> &'a str {
+        let (mut at, mut outermost) = (entity, entity);
+        while !at.is_empty() {
+            if self
+                .kind(at)
+                .is_some_and(|kind| self.holders.contains(kind))
+            {
+                return at;
+            }
+            outermost = at;
+            at = scope_of(at);
         }
-        None => format!(
-            "run the step of its extension that judges it (`specforge query {entity} --inputs {rule}` names its judge)"
-        ),
+        outermost
+    }
+
+    /// The runs that record `judge`'s verdict on `entity` again, each prompt on the subject that holds it; apart, the
+    /// prompts left out because they stop on that complete phase.
+    fn runs(&self, entity: &'a str, judge: &str) -> (Runs<'a>, Runs<'a>) {
+        let (mut named, mut stopped) = (Vec::new(), Vec::new());
+        for &remedy in self.remedies.get(judge).into_iter().flatten() {
+            let Some(at) = self.subject_of(entity, remedy.kind) else {
+                continue;
+            };
+            let complete =
+                self.entities.get(at).and_then(|e| text(e, "status")) == Some("complete");
+            if remedy.rejudge.stops_on_complete && complete {
+                stopped.push((remedy, at));
+            } else {
+                named.push((remedy, at));
+            }
+        }
+        (named, stopped)
+    }
+
+    /// The verdicts that refuse a run of `remedy` on `at`, as the gate of that run would read them: owed elsewhere,
+    /// or owed inside its scope to a judge or extension it does not run. Computed once per run.
+    fn blockers(&mut self, remedy: Remedy, at: &'a str) -> &BTreeSet<Blocker<'a>> {
+        let key = (remedy.spec.id, at);
+        if !self.blocking.contains_key(&key) {
+            let covered = covered(self.input, Some(at));
+            let runs = judges_run_by(remedy.spec.id);
+            let found = self
+                .owing
+                .iter()
+                .filter(|o| {
+                    refuses(
+                        within(covered.as_ref(), o.entity),
+                        o.missing,
+                        &runs,
+                        o.judge,
+                    )
+                })
+                .map(|o| Blocker {
+                    holder: self.holder(o.entity),
+                    by: o.judge.unwrap_or(o.rule),
+                })
+                .collect();
+            self.blocking.insert(key, found);
+        }
+        &self.blocking[&key]
+    }
+
+    /// The tail naming the verdicts that refuse every run of `named`, in natural order: each sits outside the run's
+    /// scope or waits for a judge or extension the run does not run. Empty when one of the runs is refused by none.
+    fn tail(&mut self, named: &[(Remedy, &'a str)]) -> String {
+        let mut common: Option<BTreeSet<Blocker<'a>>> = None;
+        for &(remedy, at) in named {
+            let found = self.blockers(remedy, at);
+            common = Some(match common {
+                None => found.clone(),
+                Some(common) => common.intersection(found).copied().collect(),
+            });
+        }
+        let mut blockers: Vec<Blocker<'a>> = common.unwrap_or_default().into_iter().collect();
+        if blockers.is_empty() {
+            return String::new();
+        }
+        blockers.sort_by(|a, b| (id_order(a.holder), a.by).cmp(&(id_order(b.holder), b.by)));
+        let listed: Vec<String> = blockers
+            .iter()
+            .map(|b| format!("{} ({})", b.holder, b.by))
+            .collect();
+        format!(
+            "; every run named here is also refused by the verdicts owed on {}, outside its scope or of a judge it \
+             does not run: record those first, a gsd rule's with `specforge gsd record-verdict`, which no gate refuses",
+            listed.join(", ")
+        )
+    }
+
+    /// How the verdict of `rule` on `entity`, in state `state`, is given or recorded again: by its judge's prompts on
+    /// the phase or milestone holding it, with the verdicts that refuse each of those runs; by `record-verdict` when no
+    /// prompt's run can; by the step of its extension for another extension's rule (`core` is `None`), which the inputs
+    /// query names.
+    fn suggestion(
+        &mut self,
+        entity: &'a str,
+        rule: &str,
+        core: Option<(&str, &'static str)>,
+        state: &str,
+    ) -> String {
+        let missing = state == "missing";
+        if state == "unreadable" {
+            return "fix what the inputs cannot read, then record the verdict again".to_string();
+        }
+        let Some((code, judge)) = core else {
+            return if missing {
+                format!(
+                    "run the step of its extension that judges it (`specforge query {entity} --inputs {rule}` names \
+                     its judge)"
+                )
+            } else {
+                format!(
+                    "run the step of its extension that judges it again: it records the verdict over the current \
+                     inputs (`specforge query {entity} --inputs {rule}` names its judge)"
+                )
+            };
+        };
+        let (named, stopped) = self.runs(entity, judge);
+        if named.is_empty() {
+            let again = if missing { "" } else { " again" };
+            let why = match stopped.first() {
+                Some((_, at)) => {
+                    let commands: Vec<String> = stopped
+                        .iter()
+                        .map(|(r, _)| format!("/gsd-{}", r.spec.command))
+                        .collect();
+                    let verb = if commands.len() == 1 { "stops" } else { "stop" };
+                    format!(
+                        "on the complete phase {at}, where {} {verb}",
+                        commands.join(" and ")
+                    )
+                }
+                None => "where no phase or milestone scopes it".to_string(),
+            };
+            return format!(
+                "no prompt judges it{again} {why}: record its verdict with `specforge gsd record-verdict {entity} \
+                 {code} <outcome> <model> '<basis>'` over its inputs (`specforge query {entity} --inputs {rule}`), \
+                 which no gate refuses (its judge: {judge})"
+            );
+        }
+        let items = named
+            .iter()
+            .map(|(remedy, at)| item(remedy, at))
+            .collect::<Vec<_>>()
+            .join(" or ");
+        let tail = self.tail(&named);
+        if missing {
+            return format!("run {items} to judge it (its judge: {judge}){tail}");
+        }
+        if judge == VERIFIER {
+            let listing = target(self.input, entity, "plan")
+                .map(|plan| {
+                    format!(
+                        "; `specforge gsd re-verify {plan} --stale-only` lists the verifier's verdicts that are not \
+                         fresh"
+                    )
+                })
+                .unwrap_or_default();
+            return format!(
+                "record the verdict again over the current inputs: run {items}{listing}{tail}"
+            );
+        }
+        format!(
+            "run {items} to judge it again (its judge: {judge}): it records the verdict over the current inputs \
+             (`specforge query {entity} --inputs {rule}`){tail}"
+        )
     }
 }
 
@@ -243,50 +386,34 @@ pub(super) fn e516(input: &PassInput) -> Vec<PassDiagnostic> {
         .as_ref()
         .and_then(|t| t.command.as_deref())
         .unwrap_or_default();
-    let judges = crate::prompts::judges_run_by(workflow);
+    let runs = judges_run_by(workflow);
     let covered = covered(input, subject);
-    let kinds = kinds(input);
-    let owed = owed(input, &kinds);
+    // Built at the first refusal: a gate nothing refuses reads no registry.
+    let mut index: Option<Index<'_>> = None;
     let mut found = Vec::new();
     for entity in &input.entities {
         let inside = within(covered.as_ref(), &entity.id);
         for j in &entity.judgements {
-            let judge = core_judge(&j.rule);
-            if inside && judge.is_some_and(|judge| judges.contains(judge)) {
-                continue;
-            }
-            let remedy = || {
-                judge.map(|judge| {
-                    let remedy = Remedy {
-                        run: remedies(&kinds, &entity.id, judge),
-                        tail: elsewhere(&owed, &kinds, &entity.id, judge),
-                    };
-                    (judge, remedy)
-                })
-            };
-            let (message, how) = match j.state.as_str() {
-                "stale" => (
-                    if j.changed.is_empty() {
-                        "is stale".to_string()
-                    } else {
-                        format!("is stale: {} changed", j.changed.join(", "))
-                    },
-                    again(input, &entity.id, &j.rule, remedy()),
-                ),
-                "unrecorded" => (
-                    "is not recorded in specforge-harness".to_string(),
-                    again(input, &entity.id, &j.rule, remedy()),
-                ),
-                "unreadable" => (
-                    "cannot be read".to_string(),
-                    "fix what the inputs cannot read, then record the verdict again".to_string(),
-                ),
-                "missing" if inside => (
-                    "is missing".to_string(),
-                    first(&entity.id, &j.rule, remedy()),
-                ),
+            let message = match j.state.as_str() {
+                "stale" if j.changed.is_empty() => "is stale".to_string(),
+                "stale" => format!("is stale: {} changed", j.changed.join(", ")),
+                "unrecorded" => "is not recorded in specforge-harness".to_string(),
+                "unreadable" => "cannot be read".to_string(),
+                "missing" => "is missing".to_string(),
                 _ => continue,
             };
+            let core = core(&j.rule);
+            if !refuses(
+                inside,
+                j.state == "missing",
+                &runs,
+                core.map(|(_, judge)| judge),
+            ) {
+                continue;
+            }
+            let how = index
+                .get_or_insert_with(|| Index::new(input))
+                .suggestion(&entity.id, &j.rule, core, &j.state);
             // The host keeps a gate diagnostic only within the subject's scope: name the subject, so a verdict
             // anywhere refuses a scoped gate. The entity stays in the message.
             found.push(refuse(

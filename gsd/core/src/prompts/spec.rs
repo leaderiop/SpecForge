@@ -5,7 +5,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{Do, Slash, Spec, Step};
+use super::workflow::{Do, Rejudge, Slash, Spec, Step};
 
 /// The ambiguity gates of `gsd/E202`, in percent: `(score, bound, is_a_maximum)` (upstream spec-phase: ambiguity <= 0.20
 /// and each dimension at its minimum). `record_verdict` enforces them on a `passed`.
@@ -82,6 +82,11 @@ static SPEC_PHASE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[Rejudge {
+        judge: "prompt:spec_phase",
+        flags: &[],
+        stops_on_complete: false,
+    }],
     tail: Some(judging),
 };
 
@@ -108,6 +113,7 @@ static MVP_PHASE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 

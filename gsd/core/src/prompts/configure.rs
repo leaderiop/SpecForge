@@ -45,6 +45,7 @@ static SETTINGS: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(writes),
 };
 
@@ -70,6 +71,7 @@ static CONFIG: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(writes),
 };
 

@@ -50,8 +50,38 @@ pub struct Spec {
     /// What the host serves the prompt beside the graph every prompt reads (ADR 0337): `State` for `call.state()`,
     /// `SlashCommands` for `PromptCall::slash_commands` (ADR 0316).
     pub inputs: &'static [specforge_extension_sdk::Input],
+    /// The judges whose verdicts on its subject a run records again: what a `gsd/E516` refusal names as their remedy.
+    pub rejudges: &'static [Rejudge],
     /// A closing section of the prompt's own (`spec_phase`'s judging text).
     pub tail: Option<fn(&PromptCall<'_>) -> String>,
+}
+
+/// A judge whose verdicts on the prompt's subject a run of the prompt records again (ADR 0379). A prompt that runs a
+/// judge only over what it makes itself declares none for it: `verify_work` checks the fix plans it writes,
+/// `ultraplan_phase` the plans it imports, and neither checks a plan already there again.
+pub struct Rejudge {
+    /// The judge: an agent of the prompt's steps, or `prompt:<id>`.
+    pub judge: &'static str,
+    /// The flags (their argument names) a run needs to run the judge again: `plan_phase` reuses a research it finds
+    /// unless `--research` is given.
+    pub flags: &'static [&'static str],
+    /// The run stops on a complete phase (plan-phase's closed-phase gate), so it records nothing there.
+    pub stops_on_complete: bool,
+}
+
+impl Spec {
+    /// The kind its subject argument references, as declared (several as `a|b`), read from that argument; `None` without
+    /// a subject.
+    pub fn subject_kind(&self) -> Option<&'static str> {
+        let name = self.subject?;
+        self.args
+            .iter()
+            .find(|a| a.name == name)
+            .and_then(|a| match a.kind {
+                args::Kind::Reference(kind) | args::Kind::Subject(kind) => Some(kind),
+                _ => None,
+            })
+    }
 }
 
 /// The notice of an upstream file: `commands/gsd/plan-phase.md`.

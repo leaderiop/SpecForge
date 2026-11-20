@@ -204,7 +204,7 @@ fn w406_a_drifted_context_refuses_the_planning_prompts_when_the_action_is_block(
 
 /// Stale plan-check verdicts on `plan`: recorded, then their input (the instructions) edited. They count only while
 /// the plan is open: an executed plan's plan check is history (its owner state), and the host owes it no verdict.
-fn stale_plan_check(p: &Project, plan: &str) {
+pub(super) fn stale_plan_check(p: &Project, plan: &str) {
     p.write("CLAUDE.md", "# Rules\n\nNo task is longer than an hour.\n");
     for code in ["W311", "W313", "W315", "W316"] {
         let run = p.record(plan, code, "passed", &[]);

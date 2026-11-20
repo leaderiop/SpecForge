@@ -58,6 +58,7 @@ static DISCUSS_PHASE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 

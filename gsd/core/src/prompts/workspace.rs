@@ -46,6 +46,7 @@ static WORKSPACE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(checkout),
 };
 

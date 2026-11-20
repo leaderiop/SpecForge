@@ -53,6 +53,7 @@ macro_rules! router {
                 effort: None,
             }),
             inputs: &[specforge_extension_sdk::Input::SlashCommands],
+            rejudges: &[],
             tail: Some($tail),
         };
     };
