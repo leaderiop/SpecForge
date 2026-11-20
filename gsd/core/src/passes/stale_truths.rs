@@ -148,7 +148,7 @@ fn spec_changes(delta: &DeltaPayload, read: &[(&str, &str)]) -> Vec<String> {
                 DeltaChange::Modified if node.before != node.after => node
                     .fields
                     .iter()
-                    .cloned()
+                    .map(|field| one_line(field))
                     .chain(
                         node.aspects
                             .iter()
@@ -158,6 +158,7 @@ fn spec_changes(delta: &DeltaPayload, read: &[(&str, &str)]) -> Vec<String> {
                     .collect(),
                 DeltaChange::Modified | DeltaChange::Removed => return None,
             };
+            let id = one_line(id);
             Some(if what.is_empty() {
                 format!("{kind} '{id}'")
             } else {
@@ -226,10 +227,8 @@ fn message(
     let changed = if verdict.changed.is_empty() {
         String::new()
     } else {
-        format!(
-            " ({} changed since it was recorded)",
-            verdict.changed.join(", ")
-        )
+        let inputs: Vec<String> = verdict.changed.iter().map(|name| one_line(name)).collect();
+        format!(" ({} changed since it was recorded)", inputs.join(", "))
     };
     let cites = quoted(verdict.files.iter().map(|(path, _)| *path));
     let it_cites = if cites.is_empty() {
@@ -262,21 +261,29 @@ fn message(
         ),
         _ => String::new(),
     };
+    let truth = one_line(truth);
     format!(
         "the verifier's verdict on truth '{truth}' is stale{changed}: since {base}, {cause}{uncited}"
     )
 }
 
-/// Each path in single quotes, escaped so a message stays one line, joined by `, `.
+/// Each path in single quotes, [`one_line`], joined by `, `.
 fn quoted<'a>(paths: impl Iterator<Item = &'a str>) -> String {
     paths
-        .map(|path| format!("'{}'", path.escape_debug()))
+        .map(|path| format!("'{}'", one_line(path)))
         .collect::<Vec<_>>()
         .join(", ")
 }
 
+/// A text the pass echoes but did not write (a path, an id, a field or an input name), escaped so the message stays
+/// one line. An id or a name of the grammar comes out unchanged; the one-line message does not rest on that.
+fn one_line(text: &str) -> String {
+    text.escape_debug().to_string()
+}
+
 /// The command that lists the plan's verdicts that are not fresh, and why to run it.
 fn suggestion(plan: &str) -> String {
+    let plan = one_line(plan);
     format!(
         "`specforge gsd re-verify {plan} --stale-only` lists the verdicts for the verifier to record again"
     )

@@ -564,3 +564,48 @@ fn an_aspect_is_named_as_the_wire_names_it() {
         );
     }
 }
+
+/// Ids, field names and input names come from the grammar's identifiers, which hold no line break; the advisory stays
+/// one line even if one did, as it does for a path.
+#[test]
+fn an_id_or_a_name_with_a_line_break_stays_on_one_line() {
+    let (phase, plan, truth) = ("v1.0/0\n1", "v1.0/0\n1/01-01", "v1.0/0\n1/01-01/TR1");
+    let input: PassInput = serde_json::from_value(json!({
+        "entities": [
+            { "id": phase, "kind": "phase" },
+            { "id": plan, "kind": "plan" },
+            { "id": truth, "kind": "truth", "judgements": [verdict("stale", &["ci\nted"], &[])] },
+        ],
+        "edges": [
+            { "source": plan, "target": phase, "label": "phase" },
+            { "source": truth, "target": plan, "label": "plan" },
+        ],
+        "delta": delta(revision(), vec![
+            modified("truth", truth, &["te\nxt"], &[]),
+            modified("phase", phase, &[], &["title"]),
+        ]),
+    }))
+    .expect("a pass input");
+    let found = check(&input);
+    assert_eq!(found.len(), 1, "{found:?}");
+    let message = &found[0].message;
+    assert!(
+        message.contains(
+            "truth 'v1.0/0\\n1/01-01/TR1' is stale (ci\\nted changed since it was recorded)"
+        ),
+        "{message}"
+    );
+    assert!(
+        message.contains(
+            "the spec it reads changed: truth 'v1.0/0\\n1/01-01/TR1' (te\\nxt), phase 'v1.0/0\\n1' (title)"
+        ),
+        "{message}"
+    );
+    assert!(!message.contains('\n'), "{message}");
+    let suggestion = found[0].suggestion.as_deref().expect("a suggestion");
+    assert!(
+        suggestion.contains("re-verify v1.0/0\\n1/01-01 --stale-only"),
+        "{suggestion}"
+    );
+    assert!(!suggestion.contains('\n'), "{suggestion}");
+}
