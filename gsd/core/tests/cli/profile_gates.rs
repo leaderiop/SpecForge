@@ -151,6 +151,16 @@ fn e521_is_an_error_under_strict_and_plus_until_the_commit_carries_its_trailer()
     }
 }
 
+/// The task's full id, as `specforge query` prints it, is a trailer the collector reads: gsd/E521 does not ask for it.
+#[test]
+fn e521_is_silent_under_strict_and_plus_for_a_trailer_naming_the_task_by_its_full_id() {
+    for (profile, _) in PROFILES.into_iter().filter(|&(_, blocks)| blocks) {
+        let p = committed("feat(01-01): Store module\n\nGsd-Task: v1.0/01/01-01/T1\n");
+        select(&p, profile);
+        assert_eq!(e521_errors(&p), (0, Vec::new()), "{profile:?}");
+    }
+}
+
 #[test]
 fn e517_is_reported_under_plus_only() {
     for (profile, fires) in [

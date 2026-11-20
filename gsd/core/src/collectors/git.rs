@@ -1,5 +1,5 @@
-//! `gsd-git`: records, in the plan's own file, every commit that names a task by a `Gsd-Task: <plan>/<task>` trailer
-//! (ADR 0331 D3), or a plan by GSD's subject convention `{type}({phase}-{plan}): {task}`
+//! `gsd-git`: records, in the plan's own file, every commit that names a task by a `Gsd-Task: <scope>/<task>` trailer
+//! (ADR 0331 D3, ADR 0380), or a plan by GSD's subject convention `{type}({phase}-{plan}): {task}`
 //! (`gsd-core/references/git-integration.md:72`).
 //!
 //! It is a writing collector that reads the project's repository through the host's git port (ADR 0352): one typed
@@ -8,13 +8,14 @@
 //! creates one `commit` entity per new commit, in the file of the plan it names. It records nothing it already holds
 //! (the 12-hex name is the key), so a second run is a no-op.
 //!
-//! The trailer comes first: one that names a task (`01-01/T1`, the configured `project_code` prefix stripped from the
-//! plan as from a scope) fixes the plan and the task, whatever the subject says. Otherwise the subject decides: its
-//! scope names the plan, and its description after `: ` the task whose title it equals. `linked_by` says which found
-//! the task. A trailer that is unreadable (two different values, or one that is no `<plan>/<task>`) or names no task
-//! falls back to the subject, and the plan's title notes it. A commit that names no plan either way (`feat(gsd): x`,
-//! `docs(pause): y`, a scope no plan has, or one that several plans have) is skipped, as `/gsd-undo` skips it
-//! (`scope === id`). GSD's executor writes the trailer (`gsd-executor.md`'s commit step, ADR 0351).
+//! The trailer comes first: one that names a task, by the plan as a subject's scope writes it (`01-01/T1`, the
+//! configured `project_code` prefix stripped as from a scope) or by the task's full id (`v1.0/01/01-01/T1`), fixes
+//! the plan and the task, whatever the subject says. Otherwise the subject decides: its scope names the plan, and its
+//! description after `: ` the task whose title it equals. `linked_by` says which found the task. A trailer that is
+//! unreadable (two different values, or one that is no `<scope>/<task>`) or names no task falls back to the subject,
+//! and the plan's title notes it. A commit that names no plan either way (`feat(gsd): x`, `docs(pause): y`, a scope
+//! no plan has, or one that several plans have) is skipped, as `/gsd-undo` skips it (`scope === id`). GSD's executor
+//! writes the trailer (`gsd-executor.md`'s commit step, ADR 0351).
 //!
 //! Each recorded commit also names the recorded commits of its plan it descends from (`descends_from`), through every
 //! parent: the log is read with merges, so a RED made on a branch merged before the GREEN counts (#5275). A merge
@@ -293,9 +294,9 @@ fn clean(text: &str) -> String {
 pub enum Trailer<'a> {
     /// There is none.
     None,
-    /// One distinct `<plan>/<task>` value, as written (`01-01/T1`).
+    /// One distinct `<scope>/<task>` value, as written (`01-01/T1`, `v1.0/01/01-01/T1`).
     Named(&'a str),
-    /// Two different values, or one that is no `<plan>/<task>`: no task, as upstream counts a doubled `gate-status:`
+    /// Two different values, or one that is no `<scope>/<task>`: no task, as upstream counts a doubled `gate-status:`
     /// as missing (`ship.md:335`).
     Unreadable,
 }
@@ -319,7 +320,10 @@ fn uncoded<'v>(id: &'v str, code: Option<&str>) -> Option<&'v str> {
     id.strip_prefix(code?)?.strip_prefix('-')
 }
 
-/// The trailer `values` say: each trimmed, empty ones dropped, repeats counted once.
+/// The trailer `values` say: each trimmed, empty ones dropped, repeats counted once. A value is `<scope>/<task>`,
+/// split at its last `/` (ADR 0380): the task a [`part`], and the scope `/`-separated parts ([`parts`]), so the plan
+/// as a subject's scope writes it (`01-01/T1`) and the task's full id (`v1.0/01/01-01/T1`) are both read. The shape
+/// is all it checks: the graph decides which task, if any, a value names.
 pub fn trailer(values: &[String]) -> Trailer<'_> {
     let mut named: Vec<&str> = values
         .iter()
@@ -328,18 +332,12 @@ pub fn trailer(values: &[String]) -> Trailer<'_> {
         .collect();
     named.sort_unstable();
     named.dedup();
-    // Each side of the one `/`: ASCII letters, digits, `.`, `_` and `-` (no space, tab, separator or control).
-    let part = |p: &str| {
-        !p.is_empty()
-            && p.bytes()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
-    };
     match named[..] {
         [] => Trailer::None,
         [one]
             if one
-                .split_once('/')
-                .is_some_and(|(plan, task)| part(plan) && part(task)) =>
+                .rsplit_once('/')
+                .is_some_and(|(scope, task)| parts(scope) && part(task)) =>
         {
             Trailer::Named(one)
         }
@@ -347,16 +345,32 @@ pub fn trailer(values: &[String]) -> Trailer<'_> {
     }
 }
 
-/// The task a trailer value names (`01-01/T1`), as written or with the configured `code` prefix stripped from its plan
-/// (`APP-01-01/T1`), as [`plan_by_scope`] strips it from a scope.
+/// One segment of a trailer value: non-empty ASCII letters, digits, `.`, `_` and `-` (no space, tab, separator, `:`
+/// or control character).
+fn part(segment: &str) -> bool {
+    !segment.is_empty()
+        && segment
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+}
+
+/// Whether every `/`-separated segment of a trailer's scope is a [`part`]: a leading, doubled or trailing `/` leaves an
+/// empty one, so a rooted key or an empty segment is never read.
+fn parts(scope: &str) -> bool {
+    scope.split('/').all(part)
+}
+
+/// The task a trailer value names (`01-01/T1`, `v1.0/01/01-01/T1`), as written (the exact id, else a unique
+/// `/`-boundary suffix) or with the configured `code` prefix stripped from its scope (`APP-01-01/T1`), as
+/// [`plan_by_scope`] strips it from a subject's scope.
 fn task_named<'n>(
     nodes: &'n [GraphNode],
     code: Option<&str>,
     value: &str,
 ) -> Option<&'n GraphNode> {
     find_kind(nodes, value, "task").or_else(|| {
-        let (plan, task) = value.split_once('/')?;
-        find_kind(nodes, &format!("{}/{task}", uncoded(plan, code)?), "task")
+        let (scope, task) = value.rsplit_once('/')?;
+        find_kind(nodes, &format!("{}/{task}", uncoded(scope, code)?), "task")
     })
 }
 
