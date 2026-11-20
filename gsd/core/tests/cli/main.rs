@@ -146,6 +146,7 @@ mod strict_wave;
 mod thread_plan;
 #[path = "../common/tool_names.rs"]
 mod tool_names;
+mod verdict_freshness;
 mod verify_paths;
 mod verify_rules;
 mod verify_status;

@@ -39,6 +39,7 @@ mod prompt;
 mod record;
 mod settings;
 mod threat_ids;
+mod verdict_freshness;
 
 use specforge_extension_sdk::testing::MockHost;
 

@@ -10,7 +10,7 @@ use super::harness::{Project, vault};
 const PHASE: &str = "v1.0/01";
 const W302: &str = "gsd.security/W302";
 /// The closed threats of the vault, each owed a mitigation verdict, and the files each names.
-const CLOSED: [(&str, &str); 5] = [
+pub(super) const CLOSED: [(&str, &str); 5] = [
     ("v1.0/01/01-01/T-01-01", "src/vault.js"),
     ("v1.0/01/01-01/T-01-02", "src/vault.js"),
     ("v1.0/01/01-01/T-01-SC", "package.json"),
@@ -23,7 +23,7 @@ const COMMAND_LINE: &str = "v1.0/01/01-02/TR1";
 
 /// The vault with phase 01 judged: the verifier's verdict on each of its six must-haves and `holds` on each closed
 /// threat.
-fn judged_phase() -> Project {
+pub(super) fn judged_phase() -> Project {
     let p = vault().with_extension("@gsd/security", "GSD_SECURITY_WASM");
     for (threat, file) in CLOSED {
         assert_eq!(p.fields_of(threat)["files"], json!([file]), "{threat}");

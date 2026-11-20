@@ -26,6 +26,10 @@ mod cites;
 mod judged;
 pub use judged::{Book, is_judged, judged, unjudged};
 
+#[path = "harness_measures.rs"]
+mod measures;
+pub use measures::{Freshness, Verdict};
+
 pub(crate) const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN and GSD_SECURITY_WASM to the artifacts";
 
 fn required(var: &str) -> PathBuf {
