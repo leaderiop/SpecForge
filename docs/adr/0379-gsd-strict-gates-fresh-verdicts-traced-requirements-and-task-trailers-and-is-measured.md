@@ -199,8 +199,17 @@ Each holds once the change this ADR opens lands.
   and passing test trace, and has an error on a task commit without its `Gsd-Task:` trailer.
 - Under gsd-strict any verdict that is stale, unrecorded or unreadable anywhere in the project refuses every gate (ADR
   0377 D7), including after ordinary edits to files a closed phase's verdicts cite, until the verdict is recorded
-  again. The way out for a project that will not re-judge is the explicit `specforge.verdict_gate: false` beside the
-  profile, which beats the preset; the profile test shows it.
+  again. The refusal (`gsd/E516`) names the prompt that records the verdict again and the phase it runs on, as a
+  slash command and as `specforge prompt gsd.<id> <subject>`: `/gsd-execute-phase` on the phase that holds a verifier
+  verdict (running it on the gated phase does not excuse a verdict another phase holds), and for another rule the
+  prompt that runs its judge; for a verifier verdict, `specforge gsd re-verify <phase> --stale-only` lists the
+  verifier's verdicts that are not fresh first. When several phases hold the same judge's stale or unrecorded
+  verdicts, the refusal names every holder and each needs its own run: a prompt run on one holder is refused while
+  another holder's verdict is owed (it sits outside the prompt's scope), so the verdicts of several holders are
+  recorded with `specforge gsd re-verify` and `specforge gsd record-verdict`, which no gate refuses. An unreadable
+  verdict in another phase refuses every gate too but is not listed among the holders, because its own diagnostic
+  carries its fix (the inputs it cannot read). The way out for a project that will not re-judge is the explicit
+  `specforge.verdict_gate: false` beside the profile, which beats the preset; the profile test shows it.
 - Under gsd-strict a verdict that is missing inside a gate's scope refuses it too, unless the gate's own workflow runs
   the verdict's judge (ADR 0377 D7). Spec and research judging therefore come before planning. A phase whose SPEC
   has no `gsd/E202` verdict, or whose locked requirements have no `gsd/W203` verdict, refuses `/gsd-plan-phase`,
