@@ -25,8 +25,9 @@ pub const CAP: u64 = cap!();
 /// blob's size at the commit that vendors it, rounded up to the next 100,000 B; a change that grows it past that
 /// re-measures and sets the allowance in the same commit (ADR 0373 D3). `@gsd/core` measured 5,470,859 B when vendored
 /// and 5,500,412 B at protocol 2.3.0, then 5,633,814 B once it placed, threaded and measured plans, 5,643,169 B
-/// after the review of that plan flow, and 5,643,233 B once gsd-strict preset the traceability, verdict and trailer
-/// gates.
+/// after the review of that plan flow, 5,643,233 B once gsd-strict preset the traceability, verdict and trailer
+/// gates, and 5,653,802 B once a gsd/E516 refusal named the prompts that remedy it and every phase holding the verdict,
+/// the trailer reader took a task's full path and gsd/E521 suggested the trailer to add.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_700_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].
