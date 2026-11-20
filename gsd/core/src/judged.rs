@@ -1,4 +1,4 @@
-//! The judged rules (K7): one table, read by `declare` and by `record_verdict`. Each rule names the agent or prompt
+//! The judged rules: one table, read by `declare` and by `record_verdict`. Each rule names the agent or prompt
 //! that judges it, the outcomes a verdict may record, and what it reads of each target (`spec/rules.md`, "Judged
 //! rules' inputs").
 //!
@@ -6,33 +6,9 @@
 
 use specforge_extension_sdk::prelude::*;
 
+use gsd_kit::judged::{Judged, Owed, Target};
+
 use crate::codes::{CODES, Severity};
-
-/// What a rule reads of the entities of one kind.
-pub struct Target {
-    pub kind: &'static str,
-    /// `(name, selector)`, the named inputs of the verdict.
-    pub inputs: &'static [(&'static str, &'static str)],
-    /// An entity that writes any of these fields is not judged.
-    pub unless_set: &'static [&'static str],
-}
-
-/// One judged rule.
-pub struct Judged {
-    /// The local code: `W311`.
-    pub code: &'static str,
-    /// The diagnostic's message; the host adds `: no verdict`, `: stale …` or the verdict's outcome.
-    pub message: &'static str,
-    /// An agent of this extension, or `prompt:<id>`.
-    pub judge: &'static str,
-    pub outcomes: &'static [&'static str],
-    pub passing: &'static [&'static str],
-    pub targets: &'static [Target],
-    /// `kind.field`s set from the verdict's `values`.
-    pub values: &'static [&'static str],
-    /// `kind.field`s that hold the verdict's outcome.
-    pub outcome_fields: &'static [&'static str],
-}
 
 /// What the plan checks read of a plan; the `gsd/plan-checker` route serves the same sections.
 pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
@@ -72,14 +48,18 @@ pub(crate) const INTEGRATION_INPUTS: &[(&str, &str)] = &[
     ),
 ];
 
+// A plan check is owed while its plan is open: it judges a plan before it runs, and an executed plan's check is history
+// (ADR 0377). A must-have is owed once its plan is complete: the verifier judges what was built.
 const PLAN_CHECK: &[Target] = &[Target {
     kind: "plan",
     inputs: PLAN_CHECK_INPUTS,
     unless_set: &[],
+    judged_while: Some(Owed::Open),
 }];
 
-// E501 reads the files a truth's plan, an artifact and a key link name (ADR 0304); the plan checks read none: they
-// judge the plan before its files exist, and a code edit must not stale an in-flight check.
+// A truth's verdict reads the files and tests it cites (the host digests every verdict's `cited`, ADR 0377), so an
+// edit stales only the truths that cite the file; an artifact and a key link read the files they name (ADR 0304). The
+// plan checks read none: they judge the plan before its files exist, and a code edit must not stale an in-flight check.
 const E501: &[Target] = &[
     Target {
         kind: "truth",
@@ -88,9 +68,9 @@ const E501: &[Target] = &[
             ("plan", "self.plan"),
             ("phase", "self.plan.phase"),
             ("tests", "test(self<test.names)"),
-            ("files", "file(self.plan.files_modified)"),
         ],
         unless_set: &[],
+        judged_while: Some(Owed::Complete),
     },
     Target {
         kind: "artifact",
@@ -100,6 +80,7 @@ const E501: &[Target] = &[
             ("file", "file(self.path)"),
         ],
         unless_set: &[],
+        judged_while: Some(Owed::Complete),
     },
     // A key link with a `pattern` is not judged: a pass searches the pattern (`passes::scan`).
     Target {
@@ -111,8 +92,26 @@ const E501: &[Target] = &[
             ("to", "file(self.to)"),
         ],
         unless_set: &["pattern"],
+        judged_while: Some(Owed::Complete),
     },
 ];
+
+// A prohibition that names its enforcing `test` is E319's and the test's; one that names none is judged, upstream's
+// fail-closed rule for a judgment-tier item. A model's verdict is not authoritative, so its rule is a warning. A
+// prohibition judges its plan's whole change ("no code of the plan does X"), so its verdict reads the plan's files and,
+// as a truth's, what it cites (`record_verdict` refuses one that cites no code): an edit anywhere in the plan's change,
+// or to another file the verifier read, stales it.
+const W525: &[Target] = &[Target {
+    kind: "prohibition",
+    inputs: &[
+        ("prohibition", "self"),
+        ("plan", "self.plan"),
+        ("phase", "self.plan.phase"),
+        ("files", "file(self.plan.files_modified)"),
+    ],
+    unless_set: &["test"],
+    judged_while: Some(Owed::Complete),
+}];
 
 const fn plan_check(code: &'static str, message: &'static str) -> Judged {
     Judged {
@@ -158,6 +157,16 @@ pub const JUDGED: &[Judged] = &[
         outcome_fields: &[],
     },
     Judged {
+        code: "W525",
+        message: "{kind} '{id}' has no fresh verifier verdict",
+        judge: "gsd-verifier",
+        outcomes: &["held", "violated", "unverified"],
+        passing: &["held"],
+        targets: W525,
+        values: &[],
+        outcome_fields: &[],
+    },
+    Judged {
         code: "E518",
         message: "milestone audit '{id}' has no fresh integration verdict",
         judge: "gsd-integration-checker",
@@ -167,6 +176,7 @@ pub const JUDGED: &[Judged] = &[
             kind: "milestone_audit",
             inputs: INTEGRATION_INPUTS,
             unless_set: &[],
+            judged_while: None,
         }],
         values: &[],
         outcome_fields: &["milestone_audit.integration"],
@@ -185,6 +195,7 @@ pub const JUDGED: &[Judged] = &[
                 ("phase", "self.phase"),
             ],
             unless_set: &[],
+            judged_while: None,
         }],
         values: &["phase_spec.scores"],
         outcome_fields: &[],
@@ -199,6 +210,7 @@ pub const JUDGED: &[Judged] = &[
             kind: "locked_req",
             inputs: &[("req", "self"), ("traces", "self.traces")],
             unless_set: &[],
+            judged_while: None,
         }],
         values: &[],
         outcome_fields: &[],
@@ -213,6 +225,7 @@ pub const JUDGED: &[Judged] = &[
             kind: "package_audit",
             inputs: &[("audit", "self")],
             unless_set: &[],
+            judged_while: None,
         }],
         values: &[],
         outcome_fields: &["package_audit.legitimacy"],
@@ -221,7 +234,7 @@ pub const JUDGED: &[Judged] = &[
 
 /// The judged rule with this local code.
 pub fn get(code: &str) -> Option<&'static Judged> {
-    JUDGED.iter().find(|j| j.code == code)
+    gsd_kit::judged::get(JUDGED, code)
 }
 
 fn severity(code: &str) -> ValidationSeverity {
@@ -233,29 +246,5 @@ fn severity(code: &str) -> ValidationSeverity {
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {
-    for j in JUDGED {
-        c.rule(j.code, |r| {
-            r.severity(severity(j.code))
-                .message_template(j.message)
-                .judged(j.judge, |b| {
-                    b.outcomes(j.outcomes).passing(j.passing);
-                    for t in j.targets {
-                        b.target(t.kind, |tb| {
-                            for (name, selector) in t.inputs {
-                                tb.input(name, selector);
-                            }
-                            if !t.unless_set.is_empty() {
-                                tb.unless_set(t.unless_set);
-                            }
-                        });
-                    }
-                    if !j.values.is_empty() {
-                        b.values(j.values);
-                    }
-                    if !j.outcome_fields.is_empty() {
-                        b.outcome_fields(j.outcome_fields);
-                    }
-                });
-        });
-    }
+    gsd_kit::judged::declare(c, JUDGED, severity);
 }

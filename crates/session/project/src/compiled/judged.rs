@@ -19,7 +19,8 @@ impl CompiledProject {
     }
 
     /// This project, which a write is being judged on, with the guard passes (ADR 0289) run over it: `previous` is
-    /// the project before the write. Their findings join its checks'; none runs unless the project declares a guard
+    /// the project before the write, and what the write changed is the delta a guard pass declaring the `delta` input
+    /// reads, its base `previous`. Their findings join its checks'; none runs unless the project declares a guard
     /// pass, and a compile never runs one.
     pub fn judged_against(mut self, previous: &CompiledProject) -> CompiledProject {
         let Some(runtime) = self.env.runtime() else {
@@ -29,6 +30,20 @@ impl CompiledProject {
             return self;
         }
         let baseline = crate::baseline::Baseline::of_project(previous);
+        // What the write changes, taken once and only when a guard pass reads it (ADR 0376 D6).
+        let delta = self
+            .env
+            .registries()
+            .guard_passes()
+            .any(|declared| declared.inputs().delta().is_some())
+            .then(|| {
+                crate::delta::Delta::between(
+                    previous.graph(),
+                    self.graph(),
+                    self.env.registries().field_forms(),
+                    specforge_protocol_types::DeltaBase::Previous,
+                )
+            });
         let found = crate::guards::run(
             &self.env,
             self.memo().entities(),
@@ -36,6 +51,7 @@ impl CompiledProject {
             &baseline,
             &self.judgements,
             &specforge_registry::PlainDisk,
+            delta.as_ref(),
         );
         self.check_diagnostics.extend(found);
         self.reported = OnceLock::new();
@@ -44,7 +60,8 @@ impl CompiledProject {
 
     /// What this project reports now (the settings' gating and raises applied), with the findings of the guard passes
     /// that report one of `codes` (qualified, `gsd/E512`) added: a gate asks (ADR 0291). Each such pass runs once over
-    /// this project, which is also its `previous` (nothing is written), and its input says `trigger`. A project
+    /// this project, which is also its `previous` (nothing is written), its input says `trigger`, and the delta it
+    /// reads is the compile's ([`Self::delta`]). A project
     /// declaring no such pass reports what [`Self::checked_diagnostics`] does, and a compile never runs one.
     pub fn gated_against_self(
         &self,
@@ -97,6 +114,8 @@ impl CompiledProject {
                 Some(crate::coverage::ReportRead::Read(results)) => Some(results),
                 _ => None,
             },
+            // Nothing is written: the delta is the compile's (ADR 0376 D6).
+            delta: checked.delta(),
             ..crate::passes::PassContext::of(checked.memo().entities())
         };
         let reports = crate::passes::run_extension_passes(

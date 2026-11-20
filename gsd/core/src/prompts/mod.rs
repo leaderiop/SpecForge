@@ -32,7 +32,12 @@ mod verify;
 mod workflow;
 mod workspace;
 
+use std::collections::BTreeSet;
+
 use specforge_extension_sdk::prelude::*;
+
+use workflow::Do;
+pub(crate) use workflow::{Rejudge, Spec};
 
 pub use spec::GATES;
 
@@ -65,25 +70,71 @@ pub use render::without_notice;
 /// `text` with its install paths re-pointed at `specforge gsd reference`.
 pub use repoint::repoint;
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    spec::declare(c);
-    project::declare(c);
-    discuss::declare(c);
-    plan::declare(c);
-    execute::declare(c);
-    verify::declare(c);
-    audit::declare(c);
-    ship::declare(c);
-    navigate::declare(c);
-    quick::declare(c);
-    autonomous::declare(c);
-    session::declare(c);
-    review::declare(c);
-    configure::declare(c);
-    git::declare(c);
-    learning::declare(c);
-    onboard::declare(c);
-    workspace::declare(c);
-    update::declare(c);
-    ns::declare(c);
+/// Every workflow the prompt modules declare, family by family in declaration order: what [`declare`] declares, and
+/// what a gate guard reads of the workflow it gates ([`judges_run_by`]).
+static FAMILIES: &[&[&Spec]] = &[
+    spec::SPECS,
+    project::SPECS,
+    discuss::SPECS,
+    plan::SPECS,
+    execute::SPECS,
+    verify::SPECS,
+    audit::SPECS,
+    ship::SPECS,
+    navigate::SPECS,
+    quick::SPECS,
+    autonomous::SPECS,
+    session::SPECS,
+    review::SPECS,
+    configure::SPECS,
+    git::SPECS,
+    learning::SPECS,
+    onboard::SPECS,
+    workspace::SPECS,
+    update::SPECS,
+    ns::SPECS,
+];
+
+/// The workflow registry: every prompt `@gsd/core` declares, in declaration order.
+pub(crate) fn workflows() -> impl Iterator<Item = &'static Spec> {
+    FAMILIES.iter().flat_map(|family| family.iter().copied())
 }
+
+/// The judges the workflow `id` runs itself: the workflow as `prompt:<id>` (a prompt judge) and the agents of its agent
+/// steps. A workflow it continues with (a prompt step) is not counted: that one runs behind its own gate. An id that is
+/// no workflow (a command's gate) runs none.
+pub(crate) fn judges_run_by(id: &str) -> BTreeSet<String> {
+    let Some(spec) = workflows().find(|s| s.id == id) else {
+        return BTreeSet::new();
+    };
+    let agents = spec.steps.iter().filter_map(|step| match step.does {
+        Do::Agent(agent) => Some(agent.to_string()),
+        Do::Command(_) | Do::Prompt(_) => None,
+    });
+    std::iter::once(format!("prompt:{id}"))
+        .chain(agents)
+        .collect()
+}
+
+/// The prompts whose run records `judge`'s verdicts on their subject again (their `rejudges`), in registry order, each
+/// with what the run needs: what a `gsd/E516` refusal names as the remedy. Every one has a subject, a slash command and
+/// runs the judge (the registry's tests hold it).
+pub(crate) fn rejudging(judge: &str) -> Vec<(&'static Spec, &'static Rejudge)> {
+    workflows()
+        .flat_map(|s| {
+            s.rejudges
+                .iter()
+                .filter(move |r| r.judge == judge)
+                .map(move |r| (s, r))
+        })
+        .collect()
+}
+
+pub fn declare(c: &mut ContributionsBuilder) {
+    for spec in workflows() {
+        workflow::declare(c, spec);
+    }
+}
+
+#[cfg(test)]
+mod tests;

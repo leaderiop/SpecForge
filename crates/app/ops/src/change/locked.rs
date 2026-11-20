@@ -4,6 +4,8 @@
 //! sources and the install of a host's files (ADR 0292) are both written this way.
 
 use specforge_common::SourceRoot;
+use specforge_common::facts::FACTS_HISTORY_DIR;
+use specforge_project::facts::retain::{Retirement, retire};
 
 use super::ProjectChange;
 use super::journal;
@@ -48,15 +50,29 @@ impl Stager<'_> {
         })
     }
 
-    /// The fact stores of `collector` filed under another key than `key`, listed now, under the lock, through the
-    /// caller's containment (ADR 0327 D4).
-    pub(crate) fn superseded_stores(&self, collector: &str, key: &str) -> Vec<String> {
-        specforge_project::facts::superseded(
-            &self.caller.containment().disk(),
-            self.sources.base(),
-            collector,
-            key,
-        )
+    /// What filing `collector`'s facts under `key` does to its stores under another key, `retain` of them kept
+    /// archived: listed now, under the lock, through the caller's containment (ADR 0327 D4, ADR 0376 D4). An archive
+    /// that is there and cannot be listed is the error: no store is moved into it, since a move could land on an
+    /// archived store a ledger still trusts.
+    pub(crate) fn retired_stores(
+        &self,
+        collector: &str,
+        key: &str,
+        retain: u8,
+    ) -> Result<Retirement, OpError> {
+        let disk = self.caller.containment().disk();
+        retire(&disk, self.sources.base(), collector, key, retain).map_err(|unlisted| {
+            let why = std::fs::read_dir(self.sources.path(FACTS_HISTORY_DIR)).err();
+            OpError::new(
+                why.as_ref()
+                    .map_or(OpErrorKind::Internal, OpErrorKind::of_io),
+                crate::FILE_UNREADABLE,
+                match why {
+                    Some(error) => format!("{unlisted}: {error}; no fact store is archived"),
+                    None => format!("{unlisted}; no fact store is archived"),
+                },
+            )
+        })
     }
 
     /// `key` held `before` (`None`: not there) and will hold `after`.

@@ -20,6 +20,7 @@ fn each() -> Vec<Input> {
         Input::setting("@a/b", "x.y"),
         Input::CheckOutcomes,
         Input::facts(&["package"]),
+        Input::delta(&["item"]),
     ]
 }
 
@@ -56,4 +57,21 @@ fn a_facts_input_reads_and_writes_its_kinds() {
     ];
     assert_eq!(Inputs(&inputs).facts(), ["package", "item", "test"]);
     assert!(Inputs(&[Input::Tests]).facts().is_empty());
+}
+
+#[test]
+fn a_delta_input_reads_and_writes_its_kinds() {
+    let input = Input::delta(&["a", "b"]);
+    let wire = serde_json::json!({"input": "delta", "kinds": ["a", "b"]});
+    assert_eq!(serde_json::to_value(&input).unwrap(), wire);
+    assert_eq!(serde_json::from_value::<Input>(wire).unwrap(), input);
+    assert_eq!(input.tag(), "delta");
+    let inputs = [
+        Input::delta(&["b", "a"]),
+        Input::facts(&["c"]),
+        Input::delta(&["a", "d"]),
+    ];
+    assert_eq!(Inputs(&inputs).delta(), Some(vec!["b", "a", "d"]));
+    assert_eq!(Inputs(&[Input::delta(&[])]).delta(), Some(vec![]));
+    assert_eq!(Inputs(&[Input::facts(&["c"])]).delta(), None);
 }

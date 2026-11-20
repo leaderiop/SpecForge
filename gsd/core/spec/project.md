@@ -99,6 +99,12 @@ Scoped by milestone.
 | status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, `needs_review` when the verification is `human_needed`, `complete` when it passed (`phase-status.cts:174-197`; UAT does not feed it), else `executed`. `passed` needs r40's verdicts; `deferred` is never derived. The phase is complete (ADR 0350 owner state) once `executed`, `needs_review` or `complete`: its scoped kinds' planned paths are checked from then on |
 | plans_complete | str `N/M` | C | Progress `Plans Complete`: plans with a summary over plans |
 | completed | date | C | Progress `Completed` |
+| critical_path | strs | C | the task ids of the phase's heaviest chain of plans, in execution order: the chain follows `depends_on` and shared paths (the strict waves), each plan weighing its `estimate.tokens`, else its task count; of two chains of equal weight the longer wins, then the smaller plan id as a person reads it (`01-2` before `01-10`); absent when no plan has a strict wave or the chain names no task |
+| critical_weight | int | C | the weight of that chain: tokens and task counts summed as they come, so a phase with and without estimates mixes units |
+
+A phase's `critical_path` is the chain of its plans that weighs most once the strict waves place them, named task by
+task, and `critical_weight` is its weight: each plan's `estimate.tokens`, else its task count, so the sum mixes units
+when some plans estimate and others do not (ADR 0378).
 
 ## workstream
 

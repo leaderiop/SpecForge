@@ -24,6 +24,28 @@ pub fn recording(agent: &str) -> String {
     if codes.is_empty() {
         return String::new();
     }
+    let truths = if codes.iter().any(|c| c == "`gsd/E501`") {
+        "A verdict on a truth reads only what it cites: it must cite the files (or the tests) the truth is about, or \
+         it is refused. A verdict on a prohibition reads its plan's files and what it cites: it must cite the files \
+         (or the tests) you checked it in, or it is refused.\n\n\
+         On re-verification, first run `specforge gsd re-verify <phase> --stale-only` (the MCP tool \
+         `specforge.gsd.re_verify`): it lists the verdicts of the phase that are not fresh (stale, missing, \
+         unrecorded or unreadable), each with the inputs that changed and their selectors. Judge exactly what it \
+         lists and record each with `record-verdict`; leave every other verdict as recorded: its inputs have not \
+         changed, so judging it again would answer the same.\n\n"
+    } else {
+        ""
+    };
+    // Name `specforge check` only to a judge granted it: the phase researcher judges W205 but does not validate.
+    let validates = roster::AGENTS
+        .iter()
+        .find(|a| a.id == agent)
+        .is_some_and(|a| a.granted(true).contains(&"specforge:validate"));
+    let check = if validates {
+        "`specforge check`"
+    } else {
+        "the project's check"
+    };
     format!(
         "\n## Recording a verdict (@gsd/core)\n\n\
          You judge {}. Where the ported text above says to write a report or a status, record a verdict instead: only a \
@@ -41,12 +63,37 @@ pub fn recording(agent: &str) -> String {
          you relied on by its id, as `specforge trace --format json` prints it: a cited test joins the entity's tests, \
          and its status is read with them) and `--values '{{...}}'` \
          for the fields the rule binds.\n\n\
-         A verdict recorded over a `basis` that has since changed is refused (`stale_revision`): read the inputs again. \
-         A failing outcome is recorded, whatever the rule's severity, and replaces an earlier pass: `specforge check` \
+         {truths}A verdict recorded over a `basis` that has since changed is refused (`stale_revision`): read the inputs again. \
+         A failing outcome is recorded, whatever the rule's severity, and replaces an earlier pass: {check} \
          then reports it as the rule's finding. A verdict on an entity a person owns is refused (`human_only`). Do not \
          edit the spec to get around a refusal; report the findings to the user instead.\n",
         codes.join(", ")
     )
+}
+
+/// The section added after gsd-plan-checker's ported body: how it reads the plans' thread, the result the `thread`
+/// step of `plan_phase` passes it as a `**Thread:**` line (ADR 0378 D3). Upstream's checker takes no such line, and
+/// its body is not edited.
+const THREAD: &str = "\n## The plans' thread (@gsd/core)\n\n\
+     Your prompt's `**Thread:**` line, when it has one, is what `specforge trace --plan` answered for the phase's \
+     plans and tasks in the order `specforge gsd thread-plan <phase>` gives them (the MCP tool \
+     `specforge.gsd.thread_plan`). Without the line, or once the plans were revised, read it yourself: write the \
+     answer of `specforge gsd thread-plan <phase> --format json` to a file, then run \
+     `specforge trace --plan <file> --format json`.\n\n\
+     A result with `ok: false` is a blocker on the plans' order: an `unresolved_entity` gap (E003) is an entry that \
+     names no entity, and an `ordering` gap an entry before a plan or task it depends on, such as a coupling peer \
+     that runs later. `missing_plan_entry` gaps are warnings over every testable entity of the project and block \
+     nothing. The order of the tasks inside a plan is not checked: a task carries no `depends_on`.\n";
+
+/// What follows an agent's ported body, SpecForge's own: the plan checker's reading of the plans' thread, then a
+/// judge's [`recording`] section.
+pub fn after_body(agent: &str) -> String {
+    let thread = if agent == "gsd-plan-checker" {
+        THREAD
+    } else {
+        ""
+    };
+    format!("{thread}{}", recording(agent))
 }
 
 /// `text` as an installed agent reads it: its references point at `specforge gsd reference` (D-r42-5).
@@ -81,6 +128,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
             ("claude-code", _, _) | (_, None, _) | (_, _, None) => agent.full,
             (_, Some(_), Some(compact)) => compact,
         };
-        Ok(repointed(&format!("{body}{}", recording(agent.id))))
+        Ok(repointed(&format!("{body}{}", after_body(agent.id))))
     });
 }

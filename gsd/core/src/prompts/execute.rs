@@ -5,7 +5,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Rejudge, Slash, Spec, Step};
 
 const GATES: &[&str] = &["W318", "E516"];
 
@@ -22,6 +22,11 @@ const PHASE_STEPS: &[Step] = &[
         id: "execute",
         title: "Execute each plan of the wave (the prompt execute_plan)",
         does: Do::Prompt("execute_plan"),
+    },
+    Step {
+        id: "re_verify",
+        title: "List the verdicts that are not fresh (specforge gsd re-verify <phase> --stale-only)",
+        does: Do::Command("re_verify"),
     },
     Step {
         id: "verify",
@@ -97,6 +102,7 @@ static EXECUTE_PLAN: Spec = Spec {
     steps: PLAN_STEPS,
     slash: None,
     inputs: &[],
+    rejudges: &[],
     tail: Some(sequential),
 };
 
@@ -117,10 +123,13 @@ static EXECUTE_PHASE: Spec = Spec {
         effort: Some("max"),
     }),
     inputs: &[],
+    rejudges: &[Rejudge {
+        judge: "gsd-verifier",
+        flags: &[],
+        stops_on_complete: false,
+    }],
     tail: Some(sequential),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &EXECUTE_PLAN);
-    workflow::declare(c, &EXECUTE_PHASE);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&EXECUTE_PLAN, &EXECUTE_PHASE];

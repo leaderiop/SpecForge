@@ -348,7 +348,8 @@
             "specforge:explain",
             "specforge:context",
             "specforge:verdict_inputs",
-            "specforge:gsd.record_verdict"
+            "specforge:gsd.record_verdict",
+            "specforge:gsd.thread_plan"
           ]
         },
         {
@@ -386,7 +387,8 @@
             "specforge:context",
             "specforge:edit",
             "specforge:collect",
-            "specforge:gsd.phase"
+            "specforge:gsd.phase",
+            "specforge:gsd.thread_plan"
           ]
         },
         {
@@ -536,7 +538,8 @@
             "specforge:collect",
             "specforge:verdict_inputs",
             "specforge:gsd.record_verdict",
-            "specforge:edit"
+            "specforge:edit",
+            "specforge:gsd.re_verify"
           ]
         }
       ],
@@ -558,6 +561,7 @@
                     "W315",
                     "W316",
                     "E501",
+                    "W525",
                     "E518",
                     "E202",
                     "W203",
@@ -1679,6 +1683,40 @@
         {
           "args": [
             {
+              "arg_type": "string",
+              "description": "the phase or the plan whose verdicts to list",
+              "name": "subject",
+              "required": true
+            },
+            {
+              "arg_type": "bool",
+              "description": "list only the verdicts that are not fresh: stale, missing, unrecorded or unreadable",
+              "name": "stale_only",
+              "required": false
+            }
+          ],
+          "description": "List the verifier's verdicts within a phase or a plan and whether each is fresh (its inputs unchanged since it was recorded, whatever its outcome): its state, each input that changed since it was recorded with its selector, and what it cites. `specforge gsd re-verify <subject> --stale-only` keeps the verdicts that are not fresh, so the verifier judges exactly those",
+          "export": "cmd__re_verify",
+          "id": "re_verify",
+          "title": ""
+        },
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "the phase whose plans and tasks to thread",
+              "name": "phase",
+              "required": true
+            }
+          ],
+          "description": "Answer a phase's plans and tasks in the order they run, as the agent plan the kernel checks: each plan by its strict wave then its id, followed by its tasks. Write `specforge gsd thread-plan <phase> --format json` to a file and run `specforge trace --plan <file>`: an entry before a plan or task it depends on is an ordering gap, an entry naming no entity is E003",
+          "export": "cmd__thread_plan",
+          "id": "thread_plan",
+          "title": ""
+        },
+        {
+          "args": [
+            {
               "arg_type": {
                 "enum": {
                   "values": [
@@ -2648,6 +2686,11 @@
               "title": "Create the phase's plans"
             },
             {
+              "command": "thread_plan",
+              "id": "thread",
+              "title": "Check the plans' order with specforge trace --plan and fix an ok: false result before the check (specforge gsd thread-plan <phase> --format json)"
+            },
+            {
               "agent": "gsd-plan-checker",
               "id": "check",
               "title": "Check the plans against the phase goal"
@@ -2941,6 +2984,11 @@
               "id": "execute",
               "prompt": "execute_plan",
               "title": "Execute each plan of the wave (the prompt execute_plan)"
+            },
+            {
+              "command": "re_verify",
+              "id": "re_verify",
+              "title": "List the verdicts that are not fresh (specforge gsd re-verify <phase> --stale-only)"
             },
             {
               "agent": "gsd-verifier",

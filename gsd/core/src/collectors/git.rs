@@ -1,5 +1,5 @@
-//! `gsd-git`: records, in the plan's own file, every commit that names a task by a `Gsd-Task: <plan>/<task>` trailer
-//! (ADR 0331 D3), or a plan by GSD's subject convention `{type}({phase}-{plan}): {task}`
+//! `gsd-git`: records, in the plan's own file, every commit that names a task by a `Gsd-Task: <scope>/<task>` trailer
+//! (ADR 0331 D3, ADR 0380), or a plan by GSD's subject convention `{type}({phase}-{plan}): {task}`
 //! (`gsd-core/references/git-integration.md:72`).
 //!
 //! It is a writing collector that reads the project's repository through the host's git port (ADR 0352): one typed
@@ -8,13 +8,14 @@
 //! creates one `commit` entity per new commit, in the file of the plan it names. It records nothing it already holds
 //! (the 12-hex name is the key), so a second run is a no-op.
 //!
-//! The trailer comes first: one that names a task (`01-01/T1`, the configured `project_code` prefix stripped from the
-//! plan as from a scope) fixes the plan and the task, whatever the subject says. Otherwise the subject decides: its
-//! scope names the plan, and its description after `: ` the task whose title it equals. `linked_by` says which found
-//! the task. A trailer that is unreadable (two different values, or one that is no `<plan>/<task>`) or names no task
-//! falls back to the subject, and the plan's title notes it. A commit that names no plan either way (`feat(gsd): x`,
-//! `docs(pause): y`, a scope no plan has, or one that several plans have) is skipped, as `/gsd-undo` skips it
-//! (`scope === id`). GSD's executor writes the trailer (`gsd-executor.md`'s commit step, ADR 0351).
+//! The trailer comes first: one that names a task, by the plan as a subject's scope writes it (`01-01/T1`, the
+//! configured `project_code` prefix stripped as from a scope) or by the task's full id (`v1.0/01/01-01/T1`), fixes
+//! the plan and the task, whatever the subject says. Otherwise the subject decides: its scope names the plan, and its
+//! description after `: ` the task whose title it equals. `linked_by` says which found the task. A trailer that is
+//! unreadable (two different values, or one that is no `<scope>/<task>`) or names no task falls back to the subject,
+//! and the plan's title notes it. A commit that names no plan either way (`feat(gsd): x`, `docs(pause): y`, a scope
+//! no plan has, or one that several plans have) is skipped, as `/gsd-undo` skips it (`scope === id`). GSD's executor
+//! writes the trailer (`gsd-executor.md`'s commit step, ADR 0351).
 //!
 //! Each recorded commit also names the recorded commits of its plan it descends from (`descends_from`), through every
 //! parent: the log is read with merges, so a RED made on a branch merged before the GREEN counts (#5275). A merge
@@ -39,6 +40,7 @@ mod items;
 mod subject;
 #[cfg(test)]
 mod tests;
+mod trailer;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -50,6 +52,7 @@ use specforge_extension_sdk::host::{
 use specforge_extension_sdk::prelude::*;
 
 use super::graph::find_kind;
+use trailer::{Trailer, task_named, trailer};
 // A task title is compared as GSD compares a task description (trimmed, case-folded, whitespace runs collapsed):
 // `passes::words`'s fold, the one reading of a word or phrase.
 use crate::passes::words::folded;
@@ -288,76 +291,11 @@ fn clean(text: &str) -> String {
         .collect()
 }
 
-/// What a commit's `Gsd-Task:` trailers say.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Trailer<'a> {
-    /// There is none.
-    None,
-    /// One distinct `<plan>/<task>` value, as written (`01-01/T1`).
-    Named(&'a str),
-    /// Two different values, or one that is no `<plan>/<task>`: no task, as upstream counts a doubled `gate-status:`
-    /// as missing (`ship.md:335`).
-    Unreadable,
-}
-
-impl Trailer<'_> {
-    /// What the plan's title says of a trailer that names no task: its value (cleaned, cut at 60 characters), or
-    /// `unreadable`; `None` when there is no trailer.
-    fn shown(&self) -> Option<String> {
-        match self {
-            Trailer::None => None,
-            Trailer::Named(value) => Some(clean(value).chars().take(60).collect()),
-            Trailer::Unreadable => Some("unreadable".to_string()),
-        }
-    }
-}
-
 /// `id` without the configured `code` prefix and its `-` (`APP-01-01` → `01-01`); `None` when there is no code or `id`
 /// does not start with it. Only the configured code is stripped: an id that only looks coded is matched literally
 /// (#5271).
 fn uncoded<'v>(id: &'v str, code: Option<&str>) -> Option<&'v str> {
     id.strip_prefix(code?)?.strip_prefix('-')
-}
-
-/// The trailer `values` say: each trimmed, empty ones dropped, repeats counted once.
-pub fn trailer(values: &[String]) -> Trailer<'_> {
-    let mut named: Vec<&str> = values
-        .iter()
-        .map(|v| v.trim())
-        .filter(|v| !v.is_empty())
-        .collect();
-    named.sort_unstable();
-    named.dedup();
-    // Each side of the one `/`: ASCII letters, digits, `.`, `_` and `-` (no space, tab, separator or control).
-    let part = |p: &str| {
-        !p.is_empty()
-            && p.bytes()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
-    };
-    match named[..] {
-        [] => Trailer::None,
-        [one]
-            if one
-                .split_once('/')
-                .is_some_and(|(plan, task)| part(plan) && part(task)) =>
-        {
-            Trailer::Named(one)
-        }
-        _ => Trailer::Unreadable,
-    }
-}
-
-/// The task a trailer value names (`01-01/T1`), as written or with the configured `code` prefix stripped from its plan
-/// (`APP-01-01/T1`), as [`plan_by_scope`] strips it from a scope.
-fn task_named<'n>(
-    nodes: &'n [GraphNode],
-    code: Option<&str>,
-    value: &str,
-) -> Option<&'n GraphNode> {
-    find_kind(nodes, value, "task").or_else(|| {
-        let (plan, task) = value.split_once('/')?;
-        find_kind(nodes, &format!("{}/{task}", uncoded(plan, code)?), "task")
-    })
 }
 
 /// A task description as the executor words it (`gsd-executor.md:565`, `git-integration.md`): without a squash-merge's

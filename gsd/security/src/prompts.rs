@@ -1,6 +1,7 @@
 //! `/gsd-secure-phase` as the prompt `secure_phase`, ported from upstream's command and workflow. The pipeline is
 //! `gsd_kit::prompt`; the text is `assets/`. The phase's security audit is its `security_audit` entity: the tail of
-//! the prompt names its ids and commands and ends with the template, which names the kinds.
+//! the prompt names its ids and commands, the judged rules this prompt records and the verdicts of the phase that are
+//! not fresh, and ends with the template, which names the kinds.
 
 use gsd_kit::prompt::args::{self, Arg};
 use gsd_kit::prompt::{render, repoint};
@@ -30,6 +31,10 @@ pub fn asset(path: &str) -> Option<&'static str> {
 }
 
 pub const ID: &str = "secure_phase";
+/// The judged rule this prompt records on each closed threat.
+const MITIGATION: &str = "gsd.security/W302";
+/// The judged rule this prompt records on the phase's security audit.
+const FLAGS: &str = "gsd.security/W303";
 const TEMPLATE: &str = "gsd-core/templates/SECURITY.md";
 const DESCRIPTION: &str = "Retroactively verify threat mitigations for a completed phase";
 
@@ -86,9 +91,95 @@ fn latest_complete(call: &PromptCall<'_>) -> Option<String> {
         .map(|n| n.id.clone())
 }
 
+/// Whether `workflow.security_enforcement` is on (its default): off, the host gates W302 and W303 off, so neither is
+/// evaluated and no verdict is owed.
+fn enforced() -> bool {
+    Settings::current()
+        .bool("workflow.security_enforcement")
+        .unwrap_or(true)
+}
+
+/// The entities of `phase` this prompt judges whose verdict is owed and not fresh (missing, stale, unrecorded or
+/// unreadable), as `(rule, id)` sorted: each threat of its plans for W302, its security audit for W303. A threat is
+/// the phase's by its `plan` edge and that plan's `phase` edge, an audit by its `phase` edge: the references as the
+/// kernel resolved them, never the text they were written as (`plan 01-01` names a plan as its full path does). An
+/// entity that carries no judgement of the rule owes none (an open threat's W302, which waits for it to close, or a
+/// rule gated off). What the judge step records, so a re-run judges only those.
+fn not_fresh(call: &PromptCall<'_>, phase: &str) -> Vec<(&'static str, String)> {
+    let Some(graph) = call.graph() else {
+        return Vec::new();
+    };
+    let edge = |id: &str, label: &str| {
+        graph
+            .edges
+            .iter()
+            .find(|e| e.source == id && e.label == label)
+            .map(|e| e.target.as_str())
+    };
+    let owed = |n: &GraphNode| match n.kind.as_str() {
+        "threat" if edge(&n.id, "plan").and_then(|plan| edge(plan, "phase")) == Some(phase) => {
+            Some(MITIGATION)
+        }
+        "security_audit" if edge(&n.id, "phase") == Some(phase) => Some(FLAGS),
+        _ => None,
+    };
+    let mut left: Vec<(&'static str, String)> = graph
+        .nodes
+        .iter()
+        .filter_map(|n| {
+            let rule = owed(n)?;
+            let judgement = n.judgements.iter().find(|j| j.rule == rule)?;
+            (judgement.state != "fresh").then(|| (rule, n.id.clone()))
+        })
+        .collect();
+    left.sort();
+    left
+}
+
+/// The judged rules this prompt records, how, and the verdicts of the phase it has left to record.
+fn judging(call: &PromptCall<'_>, phase: &str) -> String {
+    let left = not_fresh(call, phase);
+    let list = if !enforced() {
+        "`workflow.security_enforcement` is off: neither rule is evaluated and no verdict is owed, so none is left to \
+         judge."
+            .to_string()
+    } else if left.is_empty() {
+        "Every verdict this prompt judges is fresh: none is left to judge.".to_string()
+    } else {
+        let lines: Vec<String> = left
+            .iter()
+            .map(|(rule, id)| format!("- `{rule}` on `{id}`"))
+            .collect();
+        format!(
+            "The verdicts that are not fresh, the ones to judge:\n\n{}",
+            lines.join("\n")
+        )
+    };
+    format!(
+        "## The judged verdicts here (@gsd/security)
+
+This prompt judges two rules. The auditor returns its findings and records nothing; after the audit is recorded, you \
+record each verdict:
+
+- `{MITIGATION}` on each closed threat of the phase: its disposition holds (`mitigate`, the mitigation is in its \
+files; `accept`, an accepted risk records it; `transfer`, the transfer is documented). Outcome `holds` or `broken`.
+- `{FLAGS}` on the phase's security audit: every threat flag the phase's summaries raise maps to a threat of its \
+register (`mapped`), or one does not (`unregistered`, the auditor's unregistered flag: name each in `--findings`).
+
+For each, read its inputs with `specforge query <entity> --inputs <rule> --format json`, judge them, then record the \
+outcome over the `basis` it printed: `specforge gsd record-security-verdict <entity> <W302|W303> <outcome> <model> \
+'<basis>'` (`--cited '[{{\"file\": \"<path>\"}}]'` names what shows it).
+
+A verdict stays fresh until one of its inputs changes: an edit to a file a threat names stales its W302, a new or \
+edited summary or threat of the phase stales the audit's W303, and only the stale ones are judged again.
+
+{list}"
+    )
+}
+
 /// The closing section: the ids the shell blocks use, the security audit's entities, the commands that write them,
-/// and the template that names the kinds.
-fn tail(phase: &str) -> String {
+/// the judged verdicts left to record, and the template that names the kinds.
+fn tail(call: &PromptCall<'_>, phase: &str) -> String {
     let template = asset(TEMPLATE)
         .map(render::without_notice)
         .unwrap_or_default();
@@ -113,11 +204,14 @@ threat of a phase planned without a register is recorded with `\"retroactive\": 
 
 `workflow.security_*` are `@gsd/security`'s settings: `specforge settings set @gsd/security <name> <value>`.
 
+{}
+
 The template of those entities:
 
 <file path=\"{TEMPLATE}\">
 {}
 </file>",
+        judging(call, phase),
         template.trim_end()
     )
 }
@@ -150,7 +244,7 @@ fn handle(call: &PromptCall<'_>) -> Result<PromptOutput, String> {
         extension: "@gsd/security",
         files: FILES,
         own: false,
-        tail: &tail(&phase),
+        tail: &tail(call, &phase),
         asset,
         // shortcut: every gsd-core path security's texts name is a core asset; ask core's list when one is not
         repoint: |text, host| repoint::repoint(text, host, &|_| true),
@@ -177,6 +271,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
         p.step("record", |s| {
             s.title("Record the audit (specforge gsd record-security-audit <phase> --verdict <json>)")
                 .command("record_security_audit");
+        });
+        p.step("judge", |s| {
+            s.title("Judge each closed threat's mitigation (W302) and the phase's threat flags (W303) and record them (specforge gsd record-security-verdict <entity> <W302|W303> <outcome> <model> '<basis>')")
+                .command("record_security_verdict");
         });
         p.step("accept", |s| {
             s.title("Ask the person to run `specforge gsd accept-risk <threat> <rationale> <who>` in their terminal (an agent's call is refused: it records what a person says)")

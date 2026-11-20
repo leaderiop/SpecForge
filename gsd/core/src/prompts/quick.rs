@@ -7,7 +7,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 const QUICK_STEPS: &[Step] = &[
     Step {
@@ -112,6 +112,7 @@ static QUICK: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(quick_plan),
 };
 
@@ -137,6 +138,7 @@ static QUICK_BATCH: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(quick_batch_plan),
 };
 
@@ -155,11 +157,9 @@ static FAST: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &QUICK);
-    workflow::declare(c, &QUICK_BATCH);
-    workflow::declare(c, &FAST);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&QUICK, &QUICK_BATCH, &FAST];

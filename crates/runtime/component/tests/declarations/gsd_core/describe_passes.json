@@ -6,7 +6,8 @@
       "before": null,
       "computes": [
         "plan.wave",
-        "plan.autonomous"
+        "plan.autonomous",
+        "plan.strict_wave"
       ],
       "name": "waves",
       "phase": "compute"
@@ -117,6 +118,8 @@
         "phase.status",
         "phase.plans_complete",
         "phase.completed",
+        "phase.critical_path",
+        "phase.critical_weight",
         "workstream.status",
         "retrospective.phases",
         "retrospective.plans",
@@ -127,6 +130,7 @@
         "plan.quick",
         "plan.files_touched",
         "plan.estimate_slices",
+        "plan.estimate_error",
         "task.status",
         "review.open",
         "review_concern.status",
@@ -232,6 +236,12 @@
       "after": null,
       "before": null,
       "name": "file_scope",
+      "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "wave_collision",
       "phase": "check"
     },
     {

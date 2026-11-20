@@ -40,11 +40,13 @@ fn the_plan_kind_declares_the_fields_of_the_model() {
             "success_criteria",
             "slug",
             "wave",
+            "strict_wave",
             "autonomous",
             "status",
             "quick",
             "files_touched",
             "estimate_slices",
+            "estimate_error",
             "context_pack"
         ]
     );
@@ -53,11 +55,13 @@ fn the_plan_kind_declares_the_fields_of_the_model() {
     }
     for computed in [
         "wave",
+        "strict_wave",
         "autonomous",
         "status",
         "quick",
         "files_touched",
         "estimate_slices",
+        "estimate_error",
     ] {
         assert_eq!(
             field_of("plan", computed)["writer"],
@@ -400,7 +404,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 85 - 1 + 2, "the kinds' fields");
+    assert_eq!(total, 87 - 1 + 2, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of

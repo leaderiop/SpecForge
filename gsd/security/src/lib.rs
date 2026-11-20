@@ -4,6 +4,7 @@
 pub mod agents;
 pub mod codes;
 pub mod commands;
+pub mod judged;
 pub mod kinds;
 mod passes;
 pub mod prompts;
@@ -30,6 +31,7 @@ impl Contributions for GsdSecurity {
         c.peer("@gsd/core", CORE_RANGE);
         settings::declare(c);
         codes::declare(c);
+        judged::declare(c);
         commands::declare(c);
         kinds::declare(c);
         passes::declare(c);

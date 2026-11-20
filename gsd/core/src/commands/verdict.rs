@@ -1,19 +1,16 @@
-//! `record_verdict`: writes a judge's verdict on a judged `gsd/` rule (K7), and nothing else. A prompt cannot write,
-//! and an agent calls a command: this is the command. The judge is the rule's own (`crate::judged`), never an
-//! argument, so a caller cannot name another one; the host checks it again. That is not an identity check: any agent
-//! may call this command, and `model` is free text. The verdict is as trustworthy as the agent that was told to judge
-//! (parity with upstream, where any agent can write VERIFICATION.md).
+//! `record_verdict`: writes a judge's verdict on a judged `gsd/` rule, built by `gsd_kit::judged::record` over
+//! core's table (`crate::judged`). The judge is the rule's own, never an argument; core adds its per-rule checks.
 
 use std::collections::BTreeMap;
 
+use gsd_kit::judged::record::{Check, Proposed, Recorder, declare_record};
 use serde_json::Value;
+use specforge_extension_sdk::Cite;
 use specforge_extension_sdk::prelude::*;
-use specforge_extension_sdk::{Cite, Verdict};
 
-use crate::judged::{self, JUDGED};
+use crate::judged::JUDGED;
+use crate::passes::thread::{TEST, names_a_test_fact};
 use crate::prompts::GATES;
-
-use super::support::{INVALID, json};
 
 /// A `passed` on `gsd/E202` needs the five scores, each 0..=100, and every one within its gate (the judge's own
 /// numbers must show what it concluded). Without them the rule would be satisfied by a spec that fails its gates.
@@ -43,82 +40,91 @@ fn check_gates(values: &BTreeMap<String, Value>) -> Result<(), String> {
     }
 }
 
-fn record(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
-    let arg = |name: &str| {
-        call.str(name)
-            .filter(|v| !v.is_empty())
-            .ok_or_else(|| format!("{name} is required"))
-    };
-    let (entity, code, outcome, model) =
-        (arg("entity")?, arg("rule")?, arg("outcome")?, arg("model")?);
-    let Some(rule) = judged::get(code) else {
-        return Err(format!("rule: '{code}' is no judged rule of @gsd/core"));
-    };
-    if !rule.outcomes.contains(&outcome) {
-        return Err(format!(
-            "outcome: '{outcome}' is no outcome of gsd/{code} ({})",
-            rule.outcomes.join(", ")
-        ));
+/// [`check_gates`] on a `passed` verdict of `gsd/E202`.
+fn gates(verdict: &Proposed<'_>) -> Result<(), String> {
+    if verdict.rule.code == "E202" && verdict.outcome == "passed" {
+        check_gates(verdict.values)
+    } else {
+        Ok(())
     }
-    let basis: BTreeMap<String, String> = serde_json::from_str(arg("basis")?)
-        .map_err(|e| format!("basis is not the JSON object `specforge query <entity> --inputs gsd/{code}` printed: {e}"))?;
-    let findings: Vec<Value> = json(call, "findings", Vec::new(), |t| serde_json::from_str(t))?;
-    let cited: Vec<Cite> = json(call, "cited", Vec::new(), |t| serde_json::from_str(t))?;
-    let values: BTreeMap<String, Value> =
-        json(call, "values", BTreeMap::new(), |t| serde_json::from_str(t))?;
-    if code == "E202" && outcome == "passed" {
-        check_gates(&values)?;
-    }
-    let mut plan = call.plan();
-    plan.set_verdict(Verdict {
-        entity: entity.to_string(),
-        rule: format!("gsd/{code}"),
-        outcome: outcome.to_string(),
-        judge: rule.judge.to_string(),
-        model: model.to_string(),
-        findings,
-        cited,
-        values,
-        basis,
-    });
-    Ok(
-        CommandOutput::ok(format!("verdict gsd/{code} {outcome} on {entity}\n"))
-            .with_plan(plan.finish()),
-    )
 }
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    let codes: Vec<&str> = JUDGED.iter().map(|j| j.code).collect();
-    c.command("record_verdict", |cmd| {
-        cmd.description("Record a judge's verdict on a judged gsd/ rule: read the inputs with `specforge query <entity> --inputs gsd/<code>`, judge, then record the outcome with that `basis`")
-            .writes()
-            .arg("entity", |a| {
-                a.required().description("the entity judged (its path, or a short form that is not ambiguous)");
-            })
-            .arg("rule", |a| {
-                a.required().one_of(&codes).description("the judged rule, as its local code");
-            })
-            .arg("outcome", |a| {
-                a.required().description("the verdict's outcome, one of the rule's");
-            })
-            .arg("model", |a| {
-                a.required().description("the model that judged");
-            })
-            .arg("basis", |a| {
-                a.required().description("the JSON object `basis` of `specforge query <entity> --inputs gsd/<code> --format json`");
-            })
-            .arg("findings", |a| {
-                a.description("JSON list of findings (default []): objects with severity and message");
-            })
-            .arg("cited", |a| {
-                a.description("JSON list of what the verdict cites (default []): {\"entity\": ..}, {\"file\": ..} or {\"test\": ..}");
-            })
-            .arg("values", |a| {
-                a.description("JSON object of the field values the rule binds (default {}), such as the scores of gsd/E202");
-            })
-            .handler(|call| match record(call) {
-                Ok(out) => out,
-                Err(why) => call.fail(&CommandError::new(INVALID, why), 1),
-            });
+/// Whether a cited path names a file of the project: relative, with no `..` segment, no root, drive or backslash
+/// prefix. The host digests any path inside its read roots; this is only what a citation of code must be.
+fn in_project(path: &str) -> bool {
+    let drive = matches!(path.as_bytes(), [letter, b':', ..] if letter.is_ascii_alphabetic());
+    !path.is_empty()
+        && !drive
+        && !path.starts_with(['/', '\\'])
+        && path.split(['/', '\\']).all(|segment| segment != "..")
+}
+
+/// Every test a verdict cites names a collected test fact (`@code/core`'s `test`), by its id or `[file#]name`, else
+/// whole as its name: the reading E502 and `derive` give a verdict's `cited_tests` (`passes::thread`). The host
+/// refuses an entity or a file a verdict cites that the project does not hold, and digests a cited test whatever it
+/// names; a test that names no fact would be a citation nothing reads, so it is refused here.
+fn cited_tests(verdict: &Proposed<'_>) -> Result<(), String> {
+    let unknown: Vec<&str> = verdict
+        .cited
+        .iter()
+        .filter_map(|cite| match cite {
+            Cite::Test { test } if !names_a_test_fact(verdict.graph, test) => Some(test.as_str()),
+            _ => None,
+        })
+        .collect();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    let names: Vec<String> = unknown.iter().map(|t| format!("'{t}'")).collect();
+    let verb = if unknown.len() == 1 { "names" } else { "name" };
+    let how = if verdict.graph.nodes_of_kind(TEST).next().is_some() {
+        "cite a test fact by its id, as `specforge trace --format json` prints it, or as `file#name`"
+    } else {
+        "none is collected: collect the tests (`specforge collect`) or cite the files"
+    };
+    Err(format!(
+        "cited: {} {verb} no collected test fact; {how}",
+        names.join(", ")
+    ))
+}
+
+/// The judged rules whose verdict must cite code, by rule and target kind: a truth's `gsd/E501` verdict reads only
+/// what it cites, and a judgment-tier prohibition's `gsd/W525` judges code beyond its plan's own files. A verdict that
+/// cites no file of the project and no test could never go stale on an edit to the code it judged.
+const CITE_CODE: &[(&str, &str)] = &[("E501", "truth"), ("W525", "prohibition")];
+
+/// [`CITE_CODE`]: refused, whatever its outcome, unless the verdict cites a file of the project (the host refuses one
+/// that does not exist) or a collected test fact ([`cited_tests`] refuses any other).
+fn cites_code(verdict: &Proposed<'_>) -> Result<(), String> {
+    let cites_code = verdict.cited.iter().any(|cite| match cite {
+        Cite::File { file } => in_project(file),
+        Cite::Test { test } => names_a_test_fact(verdict.graph, test),
+        Cite::Entity { .. } => false,
     });
+    let bound = CITE_CODE
+        .iter()
+        .any(|(code, kind)| verdict.rule.code == *code && verdict.kind == *kind);
+    if bound && !cites_code {
+        Err(format!(
+            "cited: a verdict on a {} must cite a file of the project or a test, or it can never go stale on a code edit",
+            verdict.kind
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+static RECORDER: Recorder = Recorder {
+    command: "record_verdict",
+    namespace: "gsd",
+    extension: "@gsd/core",
+    table: JUDGED,
+    checks: &[gates as Check, cited_tests, cites_code],
+};
+
+#[cfg(test)]
+mod tests;
+
+pub fn declare(c: &mut ContributionsBuilder) {
+    declare_record(c, &RECORDER);
 }

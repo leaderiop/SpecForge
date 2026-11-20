@@ -3,6 +3,7 @@ pub(crate) mod analyze;
 mod collect;
 mod context;
 pub(crate) mod coverage;
+mod diff;
 mod doctor;
 pub(crate) mod edit;
 mod explain;
@@ -95,6 +96,7 @@ pub static CORE_TOOLS: &[&dyn ToolSpec] = &[
     spec(&find_implementation::Tool),
     spec(&find_spec_for_source::Tool),
     spec(&prompt::Tool),
+    spec(&diff::Tool),
 ];
 
 /// The core tool named `name`.

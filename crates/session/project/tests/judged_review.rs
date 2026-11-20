@@ -307,6 +307,7 @@ fn a_pass_sees_the_tests_a_verdict_cites() {
             ..specforge_project::passes::PassContext::of(compiled.entities())
         },
         &[],
+        None,
     );
     let truth = input.entities.iter().find(|e| e.id == TRUTH).unwrap();
     let judgement = truth.judgements.iter().find(|j| j.rule == E501).unwrap();

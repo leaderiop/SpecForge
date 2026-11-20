@@ -4,7 +4,7 @@
 use serde_json::json;
 
 use super::cmd_execute::stale_plan_check;
-use super::commands_support::{plus, twin};
+use super::commands_support::{plus, strict, twin};
 use super::harness::project;
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
@@ -75,11 +75,12 @@ fn spec_phase_renders_while_its_verdicts_are_stale() {
     assert!(text_of(&rendered).contains("Judging the spec"));
 }
 
+/// gsd-strict turns the verdict gate on (gsd-plus presets the same gate).
 #[test]
-fn mvp_phase_gate_refuses_a_stale_verdict_under_plus() {
+fn mvp_phase_gate_refuses_a_stale_verdict_under_strict() {
     let p = twin();
     stale_plan_check(&p);
-    plus(&p);
+    strict(&p);
     let run = prompt(&p, "mvp_phase", &[PHASE], "claude-code");
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());

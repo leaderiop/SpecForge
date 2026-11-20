@@ -657,6 +657,7 @@ pub mod prelude {
         CollectorBuilder, DanglingReason, DanglingReference, FILE_READ_MAX, Fact, FactLocation,
         PlanBuilder,
     };
+    pub use crate::{DeltaAspect, DeltaBase, DeltaChange, DeltaEdge, DeltaNode, DeltaPayload};
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{
         Attribution, Decimal, DecimalError, Decision, GitBranch, GitChange, GitEntry, GitEntryKind,
@@ -703,7 +704,8 @@ mod raw_category_tests;
 pub use specforge_protocol_types::{
     CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
     CommandError, CommandEvidence, CommandFormat, CommandOutput, DanglingReason, DanglingReference,
-    EntityEvidence, EntityTests, Fact, FactLocation, FactStore, GraphEdge, GraphNode, GraphWire,
+    DeltaAspect, DeltaBase, DeltaChange, DeltaEdge, DeltaNode, DeltaPayload, EntityEvidence,
+    EntityTests, Fact, FactLocation, FactStore, GraphEdge, GraphNode, GraphWire,
     McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, PassBaseline,
     PassBaselineEntity, PassDiagnostic, PassEdge, PassEntity, PassInput, PassOutput, PassSeverity,
     PassSpan, PassValue, TestResult, TestResults, TestStatus, UnheldReference,

@@ -104,3 +104,21 @@ fn a_task_file_outside_its_plan_is_w306_per_item() {
     );
     assert!(found[0].message.contains("'src/x.js'") && found[1].message.contains("'src/y.js'"));
 }
+
+#[test]
+fn the_later_plan_of_unpadded_ids_is_the_later_as_read() {
+    // `01-10` sorts before `01-2` as text; W305 names `01-2` first and reports on `01-10`, as W526 and the strict wave
+    // call it later.
+    let found = run(vec![
+        plan("v/1/01-10", Some("1"), &["src/a.js"], &[]),
+        plan("v/1/01-2", Some("1"), &["src/a.js"], &[]),
+    ]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].entity.as_deref(), Some("v/1/01-10"));
+    assert!(
+        found[0]
+            .message
+            .contains("plans 'v/1/01-2' and 'v/1/01-10' of wave 1 both modify 'src/a.js'"),
+        "{found:?}"
+    );
+}

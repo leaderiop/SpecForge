@@ -4,7 +4,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 const STEPS: &[Step] = &[
     Step {
@@ -75,6 +75,7 @@ static NEW_PROJECT: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(idea),
 };
 
@@ -93,10 +94,9 @@ static NEW_MILESTONE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(name),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &NEW_PROJECT);
-    workflow::declare(c, &NEW_MILESTONE);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&NEW_PROJECT, &NEW_MILESTONE];

@@ -110,6 +110,19 @@ impl ProjectArg {
         Ok(compiled(&self.root()?, Some(runtime), ports, mode))
     }
 
+    /// [`Self::compile_for`] judged since `revision` (`check --since`): the revision and its merge-base with `HEAD`
+    /// are resolved before any pass runs, so each runs once ([`CompiledProject::of_since`]). A revision the
+    /// repository does not name is the check op's `unknown_revision`.
+    pub(crate) fn compile_since(
+        &self,
+        runtime: SharedRuntime,
+        ports: &Ports,
+        mode: EffectsMode,
+        revision: &str,
+    ) -> Result<CompiledProject, OpError> {
+        compiled_since(&self.root()?, Some(runtime), ports, mode, revision)
+    }
+
     /// The project at `path` (tests that hold a path already).
     #[cfg(test)]
     pub(crate) fn at(path: impl Into<PathBuf>) -> Self {
@@ -144,10 +157,32 @@ pub(crate) fn compiled(
     ports: &Ports,
     mode: EffectsMode,
 ) -> CompiledProject {
+    CompiledProject::of(environment(root, runtime, ports, mode))
+}
+
+/// [`compiled`], judged since `revision` from the first check ([`CompiledProject::of_since`]); a revision the
+/// repository does not name is `unknown_revision`.
+pub(crate) fn compiled_since(
+    root: &ProjectRoot,
+    runtime: Option<SharedRuntime>,
+    ports: &Ports,
+    mode: EffectsMode,
+    revision: &str,
+) -> Result<CompiledProject, OpError> {
+    CompiledProject::of_since(environment(root, runtime, ports, mode), revision)
+        .map_err(|unknown| OpError::unknown_revision(&unknown.0))
+}
+
+/// The environment of the project at `root` in `runtime`, asking `ports.git` of version control, its effects in
+/// `mode` under the user's consent store.
+fn environment(
+    root: &ProjectRoot,
+    runtime: Option<SharedRuntime>,
+    ports: &Ports,
+    mode: EffectsMode,
+) -> Environment {
     let consent = specforge_ops::consent::UserConsent::user(root.dir());
-    CompiledProject::of(specforge_project::effects::environment(
-        root, runtime, ports, mode, &consent,
-    ))
+    specforge_project::effects::environment(root, runtime, ports, mode, &consent)
 }
 
 #[cfg(test)]

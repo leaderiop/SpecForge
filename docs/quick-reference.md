@@ -42,6 +42,11 @@ specforge context <route> <id> --record <entity>  # record the pack on <entity>;
 # MCP: specforge.context { route, subject, max_tokens?, format? }; the resource specforge://context/<id>?role=<route>
 specforge search <text> [--kinds k,..]  # entities by id, title or text (specforge.search)
 specforge refs <id> [--direction both]  # what references it (specforge.find_references)
+specforge diff                       # nodes and edges changed from HEAD to the working tree
+specforge diff <rev>                 # changed from a revision to the working tree
+specforge diff <a>..<b>              # changed between two revisions (<a>...<b> is refused)
+specforge diff <rev> --kind plan --kind task   # only nodes of these kinds, and edges with an end of one
+# MCP: specforge.diff {"range": "<a>..<b>", "kinds": ["plan"]}; a pass reads the same change as its `delta` input
 specforge schema                     # emit the Graph Protocol schema
 specforge model                      # render the logical data model
 specforge outline                    # render the extension architecture
@@ -164,6 +169,8 @@ Projects are configured via **`specforge.json`** (like `tsconfig.json`):
 ```
 
 An extension's settings go under `settings`, by extension name (`"settings": {"@acme/ext": {"tdd_mode": true}}`); `specforge settings` lists what they resolve to, `specforge schema --config` writes the file's JSON Schema with them typed, and the editor completes and checks them. `specforge settings set <extension> <name> <value>...` writes one after the check the load makes (a list takes every remaining word, a block `--value-json`) and `unset` removes it; a secret is never written there, nor by `set`.
+
+`"facts": {"retain": 8}` bounds how many superseded fact stores a collector keeps under `.specforge/facts-history/` (1 to 100, default 8), so `specforge diff <rev>` still serves an older revision's facts.
 
 `specforge init --extensions @specforge/software` creates this for you; `specforge add` / `specforge remove` edit the `extensions` list afterwards.
 

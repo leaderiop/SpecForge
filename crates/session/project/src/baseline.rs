@@ -26,7 +26,7 @@ use specforge_wasm::WasmRuntime;
 use crate::Environment;
 pub use crate::baseline_judged::Fetch;
 pub use crate::baseline_reads::{CommitReads, Sizes};
-use crate::sources::Read;
+use crate::snapshot::{LoadedAt, NoBase, Since, Wants, key_of, load_at};
 use crate::values::CheckCache;
 use specforge_effects::git::{CommitFile, Git, GitPlace, Located, Sha, TreeEntry};
 use specforge_effects::{EffectJournal, Effects, UnixMillis};
@@ -109,8 +109,8 @@ pub type RefStamp = Vec<Result<Vec<u8>, std::io::ErrorKind>>;
 #[derive(Debug)]
 pub struct HeldBaseline {
     pub stamp: Option<RefStamp>,
-    /// A `--since` copy: its baseline is the call's, whatever `HEAD` does.
-    pub pinned: bool,
+    /// The revision a `--since` copy is pinned to: its baseline is the merge-base's, whatever `HEAD` does.
+    pub since: Option<String>,
     pub read: BaselineRead,
 }
 
@@ -118,7 +118,7 @@ impl HeldBaseline {
     /// Whether a run whose `HEAD` is named by `stamp` judges against this read again: a `--since` copy's always; else
     /// while `HEAD` is the same commit and each journal record the baseline's checks read answers alike.
     pub(crate) fn reusable(&self, stamp: Option<&RefStamp>, journal: &EffectJournal) -> bool {
-        self.pinned
+        self.since.is_some()
             || (self.stamp.as_ref() == stamp && self.holds(journal, UnixMillis::now_or_end()))
     }
 
@@ -189,64 +189,61 @@ impl Baseline {
         revision: &str,
         checking: &Checking<'_>,
     ) -> Result<BaselineRead, UnknownRevision> {
-        let Some(history) = env.git() else {
-            return Ok(Ok(None));
+        let since = crate::snapshot::since(env, revision, declared(env.registries()))?;
+        Self::read_since(env, revision, &since, checking)
+    }
+
+    /// The baseline read of a check since `revision`, resolved as `since` ([`crate::snapshot::since`]): the baseline
+    /// at the merge-base when the project declares history, else none; outside a repository a revision is unknown
+    /// unless history is declared (I204).
+    pub(crate) fn read_since(
+        env: &Environment,
+        revision: &str,
+        since: &Since,
+        checking: &Checking<'_>,
+    ) -> Result<BaselineRead, UnknownRevision> {
+        let declared = declared(env.registries());
+        let unreadable =
+            |why: &str| Diagnostic::new(codes::W164, format!("the baseline cannot be read: {why}"));
+        let nothing_judged = |what: &str| {
+            Diagnostic::new(
+                codes::I204,
+                format!("{what}: nothing is judged against history"),
+            )
         };
-        let unreadable = |why: String| {
-            Diagnostic::new(codes::W164, format!("the baseline cannot be read: {why}"))
-        };
-        let place = match env.place(&*history) {
-            Located::Repo(place) => place,
-            Located::NotARepository => {
-                return if declared(env.registries()) {
-                    Ok(Err(Diagnostic::new(
-                        codes::I204,
-                        "not in a git repository: nothing is judged against history",
-                    )))
-                } else {
-                    Err(UnknownRevision(revision.to_string()))
+        let notice = match since {
+            Since::NoBase {
+                why: NoBase::NoGitPort,
+                ..
+            } => return Ok(Ok(None)),
+            Since::NoBase {
+                why: NoBase::NotARepository,
+                ..
+            } if !declared => return Err(UnknownRevision(revision.to_string())),
+            // the revision is resolved, and nothing reads history
+            Since::NoBase { named: Some(_), .. } | Since::Named { .. } | Since::Base { .. }
+                if !declared =>
+            {
+                return Ok(Ok(None));
+            }
+            Since::Named { .. } => return Ok(Ok(None)),
+            Since::Base { place, base, .. } => {
+                let Some(history) = env.git() else {
+                    return Ok(Ok(None));
                 };
+                return Ok(Self::at(env, &*history, place, base, checking)
+                    .map(Some)
+                    .map_err(|why| unreadable(&why)));
             }
-            Located::Unavailable(why) => return Ok(Err(unreadable(why))),
+            Since::NoBase { why, .. } => match why {
+                NoBase::NotARepository => nothing_judged("not in a git repository"),
+                NoBase::UnbornHead => nothing_judged("no commit yet"),
+                NoBase::Unrelated(why) => Diagnostic::new(codes::I204, why.clone()),
+                NoBase::Unreadable(why) | NoBase::Shallow(why) => unreadable(why),
+                NoBase::NoGitPort => return Ok(Ok(None)),
+            },
         };
-        let named = match history.commit(&place, revision) {
-            Ok(Some(sha)) => sha,
-            Ok(None) => return Err(UnknownRevision(revision.to_string())),
-            Err(error) => return Ok(Err(unreadable(error.to_string()))),
-        };
-        if !declared(env.registries()) {
-            return Ok(Ok(None));
-        }
-        let head = match history.commit(&place, "HEAD") {
-            Ok(Some(sha)) => sha,
-            Ok(None) => {
-                return Ok(Err(Diagnostic::new(
-                    codes::I204,
-                    "no commit yet: nothing is judged against history",
-                )));
-            }
-            Err(error) => return Ok(Err(unreadable(error.to_string()))),
-        };
-        let base = match history.merge_base(&place, &named, &head) {
-            Ok(Some(sha)) => sha,
-            Ok(None) if place.shallow => {
-                return Ok(Err(unreadable(format!(
-                    "the merge-base of {revision} and HEAD is not in this shallow clone: fetch more history (`fetch-depth: 0`)"
-                ))));
-            }
-            Ok(None) => {
-                return Ok(Err(Diagnostic::new(
-                    codes::I204,
-                    format!(
-                        "{revision} and HEAD share no commit: nothing is judged against history"
-                    ),
-                )));
-            }
-            Err(error) => return Ok(Err(unreadable(error.to_string()))),
-        };
-        Ok(Self::at(env, &*history, &place, &base, checking)
-            .map(Some)
-            .map_err(unreadable))
+        Ok(Err(notice))
     }
 
     /// What a pass that names `kinds` in `baseline` receives as `previous`: the entities of those kinds, each field
@@ -464,33 +461,19 @@ impl Baseline {
         {
             Some(read) => read,
             None => {
-                let root = env.root().canonicalize().map_err(|e| e.to_string())?;
-                let within = root.strip_prefix(&place.toplevel).map_err(|_| {
-                    "the project is outside the repository's working tree".to_string()
-                })?;
-                // Only what a baseline compiles: the specs and the ledger.
-                let wanted = |path: &Path| {
-                    path.extension().is_some_and(|e| e == "spec")
-                        || path
-                            .file_name()
-                            .is_some_and(|n| n == crate::harness::LEDGER_FILE)
-                };
-                let files = history
-                    .files(place, commit, within, &wanted)
-                    .map_err(|e| e.to_string())?;
                 // The commit's tree, only for the checks and a compute pass that reads files (ADR 0300).
-                let tree = if !env.registries().checks().is_empty()
+                let tree = !env.registries().checks().is_empty()
                     || env
                         .registries()
                         .compute_passes()
-                        .any(|pass| !pass.inputs().files().is_empty())
-                {
-                    history
-                        .tree(place, commit, within)
-                        .map_err(|e| e.to_string())?
-                } else {
-                    Vec::new()
+                        .any(|pass| !pass.inputs().files().is_empty());
+                let wants = Wants {
+                    tree,
+                    ..Wants::default()
                 };
+                let loaded = load_at(env, history, place, commit, wants)?;
+                let within = loaded.within.clone();
+                let within = within.as_path();
                 let failed = std::cell::RefCell::new(None);
                 let sizes = |keys: &[String]| -> Vec<(String, Option<u64>)> {
                     let asked = crate::baseline_judged::paths(within, keys);
@@ -527,8 +510,7 @@ impl Baseline {
                     sizes: &sizes,
                     fetch: &fetch,
                 };
-                let compiled =
-                    Self::compile(env, commit.clone(), within, files, tree, reads, checking);
+                let compiled = Self::compiled(env, loaded, reads, checking);
                 // Files git could not give are not files it lacks: nothing is cached, and the baseline is unreadable.
                 if let Some(why) = failed.into_inner() {
                     return Err(format!(
@@ -574,41 +556,32 @@ impl Baseline {
         reads: CommitReads<'_>,
         checking: &Checking<'_>,
     ) -> Baseline {
-        let mut texts: BTreeMap<String, String> = BTreeMap::new();
-        let mut held: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-        let mut ledger = String::new();
-        let key_of = |path: &Path| -> Option<String> {
-            let rest = path.strip_prefix(within).ok()?;
-            Some(
-                rest.components()
-                    .map(|c| c.as_os_str().to_string_lossy())
-                    .collect::<Vec<_>>()
-                    .join("/"),
-            )
-        };
-        for (path, bytes) in files {
-            let Some(key) = key_of(&path) else {
-                continue;
-            };
-            held.insert(key.clone(), bytes.clone());
-            if key == crate::harness::LEDGER_FILE {
-                ledger = String::from_utf8(bytes).unwrap_or_default();
-            } else if key.ends_with(".spec")
-                && env.sources().holds_key(&key)
-                && let Ok(text) = String::from_utf8(bytes)
-            {
-                texts.insert(key, text);
-            }
-        }
-        let written: BTreeMap<String, &str> =
-            texts.iter().map(|(k, v)| (k.clone(), v.as_str())).collect();
-        let keys: Vec<String> = texts.keys().cloned().collect();
-        let built = env.build_sources(&keys, &written, |_| Read::Gone);
-        let snapshot = env.entity_snapshot(&built.graph);
+        let loaded = LoadedAt::of_files(env, revision, within.to_path_buf(), files, tree, None);
+        Self::compiled(env, loaded, reads, checking)
+    }
+
+    /// The project [`load_at`] read and built at a commit, judged as [`Self::compile`] says.
+    fn compiled(
+        env: &Environment,
+        loaded: LoadedAt,
+        reads: CommitReads<'_>,
+        checking: &Checking<'_>,
+    ) -> Baseline {
+        let LoadedAt {
+            revision,
+            within,
+            held,
+            texts,
+            ledger,
+            tree,
+            built,
+            ..
+        } = loaded;
         let tree: crate::baseline_reads::Tree = tree
             .into_iter()
-            .filter_map(|(path, file)| Some((key_of(&path)?, file)))
+            .filter_map(|(path, file)| Some((key_of(&within, &path)?, file)))
             .collect();
+        let snapshot = env.entity_snapshot(&built.graph);
         let disk = crate::baseline_reads::TreeDisk::new(env.root(), &tree, held.clone());
         // The ungated checks at the commit, over its files, before the judged rules digest their outcomes: a probe
         // the journal holds no fresh answer for is not performed, and its value is `unknown` there.
@@ -643,6 +616,8 @@ impl Baseline {
                     &snapshot,
                     &**runtime as &dyn WasmRuntime,
                     &judged,
+                    env.delta_of(&built.graph, &crate::compiled::DeltaBasis::None)
+                        .as_ref(),
                     &disk,
                     reads,
                 )

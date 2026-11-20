@@ -61,7 +61,10 @@ pub use caller::Caller;
 pub use change::{FILE_CHANGED, FILE_UNREADABLE, FILE_UNWRITABLE};
 pub use containment::{ContainedDisk, Containment, Held, OUTSIDE_ROOT, Outside, ReadFailure};
 pub use edit_report::{CollectedFacts, CollectedPlan, CollectorFacts, EditDocument, EditReport};
-pub use error::{NOT_IN_JOURNAL, OpError, OpErrorKind, UNKNOWN_REVISION};
+pub use error::{
+    GIT_FAILED, GIT_UNAVAILABLE, NOT_A_REPOSITORY, NOT_IN_JOURNAL, OpError, OpErrorKind,
+    UNKNOWN_REVISION,
+};
 pub use noticed::Noticed;
 pub use refusal::Refusal;
 pub use verdict::RunVerdict;

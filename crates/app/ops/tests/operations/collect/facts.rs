@@ -28,7 +28,7 @@ use specforge_wasm::testing::InProcessRuntime;
 pub(super) const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
 
 /// A project enabling the fixture, a truth to report on, and both collectors' reports.
-fn project() -> TestProject {
+pub(super) fn project() -> TestProject {
     TestProject::new()
         .config(|c| c["name"] = "p".into())
         .enabling(&COLLECTED_EXTENSIONS)
@@ -63,12 +63,24 @@ pub(super) fn nothing() -> WasmCallResult {
 
 /// Collect `runner` (every detected collector when `None`) from the reports on disk, served by `runtime`, and store
 /// its facts as the surfaces do, the project asking `git` of version control; a plan is left in the outcome.
-fn collect(
+pub(super) fn collect(
     project: &TestProject,
     git: &SharedGit,
     runtime: InProcessRuntime,
     runner: Option<&str>,
 ) -> Outcome {
+    let (outcome, stored) = collecting(project, git, runtime, runner);
+    stored.expect("the facts are stored");
+    outcome
+}
+
+/// [`collect`], and whether its facts were stored.
+pub(super) fn collecting(
+    project: &TestProject,
+    git: &SharedGit,
+    runtime: InProcessRuntime,
+    runner: Option<&str>,
+) -> (Outcome, Result<(), specforge_ops::OpError>) {
     let compiled = project.compile_with(Arc::new(runtime), Some(Arc::clone(git)));
     let view = ProjectView::of(&compiled);
     let mut outcome = collect::collect(
@@ -85,12 +97,12 @@ fn collect(
     )
     .expect("the collect runs");
     let facts = std::mem::take(&mut outcome.facts);
-    apply_collected(&view, Vec::new(), facts, false, caller()).expect("the facts are stored");
-    outcome
+    let stored = apply_collected(&view, Vec::new(), facts, false, caller()).map(drop);
+    (outcome, stored)
 }
 
 /// `node` answering `facts` and `unit` answering `unit`.
-fn serving(facts: Value, unit: WasmCallResult) -> InProcessRuntime {
+pub(super) fn serving(facts: Value, unit: WasmCallResult) -> InProcessRuntime {
     Collected::new()
         .answering(NODE, "collect__node", collected_answer(facts))
         .answering(NODE, "collect__unit", unit)

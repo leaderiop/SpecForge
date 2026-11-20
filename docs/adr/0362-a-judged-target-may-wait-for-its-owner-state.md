@@ -5,7 +5,9 @@
 [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D4, which [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md)
 already lets a field's checks wait for. Protocol 2.2.0, unreleased: the addition goes into the 2.2.0 row, no bump. The
 wire and the SDK change, so the builtins are re-vendored. Extended by [ADR 0363](0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md) to a code: its findings may wait for
-an owner state, and the write that reveals one adds no error (E080).
+an owner state, and the write that reveals one adds no error (E080). Extended by
+[ADR 0377](0377-a-verdict-is-fresh-over-what-it-cites-and-owed-by-its-owner-state.md) with new users of `judged_while`:
+E501's targets and W525 wait for a complete owner, the plan checks for an open one, W302 for a closed threat.
 
 ## Context
 

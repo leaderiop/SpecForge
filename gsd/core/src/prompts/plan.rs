@@ -5,7 +5,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
 use super::ns::served;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Rejudge, Slash, Spec, Step};
 
 const ARGS: &[Arg] = &[
     Arg::subject("phase", "phase"),
@@ -54,6 +54,11 @@ const STEPS: &[Step] = &[
         does: Do::Agent("gsd-planner"),
     },
     Step {
+        id: "thread",
+        title: "Check the plans' order with specforge trace --plan and fix an ok: false result before the check (specforge gsd thread-plan <phase> --format json)",
+        does: Do::Command("thread_plan"),
+    },
+    Step {
         id: "check",
         title: "Check the plans against the phase goal",
         does: Do::Agent("gsd-plan-checker"),
@@ -97,8 +102,44 @@ static PLAN_PHASE: Spec = Spec {
         effort: Some("max"),
     }),
     inputs: &[specforge_extension_sdk::Input::SlashCommands],
-    tail: Some(graph_context),
+    // The closed-phase gate stops a run on a complete phase; a research found is reused unless `--research`.
+    rejudges: &[
+        Rejudge {
+            judge: "gsd-phase-researcher",
+            flags: &["research"],
+            stops_on_complete: true,
+        },
+        Rejudge {
+            judge: "gsd-plan-checker",
+            flags: &[],
+            stops_on_complete: true,
+        },
+    ],
+    tail: Some(tail),
 };
+
+/// The sections after the workflow: how this install serves `/gsd-graphify`, then how the `thread` step checks the
+/// plans' order.
+fn tail(call: &PromptCall<'_>) -> String {
+    graph_context(call) + THREADING
+}
+
+/// What the `thread` step runs, what fails it and where its result goes (ADR 0378).
+const THREADING: &str = "\n## Threading the plans\n\n\
+     After the planner writes the phase's plans, and before the plan checker runs, check their order against the \
+     graph:\n\n\
+     1. Write the answer of `specforge gsd thread-plan <phase> --format json` (the MCP tool \
+     `specforge.gsd.thread_plan`) to a file. Its entries are the phase's plans in strict-wave order, each followed by \
+     its tasks.\n\
+     2. Run `specforge trace --plan <file> --format json`.\n\n\
+     A result with `ok: false` is a finding the planner fixes before the check: an `unresolved_entity` gap (E003) is \
+     an entry that names no entity, and an `ordering` gap is an entry before a plan or task it depends on, such as a \
+     coupling peer that runs later. Fix the plan's `depends_on`, its coupling peer or the order, then run the step \
+     again. `missing_plan_entry` gaps are warnings over every testable entity of the project: they do not fail the \
+     thread.\n\n\
+     Pass the final result to the plan checker as its `**Thread:**` line: its own section reads that line, and \
+     without it the checker runs both commands itself. \
+     The order of the tasks inside a plan is not checked: a task carries no `depends_on`.\n";
 
 /// How this install serves `/gsd-graphify`: the planner's graph-context gate, read from the served slash commands
 /// rather than a PATH probe or a graph-path setting.
@@ -165,6 +206,12 @@ static PLAN_REVIEW_CONVERGENCE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    // It replans through plan_phase, which stops on a complete phase.
+    rejudges: &[Rejudge {
+        judge: "gsd-plan-checker",
+        flags: &[],
+        stops_on_complete: true,
+    }],
     tail: None,
 };
 
@@ -196,11 +243,9 @@ static ULTRAPLAN_PHASE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &PLAN_PHASE);
-    workflow::declare(c, &PLAN_REVIEW_CONVERGENCE);
-    workflow::declare(c, &ULTRAPLAN_PHASE);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&PLAN_PHASE, &PLAN_REVIEW_CONVERGENCE, &ULTRAPLAN_PHASE];

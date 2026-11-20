@@ -6,7 +6,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 /// Upstream's order: the reviewer lanes, then `--all`.
 const REVIEW_ARGS: &[Arg] = &[
@@ -53,6 +53,7 @@ static REVIEW: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(shown),
 };
 
@@ -77,10 +78,9 @@ static REVIEW_BACKLOG: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &REVIEW);
-    workflow::declare(c, &REVIEW_BACKLOG);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&REVIEW, &REVIEW_BACKLOG];

@@ -58,6 +58,10 @@ expression: "digest(&load(&runtime, &gsd))"
     },
     {
       "extension": "@gsd/core",
+      "name": "wave_collision"
+    },
+    {
+      "extension": "@gsd/core",
       "name": "scope"
     },
     {
@@ -275,6 +279,16 @@ expression: "digest(&load(&runtime, &gsd))"
       "export": "cmd__verification_debt",
       "extension": "@gsd/core",
       "route": "gsd verification-debt"
+    },
+    {
+      "export": "cmd__re_verify",
+      "extension": "@gsd/core",
+      "route": "gsd re-verify"
+    },
+    {
+      "export": "cmd__thread_plan",
+      "extension": "@gsd/core",
+      "route": "gsd thread-plan"
     },
     {
       "export": "cmd__gate_command",
@@ -6579,6 +6593,38 @@ expression: "digest(&load(&runtime, &gsd))"
       "source_extension": "@gsd/core",
       "target_kind": null
     },
+    "phase.critical_path": {
+      "derived_from": null,
+      "description": "the task ids of the phase's heaviest chain of plans, in execution order: the chain follows `depends_on` and shared paths (the strict waves), each plan weighing its `estimate.tokens`, else its task count; of two chains of equal weight the longer wins, then the smaller plan id as a person reads it (`01-2` before `01-10`); absent when no plan has a strict wave or the chain names no task",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "critical_path",
+      "field_type": "StringList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "phase",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@gsd/core",
+      "target_kind": null
+    },
+    "phase.critical_weight": {
+      "derived_from": null,
+      "description": "the weight of that chain: tokens and task counts summed as they come, so a phase with and without estimates mixes units",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "critical_weight",
+      "field_type": "Integer",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "phase",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@gsd/core",
+      "target_kind": null
+    },
     "phase.depends_on": {
       "derived_from": null,
       "description": "Depends on",
@@ -7139,6 +7185,22 @@ expression: "digest(&load(&runtime, &gsd))"
       "source_extension": "@gsd/core",
       "target_kind": null
     },
+    "plan.estimate_error": {
+      "derived_from": null,
+      "description": "(actual - estimate) / estimate for a plan whose summary is complete, rounded to 4 decimal places: `tasks` against the plan's task count, only when the estimate writes it above 0, absent never 0; `tokens` is not measured, since the summary holds no `actuals.tokens`",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "estimate_error",
+      "field_type": "Block",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "plan",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@gsd/core",
+      "target_kind": null
+    },
     "plan.estimate_slices": {
       "derived_from": null,
       "description": "how many plans `estimate.tokens` makes under `workflow.smart_zone_tokens`, rounded up: over 1 is a re-slice to recommend, never a block; absent without an estimate",
@@ -7338,6 +7400,22 @@ expression: "digest(&load(&runtime, &gsd))"
       "exempts_obligations": false,
       "field_name": "status",
       "field_type": "Enum([\"draft\", \"checked\", \"ready\", \"executing\", \"complete\", \"halted\", \"blocked\"])",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "plan",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@gsd/core",
+      "target_kind": null
+    },
+    "plan.strict_wave": {
+      "derived_from": null,
+      "description": "the wave the plan runs in once plans of its phase that share a path are kept apart: the longest `depends_on` path plus, for each pair sharing a path in `files_modified`, `files_deleted` or a task's `files`, the earlier plan (by wave, then id as a person reads it: `01-2` before `01-10`) first; equals `wave` unless a shared path pushes it (gsd/W526); absent where `wave` is",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "strict_wave",
+      "field_type": "Integer",
       "headline": false,
       "inverse_of": null,
       "kind_name": "plan",
@@ -11547,6 +11625,8 @@ expression: "digest(&load(&runtime, &gsd))"
       "phase.backlog": "bool",
       "phase.branch": "string",
       "phase.completed": "date",
+      "phase.critical_path": "string_list",
+      "phase.critical_weight": "integer",
       "phase.depends_on": "reference_list",
       "phase.frontend": "bool",
       "phase.goal": "string",
@@ -11582,6 +11662,7 @@ expression: "digest(&load(&runtime, &gsd))"
       "plan.coupling_justified": "block_list",
       "plan.depends_on": "reference_list",
       "plan.estimate": "block",
+      "plan.estimate_error": "block",
       "plan.estimate_slices": "integer",
       "plan.files_deleted": "string_list",
       "plan.files_modified": "string_list",
@@ -11595,6 +11676,7 @@ expression: "digest(&load(&runtime, &gsd))"
       "plan.requirements": "reference_list",
       "plan.slug": "string",
       "plan.status": "enum (draft, checked, ready, executing, complete, halted, blocked)",
+      "plan.strict_wave": "integer",
       "plan.success_criteria": "string_list",
       "plan.type": "enum (execute, tdd)",
       "plan.verification": "string_list",
@@ -13058,6 +13140,7 @@ expression: "digest(&load(&runtime, &gsd))"
                       "W315",
                       "W316",
                       "E501",
+                      "W525",
                       "E518",
                       "E202",
                       "W203",
@@ -14263,6 +14346,45 @@ expression: "digest(&load(&runtime, &gsd))"
           {
             "args": [
               {
+                "arg_type": "string",
+                "default_value": null,
+                "description": "the phase or the plan whose verdicts to list",
+                "name": "subject",
+                "required": true
+              },
+              {
+                "arg_type": "bool",
+                "default_value": null,
+                "description": "list only the verdicts that are not fresh: stale, missing, unrecorded or unreadable",
+                "name": "stale_only",
+                "required": false
+              }
+            ],
+            "category": null,
+            "description": "List the verifier's verdicts within a phase or a plan and whether each is fresh (its inputs unchanged since it was recorded, whatever its outcome): its state, each input that changed since it was recorded with its selector, and what it cites. `specforge gsd re-verify <subject> --stale-only` keeps the verdicts that are not fresh, so the verifier judges exactly those",
+            "export": "cmd__re_verify",
+            "id": "re_verify",
+            "title": ""
+          },
+          {
+            "args": [
+              {
+                "arg_type": "string",
+                "default_value": null,
+                "description": "the phase whose plans and tasks to thread",
+                "name": "phase",
+                "required": true
+              }
+            ],
+            "category": null,
+            "description": "Answer a phase's plans and tasks in the order they run, as the agent plan the kernel checks: each plan by its strict wave then its id, followed by its tasks. Write `specforge gsd thread-plan <phase> --format json` to a file and run `specforge trace --plan <file>`: an entry before a plan or task it depends on is an ordering gap, an entry naming no entity is E003",
+            "export": "cmd__thread_plan",
+            "id": "thread_plan",
+            "title": ""
+          },
+          {
+            "args": [
+              {
                 "arg_type": {
                   "enum": {
                     "values": [
@@ -14893,12 +15015,9 @@ expression: "digest(&load(&runtime, &gsd))"
               {
                 "name": "tests",
                 "selector": "test(self<test.names)"
-              },
-              {
-                "name": "files",
-                "selector": "file(self.plan.files_modified)"
               }
             ],
+            "judged_while": "complete",
             "kind": "truth"
           },
           {
@@ -14916,6 +15035,7 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "file(self.path)"
               }
             ],
+            "judged_while": "complete",
             "kind": "artifact"
           },
           {
@@ -14937,6 +15057,7 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "file(self.to)"
               }
             ],
+            "judged_while": "complete",
             "kind": "key_link",
             "unless_set": [
               "pattern"
@@ -15135,6 +15256,7 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -15208,6 +15330,7 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -15281,6 +15404,7 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
@@ -15354,11 +15478,62 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "file(\"CLAUDE.md\", \"AGENTS.md\")"
               }
             ],
+            "judged_while": "pending",
             "kind": "plan"
           }
         ]
       },
       "message_template": "plan '{id}' is not checked against the agent instructions and mapped patterns",
+      "owner": "@gsd/core",
+      "severity": "Warning",
+      "target_kind": null,
+      "wasm_function": null
+    },
+    {
+      "check": "judged",
+      "code": "gsd/W525",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "judged": {
+        "judge": "gsd-verifier",
+        "outcomes": [
+          "held",
+          "violated",
+          "unverified"
+        ],
+        "passing": [
+          "held"
+        ],
+        "targets": [
+          {
+            "inputs": [
+              {
+                "name": "prohibition",
+                "selector": "self"
+              },
+              {
+                "name": "plan",
+                "selector": "self.plan"
+              },
+              {
+                "name": "phase",
+                "selector": "self.plan.phase"
+              },
+              {
+                "name": "files",
+                "selector": "file(self.plan.files_modified)"
+              }
+            ],
+            "judged_while": "complete",
+            "kind": "prohibition",
+            "unless_set": [
+              "test"
+            ]
+          }
+        ]
+      },
+      "message_template": "{kind} '{id}' has no fresh verifier verdict",
       "owner": "@gsd/core",
       "severity": "Warning",
       "target_kind": null,

@@ -4,7 +4,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Slash, Spec};
+use super::workflow::{Slash, Spec};
 
 /// What the model of a project does not hold, and the arguments the workflows read.
 fn checkout(_call: &PromptCall<'_>) -> String {
@@ -46,9 +46,9 @@ static WORKSPACE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(checkout),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &WORKSPACE);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&WORKSPACE];

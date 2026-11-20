@@ -44,15 +44,21 @@ mod commands;
 mod commands_support;
 mod context_proxy;
 mod contexts;
+mod critical_path;
 mod decision_coverage;
 mod discuss;
 mod e502_probe;
+mod e516_remedy;
 mod engine_tools;
+mod estimate_error;
 mod execute;
 mod execute_rules;
 mod execute_status;
 #[path = "../common/files.rs"]
 mod files;
+mod flow_strict;
+mod flow_taskboard;
+mod fresh_taskboard;
 mod gates;
 mod harness;
 mod hooks_community;
@@ -73,6 +79,7 @@ mod install_hosts;
 mod install_skills;
 mod judged;
 mod judged_flow;
+mod judged_prohibition;
 mod judged_refusals;
 mod ladder;
 #[path = "../common/ledger.rs"]
@@ -97,6 +104,7 @@ mod planned_paths;
 #[path = "../common/planning_names.rs"]
 mod planning_names;
 mod product;
+mod profile_gates;
 mod progress;
 mod prompts_audit;
 mod prompts_autonomous;
@@ -122,7 +130,9 @@ mod prompts_workspace;
 mod proof;
 mod queries;
 mod quick_context;
+mod re_verify;
 mod reference;
+mod rejudge_scope;
 mod render_prompts;
 mod rendered_lines;
 mod roadmap;
@@ -135,14 +145,20 @@ mod settings;
 mod source_items;
 #[path = "../common/specforge_only.rs"]
 mod specforge_only;
+mod strict_wave;
+mod thread_plan;
 #[path = "../common/tool_names.rs"]
 mod tool_names;
+mod verdict_freshness;
 mod verify_paths;
 mod verify_rules;
 mod verify_status;
 mod verify_verdicts;
 
 use harness::project;
+
+/// The judged rules the harness knows: each extension's book (`harness::Book`).
+pub static BOOKS: &[harness::Book] = &[harness::Book::CORE];
 
 #[test]
 fn an_empty_project_loads_gsd_core_and_checks_clean() {

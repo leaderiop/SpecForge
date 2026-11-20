@@ -49,6 +49,16 @@ fn a_title_linked_commit_is_e521() {
         found[0].message,
         "commit '0123456789ab' names task 'v/1/1-01/T1' by its subject's title, not by a Gsd-Task trailer"
     );
+    // The trailer the task's later commits add: its full id, or the plan-local form as written; this one stays.
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some(
+            "end the message of each later commit of the task with the trailer 'Gsd-Task: v/1/1-01/T1' (its full id; \
+             '1-01/T1' reads the same while one plan has that name), then collect; this commit is recorded and keeps \
+             its fields: amending it records a new commit beside it, so its own error stays while \
+             `specforge.task_trailers` is on"
+        )
+    );
 }
 
 #[test]
@@ -59,6 +69,17 @@ fn a_task_type_commit_naming_no_task_is_e521() {
         assert_eq!(
             found[0].message,
             "commit '0123456789ab' of plan 'v/1/1-01' is a task commit that names no task"
+        );
+        // The trailer the plan's later task commits add: its full id and one of its tasks, or the plan-local form.
+        assert_eq!(
+            found[0].suggestion.as_deref(),
+            Some(
+                "end the message of each later task commit of the plan with the trailer 'Gsd-Task: v/1/1-01/<task>', \
+                 naming one of its tasks ('1-01/<task>' reads the same while one plan has that name), then collect; \
+                 this commit is recorded and keeps its fields: amending it records a new commit beside it, so its own \
+                 error stays while `specforge.task_trailers` is on"
+            ),
+            "{kind}"
         );
     }
 }
@@ -292,4 +313,13 @@ fn an_item_with_one_reaching_anchor_is_not_w522() {
     second_plan(&mut input);
     changing(&mut input, "00aa00aa00aa", "v/1/1-02");
     assert!(check(&input).is_empty());
+}
+
+/// The plan-local form is the id's last segments; a quick plan's id is already its own, so none is added.
+#[test]
+fn the_plan_local_form_is_the_last_segments_of_the_id() {
+    assert_eq!(plan_local("v1.0/01/01-01/T1", 2), Some("01-01/T1"));
+    assert_eq!(plan_local("ws/v1.0/01/01-01", 1), Some("01-01"));
+    assert_eq!(plan_local("260321-a1b/T1", 2), None);
+    assert_eq!(plan_local("260321-a1b", 1), None);
 }

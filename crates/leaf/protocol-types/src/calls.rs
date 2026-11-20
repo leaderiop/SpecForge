@@ -373,6 +373,10 @@ pub struct PassInput {
     /// The fact stores the session served, by collector and key (protocol 1.15.0, ADR 0327 D6).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fact_stores: Vec<FactStore>,
+    /// What changed of the kinds the pass's `delta` input names, against the base the payload names (ADR 0376 D6):
+    /// absent unless the pass declares that input.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delta: Option<crate::DeltaPayload>,
 }
 
 /// One entity in the snapshot handed to a compiler pass: its id, kind,

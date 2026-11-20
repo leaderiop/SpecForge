@@ -1,10 +1,10 @@
-//! `audit_uat` and `audit_milestone` (D-r42-1 rows 14-15): the audits that read across phases. `audit_uat` has no
-//! subject and no gate; `audit_milestone` is about one milestone and refuses under `gsd-plus` while a verdict is stale.
+//! `audit_uat` and `audit_milestone`: the audits that read across phases. `audit_uat` has no subject and no gate;
+//! `audit_milestone` is about one milestone and refuses under `gsd-strict` and `gsd-plus` while a verdict is stale.
 
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Rejudge, Slash, Spec, Step};
 
 const UAT_STEPS: &[Step] = &[Step {
     id: "uat",
@@ -53,6 +53,7 @@ static AUDIT_UAT: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
@@ -71,10 +72,13 @@ static AUDIT_MILESTONE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[Rejudge {
+        judge: "gsd-integration-checker",
+        flags: &[],
+        stops_on_complete: false,
+    }],
     tail: Some(integration),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &AUDIT_UAT);
-    workflow::declare(c, &AUDIT_MILESTONE);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&AUDIT_UAT, &AUDIT_MILESTONE];

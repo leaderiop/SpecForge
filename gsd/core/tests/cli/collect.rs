@@ -412,6 +412,43 @@ fn a_trailer_names_the_task_of_a_commit_without_a_scope() {
     assert_eq!(fields["linked_by"], "Gsd-Task", "{fields}");
 }
 
+/// A trailer written as the task's full id, as `specforge query` prints it, names the task of a commit whose subject
+/// names no plan.
+#[test]
+fn a_full_path_trailer_names_the_task_of_a_commit_without_a_scope() {
+    let p = repository();
+    let hash = p.git_commit(
+        "chore: wire it\n\nGsd-Task: v1.0/01/01-01/T1\n",
+        &[("src/w.js", "w\n")],
+        T0,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+    let fields = p.fields_of(&hash[..12]);
+    assert_eq!(fields["task"], "v1.0/01/01-01/T1", "{fields}");
+    assert_eq!(fields["plan"], "v1.0/01/01-01", "{fields}");
+    assert_eq!(fields["linked_by"], "Gsd-Task", "{fields}");
+}
+
+/// A full-path trailer on a subject that names the plan links its task, which the description alone would not.
+#[test]
+fn a_full_path_trailer_links_the_task_of_a_scoped_commit() {
+    let p = repository();
+    let hash = p.git_commit(
+        "feat(01-01): wire it\n\nGsd-Task: v1.0/01/01-01/T2\n",
+        &[("src/w.js", "w\n")],
+        T0,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+    let fields = p.fields_of(&hash[..12]);
+    assert_eq!(fields["task"], "v1.0/01/01-01/T2", "{fields}");
+    assert_eq!(fields["plan"], "v1.0/01/01-01", "{fields}");
+    assert_eq!(fields["linked_by"], "Gsd-Task", "{fields}");
+}
+
 /// The trailer is read from the message's last paragraph, a second `-m` as much as one written in the message.
 #[test]
 fn a_trailer_in_a_second_message_paragraph_is_read() {
@@ -607,7 +644,12 @@ fn a_failing_test_never_refuses_the_commits_of_a_collect() {
     let p = repository();
     p.settings(serde_json::json!({ "profile": "gsd-strict" }));
     let truth = "v1.0/01/01-01/TR1";
-    assert_eq!(p.record(truth, "E501", "verified", &[]).code, 0);
+    let cited = p.cites(truth);
+    assert_eq!(
+        p.record(truth, "E501", "verified", &["--cited", &cited])
+            .code,
+        0
+    );
     let run = p.node_tests(&[
         (FILE, "adds a task", TestStatus::Failed),
         (FILE, "[gsd:01-01/TR1] fails", TestStatus::Failed),

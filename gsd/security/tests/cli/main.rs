@@ -27,18 +27,42 @@ mod accept;
 mod advisory;
 mod compute;
 mod core_calls;
+mod fresh_vault;
 mod gate;
 mod hooks;
 mod injection;
 mod install;
+mod mitigation;
 mod model;
 mod parity_scenario;
 mod prompt;
 mod record;
+mod rejudge_scope;
 mod settings;
 mod threat_ids;
+mod verdict_freshness;
 
 use specforge_extension_sdk::testing::MockHost;
+
+/// The judged rules the harness knows: each extension's book (`harness::Book`).
+pub static BOOKS: &[harness::Book] = &[
+    harness::Book::CORE,
+    harness::Book {
+        extension: "@gsd/security",
+        namespace: "gsd.security",
+        table: gsd_security::judged::JUDGED,
+        command: "record-security-verdict",
+        kinds: security_kinds,
+        // every judged rule of the extension is a warning
+        is_error: |_| false,
+    },
+];
+
+fn security_kinds() -> serde_json::Value {
+    let host = MockHost::new(gsd_security::build());
+    let text = host.describe_json("entities").expect("the entities");
+    serde_json::from_str(&text).expect("describe answers JSON")
+}
 
 /// A project that loads both extensions: core's `empty` project plus `@gsd/security` from `GSD_SECURITY_WASM`.
 fn both() -> harness::Project {

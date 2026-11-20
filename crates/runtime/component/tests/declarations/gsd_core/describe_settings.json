@@ -1618,13 +1618,13 @@
     },
     {
       "default": false,
-      "description": "A stale verdict blocks every workflow step, not only execution.",
+      "description": "A stale, missing, unrecorded or unreadable verdict blocks every workflow step but the one that judges it.",
       "field_type": "bool",
       "gates": [
         "E516"
       ],
       "kind": "setting",
-      "name": "specforge.stale_verdict_gate"
+      "name": "specforge.verdict_gate"
     },
     {
       "default": false,
@@ -1658,7 +1658,7 @@
     },
     {
       "default": "gsd-compat",
-      "description": "gsd-compat is GSD as it is; gsd-strict blocks where GSD warns; gsd-plus adds traceability gates.",
+      "description": "gsd-compat is GSD as it is; gsd-strict blocks where GSD warns and gates fresh verdicts, traced requirements and task trailers; gsd-plus adds cross-workstream conflicts.",
       "enum_values": [
         "gsd-compat",
         "gsd-strict",
@@ -1676,10 +1676,10 @@
           "settings": {
             "specforge.cross_workstream_conflicts": false,
             "specforge.plan_paths_touched": false,
-            "specforge.stale_verdict_gate": false,
             "specforge.task_commits": false,
             "specforge.task_trailers": false,
             "specforge.traceability_gate": false,
+            "specforge.verdict_gate": false,
             "workflow.windows_enforce": false
           }
         },
@@ -1687,10 +1687,10 @@
           "settings": {
             "specforge.cross_workstream_conflicts": true,
             "specforge.plan_paths_touched": true,
-            "specforge.stale_verdict_gate": true,
             "specforge.task_commits": true,
             "specforge.task_trailers": true,
             "specforge.traceability_gate": true,
+            "specforge.verdict_gate": true,
             "workflow.windows_enforce": true
           },
           "severities": {
@@ -1719,10 +1719,10 @@
           "settings": {
             "specforge.cross_workstream_conflicts": false,
             "specforge.plan_paths_touched": true,
-            "specforge.stale_verdict_gate": false,
             "specforge.task_commits": true,
-            "specforge.task_trailers": false,
-            "specforge.traceability_gate": false,
+            "specforge.task_trailers": true,
+            "specforge.traceability_gate": true,
+            "specforge.verdict_gate": true,
             "workflow.windows_enforce": true
           },
           "severities": {

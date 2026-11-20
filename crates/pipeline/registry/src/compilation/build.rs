@@ -466,6 +466,15 @@ impl RegistryBuild {
             .count()
     }
 
+    /// How many passes of any phase declare the `delta` input (ADR 0376 D6): a check takes the delta once, and only
+    /// then (an analyze pass reads the delta of the compile it analyzes).
+    pub fn passes_reading_delta(&self) -> usize {
+        self.passes
+            .iter()
+            .filter(|p| p.inputs().delta().is_some())
+            .count()
+    }
+
     /// The passes `specforge analyze` runs, in order.
     pub fn analyze_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
         self.passes

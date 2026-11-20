@@ -18,6 +18,8 @@ CI is red; see [gsd/parity/README.md](../../README.md) for how its goldens are r
   (`tests/<binary>.rs#<test name>`, facts `@rust/test` collects from a nextest report). It loads `@code/core`,
   `@rust/cargo`, `@rust/source` and `@rust/test`.
 - `specforge-harness`: the ledger lines of phase 1's eight verifier verdicts, recorded over the run before the quick
-  task (`GSD_BLESS=1 cargo test the_twin_holds_its_verifier_verdicts`). Over the recorded red run every verdict stays
+  task (`GSD_BLESS=1 cargo test the_twin_holds_its_verifier_verdicts`). Each truth's verdict cites the files its
+  truth is about: 01-01's `src/lib.rs` and `tests/entries.rs`, 01-02's `src/lib.rs` and `tests/totals.rs`; an
+  artifact or a key link cites nothing and reads the files it names. Over the recorded red run every verdict stays
   fresh (no truth names the failing test); `gsd/W408` reports the check of `01-02-SUMMARY`'s deliverable that names
   it, and `specforge trace LEDG-02` reaches that check: `gsd/core/tests/cli/parity_ledger.rs`.

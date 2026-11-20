@@ -20,6 +20,7 @@ mod verify;
 mod windows;
 
 use gsd_kit::dsl::{self, Kind};
+pub use plan::ESTIMATE_ERROR;
 pub use project::PROOF_STATES;
 use specforge_extension_sdk::prelude::*;
 

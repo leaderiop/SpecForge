@@ -60,7 +60,8 @@ macro_rules! takes_inputs {
             /// The host serves the call `input` before it runs: `Input::files(name, FileReadSpec::glob(..))`,
             /// `Input::Tests`, `Input::State`, `Input::Graph`, `Input::SlashCommands`, `Input::git().status()`,
             /// `Input::setting(extension, name)`, `Input::CheckOutcomes`, `Input::facts(&["test"])` (a pass is
-            /// sent the facts of those kinds beside the authored entities, a collector those facts).
+            /// sent the facts of those kinds beside the authored entities, a collector those facts),
+            /// `Input::delta(&["item"])` (a pass is sent what changed of those kinds as `delta`).
             pub fn input(&mut self, input: Input) -> &mut Self {
                 self.descriptor.inputs.push(input);
                 self

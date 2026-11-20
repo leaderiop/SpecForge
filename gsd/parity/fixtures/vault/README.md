@@ -22,11 +22,19 @@ An encrypted store for secrets on the command line: `VAULT_KEY=<hex> node src/cl
   coverage item: the tests of `test/vault.test.js` are collected facts no entity names.
   It loads the thread's builtins as the taskboard twin does, and checks with `@gsd/core` and `@gsd/security` loaded:
   its one error is the duplicate `T-01-02` (`gsd.security/E101`, once per claim) that the fixture exists to carry,
-  besides the verifier's `no verdict` on each truth, artifact and key link (no verifier has run, as `.planning/` has
-  no `VERIFICATION.md`). With the summaries, the ported state detection finds them, as upstream's does.
+  besides the verifier's `no verdict` on each truth, artifact and key link of an executed plan (phase 1's: no
+  verifier has run, as `.planning/` has no `VERIFICATION.md`; phase 2's unexecuted plan owes none yet), and the
+  security workflow's `no verdict` (warnings) on each closed threat (`gsd.security/W302`: five, all but plan 01-02's
+  open `T-01-02`, which owes none while it is open) and on phase 1's audit (`gsd.security/W303`, its threat flags).
+  With the summaries, the ported state detection finds them, as upstream's does.
   A threat's `status` and `evidence` and the audit run's counts are harness fields (written by
   `record-security-audit`, never by hand); the twin holds them as the audit left them, and `specforge-harness` vouches
   for each, as the taskboard's verdicts are. The threats' statuses are `01-SECURITY.md`'s (`T-01-02` of plan 01-02 open,
   the rest closed), so the audit's computed `threats_open` is 1, the frontmatter's.
+  Each closed threat names in `files` the files its disposition rests on, taken from its `evidence` (`src/vault.js`
+  for the seal and the auth tag, `package.json` for the package installs) or, for the accepted `T-01-03` that has
+  none, its `component` (`src/cli.js`). `files` is a SpecForge-only field with no `.planning/` counterpart, authored
+  rather than vouched, and `gsd.security/W302` reads it: a recorded mitigation verdict goes stale when one of those
+  files changes, and only then.
 - `.planning/config.json` sets `security.injection_blocking: false` explicitly. That is a recording choice, not a product
   divergence: gsd-tools' `config-get` errors on a key that is unset, while `specforge settings` answers the default.

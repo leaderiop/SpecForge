@@ -42,6 +42,20 @@ fn schema_covers_project_config_keys() {
     );
 
     // The registry entry shape mirrors RegistryConfig.
+    // `facts.retain` is bounded as the project config reads it (ADR 0376 D4).
+    let retain = &props["facts"]["properties"]["retain"];
+    assert_eq!(
+        (
+            &retain["type"],
+            &retain["minimum"],
+            &retain["maximum"],
+            &retain["default"]
+        ),
+        (&"integer".into(), &1.into(), &100.into(), &8.into()),
+        "facts.retain must mirror FactsConfig"
+    );
+    assert_eq!(props["facts"]["additionalProperties"], false);
+
     let registry = &doc["$defs"]["registry"];
     for field in ["alias", "url", "scope_filter", "default_registry"] {
         assert!(

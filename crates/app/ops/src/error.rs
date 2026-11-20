@@ -14,6 +14,13 @@ pub const NOT_IN_JOURNAL: &str = "not_in_journal";
 /// A revision the repository does not name (`InvalidInput`): `check --since` and the git verb refuse one with it.
 pub const UNKNOWN_REVISION: &str = "unknown_revision";
 
+/// The project is in no git repository (`PreconditionFailed`): the git verb and `diff` refuse with it.
+pub const NOT_A_REPOSITORY: &str = "not_a_repository";
+/// No git port answers here (`PreconditionFailed`).
+pub const GIT_UNAVAILABLE: &str = "git_unavailable";
+/// The git port failed (`Internal`).
+pub const GIT_FAILED: &str = "git_failed";
+
 /// What kind of failure an operation reports: the closed set every surface
 /// maps its own codes from (MCP's `ErrorCode`), decided where the failure is
 /// raised (ADR 0024 D7). [`OpError::code`] stays what the CLI prints
@@ -180,6 +187,16 @@ impl OpError {
             "{code} is not an error code, but an OpError is printed as error[CODE]"
         );
         Self::new(kind, code.id(), message)
+    }
+
+    /// [`UNKNOWN_REVISION`] ([`OpErrorKind::InvalidInput`]): the repository names no commit by `revision`, as
+    /// `check --since`, MCP `validate since` and `diff` refuse it.
+    pub fn unknown_revision(revision: &str) -> Self {
+        Self::new(
+            OpErrorKind::InvalidInput,
+            UNKNOWN_REVISION,
+            format!("unknown revision '{revision}'"),
+        )
     }
 
     /// A failure reported as `diagnostic` (its code, message and suggestion), of the kind its

@@ -32,3 +32,6 @@ A string that is not a project-relative path digests as an absent file.
 ## Consequences
 
 E501 reads the files its truths, artifacts and key links name; E518 reads its milestone's requirements only.
+
+Amended by [ADR 0377](0377-a-verdict-is-fresh-over-what-it-cites-and-owed-by-its-owner-state.md): a truth reads what its
+verdict cites, not its plan's files.

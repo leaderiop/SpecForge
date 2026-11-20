@@ -29,6 +29,7 @@ mod compiled;
 mod compute;
 pub mod context;
 pub mod coverage;
+pub mod delta;
 mod diagnostics_delta;
 pub mod effects;
 pub mod facts;
@@ -49,6 +50,7 @@ pub mod select;
 mod session;
 mod settings;
 mod setup;
+pub mod snapshot;
 mod sources;
 #[cfg(feature = "testing")]
 pub mod testing;
@@ -75,7 +77,6 @@ use specforge_wasm::WasmRuntime;
 use verdicts::WasmVerdicts;
 
 pub use buffers::Buffer;
-pub use checked::Checked;
 pub use compiled::{CheckedValue, CheckedValues, CompiledProject, ValueOutcome};
 pub use diagnostics_delta::DiagnosticsDelta;
 pub use ledger::{Changes, Consulted, SessionInputs, SourceDisk, WatchRoot, Watched};

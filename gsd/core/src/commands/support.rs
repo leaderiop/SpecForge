@@ -42,19 +42,6 @@ pub fn answer(
     }
 }
 
-/// The optional JSON arg `name` as `T`, `default` when it is not given.
-pub fn json<T>(
-    call: &CommandCall<'_>,
-    name: &str,
-    default: T,
-    parse: impl FnOnce(&str) -> serde_json::Result<T>,
-) -> Result<T, String> {
-    match call.str(name) {
-        None => Ok(default),
-        Some(text) => parse(text).map_err(|e| format!("{name}: not the JSON it takes: {e}")),
-    }
-}
-
 /// The host's clock; a call the host gave none is refused, never written as `""`.
 pub fn now<'a>(call: &'a CommandCall<'_>) -> Result<&'a str, String> {
     match call.now() {
@@ -97,6 +84,13 @@ pub fn natural(id: &str) -> (String, u64) {
     let digits = id.chars().rev().take_while(char::is_ascii_digit).count();
     let (head, number) = id.split_at(id.len() - digits);
     (head.to_string(), number.parse().unwrap_or(0))
+}
+
+/// The one order of plan and task ids, and of every tie between them: as a person reads them (`01-2` before `01-10`,
+/// `T9` before `T10`), then the id itself, so two spellings of one number (`01-02`, `01-2`) still keep one order. For
+/// zero-padded ids of one width it is the ids' own order.
+pub fn id_order(id: &str) -> ((String, u64), &str) {
+    (natural(id), id)
 }
 
 /// `value`, given as `arg`, is as a person wrote it: refused when it holds a control character, never stripped.
@@ -145,7 +139,11 @@ pub fn required<'a>(call: &'a CommandCall<'_>, arg: &str) -> Result<&'a str, Str
 
 /// The entity of `kind` that `id` names: its full path, or the end of one that no other entity of the kind shares.
 pub fn node<'a>(call: &CommandCall<'a>, kind: &str, id: &str) -> Result<&'a GraphNode, String> {
-    let graph = call.graph();
+    node_in(call.graph(), kind, id)
+}
+
+/// [`node`] over `graph`, for a function that reads a graph rather than a call.
+pub fn node_in<'a>(graph: &'a CommandGraph, kind: &str, id: &str) -> Result<&'a GraphNode, String> {
     if let Some(found) = graph.node(id).filter(|n| n.kind == kind) {
         return Ok(found);
     }
@@ -247,7 +245,7 @@ pub fn fields<const N: usize>(pairs: [(&str, Value); N]) -> BTreeMap<String, Val
 
 #[cfg(test)]
 mod tests {
-    use super::control;
+    use super::{control, id_order};
 
     #[test]
     fn a_control_character_is_found_but_a_line_feed_and_a_tab_are_not() {
@@ -257,5 +255,37 @@ mod tests {
         assert_eq!(control("two\nlines\tand tab"), None);
         assert_eq!(control("a\u{202e}b").as_deref(), Some("U+202E"));
         assert_eq!(control("a\u{2028}b").as_deref(), Some("U+2028"));
+    }
+
+    #[test]
+    fn ids_order_as_a_person_reads_them_then_by_themselves() {
+        let mut ids = [
+            "v/1/01-10",
+            "v/1/01-2",
+            "v/1/01-02",
+            "v/1/01-1",
+            "T10",
+            "T9",
+        ];
+        ids.sort_by_key(|id| id_order(id));
+        assert_eq!(
+            ids,
+            [
+                "T9",
+                "T10",
+                "v/1/01-1",
+                "v/1/01-02",
+                "v/1/01-2",
+                "v/1/01-10"
+            ]
+        );
+        let mut padded = ["v/1/01-10", "v/1/01-02", "v/1/01-01"];
+        padded.sort_by_key(|id| id_order(id));
+        let mut lexical = padded;
+        lexical.sort_unstable();
+        assert_eq!(
+            padded, lexical,
+            "zero-padded ids of one width keep their own order"
+        );
     }
 }

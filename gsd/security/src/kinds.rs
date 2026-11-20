@@ -54,7 +54,7 @@ pub const THREAT: Kind = Kind::new(
             .r()
             .doc("`Mitigation` (the plan's `Mitigation Plan`)"),
         paths("files", Mode::Planned)
-            .doc("the files the auditor checks for the mitigation: checked once the plan is complete (E016)"),
+            .doc("the files the auditor checks for the mitigation: checked once the threat is closed (E016)"),
         en("status", THREAT_STATUS)
             .h()
             .doc("`Status`: the auditor's verdict, written by record_security_audit"),
@@ -69,7 +69,9 @@ pub const THREAT: Kind = Kind::new(
             .doc("open, not accepted, and at or above workflow.security_block_on"),
     ],
 )
-.scoped_by("plan");
+.scoped_by("plan")
+// A closed threat claims its mitigation holds: from then on it owes `gsd.security/W302` a verdict (ADR 0377).
+.complete_when("status", &["closed"]);
 
 /// `NN-SECURITY.md`, named `03-SECURITY` and scoped by its phase.
 pub const SECURITY_AUDIT: Kind = Kind::new(

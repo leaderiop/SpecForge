@@ -2,15 +2,15 @@ use serde_json::{Value, json};
 
 use super::*;
 
-fn input(trigger: Value, entities: Vec<Value>, edges: Vec<Value>) -> PassInput {
+pub(super) fn input(trigger: Value, entities: Vec<Value>, edges: Vec<Value>) -> PassInput {
     serde_json::from_value(crate::passes::plans::with_field_edges(
         json!({ "entities": entities, "edges": edges, "trigger": trigger }),
     ))
     .expect("a pass input")
 }
 
-fn ship(subject: Option<&str>) -> Value {
-    json!({ "kind": "gate", "command": "gsd-ship", "subject": subject })
+pub(super) fn ship(subject: Option<&str>) -> Value {
+    gate_of("ship", subject)
 }
 
 fn codes(found: Vec<PassDiagnostic>) -> Vec<String> {
@@ -21,7 +21,7 @@ fn window(id: &str, extra: Value) -> Value {
     json!({ "id": id, "kind": "broken_window", "fields": extra })
 }
 
-fn phase_edge() -> Vec<Value> {
+pub(super) fn phase_edge() -> Vec<Value> {
     vec![json!({ "source": "v1.0/01/01-01", "target": "v1.0/01", "label": "phase" })]
 }
 
@@ -240,40 +240,65 @@ fn a_summary_subject_scopes_its_plan_and_w404_names_the_summary() {
     );
 }
 
-#[test]
-fn an_executed_plans_stale_plan_check_does_not_count_but_another_stale_verdict_does() {
-    let entities = |summary: bool, rule: &str| {
-        let completed = json!({ "completed": "2026-10-29T10:00:00Z" });
-        let mut all = vec![
-            json!({ "id": "v1.0/01", "kind": "phase" }),
-            json!({ "id": "v1.0/01/01-01", "kind": "plan",
-                    "judgements": [{ "rule": rule, "state": "stale", "passed": false }] }),
-        ];
-        if summary {
-            all.push(json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary", "fields": completed }));
-        }
-        input(ship(None), all, phase_edge())
-    };
-    // A summary that is only created (no `completed`) is not an execution: the entry gate still refuses.
-    let created = input(
+/// A plan with `status` and, beside it, a summary that says `completed` or not, holding `judgements` as the host
+/// settled them.
+fn owned(status: &str, completed: bool, judgements: Value) -> PassInput {
+    let mut summary = json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" });
+    if completed {
+        summary["fields"] = json!({ "completed": "2026-10-29T10:00:00Z" });
+    }
+    input(
         ship(None),
         vec![
             json!({ "id": "v1.0/01", "kind": "phase" }),
-            json!({ "id": "v1.0/01/01-01", "kind": "plan",
-                    "judgements": [{ "rule": "gsd/W313", "state": "stale", "passed": false }] }),
-            json!({ "id": "v1.0/01/01-01/01-01-SUMMARY", "kind": "summary" }),
+            json!({ "id": "v1.0/01/01-01", "kind": "plan", "fields": { "status": status },
+                    "judgements": judgements }),
+            summary,
         ],
         phase_edge(),
+    )
+}
+
+#[test]
+fn a_complete_plans_settled_away_plan_check_is_not_reported() {
+    // The plan check of a complete plan is not owed, so the host settles it away: nothing to count, whatever a summary
+    // says.
+    for completed in [true, false] {
+        let complete = owned("complete", completed, json!([]));
+        assert!(w318(&complete).is_empty());
+        assert!(e516(&complete).is_empty());
+    }
+}
+
+#[test]
+fn a_halted_plans_stale_plan_check_still_counts() {
+    // A summary that says `completed` does not make an executed plan: only the plan's `status` does, and a halted plan
+    // is open, so its plan check is owed and its stale one counts.
+    let stale = json!([{ "rule": "gsd/W313", "state": "stale", "passed": false }]);
+    for status in ["halted", "executing", "checked"] {
+        let open = owned(status, true, stale.clone());
+        assert_eq!(codes(w318(&open)), ["W318"], "{status}");
+        assert_eq!(codes(e516(&open)), ["E516"], "{status}");
+    }
+}
+
+#[test]
+fn another_rules_stale_judgement_counts_for_e516_on_any_entity() {
+    let stale = |rule: &str| json!([{ "rule": rule, "state": "stale", "passed": false }]);
+    // A complete plan carrying another rule's stale judgement (the host keeps what is owed).
+    assert_eq!(
+        codes(e516(&owned("complete", true, stale("gsd/E518")))),
+        ["E516"]
     );
-    assert_eq!(codes(w318(&created)), ["W318"]);
-    assert_eq!(codes(e516(&created)), ["E516"]);
-    assert_eq!(codes(w318(&entities(false, "gsd/W313"))), ["W318"]);
-    assert_eq!(codes(e516(&entities(false, "gsd/W313"))), ["E516"]);
-    // A plan that has run: its plan-check verdict is history.
-    assert!(w318(&entities(true, "gsd/W313")).is_empty());
-    assert!(e516(&entities(true, "gsd/W313")).is_empty());
-    // Any other judgement of it still counts.
-    assert_eq!(codes(e516(&entities(true, "gsd/E501"))), ["E516"]);
+    let truth = input(
+        ship(None),
+        vec![json!({ "id": "v1.0/01/01-01/TR1", "kind": "truth",
+                     "judgements": stale("gsd/E501") })],
+        vec![],
+    );
+    assert_eq!(codes(e516(&truth)), ["E516"]);
+    // W318 is the plan checks' alone: a truth is no plan.
+    assert!(w318(&truth).is_empty());
 }
 
 #[test]
@@ -291,14 +316,15 @@ fn e516_names_the_subject_of_a_scoped_gate() {
     assert!(
         scoped[0]
             .message
-            .contains("the verdict on 'v1.0/01/01-02' is stale")
+            .contains("the gsd/W311 verdict on 'v1.0/01/01-02' is stale")
     );
     let project = e516(&input(ship(None), entities(), vec![]));
     assert_eq!(project[0].entity.as_deref(), Some("v1.0/01/01-02"));
 }
 
+/// The guard itself knows no profile: whether a gate asks it is the verdict gate's setting.
 #[test]
-fn a_stale_verdict_is_e516_under_plus() {
+fn a_stale_verdict_is_e516_and_a_fresh_one_is_not() {
     let stale = |state: &str| {
         input(
             ship(None),
@@ -428,4 +454,246 @@ fn e515_names_the_subject() {
     assert_eq!(scoped[0].entity.as_deref(), Some("v1.0/01"));
     let project = e515(&traced(None, "complete", Some("not_run")));
     assert_eq!(project[0].entity.as_deref(), Some("R1"));
+}
+
+/// A gate of the workflow (or command) `command`, scoped to `subject`.
+pub(super) fn gate_of(command: &str, subject: Option<&str>) -> Value {
+    json!({ "kind": "gate", "command": command, "subject": subject })
+}
+
+pub(super) fn judged(rule: &str, state: &str, changed: &[&str]) -> Value {
+    json!({ "rule": rule, "state": state, "passed": false, "changed": changed })
+}
+
+/// Phase 01 (plan 01-01, whose truth TR1 holds `here`) and phase 02 (plan 02-01, whose truth TR1 holds `there`), at
+/// the gate `trigger`.
+fn two_phases(trigger: Value, here: Vec<Value>, there: Vec<Value>) -> PassInput {
+    input(
+        trigger,
+        vec![
+            json!({ "id": "v1.0/01", "kind": "phase" }),
+            json!({ "id": "v1.0/02", "kind": "phase" }),
+            json!({ "id": "v1.0/01/01-01", "kind": "plan" }),
+            json!({ "id": "v1.0/02/02-01", "kind": "plan" }),
+            json!({ "id": "v1.0/01/01-01/TR1", "kind": "truth", "judgements": here }),
+            json!({ "id": "v1.0/02/02-01/TR1", "kind": "truth", "judgements": there }),
+        ],
+        vec![
+            json!({ "source": "v1.0/01/01-01", "target": "v1.0/01", "label": "phase" }),
+            json!({ "source": "v1.0/02/02-01", "target": "v1.0/02", "label": "phase" }),
+        ],
+    )
+}
+
+/// `(entity, message)` of each E516.
+pub(super) fn refused(found: Vec<PassDiagnostic>) -> Vec<(String, String)> {
+    found
+        .into_iter()
+        .map(|d| (d.entity.unwrap_or_default(), d.message))
+        .collect()
+}
+
+#[test]
+fn e516_is_silent_outside_a_gate() {
+    let write = json!({ "kind": "write", "command": "ship", "subject": "v1.0/01" });
+    let stale = vec![judged("gsd/E501", "stale", &["cited"])];
+    assert!(e516(&two_phases(write, stale.clone(), stale)).is_empty());
+}
+
+#[test]
+fn e516_a_stale_verdict_anywhere_refuses_a_scoped_gate_naming_what_changed() {
+    let found = e516(&two_phases(
+        gate_of("ship", Some("v1.0/01")),
+        vec![],
+        vec![judged("gsd/E501", "stale", &["cited", "tests"])],
+    ));
+    assert_eq!(
+        refused(found.clone()),
+        [(
+            "v1.0/01".to_string(),
+            "the gsd/E501 verdict on 'v1.0/02/02-01/TR1' is stale: cited, tests changed"
+                .to_string()
+        )]
+    );
+    assert!(
+        found[0]
+            .suggestion
+            .as_deref()
+            .is_some_and(|s| s.contains("/gsd-execute-phase v1.0/02 ")),
+        "the phase that holds it: {found:?}"
+    );
+}
+
+#[test]
+fn e516_a_missing_verdict_counts_only_within_the_scope() {
+    let missing = || vec![judged("gsd/E501", "missing", &[])];
+    let inside = e516(&two_phases(
+        gate_of("ship", Some("v1.0/01")),
+        missing(),
+        vec![],
+    ));
+    assert_eq!(
+        refused(inside.clone()),
+        [(
+            "v1.0/01".to_string(),
+            "the gsd/E501 verdict on 'v1.0/01/01-01/TR1' is missing".to_string()
+        )]
+    );
+    assert!(
+        inside[0]
+            .suggestion
+            .as_deref()
+            .is_some_and(|s| s.contains("its judge: gsd-verifier")),
+        "{inside:?}"
+    );
+    let outside = e516(&two_phases(
+        gate_of("ship", Some("v1.0/01")),
+        vec![],
+        missing(),
+    ));
+    assert!(outside.is_empty(), "{outside:?}");
+    // A milestone's scope holds its phases' entities; a project gate holds every entity.
+    assert_eq!(
+        codes(e516(&two_phases(
+            gate_of("ship", Some("v1.0")),
+            vec![],
+            missing()
+        ))),
+        ["E516"]
+    );
+    let project = e516(&two_phases(gate_of("ship", None), vec![], missing()));
+    assert_eq!(project[0].entity.as_deref(), Some("v1.0/02/02-01/TR1"));
+}
+
+#[test]
+fn e516_an_unrecorded_or_unreadable_verdict_refuses_the_gate() {
+    let found = e516(&two_phases(
+        gate_of("ship", Some("v1.0/01")),
+        vec![judged("gsd/E501", "unrecorded", &[])],
+        vec![judged("gsd/E501", "unreadable", &[])],
+    ));
+    let messages: Vec<String> = refused(found).into_iter().map(|(_, m)| m).collect();
+    assert_eq!(
+        messages,
+        [
+            "the gsd/E501 verdict on 'v1.0/01/01-01/TR1' is not recorded in specforge-harness",
+            "the gsd/E501 verdict on 'v1.0/02/02-01/TR1' cannot be read",
+        ]
+    );
+}
+
+#[test]
+fn e516_reports_each_rule_on_each_entity() {
+    // Two rules not fresh on one entity are two errors; one rule on two entities is two.
+    let two_rules = vec![
+        judged("gsd/E501", "stale", &["truth"]),
+        judged("gsd.security/W302", "stale", &["threat"]),
+    ];
+    assert_eq!(
+        codes(e516(&two_phases(gate_of("ship", None), two_rules, vec![]))),
+        ["E516", "E516"]
+    );
+    let stale = || vec![judged("gsd/E501", "stale", &["truth"])];
+    assert_eq!(
+        codes(e516(&two_phases(gate_of("ship", None), stale(), stale()))),
+        ["E516", "E516"]
+    );
+}
+
+#[test]
+fn e516_a_fresh_verdict_passing_or_failing_is_no_e516() {
+    let failing =
+        json!({ "rule": "gsd/E501", "state": "fresh", "passed": false, "outcome": "failed" });
+    let passing =
+        json!({ "rule": "gsd/E501", "state": "fresh", "passed": true, "outcome": "verified" });
+    assert!(
+        e516(&two_phases(
+            gate_of("ship", None),
+            vec![failing],
+            vec![passing]
+        ))
+        .is_empty()
+    );
+}
+
+#[test]
+fn e516_excuses_within_its_scope_the_verdicts_the_gated_workflow_judges() {
+    // execute_phase runs gsd-verifier: its phase's missing and stale E501 verdicts are its own work.
+    let own = || {
+        vec![
+            json!({ "id": "v1.0/01/01-01/AR1", "kind": "artifact",
+                    "judgements": [judged("gsd/E501", "missing", &[])] }),
+            json!({ "id": "v1.0/01/01-01/KL1", "kind": "key_link",
+                    "judgements": [judged("gsd/E501", "stale", &["to"])] }),
+        ]
+    };
+    let at = |command: &str| {
+        let mut entities = vec![
+            json!({ "id": "v1.0/01", "kind": "phase" }),
+            json!({ "id": "v1.0/01/01-01", "kind": "plan" }),
+        ];
+        entities.extend(own());
+        input(gate_of(command, Some("v1.0/01")), entities, phase_edge())
+    };
+    assert!(e516(&at("execute_phase")).is_empty());
+    // ship judges nothing: both refuse it.
+    assert_eq!(codes(e516(&at("ship"))), ["E516", "E516"]);
+    // Outside its scope the exception does not reach: another phase's stale verdict refuses execute_phase.
+    let elsewhere = e516(&two_phases(
+        gate_of("execute_phase", Some("v1.0/01")),
+        vec![judged("gsd/E501", "missing", &[])],
+        vec![judged("gsd/E501", "stale", &["cited"])],
+    ));
+    assert_eq!(
+        refused(elsewhere),
+        [(
+            "v1.0/01".to_string(),
+            "the gsd/E501 verdict on 'v1.0/02/02-01/TR1' is stale: cited changed".to_string()
+        )]
+    );
+}
+
+#[test]
+fn e516_excuses_a_prompt_judged_rule_at_its_own_prompt() {
+    let spec = |command: &str| {
+        input(
+            gate_of(command, Some("v1.0/02")),
+            vec![
+                json!({ "id": "v1.0/02", "kind": "phase" }),
+                json!({ "id": "v1.0/02/02-SPEC", "kind": "phase_spec",
+                        "judgements": [judged("gsd/E202", "missing", &[])] }),
+            ],
+            vec![],
+        )
+    };
+    assert!(e516(&spec("spec_phase")).is_empty());
+    assert_eq!(codes(e516(&spec("ship"))), ["E516"]);
+}
+
+#[test]
+fn e516_never_excuses_another_extensions_rule() {
+    let found = e516(&input(
+        gate_of("execute_phase", Some("v1.0/01")),
+        vec![
+            json!({ "id": "v1.0/01", "kind": "phase" }),
+            json!({ "id": "v1.0/01/01-01", "kind": "plan" }),
+            json!({ "id": "v1.0/01/01-01/T1", "kind": "threat",
+                    "judgements": [judged("gsd.security/W302", "missing", &[])] }),
+        ],
+        phase_edge(),
+    ));
+    assert_eq!(
+        refused(found.clone()),
+        [(
+            "v1.0/01".to_string(),
+            "the gsd.security/W302 verdict on 'v1.0/01/01-01/T1' is missing".to_string()
+        )]
+    );
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some(
+            "run the step of its extension that judges it (`specforge query v1.0/01/01-01/T1 --inputs \
+             gsd.security/W302` names its judge)"
+        )
+    );
 }

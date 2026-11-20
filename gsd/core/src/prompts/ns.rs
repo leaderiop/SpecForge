@@ -5,7 +5,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Slash, Spec};
+use super::workflow::{Slash, Spec};
 
 /// The route table: one row per target, in the order of upstream's `requires:`.
 fn table(call: &PromptCall<'_>, targets: &[&str]) -> String {
@@ -53,6 +53,7 @@ macro_rules! router {
                 effort: None,
             }),
             inputs: &[specforge_extension_sdk::Input::SlashCommands],
+            rejudges: &[],
             tail: Some($tail),
         };
     };
@@ -180,11 +181,5 @@ router!(
     ]
 );
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &CONTEXT);
-    workflow::declare(c, &IDEATE);
-    workflow::declare(c, &MANAGE);
-    workflow::declare(c, &PROJECT);
-    workflow::declare(c, &REVIEW);
-    workflow::declare(c, &WORKFLOW);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&CONTEXT, &IDEATE, &MANAGE, &PROJECT, &REVIEW, &WORKFLOW];

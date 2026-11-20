@@ -134,6 +134,20 @@
       },
       "additionalProperties": false
     },
+    "facts": {
+      "type": "object",
+      "description": "How a collect keeps the fact stores it supersedes (ADR 0376 D4): each is archived under `.specforge/facts-history/`, so `specforge diff` can read a past revision's facts, and only the newest are kept. A value not used as written is E069.",
+      "properties": {
+        "retain": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 8,
+          "description": "How many superseded stores of each collector are kept, the newest."
+        }
+      },
+      "additionalProperties": false
+    },
     "effects": {
       "type": "object",
       "description": "The project's effects ceiling (ADR 0335 D2.3): it only narrows what extensions declare. An absent port is not narrowed, \"off\" removes it, an object keeps only what it lists. Each extension capability it narrows is W171; a member not used as written is E109.",

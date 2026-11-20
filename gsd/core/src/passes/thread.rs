@@ -63,19 +63,36 @@ const REF: &str = "ref";
 const PLAN: &str = "plan";
 const REQUIREMENTS: &str = "requirements";
 
-/// Whether `reference` names the test fact `fact`: it is the fact's id, or `[file#]name`, where the first `#` ends
-/// the file (a test name may hold one) and the fact's `name` is `name` and, when `file` is not empty, its `file` is
-/// `file`. [`Thread::cited`] reads a reference that names no fact so as a whole name.
-fn names_fact(fact: &PassEntity, reference: &str) -> bool {
-    if fact.id == reference {
+/// Whether `reference` names the test fact `id`, whose fields `field` reads: it is the fact's id, or `[file#]name`,
+/// where the first `#` ends the file (a test name may hold one) and the fact's `name` is `name` and, when `file` is not
+/// empty, its `file` is `file`. [`Thread::cited`] reads a reference that names no fact so as a whole name.
+fn names_test<'f>(id: &str, field: impl Fn(&str) -> Option<&'f str>, reference: &str) -> bool {
+    if id == reference {
         return true;
     }
     let (file, test) = match reference.split_once('#') {
         Some((file, test)) => (Some(file).filter(|f| !f.is_empty()), test),
         None => (None, reference),
     };
-    fact.fields.get(NAME).is_some_and(|n| n == test)
-        && file.is_none_or(|file| fact.fields.get(FILE).is_some_and(|f| f == file))
+    field(NAME) == Some(test) && file.is_none_or(|file| field(FILE) == Some(file))
+}
+
+/// [`names_test`] for a test fact of a pass input.
+fn names_fact(fact: &PassEntity, reference: &str) -> bool {
+    names_test(
+        &fact.id,
+        |name| fact.fields.get(name).map(String::as_str),
+        reference,
+    )
+}
+
+/// Whether `cited`, a verdict's cited test, names a test fact of a command's `graph` as [`Thread::cited`] reads it:
+/// by the fact's id or `[file#]name`, else whole as a test's name. A cite that names none digests nothing a test run
+/// can change.
+pub(crate) fn names_a_test_fact(graph: &CommandGraph, cited: &str) -> bool {
+    graph.nodes_of_kind(TEST).any(|fact| {
+        names_test(&fact.id, |name| fact.text(name), cited) || fact.text(NAME) == Some(cited)
+    })
 }
 
 /// The status a test fact's last run recorded; `None` for an entity that is no test fact, or holds no result.

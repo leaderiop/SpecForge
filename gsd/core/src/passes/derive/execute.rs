@@ -15,7 +15,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::halt::{self, Node};
 use crate::passes::commits::Commit;
-use crate::passes::plans::{of_kind, rows, text};
+use crate::passes::plans::{of_kind, rows, tasks_by_plan, text};
 use crate::passes::thread::{Evidence, Thread};
 use crate::scope::scope_of;
 use crate::time::seconds;
@@ -40,7 +40,7 @@ pub fn summaries(input: &PassInput) -> BTreeMap<&str, &PassEntity> {
 }
 
 /// A summary's `status`, case-folded: GSD reads it that way (`plan-dependency-graph.cts:47-60`).
-fn status_of(summary: &PassEntity) -> String {
+pub(super) fn status_of(summary: &PassEntity) -> String {
     text(summary, "status").unwrap_or_default().to_lowercase()
 }
 
@@ -203,6 +203,7 @@ pub fn values(
             if done { "done" } else { "pending" },
         ));
     }
+    let tasks = tasks_by_plan(input);
     for summary in of_kind(input, "summary") {
         let plan = scope_of(&summary.id);
         let of_plan: Vec<&Commit> = commits
@@ -212,13 +213,10 @@ pub fn values(
         if let Some(duration) = duration(summary) {
             out.push(value(&summary.id, "duration", duration));
         }
-        let tasks = of_kind(input, "task")
-            .filter(|t| scope_of(&t.id) == plan)
-            .count();
         out.push(value(
             &summary.id,
             "actuals",
-            json!({ "tasks": tasks, "commits": of_plan.len() }),
+            json!({ "tasks": tasks.get(plan).map_or(0, Vec::len), "commits": of_plan.len() }),
         ));
         let (created, modified) = key_files(&of_plan);
         if !created.is_empty() {

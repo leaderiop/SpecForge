@@ -5,12 +5,13 @@ use super::model::model;
 
 const PHASE: &str = "v1.0/01";
 
-/// The model project with phase 01 complete: its verification passed (every truth, artifact and link verified).
+/// The model project with phase 01 complete: both its plans executed and its verification passed (every truth,
+/// artifact and link verified; a must-have owes its verdict once its plan is complete).
 fn complete() -> Project {
     let p = model();
     p.write(
         "spec/verify.spec",
-        "verification 01-VERIFICATION \"Phase 01 verification\" {\n  phase v1.0/01\n}\n",
+        "verification 01-VERIFICATION \"Phase 01 verification\" {\n  phase v1.0/01\n}\n\nsummary 01-02-SUMMARY \"Completion: summary\" {\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Completion\"\n  subsystem              \"tasks\"\n  requirements_completed [TASK-02]\n}\n",
     );
     p.verify_phase(PHASE);
     assert_eq!(p.fields_of(PHASE)["status"], "complete");

@@ -35,10 +35,10 @@ fn no_own_span_names_a_gsd_file() {
         }));
     }
     for agent in gsd_core::agents::roster::AGENTS {
-        let recording = gsd_core::agents::recording(agent.id);
+        let own = gsd_core::agents::after_body(agent.id);
         hits.extend(planning_names::hits(
             &format!("agent:{}", agent.id),
-            &recording,
+            &own,
             |_| true,
         ));
     }

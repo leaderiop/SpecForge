@@ -4718,6 +4718,7 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-fs",
+ "specforge-git",
  "specforge-graph",
  "specforge-hosts",
  "specforge-installed",

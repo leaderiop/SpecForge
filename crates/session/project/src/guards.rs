@@ -6,13 +6,15 @@
 use crate::Environment;
 use crate::baseline::Baseline;
 use crate::coverage::{ReportRead, read_report};
+use crate::delta::Delta;
 use crate::passes::{PassContext, run_extension_passes};
 use specforge_common::Diagnostic;
 use specforge_registry::{Disk, EntitySnapshot};
 use specforge_wasm::WasmRuntime;
 
 /// Run `env`'s guard passes over the entity snapshot `entities` of the edited project, `previous` being the project
-/// before the write, restricted to the kinds each pass names. A pass that fails is E028; the others still run.
+/// before the write, restricted to the kinds each pass names, and `delta`, what the write changed, restricted to the
+/// kinds each names in its `delta` input (ADR 0376 D6). A pass that fails is E028; the others still run.
 pub(crate) fn run(
     env: &Environment,
     entities: &EntitySnapshot,
@@ -20,6 +22,7 @@ pub(crate) fn run(
     previous: &Baseline,
     judgements: &crate::judged::Judgements,
     disk: &dyn Disk,
+    delta: Option<&Delta>,
 ) -> Vec<Diagnostic> {
     if env.registries().guard_passes().next().is_none() {
         return Vec::new();
@@ -38,6 +41,7 @@ pub(crate) fn run(
             Some(ReportRead::Read(results)) => Some(results),
             _ => None,
         },
+        delta,
         ..PassContext::of(entities)
     };
     run_extension_passes(

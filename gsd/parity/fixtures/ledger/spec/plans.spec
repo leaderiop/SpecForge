@@ -35,10 +35,10 @@ truth TR1 "An added entry keeps its cents and its memo" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-17T06:00:38Z"
+    at    "2026-11-19T02:16:57Z"
+    cited ["src/lib.rs", "tests/entries.rs"]
     inputs {
-      cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
-      files "sha256:63d673c5b9c5ee157fd066b43f3744e2226855c8b52cdeaa0b245c1608bf249a"
+      cited "sha256:8d806444455bbedadb383ff90ddb7cfd47df1d254ada5fe8785579e4ba25d527"
       phase "sha256:84aaf6320ed2bbd8075c56f2f02c954c7956acff131015d4eee3bcfe6c61a2a5"
       plan  "sha256:fc63a9fa2a8e09fb34f9f285adebef3eb37a13c03085efc69b57269e0154be43"
       tests "none"
@@ -53,10 +53,10 @@ truth TR2 "A memo with a tab or a line break is refused" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-17T06:00:38Z"
+    at    "2026-11-19T02:16:58Z"
+    cited ["src/lib.rs", "tests/entries.rs"]
     inputs {
-      cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
-      files "sha256:63d673c5b9c5ee157fd066b43f3744e2226855c8b52cdeaa0b245c1608bf249a"
+      cited "sha256:8d806444455bbedadb383ff90ddb7cfd47df1d254ada5fe8785579e4ba25d527"
       phase "sha256:84aaf6320ed2bbd8075c56f2f02c954c7956acff131015d4eee3bcfe6c61a2a5"
       plan  "sha256:fc63a9fa2a8e09fb34f9f285adebef3eb37a13c03085efc69b57269e0154be43"
       tests "none"
@@ -73,7 +73,7 @@ artifact AR1 "Entry and add" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-17T06:00:37Z"
+    at    "2026-11-19T02:16:56Z"
     inputs {
       artifact "sha256:8ebd47d01e81cc35b478dbacf6145ce45ed675719044f750c5a37c93c61e4e53"
       cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
@@ -91,7 +91,7 @@ key_link KL1 "The tests use the entries" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-17T06:00:37Z"
+    at    "2026-11-19T02:16:56Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       from  "sha256:85bd846176bf7d526981cd2346f7cedcb481ca2d439329d82c3a3512e78e8997"
@@ -140,10 +140,10 @@ truth TR1 "The total is the sum of every entry" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-17T06:00:39Z"
+    at    "2026-11-19T02:17:00Z"
+    cited ["src/lib.rs", "tests/totals.rs"]
     inputs {
-      cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
-      files "sha256:1459840987fb0a16372fced22c100dc52fc96150a5d085f426b6788f3d407748"
+      cited "sha256:3803df3719927c59068f89f563a255937c82a6c0de55e21a42891fde04c05680"
       phase "sha256:84aaf6320ed2bbd8075c56f2f02c954c7956acff131015d4eee3bcfe6c61a2a5"
       plan  "sha256:241622c4d942d74ac5cc08d6342c247077ac968e0b2c156ae47f973f54c4911e"
       tests "none"
@@ -158,10 +158,10 @@ truth TR2 "A total beyond the range of an i32 is exact" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-17T06:00:39Z"
+    at    "2026-11-19T02:17:01Z"
+    cited ["src/lib.rs", "tests/totals.rs"]
     inputs {
-      cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
-      files "sha256:1459840987fb0a16372fced22c100dc52fc96150a5d085f426b6788f3d407748"
+      cited "sha256:3803df3719927c59068f89f563a255937c82a6c0de55e21a42891fde04c05680"
       phase "sha256:84aaf6320ed2bbd8075c56f2f02c954c7956acff131015d4eee3bcfe6c61a2a5"
       plan  "sha256:241622c4d942d74ac5cc08d6342c247077ac968e0b2c156ae47f973f54c4911e"
       tests "none"
@@ -178,7 +178,7 @@ artifact AR1 "ledger add and ledger total" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-17T06:00:38Z"
+    at    "2026-11-19T02:16:59Z"
     inputs {
       artifact "sha256:7de8537a704d13adb5a6fb269e0b6aba85ce72bb143aa74d9a153fcd7c82c141"
       cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
@@ -196,7 +196,7 @@ key_link KL1 "The command line totals through the library" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-17T06:00:39Z"
+    at    "2026-11-19T02:16:59Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       from  "sha256:46c00d71d061cb6854c44001f4941db663cac3b28065dd4cffd10acd38e2bac2"

@@ -5,7 +5,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 const STEPS: &[Step] = &[
     Step {
@@ -87,9 +87,9 @@ static AUTONOMOUS: Spec = Spec {
         effort: Some("max"),
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(unattended),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &AUTONOMOUS);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&AUTONOMOUS];

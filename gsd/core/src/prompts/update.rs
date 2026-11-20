@@ -3,10 +3,8 @@
 //!
 //! Also ports gsd-core bin/lib modules: update-context.cjs.
 
-use specforge_extension_sdk::prelude::*;
-
 use super::args::Arg;
-use super::workflow::{self, Slash, Spec};
+use super::workflow::{Slash, Spec};
 
 /// Rendered in place of a command body (`render::render`).
 pub const TEXT: &str = "<arguments>$ARGUMENTS</arguments>
@@ -55,9 +53,9 @@ static UPDATE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &UPDATE);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&UPDATE];

@@ -5,11 +5,13 @@
 use crate::authoring::init::gitattributes_with;
 use crate::change::locked::commit;
 use crate::read::navigate::{SourceText, TextEdit};
-use crate::{Caller, OpError, Writes};
+use crate::{Caller, Held, OpError, Writes};
 use specforge_common::{SourceRoot, Sym};
 use specforge_project::CompiledProject;
+use specforge_project::facts::retain::Retirement;
 use specforge_project::harness::{LEDGER_FILE, Ledger, LedgerChange};
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Per file of the project: the text it was planned on (`None`: the file is new) and the text it will hold. A
@@ -37,9 +39,9 @@ pub struct PlannedChange {
     /// Files outside the sources the change writes whatever they hold then, by path from the root: a collect's fact
     /// stores (ADR 0327).
     root_files: BTreeMap<String, Vec<u8>>,
-    /// (collector, key): the collector's stores filed under another key, which the change removes, listed under the
-    /// lock (ADR 0327 D4).
-    superseded: Vec<(String, String)>,
+    /// (collector, key, retain): the collector's stores filed under another key, which the change archives, and its
+    /// archives beyond the newest `retain`, which it prunes, listed under the lock (ADR 0327 D4, ADR 0376 D4).
+    superseded: Vec<(String, String, u8)>,
     /// Files that are no source of the project, by path from the root: the text each held when planned (read from the
     /// disk) and the text it will hold. A rename's rewrite of the names a collected fact holds (ADR 0346 D7); never
     /// compiled as a source.
@@ -139,14 +141,20 @@ impl PlannedChange {
 
     /// This change also storing `stores` (collector, its store's bytes) under `key` (ADR 0327 D2, D4): each store is
     /// read under the write lock and written over whatever it holds then, and each collector's stores under another
-    /// key, listed under the lock through the caller's containment, are removed.
-    pub(crate) fn with_fact_stores(mut self, key: &str, stores: Vec<(String, Vec<u8>)>) -> Self {
+    /// key, listed under the lock through the caller's containment, are archived, its newest `retain` archives kept
+    /// (ADR 0376 D4).
+    pub(crate) fn with_fact_stores(
+        mut self,
+        key: &str,
+        stores: Vec<(String, Vec<u8>)>,
+        retain: u8,
+    ) -> Self {
         for (collector, bytes) in stores {
             self.root_files.insert(
                 specforge_project::facts::Store::path(&collector, key),
                 bytes,
             );
-            self.superseded.push((collector, key.to_string()));
+            self.superseded.push((collector, key.to_string(), retain));
         }
         self.locked = true;
         self
@@ -424,7 +432,9 @@ impl PlannedChange {
         // A project with no harness field and no writing extension has nothing to serialize: it gets no
         // `.specforge/` from a write.
         let locked = self.locked || self.ledger.is_some();
-        commit(
+        // The directories an archived or pruned store leaves: removed when empty once the change is written.
+        let mut left = Vec::new();
+        let writes = commit(
             &self.sources,
             &self.doing,
             caller,
@@ -448,10 +458,22 @@ impl PlannedChange {
                         stager.write(key, now, after.clone())?;
                     }
                 }
-                for (collector, key) in &self.superseded {
-                    for store in stager.superseded_stores(collector, key) {
-                        if let Some(now) = stager.read_if_there(&store)? {
-                            stager.remove(&store, now)?;
+                for (collector, key, retain) in &self.superseded {
+                    let Retirement { moves, pruned } =
+                        stager.retired_stores(collector, key, *retain)?;
+                    // Archived, then removed, both journaled: a failed change puts each back where it was.
+                    for (from, to) in moves {
+                        if let Some(bytes) = stager.read_if_there(&from)? {
+                            let there = stager.read_if_there(&to)?;
+                            stager.write(&to, there, bytes.clone())?;
+                            stager.remove(&from, bytes)?;
+                            left.push(from);
+                        }
+                    }
+                    for store in pruned {
+                        if let Some(bytes) = stager.read_if_there(&store)? {
+                            stager.remove(&store, bytes)?;
+                            left.push(store);
                         }
                     }
                 }
@@ -477,7 +499,22 @@ impl PlannedChange {
                 }
                 Ok(())
             },
-        )
+        )?;
+        // Only once the change is written: a put-back writes each store again, into the directory it left.
+        let mut dirs: Vec<&str> = left
+            .iter()
+            .filter_map(|store| store.rsplit_once('/'))
+            .map(|(dir, _)| dir)
+            .collect();
+        dirs.sort_by_key(|dir| std::cmp::Reverse(dir.matches('/').count()));
+        dirs.dedup();
+        let real: Vec<PathBuf> = dirs
+            .into_iter()
+            .filter_map(|dir| caller.containment().resolve(&self.sources.path(dir)).ok())
+            .map(|held| held.real)
+            .collect();
+        Held::remove_empty(&real);
+        Ok(writes)
     }
 }
 

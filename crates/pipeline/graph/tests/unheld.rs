@@ -206,7 +206,7 @@ fn fact_forms() -> FieldForms {
     )
 }
 
-const STORE: &str = ".specforge/facts/k/node.json";
+const STORE: &str = ".specforge/facts/worktree/node.json";
 
 /// A served test fact writing `fields`, as its store gives it.
 fn served(fields: &str) -> SpecFile {
@@ -328,8 +328,8 @@ fn a_fact_id_two_stores_hold_is_e117_not_e002() {
         file
     };
     let (node, unit) = (
-        ".specforge/facts/k/node.json",
-        ".specforge/facts/k/unit.json",
+        ".specforge/facts/worktree/node.json",
+        ".specforge/facts/worktree/unit.json",
     );
 
     let (graph, diagnostics) = build_facts(&[at(node), at(unit)]);

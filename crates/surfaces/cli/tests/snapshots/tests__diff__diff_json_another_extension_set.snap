@@ -1,0 +1,32 @@
+---
+source: crates/surfaces/cli/tests/diff.rs
+expression: "redacted(&pretty, &[&sha])"
+---
+{
+  "edges": [],
+  "from": {
+    "key": "<sha>",
+    "name": "HEAD"
+  },
+  "nodes": [],
+  "notes": [
+    {
+      "about": "extensions_differ",
+      "message": "the extensions at HEAD differ from the current ones (+@specforge/testing); both sides were compiled with the current extensions",
+      "side": "from",
+      "subject": "@specforge/testing"
+    }
+  ],
+  "summary": {
+    "by_kind": [],
+    "edges_added": 0,
+    "edges_removed": 0,
+    "nodes_added": 0,
+    "nodes_modified": 0,
+    "nodes_removed": 0
+  },
+  "to": {
+    "key": "<sha>-dirty",
+    "name": "working tree"
+  }
+}

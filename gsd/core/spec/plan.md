@@ -1,6 +1,6 @@
 # Plans and tasks
 
-**Status: built (r37): the nine kinds below, with their non-judged rules in [rules.md](rules.md); the plan checker's four judged rules (gsd/W311, W313, W315, W316) are built (r40), the review ledger waits for a later round; `gap_closure` is built (r39). `commits` is read back from `commit` (r38); the derive pass computes `status` there, `draft` and `checked` from the plan-check verdicts (r40).**
+**Status: built: the nine kinds below, with their non-judged rules in [rules.md](rules.md); the plan checker's four judged rules (gsd/W311, W313, W315, W316) are built and owed while the plan is open, and a judgment-tier prohibition owes the verifier gsd/W525 once the plan is complete; the review ledger waits for a later round; `gap_closure` is built. `commits` is read back from `commit`; the derive pass computes `status` there, `draft` and `checked` from the plan-check verdicts. The plan flow is SpecForge's own, beyond gsd-core (ADR 0378): the computed `strict_wave` and gsd/W526 keep plans that share a path apart, `plan_phase` threads a phase's plans through `trace --plan` before the checker, and `estimate_error` measures a completed plan's estimate.**
 
 ```
  phase ─1──*─ plan ─1──*─ task
@@ -37,20 +37,36 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
 | gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (a reference union, ADR 0285 D5) |
 | agent_hint | str | | `agent_hint:` |
-| estimate | {tokens int} | | `estimate:` |
+| estimate | {tokens int, tasks int} | | `estimate:`: the tokens and the tasks the planner expects the plan to take |
 | objective | str | R | `<objective>` |
 | purpose, output | str | | `Purpose:` / `Output:` |
 | context_refs | paths<present> | | `<context>` @-refs: paths that exist now, checked on every value (E016) |
 | verification | strs | | `<verification>` |
 | success_criteria | strs | | `<success_criteria>` |
 | slug | str | | a quick plan's slug: the one `quick-init` answered, written once by the quick tail (`specforge new plan … --slug`); `/gsd-quick status` and `resume` find the plan by it. A plan is no place to compute it: a pass does not see its title |
-| wave | int | C | `wave:`: longest `depends_on` path + base (0 if the phase has a `wave0` plan, else 1); file overlap never moves it (see gsd/W305). Exactly GSD's executed wave (phase-plan-index); GSD's authored `wave:` is only a hint. |
+| wave | int | C | `wave:`: longest `depends_on` path + base (0 if the phase has a `wave0` plan, else 1); file overlap never moves it (see gsd/W305); `strict_wave` does. Exactly GSD's executed wave (phase-plan-index); GSD's authored `wave:` is only a hint. |
+| strict_wave | int | C | the wave the plan runs in once plans of its phase that share a path are kept apart (ADR 0378 D1): the longest-path level over the phase's `depends_on` edges plus an implied edge from the earlier plan (by `wave`, then id as a person reads it: `01-2` before `01-10`) to the later one for every pair sharing a path in `files_modified`, `files_deleted` or a task's `files`, with the same base as `wave`. It equals `wave` unless a shared path pushes the plan (gsd/W526); a plan of a later wave is pushed only behind an earlier plan that is itself pushed. Absent where `wave` is (a cycle, a quick plan) |
 | autonomous | bool | C | `autonomous:`: false exactly when the plan has a checkpoint |
 | status | enum{draft, checked, ready, executing, complete, halted, blocked} | C | checked: all four plan-check verdicts (gsd/W311, W313, W315, W316) are fresh and passing; draft: any of them is missing, stale, unrecorded or failing (with `workflow.plan_check` off the four rules are gated, a plan has no judgement and is `ready`, never `draft` or `checked`); complete / halted: from its summary (case-folded); blocked: a `depends_on` chain inside its phase reaches a halted plan, or a cycle contains it (GSD fails closed; Kahn's algorithm, `plan-dependency-graph.cts`); executing: a recorded commit names it and it has no summary. A summary and blocking win over a commit, and execution wins over the check; before that the plan-check verdicts decide between draft, checked and (check off) ready. The plan is complete (`complete_when`, ADR 0329 D4) while `complete`, else pending: a red proof of its truths is TDD, not a `@code/core` finding |
 | quick | bool | C | no phase: a quick task |
 | files_touched | strs | C | the sorted, distinct files of its recorded commits; absent without one, as a summary's `files_created` |
 | estimate_slices | int | C | `estimate.tokens` over `workflow.smart_zone_tokens`, rounded up (at least 1): over 1 is a re-slice the plan checker recommends, never a block; absent without an estimate or a budget |
+| estimate_error | {tasks num} | C | (actual - estimate) / estimate for a plan whose summary (the first by id) is complete, case-folded (ADR 0378 D5), rounded half away from zero to 4 decimal places: `tasks` against the plan's task count (as the summary's `actuals.tasks` counts it), only when the estimate writes `tasks` above 0: absent, never 0. `tokens` is not measured: gsd-core pairs it with the summary's `actuals.tokens`, which is not held (`actuals` is computed, and the harness ledger vouches for no member of a block). `progress-report` prints it under the plan's phase |
 | context_pack | {route str, digest str, max_tokens int} | P O | the `gsd/executor` pack `start_plan` recorded, on every call (ADR 0356); it moves no digest, so no plan check goes stale, and while the plan is open a pack that moved since is gsd/W524 |
+
+### Where a plan runs
+
+`wave` is gsd-core's executed wave and nothing about overlap moves it. `strict_wave` is where the plan runs once the
+plans of its phase that share a path are kept apart: it adds an edge from the earlier plan (by `wave`, then id) to the
+later one for every path the two share in `files_modified`, `files_deleted` or a task's `files`, so two tasks that touch
+one path never run in one wave. Ids compare as a person reads them, `01-2` before `01-10`: the strict wave, gsd/W526,
+gsd/W305, the critical path, `thread-plan` and `progress-report` share that one order. gsd/W526 says where a pushed plan runs instead of its wave: directly, naming the shared
+paths, the earlier plan and the tasks that name them, or through a plan it depends on, naming that plan.
+`coupling_justified` exempts no shared path. `plan_phase` threads the phase's plans through `specforge gsd thread-plan`
+and `specforge trace --plan` before the plan checker; the order of the tasks inside a plan is not checked (a task has
+no `depends_on`). Once the plan's summary is complete, `estimate_error` measures the plan's `estimate.tasks`, when it is
+above 0, against its task count; without it the field is absent, never 0. `estimate.tokens` weighs the plan on the
+critical path and sizes its slices, but is not measured: the summary holds no `actuals.tokens` to measure it against.
 
 ## task
 
@@ -104,7 +120,7 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 | truth | `plan R I`, `text str R` (user-observable), `verification enum{explicit, backstop}` (`explicit`: a named passing test; `backstop`: judged, and a verifier abstains on it with no explicit evidence. The planner writes `backstop` for a lifted backstop edge, as upstream's `{ statement, verification: backstop }`; a person may change it). Name `TR1`. |
 | artifact | `plan R I`, `path path<planned> R` (a path the plan creates: checked once the plan is complete, E016), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
 | key_link | `plan R I`, `from path<planned> R`, `to path<planned> R` (paths the plan creates: checked once the plan is complete, E016), `via str R`, `pattern str`. Name `KL1`. |
-| prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |
+| prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319; one that names none owes the verifier a gsd/W525 verdict once the plan is complete, [verify.md](verify.md#what-changes-from-gsd)). Name `PR1`. |
 
 ## disposition
 
@@ -115,7 +131,7 @@ GSD: the plan's `## Review Dispositions Ledger`, written by `/gsd-plan-review-co
 
 GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R I`, `service str R`, `why str R`,
 `env_vars` (a list of `{name str R, source str}`), `dashboard` (a list of `{task str, location str, details str}`, GSD's `dashboard_config`), `local_dev strs`;
-`done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`). Both it and a checkpoint's `answer` are inputs of the plan check, so recording one stales the plan's W311-W316 verdicts; once the plan has a summary with `completed` that is history and the gates W318 and E516 skip it (a summary merely created does not count).
+`done {at ts, by str}` is `H`, written when the human confirms (`confirm_setup`). Both it and a checkpoint's `answer` are inputs of the plan check, so recording one stales the plan's W311-W316 verdicts while the plan is open; once its `status` is `complete` the plan check is no longer owed, so it is history and the gates W318 and E516 do not count it (ADR 0377).
 
 ## Reviews and revision conflicts
 
@@ -186,7 +202,9 @@ declarative rules or passes; the rest are **judged** (K7): the checker agent rec
 the verdict goes stale when any of the plan-check inputs changes ([rules.md](rules.md#judged-rules-inputs)): the plan
 and its tasks and must-haves, its phase, its requirements, the phase's and the project's decisions, the context,
 the research, its sibling plans, the agent instruction files, and what the checker cited. A plan is `checked` only
-with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose plans are not. The mapping is in
+with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose plans are not. A plan check is owed while
+the plan is open: once its `status` is `complete` the check is history, and neither a missing nor a stale one is
+reported (ADR 0377). The mapping is in
 [rules.md](rules.md#plan).
 
 ```spec

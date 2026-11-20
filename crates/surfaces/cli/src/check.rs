@@ -105,14 +105,21 @@ fn run_in(
             "note: --lint pedantic is the default: info diagnostics are always reported"
         ));
     }
-    let compiled = match project.compile_for(runtime, ports, mode) {
-        Ok(compiled) => compiled,
-        Err(error) => return Refusal::of(format).report(terminal, &error),
+    // Since a revision, it is resolved before any pass runs, so the passes run once and the op's judgement since
+    // it is this compile.
+    let compiled = match &options.since {
+        Some(revision) => project.compile_since(runtime, ports, mode, revision),
+        None => project.compile_for(runtime, ports, mode),
     };
-    let outcome = match check(&ProjectView::of(&compiled), options) {
-        Ok(outcome) => outcome,
+    let outcome = compiled.and_then(|compiled| {
+        check(&ProjectView::of(&compiled), options)
+            .map(|outcome| (compiled, outcome))
+            .map_err(|refusal| refusal.error)
+    });
+    let (compiled, outcome) = match outcome {
+        Ok(checked) => checked,
         // A revision git does not name is a usage error, as an unknown flag value is.
-        Err(error) if error.error.code == specforge_ops::UNKNOWN_REVISION => {
+        Err(error) if error.code == specforge_ops::UNKNOWN_REVISION => {
             return Refusal::measuring(format).report(terminal, &error);
         }
         Err(error) => return Refusal::of(format).report(terminal, &error),

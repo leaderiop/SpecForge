@@ -30,7 +30,7 @@ use specforge_common::Exclude;
 use specforge_registry::MemoryDisk;
 use std::collections::HashMap;
 
-const KEY: &str = ".specforge/facts/abc/node.json";
+const KEY: &str = ".specforge/facts/worktree/node.json";
 
 fn root() -> SourceRoot {
     SourceRoot::new("/p".into(), "/p/spec".into(), Exclude::default())
@@ -43,13 +43,13 @@ fn two() -> Vec<u8> {
             .field("file", "a.test.js"),
         Fact::new("test", "js:a.test.js#subtracts"),
     ];
-    Store::new("node", "@t/node", "abc", facts, BTreeMap::new()).bytes()
+    Store::new("node", "@t/node", "worktree", facts, BTreeMap::new()).bytes()
 }
 
-/// The ledger recording `bytes` as node's store under `abc`.
+/// The ledger recording `bytes` as node's store under `worktree`.
 fn recording(bytes: &[u8]) -> Vec<u8> {
     let mut ledger = Ledger::default();
-    ledger.insert(Line::facts("node", "abc", bytes));
+    ledger.insert(Line::facts("node", "worktree", bytes));
     ledger.canonical().into_bytes()
 }
 
@@ -97,7 +97,7 @@ fn an_unrecorded_fact_store_is_w191_and_not_served() {
     assert_eq!(w191.code, "W191");
     assert_eq!(
         w191.message,
-        "fact store '.specforge/facts/abc/node.json' is not the one specforge-harness records for collector \
+        "fact store '.specforge/facts/worktree/node.json' is not the one specforge-harness records for collector \
          'node' (collected on another commit or branch, or changed since); its facts are not served"
     );
     assert_eq!(w191.suggestion.as_deref(), Some("run `specforge collect`"));
@@ -105,7 +105,7 @@ fn an_unrecorded_fact_store_is_w191_and_not_served() {
 
 #[test]
 fn a_fact_store_whose_digest_differs_is_w191() {
-    let other = Store::new("node", "@t/node", "abc", Vec::new(), BTreeMap::new()).bytes();
+    let other = Store::new("node", "@t/node", "worktree", Vec::new(), BTreeMap::new()).bytes();
 
     let w191 = diagnostic(read(
         &disk(&two(), Some(recording(&other))),
@@ -121,8 +121,7 @@ fn a_fact_store_whose_digest_differs_is_w191() {
 fn an_unreadable_fact_store_is_w192() {
     // A recorded store is read as it is, and parsed once, when it is served: no form of it is dropped silently.
     let not_json = served(KEY, "{ not json", &FieldForms::default()).unwrap_err();
-    let newer =
-        r#"{"store": 3, "collector": "node", "extension": "@t/node", "key": "abc", "facts": []}"#;
+    let newer = r#"{"store": 3, "collector": "node", "extension": "@t/node", "key": "worktree", "facts": []}"#;
     let newer = served(KEY, newer, &FieldForms::default()).unwrap_err();
     let Read::Text(_) = read(
         &disk(b"{ not json", Some(recording(b"{ not json"))),
@@ -137,7 +136,7 @@ fn an_unreadable_fact_store_is_w192() {
         assert_eq!(w192.code, "W192");
         assert!(
             w192.message
-                .starts_with("fact store '.specforge/facts/abc/node.json' cannot be read: "),
+                .starts_with("fact store '.specforge/facts/worktree/node.json' cannot be read: "),
             "{}",
             w192.message
         );
@@ -155,8 +154,7 @@ fn an_unreadable_fact_store_is_w192() {
 
 #[test]
 fn a_version_1_store_is_w192() {
-    let older =
-        r#"{"store": 1, "collector": "node", "extension": "@t/node", "key": "abc", "facts": []}"#;
+    let older = r#"{"store": 1, "collector": "node", "extension": "@t/node", "key": "worktree", "facts": []}"#;
 
     let w192 = served(KEY, older, &FieldForms::default()).unwrap_err();
 
@@ -193,7 +191,14 @@ fn a_served_fact_is_located_where_it_is_written_and_its_names_where_they_are() {
     let bare = Fact::new("test", "js:a#c").field("names", serde_json::json!(["TR2"]));
     let sources = ["src/a.rs", "src/b.rs"].map(|f| (f.to_string(), "sha256:aa".to_string()));
     let text = String::from_utf8(
-        Store::new("node", "@t/node", "abc", vec![fact, bare], sources.into()).bytes(),
+        Store::new(
+            "node",
+            "@t/node",
+            "worktree",
+            vec![fact, bare],
+            sources.into(),
+        )
+        .bytes(),
     )
     .unwrap();
 
@@ -241,7 +246,7 @@ fn a_store_records_the_digest_of_each_located_file() {
     let fact = Fact::new("test", "js:a#b").at(place("src/a.rs", 12, 1, 20));
     let sources = BTreeMap::from([("src/a.rs".to_string(), "sha256:aa".to_string())]);
     let text = String::from_utf8(
-        Store::new("node", "@t/node", "abc", vec![fact], sources.clone()).bytes(),
+        Store::new("node", "@t/node", "worktree", vec![fact], sources.clone()).bytes(),
     )
     .unwrap();
 
@@ -262,8 +267,9 @@ fn a_store_placing_a_fact_in_a_file_it_records_no_digest_of_is_w192() {
         .at(place("src/a.rs", 12, 1, 20))
         .name("names", "T1", place("src/b.rs", 1, 4, 6));
     let sources = BTreeMap::from([("src/a.rs".to_string(), "sha256:aa".to_string())]);
-    let text = String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact], sources).bytes())
-        .unwrap();
+    let text =
+        String::from_utf8(Store::new("node", "@t/node", "worktree", vec![fact], sources).bytes())
+            .unwrap();
 
     let w192 = store(KEY, &text).unwrap_err();
 
@@ -297,7 +303,7 @@ fn a_store_served_through_renames_shifts_its_places_by_what_they_wrote() {
         ),
     )]);
     let bytes =
-        String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact], sources).bytes())
+        String::from_utf8(Store::new("node", "@t/node", "worktree", vec![fact], sources).bytes())
             .unwrap();
     let renames: Renames = [(
         "covers".to_string(),
@@ -360,7 +366,7 @@ fn served_through(
         ),
     )]);
     let bytes =
-        String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact], sources).bytes())
+        String::from_utf8(Store::new("node", "@t/node", "worktree", vec![fact], sources).bytes())
             .unwrap();
     let mut by_field: Renames = Renames::new();
     for (held, now) in renames {
@@ -420,12 +426,12 @@ fn a_store_whose_ledger_renames_a_name_two_ways_serves_none_of_its_renames() {
             specforge_package::Sha256::of(collected.as_bytes())
         ),
     )]);
-    let bytes = Store::new("node", "@t/node", "abc", vec![fact], sources).bytes();
+    let bytes = Store::new("node", "@t/node", "worktree", vec![fact], sources).bytes();
     let mut ledger = Ledger::default();
-    ledger.insert(Line::facts("node", "abc", &bytes));
+    ledger.insert(Line::facts("node", "worktree", &bytes));
     // Two merged branches: each renamed `T1`; one also renamed `T5`.
     for (held, now) in [("T1", "Two"), ("T1", "Three"), ("T5", "T6")] {
-        ledger.insert(Line::stale("node", "abc", &bytes, "covers", held, now));
+        ledger.insert(Line::stale("node", "worktree", &bytes, "covers", held, now));
     }
     let disk = disk(&bytes, Some(ledger.canonical().into_bytes()));
     let Read::Text(text) = read(&disk, &root(), KEY, None) else {
@@ -573,7 +579,7 @@ fn one_fact_through(
         ),
     )]);
     let bytes =
-        String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact], sources).bytes())
+        String::from_utf8(Store::new("node", "@t/node", "worktree", vec![fact], sources).bytes())
             .unwrap();
     let mut by_field = Renames::new();
     for (field, held, now) in renames {

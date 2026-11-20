@@ -17,7 +17,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | CLI modules | 288 | 170 | 21 | 97 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 93 | 51 | 14 | 13 | `core/tests/parity_rules/cutover.rs` |
-| Codes | 69 | 69 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
+| Codes | 71 | 71 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
 `core/spec/*.md`; they have no inventory family, so no count. They are exercised by every row above.
@@ -48,7 +48,21 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   argument shape); 51 belong to an extension, 14 are the gate engine, and 13 are core codes whose verdict is not reproduced: 10
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
-- Codes: 69 of the 69 codes fire and stay silent in a named test.
+- Codes: 71 of the 71 codes fire and stay silent in a named test.
+- Verification: the verifier's `gsd/E501` verdict on a truth reads what it cites, files and tests, and one that cites
+  nothing is refused; an artifact's reads its `path` and a key link's its `from` and `to` (ADR 0377). A must-have owes
+  its verdict once its plan is complete, a plan check while its plan is open, and a judgment-tier prohibition owes
+  `gsd/W525`, read over its plan's files and what it cites, and refused when it cites nothing. `re_verify` lists the
+  verdicts of a phase that are not fresh, and `execute_phase` runs it before the verifier, which judges only those,
+  where upstream re-verifies the whole phase. The taskboard twin shows it
+  (`core/tests/cli/fresh_taskboard.rs`): an edit re-judges exactly the verdicts that read the edited file, and every
+  other verdict stays byte-identical.
+- Plan flow, SpecForge's own, beyond upstream (ADR 0378): a plan's computed `strict_wave` keeps the plans of a phase
+  that share a path apart, where upstream runs such a wave sequentially (`gsd/W305`), and `gsd/W526` says where a pushed
+  plan runs; `plan_phase` threads a phase's plans through `thread_plan` and `specforge trace --plan` before the plan
+  checker; a phase computes its critical path and its weight, and a completed plan its estimate error, which
+  `progress_report` prints. The taskboard and ledger twins show it (`core/tests/cli/flow_taskboard.rs`): with a
+  dependency dropped, two plans that share a path run in different strict waves, and the thread still passes.
 
 ## `@gsd/security` 1.0.0 against gsd-core 1.19.0
 
@@ -65,12 +79,17 @@ codes and the divergence tags below. The first table above counts `@gsd/core` an
 | Capabilities | 1 | 1 | 0 | 0 | 0 | `security/spec/README.md` |
 | Hooks | 3 | 3 | 0 | 0 | 0 | `security/src/commands/hooks.rs` |
 | Config keys | 4 | 4 | 0 | 0 | 0 | `security/src/settings.rs` |
-| Codes | 2 | 2 | 0 | 0 | 0 | `security/tests/parity/evidence.rs` |
+| Codes | 4 | 4 | 0 | 0 | 0 | `security/tests/parity/evidence.rs` |
 
 Suites: 74 cases are accounted, 67 of `secure-phase.test.cjs`, 5 of `injection-blocking-config.test.cjs` (#1577) and 2 of
 `secure-phase-single-writer.test.cjs` (`security/tests/accounting.rs`, `security/tests/port.rs`). The suites and files of
 the upstream tree about the node CLI's hardening library, its CI scans and its documentation are not applicable, each
 with a reason in `parity_roster.rs`. Gate-cutover verdicts of security: 0.
+
+Codes: `gsd.security/E101`, `W301` and the two judged rules, `W302` (a closed threat's mitigation holds, read over the
+files the threat names) and `W303` (a phase's threat flags map to its register), which `secure_phase` judges and
+`record_security_verdict` records; each fires and stays silent in a named test. The vault twin shows W302 going stale
+on exactly the threats whose files an edit touches (`security/tests/cli/fresh_vault.rs`).
 
 ## The four checks
 
@@ -196,15 +215,16 @@ Not verified:
   REVIEW-k20c-part2 M1).
 - W514 fires on every `check`, once per open deviation window that names a proposal, while `workflow.windows_enforce` is
   off; upstream warns once per triggering `refactor evaluate` (also when broken-windows is absent). The text and the
-  remediation match. E515 is SpecForge's own (gsd-plus) and has no upstream.
+  remediation match. E515 is SpecForge's own, on under gsd-strict and gsd-plus, and has no upstream.
 - A threshold's bounds are whole numbers (D-K20a-9): a warning between 0 and 1 and a critical between 99 and 100 are
   refused (`hooks.context_critical_threshold` refuses `99.5`), which GSD accepts.
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`
   (upstream blocks a TDD plan with a RED and no GREEN, or no RED and GREEN commit; W403 judges a recorded GREEN with no
   RED before it and is silent otherwise) and `prohibition-enforcement-request-file-judgment-mode` (upstream flags a
-  judgment-tier prohibition without evidence; E319 judges the test tier only).
+  judgment-tier prohibition without evidence and halts or marks it unverified; here W525 warns at `check` until the
+  verifier records a fresh verdict, which is a model's and not authoritative, so it never halts).
 - The 10 other unreached verdicts are named in `cutover.rs`.
-- The "silent" evidence of 38 of the 69 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
+- The "silent" evidence of 38 of the 71 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 - `[agent-namespace-one-rule]` `workflow_guard` reads the agent namespace as `worktree_path_guard` does, with `worktree-wf_` and the charset; upstream's workflow guard has the two prefixes `agent-` and `worktree-agent-`.
 - `[protected-set]` `branch_check` protects `main`, `master`, `develop`, `trunk`, `release/…`, `git.protected_branches` and `git.base_branch`, and `git.allow_default_branch_commits` changes `blocks_commit`, not `protected`, so ship's and the `none` strategy's warnings still show on `main`. Upstream also reads the real default branch; the git port answers no remotes, so `origin/HEAD` is not read here.

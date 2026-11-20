@@ -1,11 +1,12 @@
 //! The core tools, by name and sorted: what the surface-wiring tests hold the listing to.
 
-pub const CORE_TOOL_NAMES: [&str; 40] = [
+pub const CORE_TOOL_NAMES: [&str; 41] = [
     "specforge.add_extension",
     "specforge.analyze",
     "specforge.collect",
     "specforge.context",
     "specforge.coverage",
+    "specforge.diff",
     "specforge.doctor",
     "specforge.edit",
     "specforge.explain",

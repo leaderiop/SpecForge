@@ -1,7 +1,7 @@
 //! `execute_phase` and `execute_plan` (T7): the execution loop, its gates and the plan prompt with no slash command.
 
 use super::cmd_execute::stale_plan_check;
-use super::commands_support::{plus, strict, twin};
+use super::commands_support::{strict, twin};
 use super::harness::project;
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
@@ -46,6 +46,7 @@ fn execute_phase_renders_under_default() {
         step_ids(&rendered),
         [
             "execute",
+            "re_verify",
             "verify",
             "record_verdict",
             "record_window",
@@ -117,11 +118,12 @@ fn execute_plan_gate_refuses_a_stale_plan_check_under_strict() {
     assert!(run.all().contains("W318"), "{}", run.all());
 }
 
+/// gsd-strict turns the verdict gate on (gsd-plus presets the same gate).
 #[test]
-fn execute_plan_gate_refuses_a_stale_verdict_under_plus() {
+fn execute_plan_gate_refuses_a_stale_verdict_under_strict() {
     let p = twin();
     stale_plan_check(&p);
-    plus(&p);
+    strict(&p);
     let run = prompt(&p, "execute_plan", &[TWIN_PLAN], "claude-code");
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());

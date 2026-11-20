@@ -32,16 +32,16 @@
     "sha256": "192802b5dad86a2c6bac10380b4c46a0180c355114d8f5a98cc0e0f92a90be80"
   },
   ".claude/agents/gsd-phase-researcher.md": {
-    "bytes": 49461,
-    "sha256": "d74aed55a257e2e7f7d5038264c101374406705d4367512aed641c604a544ecb"
+    "bytes": 49463,
+    "sha256": "d0739f433da875a72e50a8e26a63a99f84c9492d816a8de28728b6954b60f07b"
   },
   ".claude/agents/gsd-plan-checker.md": {
-    "bytes": 52871,
-    "sha256": "1048e748a3d120ce05f42dd83c866781100d97d2c1292e4e19aee343e971288e"
+    "bytes": 54030,
+    "sha256": "b7d84c8f73ca329fe5d610e47a4318ebc657a2a6ef08582497c3495502a92789"
   },
   ".claude/agents/gsd-planner.md": {
-    "bytes": 54068,
-    "sha256": "033ce0cf0b89bd278c3c7d651a45f0e49a70b0a664a337186621c13c1109a4b2"
+    "bytes": 54335,
+    "sha256": "5cd0723320691ab3de3b7ee786f321c1c62f996c799df7fe65af091e9d36e26f"
   },
   ".claude/agents/gsd-project-researcher.md": {
     "bytes": 16901,
@@ -56,212 +56,212 @@
     "sha256": "6cc4b13710f47eaa298082488dd3f3c78b00f2aac48753c8c288f33e25cd0759"
   },
   ".claude/agents/gsd-verifier.md": {
-    "bytes": 57407,
-    "sha256": "82397dcd7427e6aee2a0517ece5fd429168f2f5ba0831a40f0d2642900191a68"
+    "bytes": 58608,
+    "sha256": "44080c2056d898ede59abde1f5360ee0726100bde9ba1c838f83f563e0f1f43e"
   },
   ".claude/settings.json": {
     "bytes": 3736,
     "sha256": "d8e88234939b5a80fe50b3e320489db367cbefb33cb6b9267643c978354b55ff"
   },
   ".claude/skills/gsd-add-tests/SKILL.md": {
-    "bytes": 4300,
-    "sha256": "b045911d454f855df26e19b6d320a22baa59787a1cb095d22063d6551c2c0da8"
+    "bytes": 4425,
+    "sha256": "d97eb7a322c7d1ab5bf8fb80b5e2d0324e668d37727db8550b6150859fd55396"
   },
   ".claude/skills/gsd-audit-milestone/SKILL.md": {
-    "bytes": 4253,
-    "sha256": "9826f4f65f3d4d8f258a4a57218c93f2db447e123e23b6edaa50e40c605e97d5"
+    "bytes": 4378,
+    "sha256": "c81cd4616a075cbb18ca6a7667f3d5b8c5971715ce49ac098080525ed4f86411"
   },
   ".claude/skills/gsd-audit-uat/SKILL.md": {
-    "bytes": 4006,
-    "sha256": "e2cbf09d62011f32051ae2f1fcde461fe6f0216c752a50ae33dd7ec1140cbc48"
+    "bytes": 4131,
+    "sha256": "fd261553d84eef605261a9a544800e3c15b2c33892483241941e914c06603fe4"
   },
   ".claude/skills/gsd-autonomous/SKILL.md": {
-    "bytes": 4309,
-    "sha256": "34d15bb4b9ef146a668da412ca2d1a54575d30c68a508ed2d932775185a68784"
+    "bytes": 4434,
+    "sha256": "7ac916f7cb32940919453ef5488a492759734477791b6ddc6084b44f50de7a06"
   },
   ".claude/skills/gsd-cleanup/SKILL.md": {
-    "bytes": 3954,
-    "sha256": "da36508f43d0e6fc5a13a4c9d0acb7339ba974bb05778a41ab37a878ce1872b0"
+    "bytes": 4079,
+    "sha256": "949cea724033bdafe26f9a2bb1c8d378531f6418c18c99b4202e1c49ad3f1f0e"
   },
   ".claude/skills/gsd-complete-milestone/SKILL.md": {
-    "bytes": 4247,
-    "sha256": "b2d6086535be81d28c564b043e7df8cb65af4ede44c1147c6407e812bda27363"
+    "bytes": 4372,
+    "sha256": "876926f6d202d990399322643727b58dda42a7e466aa47666d97df976c207b50"
   },
   ".claude/skills/gsd-config/SKILL.md": {
-    "bytes": 4284,
-    "sha256": "0d81f0ddca999b8e89c884a7095657de40af0cace207772a62e7f614f60df749"
+    "bytes": 4409,
+    "sha256": "960e02ae246b66fc9c3150eafabb16cb343f7e335790662c5ebce008c537558d"
   },
   ".claude/skills/gsd-discuss-phase/SKILL.md": {
-    "bytes": 4412,
-    "sha256": "bdd05f63b8d3ebb324f8aaef49ad4df8a369bbce039f034b0e137dec3b36a462"
+    "bytes": 4537,
+    "sha256": "cc1028569ea0294249e00efa2a84d714404ea6fae6bd898abaeebd5f714c84d1"
   },
   ".claude/skills/gsd-execute-phase/SKILL.md": {
-    "bytes": 4377,
-    "sha256": "9eeb2466ba0385b7677a4d1cc27b3d93a586e6ab807f094c4b3284c27aabae69"
+    "bytes": 4502,
+    "sha256": "1d0ad121fa41a7a600056e3d5f455200277f862c5e828a6235f1b380ddd5c463"
   },
   ".claude/skills/gsd-extract-learnings/SKILL.md": {
-    "bytes": 4274,
-    "sha256": "19f770fa8644c6665741699c7b98d70396b3e49c8e85705aa1b5dc2ac34eeb16"
+    "bytes": 4399,
+    "sha256": "1b2fbd635a70a5828b5f54b4fe344da087beb1fdaf9c448478b26b8fd46076ef"
   },
   ".claude/skills/gsd-fast/SKILL.md": {
-    "bytes": 4223,
-    "sha256": "8f293e2815b2603c01802c4a6e9fbd8023e1fa3611dc6776be7dc1127efb2398"
+    "bytes": 4348,
+    "sha256": "d906e2c67aed0f6dcc490c5c3dc9a2b5eefae63932192253d0dcda490775ae84"
   },
   ".claude/skills/gsd-health/SKILL.md": {
-    "bytes": 3974,
-    "sha256": "b3851c4eaab4136084a105afa1cccae47f7484b6e4ddacbf36af22a60d058192"
+    "bytes": 4099,
+    "sha256": "934062c01a37bde1c13c4c9d5145c3495b8a375dbf5eda3168ea49e359af894c"
   },
   ".claude/skills/gsd-help/SKILL.md": {
-    "bytes": 3932,
-    "sha256": "ab13ea07273e7bfa744695dd775be83f81109e2c2c460589574018c9f18b1a2c"
+    "bytes": 4057,
+    "sha256": "de8c62d98820a813b865ddeb216074e1c7c633f0d9eaf6408458a942bdfbfbb4"
   },
   ".claude/skills/gsd-ingest-docs/SKILL.md": {
-    "bytes": 4368,
-    "sha256": "e717ffb672668f5e21b66fd3ae70a3156a3d43a2ea83973ad30552526dfc943e"
+    "bytes": 4493,
+    "sha256": "fbd86f63e24019487d0b3f55ef4f58428b51bad9824a547bf019d67d330c381a"
   },
   ".claude/skills/gsd-manager/SKILL.md": {
-    "bytes": 4256,
-    "sha256": "f0b05e0da0bbba95a267a0de3f7470fff94e8e37a3e17ef00825357957c96d7b"
+    "bytes": 4381,
+    "sha256": "8d30859d4d9b33b617587be337860e8fa025118aa03c8081ac2f30b29596663f"
   },
   ".claude/skills/gsd-milestone-summary/SKILL.md": {
-    "bytes": 4296,
-    "sha256": "e1bf114ec8412cba6ddfda061d554a530d2b1237d5efe7b31bfc41dca2405d65"
+    "bytes": 4421,
+    "sha256": "656d685d45450753c1ec8594d8874027e7338de469edda4dc0396ca17f81b563"
   },
   ".claude/skills/gsd-mvp-phase/SKILL.md": {
-    "bytes": 4266,
-    "sha256": "ed69082d15448f6626bebe614a85f505bc4b5d7b5aed7933004d3277d7b506ae"
+    "bytes": 4391,
+    "sha256": "eb7f083c2ce5eb464b65fcdecd15428b5758f251b2420ba3da395016ebc23f8e"
   },
   ".claude/skills/gsd-new-milestone/SKILL.md": {
-    "bytes": 4346,
-    "sha256": "4ec3b9d3a8bffeeb7457dcf5aef6eba0babb299b2ab3e8d185ed3e3061c0b185"
+    "bytes": 4471,
+    "sha256": "0ca61b4cb571f16846b136632fe2593e594aa063eb6854f1a8a6e0ce5f47dad0"
   },
   ".claude/skills/gsd-new-project/SKILL.md": {
-    "bytes": 4252,
-    "sha256": "07541f2a71fee82fbb6843abdc9b778a9cfbbc4974046a4df147c17ae421a571"
+    "bytes": 4377,
+    "sha256": "ccade63c74ef0a40381f1a105c6bcc046a57c83546ec1bfa9a255edf4664194d"
   },
   ".claude/skills/gsd-next/SKILL.md": {
-    "bytes": 4026,
-    "sha256": "3db01eae9658c2211b93c925405c57a5267e7014f12bfcb86122f3cde058aa59"
+    "bytes": 4151,
+    "sha256": "e66945cc58cb11fe6c6f03af2996de87a50707845fc7c050dd2822ccec54643e"
   },
   ".claude/skills/gsd-ns-context/SKILL.md": {
-    "bytes": 3985,
-    "sha256": "97d0116f2627c4017809fdc9b62223de7faaf234b128eba927f22cd63ae0f364"
+    "bytes": 4110,
+    "sha256": "fa2da438c96ac57fbac01e01f0b5f90cda88afb5a0ab1aa3de7ace37d827252b"
   },
   ".claude/skills/gsd-ns-ideate/SKILL.md": {
-    "bytes": 3981,
-    "sha256": "a1e38e2da6f784bbe39d923d34bf326c2f1671fb9b5072489239549729c0b32c"
+    "bytes": 4106,
+    "sha256": "aeb20273a29617bc67ce600fb4a642bbc7222b6a4ecefbe2cacf0c91fe30d3dd"
   },
   ".claude/skills/gsd-ns-manage/SKILL.md": {
-    "bytes": 3981,
-    "sha256": "30ef8cf6aa7b9f0c8ba6776cdb677636966bc3b1312528051ebe8a52379dd5f4"
+    "bytes": 4106,
+    "sha256": "38137f220cdf8454ba34aed9580928eec22dd305f4520786999a63afd1bab173"
   },
   ".claude/skills/gsd-ns-project/SKILL.md": {
-    "bytes": 3976,
-    "sha256": "911d9df95f115e375c89a3d2aa9f73be4f5a592d3f15374a17508bea3262ae1d"
+    "bytes": 4101,
+    "sha256": "14dc5ca486d85d0e534d325d659b2fca60dc363424cac6cae14a45adc96569f4"
   },
   ".claude/skills/gsd-ns-review/SKILL.md": {
-    "bytes": 3982,
-    "sha256": "1a96aa1abc2006926b57666b8869df9b86d6f77f996edeb989630afb5a6157fd"
+    "bytes": 4107,
+    "sha256": "b6dbde1e71ab3d697e7b756d48996a248e03b1977fa47bda816bc0cc20066739"
   },
   ".claude/skills/gsd-ns-workflow/SKILL.md": {
-    "bytes": 3989,
-    "sha256": "744283369d19cac07fb73ba67a4446f1545ec056693f4248002614028452067f"
+    "bytes": 4114,
+    "sha256": "855d1273340f99a6d2606d72de7392282c2c04c740484a1a3f01bea4baba8af0"
   },
   ".claude/skills/gsd-onboard/SKILL.md": {
-    "bytes": 4256,
-    "sha256": "2c9bc6297e86744adeaed9b5bac1a2f7449f586d3c2908639dcd5b2acea28dbe"
+    "bytes": 4381,
+    "sha256": "f4281cb38384f4569a351b0bbaf028295776467d15652918bd137143ed2b9553"
   },
   ".claude/skills/gsd-pause-work/SKILL.md": {
-    "bytes": 4202,
-    "sha256": "5f01783b898ed62293b99888c603f27a8a9a013bb658eb24b0118ee59381058e"
+    "bytes": 4327,
+    "sha256": "0d723405c939b4a2d5aafb915b0bdd680d49083df46322cc317261b973c186fe"
   },
   ".claude/skills/gsd-phase/SKILL.md": {
-    "bytes": 4033,
-    "sha256": "dda453701254de4b33ea5c9a7a9ba08a55e9b0eccf37e3f4e57973e98e138973"
+    "bytes": 4158,
+    "sha256": "9e8823edab2ae91189207861e3e7ed52da92cf709b89fd5a4865c281d860a7e1"
   },
   ".claude/skills/gsd-plan-phase/SKILL.md": {
-    "bytes": 4625,
-    "sha256": "199a650c95b464c73377a8ca0f5f4cde04cf976c2551a265823635a3e2bbc69f"
+    "bytes": 4750,
+    "sha256": "81e7a15292da406d864d5f5f0c4f3207efae83de9a851f943d1c5eecc5bbf61c"
   },
   ".claude/skills/gsd-plan-review-convergence/SKILL.md": {
-    "bytes": 4518,
-    "sha256": "561f0bdf6b42f953f941fd2147860d54f7f23228c9a029eedfe7bcc0deed377d"
+    "bytes": 4643,
+    "sha256": "2ea019229dac20c0732fd31e5c1306574b7ebf0afe9dd0127237e791e3903b79"
   },
   ".claude/skills/gsd-pr-branch/SKILL.md": {
-    "bytes": 4069,
-    "sha256": "3db5f45b496b4a7a1df3614f67a78b10f2684a3100a34dceeb1ed0aaa698b56b"
+    "bytes": 4194,
+    "sha256": "2fc02c73b79ae1b961f78e6377516bbc48d014e15e7135bb2a45338eb94fe8e0"
   },
   ".claude/skills/gsd-progress/SKILL.md": {
-    "bytes": 4142,
-    "sha256": "bd134eb55fdd474ed5de28ab3a825fa1f1a159ed9c544b70f305b85c9c5b1869"
+    "bytes": 4267,
+    "sha256": "5ff31fa7736076793cf82be5d69cfff3c8bf8e188979ffbfef35e14fca2fbc90"
   },
   ".claude/skills/gsd-quick-batch/SKILL.md": {
-    "bytes": 4368,
-    "sha256": "11dfa89efef9c55e306bf93e284ccdcaea6405fba38ed6fc5419c572f243e2b8"
+    "bytes": 4493,
+    "sha256": "47d17b53f1e657ff60517a00532d8b955f5d735bae777f130d4e68472d214cf8"
   },
   ".claude/skills/gsd-quick/SKILL.md": {
-    "bytes": 4372,
-    "sha256": "0ade9677acf86dcb837e402a8c89f65377d5c64187d6d71163c9ba4509844a3f"
+    "bytes": 4497,
+    "sha256": "6964ae0a8b059c289ab87860dc917224b4e5f9dd0e04a9bbeb2e53537e206f8c"
   },
   ".claude/skills/gsd-resume-work/SKILL.md": {
-    "bytes": 4240,
-    "sha256": "02758137fa917e0d50c488974d6ef2aa19aae327d6b2e4695a2937fd8d742160"
+    "bytes": 4365,
+    "sha256": "aa3938e646a311c1f959ca78315c6df9a329b194c6212af7c102292968a75edd"
   },
   ".claude/skills/gsd-review-backlog/SKILL.md": {
-    "bytes": 4234,
-    "sha256": "8502f0e37214517ba6536b85d685bca9f11133a248019ff0a8de3898132d25ff"
+    "bytes": 4359,
+    "sha256": "9dcd5d9ac316dd5a198d2ffe88f46e2988a9dd00726eb4deea910094ad987dcd"
   },
   ".claude/skills/gsd-review/SKILL.md": {
-    "bytes": 4264,
-    "sha256": "2c4748d60af0401d2ffd84af39fb6abc06f8b160217234aa4d1e167eb5ca0f0c"
+    "bytes": 4389,
+    "sha256": "a753582179558f902c1248c447c3aa5fe0f440fe7667fc6149b7b75149b3f143"
   },
   ".claude/skills/gsd-settings/SKILL.md": {
-    "bytes": 4200,
-    "sha256": "12bda29a6ae56eb00810cb9b440c5c525c4b807ccf8e09b023cfaca633eeaa4a"
+    "bytes": 4325,
+    "sha256": "ab249307c87a298e6cf600459505932868157bba0ff08760c9aee01edf0103dd"
   },
   ".claude/skills/gsd-ship/SKILL.md": {
-    "bytes": 4207,
-    "sha256": "2cddf4a8518197852285f703adda7e5b923a1e4553769e545a6653f5ef23468e"
+    "bytes": 4332,
+    "sha256": "06777a484bdc2ad8744eedf0e2023ab76357325b5dee9c528779206893882ba1"
   },
   ".claude/skills/gsd-spec-phase/SKILL.md": {
-    "bytes": 4281,
-    "sha256": "0dd2359a59c2c7861667a211cbd4d2b2875038f7668dc72ff9714e388dd9aad4"
+    "bytes": 4406,
+    "sha256": "22a94617a926067844a998a6f2820f095f3d848621e9e6a7008adf3aa5af02c0"
   },
   ".claude/skills/gsd-stats/SKILL.md": {
-    "bytes": 3968,
-    "sha256": "bdda69e75bbd423a2891369388888482f31a8351407952571943078cf8762f00"
+    "bytes": 4093,
+    "sha256": "750c989f6fc6cf40d4acea53f83932ea2203150d2ec1e5ba8eb3bb96700f787a"
   },
   ".claude/skills/gsd-surface/SKILL.md": {
-    "bytes": 4053,
-    "sha256": "f93773615a0ecf47321efee91a75b17a7c9008c622d4e54e84749d63708977f5"
+    "bytes": 4178,
+    "sha256": "c496656e1b309c7ac301fe039bbc03532455904ea4d920316dde8fbaf8a9f73c"
   },
   ".claude/skills/gsd-ultraplan-phase/SKILL.md": {
-    "bytes": 4074,
-    "sha256": "92b67f0488d2ef27c399dfeed367741560c3900d18acff1a8ce2fa861de8f89b"
+    "bytes": 4199,
+    "sha256": "d6534532fa13876c08fe9c5e38bc39ab495af5a64104004ec1b2766c9db98fec"
   },
   ".claude/skills/gsd-undo/SKILL.md": {
-    "bytes": 4071,
-    "sha256": "43308f7b2c45a190d97fe8daebdfd390b8ec0b0475396bfd03988f07e9cbdf29"
+    "bytes": 4196,
+    "sha256": "25447335b526861d844a15751e0bde6eb5db9e15862e92fe4343b933f40d0d98"
   },
   ".claude/skills/gsd-update/SKILL.md": {
-    "bytes": 4252,
-    "sha256": "48210cb8906ae01a637acac58eeb7b7c36413acd72d2e7be1e41bb895a2830e3"
+    "bytes": 4377,
+    "sha256": "4850ac161e339e40b96d1d897f91eca1377ae740352690249e7576deb77693a5"
   },
   ".claude/skills/gsd-validate-phase/SKILL.md": {
-    "bytes": 4294,
-    "sha256": "deff9eca3748d5b9cb51969d737f8357594b12aef2cfdbbf34af7903897c850c"
+    "bytes": 4419,
+    "sha256": "2f1ae37d2c5dcdef1d3efa2d0c4f99d815217848074c08544773fc9e537f5d62"
   },
   ".claude/skills/gsd-verify-work/SKILL.md": {
-    "bytes": 4251,
-    "sha256": "00f6ea73df19ae31ee9f3a77270287605a20890864e1fdaf0e7555dd67bf28a5"
+    "bytes": 4376,
+    "sha256": "71d91f98c1c1ed06ea4477fef4d83b59400bba2f98d24ff7a52228817e102531"
   },
   ".claude/skills/gsd-workspace/SKILL.md": {
-    "bytes": 4274,
-    "sha256": "195ad0eab2bb75a26375c313a112baebbbcbe532b72ec2fb638353f48612b3f6"
+    "bytes": 4399,
+    "sha256": "0f736fc02e78f07f13435c6180797b8fb8391c8cfcc32399098b3e8a09186273"
   },
   ".claude/skills/gsd-workstreams/SKILL.md": {
-    "bytes": 4063,
-    "sha256": "872ca8d7c835d9090b93de54828b898261a45d3bd73f2ece22958740e8c5b778"
+    "bytes": 4188,
+    "sha256": "73e4aa710bab267e8705f27dcd7833df208390dba90cdcc988aff734e4e294b1"
   },
   ".mcp.json": {
     "bytes": 132,

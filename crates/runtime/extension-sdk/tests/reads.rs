@@ -190,3 +190,49 @@ fn the_sdk_declares_a_facts_input_and_the_kinds_a_collector_answers() {
         serde_json::json!([{"input": "facts", "kinds": ["package"]}])
     );
 }
+
+#[specforge_test_macros::test(requirement = "FEATURE-142")]
+fn the_sdk_declares_a_delta_input_and_names_its_payload() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/reads", "1.0.0"));
+    c.pass("changed", |p| {
+        p.phase("check")
+            .input(Input::delta(&["item"]))
+            .run(|_| Vec::new());
+    });
+    c.pass("plain", |p| {
+        p.phase("check").run(|_| Vec::new());
+    });
+
+    let declaration = c.declaration();
+
+    assert_eq!(
+        Inputs(&declaration.passes[0].inputs).delta(),
+        Some(vec!["item"])
+    );
+    assert_eq!(Inputs(&declaration.passes[1].inputs).delta(), None);
+    let wire = serde_json::to_value(&declaration.passes[0]).unwrap();
+    assert_eq!(
+        wire["inputs"],
+        serde_json::json!([{"input": "delta", "kinds": ["item"]}])
+    );
+    // The prelude names what a pass reads of it.
+    let delta = DeltaPayload {
+        base: DeltaBase::None,
+        nodes: vec![DeltaNode {
+            kind: "item".into(),
+            id: "a".into(),
+            change: DeltaChange::Added,
+            fields: Vec::new(),
+            aspects: Vec::<DeltaAspect>::new(),
+            before: None,
+            after: Some("sha256:0".into()),
+        }],
+        added_edges: Vec::<DeltaEdge>::new(),
+        removed_edges: Vec::new(),
+    };
+    let input = PassInput {
+        delta: Some(delta),
+        ..PassInput::default()
+    };
+    assert_eq!(input.delta.unwrap().nodes[0].change, DeltaChange::Added);
+}

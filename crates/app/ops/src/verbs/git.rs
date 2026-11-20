@@ -11,7 +11,9 @@ use specforge_effects::git::{
 };
 
 use super::{USER, Verbs, slashed};
-use crate::{OpError, OpErrorKind, UNKNOWN_REVISION};
+use crate::{
+    GIT_FAILED, GIT_UNAVAILABLE, NOT_A_REPOSITORY, OpError, OpErrorKind, UNKNOWN_REVISION,
+};
 use specforge_common::remedy::printable;
 use specforge_effects::RealFs;
 
@@ -111,12 +113,6 @@ pub struct ConfigAnswer {
     pub values: Vec<String>,
 }
 
-/// The place is in no repository (`PreconditionFailed`).
-pub const NOT_A_REPOSITORY: &str = "not_a_repository";
-/// No git port answers here (`PreconditionFailed`).
-pub const GIT_UNAVAILABLE: &str = "git_unavailable";
-/// The port failed (`Internal`).
-pub const GIT_FAILED: &str = "git_failed";
 /// A `show` path names a tree, not a file (`InvalidInput`).
 pub const NOT_A_BLOB: &str = "not_a_blob";
 /// The worktree has changes a checkout, merge or pick would lose (`PreconditionFailed`).

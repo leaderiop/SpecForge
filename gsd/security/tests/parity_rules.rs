@@ -122,7 +122,7 @@ fn the_code_book_is_the_codes_table() {
         };
         assert_eq!(row.severity, severity, "{}", row.local);
     }
-    // E101 applies whatever the hook says; W301 is switched off with the enforcement
+    // E101 applies whatever the hook says; W301 and the judged rules are switched off with the enforcement
     let gated = |code: &str| {
         rows.iter()
             .find(|r| r.local == code)
@@ -132,6 +132,8 @@ fn the_code_book_is_the_codes_table() {
     };
     assert!(gated("E101").starts_with("none"));
     assert_eq!(gated("W301"), "`workflow.security_enforcement`");
+    assert_eq!(gated("W302"), "`workflow.security_enforcement`");
+    assert_eq!(gated("W303"), "`workflow.security_enforcement`");
 }
 
 #[test]

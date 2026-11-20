@@ -40,8 +40,9 @@ pub use present::{
     serialize_diagnostics, truncate_diagnostics,
 };
 pub use project::{
-    ChecksConfig, ConfigProblem, ConfigRead, ExtensionEntry, InferenceConfig, ProjectConfig,
-    parse_project_config, project_config_from, read_project_config, validate_project_name,
+    ChecksConfig, ConfigProblem, ConfigRead, ExtensionEntry, FactsConfig, InferenceConfig,
+    ProjectConfig, parse_project_config, project_config_from, read_project_config,
+    validate_project_name,
 };
 pub use project_path::ProjectPath;
 pub use project_root::{NoSuchPath, PROJECT_FILE, ProjectRoot};

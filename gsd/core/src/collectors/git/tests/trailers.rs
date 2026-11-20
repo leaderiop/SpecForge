@@ -31,32 +31,17 @@ fn collected(log: Vec<GitLogCommit>) -> (Made, String) {
     (created(&output), title)
 }
 
-fn values(values: &[&str]) -> Vec<String> {
-    values.iter().map(|v| v.to_string()).collect()
-}
-
-#[test]
-fn a_trailers_values_are_read() {
-    assert_eq!(trailer(&values(&["01-01/T1"])), Trailer::Named("01-01/T1"));
-    assert_eq!(trailer(&[]), Trailer::None);
-    // Repeats and blanks count once.
-    assert_eq!(
-        trailer(&values(&[" 01-01/T1 ", "", "01-01/T1"])),
-        Trailer::Named("01-01/T1")
-    );
-}
-
 #[test]
 fn a_lower_case_gsd_task_trailer_is_read() {
     let mut commit = trailed('a', &[], "chore: wire it");
     commit.trailers = vec![
         GitTrailer {
             token: "gsd-task".into(),
-            values: values(&["01-01/T2"]),
+            values: vec!["01-01/T2".to_string()],
         },
         GitTrailer {
             token: "Signed-off-by".into(),
-            values: values(&["someone"]),
+            values: vec!["someone".to_string()],
         },
     ];
     let (made, _) = collected(vec![commit]);
@@ -65,29 +50,95 @@ fn a_lower_case_gsd_task_trailer_is_read() {
 }
 
 #[test]
-fn a_value_with_a_tab_a_unit_or_record_separator_a_space_or_no_slash_is_unreadable() {
-    for value in [
-        "01-01/\tT1",
-        "01-01/T1\u{1f}x",
-        "01-01/T1\u{0}",
-        "01 01/T1",
-        "01-01",
-        "01-01/T1/T2",
-        "/T1",
-        "01-01/",
-        "01-01/T\u{7f}",
-        "1\t2\tforged.js",
-    ] {
-        assert_eq!(trailer(&values(&[value])), Trailer::Unreadable, "{value:?}");
+fn a_full_path_trailer_links_its_task_and_plan_without_a_scope() {
+    let (made, _) = collected(vec![trailed('a', &["v1.0/01/01-01/T2"], "chore: wire it")]);
+    assert_eq!(made.len(), 1, "{made:?}");
+    assert_eq!(made[0].1["plan"], "v1.0/01/01-01");
+    assert_eq!(made[0].1["task"], "v1.0/01/01-01/T2");
+    assert_eq!(made[0].1["linked_by"], LinkedBy::Trailer.as_str());
+    assert_eq!(made[0].1["type"], "chore");
+    // A subject with a scope: the trailer's task, not the plan alone.
+    let (made, _) = collected(vec![trailed(
+        'b',
+        &["v1.0/01/01-01/T2"],
+        "feat(01-01): wire it",
+    )]);
+    assert_eq!(made[0].1["task"], "v1.0/01/01-01/T2");
+    assert_eq!(made[0].1["linked_by"], LinkedBy::Trailer.as_str());
+}
+
+#[test]
+fn a_full_path_trailer_tells_two_milestones_apart() {
+    let made = |value: &str| {
+        let mut graph = plan_graph().expect("a graph");
+        graph.nodes.push(node("v2.0/01/01-01", "plan", "Next plan"));
+        graph.nodes.push(node("v2.0/01/01-01/T1", "task", "Next"));
+        let input = CollectInput {
+            graph: Some(graph),
+            ..Default::default()
+        };
+        created(&collected_over(
+            vec![trailed('a', &[value], "chore: wire it")],
+            input,
+        ))
+    };
+    // Two plans `01-01`: the plan-local form names neither, and a subject with no scope records nothing.
+    assert!(made("01-01/T1").is_empty());
+    for milestone in ["v1.0", "v2.0"] {
+        let recorded = made(&format!("{milestone}/01/01-01/T1"));
+        assert_eq!(recorded.len(), 1, "{recorded:?}");
+        assert_eq!(recorded[0].1["plan"], format!("{milestone}/01/01-01"));
+        assert_eq!(recorded[0].1["task"], format!("{milestone}/01/01-01/T1"));
+        assert_eq!(recorded[0].1["linked_by"], LinkedBy::Trailer.as_str());
     }
 }
 
 #[test]
-fn two_different_trailers_name_no_task() {
-    assert_eq!(
-        trailer(&values(&["01-01/T1", "01-01/T2"])),
-        Trailer::Unreadable
+fn a_full_path_trailer_that_names_no_task_falls_back_and_is_noted() {
+    let (made, title) = collected(vec![
+        trailed('a', &["v1.0/01/01-01/T9"], "feat(01-01): Store module"),
+        trailed('b', &["a/b/c/T1"], "feat(01-01): Another"),
+    ]);
+    assert_eq!(made.len(), 2, "{made:?}");
+    assert_eq!(made[0].1["task"], "v1.0/01/01-01/T2");
+    assert_eq!(made[0].1["linked_by"], LinkedBy::Title.as_str());
+    assert_eq!(made[1].1["task"], "v1.0/01/01-01/T1");
+    assert_eq!(made[1].1["linked_by"], LinkedBy::Title.as_str());
+    assert!(
+        title.contains("(trailer of aaaaaaaaaaaa names no task: v1.0/01/01-01/T9)"),
+        "{title}"
     );
+    assert!(
+        title.contains("(trailer of bbbbbbbbbbbb names no task: a/b/c/T1)"),
+        "{title}"
+    );
+}
+
+#[test]
+fn a_trailer_with_the_configured_project_code_names_its_task() {
+    let made = |code: Option<&str>, value: &str| {
+        let input = CollectInput {
+            graph: coded_graph(code),
+            ..Default::default()
+        };
+        created(&collected_over(
+            vec![trailed('a', &[value], "chore: wire it")],
+            input,
+        ))
+    };
+    for value in ["PRJ-01-01/T1", "01-01/T1", "v1.0/01/01-01/T1"] {
+        let recorded = made(Some("PRJ"), value);
+        assert_eq!(recorded.len(), 1, "{value}: {recorded:?}");
+        assert_eq!(recorded[0].1["task"], "v1.0/01/01-01/T1", "{value}");
+        assert_eq!(recorded[0].1["linked_by"], LinkedBy::Trailer.as_str());
+    }
+    // Only the configured code is stripped.
+    assert!(made(None, "PRJ-01-01/T1").is_empty());
+    assert!(made(Some("PRJ"), "AUTH-01-01/T1").is_empty());
+}
+
+#[test]
+fn two_different_trailers_name_no_task() {
     let (made, _) = collected(vec![trailed(
         'a',
         &["01-01/T1", "01-01/T2"],

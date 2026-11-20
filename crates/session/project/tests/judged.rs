@@ -521,6 +521,7 @@ fn a_compute_pass_reads_judgements_and_a_v_field_is_its_fresh_value() {
             ..specforge_project::passes::PassContext::of(compiled.entities())
         },
         &[],
+        None,
     );
     let audit = input.entities.iter().find(|e| e.id == "PA").unwrap();
     assert!(

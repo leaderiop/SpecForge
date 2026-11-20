@@ -10,7 +10,7 @@ use crate::FileRead;
 ///
 /// On the wire: `{"input": "files", "name": "sources", "glob": "src/**/*.rs"}`, `{"input": "tests"}`,
 /// `{"input": "git", "status": true}`, `{"input": "setting", "extension": "@gsd/security", "name": "x.y"}`,
-/// `{"input": "facts", "kinds": ["package"]}`.
+/// `{"input": "facts", "kinds": ["package"]}`, `{"input": "delta", "kinds": ["item"]}`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "input", rename_all = "snake_case")]
 pub enum Input {
@@ -40,6 +40,9 @@ pub enum Input {
     /// The admitted facts of these collected kinds, as `facts` (ADR 0345 D3): a collector only. Earlier collectors of
     /// the same collect answer them, else the recorded stores serve them.
     Facts { kinds: Vec<String> },
+    /// What changed of these kinds since the base the host names, as `delta` (ADR 0376 D6): a pass only. The changed
+    /// nodes of the kinds and the edges with an end of one; with no base, every node of them is added.
+    Delta { kinds: Vec<String> },
 }
 
 impl Input {
@@ -92,6 +95,13 @@ impl Input {
         }
     }
 
+    /// What changed of `kinds`.
+    pub fn delta(kinds: &[&str]) -> Self {
+        Input::Delta {
+            kinds: kinds.iter().map(ToString::to_string).collect(),
+        }
+    }
+
     /// The input's kind, the one table its tag, its keys and what each call kind is served are read from.
     pub fn kind(&self) -> InputKind {
         match self {
@@ -104,6 +114,7 @@ impl Input {
             Input::Setting { .. } => InputKind::Setting,
             Input::CheckOutcomes => InputKind::CheckOutcomes,
             Input::Facts { .. } => InputKind::Facts,
+            Input::Delta { .. } => InputKind::Delta,
         }
     }
 
@@ -125,10 +136,11 @@ pub enum InputKind {
     Setting,
     CheckOutcomes,
     Facts,
+    Delta,
 }
 
 impl InputKind {
-    pub const ALL: [InputKind; 9] = [
+    pub const ALL: [InputKind; 10] = [
         InputKind::Files,
         InputKind::Tests,
         InputKind::State,
@@ -138,6 +150,7 @@ impl InputKind {
         InputKind::Setting,
         InputKind::CheckOutcomes,
         InputKind::Facts,
+        InputKind::Delta,
     ];
 
     /// The one table: the kind's tag on the wire and the keys it writes beside the tag (a test holds `files`' to
@@ -153,6 +166,7 @@ impl InputKind {
             InputKind::Setting => ("setting", &["extension", "name"]),
             InputKind::CheckOutcomes => ("check_outcomes", &[]),
             InputKind::Facts => ("facts", &["kinds"]),
+            InputKind::Delta => ("delta", &["kinds"]),
         }
     }
 
@@ -231,6 +245,22 @@ impl<'a> Inputs<'a> {
             }
         }
         kinds
+    }
+
+    /// The kinds of the `delta` inputs, in order, each once; `None` when the call declares none.
+    pub fn delta(self) -> Option<Vec<&'a str>> {
+        let mut declared = None;
+        for input in self.0 {
+            if let Input::Delta { kinds: of } = input {
+                let kinds: &mut Vec<&'a str> = declared.get_or_insert_with(Vec::new);
+                for kind in of {
+                    if !kinds.contains(&kind.as_str()) {
+                        kinds.push(kind);
+                    }
+                }
+            }
+        }
+        declared
     }
 
     /// Each `setting` input, `(extension, name)`, in order.

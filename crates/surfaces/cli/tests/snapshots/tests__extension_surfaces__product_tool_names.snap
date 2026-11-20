@@ -43,6 +43,7 @@ expression: names
   "specforge.find_implementation",
   "specforge.find_spec_for_source",
   "specforge.prompt",
+  "specforge.diff",
   "specforge.product.features",
   "specforge.product.journeys",
   "specforge.product.deliverables",

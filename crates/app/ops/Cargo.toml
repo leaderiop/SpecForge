@@ -70,6 +70,8 @@ specforge-extension-sdk = { path = "../../runtime/extension-sdk" }
 specforge-registry-client = { path = "../../adapters/registry-client" }
 # The host adapters, for the doctor's reading of a host's files.
 specforge-hosts = { path = "../../adapters/hosts" }
+# The git port a surface installs, and the repositories the diff tests commit.
+specforge-git = { path = "../../adapters/git", features = ["testing"] }
 specforge-wasm = { workspace = true, features = ["testing"] }
 specforge-installed = { path = "../../runtime/installed", features = ["testing"] }
 specforge-test = { workspace = true }

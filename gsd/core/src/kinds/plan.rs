@@ -15,7 +15,9 @@ const PLAN_STATUS: &[&str] = &[
     "blocked",
 ];
 const COUPLING: &[Field] = &[rf("peer", "plan").r(), str("reason").r()];
-const ESTIMATE: &[Field] = &[int("tokens")];
+const ESTIMATE: &[Field] = &[int("tokens"), int("tasks")];
+/// The members of `plan.estimate_error`: the one list the derive pass measures and `progress-report` prints.
+pub const ESTIMATE_ERROR: &[Field] = &[num("tasks")];
 
 /// `NN-MM-PLAN.md`, named `03-02` and scoped by its phase; a quick plan has no phase and is named by its quick id.
 pub const PLAN: Kind = Kind::new(
@@ -51,6 +53,12 @@ pub const PLAN: Kind = Kind::new(
         int("wave")
             .c()
             .doc("longest `depends_on` path plus the phase's base (phase-plan-index)"),
+        int("strict_wave").c().doc(
+            "the wave the plan runs in once plans of its phase that share a path are kept apart: the longest \
+             `depends_on` path plus, for each pair sharing a path in `files_modified`, `files_deleted` or a task's \
+             `files`, the earlier plan (by wave, then id as a person reads it: `01-2` before `01-10`) first; equals \
+             `wave` unless a shared path pushes it (gsd/W526); absent where `wave` is",
+        ),
         bool("autonomous")
             .c()
             .doc("false exactly when the plan has a checkpoint"),
@@ -64,6 +72,11 @@ pub const PLAN: Kind = Kind::new(
         int("estimate_slices").c().doc(
             "how many plans `estimate.tokens` makes under `workflow.smart_zone_tokens`, rounded up: over 1 is a \
              re-slice to recommend, never a block; absent without an estimate",
+        ),
+        block("estimate_error", ESTIMATE_ERROR).c().doc(
+            "(actual - estimate) / estimate for a plan whose summary is complete, rounded to 4 decimal places: \
+             `tasks` against the plan's task count, only when the estimate writes it above 0, absent never 0; \
+             `tokens` is not measured, since the summary holds no `actuals.tokens`",
         ),
         context_record("context_pack")
             .o()

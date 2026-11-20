@@ -2,8 +2,8 @@
 
 use serde_json::json;
 
-use super::cmd_execute::stale_plan_check;
-use super::commands_support::{json, plus, twin};
+use super::cmd_execute::{stale_plan_check, stale_verification};
+use super::commands_support::{json, strict, twin};
 use super::harness::{Project, project};
 use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
 
@@ -50,6 +50,7 @@ fn plan_phase_steps_and_gates() {
             "record_research",
             "patterns",
             "plan",
+            "thread",
             "check",
             "record_verdict",
             "execute"
@@ -83,6 +84,53 @@ fn plan_phase_says_whether_graph_context_is_served() {
     );
     assert!(text.contains("**Graph context:**"), "{text}");
     assert!(!text.contains("graphify status"), "{text}");
+}
+
+/// Between the planner and the checker, each host's text says how to thread the plans through `trace --plan`, what
+/// fails the thread and where its result goes.
+#[test]
+fn plan_phase_threads_the_plans_before_the_check() {
+    let p = project("discuss");
+    let rendered = payload(&prompt(&p, "plan_phase", &[PHASE], "claude-code"));
+    let thread = rendered["payload"]["steps"]
+        .as_array()
+        .expect("steps")
+        .iter()
+        .find(|s| s["id"] == "thread")
+        .expect("the thread step");
+    assert_eq!(thread["tool"], "specforge.gsd.thread_plan", "{thread}");
+    assert_eq!(
+        thread["cli"], "specforge gsd thread-plan --host claude-code",
+        "{thread}"
+    );
+    for host in ["claude-code", "codex", "cursor"] {
+        let text = text_of(&payload(&prompt(&p, "plan_phase", &[PHASE], host)));
+        let threading = text
+            .find("## Threading the plans")
+            .unwrap_or_else(|| panic!("{host}: no threading section"));
+        assert!(
+            text.find("## Graph context on this install") < Some(threading),
+            "{host}: the graph context comes first"
+        );
+        let section = &text[threading..];
+        for said in [
+            "`specforge gsd thread-plan <phase> --format json`",
+            "`specforge.gsd.thread_plan`",
+            "`specforge trace --plan <file> --format json`",
+            "A result with `ok: false` is a finding the planner fixes before the check",
+            "an `unresolved_entity` gap (E003)",
+            "an `ordering` gap is an entry before a plan or task it depends on",
+            "`missing_plan_entry` gaps are warnings over every testable entity of the project: they do not fail \
+             the thread",
+            "Pass the final result to the plan checker as its `**Thread:**` line: its own section reads that line",
+            "The order of the tasks inside a plan is not checked",
+        ] {
+            assert!(
+                section.contains(said),
+                "{host}: `{said}` is not said:\n{section}"
+            );
+        }
+    }
 }
 
 fn fixture(file: &str) -> String {
@@ -278,11 +326,21 @@ fn ultraplan_phase_gate_refuses_a_context_without_canonical_refs() {
     assert!(run.all().contains("E201"), "{}", run.all());
 }
 
+/// Under gsd-strict (and gsd-plus, which presets the same gate) a stale verdict the convergence loop does not judge
+/// refuses it; the stale plan check of its own phase does not: re-checking the plans is what the loop runs.
 #[test]
-fn convergence_gate_refuses_a_stale_verdict_under_plus() {
+fn convergence_gate_refuses_a_stale_verdict_it_does_not_judge_under_strict() {
     let p = twin();
     stale_plan_check(&p);
-    plus(&p);
+    strict(&p);
+    let rendered = payload(&prompt(
+        &p,
+        "plan_review_convergence",
+        &[PHASE],
+        "claude-code",
+    ));
+    assert_eq!(rendered["payload"]["subject"], PHASE);
+    stale_verification(&p);
     let run = prompt(&p, "plan_review_convergence", &[PHASE], "claude-code");
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E516"), "{}", run.all());

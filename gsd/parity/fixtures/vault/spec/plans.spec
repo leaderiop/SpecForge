@@ -74,6 +74,7 @@ threat T-01-01 "Seal under a key that stays off the disk" {
   severity    high
   disposition mitigate
   mitigation  "AES-256-GCM under a key that never reaches the disk"
+  files       ["src/vault.js"]
   status      closed
   evidence    "src/vault.js seal"
 }
@@ -85,6 +86,7 @@ threat T-01-02 "Verify the auth tag" {
   severity    high
   disposition mitigate
   mitigation  "the GCM auth tag is verified; a tampered file throws"
+  files       ["src/vault.js"]
   status      closed
   evidence    "src/vault.js open"
 }
@@ -96,6 +98,7 @@ threat T-01-SC "Package installs" {
   severity    high
   disposition mitigate
   mitigation  "package-legitimacy gate + blocking human checkpoint for [ASSUMED]/[SUS]"
+  files       ["package.json"]
   status      closed
   evidence    "package.json has no dependencies"
 }
@@ -177,6 +180,7 @@ threat T-01-03 "List shows names" {
   severity    low
   disposition accept
   mitigation  "list prints names only, never values"
+  files       ["src/cli.js"]
   status      closed
 }
 
@@ -187,6 +191,7 @@ threat T-01-SC "Package installs" {
   severity    high
   disposition mitigate
   mitigation  "package-legitimacy gate + blocking human checkpoint for [ASSUMED]/[SUS]"
+  files       ["package.json"]
   status      closed
   evidence    "package.json has no dependencies"
 }

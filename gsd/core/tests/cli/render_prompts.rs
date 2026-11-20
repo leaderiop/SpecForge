@@ -5,7 +5,7 @@
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-use super::cmd_execute::stale_plan_check;
+use super::cmd_execute::{stale_plan_check, stale_verification};
 use super::commands_support::{gsd, json, plus, twin};
 use super::harness::{Project, project, taskboard};
 use super::prompts_support::{HOSTS, payload, prompt, text_of};
@@ -318,8 +318,10 @@ fn render_golden(row: &Row) {
     }
 }
 
-/// The gated prompts that render on the twin: under `gsd-plus` a stale verdict inside the subject refuses (E516),
-/// under the default preset the same project renders. The other guards have their own tests (`prompts_*`).
+/// The gated prompts that render on the twin: under `gsd-strict` and `gsd-plus` a stale plan check inside the subject
+/// refuses (E516) every prompt but those that run the plan checker, and a stale verifier verdict of phase 01 (no row's
+/// remedy) refuses each; under the default preset the same project renders. The other guards have their own tests
+/// (`prompts_*`).
 #[test]
 fn every_gated_prompt_refuses_and_allows() {
     let gated = [
@@ -353,6 +355,22 @@ fn refuses_and_allows(id: &str) {
     };
     stale_plan_check(&p);
     plus(&p);
+    let run = prompt(&p, id, row.args, "claude-code");
+    // A workflow that runs gsd-plan-checker is the stale plan check's remedy: E516 lets it by.
+    let checks_plans = [
+        "plan_phase",
+        "plan_review_convergence",
+        "ultraplan_phase",
+        "verify_work",
+    ]
+    .contains(&id);
+    assert_eq!(
+        run.all().contains("E516"),
+        !checks_plans,
+        "{id}: {}",
+        run.all()
+    );
+    stale_verification(&p);
     let run = prompt(&p, id, row.args, "claude-code");
     assert_ne!(run.code, 0, "{id}: {}", run.all());
     assert!(run.all().contains("E516"), "{id}: {}", run.all());

@@ -1,5 +1,5 @@
 //! The pairing table's rows for the command-line twins of MCP reads (ADR 0355): `search` and `specforge.search`,
-//! `refs` and `specforge.find_references`, `trace --in` and `specforge.trace`'s `in`.
+//! `refs` and `specforge.find_references`, `trace --in` and `specforge.trace`'s `in`, `diff` and `specforge.diff`.
 //! One table with the rows of `request_pairs` (ADR 0101 D5): [`super::pair`] and the unique-label test read both.
 
 use serde_json::json;
@@ -71,6 +71,22 @@ pub(super) const TWIN_PAIRS: &[Pair] = &[
         tool: "specforge.trace",
         arguments: || json!({"entity_id": "alpha", "in": "Red"}),
     },
+    Pair {
+        label: "diff_outside_a_repository",
+        project: rv1,
+        cli: &["diff", "--path", "{root}", "--format", "json"],
+        exit: 1,
+        tool: "specforge.diff",
+        arguments: || json!({}),
+    },
+    Pair {
+        label: "diff_symmetric_range",
+        project: rv1,
+        cli: &["diff", "a...b", "--path", "{root}", "--format", "json"],
+        exit: 2,
+        tool: "specforge.diff",
+        arguments: || json!({"range": "a...b"}),
+    },
 ];
 
 #[test]
@@ -120,4 +136,14 @@ fn trace_in_is_one_request() {
 #[specforge_test_macros::test(requirement = "FEATURE-129")]
 fn trace_entity_and_in_is_one_request() {
     assert_eq!(pair("trace_entity_and_in").0, Outcome::Refused);
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-142")]
+fn diff_outside_a_repository_is_refused_on_both() {
+    assert_eq!(pair("diff_outside_a_repository").0, Outcome::Refused);
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-142")]
+fn diff_symmetric_range_is_refused_on_both() {
+    assert_eq!(pair("diff_symmetric_range").0, Outcome::Refused);
 }

@@ -185,8 +185,8 @@ fn read_takes_every_authored_entity_and_no_collected_fact() {
     }
     for (kind, file) in [
         ("spec", "spec/project.spec"),
-        ("feature", ".specforge/facts/main/cargo.json"),
-        ("test", ".specforge/facts/main/rust.json"),
+        ("feature", ".specforge/facts/worktree/cargo.json"),
+        ("test", ".specforge/facts/worktree/rust.json"),
     ] {
         assert!(!read::authored(kind, file), "{kind} in {file}");
     }

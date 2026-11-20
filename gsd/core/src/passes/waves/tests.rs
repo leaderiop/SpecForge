@@ -23,12 +23,20 @@ fn checkpoint(id: &str) -> PassEntity {
 
 /// `(plan, depends on)` pairs.
 fn input(plans: &[(&str, bool)], depends: &[(&str, &str)], extra: Vec<PassEntity>) -> PassInput {
-    PassInput {
-        entities: plans
+    graph(
+        plans
             .iter()
             .map(|(id, wave0)| plan(id, *wave0))
             .chain(extra)
             .collect(),
+        depends,
+    )
+}
+
+/// The entities, with `(plan, depends on)` pairs as `depends_on` edges.
+fn graph(entities: Vec<PassEntity>, depends: &[(&str, &str)]) -> PassInput {
+    PassInput {
+        entities,
         edges: depends
             .iter()
             .map(|(source, target)| PassEdge {
@@ -41,11 +49,52 @@ fn input(plans: &[(&str, bool)], depends: &[(&str, &str)], extra: Vec<PassEntity
     }
 }
 
+/// `entity` with the list of strings `field` set to `paths`.
+fn with_paths(mut entity: PassEntity, field: &str, paths: &[&str]) -> PassEntity {
+    entity.values.insert(field.into(), serde_json::json!(paths));
+    entity
+}
+
+/// A plan with no `wave0` that modifies `paths`.
+fn modifying(id: &str, paths: &[&str]) -> PassEntity {
+    with_paths(plan(id, false), "files_modified", paths)
+}
+
+fn task(id: &str, files: &[&str]) -> PassEntity {
+    let task = PassEntity {
+        id: id.into(),
+        kind: "task".into(),
+        ..Default::default()
+    };
+    with_paths(task, "files", files)
+}
+
 fn waves_of(input: &PassInput) -> Vec<(String, i64)> {
     waves(input)
         .into_iter()
         .map(|(id, wave)| (id.to_string(), wave))
         .collect()
+}
+
+fn strict_of(input: &PassInput) -> Vec<(String, i64)> {
+    strict_waves(input)
+        .into_iter()
+        .map(|(id, wave)| (id.to_string(), wave))
+        .collect()
+}
+
+/// The wave of each plan that has one, by plan id.
+fn waves(input: &PassInput) -> BTreeMap<&str, i64> {
+    placed(input).into_iter().flat_map(|p| p.wave).collect()
+}
+
+/// The strict wave of each plan that has one, by plan id: exactly the plans that have a wave.
+fn strict_waves(input: &PassInput) -> BTreeMap<&str, i64> {
+    placed(input).into_iter().flat_map(|p| p.strict).collect()
+}
+
+fn paths(paths: &[&str]) -> BTreeSet<String> {
+    paths.iter().map(|p| (*p).to_string()).collect()
 }
 
 #[test]
@@ -186,5 +235,493 @@ fn a_plan_with_a_checkpoint_is_not_autonomous() {
     assert_eq!(
         autonomous,
         [("v/1/1-01".into(), true), ("v/1/1-02".into(), false)]
+    );
+}
+
+#[test]
+fn levels_count_a_chain_from_0_and_place_no_cycle() {
+    let ids: BTreeSet<&str> = ["a", "b"].into();
+    let chain = BTreeMap::from([("b", BTreeSet::from(["a"]))]);
+    assert_eq!(
+        levels(&ids, &chain),
+        Some(BTreeMap::from([("a", 0), ("b", 1)]))
+    );
+    let cycle = BTreeMap::from([("a", BTreeSet::from(["b"])), ("b", BTreeSet::from(["a"]))]);
+    assert_eq!(levels(&ids, &cycle), None);
+}
+
+#[test]
+fn two_plans_of_one_wave_sharing_a_path_are_kept_apart() {
+    let input = graph(
+        vec![
+            modifying("v/1/1-01", &["src/a.js"]),
+            modifying("v/1/1-02", &["src/a.js", "src/b.js"]),
+        ],
+        &[],
+    );
+    assert_eq!(
+        waves_of(&input),
+        [("v/1/1-01".into(), 1), ("v/1/1-02".into(), 1)]
+    );
+    assert_eq!(
+        strict_of(&input),
+        [("v/1/1-01".into(), 1), ("v/1/1-02".into(), 2)]
+    );
+    let placed = placed(&input);
+    assert_eq!(placed.len(), 1);
+    assert_eq!(placed[0].phase, "v/1");
+    assert_eq!(
+        placed[0].shared,
+        BTreeMap::from([(("v/1/1-02", "v/1/1-01"), paths(&["src/a.js"]))])
+    );
+    assert_eq!(
+        placed[0].before,
+        BTreeMap::from([("v/1/1-02", BTreeSet::from(["v/1/1-01"]))])
+    );
+    assert!(placed[0].depends.is_empty());
+}
+
+#[test]
+fn a_plan_that_depends_on_a_pushed_plan_is_pushed_after_it() {
+    let input = graph(
+        vec![
+            modifying("v/1/1-01", &["src/a.js"]),
+            modifying("v/1/1-02", &["src/a.js"]),
+            modifying("v/1/1-03", &["src/c.js"]),
+        ],
+        &[("v/1/1-03", "v/1/1-02")],
+    );
+    assert_eq!(
+        waves_of(&input),
+        [
+            ("v/1/1-01".into(), 1),
+            ("v/1/1-02".into(), 1),
+            ("v/1/1-03".into(), 2)
+        ]
+    );
+    assert_eq!(
+        strict_of(&input),
+        [
+            ("v/1/1-01".into(), 1),
+            ("v/1/1-02".into(), 2),
+            ("v/1/1-03".into(), 3)
+        ]
+    );
+    let placed = placed(&input);
+    assert_eq!(
+        placed[0].shared.keys().collect::<Vec<_>>(),
+        [&("v/1/1-02", "v/1/1-01")]
+    );
+}
+
+#[test]
+fn plans_of_different_waves_sharing_a_path_keep_their_waves() {
+    // 1-03 is in wave 2 behind 1-02 and shares a path with 1-01 of wave 1, which nothing pushes.
+    let input = graph(
+        vec![
+            modifying("v/1/1-01", &["src/a.js"]),
+            modifying("v/1/1-02", &["src/b.js"]),
+            modifying("v/1/1-03", &["src/a.js"]),
+        ],
+        &[("v/1/1-03", "v/1/1-02")],
+    );
+    let expected: Vec<(String, i64)> = vec![
+        ("v/1/1-01".into(), 1),
+        ("v/1/1-02".into(), 1),
+        ("v/1/1-03".into(), 2),
+    ];
+    assert_eq!(waves_of(&input), expected);
+    assert_eq!(strict_of(&input), expected);
+    assert_eq!(
+        placed(&input)[0].shared,
+        BTreeMap::from([(("v/1/1-03", "v/1/1-01"), paths(&["src/a.js"]))])
+    );
+}
+
+#[test]
+fn a_later_wave_plan_sharing_a_path_with_a_pushed_plan_is_pushed() {
+    // A and B of wave 1 share x (B is pushed to 2); C of wave 2, on A, shares y with B, so it runs after B.
+    let (a, b, c) = ("v/1/1-01", "v/1/1-02", "v/1/1-03");
+    let input = graph(
+        vec![
+            modifying(a, &["src/x.js"]),
+            modifying(b, &["src/x.js", "src/y.js"]),
+            modifying(c, &["src/y.js"]),
+        ],
+        &[(c, a)],
+    );
+    assert_eq!(
+        waves_of(&input),
+        [(a.into(), 1), (b.into(), 1), (c.into(), 2)]
+    );
+    assert_eq!(
+        strict_of(&input),
+        [(a.into(), 1), (b.into(), 2), (c.into(), 3)]
+    );
+    let placed = placed(&input);
+    assert_eq!(
+        placed[0].shared,
+        BTreeMap::from([
+            ((b, a), paths(&["src/x.js"])),
+            ((c, b), paths(&["src/y.js"]))
+        ])
+    );
+    assert_eq!(placed[0].before[c], BTreeSet::from([a, b]));
+    assert_eq!(placed[0].depends[c], BTreeSet::from([a]));
+}
+
+#[test]
+fn a_deleted_path_is_shared_like_a_modified_one() {
+    let input = graph(
+        vec![
+            modifying("v/1/1-01", &["src/a.js"]),
+            with_paths(plan("v/1/1-02", false), "files_deleted", &["src/a.js"]),
+        ],
+        &[],
+    );
+    assert_eq!(
+        strict_of(&input),
+        [("v/1/1-01".into(), 1), ("v/1/1-02".into(), 2)]
+    );
+}
+
+#[test]
+fn a_task_file_outside_its_plan_is_shared_too() {
+    // gsd/W306 is only a warning, so a task may name a file its plan does not list.
+    let input = graph(
+        vec![
+            modifying("v/1/1-01", &["src/a.js"]),
+            modifying("v/1/1-02", &["src/b.js"]),
+            task("v/1/1-02/T1", &["src/a.js"]),
+        ],
+        &[],
+    );
+    assert_eq!(
+        strict_of(&input),
+        [("v/1/1-01".into(), 1), ("v/1/1-02".into(), 2)]
+    );
+    assert_eq!(
+        placed(&input)[0].shared,
+        BTreeMap::from([(("v/1/1-02", "v/1/1-01"), paths(&["src/a.js"]))])
+    );
+}
+
+#[test]
+fn a_wave0_phase_offsets_both_and_a_lone_plan_keeps_its_wave() {
+    let input = graph(
+        vec![
+            with_paths(plan("v/1/1-01", true), "files_modified", &["src/a.js"]),
+            modifying("v/1/1-02", &["src/a.js"]),
+            modifying("v/2/2-01", &["src/a.js"]),
+        ],
+        &[],
+    );
+    assert_eq!(
+        waves_of(&input),
+        [
+            ("v/1/1-01".into(), 0),
+            ("v/1/1-02".into(), 0),
+            ("v/2/2-01".into(), 1)
+        ]
+    );
+    // A plan of another phase sharing the path is not compared.
+    assert_eq!(
+        strict_of(&input),
+        [
+            ("v/1/1-01".into(), 0),
+            ("v/1/1-02".into(), 1),
+            ("v/2/2-01".into(), 1)
+        ]
+    );
+}
+
+#[test]
+fn a_cycle_leaves_the_phase_without_strict_waves() {
+    let input = graph(
+        vec![
+            modifying("v/1/1-01", &["src/a.js"]),
+            modifying("v/1/1-02", &["src/a.js"]),
+            modifying("v/2/2-01", &["src/a.js"]),
+            modifying("v/2/2-02", &["src/a.js"]),
+            modifying("261028-a1b", &["src/a.js"]),
+        ],
+        &[("v/1/1-01", "v/1/1-02"), ("v/1/1-02", "v/1/1-01")],
+    );
+    assert_eq!(
+        strict_of(&input),
+        [("v/2/2-01".into(), 1), ("v/2/2-02".into(), 2)]
+    );
+    let placed = placed(&input);
+    assert_eq!(placed.iter().map(|p| p.phase).collect::<Vec<_>>(), ["v/2"]);
+    let values = compute(&input).values;
+    assert!(
+        !values.iter().any(|v| v.field == "strict_wave"
+            && (v.entity.starts_with("v/1/") || v.entity == "261028-a1b"))
+    );
+}
+
+#[test]
+fn a_path_holding_a_comma_is_one_path() {
+    let input = graph(
+        vec![
+            modifying("v/1/1-01", &["src/a.js", "src/b.js"]),
+            modifying("v/1/1-02", &["src/a.js,src/b.js"]),
+        ],
+        &[],
+    );
+    assert_eq!(
+        strict_of(&input),
+        [("v/1/1-01".into(), 1), ("v/1/1-02".into(), 1)]
+    );
+    assert!(placed(&input)[0].shared.is_empty());
+}
+
+#[test]
+fn an_implied_edge_runs_from_the_earlier_wave_not_the_smaller_id() {
+    // 1-01 depends on 1-02 and both share a path: by id the edge would close a cycle, by wave it repeats depends_on.
+    // 1-03 of wave 1 shares the path too: it runs after 1-02, and 1-01 after it.
+    let input = graph(
+        vec![
+            modifying("v/1/1-01", &["src/a.js"]),
+            modifying("v/1/1-02", &["src/a.js"]),
+            modifying("v/1/1-03", &["src/a.js"]),
+        ],
+        &[("v/1/1-01", "v/1/1-02")],
+    );
+    assert_eq!(
+        waves_of(&input),
+        [
+            ("v/1/1-01".into(), 2),
+            ("v/1/1-02".into(), 1),
+            ("v/1/1-03".into(), 1)
+        ]
+    );
+    assert_eq!(
+        strict_of(&input),
+        [
+            ("v/1/1-01".into(), 3),
+            ("v/1/1-02".into(), 1),
+            ("v/1/1-03".into(), 2)
+        ]
+    );
+}
+
+#[test]
+fn every_pair_sharing_a_path_is_ordered_without_a_cycle() {
+    // Six plans that all modify one path, with dependencies that run against id order: the strict placement exists
+    // whenever the waves do, and it orders every plan apart.
+    let ids: Vec<String> = (1..=6).map(|n| format!("v/1/1-0{n}")).collect();
+    let mut depends = Vec::new();
+    for (i, later) in ids.iter().enumerate() {
+        for (j, earlier) in ids.iter().enumerate().skip(i + 1) {
+            if (i * 7 + j * 3) % 4 == 0 {
+                depends.push((later.as_str(), earlier.as_str()));
+            }
+        }
+    }
+    let input = graph(
+        ids.iter().map(|id| modifying(id, &["src/a.js"])).collect(),
+        &depends,
+    );
+    assert_eq!(waves(&input).len(), 6);
+    let mut strict: Vec<i64> = strict_waves(&input).into_values().collect();
+    strict.sort_unstable();
+    assert_eq!(strict, [1, 2, 3, 4, 5, 6]);
+}
+
+#[test]
+fn compute_answers_strict_wave_beside_wave() {
+    let input = graph(
+        vec![
+            modifying("v/1/1-01", &["src/a.js"]),
+            modifying("v/1/1-02", &["src/a.js"]),
+            modifying("261028-a1b", &["src/a.js"]),
+        ],
+        &[],
+    );
+    let of = |field: &str| -> Vec<(String, i64)> {
+        compute(&input)
+            .values
+            .iter()
+            .filter(|v| v.field == field)
+            .map(|v| (v.entity.clone(), v.value.as_i64().expect("an int")))
+            .collect()
+    };
+    assert_eq!(of("wave"), [("v/1/1-01".into(), 1), ("v/1/1-02".into(), 1)]);
+    assert_eq!(
+        of("strict_wave"),
+        [("v/1/1-01".into(), 1), ("v/1/1-02".into(), 2)]
+    );
+}
+
+/// `heaviest` over the one phase of `input`, each plan weighing its entry in `weights` (0 when absent).
+fn heaviest_of(input: &PassInput, weights: &[(&str, i64)]) -> (Vec<String>, i64) {
+    let placed = placed(input);
+    let [phase] = placed.as_slice() else {
+        panic!("one phase, not {}", placed.len())
+    };
+    let weights: BTreeMap<&str, i64> = weights.iter().copied().collect();
+    let (chain, weight) = heaviest(phase, |id| weights.get(id).copied().unwrap_or(0));
+    (chain.into_iter().map(String::from).collect(), weight)
+}
+
+fn ids(ids: &[&str]) -> Vec<String> {
+    ids.iter().map(|id| (*id).to_string()).collect()
+}
+
+#[test]
+fn the_heaviest_chain_sums_its_plans() {
+    let input = input(
+        &[("v/1/a", false), ("v/1/b", false)],
+        &[("v/1/b", "v/1/a")],
+        vec![],
+    );
+    let found = heaviest_of(&input, &[("v/1/a", 2), ("v/1/b", 1)]);
+    assert_eq!(found, (ids(&["v/1/a", "v/1/b"]), 3));
+}
+
+#[test]
+fn of_two_independent_plans_the_heavier_is_the_chain_and_a_tie_takes_the_smaller_id() {
+    let input = input(&[("v/1/a", false), ("v/1/b", false)], &[], vec![]);
+    assert_eq!(
+        heaviest_of(&input, &[("v/1/a", 1), ("v/1/b", 2)]),
+        (ids(&["v/1/b"]), 2)
+    );
+    assert_eq!(
+        heaviest_of(&input, &[("v/1/a", 2), ("v/1/b", 2)]),
+        (ids(&["v/1/a"]), 2)
+    );
+}
+
+#[test]
+fn a_zero_weight_plan_after_a_chain_stays_on_it() {
+    let input = input(
+        &[("v/1/a", false), ("v/1/b", false)],
+        &[("v/1/b", "v/1/a")],
+        vec![],
+    );
+    let found = heaviest_of(&input, &[("v/1/a", 2), ("v/1/b", 0)]);
+    assert_eq!(found, (ids(&["v/1/a", "v/1/b"]), 2));
+}
+
+#[test]
+fn of_two_chains_of_equal_weight_the_longer_wins_then_the_smaller_id() {
+    // a (2) before b (0), and c (2) alone: the longer chain.
+    let longer = input(
+        &[("v/1/a", false), ("v/1/b", false), ("v/1/c", false)],
+        &[("v/1/b", "v/1/a")],
+        vec![],
+    );
+    let weights = [("v/1/a", 2), ("v/1/b", 0), ("v/1/c", 2)];
+    assert_eq!(
+        heaviest_of(&longer, &weights),
+        (ids(&["v/1/a", "v/1/b"]), 2)
+    );
+    // a (2) alone, and b (2) before c (0): the longer chain, though it starts at the larger id.
+    let later = input(
+        &[("v/1/a", false), ("v/1/b", false), ("v/1/c", false)],
+        &[("v/1/c", "v/1/b")],
+        vec![],
+    );
+    let weights = [("v/1/a", 2), ("v/1/b", 2), ("v/1/c", 0)];
+    assert_eq!(heaviest_of(&later, &weights), (ids(&["v/1/b", "v/1/c"]), 2));
+    // a (2) and c (2), each alone: the smaller id.
+    let alone = input(&[("v/1/a", false), ("v/1/c", false)], &[], vec![]);
+    let weights = [("v/1/a", 2), ("v/1/c", 2)];
+    assert_eq!(heaviest_of(&alone, &weights), (ids(&["v/1/a"]), 2));
+}
+
+#[test]
+fn a_diamond_takes_its_heavier_side_and_a_tie_the_smaller_id() {
+    let diamond = input(
+        &[
+            ("v/1/a", false),
+            ("v/1/b", false),
+            ("v/1/c", false),
+            ("v/1/d", false),
+        ],
+        &[
+            ("v/1/b", "v/1/a"),
+            ("v/1/c", "v/1/a"),
+            ("v/1/d", "v/1/b"),
+            ("v/1/d", "v/1/c"),
+        ],
+        vec![],
+    );
+    let heavier_b = [("v/1/a", 1), ("v/1/b", 5), ("v/1/c", 1), ("v/1/d", 1)];
+    assert_eq!(
+        heaviest_of(&diamond, &heavier_b),
+        (ids(&["v/1/a", "v/1/b", "v/1/d"]), 7)
+    );
+    let heavier_c = [("v/1/a", 1), ("v/1/b", 1), ("v/1/c", 5), ("v/1/d", 1)];
+    assert_eq!(
+        heaviest_of(&diamond, &heavier_c),
+        (ids(&["v/1/a", "v/1/c", "v/1/d"]), 7)
+    );
+    let equal = [("v/1/a", 1), ("v/1/b", 3), ("v/1/c", 3), ("v/1/d", 1)];
+    assert_eq!(
+        heaviest_of(&diamond, &equal),
+        (ids(&["v/1/a", "v/1/b", "v/1/d"]), 5)
+    );
+}
+
+#[test]
+fn a_shared_path_chains_plans_like_a_dependency() {
+    // Two plans of wave 1 that share a path: the later one runs after the earlier, so the chain holds both.
+    let input = graph(
+        vec![
+            modifying("v/1/a", &["src/a.js"]),
+            modifying("v/1/b", &["src/a.js"]),
+        ],
+        &[],
+    );
+    let found = heaviest_of(&input, &[("v/1/a", 1), ("v/1/b", 1)]);
+    assert_eq!(found, (ids(&["v/1/a", "v/1/b"]), 2));
+}
+
+#[test]
+fn a_negative_weight_counts_0_and_a_sum_saturates() {
+    let chain = input(
+        &[("v/1/a", false), ("v/1/b", false)],
+        &[("v/1/b", "v/1/a")],
+        vec![],
+    );
+    assert_eq!(
+        heaviest_of(&chain, &[("v/1/a", -5), ("v/1/b", 1)]),
+        (ids(&["v/1/a", "v/1/b"]), 1)
+    );
+    assert_eq!(
+        heaviest_of(&chain, &[("v/1/a", i64::MAX), ("v/1/b", i64::MAX - 1)]),
+        (ids(&["v/1/a", "v/1/b"]), i64::MAX)
+    );
+    assert_eq!(
+        heaviest_of(&chain, &[("v/1/a", i64::MIN), ("v/1/b", i64::MIN)]),
+        (ids(&["v/1/a", "v/1/b"]), 0)
+    );
+}
+
+#[test]
+fn unpadded_ids_compare_as_a_person_reads_them() {
+    // `01-10` sorts before `01-2` as text: the earlier plan of the pair is still `01-2`, so `01-10` is pushed.
+    let sharing = graph(
+        vec![
+            modifying("v/1/01-10", &["src/a.js"]),
+            modifying("v/1/01-2", &["src/a.js"]),
+        ],
+        &[],
+    );
+    assert_eq!(
+        strict_of(&sharing),
+        [("v/1/01-10".into(), 2), ("v/1/01-2".into(), 1)]
+    );
+    assert_eq!(
+        placed(&sharing)[0].shared,
+        BTreeMap::from([(("v/1/01-10", "v/1/01-2"), paths(&["src/a.js"]))])
+    );
+    // Of two chains of one weight and length, the one ending at the smaller id as read wins.
+    let apart = input(&[("v/1/01-10", false), ("v/1/01-2", false)], &[], vec![]);
+    assert_eq!(
+        heaviest_of(&apart, &[("v/1/01-10", 2), ("v/1/01-2", 2)]),
+        (ids(&["v/1/01-2"]), 2)
     );
 }

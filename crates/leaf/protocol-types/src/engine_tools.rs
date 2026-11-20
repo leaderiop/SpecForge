@@ -385,6 +385,13 @@ pub const ENGINE_TOOLS: &[EngineTool] = &[
         &["prompt"],
         "Render a prompt by name, with its arguments.",
     ),
+    row(
+        "diff",
+        Read,
+        Reads,
+        &["diff"],
+        "Name the nodes and edges that changed between two snapshots of the project, a revision or the working tree.",
+    ),
 ];
 
 /// The row named `name`.

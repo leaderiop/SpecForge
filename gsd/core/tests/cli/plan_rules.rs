@@ -77,14 +77,14 @@ fn w323_is_an_error_under_gsd_strict() {
 }
 
 /// A fresh copy of the plan project with `more` appended as `spec/more.spec`.
-fn with(more: &str) -> Project {
+pub(super) fn with(more: &str) -> Project {
     let p = project("plan");
     p.write("spec/more.spec", more);
     p
 }
 
 /// An `auto` task of `plan` with its files and an automated verify, so no plan-shape rule fires on the task itself.
-fn auto(name: &str, plan: &str) -> String {
+pub(super) fn auto(name: &str, plan: &str) -> String {
     format!(
         "task {name} \"Auto {name}\" {{\n  plan   {plan}\n  type   auto\n  files  [\"src/tasks.js\"]\n  action \"Do it\"\n  verify [\n    {{ automated \"node --test test/tasks.test.js\" fails_when \"a test fails\" }}\n  ]\n  done   \"Done\"\n}}\n\n"
     )
@@ -297,7 +297,7 @@ fn a_plan_depending_on_another_phase_is_e102() {
 }
 
 /// A third plan of phase 01 with the must-haves W309 wants, modifying `modified` and deleting `deleted`.
-fn third_plan(depends: &str, modified: &str, deleted: &str) -> String {
+pub(super) fn third_plan(depends: &str, modified: &str, deleted: &str) -> String {
     format!(
         "plan 01-03 \"Third\" {{\n  phase          v1.0/01\n  type           execute\n{depends}  files_modified [{modified}]\n  files_deleted  [{deleted}]\n  requirements   [TASK-01]\n  objective      \"A third plan\"\n}}\n\ntruth TR1 \"Third\" {{\n  plan v1.0/01/01-03\n  text \"Third\"\n}}\n\nartifact AR1 \"Third\" {{\n  plan     v1.0/01/01-03\n  path     \"src/third.js\"\n  provides \"third\"\n}}\n"
     )
@@ -307,8 +307,9 @@ fn third_plan(depends: &str, modified: &str, deleted: &str) -> String {
 fn same_wave_overlap_is_w305() {
     // 01-01 is wave 1, and so is a plan with no `depends_on` that also modifies `src/tasks.js`.
     let p = with(&third_plan("", "\"src/tasks.js\"", ""));
-    assert_eq!(p.codes(), ["gsd/W305"]);
-    assert!(only(&p, "gsd/W305").contains(
+    // gsd/W526 says where 01-03 runs instead (`strict_wave::a_same_wave_overlap_pushes_the_later_plan_w526`).
+    assert_eq!(p.codes(), ["gsd/W305", "gsd/W526"]);
+    assert!(message(&p, "gsd/W305").contains(
         "plans 'v1.0/01/01-01' and 'v1.0/01/01-03' of wave 1 both modify 'src/tasks.js': under gsd-compat the wave runs sequentially"
     ));
 }
@@ -318,7 +319,7 @@ fn a_deleted_file_counts_as_overlap() {
     let p = with(&third_plan("", "\"src/third.js\"", "\"src/tasks.js\""));
     // A pending plan deletes a file that is there (E016 otherwise, ADR 0350).
     p.write("src/tasks.js", "// to delete\n");
-    assert_eq!(p.codes(), ["gsd/W305"]);
+    assert_eq!(p.codes(), ["gsd/W305", "gsd/W526"]);
 }
 
 #[test]

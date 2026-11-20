@@ -61,23 +61,23 @@
     "",
     "Display banner: `GSD > SECURE PHASE {N}: {name}`"
   ],
-  "bytes": 26816,
+  "bytes": 28094,
   "end": [
-    "Execute end-to-end.",
-    "Preserve all workflow gates.",
-    "</process>",
     "",
+    "## The judged verdicts here (@gsd/security)",
     "",
-    "In the shell blocks above, `$PHASE_ID` is `v1.0/01`.",
+    "This prompt judges two rules. The auditor returns its findings and records nothing; after the audit is recorded, you record each verdict:",
     "",
-    "## The security audit here (@gsd/security)",
+    "- `gsd.security/W302` on each closed threat of the phase: its disposition holds (`mitigate`, the mitigation is in its files; `accept`, an accepted risk records it; `transfer`, the transfer is documented). Outcome `holds` or `broken`.",
+    "- `gsd.security/W303` on the phase's security audit: every threat flag the phase's summaries raise maps to a threat of its register (`mapped`), or one does not (`unregistered`, the auditor's unregistered flag: name each in `--findings`).",
     "",
-    "The phase's security audit is its `security_audit` entity (`<phase>/NN-SECURITY`): its `threat` and `trust_boundary` entities are in the phase's plans, its accepted risks log is the `accepted_risk` entities and its audit trail the `audit_run` entities. `threats_open` and `status` are computed from the threats: never written. Nothing is written by hand; two commands write it:",
+    "For each, read its inputs with `specforge query <entity> --inputs <rule> --format json`, judge them, then record the outcome over the `basis` it printed: `specforge gsd record-security-verdict <entity> <W302|W303> <outcome> <model> '<basis>'` (`--cited '[{\"file\": \"<path>\"}]'` names what shows it).",
     "",
-    "- `specforge gsd record-security-audit $PHASE_ID --verdict '<json>' [--run-by <who>]` creates the audit on the first call, writes each threat's `status` and `evidence`, and appends an `audit_run` only when the counts changed. The verdict is `{\"threats\": [{\"id\": \"T-01-01\", \"status\": \"open|closed\", \"evidence\": \"<where>\"}]}`; a threat of a phase planned without a register is recorded with `\"retroactive\": true`, its `plan` and its `category`, `component`, `severity`, `disposition` and `mitigation`.",
-    "- Step 4's option 2 records what a person says: ask the person to run `specforge gsd accept-risk <threat> <rationale> <who>` in their terminal (an agent's call is refused). A threat with an accepted risk no longer counts in `threats_open`.",
+    "A verdict stays fresh until one of its inputs changes: an edit to a file a threat names stales its W302, a new or edited summary or threat of the phase stales the audit's W303, and only the stale ones are judged again.",
     "",
-    "`workflow.security_*` are `@gsd/security`'s settings: `specforge settings set @gsd/security <name> <value>`.",
+    "The verdicts that are not fresh, the ones to judge:",
+    "",
+    "- `gsd.security/W303` on `v1.0/01/01-SECURITY`",
     "",
     "The template of those entities:",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 434,
+  "lines": 449,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,29 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:aed4f7589303b3753430d008a4b901c867f1706f9a9fd57cba94b9ba4a16adbb",
+    "digest": "sha256:dd1cbebe828948307c27342f98fc6feb2b8d5974560c19b53d4aead5f7cf6060",
+    "judged": [
+      {
+        "outcomes": [
+          "holds",
+          "broken"
+        ],
+        "passing": [
+          "holds"
+        ],
+        "rule": "gsd.security/W302"
+      },
+      {
+        "outcomes": [
+          "mapped",
+          "unregistered"
+        ],
+        "passing": [
+          "mapped"
+        ],
+        "rule": "gsd.security/W303"
+      }
+    ],
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
@@ -211,6 +233,13 @@
         "tool": "specforge.gsd.record_security_audit"
       },
       {
+        "cli": "specforge gsd record-security-verdict --host codex",
+        "gate": [],
+        "id": "judge",
+        "title": "Judge each closed threat's mitigation (W302) and the phase's threat flags (W303) and record them (specforge gsd record-security-verdict <entity> <W302|W303> <outcome> <model> '<basis>')",
+        "tool": "specforge.gsd.record_security_verdict"
+      },
+      {
         "cli": "specforge gsd accept-risk --host codex",
         "gate": [],
         "id": "accept",
@@ -220,5 +249,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "aed4f7589303b3753430d008a4b901c867f1706f9a9fd57cba94b9ba4a16adbb"
+  "sha256": "dd1cbebe828948307c27342f98fc6feb2b8d5974560c19b53d4aead5f7cf6060"
 }

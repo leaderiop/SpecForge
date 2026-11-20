@@ -93,11 +93,12 @@ fn the_body_is_the_asset() {
     installed(&p, "claude-code");
     for agent in AGENTS {
         // The asset's header line is a comment about the port; the host's own notice follows the body.
-        // A judging agent's body is followed by the section that names `record_verdict`.
+        // The plan checker's body is followed by its reading of the plans' thread, and a judging agent's by the
+        // section that names `record_verdict`.
         let asset = repointed(&format!(
             "{}{}",
             agent.full,
-            gsd_core::agents::recording(agent.id)
+            gsd_core::agents::after_body(agent.id)
         ));
         let installed = body(&claude_agent(&p, agent.id));
         assert_eq!(installed, asset.trim(), "{}", agent.id);
@@ -139,6 +140,34 @@ fn a_judge_is_told_how_to_record_its_verdict() {
             "gsd-verifier"
         ]
     );
+}
+
+/// The plan checker, and no other agent, is told what the `**Thread:**` line `plan_phase` passes it holds, and how to
+/// read the thread itself without one (ADR 0378 D3).
+#[test]
+fn the_plan_checker_reads_the_thread_line() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    for agent in AGENTS {
+        let text = body(&claude_agent(&p, agent.id));
+        let told = text.contains("## The plans' thread (@gsd/core)");
+        assert_eq!(told, agent.id == "gsd-plan-checker", "{}", agent.id);
+        assert_eq!(text.contains("**Thread:**"), told, "{}", agent.id);
+        if told {
+            for said in [
+                "`specforge gsd thread-plan <phase> --format json`",
+                "`specforge trace --plan <file> --format json`",
+                "A result with `ok: false` is a blocker on the plans' order",
+            ] {
+                assert!(text.contains(said), "`{said}` is not said:\n{text}");
+            }
+            // The thread section comes before the verdict section, after the ported body.
+            assert!(
+                text.find("## The plans' thread") < text.find("## Recording a verdict"),
+                "{text}"
+            );
+        }
+    }
 }
 
 /// D-r42-5: an installed body reads its references through `specforge gsd reference`, never a `~/.claude` path.
@@ -214,11 +243,18 @@ fn an_installed_agent_is_granted_only_its_roles_specforge_tools() {
     let checker = claude_agent(&p, "gsd-plan-checker");
     let (front, _) = split(&checker);
     let tools = value(&front, "tools").expect("a tools line");
-    // The checker's reads and the judge's inputs, in catalogue order, then the command recording a verdict.
+    // The checker's reads, the judge's inputs and its own reads, engine tools in catalogue order, then its commands
+    // (its own read-only one and the one recording a verdict) by MCP name.
+    let own = AGENTS
+        .iter()
+        .find(|a| a.id == "gsd-plan-checker")
+        .expect("the plan checker")
+        .reads;
     let granted: Vec<&str> = gsd_kit::agent::CHECKER
         .reads
         .iter()
-        .chain(&["specforge:verdict_inputs"])
+        .chain(gsd_kit::agent::JUDGE)
+        .chain(own)
         .map(|c| c.trim_start_matches("specforge:"))
         .collect();
     let mut want: Vec<String> = ["Read", "Bash", "Glob", "Grep", "Skill"]
@@ -230,8 +266,33 @@ fn an_installed_agent_is_granted_only_its_roles_specforge_tools() {
             .filter(|t| granted.contains(&t.name))
             .map(|t| format!("mcp__specforge__specforge_{}", t.name)),
     );
-    want.push("mcp__specforge__specforge_gsd_record_verdict".into());
+    let mut commands: Vec<String> = granted
+        .iter()
+        .filter_map(|c| c.strip_prefix("gsd."))
+        .map(|id| format!("mcp__specforge__specforge_gsd_{id}"))
+        .collect();
+    commands.sort();
+    assert_eq!(
+        commands,
+        [
+            "mcp__specforge__specforge_gsd_record_verdict",
+            "mcp__specforge__specforge_gsd_thread_plan"
+        ]
+    );
+    want.extend(commands);
     assert_eq!(tools.split(", ").collect::<Vec<_>>(), want);
+    // `thread_plan` is the plan checker's own read and the planner's: no other agent of either role is granted it.
+    for agent in AGENTS {
+        let (front, _) = split(&claude_agent(&p, agent.id));
+        let granted = value(&front, "tools")
+            .is_some_and(|tools| tools.contains("mcp__specforge__specforge_gsd_thread_plan"));
+        assert_eq!(
+            granted,
+            matches!(agent.id, "gsd-plan-checker" | "gsd-planner"),
+            "{}",
+            agent.id
+        );
+    }
 
     let root = p.root().join(".claude");
     let mut files = Vec::new();

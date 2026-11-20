@@ -5,6 +5,7 @@
 //! the one reader of a store's text; [`Placed`] the one judge of whether a source file is the text a served store's
 //! places are in.
 
+pub mod retain;
 mod stale;
 mod written;
 
@@ -15,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-use specforge_common::facts::{FACTS_DIR, filed, is_fact_store};
+use specforge_common::facts::{FACTS_DIR, filed, is_collector_name, is_fact_store, is_store_key};
 use specforge_common::{Diagnostic, SourceRoot, SourceSpan, Sym, codes};
 use specforge_graph::field_form::spell;
 use specforge_graph::{FieldForm, FieldForms, Reading};
@@ -229,7 +230,7 @@ pub fn admit(facts: &[Fact], kinds: &KindRegistry, answers: &[String]) -> Result
 }
 
 /// W192: the fact store `key` cannot be read as a store, and why.
-fn unreadable(key: &str, why: impl std::fmt::Display) -> Diagnostic {
+pub(crate) fn unreadable(key: &str, why: impl std::fmt::Display) -> Diagnostic {
     Diagnostic::new(
         codes::W192,
         format!("fact store '{key}' cannot be read: {why}"),
@@ -254,16 +255,39 @@ pub(crate) struct Recorded {
 /// What the stores under the project root `root` are served against, read through `disk` ([`Recorded`]): each store a
 /// stale line names, served as the ledger records it, gives the places its renames rewrote.
 pub(crate) fn recorded(disk: &dyn Disk, root: &Path) -> Recorded {
-    let ledger = ledger(disk, root);
+    recorded_by(disk, root, ledger(disk, root), Reach::Live)
+}
+
+/// Where the store a stale line names is read from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Reach {
+    /// Its live path only: the working tree, which never lists the archive (ADR 0376 D4).
+    Live,
+    /// Its live path or the archive, wherever the bytes a `facts:` line of the ledger digests are ([`retain::find`]):
+    /// a revision, whose stores a later collect may have archived.
+    Retained,
+}
+
+/// [`recorded`] against `ledger` (the root's, or a commit's), each stale store read where `reach` says: a stale line
+/// whose collector or key is no store name names no store and is never made a path.
+pub(crate) fn recorded_by(disk: &dyn Disk, root: &Path, ledger: Ledger, reach: Reach) -> Recorded {
     let stale: BTreeSet<(&str, &str)> = ledger
         .lines()
         .filter_map(Line::stale_of)
         .map(|stale| (stale.collector, stale.key))
+        .filter(|(collector, key)| is_collector_name(collector) && is_store_key(key))
         .collect();
     let mut rewrites = Rewrites::new();
     let mut torn = BTreeSet::new();
     for (collector, key) in stale {
-        let Ok(bytes) = disk.read(&root.join(Store::path(collector, key))) else {
+        let bytes = match reach {
+            Reach::Live => disk.read(&root.join(Store::path(collector, key))).ok(),
+            Reach::Retained => ledger
+                .lines()
+                .filter(|line| line.facts_of() == Some((collector, key)))
+                .find_map(|line| retain::find(disk, root, collector, key, &line.digest)),
+        };
+        let Some(bytes) = bytes else {
             continue;
         };
         if !ledger.contains(&Line::facts(collector, key, &bytes)) {
@@ -322,7 +346,11 @@ pub(crate) fn read(
 /// `facts:` line records exactly its collector, key and digest, and after them the renames its `stale:` lines mark
 /// exactly those bytes with and what every stale store's renames wrote in source files (so a ledger change re-serves
 /// it); W191 when no line records them; W192 when they are not text or the key is no store's.
-fn served_text(key: &str, bytes: Vec<u8>, recorded: &Recorded) -> Result<String, Diagnostic> {
+pub(crate) fn served_text(
+    key: &str,
+    bytes: Vec<u8>,
+    recorded: &Recorded,
+) -> Result<String, Diagnostic> {
     let ledger = &recorded.ledger;
     let Some((collector, filed_under)) = filed(key) else {
         return Err(unreadable(

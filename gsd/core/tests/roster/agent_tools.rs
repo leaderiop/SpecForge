@@ -59,7 +59,11 @@ fn every_specforge_command_an_agent_runs_is_a_tool_its_role_grants() {
     for agent in AGENTS {
         let judges = gsd_core::judged::JUDGED.iter().any(|j| j.judge == agent.id);
         let granted = agent.granted(judges);
-        let bodies = std::iter::once(agent.full).chain(agent.compact);
+        // The sections an installed body ends with (the checker's thread, a judge's recording) run commands too.
+        let own = gsd_core::agents::after_body(agent.id);
+        let bodies = std::iter::once(agent.full)
+            .chain(agent.compact)
+            .chain(std::iter::once(own.as_str()));
         for words in bodies.flat_map(invocations) {
             match class(&words) {
                 Some(class) if granted.contains(&class.as_str()) => checked += 1,
@@ -71,8 +75,11 @@ fn every_specforge_command_an_agent_runs_is_a_tool_its_role_grants() {
         }
     }
     assert!(missing.is_empty(), "{missing:#?}");
-    // Counted work: a scan that lost commands would pass vacuously, so the count is pinned to the bodies'.
-    assert_eq!(checked, 217, "commands checked");
+    // Counted work: a scan that lost commands would pass vacuously, so the count is pinned to the bodies'. The four
+    // judges' recording sections name three each (`query --inputs`, `gsd record-verdict`, `trace`), the three granted
+    // `validate` a fourth (`check`), and the verifier's a fifth (`gsd re-verify`); the plan checker's thread section
+    // names four (`trace --plan` and `gsd thread-plan`, twice each).
+    assert_eq!(checked, 237, "commands checked");
     assert_eq!(
         cli_only.into_iter().collect::<Vec<_>>(),
         ["files", "git", "http", "run", "settings"],

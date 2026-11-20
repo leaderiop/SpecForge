@@ -286,6 +286,15 @@ fn structured_results_conform_to_each_tool_output_schema() {
         );
     }
     conforming.insert("specforge.settings_set");
+    // `specforge.diff` answers only in a repository, which this fixture is not: a real answer, over a repository whose
+    // HEAD holds one milestone the working tree retitles and a phase it adds, is held to the schema instead.
+    let tool = specforge_mcp::tools::core_tool("specforge.diff").unwrap();
+    let answer = diff_answer();
+    assert_eq!(answer["summary"]["nodes_added"], 1, "{answer}");
+    assert_eq!(answer["summary"]["nodes_modified"], 1, "{answer}");
+    let violations = specforge_common::shape::violations(tool.output_schema().unwrap(), &answer);
+    assert!(violations.is_empty(), "{violations:#?}\n{answer}");
+    conforming.insert("specforge.diff");
     // Every declared schema was held to a real result.
     for spec in specforge_mcp::tools::CORE_TOOLS {
         if spec.output_schema().is_some() {
@@ -296,6 +305,30 @@ fn structured_results_conform_to_each_tool_output_schema() {
             );
         }
     }
+}
+
+/// `specforge.diff`'s structured answer over a repository whose HEAD holds milestone `v1.0` titled `One`, served from
+/// a working tree that retitles it and adds phase `03` within it.
+fn diff_answer() -> Value {
+    use specforge_project::testing::{GSD_EXTENSION, gsd_history_runtime};
+    let committed = "milestone v1.0 \"One\" {}\n";
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[GSD_EXTENSION])
+        .file(
+            "a.spec",
+            "milestone v1.0 \"First\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n",
+        );
+    let git = specforge_effects::testing::FakeGit::repo(
+        project.root(),
+        &"a".repeat(40),
+        vec![("a.spec".into(), committed.as_bytes().to_vec())],
+    );
+    let runtime = std::sync::Arc::new(gsd_history_runtime(json!([])));
+    let mut served = Served::initialized_in_git(project, runtime, std::sync::Arc::new(git));
+    let reply = served.call_tool("specforge.diff", json!({}));
+    assert_eq!(reply["result"]["isError"], false, "{reply}");
+    reply["result"]["structuredContent"].clone()
 }
 
 #[specforge_test(requirement = "FEATURE-072")]

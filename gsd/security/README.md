@@ -1,6 +1,6 @@
 # `@gsd/security`
 
-**Status: built, 1.0.0, tracking gsd-core 1.19.0** (plan 16). GSD's security capability: the threat model and
+**Status: built, 1.0.0, tracking gsd-core 1.19.0** (plan 16), with two judged rules. GSD's security capability: the threat model and
 `NN-SECURITY.md` as kinds, `/gsd-secure-phase` and `gsd-security-auditor`, the advisory and the gate the ship workflow runs
 for a phase with open threats at or above `workflow.security_block_on`. Peer: `@gsd/core`. Shape and decisions:
 [ADR gsd/0002](../adr/0002-a-capability-extension-plugs-into-core-at-its-hook-points.md).
@@ -8,9 +8,16 @@ for a phase with open threats at or above `workflow.security_block_on`. Peer: `@
 ## What is here
 
 - The model: [spec/README.md](spec/README.md) (kinds `trust_boundary`, `threat`, `security_audit`, `accepted_risk`,
-  `audit_run`; computed values; the codes `gsd.security/E101` and `W301`; the four settings; the hooks).
+  `audit_run`; computed values; the codes `gsd.security/E101`, `W301` and the judged `W302` and `W303` with their
+  inputs; the four settings; the hooks).
+- The judged rules (`src/judged.rs`): `gsd.security/W302`, a closed threat's mitigation, owed once the threat is
+  closed and read over the files the threat names, and `gsd.security/W303`, a phase's threat flags against its
+  register, owed from the audit's creation. `secure_phase` judges both and lists the verdicts of its phase that are not
+  fresh, so a re-run judges only those. Under gsd-strict and gsd-plus a `gsd.security/` verdict that is not fresh
+  also refuses core's workflow gates (`gsd/E516`, whose exception covers `gsd/` rules only) until `secure_phase`
+  judges it again: [spec/README.md](spec/README.md#judged-mitigation).
 - Commands (`src/commands/`): `security_hooks <point>`, `threat_ids`, `security_gate`, `record_security_audit`,
-  `accept_risk` (human-attested).
+  `accept_risk` (human-attested), `record_security_verdict` (a judged rule's verdict).
 - The prompt `secure_phase` and its slash `/gsd-secure-phase` (`src/prompts.rs`), the agent `gsd-security-auditor` in
   a full and a compact body (`src/agents.rs`). Ported assets are under `assets/`, MIT ([LICENSE-GSD](LICENSE-GSD)).
 - Tests: `tests/` (declaration, ports, accounting of 74 upstream cases, parity roster and rules), `tests/cli/` (through

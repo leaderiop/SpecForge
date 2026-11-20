@@ -1,0 +1,54 @@
+---
+source: crates/surfaces/cli/tests/diff.rs
+expression: "redacted(&pretty, &[&sha])"
+---
+{
+  "edges": [],
+  "from": {
+    "key": "<sha>",
+    "name": "HEAD"
+  },
+  "nodes": [
+    {
+      "after": "sha256:dc3e2d9d7e7269dd21ba23ac767508eb092e537ca9e7791b655770c9398efdb8",
+      "before": "sha256:d033ef9632915dfab508ae2d5f8bf1f2510a02359d4358041f5465d4254ba9e4",
+      "change": "modified",
+      "fields": [
+        "description"
+      ],
+      "id": "core_mod",
+      "kind": "module"
+    },
+    {
+      "after": "sha256:65ba213138a85f2010660caadd443a1101e170d8390fae6338e5ded5e3b377e7",
+      "change": "added",
+      "id": "new_mod",
+      "kind": "module"
+    },
+    {
+      "change": "removed",
+      "id": "old_mod",
+      "kind": "module"
+    }
+  ],
+  "notes": [],
+  "summary": {
+    "by_kind": [
+      {
+        "added": 1,
+        "kind": "module",
+        "modified": 1,
+        "removed": 1
+      }
+    ],
+    "edges_added": 0,
+    "edges_removed": 0,
+    "nodes_added": 1,
+    "nodes_modified": 1,
+    "nodes_removed": 1
+  },
+  "to": {
+    "key": "<sha>-dirty",
+    "name": "working tree"
+  }
+}

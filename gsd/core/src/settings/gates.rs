@@ -36,9 +36,9 @@ pub const SPECFORGE: &[(&str, &str, &str)] = &[
         "A complete requirement traces to a task, a commit and a passing test.",
     ),
     (
-        "specforge.stale_verdict_gate",
+        "specforge.verdict_gate",
         "E516",
-        "A stale verdict blocks every workflow step, not only execution.",
+        "A stale, missing, unrecorded or unreadable verdict blocks every workflow step but the one that judges it.",
     ),
     (
         "specforge.cross_workstream_conflicts",

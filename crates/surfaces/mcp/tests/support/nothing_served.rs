@@ -94,6 +94,7 @@ pub const NOTHING_SERVED_PROBES: &[(Entry, &str, &str)] = &[
         "specforge.find_spec_for_source",
         r#"{"file_path":"src/lib.rs"}"#,
     ),
+    (Entry::Tool, "specforge.diff", "{}"),
     (
         Entry::Prompt,
         "specforge://prompts/context",

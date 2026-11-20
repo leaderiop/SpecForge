@@ -7,6 +7,7 @@
 
 pub mod context;
 pub mod coverage;
+pub mod diff;
 pub mod explain;
 pub mod explore;
 pub mod export;

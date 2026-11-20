@@ -26,12 +26,17 @@ pub(super) fn verification(p: &Project) -> serde_json::Value {
     p.fields_of(VERIFICATION)
 }
 
-/// The fixture's override, gap and human item removed: nothing is accepted by a person, nothing is open.
+/// A summary that completes plan 01-02, so its must-haves owe the verifier a verdict (they wait for their plan).
+pub(super) const SECOND_SUMMARY: &str = "summary 01-02-SUMMARY \"Completion: summary\" {\n  plan                   v1.0/01/01-02\n  status                 complete\n  one_liner              \"Completion\"\n  subsystem              \"tasks\"\n  requirements_completed [TASK-02]\n}\n";
+
+/// The fixture's override, gap and human item removed: nothing is accepted by a person, nothing is open. Both plans of
+/// phase 01 are executed, so each of their truths, artifacts and key links owes a verdict.
 pub(super) fn bare() -> Project {
     let p = verify();
     let text = p.read("spec/verify.spec");
     let at = text.find("verify_gap VG1").expect("the gap");
     p.write("spec/verify.spec", &format!("{}\n", text[..at].trim_end()));
+    p.write("spec/summary.spec", SECOND_SUMMARY);
     p
 }
 
@@ -44,8 +49,11 @@ fn e501(p: &Project) -> Vec<String> {
         .collect()
 }
 
+/// A `verified` verdict on `entity`, a truth's citing what [`Project::cites`] says.
 pub(super) fn verified(p: &Project, entity: &str) {
-    let run = p.record(entity, "E501", "verified", &[]);
+    let citing = p.citing(entity);
+    let extra: Vec<&str> = citing.iter().map(String::as_str).collect();
+    let run = p.record(entity, "E501", "verified", &extra);
     assert_eq!(run.code, 0, "{entity}: {}", run.all());
 }
 
@@ -142,8 +150,8 @@ fn every_item_verified_makes_passed() {
     assert_eq!(found["status"], "passed", "{found}");
     assert_eq!(found["score"], "2/2", "{found}");
     assert_eq!(e501(&p), Vec::<String>::new());
-    // `covered_files` lists the files the verdicts read (ADR 0304): the plan's `files_modified`, which the truth's
-    // verdict reads, and the key link's `from` and `to`; none was cited here.
+    // `covered_files` lists the files the verdicts read (ADR 0304, ADR 0377): the files each truth's verdict cites
+    // (this fixture's truths cite their plan's `files_modified`, `Project::cites`), the artifacts' and the key links'.
     assert_eq!(
         found["covered_files"],
         serde_json::json!(["src/complete.js", "src/tasks.js", "test/tasks.test.js"]),
@@ -160,7 +168,9 @@ fn a_coincidental_verdict_verifies_too() {
         } else {
             "verified"
         };
-        let run = p.record(item, "E501", outcome, &[]);
+        let citing = p.citing(item);
+        let extra: Vec<&str> = citing.iter().map(String::as_str).collect();
+        let run = p.record(item, "E501", outcome, &extra);
         assert_eq!(run.code, 0, "{item}: {}", run.all());
     }
     assert_eq!(verification(&p)["status"], "passed");
@@ -293,7 +303,7 @@ fn an_override_still_verifies() {
 #[test]
 fn a_failed_truth_makes_gaps_found() {
     let p = bare();
-    let run = p.record("v1.0/01/01-01/TR1", "E501", "failed", &[]);
+    let run = p.record(TRUTH, "E501", "failed", &["--cited", &p.cites(TRUTH)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(verification(&p)["status"], "gaps_found");
 }
@@ -305,10 +315,10 @@ fn a_backstop_truth_is_human_needed() {
         verified(&p, item);
     }
     let run = p.record(
-        "v1.0/01/01-01/TR1",
+        TRUTH,
         "E501",
         "present_behavior_unverified",
-        &[],
+        &["--cited", &p.cites(TRUTH)],
     );
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(verification(&p)["status"], "human_needed");
@@ -327,7 +337,7 @@ fn every_non_passing_truth_outcome_records() {
         for item in &ITEMS[1..] {
             verified(&p, item);
         }
-        let run = p.record("v1.0/01/01-01/TR1", "E501", outcome, &[]);
+        let run = p.record(TRUTH, "E501", outcome, &["--cited", &p.cites(TRUTH)]);
         assert_eq!(run.code, 0, "{outcome}: {}", run.all());
         assert_eq!(verification(&p)["status"], status, "{outcome}");
     }
@@ -379,10 +389,8 @@ fn covered_digest_changes_with_a_covered_file() {
         hex.len() == 64 && hex.bytes().all(|b| b.is_ascii_hexdigit()),
         "{before}"
     );
-    assert_eq!(
-        before["covered_files"],
-        serde_json::json!(["src/tasks.js", "test/tasks.test.js"])
-    );
+    // Only the cited file: a truth's verdict reads its citations, not its plan's `files_modified`.
+    assert_eq!(before["covered_files"], serde_json::json!(["src/tasks.js"]));
     p.write(
         "src/tasks.js",
         "export const add = (l, t) => [...l, t];\n// edited\n",
@@ -459,6 +467,7 @@ fn the_recording_sections_loop_names_what_the_verdict_will_cite() {
         "--cite-file <file>",
         "--cite-test <test fact id>",
         "--cited",
+        "must cite the files (or the tests) the truth is about",
     ] {
         assert!(section.contains(flag), "{flag}: {section}");
     }

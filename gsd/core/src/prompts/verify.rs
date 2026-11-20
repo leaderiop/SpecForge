@@ -1,10 +1,10 @@
-//! `verify_work`, `validate_phase` and `add_tests` (D-r42-1 rows 11-13): the audit-and-review prompts of one phase.
-//! Their gate is E516 alone: under `gsd-plus` a stale verdict refuses them.
+//! `verify_work`, `validate_phase` and `add_tests`: the audit-and-review prompts of one phase. Their gate is E516
+//! alone: under `gsd-strict` and `gsd-plus` a stale verdict refuses them.
 
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Do, Slash, Spec, Step};
+use super::workflow::{Do, Slash, Spec, Step};
 
 const GATES: &[&str] = &["E516"];
 
@@ -70,6 +70,7 @@ static VERIFY_WORK: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(uat),
 };
 
@@ -90,6 +91,7 @@ static VALIDATE_PHASE: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
@@ -110,11 +112,9 @@ static ADD_TESTS: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: None,
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &VERIFY_WORK);
-    workflow::declare(c, &VALIDATE_PHASE);
-    workflow::declare(c, &ADD_TESTS);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&VERIFY_WORK, &VALIDATE_PHASE, &ADD_TESTS];

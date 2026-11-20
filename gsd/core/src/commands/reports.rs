@@ -8,7 +8,7 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, run};
+use super::support::{answer, id_order, run, target};
 
 /// The label `progress json` gives a phase status (`phase-status.cts`).
 pub(crate) fn label(status: &str) -> Option<&'static str> {
@@ -25,6 +25,8 @@ pub(crate) fn label(status: &str) -> Option<&'static str> {
 
 /// One phase of the current milestone, as the graph's computed values give it.
 struct Phase {
+    /// The phase's entity id: `v1.0/02`.
+    id: String,
     number: String,
     name: String,
     plans: u64,
@@ -78,6 +80,7 @@ fn phases(graph: &CommandGraph, milestone: Option<&GraphNode>) -> Result<Vec<Pha
                 .and_then(|(s, n)| Some((s.parse().ok()?, n.parse().ok()?)))
                 .ok_or_else(|| absent("plans_complete"))?;
             Ok(Phase {
+                id: p.id.clone(),
                 number: p.id.rsplit('/').next().unwrap_or_default().to_string(),
                 name: p.text("slug").unwrap_or_default().replace('-', " "),
                 summaries: counts.0,
@@ -105,6 +108,15 @@ pub(crate) fn progress(graph: &CommandGraph) -> Result<Value, String> {
 
 /// [`progress`] of `phase` alone, from its own milestone (which need not be the current one), when it is given.
 fn progress_of(graph: &CommandGraph, phase: Option<&str>) -> Result<Value, String> {
+    let (milestone, found) = reported(graph, phase)?;
+    Ok(progress_json(milestone, &found))
+}
+
+/// The milestone and the phases [`progress_of`] reports.
+fn reported<'a>(
+    graph: &'a CommandGraph,
+    phase: Option<&str>,
+) -> Result<(Option<&'a GraphNode>, Vec<Phase>), String> {
     let milestone = match phase {
         Some(p) => {
             if !graph.nodes_of_kind("phase").any(|n| n.id == p) {
@@ -121,9 +133,14 @@ fn progress_of(graph: &CommandGraph, phase: Option<&str>) -> Result<Value, Strin
     if let Some(p) = phase {
         found.retain(|f| p.rsplit('/').next() == Some(f.number.as_str()));
     }
+    Ok((milestone, found))
+}
+
+/// `progress json`'s answer for `found`, the phases of `milestone`.
+fn progress_json(milestone: Option<&GraphNode>, found: &[Phase]) -> Value {
     let plans: u64 = found.iter().map(|p| p.plans).sum();
     let summaries: u64 = found.iter().map(|p| p.summaries).sum();
-    Ok(json!({
+    json!({
         "milestone_version": milestone.map(|m| m.id.as_str()),
         "milestone_name": milestone.and_then(|m| m.text("name")),
         "phases": found.iter().map(|p| json!({
@@ -133,21 +150,63 @@ fn progress_of(graph: &CommandGraph, phase: Option<&str>) -> Result<Value, Strin
         "total_summaries": summaries,
         "percent": percent(summaries, plans),
         "phase_scope": "complete",
-    }))
+    })
 }
 
+/// An estimate error as a signed percent: at most two decimals with trailing zeros trimmed, `+` before a positive
+/// value, `0%` for zero.
+fn signed_percent(error: f64) -> String {
+    let text = format!("{:.2}", error * 100.0);
+    match text.trim_end_matches('0').trim_end_matches('.') {
+        "0" | "-0" => "0%".to_string(),
+        negative if negative.starts_with('-') => format!("{negative}%"),
+        positive => format!("+{positive}%"),
+    }
+}
+
+/// The `estimate error` line of each plan of phase `phase` whose computed `estimate_error` holds a member, in id
+/// order (ADR 0378 D5): `  estimate error 01-01: tasks -33.33%`.
+fn estimate_errors(graph: &CommandGraph, phase: &str) -> String {
+    let mut plans: Vec<&GraphNode> = graph
+        .nodes_of_kind("plan")
+        .filter(|plan| target(graph, &plan.id, "phase") == Some(phase))
+        .collect();
+    plans.sort_by_key(|plan| id_order(&plan.id));
+    let mut lines = String::new();
+    for plan in plans {
+        let Some(error) = plan.fields.get("estimate_error") else {
+            continue;
+        };
+        let members: Vec<String> = crate::kinds::ESTIMATE_ERROR
+            .iter()
+            .filter_map(|member| {
+                let error = error.get(member.name)?.as_f64()?;
+                Some(format!("{} {}", member.name, signed_percent(error)))
+            })
+            .collect();
+        if !members.is_empty() {
+            let name = plan.id.rsplit('/').next().unwrap_or_default();
+            lines.push_str(&format!(
+                "  estimate error {name}: {}\n",
+                members.join(", ")
+            ));
+        }
+    }
+    lines
+}
+
+/// `progress json`'s answer, and as text a line per phase followed by the estimate error of each measured plan.
 fn progress_report(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
-    let report = progress_of(call.graph(), call.str("phase"))?;
+    let graph = call.graph();
+    let (milestone, found) = reported(graph, call.str("phase"))?;
+    let report = progress_json(milestone, &found);
     let mut human = String::new();
-    for p in report["phases"].as_array().into_iter().flatten() {
+    for p in &found {
         human.push_str(&format!(
             "{:<6} {:<12} {}/{} plans  {}\n",
-            p["number"].as_str().unwrap_or_default(),
-            p["status"].as_str().unwrap_or_default(),
-            p["summaries"],
-            p["plans"],
-            p["name"].as_str().unwrap_or_default()
+            p.number, p.status, p.summaries, p.plans, p.name
         ));
+        human.push_str(&estimate_errors(graph, &p.id));
     }
     human.push_str(&format!("{}% of plans have a summary\n", report["percent"]));
     Ok(answer(call, report, human, None))
@@ -279,6 +338,21 @@ mod tests {
             node.fields.insert((*name).to_string(), json!(value));
         }
         node
+    }
+
+    #[test]
+    fn an_estimate_error_reads_as_a_signed_percent() {
+        for (error, want) in [
+            (-0.3333, "-33.33%"),
+            (0.125, "+12.5%"),
+            (1.0, "+100%"),
+            (-0.5, "-50%"),
+            (0.0001, "+0.01%"),
+            (-0.00004, "0%"),
+            (0.0, "0%"),
+        ] {
+            assert_eq!(signed_percent(error), want, "{error}");
+        }
     }
 
     #[test]

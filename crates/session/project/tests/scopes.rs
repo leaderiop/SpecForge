@@ -650,8 +650,7 @@ fn a_name_is_judged_not_its_path() {
     let project = Assembled::scoped().sources(&[("a.spec", &source)]);
     let env = project.compiled().environment();
     let build = env.graph_of([parse(&source, "a.spec")]);
-    let entities = env.entity_snapshot(&build);
-    let found = env.run_checks(&entities, &PlainDisk);
+    let found = env.run_checks(&build, &PlainDisk);
     let of = |code: &str| found.iter().filter(|d| d.code == code).count();
     assert_eq!(of("E014"), 0, "{found:?}");
     assert_eq!(of("E013"), 1, "{found:?}");

@@ -204,6 +204,13 @@
         "title": "Execute each plan of the wave (the prompt execute_plan)"
       },
       {
+        "cli": "specforge gsd re-verify --host cursor",
+        "gate": [],
+        "id": "re_verify",
+        "title": "List the verdicts that are not fresh (specforge gsd re-verify <phase> --stale-only)",
+        "tool": "specforge.gsd.re_verify"
+      },
+      {
         "agent": "gsd-verifier",
         "id": "verify",
         "title": "Verify the phase goal"

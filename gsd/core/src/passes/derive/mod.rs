@@ -9,7 +9,9 @@
 //! `verify` answers a verification's status, score and re-verification, `uat` a session's totals and status and a
 //! gap's resolution, `audit` a validation's coverage, a milestone audit and the windows and proposals, and `ladder` the
 //! phase's `complete` and `needs_review`, `completed`, a requirement's `gaps_found` and `project.windows_*`. `estimate`
-//! answers a plan's slices under the smart-zone budget. `review` answers a review concern's status, a round's open
+//! answers a plan's slices under the smart-zone budget, `estimate_error` how far a completed plan's estimate was from
+//! what it took, and `critical_path` a phase's heaviest chain of plans along the
+//! strict waves (`passes::waves`) and its weight. `review` answers a review concern's status, a round's open
 //! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, and `learning` a
 //! lesson's status.
 //!
@@ -18,7 +20,9 @@
 mod audit;
 mod batch;
 mod branch;
+mod critical_path;
 mod estimate;
+mod estimate_error;
 mod execute;
 mod halt;
 pub mod ladder;
@@ -75,6 +79,8 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(audit::values(input, &requirements, &verified));
     values.extend(branch::values(input));
     values.extend(estimate::values(input));
+    values.extend(estimate_error::values(input));
+    values.extend(critical_path::values(input));
     values.extend(review::values(input));
     let diagnostics = branch::diagnostics(input);
     PassOutput {

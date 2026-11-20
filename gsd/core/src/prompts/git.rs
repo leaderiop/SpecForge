@@ -6,7 +6,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
-use super::workflow::{self, Slash, Spec};
+use super::workflow::{Slash, Spec};
 
 /// A revert is `git`, not a host write: what it can take away.
 fn revert(_call: &PromptCall<'_>) -> String {
@@ -50,6 +50,7 @@ static UNDO: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(revert),
 };
 
@@ -68,10 +69,9 @@ static PR_BRANCH: Spec = Spec {
         effort: None,
     }),
     inputs: &[],
+    rejudges: &[],
     tail: Some(filtered),
 };
 
-pub fn declare(c: &mut ContributionsBuilder) {
-    workflow::declare(c, &UNDO);
-    workflow::declare(c, &PR_BRANCH);
-}
+/// The workflows of this family, in the order they are declared.
+pub(super) static SPECS: &[&Spec] = &[&UNDO, &PR_BRANCH];

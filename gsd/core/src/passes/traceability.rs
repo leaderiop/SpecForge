@@ -111,9 +111,22 @@ fn plan_paths(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
+/// What E521's suggestion says of the commit it is on: gsd-git records a commit once, by its 12-hex name (ADR 0380).
+const RECORDED: &str = "; this commit is recorded and keeps its fields: amending it records a new commit beside it, so \
+                        its own error stays while `specforge.task_trailers` is on";
+
+/// The last `segments` `/`-separated segments of `id`, the form a subject's scope writes (`v1.0/01/01-01/T1` is
+/// `01-01/T1` by 2, a plan `v1.0/01/01-01` is `01-01` by 1); `None` when that is all of it (a quick plan's).
+fn plan_local(id: &str, segments: usize) -> Option<&str> {
+    let (at, _) = id.rmatch_indices('/').nth(segments - 1)?;
+    Some(&id[at + 1..])
+}
+
 /// E521, on the commit: a recorded commit whose task its subject's title found, or one of a task type that names no
 /// task, carries no `Gsd-Task:` trailer that links it. A commit with no type, or a `docs` one (even one whose subject
-/// matches a task's title), is not judged.
+/// matches a task's title), is not judged. The suggestion names the trailer the later commits add, as gsd-git reads it
+/// (ADR 0380): the task's full id, or the plan's full id and `/<task>`, and the plan-local form as written (`01-01/T1`).
+/// A recorded commit keeps its fields, so the suggestion says its own error stays.
 fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
     commits(input)
         .into_iter()
@@ -123,20 +136,38 @@ fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
             if commit.kind == Some(CommitType::Docs) {
                 return None;
             }
-            let message = match (&commit.task, commit.linked_by) {
-                (Some(task), Some(LinkedBy::Title)) => format!(
-                    "commit '{}' names task '{task}' by its subject's title, not by a Gsd-Task trailer",
-                    commit.id
+            let (message, suggestion) = match (&commit.task, commit.linked_by) {
+                (Some(task), Some(LinkedBy::Title)) => (
+                    format!(
+                        "commit '{}' names task '{task}' by its subject's title, not by a Gsd-Task trailer",
+                        commit.id
+                    ),
+                    format!(
+                        "end the message of each later commit of the task with the trailer 'Gsd-Task: {task}' (its \
+                         full id{}), then collect{RECORDED}",
+                        plan_local(task, 2)
+                            .map(|short| format!("; '{short}' reads the same while one plan has that name"))
+                            .unwrap_or_default()
+                    ),
                 ),
-                (None, _) if commit.kind.is_some_and(CommitType::is_task) => format!(
-                    "commit '{}' of plan '{plan}' is a task commit that names no task",
-                    commit.id
+                (None, _) if commit.kind.is_some_and(CommitType::is_task) => (
+                    format!(
+                        "commit '{}' of plan '{plan}' is a task commit that names no task",
+                        commit.id
+                    ),
+                    format!(
+                        "end the message of each later task commit of the plan with the trailer 'Gsd-Task: \
+                         {plan}/<task>', naming one of its tasks{}, then collect{RECORDED}",
+                        plan_local(plan, 1)
+                            .map(|short| format!(" ('{short}/<task>' reads the same while one plan has that name)"))
+                            .unwrap_or_default()
+                    ),
                 ),
                 _ => return None,
             };
             Some(
                 PassDiagnostic::new("E521", PassSeverity::Error, message)
-                    .with_suggestion("end the message with the trailer 'Gsd-Task: <plan>/<task>', then collect")
+                    .with_suggestion(suggestion)
                     .with_entity(&commit.id),
             )
         })

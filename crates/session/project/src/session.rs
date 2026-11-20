@@ -242,7 +242,7 @@ impl OpeningProject {
             held,
             outside: self.outside,
         };
-        session.project.check(&mut session.ledger);
+        session.check_now();
         session
     }
 }
@@ -528,7 +528,7 @@ impl ProjectSession {
     ) -> (UpdateKind, Applied) {
         if reads.is_empty() {
             if rechecks || self.project.checks_skipped() {
-                self.project.check(&mut self.ledger);
+                self.check_now();
                 return (UpdateKind::Checks, Applied::default());
             }
             return (UpdateKind::Sources, Applied::default());
@@ -539,9 +539,16 @@ impl ProjectSession {
         {
             self.project.skip_checks();
         } else {
-            self.project.check(&mut self.ledger);
+            self.check_now();
         }
         (UpdateKind::Sources, applied)
+    }
+
+    /// Every check over the project as it is now, through the session's ledger, then its graph held as the base of
+    /// the next check's delta when a loaded pass reads the delta (ADR 0376 D7): the one way the session checks.
+    fn check_now(&mut self) {
+        self.project.check(&mut self.ledger);
+        self.project.hold_previous();
     }
 
     /// `specforge.json` or an extension changed: load the environment again
@@ -673,7 +680,7 @@ impl ProjectSession {
     /// Run the checks again over the sources as the session holds them, reading what they read now.
     pub fn recheck(&mut self) -> Update {
         self.update(|s| {
-            s.project.check(&mut s.ledger);
+            s.check_now();
             (UpdateKind::Checks, Applied::default())
         })
     }

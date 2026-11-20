@@ -228,7 +228,7 @@ fn dry_run_and_gates() {
 
 #[test]
 fn a_failing_gate_refuses_and_an_off_setting_allows() {
-    // start-plan: W318 under strict, E516 under plus; a setting off never refuses.
+    // start-plan: W318 and E516 under strict and plus; a setting off never refuses.
     let p = twin();
     stale_plan_check(&p);
     strict(&p);
@@ -236,12 +236,12 @@ fn a_failing_gate_refuses_and_an_off_setting_allows() {
     refused(
         &gsd(&p, "start-plan", &[PLAN]),
         "gate_failed",
-        &["W318", PLAN],
+        &["W318", "E516", PLAN],
     );
     unchanged(&p, &kept);
     plus(&p);
     refused(&gsd(&p, "start-plan", &[PLAN]), "gate_failed", &["E516"]);
-    p.settings(json!({ "profile": "gsd-plus", "workflow.plan_check": false, "specforge.stale_verdict_gate": false }));
+    p.settings(json!({ "profile": "gsd-plus", "workflow.plan_check": false, "specforge.verdict_gate": false }));
     assert_eq!(gsd(&p, "start-plan", &[PLAN]).code, 0);
 
     // complete-plan: W404 under strict with tdd mode on.
