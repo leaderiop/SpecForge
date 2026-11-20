@@ -49,16 +49,40 @@ fn a_title_linked_commit_is_e521() {
         found[0].message,
         "commit '0123456789ab' names task 'v/1/1-01/T1' by its subject's title, not by a Gsd-Task trailer"
     );
-    // The trailer the task's later commits add: its full id, or the plan-local form as written; this one stays.
+    // The trailer the task's later commits add: its full id, or the plan-local form as written; this one stays
+    // unless a person waives it.
     assert_eq!(
         found[0].suggestion.as_deref(),
         Some(
             "end the message of each later commit of the task with the trailer 'Gsd-Task: v/1/1-01/T1' (its full id; \
              '1-01/T1' reads the same while one plan has that name), then collect; this commit is recorded and keeps \
              its fields: amending it records a new commit beside it, so its own error stays while \
-             `specforge.task_trailers` is on"
+             `specforge.task_trailers` is on, unless a person waives it at a terminal: `specforge gsd waive-trailer \
+             0123456789ab '<reason>' <who>`"
         )
     );
+}
+
+/// The waiver the suggestion names is the commit's own: its 12-hex name and no other.
+#[test]
+fn the_suggestion_names_the_waiver_with_the_commits_own_name() {
+    let mut input = commit("feat", Some("v/1/1-01/T1"), Some("title"));
+    input.entities[2].id = "0123456789ac".into();
+    for edge in &mut input.edges {
+        edge.source = "0123456789ac".into();
+    }
+    let found = check(&input);
+    assert_eq!(codes_of(&found), [("E521", Some("0123456789ac"))]);
+    let suggestion = found[0].suggestion.as_deref().expect("a suggestion");
+    assert!(
+        suggestion.ends_with("`specforge gsd waive-trailer 0123456789ac '<reason>' <who>`"),
+        "{suggestion}"
+    );
+    let names: Vec<&str> = suggestion
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|w| w.len() == 12 && w.bytes().all(|b| b.is_ascii_hexdigit()))
+        .collect();
+    assert_eq!(names, ["0123456789ac"], "{suggestion}");
 }
 
 #[test]
@@ -77,7 +101,8 @@ fn a_task_type_commit_naming_no_task_is_e521() {
                 "end the message of each later task commit of the plan with the trailer 'Gsd-Task: v/1/1-01/<task>', \
                  naming one of its tasks ('1-01/<task>' reads the same while one plan has that name), then collect; \
                  this commit is recorded and keeps its fields: amending it records a new commit beside it, so its own \
-                 error stays while `specforge.task_trailers` is on"
+                 error stays while `specforge.task_trailers` is on, unless a person waives it at a terminal: \
+                 `specforge gsd waive-trailer 0123456789ab '<reason>' <who>`"
             ),
             "{kind}"
         );

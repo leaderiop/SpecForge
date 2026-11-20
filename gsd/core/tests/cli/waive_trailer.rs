@@ -73,6 +73,68 @@ fn a_waiver_clears_one_commits_e521_and_its_sibling_keeps_its_own() {
     );
 }
 
+/// The commit name of the backticked `specforge gsd waive-trailer <id> '<reason>' <who>` span of a gsd/E521
+/// suggestion, once the placeholders follow it as the help writes them.
+fn waiver_id(suggestion: &str) -> Option<String> {
+    let line = suggestion
+        .split('`')
+        .find(|span| span.starts_with("specforge gsd waive-trailer "))?;
+    let mut words = line["specforge gsd waive-trailer ".len()..].split(' ');
+    let id = words.next()?;
+    (words.collect::<Vec<_>>() == ["'<reason>'", "<who>"]).then(|| id.to_string())
+}
+
+/// Each form of gsd/E521's help keeps its trailer advice and names the waiver with its commit's name; that line, run by
+/// a person with a reason and a name, clears the commit's error once gsd-git collects again.
+#[test]
+fn the_e521_help_names_a_waiver_that_clears_it() {
+    let p = committed(&[
+        "feat(01-01): Store module",
+        "feat(01-01): an unplanned change",
+    ]);
+    strict(&p);
+    let (code, errors) = e521_errors(&p);
+    assert_eq!((code, errors.len()), (1, 2), "{errors:?}");
+    let mut forms = Vec::new();
+    for error in &errors {
+        let message = error["message"].as_str().expect("a message");
+        let suggestion = error["suggestion"].as_str().expect("a suggestion");
+        let named = message
+            .strip_prefix("commit '")
+            .and_then(|rest| rest.split('\'').next())
+            .expect("the commit's name in the message");
+        // The trailer advice stays: the task's full id, or the plan's full id and a slash before the task.
+        let form = if suggestion.contains("'Gsd-Task: v1.0/01/01-01/T1'") {
+            "by title"
+        } else if suggestion.contains("'Gsd-Task: v1.0/01/01-01/<task>'") {
+            "no task"
+        } else {
+            panic!("no trailer advice: {suggestion}")
+        };
+        forms.push(form);
+        let id = waiver_id(suggestion).unwrap_or_else(|| panic!("no waiver named: {suggestion}"));
+        assert_eq!(id, named, "{error}");
+        // The person runs the help's own line, never an id the test found another way.
+        let run = gsd_as_person(
+            &p,
+            "waive-trailer",
+            &[&id, "recorded before the trailer existed", "Grace Hopper"],
+        );
+        assert_eq!(run.code, 0, "{form}: {}", run.all());
+        let run = p.collect(&["--runner", "gsd-git"]);
+        assert_eq!(run.code, 0, "{form}: {}", run.all());
+        let (_, left) = e521_errors(&p);
+        assert!(
+            left.iter()
+                .all(|e| !e["message"].as_str().unwrap_or_default().contains(&id)),
+            "{form}: {left:?}"
+        );
+    }
+    forms.sort_unstable();
+    assert_eq!(forms, ["by title", "no task"]);
+    assert_eq!(e521_errors(&p), (0, Vec::new()));
+}
+
 /// `specforge gsd waive-trailer <args>`, as a person at a terminal runs it.
 fn waive(p: &Project, args: &[&str]) -> Run {
     gsd_as_person(p, "waive-trailer", args)
