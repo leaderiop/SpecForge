@@ -154,8 +154,8 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 The seven commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
 `approve_validation`, `waive_window`, `dispose_refactor`, `waive_trailer`) are human-attested (ADR 0301): the host runs
 them only for a person at a terminal and refuses an agent's call `human_only`, so a prompt step that needs one asks the
-person to run it, and gsd/E521's suggestion names `waive_trailer` with the commit's name (ADR 0381). `pause` stays an
-agent's call.
+person to run it, and gsd/E521's suggestion names `specforge gsd waive-trailer` with the commit's name (ADR 0381).
+`pause` stays an agent's call.
 
 ### What the lifecycle prompts do not do (known, not fixed)
 
@@ -281,7 +281,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `resolve_prohibition <prohibition> <status> [--verification V] [--reason TEXT]` (`specforge gsd resolve-prohibition`; ADR 0333) | a `spec_prohibition`'s `status`, `verification` and `reason` in one plan, its `check_*` descriptor cleared unless the row is resolved with the `test` tier (upstream's descriptor rides only a resolved/test row) |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict`, under a `gsd/` rule only (`@gsd/security` writes its own with `record_security_verdict`); a truth's or a judgment-tier prohibition's verdict that cites no file of the project and no test is refused, since it could never go stale on a code edit (ADR 0377) |
-| the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field but `waiver`) |
+| the `gsd-git` collector: `specforge collect --runner gsd-git --yes` | commit (every field but `waiver`) |
 
 ## Agents
 

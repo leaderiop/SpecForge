@@ -60,8 +60,8 @@ fn waive(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("waive_trailer", |cmd| {
         cmd.description(
-            "Waive gsd/E521 on a recorded commit with a reason and who waives it, at the host's clock; the commit keeps \
-             every field gsd-git recorded, and a waiver is recorded once",
+            "Waive gsd/E521 on a recorded commit with a reason and who waives it, at the host's clock; the commit \
+             keeps every field gsd-git recorded, and a waiver is recorded once",
         )
         .human()
         .arg("commit", |a| {

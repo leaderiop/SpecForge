@@ -6,8 +6,12 @@ use std::collections::BTreeSet;
 use serde_json::Value;
 
 use super::commands_support::{bytes, gsd_as_person, json, refused, strict, unchanged, unledger};
+use super::execute_rules::T1;
 use super::harness::{Project, Run, taskboard};
 use super::profile_gates::{committed, e521_errors};
+
+/// A time after [`T1`], the plan metadata commit [`committed`] writes last: a commit made then is the newest.
+const LATER: &str = "2026-10-29T10:00:00Z";
 
 /// The `execute` project with two commits of plan `01-01` whose subjects' title found task `T1`, a `feat` and a `fix`,
 /// both recorded by gsd-git without a `Gsd-Task:` trailer: each is gsd/E521 under gsd-strict.
@@ -181,12 +185,13 @@ fn a_waived_commit_keeps_every_field_gsd_git_recorded() {
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-    let [file, ledger] = &moved[..] else {
-        panic!("two files moved: {moved:?}");
-    };
-    assert_eq!(ledger.as_str(), "specforge-harness", "{moved:?}");
+    let (ledgers, files): (Vec<&String>, Vec<&String>) = moved
+        .iter()
+        .partition(|k| k.as_str() == "specforge-harness");
+    assert_eq!((ledgers.len(), files.len()), (1, 1), "{moved:?}");
+    let file = files[0];
     assert!(
-        file.ends_with(".spec") && after_waiver[*file].contains(&id),
+        file.ends_with(".spec") && after_waiver[file].contains(&id),
         "{file}"
     );
     let waived = ledger_of(&p, &id);
@@ -210,6 +215,7 @@ fn a_waived_commit_keeps_every_field_gsd_git_recorded() {
     assert_eq!(ledger_of(&p, &id), waived);
 
     // A collect that records another commit proves the plan it writes leaves this one, waiver included, alone.
+    assert!(T1 < LATER, "the new commit is the newest");
     p.git_commit(
         "test(01-01): Store module\n\nGsd-Task: 01-01/T1\n",
         &[("src/tasks.js", &"a\n".repeat(3))],
@@ -222,13 +228,12 @@ fn a_waived_commit_keeps_every_field_gsd_git_recorded() {
         "{}",
         run.stdout
     );
-    assert_eq!(commit_of(&p, "test").len(), 12);
+    // The plan recorded the new commit, linked by its trailer, beside the three it held.
+    assert_eq!(p.fields_of(&commit_of(&p, "test"))["linked_by"], "Gsd-Task");
+    assert_eq!(p.nodes_of("commit").len(), 4);
     assert_eq!(p.fields_of(&id), waived_fields);
     assert_eq!(ledger_of(&p, &id), waived);
 }
-
-/// After `title_linked`'s plan metadata commit.
-const LATER: &str = "2026-10-29T10:00:00Z";
 
 /// `specforge gsd waive-trailer <args>`, as a person at a terminal runs it.
 fn waive(p: &Project, args: &[&str]) -> Run {

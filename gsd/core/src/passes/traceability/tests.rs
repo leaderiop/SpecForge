@@ -23,6 +23,14 @@ fn codes_of(found: &[PassDiagnostic]) -> Vec<(&str, Option<&str>)> {
         .collect()
 }
 
+/// The one commit entity of `input`, found by its kind.
+fn the_commit(input: &mut PassInput) -> &mut PassEntity {
+    let mut commits = input.entities.iter_mut().filter(|e| e.kind == "commit");
+    let commit = commits.next().expect("a commit");
+    assert!(commits.next().is_none(), "one commit");
+    commit
+}
+
 /// A recorded commit of plan `v/1/1-01` with a subject of `kind`, naming `task` as `linked_by` says.
 fn commit(kind: &str, task: Option<&str>, linked_by: Option<&str>) -> PassInput {
     let mut c = entity("0123456789ab", "commit");
@@ -67,7 +75,7 @@ fn a_title_linked_commit_is_e521() {
 #[test]
 fn the_suggestion_names_the_waiver_with_the_commits_own_name() {
     let mut input = commit("feat", Some("v/1/1-01/T1"), Some("title"));
-    input.entities[2].id = "0123456789ac".into();
+    the_commit(&mut input).id = "0123456789ac".into();
     for edge in &mut input.edges {
         edge.source = "0123456789ac".into();
     }
@@ -122,7 +130,7 @@ fn a_trailer_linked_or_docs_commit_is_not_e521() {
 #[test]
 fn a_waived_commit_is_not_judged_and_its_sibling_still_is() {
     let mut input = commit("feat", Some("v/1/1-01/T1"), Some("title"));
-    input.entities[2]
+    the_commit(&mut input)
         .fields
         .insert("waiver".into(), "reason, by, at".into()); // a block's text is its keys
     let mut sibling = entity("0123456789ac", "commit");

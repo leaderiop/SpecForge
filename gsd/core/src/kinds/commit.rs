@@ -9,9 +9,9 @@ use crate::collectors::LinkedBy;
 /// file. Every field is a harness value (`H`), and the host refuses any writer but the declared one: every field but
 /// `waiver` is written by the collector; `waiver` is a person's, written once by the human-attested `waive_trailer`
 /// (ADR 0381), and the collector never sets it. The `hash` is not required (the DSL refuses a required harness field),
-/// and its name already carries it. `task.commits` and `plan.commits` are
-/// the inverses of the two references. A `Gsd-Task: <plan>/<task>` trailer names the task first, else the subject's
-/// title does (ADR 0331 D3); `linked_by` says which.
+/// and its name already carries it. `task.commits` and `plan.commits` are the inverses of the two references. A
+/// `Gsd-Task: <plan>/<task>` trailer names the task first, else the subject's title does (ADR 0331 D3); `linked_by`
+/// says which.
 // Paths are `strs`, not `files`: a later commit may delete or rename them, and the file check's E016 would fire. They are
 // project-relative: a path outside the project is left out (ADR 0352).
 /// `linked_by`'s values, as gsd-git writes them.
@@ -54,7 +54,8 @@ pub const COMMIT: Kind = Kind::new(
             "the `@code/core` items whose lines it wrote or deleted inside, as they are named when it is recorded; absent when no item facts were served",
         ),
         block("waiver", super::WAIVER).h().i().doc(
-            "a person's waiver of gsd/E521 on this commit, written once by `waive_trailer` (human-attested), never by the collector",
+            "a person's waiver of gsd/E521 on this commit, written once by `waive_trailer` (human-attested), never by \
+             the collector",
         ),
     ],
 );

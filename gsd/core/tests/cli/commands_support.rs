@@ -27,8 +27,8 @@ pub fn gsd(p: &Project, command: &str, args: &[&str]) -> Run {
     p.run(&all)
 }
 
-/// `specforge gsd <command> <args>` as a person at a terminal runs it: the seven commands that record what a person says
-/// (ADR 0301) are refused to anyone else.
+/// `specforge gsd <command> <args>` as a person at a terminal runs it: the seven commands that record what a person
+/// says (ADR 0301) are refused to anyone else.
 pub fn gsd_as_person(p: &Project, command: &str, args: &[&str]) -> Run {
     let mut all = vec!["gsd", command];
     all.extend_from_slice(args);

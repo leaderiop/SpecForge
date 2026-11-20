@@ -72,16 +72,15 @@ every field is immutable and the kind is append-only (E084, E085).
 
 Written by the git collector, not by an agent: every field is `H` (a command's or collector's plan sets it; the host
 refuses any other writer), and every field but `waiver` is the collector's; a person writes `waiver` with
-`waive_trailer` (human-attested, ADR 0381). The collector (`gsd-git`) reads the whole log through the host's git port (ADR 0352) and is
-named explicitly (`specforge collect --runner gsd-git`) or detected; an incremental `{since}` is not needed at core's
-scale. It reads GSD's
-own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`), and matches the
-task by its title. A `Gsd-Task:` trailer, `<plan>/<task>` or the task's full id, comes first (ADR 0331 D3, ADR 0380):
-one that names a task fixes the plan and the task, whatever the subject says (`linked_by Gsd-Task`); otherwise the
-subject decides (`linked_by title`). A
-commit whose description is no task's title (the metadata commit `docs(03-02): complete … plan`) names its plan
-only. A commit that names no plan is not recorded. Each is recorded in its plan's file (so executors of one wave never
-write the same file), in the project scope, named by the first 12 hex digits of its hash.
+`waive_trailer` (human-attested, ADR 0381). The collector (`gsd-git`) reads the whole log through the host's git port
+(ADR 0352) and is named explicitly (`specforge collect --runner gsd-git`) or detected; an incremental `{since}` is not
+needed at core's scale. It reads GSD's own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02):
+issue a token on sign-in`), and matches the task by its title. A `Gsd-Task:` trailer, `<plan>/<task>` or the task's full
+id, comes first (ADR 0331 D3, ADR 0380): one that names a task fixes the plan and the task, whatever the subject says
+(`linked_by Gsd-Task`); otherwise the subject decides (`linked_by title`). A commit whose description is no task's title
+(the metadata commit `docs(03-02): complete … plan`) names its plan only. A commit that names no plan is not recorded.
+Each is recorded in its plan's file (so executors of one wave never write the same file), in the project scope, named by
+the first 12 hex digits of its hash.
 
 | Field | Type | Flags | |
 |---|---|---|---|
