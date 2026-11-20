@@ -167,6 +167,7 @@ pub fn seeded(task: &str, arm: &str, flags: &[&str]) -> Result<Project, String> 
     Ok(Project {
         _dir: dir,
         root,
+        source: None,
         extensions: RefCell::new(extensions),
     })
 }

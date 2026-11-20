@@ -340,7 +340,7 @@ const CLOSED: [&str; 5] = [
 ];
 
 /// The entities the rendered closing section lists as left to judge for `rule`, and the section's text.
-fn left_to_judge(p: &Project, phase: &str, rule: &str) -> (Vec<String>, String) {
+pub(super) fn left_to_judge(p: &Project, phase: &str, rule: &str) -> (Vec<String>, String) {
     let text = text_of(&render(p, &[phase], "claude-code"));
     let section = text
         .split("## The judged verdicts here (@gsd/security)")

@@ -55,7 +55,7 @@ const CITES: &[(&str, &[&str])] = &[
 
 impl Project {
     /// The node `id` names, as `specforge query <id> --depth 0 --format json` answers it.
-    fn node(&self, id: &str) -> serde_json::Value {
+    pub(super) fn node(&self, id: &str) -> serde_json::Value {
         let query = self.run(&["query", id, "--depth", "0", "--format", "json"]);
         let graph: serde_json::Value = serde_json::from_str(&query.stdout)
             .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));

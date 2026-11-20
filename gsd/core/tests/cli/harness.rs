@@ -101,6 +101,8 @@ pub struct Project {
     _dir: tempfile::TempDir,
     /// The project's root: the temp dir, or a directory inside it.
     root: PathBuf,
+    /// The fixture directory the project was copied from; `None` for a copy `seed.py` made.
+    source: Option<PathBuf>,
     /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component. A cell:
     /// [`Project::node_tests`] loads the test packs on a shared project.
     extensions: RefCell<Vec<(String, Option<PathBuf>)>>,
@@ -220,6 +222,7 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
     let p = Project {
         _dir: dir,
         root,
+        source: Some(source.to_path_buf()),
         // `@specforge/checks` is a required peer of `@gsd/core`: its `files` fields are read by `@specforge/checks:file`.
         extensions: RefCell::new(vec![
             ("@gsd/core".to_string(), None),
