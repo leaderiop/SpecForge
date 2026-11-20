@@ -37,14 +37,15 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(base) = base_name(&delta.base) else {
         return Vec::new();
     };
-    let mut stale: Vec<(&PassEntity, Verdict)> = of_kind(input, "truth")
-        .filter_map(|truth| stale_verdict(truth).map(|verdict| (truth, verdict)))
+    let mut stale: Vec<(&PassEntity, Option<&str>, Verdict)> = of_kind(input, "truth")
+        .filter_map(|truth| {
+            stale_verdict(truth).map(|verdict| (truth, link(input, truth, "plan"), verdict))
+        })
         .collect();
-    stale.sort_by_key(|(truth, _)| id_order(&truth.id));
+    stale.sort_by(|a, b| reading_order(&a.0.id, a.1).cmp(&reading_order(&b.0.id, b.1)));
     stale
         .into_iter()
-        .map(|(truth, verdict)| {
-            let plan = link(input, truth, "plan");
+        .map(|(truth, plan, verdict)| {
             let read = read_by(input, truth, plan);
             let spec = spec_changes(delta, &read);
             let files = changed_files(input, delta, truth, &verdict);
@@ -57,6 +58,12 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
             }
         })
         .collect()
+}
+
+/// The order a person reads truths in: by their plan's [`id_order`] (`01-2` before `01-10`), then their own (`TR2`
+/// before `TR10`). A truth's id ends in its own number, so [`id_order`] of the id alone puts `01-10/TR1` first.
+fn reading_order<'a>(truth: &'a str, plan: Option<&'a str>) -> impl Ord + 'a {
+    (plan.map(id_order), id_order(truth))
 }
 
 /// What the pass reads of a `gsd/E501` judgement.

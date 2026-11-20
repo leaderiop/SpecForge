@@ -2,9 +2,9 @@
 //! exactly the truths `re-verify --stale-only` lists: the stale set is the verifier's judgements, and the graph delta
 //! and the judgement at the base say why.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::harness::{Project, taskboard};
 
@@ -190,4 +190,60 @@ fn the_baseline_is_read_at_the_revision_since_names() {
             assert!(text.contains(cause), "{truth} since {revision}: {text}");
         }
     }
+}
+
+/// `src/cli.js` and `README.md` are files no truth's verdict cites: an edit of either stales no truth, so the advisory
+/// names none.
+#[test]
+fn an_edit_to_a_file_no_truth_cites_names_no_truth() {
+    let p = taskboard();
+    p.commit();
+    for file in ["src/cli.js", "README.md"] {
+        touch(&p, file);
+        assert_eq!(p.advisories(I527, "HEAD"), BTreeMap::new(), "{file}");
+        assert_eq!(p.stale_truths("v1.0/01"), BTreeSet::new(), "{file}");
+    }
+}
+
+/// A plain `check` has no base: `gsd/E501` reports each stale verdict and the advisory says nothing.
+#[test]
+fn a_plain_check_of_an_edited_twin_says_nothing() {
+    let p = taskboard();
+    p.commit();
+    touch(&p, "src/tasks.js");
+    let codes: Vec<String> = p.report_all().into_iter().map(|(code, _)| code).collect();
+    assert!(codes.iter().any(|c| c == "gsd/E501"), "{codes:?}");
+    assert!(!codes.iter().any(|c| c == I527), "{codes:?}");
+}
+
+#[test]
+fn the_advisory_is_info_under_every_profile_and_repeats_byte_for_byte() {
+    let p = taskboard();
+    p.commit();
+    touch(&p, "src/tasks.js");
+    for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
+        p.settings(json!({ "profile": profile }));
+        let advisories = p.advisories(I527, "HEAD");
+        let named: BTreeSet<String> = advisories.keys().cloned().collect();
+        assert_eq!(named, citing_tasks_js(), "{profile}");
+        for (truth, advisory) in &advisories {
+            assert_eq!(
+                advisory["severity"], "Info",
+                "{profile}, {truth}: {advisory}"
+            );
+        }
+    }
+    p.settings(json!({ "profile": "gsd-compat" }));
+    // Each run's advisories as printed, serialized in report order.
+    let i527 = || -> (usize, String) {
+        let found: Vec<Value> = p
+            .checked_since("HEAD")
+            .into_iter()
+            .filter(|d| d["code"] == I527)
+            .collect();
+        (found.len(), serde_json::to_string(&found).expect("JSON"))
+    };
+    let first = i527();
+    assert_eq!(first.0, citing_tasks_js().len(), "{}", first.1);
+    assert_eq!(first, i527());
 }

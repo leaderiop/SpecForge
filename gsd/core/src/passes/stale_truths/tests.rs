@@ -374,3 +374,111 @@ fn the_spec_and_a_cited_file_both_changed() {
         "{message}"
     );
 }
+
+#[test]
+fn a_path_with_a_space_a_non_ascii_letter_or_a_line_break_stays_on_one_line() {
+    let paths = ["src/my file.js", "src/café.js", "src/a\nb.js"];
+    let at = |digest: &'static str| -> Vec<(&str, &str)> {
+        paths.iter().map(|path| (*path, digest)).collect()
+    };
+    let input = input(
+        vec![verdict("stale", &["cited"], &at("C"))],
+        json!({ "delta": delta(revision(), vec![]), "previous": baseline(R, verdict("fresh", &[], &at("A"))) }),
+    );
+    let message = on_tr1(&input).message;
+    assert!(
+        message.contains(
+            "only the files it cites changed: 'src/my file.js', 'src/café.js', 'src/a\\nb.js'"
+        ),
+        "{message}"
+    );
+    assert!(!message.contains('\n'), "{message}");
+}
+
+/// A phase with plans `01-2` and `01-10`, each with a truth whose verdict went stale when its text changed since `R`:
+/// the entities, the edges and the delta nodes in the order given, or each reversed.
+fn two_plans(reversed: bool) -> PassInput {
+    let mut entities = vec![json!({ "id": PHASE, "kind": "phase" })];
+    let mut edges = Vec::new();
+    let mut nodes = Vec::new();
+    let mut at_the_base = serde_json::Map::new();
+    for plan in ["v1.0/01/01-2", "v1.0/01/01-10"] {
+        let truth = format!("{plan}/TR1");
+        let now = verdict("stale", &["truth"], &[("src/tasks.js", "A")]);
+        entities.push(json!({ "id": plan, "kind": "plan" }));
+        entities.push(json!({ "id": truth, "kind": "truth", "judgements": [now] }));
+        edges.push(json!({ "source": plan, "target": PHASE, "label": "phase" }));
+        edges.push(json!({ "source": truth, "target": plan, "label": "plan" }));
+        nodes.push(modified("truth", &truth, &["text"], &[]));
+        let then = verdict("fresh", &[], &[("src/tasks.js", "A")]);
+        at_the_base.insert(truth, json!({ "kind": "truth", "judgements": [then] }));
+    }
+    if reversed {
+        entities.reverse();
+        edges.reverse();
+        nodes.reverse();
+    }
+    serde_json::from_value(json!({
+        "entities": entities,
+        "edges": edges,
+        "delta": delta(revision(), nodes),
+        "previous": { "revision": R, "entities": at_the_base },
+    }))
+    .expect("a pass input")
+}
+
+#[test]
+fn the_order_of_entities_and_nodes_does_not_change_the_answer() {
+    let given = check(&two_plans(false));
+    let reversed = check(&two_plans(true));
+    assert_eq!(
+        serde_json::to_string(&given).expect("JSON"),
+        serde_json::to_string(&reversed).expect("JSON")
+    );
+    let truths: Vec<Option<&str>> = given.iter().map(|d| d.entity.as_deref()).collect();
+    assert_eq!(
+        truths,
+        [Some("v1.0/01/01-2/TR1"), Some("v1.0/01/01-10/TR1")]
+    );
+}
+
+#[test]
+fn a_session_check_names_the_spec_since_the_last_check() {
+    let now = verdict(
+        "stale",
+        &["truth"],
+        &[("src/tasks.js", "A"), ("test/tasks.test.js", "B")],
+    );
+    let input = input(
+        vec![now],
+        json!({
+            "delta": delta(json!({ "kind": "previous" }), vec![modified("truth", TR1, &["text"], &[])]),
+            "previous": baseline(R, fresh_at_the_base()),
+        }),
+    );
+    let message = on_tr1(&input).message;
+    assert!(
+        message.contains(&format!(
+            "since the last check, the spec it reads changed: truth '{TR1}' (text); it cites 'src/tasks.js', \
+             'test/tasks.test.js'"
+        )),
+        "{message}"
+    );
+    assert!(!message.contains("changed too"), "{message}");
+    assert!(!message.contains("no file it cites changed"), "{message}");
+}
+
+#[test]
+fn a_verdict_that_cites_no_file_names_none() {
+    let input = input(
+        vec![verdict("stale", &["tests"], &[])],
+        json!({ "delta": delta(json!({ "kind": "previous" }), vec![]) }),
+    );
+    let message = on_tr1(&input).message;
+    assert!(
+        message.ends_with("since the last check, the spec it reads is unchanged"),
+        "{message}"
+    );
+    assert!(!message.contains("it cites"), "{message}");
+    assert!(!message.contains("''"), "{message}");
+}
