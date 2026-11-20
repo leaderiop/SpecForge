@@ -201,6 +201,13 @@ Each holds once the change this ADR opens lands.
   0377 D7), including after ordinary edits to files a closed phase's verdicts cite, until the verdict is recorded
   again. The way out for a project that will not re-judge is the explicit `specforge.verdict_gate: false` beside the
   profile, which beats the preset; the profile test shows it.
+- Under gsd-strict a verdict that is missing inside a gate's scope refuses it too, unless the gate's own workflow runs
+  the verdict's judge (ADR 0377 D7). Spec and research judging therefore come before planning. A phase whose SPEC
+  has no `gsd/E202` verdict, or whose locked requirements have no `gsd/W203` verdict, refuses `/gsd-plan-phase`,
+  `/gsd-plan-review-convergence` and `/gsd-ultraplan-phase`; `/gsd-spec-phase` records both. A package audit without
+  its `gsd/W205` legitimacy verdict refuses the last two. `/gsd-plan-phase` runs the phase researcher, which records
+  it, so that gate excuses it. The way out is to run the judging step first, or `specforge.verdict_gate: false`
+  beside the profile.
 - `gsd-plus` differs from gsd-strict by `gsd/E517` alone.
 - `gsd-compat` is unchanged, and so is every parity case.
 - Outside a gate the three guards are silent, and `gsd/E521` reads only recorded commits, so `specforge check` on a
