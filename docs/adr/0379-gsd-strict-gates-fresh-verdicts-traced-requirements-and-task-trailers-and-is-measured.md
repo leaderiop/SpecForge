@@ -117,9 +117,21 @@ SpecForge's users could fill.
 - `gsd/E521` reads the commits gsd-git records, so it is silent on a project that records none.
 - On a twin whose requirements no recorded commit traces, the ship gate is refused by `gsd/E515` whatever the verdicts
   are, so the freshness measure reads `gsd/E516`'s own gate entry and diagnostics.
-- The A/B protocol's arm B names gsd-strict, so a run on a build after this decision has `gsd/E515` and `gsd/E516` at
-  its gates. Its preflight compares check diagnostics, where both guards are silent; the tag that froze its first
-  version keeps the old split.
+- The A/B protocol (`evaluation/gsd-ab/`, its first version frozen by the tag `gsd-ab-v1`) names gsd-strict for arms
+  B, B0 and Bv1, and is not edited here. On a build after this decision:
+  - **Arm B** has `gsd/E515` and `gsd/E516` at its gates: its ship tasks (`taskboard-ship-task-01`, `vault-ship-01`,
+    `ledger-ship-ledg-02`) pass `/gsd-ship` only once each complete requirement is traced by a recorded commit and a
+    passing test, and every verdict the gate reads is fresh.
+  - **Arm B0** has the same gates but no test facts (no `@code/core`, no pack that writes them), so no requirement is
+    ever `proven`: its `gsd/E515` is unsatisfiable by design, and refuses every `/gsd-ship`, `/gsd-complete-milestone`
+    and `specforge gsd close-milestone` that holds a complete requirement, a refusal B0 did not meet before. A B0
+    ship task ends at it; B0's `gsd/E516` behaves as B's.
+  - **Arm Bv1** runs the tag's own `specforge` binary and components, whose presets keep the old split, so nothing
+    changes for it.
+  - The preflight compares check diagnostics, where both guards are silent, so it shows none of this.
+  - `evaluation/gsd-ab/README.md` (arm B) and `tasks.json` (arms B, B0 and Bv1) set `specforge.task_trailers` on
+    beside gsd-strict. For B and B0 that is now the preset, so the explicit setting is redundant; it stays, since the
+    protocol is versioned and this decision does not change it.
 
 ## Measures
 
