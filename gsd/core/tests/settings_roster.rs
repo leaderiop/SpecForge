@@ -466,29 +466,62 @@ fn the_settings_workflow_counts_the_settings_of_its_section_layout() {
     assert_eq!(seen, 2, "the statements of the section count");
 }
 
-/// `commit_docs` is not a setting of `@gsd/core` (the spec is source and is committed like code), so an asset names
-/// it only to say so: every line of every asset that names it, in any case, says "not a setting here". The lines that
-/// say it (new-project's and planning-config's) are seen, so the scan cannot pass on an empty tree.
+/// The keys of the Not applicable table's row that holds `commit_docs`, by their last name: `planning.pr_strict` is
+/// `pr_strict`, `phase_commit_docs.<phase-id>` is `phase_commit_docs`.
+fn committed_spec_keys() -> BTreeSet<String> {
+    let row = table(|t| t.heading == "Not applicable")
+        .rows
+        .into_iter()
+        .find(|cells| backticked(&cells[0]).iter().any(|t| t == "commit_docs"))
+        .expect("the row of `commit_docs`");
+    backticked(&row[0])
+        .iter()
+        .filter_map(|token| {
+            token
+                .split('.')
+                .rfind(|segment| *segment != "planning" && !segment.starts_with('<'))
+                .map(str::to_string)
+        })
+        .collect()
+}
+
+/// `commit_docs`, `search_gitignored` and `pr_strict` are not settings of `@gsd/core` (the spec is source and is
+/// committed like code: nothing of it is gitignored, and a PR branch always leaves it out), so an asset names one only
+/// to say so: every line of every asset that names a key of that row of the Not applicable table, in any case, says
+/// "not a setting here". The row is read from `spec/settings.md`, and the lines that say it (new-project's,
+/// planning-config's and pr-branch's) are seen, so the scan cannot pass on an empty tree.
 #[test]
-fn commit_docs_is_named_only_as_not_a_setting_here() {
-    let mut allowed = 0;
+fn the_committed_spec_keys_are_named_only_as_not_a_setting_here() {
+    let keys = committed_spec_keys();
+    for key in [
+        "commit_docs",
+        "phase_commit_docs",
+        "search_gitignored",
+        "pr_strict",
+    ] {
+        assert!(keys.contains(key), "the row lacks {key}: {keys:?}");
+    }
+    let mut allowed = BTreeSet::new();
     let mut named = Vec::new();
     for (path, text) in asset_texts() {
         for (n, line) in text.lines().enumerate() {
             let lower = line.to_lowercase();
-            if !lower.contains("commit_docs") {
+            let hits: Vec<&String> = keys.iter().filter(|k| lower.contains(k.as_str())).collect();
+            if hits.is_empty() {
                 continue;
             }
             if lower.contains("not a setting here") {
-                allowed += 1;
+                allowed.extend(hits.into_iter().cloned());
             } else {
                 named.push(format!("{path}:{}: {line}", n + 1));
             }
         }
     }
     assert!(named.is_empty(), "{}", named.join("\n"));
-    assert!(
-        allowed >= 2,
-        "{allowed} lines say `commit_docs` is not a setting here"
-    );
+    for key in ["commit_docs", "search_gitignored", "pr_strict"] {
+        assert!(
+            allowed.contains(key),
+            "no line says `{key}` is not a setting here"
+        );
+    }
 }
