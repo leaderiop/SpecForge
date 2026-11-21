@@ -65,6 +65,10 @@ pub const NOT_IN_FORCE: &str = "a decision not in force (its status is not accep
                                 longer holds: it converts to nothing, and its ADR under docs/adr/ is its record \
                                 (ADR 0372 D5)";
 
+/// Why a phase's title loses its leading `Phase N:`: the label GSD prints computes the number from the id.
+pub const NUMBERED: &str = "a number of the old milestones' numbering: GSD labels a phase `Phase <the last segment \
+                            of its id>: <its title>`, so the title holds the name only";
+
 /// The ledger's field for one `method` member of an entity dropped whole.
 const METHOD: &str = "method";
 /// The ledger's field for an entity's field annotations, dropped whole: one entry, each field to its annotations.
@@ -369,7 +373,7 @@ impl Planner {
 
     /// The entity `e` converts to, empty but for its header, its name and its scope field, keyed by its new path. A
     /// phase is titled by its name: GSD labels it `Phase <its id's last segment>: <title>`, so an old title's
-    /// `Phase N:` would print its number twice, and a number of another numbering.
+    /// `Phase N:` would print its number twice, and a number of another numbering: that prefix is ledgered `dropped`.
     fn draft(&mut self, e: &OldEntity) {
         let Some(new) = self.ids.get(&e.kind, &e.id).cloned() else {
             return;
@@ -392,7 +396,16 @@ impl Planner {
             }
         };
         let title = match kind {
-            "phase" => how::phase_name(&title),
+            "phase" => {
+                let name = how::phase_name(&title);
+                let number = title[..title.len() - name.len()].trim_end();
+                if !number.is_empty() {
+                    let why = Why::Dropped(NUMBERED.to_string());
+                    self.ledger
+                        .record(&e.kind, &e.id, "title", json!(number), why);
+                }
+                name
+            }
             _ => title,
         };
         let mut fields = BTreeMap::new();

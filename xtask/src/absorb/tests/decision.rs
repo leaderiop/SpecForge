@@ -4,7 +4,6 @@
 use serde_json::json;
 use specforge_ops::authoring::edit::{Edit, Input};
 
-use super::super::how;
 use super::super::ledger::Why;
 use super::super::plan;
 use super::super::table::{self, Home};
@@ -38,10 +37,13 @@ fn a_decision_becomes_one_create_keeping_its_title_and_file() {
         .iter()
         .filter_map(|e| {
             let new = planned.ids.get(&e.kind, &e.id)?;
-            let title = e.title.as_deref().unwrap();
-            let title = match new.kind {
-                "phase" => how::phase_name(title),
-                _ => title.to_string(),
+            let title = match e.id.as_str() {
+                // the fixture's one numbered title: the phase is titled by its name
+                "third_cut" => {
+                    assert_eq!(e.title.as_deref(), Some("Phase 3: Third Cut"));
+                    "Third Cut".to_string()
+                }
+                _ => e.title.clone().unwrap(),
             };
             Some((new.kind, new.path(), title, e.file.as_str()))
         })
@@ -49,6 +51,10 @@ fn a_decision_becomes_one_create_keeping_its_title_and_file() {
     assert_eq!(
         headers, expected,
         "every converted entity, once, in the old order, by its new path, a phase titled by its name"
+    );
+    assert!(
+        headers.iter().any(|h| h.0 == "phase" && h.2 == "Third Cut"),
+        "the numbered title converts: {headers:?}"
     );
     let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
     assert_eq!(

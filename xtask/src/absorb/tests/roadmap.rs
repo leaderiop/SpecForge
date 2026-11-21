@@ -6,10 +6,10 @@ use specforge_ops::authoring::edit::Input;
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::super::ledger::Why;
-use super::super::plan::Planned;
+use super::super::plan::{self, Planned};
 use super::super::read::OldEntity;
 use super::super::table;
-use super::{create, field, field_of, ledgered, many, old, one, paths, planned, stops};
+use super::{create, field, field_of, ledgered, many, old, one, path_of, paths, planned, stops};
 
 /// `e` written at `line` of `file`.
 fn at(mut e: OldEntity, file: &str, line: usize) -> OldEntity {
@@ -148,8 +148,12 @@ fn a_listed_milestone_becomes_a_phase_numbered_in_source_order_under_its_release
         ids.contains(&("milestone", "third", "v0.2.0/01")),
         "{ids:?}"
     );
-    let specforge_ops::authoring::edit::Edit::Create { id, title, .. } = &planned.creates[4] else {
-        panic!("a create")
+    let Some(specforge_ops::authoring::edit::Edit::Create { id, title, .. }) = planned
+        .creates
+        .iter()
+        .find(|edit| path_of(edit) == "v0.2.0/01")
+    else {
+        panic!("no create of v0.2.0/01")
     };
     assert_eq!(
         id, "01",
@@ -158,6 +162,21 @@ fn a_listed_milestone_becomes_a_phase_numbered_in_source_order_under_its_release
     assert_eq!(
         title, "Third Cut",
         "a phase is titled by its name: GSD prints its number from its id"
+    );
+    assert_eq!(
+        ledgered(&planned, "third")
+            .into_iter()
+            .filter(|(f, _)| f == "title")
+            .collect::<Vec<_>>(),
+        [(
+            "title".to_string(),
+            Why::Dropped(plan::NUMBERED.to_string())
+        )],
+        "the old title's `Phase 3:` is not written: GSD's label prints the number from the id"
+    );
+    assert!(
+        why_of(&planned, "first", "title").is_empty(),
+        "a title with no `Phase N:` is written as itself"
     );
     let (kind, fields) = create(&planned, "v0.2.0/01");
     assert_eq!(kind, "phase");
