@@ -16,8 +16,8 @@
     "sha256": "673eef6149d23deed083fe45e7747cc4ea917773e19d8793b6fbd2541fca4789"
   },
   ".claude/agents/gsd-executor.md": {
-    "bytes": 50008,
-    "sha256": "fcedc36e32e21a5d6c3f31a1938f4a694de2f0443f2b1ca61ed0d5054ac5c227"
+    "bytes": 49844,
+    "sha256": "18d041520b065488588da0c6fb07baaa8b9bd97b44bcf7b1f69f5e18c598c668"
   },
   ".claude/agents/gsd-integration-checker.md": {
     "bytes": 21278,
@@ -32,16 +32,16 @@
     "sha256": "192802b5dad86a2c6bac10380b4c46a0180c355114d8f5a98cc0e0f92a90be80"
   },
   ".claude/agents/gsd-phase-researcher.md": {
-    "bytes": 49463,
-    "sha256": "d0739f433da875a72e50a8e26a63a99f84c9492d816a8de28728b6954b60f07b"
+    "bytes": 50130,
+    "sha256": "2745c1167374a0fe57d76e142bffe0fda74f9d8841c8b22d300890d70e1d5db8"
   },
   ".claude/agents/gsd-plan-checker.md": {
     "bytes": 54030,
     "sha256": "b7d84c8f73ca329fe5d610e47a4318ebc657a2a6ef08582497c3495502a92789"
   },
   ".claude/agents/gsd-planner.md": {
-    "bytes": 54335,
-    "sha256": "5cd0723320691ab3de3b7ee786f321c1c62f996c799df7fe65af091e9d36e26f"
+    "bytes": 56679,
+    "sha256": "6573db6aee89040d9d9baaa98d4a97cc584e29c2f11aa8a8738c60c300bbfe9e"
   },
   ".claude/agents/gsd-project-researcher.md": {
     "bytes": 16901,

@@ -8,9 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_extension_sdk::prelude::*;
 
-use super::commits::{CommitType, commits};
+use super::commits::{Unlinked, commits};
 use super::plans::{children, links, of_kind, phase_of, strings, text};
-use crate::collectors::LinkedBy;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("traceability", |p| {
@@ -111,9 +110,16 @@ fn plan_paths(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// What E521's suggestion says of the commit it is on: gsd-git records a commit once, by its 12-hex name (ADR 0380).
-const RECORDED: &str = "; this commit is recorded and keeps its fields: amending it records a new commit beside it, so \
-                        its own error stays while `specforge.task_trailers` is on";
+/// What gsd/E521's suggestion says of the commit `id` it is on: gsd-git records a commit once, by its 12-hex name (ADR
+/// 0380), so its own error stays unless a person waives it beside the record (ADR 0381). The command line is the one a
+/// person types at a terminal, with the commit's own name; an agent's call of it is refused.
+fn recorded(id: &str) -> String {
+    format!(
+        "; this commit is recorded and keeps its fields: amending it records a new commit beside it, so its own error \
+         stays while `specforge.task_trailers` is on, unless a person waives it at a terminal: `specforge gsd \
+         waive-trailer {id} '<reason>' <who>`"
+    )
+}
 
 /// The last `segments` `/`-separated segments of `id`, the form a subject's scope writes (`v1.0/01/01-01/T1` is
 /// `01-01/T1` by 2, a plan `v1.0/01/01-01` is `01-01` by 1); `None` when that is all of it (a quick plan's).
@@ -122,48 +128,48 @@ fn plan_local(id: &str, segments: usize) -> Option<&str> {
     Some(&id[at + 1..])
 }
 
-/// E521, on the commit: a recorded commit whose task its subject's title found, or one of a task type that names no
-/// task, carries no `Gsd-Task:` trailer that links it. A commit with no type, or a `docs` one (even one whose subject
-/// matches a task's title), is not judged. The suggestion names the trailer the later commits add, as gsd-git reads it
-/// (ADR 0380): the task's full id, or the plan's full id and `/<task>`, and the plan-local form as written (`01-01/T1`).
-/// A recorded commit keeps its fields, so the suggestion says its own error stays.
+/// E521, on the commit: a recorded commit the rule of [`unlinked`](super::commits::unlinked) judges, one whose task its
+/// subject's title found or one of a task type that names no task, carries no `Gsd-Task:` trailer that links it. The
+/// suggestion names the trailer the later commits add, as gsd-git reads it (ADR 0380): the task's full id, or the
+/// plan's full id and `/<task>`, and the plan-local form as written (`01-01/T1`). A recorded commit keeps its fields,
+/// so the suggestion says its own error stays, and ends by naming the waiver a person runs with the commit's name. A
+/// commit a person waived (its `waiver` is set) is not judged (ADR 0381).
 fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
     commits(input)
         .into_iter()
         .filter_map(|commit| {
-            // The collector records only a commit that names a plan; a plan's metadata commit is `docs`.
-            let plan = commit.plan.as_deref()?;
-            if commit.kind == Some(CommitType::Docs) {
+            if commit.waived {
                 return None;
             }
-            let (message, suggestion) = match (&commit.task, commit.linked_by) {
-                (Some(task), Some(LinkedBy::Title)) => (
+            let (message, suggestion) = match commit.unlinked().ok()? {
+                Unlinked::ByTitle { task } => (
                     format!(
                         "commit '{}' names task '{task}' by its subject's title, not by a Gsd-Task trailer",
                         commit.id
                     ),
                     format!(
                         "end the message of each later commit of the task with the trailer 'Gsd-Task: {task}' (its \
-                         full id{}), then collect{RECORDED}",
+                         full id{}), then collect{}",
                         plan_local(task, 2)
                             .map(|short| format!("; '{short}' reads the same while one plan has that name"))
-                            .unwrap_or_default()
+                            .unwrap_or_default(),
+                        recorded(&commit.id)
                     ),
                 ),
-                (None, _) if commit.kind.is_some_and(CommitType::is_task) => (
+                Unlinked::NoTask { plan } => (
                     format!(
                         "commit '{}' of plan '{plan}' is a task commit that names no task",
                         commit.id
                     ),
                     format!(
                         "end the message of each later task commit of the plan with the trailer 'Gsd-Task: \
-                         {plan}/<task>', naming one of its tasks{}, then collect{RECORDED}",
+                         {plan}/<task>', naming one of its tasks{}, then collect{}",
                         plan_local(plan, 1)
                             .map(|short| format!(" ('{short}/<task>' reads the same while one plan has that name)"))
-                            .unwrap_or_default()
+                            .unwrap_or_default(),
+                        recorded(&commit.id)
                     ),
                 ),
-                _ => return None,
             };
             Some(
                 PassDiagnostic::new("E521", PassSeverity::Error, message)

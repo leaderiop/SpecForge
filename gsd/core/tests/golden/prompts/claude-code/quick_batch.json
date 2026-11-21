@@ -61,7 +61,7 @@
     "Read all files referenced by the invoking prompt's execution_context before starting.",
     "</required_reading>"
   ],
-  "bytes": 23919,
+  "bytes": 23832,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4cb6105bf5094dc949ed17cac00fd303dd14862e10229c713f557a7f8ab0ca08",
+    "digest": "sha256:b8b89c3d1d925a4aa96aa3ab9c4f5866ed1cda5ef0ce2a206604f81c80fa650d",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "4cb6105bf5094dc949ed17cac00fd303dd14862e10229c713f557a7f8ab0ca08"
+  "sha256": "b8b89c3d1d925a4aa96aa3ab9c4f5866ed1cda5ef0ce2a206604f81c80fa650d"
 }

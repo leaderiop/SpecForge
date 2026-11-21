@@ -3,18 +3,10 @@
 
 <purpose>
 Create a clean branch for pull requests by filtering spec paths out of the
-cherry-picked history. Two modes, selected by the `planning.pr_strict` config key:
-
-- **default** (`planning.pr_strict: false`) — the PR branch contains code changes and
-  structural planning state. Reviewers don't see GSD transient artifacts (PLAN.md,
-  SUMMARY.md, CONTEXT.md, RESEARCH.md, etc.), but milestone archives, STATE.md,
-  ROADMAP.md, and PROJECT.md changes are preserved.
-- **strict** (`planning.pr_strict: true`) — *every* spec path is filtered out,
-  structural files included. This is what makes `planning.commit_docs: true` safe for a
-  project that versions its planning tree locally but publishes none of it: planning state
-  keeps real git history (so `/gsd:undo` and revert paths have something to restore) and
-  executor worktrees still find their PLAN.md, while the public PR carries nothing from
-  the spec.
+cherry-picked history. The filter has one mode, upstream's strict one: *every* spec path is
+filtered out, structural files included, so the public PR carries nothing from the spec while the
+spec keeps its real git history (so `/gsd:undo` and revert paths have something to restore) and
+executor worktrees still find their plans. `planning.pr_strict` is not a setting here.
 
 Uses git cherry-pick with path filtering to rebuild a clean history.
 </purpose>
@@ -56,8 +48,8 @@ if [ -n "$DIRTY" ]; then
 fi
 ```
 
-The filter has one mode: the spec files are always filtered out, as upstream's strict mode does. `planning.pr_strict` is
-not a setting here.
+The filter has one mode: the spec files are always filtered out, as upstream's strict mode does.
+`planning.pr_strict` is not a setting here.
 
 ```bash
 PR_MODE="strict"   # one mode: every spec file is filtered (planning.pr_strict is not a setting here)

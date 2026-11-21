@@ -5,7 +5,7 @@
 
 YOLO mode is implicit (auto = YOLO). Ask remaining config questions:
 
-**Round 1 — Core settings (3 questions, no Mode question):**
+**Round 1 — Core settings (2 questions, no Mode question):**
 
 ```
 AskUserQuestion([
@@ -26,15 +26,6 @@ AskUserQuestion([
     options: [
       { label: "Parallel (Recommended)", description: "Independent plans run simultaneously" },
       { label: "Sequential", description: "One plan at a time" }
-    ]
-  },
-  {
-    header: "Git Tracking",
-    question: "Commit planning docs to git?",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Planning docs tracked in version control" },
-      { label: "No", description: "Keep the spec local-only (add spec/ to .gitignore, creating it if needed)" }
     ]
   }
 ])
@@ -156,10 +147,8 @@ Record the settings with all choices (the settings default the rest):
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 # no folder to create: the entities live in the spec
-# the choices go in as settings, one `specforge settings set @gsd/core <name> <value>` per answer (mode yolo, granularity, parallelization, commit_docs, model_profile, workflow.*, plan_review.source_grounding); the PR body sections stay at their defaults
+# the choices go in as settings, one `specforge settings set @gsd/core <name> <value>` per answer (mode yolo, granularity, parallelization, model_profile, workflow.*, plan_review.source_grounding); the PR body sections stay at their defaults
 ```
-
-**If commit_docs = No:** Add the spec to `.gitignore`.
 
 **Commit config.json:**
 

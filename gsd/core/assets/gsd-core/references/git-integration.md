@@ -268,13 +268,10 @@ In the settings (`specforge settings`), list sub-repo directories under `plannin
 ```json
 {
   "planning": {
-    "commit_docs": false,
     "sub_repos": ["backend", "frontend", "shared"]
   }
 }
 ```
-
-Set `commit_docs: false` so planning docs stay local and are not committed to any sub-repo.
 
 ### How It Works
 

@@ -145,6 +145,7 @@ mod settings;
 mod source_items;
 #[path = "../common/specforge_only.rs"]
 mod specforge_only;
+mod stale_truths;
 mod strict_wave;
 mod thread_plan;
 #[path = "../common/tool_names.rs"]
@@ -154,6 +155,7 @@ mod verify_paths;
 mod verify_rules;
 mod verify_status;
 mod verify_verdicts;
+mod waive_trailer;
 
 use harness::project;
 

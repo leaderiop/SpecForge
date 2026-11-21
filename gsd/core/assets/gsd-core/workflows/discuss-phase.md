@@ -123,7 +123,7 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 AGENT_SKILLS_ADVISOR=""   # the host install carries the skills of gsd-advisor-researcher
 ```
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields; a phase not in the graph is an E003 error), and its `plan`, `research`, `context` and `verification` entities, when it has them, are among the other nodes (`plan_count` counts the plans). `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core` (the phase's spec is read in `check_spec`, from the graph).
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields; a phase not in the graph is an E003 error), and its `plan`, `research`, `context` and `verification` entities, when it has them, are among the other nodes (`plan_count` counts the plans). `response_language` is a setting: `specforge settings --format json --extension @gsd/core` (the phase's spec is read in `check_spec`, from the graph).
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 

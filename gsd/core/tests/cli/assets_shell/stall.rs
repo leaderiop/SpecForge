@@ -60,9 +60,7 @@ fn writing(file: PathBuf, times: usize) -> std::thread::JoinHandle<()> {
 /// silent one quiet, where the `.spec` cycle sees neither.
 #[test]
 fn an_outline_planner_writing_slowly_is_never_stalled_and_a_silent_one_is() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let dir = project();
     let home = dir.path().join("home");
     let (made, err, code) = sh.run_in(
@@ -93,9 +91,7 @@ fn an_outline_planner_writing_slowly_is_never_stalled_and_a_silent_one_is() {
 /// orchestrator's shell stands in.
 #[test]
 fn a_cycle_sees_a_spec_write_from_a_subdirectory() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let dir = project();
     let home = dir.path().join("home");
     let src = dir.path().join("src");
@@ -110,9 +106,7 @@ fn a_cycle_sees_a_spec_write_from_a_subdirectory() {
 /// `specforge wait` does not take. The orchestrator stops and reports it, never `active` or `stalled`.
 #[test]
 fn a_cycle_that_cannot_watch_says_so() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let dir = project();
     let home = dir.path().join("home");
     for (glob, interval, exit) in [(OUTLINE, "0", 1), ("**/*.spec", "1441m", 2)] {

@@ -9,7 +9,9 @@ and its consequence "the executor prompt does not write the trailer yet". Builds
 [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md) (E016 on a planned path once its owner is complete) and
 [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (W162 leaves out a field that names
 its reverse, the one kernel change). No protocol change; `@gsd/core` gains three codes. D1, D2, D3, D4, D5 and D10
-superseded, D8 and D9 amended, by [ADR 0371](0371-links-come-from-gsds-fields-and-collected-data.md).
+superseded, D8 and D9 amended, by [ADR 0371](0371-links-come-from-gsds-fields-and-collected-data.md). D6 amended by
+[ADR 0381](0381-a-person-waives-a-recorded-commits-trailer-error-beside-its-record.md): gsd/E521 is not judged on a
+waived commit.
 
 ## Context
 

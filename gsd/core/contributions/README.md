@@ -151,18 +151,19 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 | `complete_milestone` | E106, E511, E516 | `close_milestone` |
 | `ship` | E511, E512, E516 | `fix_window`, `waive_window` |
 
-The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
-`approve_validation`, `waive_window`, `dispose_refactor`) are human-attested (ADR 0301): the host runs them only for a
-person at a terminal and refuses an agent's call `human_only`, so their prompt steps ask the person to run them. `pause`
-stays an agent's call.
+The seven commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+`approve_validation`, `waive_window`, `dispose_refactor`, `waive_trailer`) are human-attested (ADR 0301): the host runs
+them only for a person at a terminal and refuses an agent's call `human_only`, so a prompt step that needs one asks the
+person to run it, and gsd/E521's suggestion names `specforge gsd waive-trailer` with the commit's name (ADR 0381).
+`pause` stays an agent's call.
 
 ### What the lifecycle prompts do not do (known, not fixed)
 
 The assets are upstream's text; where the spec has no counterpart a line was defaulted, not ported (each is a line in
 `REWRITTEN` of `tests/port_workflows.rs`):
 
-- Settings. `{{setting:<key>|<fallback>}}` reads the settings block. `commit_docs`, `features.graduation*`,
-  `workflow._auto_chain_active`, `workflow.code_review_command` and `workflow.live_dom_uat` are not keys of the roster
+- Settings. `{{setting:<key>|<fallback>}}` reads the settings block. `features.graduation*`, `workflow._auto_chain_active`,
+  `workflow.code_review_command` and `workflow.live_dom_uat` are not keys of the roster
   (`NOT_SETTINGS` in `tests/ported_text.rs`), so they always take their fallback, and a `settings set` on them would be
   refused. `USE_WORKTREES` is `false` and `ISOLATION` is `none`: `@gsd/core` runs no worktree isolation, so every
   plan of `execute_phase` dispatches in sequential mode and its four isolation steps are not reached (ADR 0343).
@@ -255,6 +256,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `pause`, `resume` | pause `at`, `by`; removes the pause |
 | `raise_blocker`, `resolve_blocker` | blocker `raised` (and `gate`, the task whose TDD gate tripped, with `--plan <plan> --gate <task>`: the open blocker of the same gate is reused), `resolved` |
 | `record_window`, `waive_window`, `fix_window` | broken_window `recorded_at`; `waiver`; `fixed_at` |
+| `waive_trailer <commit> <reason> <by>` (`specforge gsd waive-trailer`) | commit `waiver` (a commit gsd/E521 judges, once; human-attested, ADR 0381) |
 | `record_review <phase> --review <json> [--round <review>]` (`specforge gsd record-review`; upstream wrote NN-REVIEWS.md) | a `review` round (`RV<n>`, scoped by its phase, in the phase's file) with its reviewers, lanes, coverage, consensus and unchecked symbols, and `reviewed_at`, and one `review_concern` (`RC<n>`) per concern, in one plan; every plan, reviewer and enum is checked first, naming where it stands. `--round` adds unchecked symbols and concerns to a recorded round, nothing else |
 | `record_conflict <plan> --dimension D --property P --conflicts-with C [--alternatives A]`, `resolve_conflict <how> (--conflict <id> \| --plan <plan>)` (`specforge gsd record-conflict`, `resolve-conflict`; upstream kept REVISION_CONFLICT lines in the planner's return) | revision_conflict `raised` (`CF<n>` in the plan's phase, each field on one line, the open one that says the same reused); `resolved` `{at, how}` of one open conflict, or of every open one of a plan. A quick plan has no conflict channel |
 | `start_batch <batch> --items <json list> --base <sha>` (`specforge gsd start-batch`; upstream wrote `BATCH.json`) | a `quick_batch` named by the batch id `quick_init --batch` answered: its quick plans in item order (at least 2, none of a phase, none twice), `base` (40 lowercase hex digits) and `created`, once; its `status` and `eligible` items are computed from the plans |
@@ -279,7 +281,7 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `resolve_prohibition <prohibition> <status> [--verification V] [--reason TEXT]` (`specforge gsd resolve-prohibition`; ADR 0333) | a `spec_prohibition`'s `status`, `verification` and `reason` in one plan, its `check_*` descriptor cleared unless the row is resolved with the `test` tier (upstream's descriptor rides only a resolved/test row) |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict`, under a `gsd/` rule only (`@gsd/security` writes its own with `record_security_verdict`); a truth's or a judgment-tier prohibition's verdict that cites no file of the project and no test is refused, since it could never go stale on a code edit (ADR 0377) |
-| the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
+| the `gsd-git` collector: `specforge collect --runner gsd-git --yes` | commit (every field but `waiver`) |
 
 ## Agents
 

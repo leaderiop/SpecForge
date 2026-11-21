@@ -3,6 +3,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use super::commits::committed;
 use super::{Shell, asset, block, fence_after, fence_from, line};
 
 /// T3, end to end: the commit lines' producer (`specforge query … --kinds commit`) and reader, in a project whose plan
@@ -10,9 +11,7 @@ use super::{Shell, asset, block, fence_after, fence_from, line};
 /// pick.
 #[test]
 fn the_commit_readers_read_the_commit_entities() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = crate::harness::project("execute");
     p.commit();
     let hash = p.git_commit(
@@ -49,9 +48,7 @@ fn the_commit_readers_read_the_commit_entities() {
 /// finds the same commits as by its full one, which a commit's `plan` field holds.
 #[test]
 fn the_tdd_gate_finds_the_red_commit_among_the_plans_own_commits() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/execute-phase.md");
     let gate = |plan: &str| {
         format!(
@@ -132,9 +129,7 @@ fn git(dir: &Path, args: &[&str]) {
 /// files and the harness ledger keeps only its code, and `verify` sees no spec file on the branch it builds.
 #[test]
 fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/pr-branch.md");
     let declare = block(&text, "TRANSIENT_DIRS=", "SPEC_PATHSPEC=$(");
     let derive = fence_after(&text, "Derive the mode's projection");
@@ -197,9 +192,7 @@ fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
 /// still commit under the pin of the checkout that holds it.
 #[test]
 fn the_pin_compares_both_roots_with_one_reader() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/references/worktree-path-safety.md");
     let guard = &fence_from(&text, "# gsd:guard=supplied-root-pin");
     let run = |cwd: &Path, pin: &str| {
@@ -299,9 +292,7 @@ fn the_pin_compares_both_roots_with_one_reader() {
 /// Forensic-audit lists the tracked changes outside the spec root, ten at most, whatever else the tree holds.
 #[test]
 fn forensic_audit_leaves_the_spec_root_out() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/progress/steps/forensic-audit.md");
     let read = line(&text, "specforge git status --except-spec");
     let dir = tempfile::tempdir().expect("a dir");
@@ -333,9 +324,7 @@ fn forensic_audit_leaves_the_spec_root_out() {
 /// does not, though the newest commit that matches is then that one.
 #[test]
 fn ship_reads_the_ci_skip_marker_on_the_note_itself() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/ship.md");
     let line = line(
         &text,
@@ -368,9 +357,7 @@ fn ship_reads_the_ci_skip_marker_on_the_note_itself() {
 /// tag is written, so `git push --tags` publishes nothing and `git describe` reads nothing.
 #[test]
 fn the_plan_ledger_counts_from_the_head_the_plan_started_at() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("agents/gsd-executor.md");
     let start = line(
         &text,
@@ -454,18 +441,21 @@ fn the_plan_ledger_counts_from_the_head_the_plan_started_at() {
     assert_eq!(at(&unborn, "head"), first.as_str());
 }
 
-/// `forensic-audit` and `fast` leave the spec files out from any directory of the project, and with any spec root.
+/// From any directory of the project, `forensic-audit` leaves the spec files out of the status it reads, and `fast`
+/// commits the spec with the code: the spec is source, committed like code, and no setting keeps it out.
 #[test]
-fn the_spec_files_are_left_out_from_a_subdirectory() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+fn forensic_audit_leaves_the_spec_out_and_fast_commits_it_from_a_subdirectory() {
+    let sh = Shell::without_jq();
     let audit = asset("gsd-core/workflows/progress/steps/forensic-audit.md");
     let check = line(&audit, "specforge git status --except-spec");
-    let fast = asset("gsd-core/workflows/fast.md");
-    let add = line(&fast, "specforge git add -A --except-spec");
+    let commit = fence_after(
+        &asset("gsd-core/workflows/fast.md"),
+        "<step name=\"commit\">",
+    )
+    .replace("{concise description of what changed}", "the change");
 
     let p = crate::harness::project("execute");
+    committed(&p);
     p.git_commit(
         "feat: code",
         &[("src/sub/a.js", "a\n")],
@@ -477,9 +467,16 @@ fn the_spec_files_are_left_out_from_a_subdirectory() {
     let (out, err, code) = sh.run_in(&sub, check);
     assert_eq!(code, 0, "{err}");
     assert_eq!(out.trim(), "src/sub/a.js", "only the code is left");
-    let (_, err, code) = sh.run_in(&sub, add);
-    assert_eq!(code, 0, "{err}");
-    let (out, err, code) = sh.run_in(&sub, "specforge git status --pick '.untracked[]'");
-    assert_eq!(code, 0, "{err}");
-    assert!(out.lines().any(|l| l == "spec/"), "not staged: {out}");
+    let (out, err, code) = sh.run_in(&sub, &commit);
+    assert_eq!(code, 0, "{commit}\n{out}{err}");
+    let files = p.git(
+        &["show", "--name-only", "--format=", "HEAD"],
+        "2026-10-29T09:00:00Z",
+    );
+    let files: Vec<&str> = files.lines().collect();
+    assert_eq!(
+        files,
+        ["spec/noise.spec", "src/sub/a.js"],
+        "the commit holds both"
+    );
 }

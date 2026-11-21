@@ -45,10 +45,7 @@ Parse current values (default to `true` if not present):
 - `workflow.code_review` — enable /gsd:code-review and /gsd:code-review --fix commands (default: true if absent)
 - `workflow.code_review_depth` — default depth for /gsd:code-review: `quick`, `standard`, or `deep` (default: `"standard"` if absent; only relevant when `code_review` is on)
 - `workflow.ui_review` — run visual quality audit (/gsd:ui-review) in autonomous mode (default: true if absent)
-- `commit_docs` — whether the spec files are committed to git (default: true if absent)
 - `intel.enabled` — enable queryable codebase intelligence (/gsd:map-codebase --query) (default: false if absent)
-- `graphify.enabled` — enable project knowledge graph (/gsd:graphify) (default: false if absent)
-- `graphify.auto_update` — opt-in: auto-rebuild graph after main HEAD advances (#3347) (default: `false`)
 - `model_profile` — which model each agent uses (default: `balanced`)
 - `git.branching_strategy` — branching approach (default: `"none"`)
 - `git.repo_tagging` — milestone tagging mode: not applicable in @gsd/core (a SpecForge project has no `planning.sub_repos`), so a milestone gets one `v[X.Y]` tag, #3628
@@ -107,29 +104,27 @@ USE_WORKTREES_CURRENT="{{setting:workflow.use_worktrees|}}"   # workflow.use_wor
 
 Use AskUserQuestion with current values pre-selected. Questions are grouped into six visual sections; the first question in each section carries the section-denoting `header` field (AskUserQuestion renders abbreviated section tags for grouping, max 12 chars).
 
-Section layout:
+Section layout (each setting with the question `header` that asks it and its key):
 
 ### Planning
-Research, Plan Checker, Drift Guard, Pattern Mapper, Nyquist, UI Phase, UI Gate, AI Phase
+Research (`workflow.research`), Plan Check (`workflow.plan_check`), Drift Guard (`plan_review.source_grounding`), Pattern Mapper (`workflow.pattern_mapper`), Nyquist (`workflow.nyquist_validation`), UI Phase (`workflow.ui_phase`), UI Gate (`workflow.ui_safety_gate`), AI Phase (`workflow.ai_integration_phase`)
 
 ### Execution
-Verifier, TDD Mode, Code Review, Code Review Depth _(conditional — only when code_review=on)_, UI Review
+Verifier (`workflow.verifier`), TDD (`workflow.tdd_mode`), Code Review (`workflow.code_review`), Review Depth (`workflow.code_review_depth`) _(conditional — only when code_review=on)_, UI Review (`workflow.ui_review`)
 
 ### Docs & Output
-Commit Docs, Skip Discuss, Worktrees
+Skip Discuss (`workflow.skip_discuss`), Worktrees (`workflow.use_worktrees`)
 
 ### Features
-Intel, Graphify, Graph auto-update _(conditional — only when graphify=on)_
+Intel (`intel.enabled`)
 
 ### Model & Pipeline
-Model Profile, Auto-Advance, Branching
+Model / Model Tier (`model_profile`, two questions), Auto (`workflow.auto_advance`), Branching (`git.branching_strategy`), Git Tagging (`git.create_tag`)
 
 ### Misc
-Context Warnings, Compact Content, Research Qs
+Ctx Warnings (`hooks.context_warnings`), Compact Content (`workflow.compact_content`), Research Qs (`workflow.research_before_questions`)
 
 **Conditional visibility — code_review_depth:** This question is shown only when the user's chosen `code_review` value (after they answer that question, or the pre-selected value if unchanged) is on. If `code_review` is off, omit the `code_review_depth` question from the AskUserQuestion block and preserve the existing `workflow.code_review_depth` value in config (do not overwrite). Implementation: ask the Model + Planning + Execution-up-to-Code-Review questions first; if `code_review=on`, include `code_review_depth` in the same batch; otherwise skip it. Conceptually this is a one-branch split on the `code_review` answer.
-
-**Conditional visibility — graphify.auto_update:** This question is shown only when the user's chosen `graphify.enabled` value is on. If `graphify.enabled` is off, omit the `graphify.auto_update` question and preserve the existing `graphify.auto_update` value in config (do not overwrite). Implementation: ask Graphify first; only ask Graph auto-update when Graphify is enabled.
 
 **Conditional options — Worktrees (#2486):** whether a runtime can honor `workflow.use_worktrees: true` depends on its **declared `dispatch.isolation` capability, not its name** (#2584): `harness-worktree` (the host isolates each executor) and `orchestrator-worktree` (GSD drives the worktrees) both run parallel; `none` fails closed on an explicit `true`. Branch on the same negotiation the execution gate resolves, via the sentinel-free `inspect-dispatch-isolation` verb, which fail-closes unknown/undeclared/`undocumented` to `none`. The rule is one-directional: **never persist a value the isolation gate would fail closed on.** **Do not add a runtime-name test here.** Branch on `$INSPECTED_ISOLATION`:
 
@@ -395,15 +390,6 @@ AskUserQuestion([
     ]
   },
   {
-    question: "Commit the spec to git? (not a setting here: the spec is source and is committed like code, so skip this question)",
-    header: "Commit Docs",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "The spec is committed like code. Plans, research, and phase artifacts travel with the repo." },
-      { label: "No", description: "Not available: there is no setting to keep the spec local only." }
-    ]
-  },
-  {
     question: "Skip discuss-phase in autonomous mode? (use ROADMAP phase goals as spec)",
     header: "Skip Discuss",
     multiSelect: false,
@@ -429,24 +415,6 @@ AskUserQuestion([
       { label: "No (Recommended)", description: "Skip intel indexing. Use when codebase is small or intel queries are not needed." },
       { label: "Yes", description: "Enable /gsd:map-codebase --query commands. Builds and queries a JSON index of the codebase." }
     ]
-  },
-  {
-    question: "Enable Graphify? (project knowledge graph via /gsd:graphify — the spec is the graph here: skip this question)",
-    header: "Graphify",
-    multiSelect: false,
-    options: [
-      { label: "No (Recommended)", description: "Skip knowledge graph. Use when dependency graphs are not needed." },
-      { label: "Yes", description: "Enable /gsd:graphify commands. Builds and queries a project knowledge graph." }
-    ]
-  },
-  {
-    question: "Auto-rebuild graph after main HEAD advances? (only effective if Graphify is enabled — #3347)",
-    header: "Graph auto-update",
-    multiSelect: false,
-    options: [
-      { label: "No (Recommended)", description: "Manual /gsd:graphify build only. Conservative default — opt in if you want fresh context on every /gsd:quick or /gsd:plan-phase." },
-      { label: "Yes", description: "Auto-rebuild the graph in a detached background process after git commit/merge/pull/rebase --continue/cherry-pick on the default branch. Hook returns instantly; rebuild runs out-of-band. No-op if Graphify is disabled." }
-    ]
   }
 ])
 ```
@@ -459,7 +427,6 @@ Merge new settings into existing config.json:
 {
   ...existing_config,
   "model_profile": "quality" | "balanced" | "budget" | "adaptive" | "inherit",
-  "commit_docs": true/false,
   "workflow": {
     "research": true/false,
     "plan_check": true/false,
@@ -486,10 +453,6 @@ Merge new settings into existing config.json:
   },
   "intel": {
     "enabled": true/false
-  },
-  "graphify": {
-    "enabled": true/false,
-    "auto_update": true/false
   },
   "git": {
     "branching_strategy": "none" | "phase" | "milestone",
@@ -532,11 +495,10 @@ Merge new settings into existing config.json:
   | `workflow.code_review_depth` | `code-review` |
   | `workflow.ui_review` | `ui` |
   | `intel.enabled` | `intel` |
-  | `graphify.enabled` | `graphify` |
 
   `code_review_depth` is written only if the `code_review` question was answered `on`; otherwise leave the existing value in place.
 
-- **Non-capability keys** (`model_profile`, `commit_docs`, `workflow.plan_check`, `workflow.verifier`, `workflow.auto_advance`, `workflow.text_mode`, `workflow.compact_content`, `workflow.research_before_questions`, `workflow.discuss_mode`, `workflow.skip_discuss`, `workflow.use_worktrees`, `plan_review.source_grounding`, `graphify.auto_update`, `git.*`, `hooks.*`, `model_policy.*`): write via `specforge settings set @gsd/core <key.path> <value>` as before.
+- **Non-capability keys** (`model_profile`, `workflow.plan_check`, `workflow.verifier`, `workflow.auto_advance`, `workflow.text_mode`, `workflow.compact_content`, `workflow.research_before_questions`, `workflow.discuss_mode`, `workflow.skip_discuss`, `workflow.use_worktrees`, `plan_review.source_grounding`, `git.*`, `hooks.*`, `model_policy.*`): write via `specforge settings set @gsd/core <key.path> <value>` as before.
 
 `model_profile` is written on Q1 "Adaptive (Recommended)" (→ adaptive) or Q1 "Inherit" (→ inherit) immediately; for Q1 "Standard tier…", `model_profile` is written from Q2's answer. If Q1 = "Standard tier…" but Q2 is cancelled, leave the existing `model_profile` value unchanged — do not write any new value.
 
@@ -569,9 +531,7 @@ Display:
 | Plan Drift Guard     | {On/Off} |
 | Code Review Depth    | {quick/standard/deep} |
 | UI Review            | {On/Off} |
-| Commit Docs          | {On/Off} |
 | Intel                | {On/Off} |
-| Graphify             | {On/Off} |
 | Auto-Advance         | {On/Off} |
 | Nyquist Validation   | {On/Off} |
 | UI Phase             | {On/Off} |
@@ -580,9 +540,10 @@ Display:
 | Git Branching        | {None/Per Phase/Per Milestone} |
 | Git Tagging          | {On/Off} |
 | Skip Discuss         | {On/Off} |
+| Worktrees            | {On/Off/Leave unchanged} |
 | Context Warnings     | {On/Off} |
 | Compact Content      | {On/Off} |
-| Saved as Defaults    | {Yes/No} |
+| Research Qs          | {On/Off} |
 
 These settings apply to future /gsd:plan-phase and /gsd:execute-phase runs.
 
@@ -600,7 +561,7 @@ Quick commands:
 
 <success_criteria>
 - [ ] Current config read
-- [ ] User presented with 25 settings (profile + workflow toggles + features + git branching + git tagging + ctx warnings + compact content), grouped into six sections: Planning, Execution, Docs & Output, Features, Model & Pipeline, Misc. `code_review_depth` is conditional on `code_review=on`. Model profile uses a two-question split (Q1: Adaptive / Standard tier / Inherit; Q2: Quality / Balanced / Budget — only when Standard tier chosen) to stay within the 4-option AskUserQuestion cap while exposing all 5 valid profiles (#3784). Drift Guard (`plan_review.source_grounding`) is in the Planning section.
+- [ ] User presented with 23 settings, the keys of the section layout above, grouped into its six sections: Planning, Execution, Docs & Output, Features, Model & Pipeline, Misc. `code_review_depth` is conditional on `code_review=on`. Model profile uses a two-question split (Q1: Adaptive / Standard tier / Inherit; Q2: Quality / Balanced / Budget — only when Standard tier chosen) to stay within the 4-option AskUserQuestion cap while exposing all 5 valid profiles (#3784). Drift Guard (`plan_review.source_grounding`) is in the Planning section.
 - [ ] Config updated with model_profile, workflow, and git sections
 - [ ] No global defaults written (there are none here)
 - [ ] Changes confirmed to user

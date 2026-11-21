@@ -18,9 +18,7 @@ fn executor_reading(text: &str) -> String {
 /// names a path variable or the context window.
 #[test]
 fn the_executor_spawn_reads_the_executor_route() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let reading = executor_reading(&asset("gsd-core/workflows/execute-phase.md"));
     let first = reading
         .lines()
@@ -65,9 +63,7 @@ fn the_executor_spawn_reads_the_executor_route() {
 /// new.
 #[test]
 fn the_summary_template_closes_a_plan() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     p.write("src/store.js", "export function saveBoard() {}\n");
     p.write(
@@ -157,9 +153,7 @@ fn the_summary_template_closes_a_plan() {
 /// a second run resolves nothing.
 #[test]
 fn a_gate_trip_raises_a_blocker_on_its_task() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     for (path, heading, clears) in [
         (
             "agents/gsd-executor.md",
@@ -218,9 +212,7 @@ fn a_gate_trip_raises_a_blocker_on_its_task() {
 /// its `done` is unset (a person's to confirm), and the check reports nothing new.
 #[test]
 fn the_user_setup_template_writes_a_setup_step() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     for path in [
         "gsd-core/templates/user-setup.md",
         "gsd-core/templates/user-setup.compact.md",
@@ -261,9 +253,7 @@ fn the_user_setup_template_writes_a_setup_step() {
 /// as a model fills it: both exist, the test has no result (the person's), and the check reports nothing new.
 #[test]
 fn the_uat_step_writes_a_uat_session() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let uat = typed::filled(
         &typed::typed_fence(
@@ -301,9 +291,7 @@ fn the_uat_step_writes_a_uat_session() {
 /// open blocker.
 #[test]
 fn the_manager_blocker_line_raises_a_blocker() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("gsd-core/workflows/manager.md");
     let lines: Vec<String> = text
         .split('`')
@@ -333,9 +321,7 @@ fn the_manager_blocker_line_raises_a_blocker() {
 /// check reports nothing new.
 #[test]
 fn the_continuation_re_records_the_executor_pack() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let setup = typed::filled(
         &typed::typed_fence(
@@ -388,9 +374,7 @@ fn the_continuation_re_records_the_executor_pack() {
 /// The executor's artifact self-check, as the model fills it, prints the id of an artifact whose file is missing.
 #[test]
 fn the_self_check_prints_a_missing_artifact() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     // the collector reads the project's git history
     p.commit();
@@ -410,9 +394,7 @@ fn the_self_check_prints_a_missing_artifact() {
 /// execute-plan's setup read serves a setup step, and execute-phase's report reads serve the phase's verification.
 #[test]
 fn the_execute_reads_run_as_written() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let scope = span(
         &asset("agents/gsd-executor.md"),
@@ -464,9 +446,7 @@ fn the_execute_reads_run_as_written() {
 /// once queried a kind no extension declares, and a log file no command reads.
 #[test]
 fn an_out_of_scope_discovery_stays_open_in_the_forensic_audit_until_resolved() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let record = typed::filled(
         &typed::typed_fence(

@@ -293,123 +293,53 @@ Full rules: @~/.claude/gsd-core/references/context-budget.md (Phase Sizing). Rea
 
 <plan_format>
 
-## The Plan's Typed Edits
+## The Plan Edit
 
-A plan is entities in the spec, written with `specforge new`, changed with `specforge set` and linked with
-`specforge link`; nothing writes a plan by hand. `specforge schema --kind <kind>` lists a kind's fields, for `plan`,
-`task`, `checkpoint`, `truth`, `artifact`, `key_link`, `prohibition` and `user_setup`, and `specforge new plan --help`
-prints the plan's as flags (likewise for each kind). A list of ids is a comma list (`--requirements AUTH-01,AUTH-02`), a list of texts takes
-its flag once per item (`--files_modified src/a.ts --files_modified src/b.ts`), a block is JSON (`--estimate '<json>'`),
-and a field named like an option is written with `--field path=<value>`. Fill the values: free text in its quoted heredoc, as written, and an id, enum or date in its assignment; leave out a flag you
-have no value for (an empty `DEPENDS_ON`), and repeat a `new task`, `truth`, `artifact` or `key_link`
-line per item with the next id (`T2`, `TR2`, `AR2`, `KL2`).
+A phase's plans are entities in the spec, written with **one** MCP `specforge.edit` call whose `edits` list is the
+JSON below: all of it is written, or none of it. A phase's coverage (`gsd/E301`: each requirement of the phase is in a
+plan of it) binds from its first plan and, under gsd-strict, a plan's must-haves (`gsd/W309`: a truth or an artifact)
+from its first write, so the plans are never written one by one: a plan written alone is refused, and the whole call
+writes nothing. Every plan of the phase, with its tasks, truths, artifacts and key links, goes in the one call.
 
-Each plan has its own file beside the phase's file, so the executors of one wave never write the same file:
+Each plan has its own file, `plans/<plan id>.spec` beside the phase's file
+(`specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file'` prints the phase's file), so the executors of one
+wave never write the same file. A plan id is `{padded phase}-{NN}`; a child's id is `T1`, `TR1`, `AR1` or `KL1`, the
+next number per item (`T2`, `TR2`, ...). A child's `plan` field is the plan's full id (`<phase id>/<plan id>`), and a
+plan's `depends_on` names its sibling plans by plan id. `specforge schema --kind <kind>` lists each kind's fields
+(`plan`, `task`, `checkpoint`, `truth`, `artifact`, `key_link`, `prohibition`, `user_setup`); a field it marks
+`"writer": "computed"` (a task's `verify_paths`, a plan's `wave`) is never written, and a call that writes one is
+refused. Fill the quoted values, and write the estimate's `tokens` as a bare number (`60000`, not `"60000"`); leave out
+a field you have no value for (a `context_refs` the executor does not need, a first plan's `depends_on`). Repeat a
+`plan` op per plan and a `task`, `truth`, `artifact` or `key_link` op per item. A plan that has a checkpoint, a
+prohibition or a user setup step gets its create op in the same list, in the plan's file: a `checkpoint` (`plan`,
+`kind` one of `human_verify`, `decision`, `human_action` or `tdd_review`, `after` the full id of the task it follows,
+`what_built`, `how_to_verify`, `resume_signal`), a `prohibition` (`plan`, `statement`, `verification` `test` or
+`judgment`), a `user_setup` (User Setup Frontmatter below). A refusal names its codes: read one with
+`specforge explain <code>`, fix the list and send the whole call again. When the prompt names plans of the phase
+the graph already holds (the rest of a chunked run), the edit creates only the others: an id that exists is
+refused as a conflict.
 
-```bash
-PHASE_ID="{the phase id, e.g. v1.0/02}"
-PLAN="{padded phase}-{NN, the next plan number of the phase}"
-IFS= read -rd '' TITLE <<'TEXT' || true; TITLE=${TITLE%$'\n'}
-{the plan's title}
-TEXT
-TYPE="{execute or tdd}"
-DEPENDS_ON="{the plan ids this plan needs, comma-separated}"
-FILE_1="{a file this plan touches}"
-FILE_2="{the next file it touches: one --files_modified per file}"
-REQUIREMENTS="{the requirement ids this plan addresses, comma-separated: never empty}"
-IFS= read -rd '' OBJECTIVE <<'TEXT' || true; OBJECTIVE=${OBJECTIVE%$'\n'}
-{what this plan accomplishes}
-TEXT
-IFS= read -rd '' PURPOSE <<'TEXT' || true; PURPOSE=${PURPOSE%$'\n'}
-{why this matters}
-TEXT
-IFS= read -rd '' OUTPUT <<'TEXT' || true; OUTPUT=${OUTPUT%$'\n'}
-{what it creates}
-TEXT
-CONTEXT_REF="{a spec file or source the executor reads, only if genuinely needed}"
-IFS= read -rd '' VERIFICATION <<'TEXT' || true; VERIFICATION=${VERIFICATION%$'\n'}
-{the overall check}
-TEXT
-IFS= read -rd '' SUCCESS_CRITERIA <<'TEXT' || true; SUCCESS_CRITERIA=${SUCCESS_CRITERIA%$'\n'}
-{the measurable completion}
-TEXT
-ESTIMATE='{"tokens": {the calibrated projection}}'
-IFS= read -rd '' TASK_NAME <<'TEXT' || true; TASK_NAME=${TASK_NAME%$'\n'}
-{Task 1: an action-oriented name}
-TEXT
-TASK_FILE="{the file the task touches}"
-IFS= read -rd '' TASK_ACTION <<'TEXT' || true; TASK_ACTION=${TASK_ACTION%$'\n'}
-{the specific implementation}
-TEXT
-IFS= read -rd '' TASK_VERIFY <<'TEXT' || true; TASK_VERIFY=${TASK_VERIFY%$'\n'}
-{the command or check}
-TEXT
-IFS= read -rd '' TASK_DONE <<'TEXT' || true; TASK_DONE=${TASK_DONE%$'\n'}
-{the acceptance criteria}
-TEXT
-IFS= read -rd '' TRUTH <<'TEXT' || true; TRUTH=${TRUTH%$'\n'}
-{an observable behavior that must be true}
-TEXT
-IFS= read -rd '' ARTIFACT_NAME <<'TEXT' || true; ARTIFACT_NAME=${ARTIFACT_NAME%$'\n'}
-{what the file is}
-TEXT
-ARTIFACT_PATH="{a file that must exist}"
-IFS= read -rd '' ARTIFACT_PROVIDES <<'TEXT' || true; ARTIFACT_PROVIDES=${ARTIFACT_PROVIDES%$'\n'}
-{what it provides}
-TEXT
-IFS= read -rd '' LINK_NAME <<'TEXT' || true; LINK_NAME=${LINK_NAME%$'\n'}
-{the connection}
-TEXT
-LINK_FROM="{the file that uses it}"
-LINK_TO="{the file it uses}"
-IFS= read -rd '' LINK_VIA <<'TEXT' || true; LINK_VIA=${LINK_VIA%$'\n'}
-{how, e.g. the import}
-TEXT
-PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
-PLAN_FILE="${PHASE_FILE%/*}/plans/$PLAN.spec"
-PLAN_ID="$PHASE_ID/$PLAN"
-specforge new plan "$PLAN" "$TITLE" --in "$PLAN_FILE" --phase "$PHASE_ID" --type "$TYPE" --depends_on "$DEPENDS_ON" --files_modified "$FILE_1" --files_modified "$FILE_2" --requirements "$REQUIREMENTS" --objective "$OBJECTIVE" --purpose "$PURPOSE" --output "$OUTPUT" --context_refs "$CONTEXT_REF" --verification "$VERIFICATION" --success_criteria "$SUCCESS_CRITERIA" --estimate "$ESTIMATE" || exit 1
-specforge new task T1 "$TASK_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --type auto --files "$TASK_FILE" --action "$TASK_ACTION" --verify_text "$TASK_VERIFY" --done "$TASK_DONE" || exit 1
-specforge new truth TR1 "$TRUTH" --in "$PLAN_FILE" --plan "$PLAN_ID" --text "$TRUTH" || exit 1
-specforge new artifact AR1 "$ARTIFACT_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --field path="$ARTIFACT_PATH" --provides "$ARTIFACT_PROVIDES" || exit 1
-specforge new key_link KL1 "$LINK_NAME" --in "$PLAN_FILE" --plan "$PLAN_ID" --from "$LINK_FROM" --to "$LINK_TO" --via "$LINK_VIA" || exit 1
+```json
+[
+  {"op": "create", "kind": "plan", "id": "{the first plan's id, e.g. 03-01}", "title": "{the first plan's title}", "file": "{the phase file's directory, e.g. spec}/plans/{the first plan's id, e.g. 03-01}.spec", "fields": {"phase": "{the phase id, e.g. v1.0/03}", "type": "{execute or tdd}", "files_modified": ["{a file the first plan touches}"], "requirements": ["{a requirement the first plan addresses, e.g. TASK-03}"], "objective": "{what the first plan accomplishes}", "purpose": "{why the first plan matters}", "output": "{what the first plan creates}", "context_refs": ["{a spec file or source the first plan's executor reads}"], "verification": ["{the first plan's overall check}"], "success_criteria": ["{the first plan's measurable completion}"], "estimate": {"tokens": "{the first plan's calibrated projection, e.g. 60000}"}}},
+  {"op": "create", "kind": "task", "id": "T1", "title": "{the first plan's task, e.g. Task 1: an action-oriented name}", "file": "{the phase file's directory, e.g. spec}/plans/{the first plan's id, e.g. 03-01}.spec", "fields": {"plan": "{the phase id, e.g. v1.0/03}/{the first plan's id, e.g. 03-01}", "type": "auto", "files": ["{the file the first plan's task touches}"], "action": "{the first plan's task's specific implementation}", "verify_text": "{the first plan's task's command or check}", "done": "{the first plan's task's acceptance criteria}"}},
+  {"op": "create", "kind": "truth", "id": "TR1", "title": "{an observable behavior the first plan makes true}", "file": "{the phase file's directory, e.g. spec}/plans/{the first plan's id, e.g. 03-01}.spec", "fields": {"plan": "{the phase id, e.g. v1.0/03}/{the first plan's id, e.g. 03-01}", "text": "{an observable behavior the first plan makes true}"}},
+  {"op": "create", "kind": "artifact", "id": "AR1", "title": "{what the first plan's artifact is}", "file": "{the phase file's directory, e.g. spec}/plans/{the first plan's id, e.g. 03-01}.spec", "fields": {"plan": "{the phase id, e.g. v1.0/03}/{the first plan's id, e.g. 03-01}", "path": "{a file the first plan must leave}", "provides": "{what the first plan's file provides}"}},
+  {"op": "create", "kind": "key_link", "id": "KL1", "title": "{the first plan's connection}", "file": "{the phase file's directory, e.g. spec}/plans/{the first plan's id, e.g. 03-01}.spec", "fields": {"plan": "{the phase id, e.g. v1.0/03}/{the first plan's id, e.g. 03-01}", "from": "{the file that uses it in the first plan}", "to": "{the file it uses in the first plan}", "via": "{how the first plan connects them, e.g. the import}"}},
+  {"op": "create", "kind": "plan", "id": "{the second plan's id, e.g. 03-02}", "title": "{the second plan's title}", "file": "{the phase file's directory, e.g. spec}/plans/{the second plan's id, e.g. 03-02}.spec", "fields": {"phase": "{the phase id, e.g. v1.0/03}", "type": "{execute or tdd}", "depends_on": ["{the first plan's id, e.g. 03-01}"], "files_modified": ["{a file the second plan touches}"], "requirements": ["{a requirement the second plan addresses, e.g. LIST-01}"], "objective": "{what the second plan accomplishes}", "purpose": "{why the second plan matters}", "output": "{what the second plan creates}", "context_refs": ["{a spec file or source the second plan's executor reads}"], "verification": ["{the second plan's overall check}"], "success_criteria": ["{the second plan's measurable completion}"], "estimate": {"tokens": "{the second plan's calibrated projection, e.g. 60000}"}}},
+  {"op": "create", "kind": "task", "id": "T1", "title": "{the second plan's task, e.g. Task 1: an action-oriented name}", "file": "{the phase file's directory, e.g. spec}/plans/{the second plan's id, e.g. 03-02}.spec", "fields": {"plan": "{the phase id, e.g. v1.0/03}/{the second plan's id, e.g. 03-02}", "type": "auto", "files": ["{the file the second plan's task touches}"], "action": "{the second plan's task's specific implementation}", "verify_text": "{the second plan's task's command or check}", "done": "{the second plan's task's acceptance criteria}"}},
+  {"op": "create", "kind": "truth", "id": "TR1", "title": "{an observable behavior the second plan makes true}", "file": "{the phase file's directory, e.g. spec}/plans/{the second plan's id, e.g. 03-02}.spec", "fields": {"plan": "{the phase id, e.g. v1.0/03}/{the second plan's id, e.g. 03-02}", "text": "{an observable behavior the second plan makes true}"}},
+  {"op": "create", "kind": "artifact", "id": "AR1", "title": "{what the second plan's artifact is}", "file": "{the phase file's directory, e.g. spec}/plans/{the second plan's id, e.g. 03-02}.spec", "fields": {"plan": "{the phase id, e.g. v1.0/03}/{the second plan's id, e.g. 03-02}", "path": "{a file the second plan must leave}", "provides": "{what the second plan's file provides}"}},
+  {"op": "create", "kind": "key_link", "id": "KL1", "title": "{the second plan's connection}", "file": "{the phase file's directory, e.g. spec}/plans/{the second plan's id, e.g. 03-02}.spec", "fields": {"plan": "{the phase id, e.g. v1.0/03}/{the second plan's id, e.g. 03-02}", "from": "{the file that uses it in the second plan}", "to": "{the file it uses in the second plan}", "via": "{how the second plan connects them, e.g. the import}"}}
+]
 ```
 
-A plan's other entities, each only when the plan has one, in the same file (`specforge new checkpoint --help`,
-`specforge new prohibition --help`, `specforge new user_setup --help`), and a dependency found after the plan was
-written:
+A dependency found after the plans exist is linked, to a plan of the same phase (a plan of another phase is
+`gsd/E102`: the phases are ordered instead):
 
 ```bash
 PLAN_ID="{the plan's id, e.g. v1.0/02/02-02}"
-PLAN_FILE="{the plan's file, e.g. spec/plans/02-02.spec}"
-IFS= read -rd '' CHECKPOINT_TITLE <<'TEXT' || true; CHECKPOINT_TITLE=${CHECKPOINT_TITLE%$'\n'}
-{what the person checks or decides}
-TEXT
-CHECKPOINT_KIND="{human_verify, decision, human_action or tdd_review}"
-CHECKPOINT_AFTER="{the task it follows, e.g. T1}"
-IFS= read -rd '' WHAT_BUILT <<'TEXT' || true; WHAT_BUILT=${WHAT_BUILT%$'\n'}
-{what the person is shown}
-TEXT
-IFS= read -rd '' HOW_TO_VERIFY <<'TEXT' || true; HOW_TO_VERIFY=${HOW_TO_VERIFY%$'\n'}
-{how they check it}
-TEXT
-IFS= read -rd '' RESUME_SIGNAL <<'TEXT' || true; RESUME_SIGNAL=${RESUME_SIGNAL%$'\n'}
-{what the person types to resume, e.g. approved}
-TEXT
-IFS= read -rd '' STATEMENT <<'TEXT' || true; STATEMENT=${STATEMENT%$'\n'}
-{what must never happen}
-TEXT
-VERIFICATION_KIND="{test or judgment}"
-IFS= read -rd '' SERVICE <<'TEXT' || true; SERVICE=${SERVICE%$'\n'}
-{the external service}
-TEXT
-IFS= read -rd '' WHY <<'TEXT' || true; WHY=${WHY%$'\n'}
-{why the plan needs it}
-TEXT
-NEEDED_PLAN="{a plan id this plan turned out to need}"
-specforge new checkpoint CP1 "$CHECKPOINT_TITLE" --in "$PLAN_FILE" --plan "$PLAN_ID" --kind "$CHECKPOINT_KIND" --after "$PLAN_ID/$CHECKPOINT_AFTER" --what_built "$WHAT_BUILT" --how_to_verify "$HOW_TO_VERIFY" --resume_signal "$RESUME_SIGNAL" || exit 1
-specforge new prohibition PR1 "$STATEMENT" --in "$PLAN_FILE" --plan "$PLAN_ID" --statement "$STATEMENT" --verification "$VERIFICATION_KIND" || exit 1
-specforge new user_setup US1 "$SERVICE" --in "$PLAN_FILE" --plan "$PLAN_ID" --service "$SERVICE" --why "$WHY" || exit 1
+NEEDED_PLAN="{a plan of the same phase this plan turned out to need, e.g. v1.0/02/02-01}"
 specforge link "$PLAN_ID" depends_on "$NEEDED_PLAN" || exit 1
 ```
 
@@ -453,8 +383,9 @@ Only include prior plan SUMMARY references if genuinely needed (uses types/expor
 
 When external services involved:
 
-one `specforge new user_setup` line per service (the optional fence above): `--service`, `--why`, and
-`--env_vars '<json>'`, `--dashboard '<json>'` and `--local_dev` as `specforge new user_setup --help` lists them.
+one `user_setup` create op per service in the plan edit, in the plan's file: its `plan`, `service` and `why`, and
+`env_vars` (a list of objects with `name` and `source`), `dashboard` (a list of objects with `task`, `location` and
+`details`) and `local_dev` (a list of texts) as `specforge schema --kind user_setup` lists them.
 
 Only include what Claude literally cannot do.
 
@@ -597,7 +528,7 @@ That is the planner pack: the phase, its requirements, context, decisions, resea
 gaps and UAT gaps, the summaries of the plans it depends on, the project and its decisions, `CLAUDE.md` / `AGENTS.md`
 and the settings. Over MCP it is the resource `specforge://context/{+entity_id}?role=gsd/planner`; a host that
 generates this agent's `## Context` section already holds it there. `--pick .budget` lists what the budget cut: read a
-cut entity with `specforge query <id> --format context`. `commit_docs` and `workflow.research` are settings:
+cut entity with `specforge query <id> --format context`. `workflow.research` is a setting:
 `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
 If the spec has no project entity yet, offer to create one with `/gsd-new-project` or continue without.
@@ -824,17 +755,24 @@ Present breakdown with wave structure. Wait for confirmation in interactive mode
 </step>
 
 <step name="write_phase_prompt">
-Write each plan with the typed edits of `<plan_format>`, one plan per file: `--in "$PLAN_FILE"`, where `PLAN_FILE` is
-`plans/{padded phase}-{NN}.spec` beside the phase's file (`specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file'`).
+Write every plan of the phase with the plan edit of `<plan_format>`, in **one** `specforge.edit` call, each plan in its
+own file: `plans/{padded phase}-{NN}.spec` beside the phase's file
+(`specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file'`).
 A plan id is `{padded phase}-{NN}`: `{padded phase}` is the zero-padded phase number (`01`, `02.1`) and `{NN}` the
 zero-padded plan number within the phase (`01`, `02`).
 
 The orchestrator reads each plan entity (`specforge query "$PHASE_ID" --kinds plan`) after you return, so your return
 message is a brief confirmation (see `<structured_returns>`), never the plan's content.
 
-A typed edit is checked before it writes: a refusal names its code (E080 carries the error), and
-`specforge explain <code>` says what the code means and how to fix it. Fix the value and run the line again; a
-refusal writes nothing, so nothing is left half-written. Never hand-edit a spec file instead.
+The call is checked before it writes: a refusal names its codes (E080 carries the errors), and
+`specforge explain <code>` says what each code means and how to fix it. Fix the list and send the whole call again; a
+refused call writes nothing, so nothing is left half-written. Never hand-edit a spec file instead.
+
+An open question the research could not record (the prompt's **Open questions the research returned:**:
+gsd-strict refuses one that no decision resolves, `gsd/W204`) is the user's to answer, not yours. Record no decision
+that resolves it and do not record the question. Write the plans so they hold whatever the answer; a task that
+cannot follows a `decision` checkpoint that asks it. List each question, as you received it, under
+`### Open Questions` in your return: the orchestrator asks the user and records the answer with the question.
 </step>
 
 <step name="validate_plan">
@@ -899,7 +837,8 @@ See @~/.claude/gsd-core/references/planner-chunked.md for `## OUTLINE COMPLETE` 
 - **No re-reads:** Never re-read a range already in context. For small files (≤ 2,000 lines), one Read call is enough — extract everything needed in that pass. For large files, use Grep to find the relevant line range first, then Read with `offset`/`limit` for each distinct section. Duplicate range reads are forbidden.
 - **Codebase pattern reads (Level 1+):** Read each source file once. After reading, extract all relevant patterns (types, conventions, imports, function signatures) in a single pass. Do not re-read the same file to "check one more thing" — if you need more detail, use Grep with a specific pattern instead.
 - **Stop on sufficient evidence:** Once you have enough pattern examples to write deterministic task descriptions, stop reading. There is no benefit to reading more analogs of the same pattern.
-- **No hand-written spec:** a plan is written with `specforge new|set|link`, never with Write, Edit or a heredoc.
+- **No hand-written spec:** a phase's plans are written with one `specforge.edit` call (the plan edit of
+  `<plan_format>`), changed with `specforge set` and `specforge link`, never with Write, Edit or a heredoc.
 
 </critical_rules>
 

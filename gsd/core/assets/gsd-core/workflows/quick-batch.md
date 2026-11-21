@@ -70,7 +70,7 @@ AGENT_SKILLS_VERIFIER=""   # the host install carries the skills of gsd-verifier
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
 ```
 
-Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. `commit_docs` is a setting (`specforge settings --format json --extension @gsd/core`); the project and its roadmap are entities, read with `specforge query`.
+Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. The project and its roadmap are entities, read with `specforge query`.
 
 <!-- #2517 model-omit-on-inherit -->
 

@@ -49,7 +49,8 @@ pub const ROOT: &[(&str, &str)] = &[
     ),
     (
         "evaluation",
-        "the evaluations behind the product's claims: first-attempt accuracy and the GSD A/B protocol",
+        "the evaluations behind the product's claims: first-attempt accuracy, the GSD A/B protocol and the record of a \
+         live GSD run",
     ),
     ("examples", "worked example projects the gate checks"),
     (

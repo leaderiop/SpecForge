@@ -4,7 +4,7 @@ Apply response_language to all user-facing prose — narration between tool call
 <purpose>
 Interactive configuration of GSD power-user knobs — plan bounce, planner stall detection, node
 repair, subagent timeouts, inline plan threshold, cross-AI execution, base branch, branch templates, response language,
-context window, gitignored search, graphify build timeout, runtime model tier overrides, and
+context window, graphify build timeout, runtime model tier overrides, and
 model policy configuration (provider + budget → canonical tier mapping, or manual model ID
 assignment per cost tier).
 
@@ -78,7 +78,6 @@ Git Customization:
 Runtime / Output:
 - `response_language` (default: `null`)
 - `context_window` (default: `200000`)
-- `search_gitignored` (default: `false`)
 - `graphify.build_timeout` (default: `300`)
 
 Runtime Model Tiers:
@@ -335,15 +334,6 @@ AskUserQuestion([
     ]
   },
   {
-    question: "Include gitignored files in broad searches? (current: <value or false>)",
-    header: "Search Gitignored",
-    multiSelect: false,
-    options: [
-      { label: "No (default: false)", description: "Respect .gitignore during searches." },
-      { label: "Yes", description: "Add --no-ignore to broad searches (includes gitignored files)." }
-    ]
-  },
-  {
     question: "Graphify build timeout (seconds)? (current: <value or 300>)",
     header: "Graphify Timeout",
     multiSelect: false,
@@ -561,7 +551,6 @@ anything not listed in Sections 1–8 MUST survive the update):
   },
   "response_language": <new|existing|null>,
   "context_window": <new|existing>,
-  "search_gitignored": <new|existing>,
   "graphify": {
     ...existing_graphify,
     "build_timeout": <new|existing>
@@ -790,7 +779,6 @@ Display:
 | git.milestone_branch_template              | {template} |
 | response_language                          | {lang/null} |
 | context_window                             | {tokens} |
-| search_gitignored                          | {on/off} |
 | graphify.build_timeout                     | {seconds} |
 | runtime                                    | {runtime/null} |
 | model_profile_overrides.<runtime>.opus     | {model/built-in/null} |

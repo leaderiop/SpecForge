@@ -41,7 +41,7 @@ AGENT_SKILLS_SYNTHESIZER=""   # the host install carries the skills of gsd-resea
 AGENT_SKILLS_ROADMAPPER=""   # the host install carries the skills of gsd-roadmapper
 ```
 
-`INIT` is `specforge check`'s answer: the project's diagnostics as it stands. The project, its requirements and its roadmap are entities, read with `specforge query`, so no path is read; `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
+`INIT` is `specforge check`'s answer: the project's diagnostics as it stands. The project, its requirements and its roadmap are entities, read with `specforge query`, so no path is read; `response_language` is a setting: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
@@ -215,7 +215,6 @@ Format the JSON into human-readable bullets using these label mappings:
 - `mode` → "Mode"
 - `granularity` → "Granularity"
 - `parallelization` → "Execution" (`true` → "Parallel", `false` → "Sequential")
-- `commit_docs` → "Git Tracking" (`true` → "Yes", `false` → "No")
 - `model_profile` → "AI Models"
 - `workflow.research` → "Research" (`true` → "Yes", `false` → "No")
 - `workflow.plan_check` → "Plan Check" (`true` → "Yes", `false` → "No")
@@ -229,7 +228,6 @@ Your saved defaults (~/.gsd/defaults.json):
   • Mode: [value]
   • Granularity: [value]
   • Execution: [Parallel|Sequential]
-  • Git Tracking: [Yes|No]
   • AI Models: [value]
   • Research: [Yes|No]
   • Plan Check: [Yes|No]
@@ -266,12 +264,11 @@ Which settings do you want to change? (enter numbers, comma-separated)
   1. Mode — Currently: [value]
   2. Granularity — Currently: [value]
   3. Execution — Currently: [Parallel|Sequential]
-  4. Git Tracking — Currently: [Yes|No]
-  5. AI Models — Currently: [value]
-  6. Research — Currently: [Yes|No]
-  7. Plan Check — Currently: [Yes|No]
-  8. Verifier — Currently: [Yes|No]
-  9. Drift Guard — Currently: [Yes|No]
+  4. AI Models — Currently: [value]
+  5. Research — Currently: [Yes|No]
+  6. Plan Check — Currently: [Yes|No]
+  7. Verifier — Currently: [Yes|No]
+  8. Drift Guard — Currently: [Yes|No]
 ```
 
 **Otherwise** (Claude runtime with AskUserQuestion): use a two-block split
@@ -280,7 +277,7 @@ to stay within the 4-option runtime cap.
 ```text
 AskUserQuestion([
   {
-    question: "Do you want to change any core workflow settings (Mode, Granularity, Execution, Git Tracking)?",
+    question: "Do you want to change any core workflow settings (Mode, Granularity, Execution)?",
     header: "Core Settings",
     multiSelect: false,
     options: [
@@ -302,8 +299,7 @@ AskUserQuestion([
     options: [
       { label: "Mode", description: "Currently: [value]" },
       { label: "Granularity", description: "Currently: [value]" },
-      { label: "Execution", description: "Currently: [Parallel|Sequential]" },
-      { label: "Git Tracking", description: "Currently: [Yes|No]" }
+      { label: "Execution", description: "Currently: [Parallel|Sequential]" }
     ]
   }
 ])
@@ -366,7 +362,7 @@ defaults — unchanged settings retain their saved values. Then skip to
 
 **If "Configure fresh" or `~/.gsd/defaults.json` doesn't exist:** proceed with the questions below.
 
-**Round 1 — Core workflow settings (4 questions):**
+**Round 1 — Core workflow settings (3 questions):**
 
 ```
 questions: [
@@ -396,15 +392,6 @@ questions: [
     options: [
       { label: "Parallel (Recommended)", description: "Independent plans run simultaneously" },
       { label: "Sequential", description: "One plan at a time" }
-    ]
-  },
-  {
-    header: "Git Tracking",
-    question: "Commit planning docs to git?",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "Planning docs tracked in version control" },
-      { label: "No", description: "Keep the spec local-only (add spec/ to .gitignore, creating it if needed)" }
     ]
   }
 ]
@@ -524,19 +511,10 @@ Record the settings with all choices (the settings default the rest):
 
 ```bash
 # no folder to create: the entities live in the spec
-# the choices go in as settings, one `specforge settings set @gsd/core <name> <value>` per answer (mode, granularity, parallelization, commit_docs, model_profile, workflow.*, plan_review.source_grounding); the PR body sections stay at their defaults
+# the choices go in as settings, one `specforge settings set @gsd/core <name> <value>` per answer (mode, granularity, parallelization, model_profile, workflow.*, plan_review.source_grounding); the PR body sections stay at their defaults
 ```
 
 **Note:** Run `/gsd:settings` anytime to update model profile, workflow agents, branching strategy, and other preferences.
-
-**If commit_docs = No:**
-
-- Set `commit_docs: false` in config.json
-- Add the spec to `.gitignore` (create if needed)
-
-**If commit_docs = Yes:**
-
-- No additional gitignore entries needed
 
 **Commit config.json:**
 

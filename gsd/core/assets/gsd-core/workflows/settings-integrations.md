@@ -78,7 +78,6 @@ integration field, compute one of:
 BRAVE="{{setting:brave_search|}}"   # brave_search (the settings)
 FIRECRAWL="{{setting:firecrawl|}}"   # firecrawl (the settings)
 EXA="{{setting:exa_search|}}"   # exa_search (the settings)
-SEARCH_GITIGNORED="false"   # search_gitignored: not a setting here: nothing of the project is gitignored
 ```
 
 The keys themselves live in the environment (`BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`): show `set` or
@@ -121,15 +120,6 @@ AskUserQuestion([
     header: "Exa",
     multiSelect: false,
     options: [ /* same Leave/Replace/Clear or Skip/Set */ ]
-  },
-  {
-    question: "Include gitignored files in local code searches?",
-    header: "Gitignored",
-    multiSelect: false,
-    options: [
-      { label: "No (Recommended)", description: "Respect .gitignore. Safer — excludes secrets, node_modules, build artifacts." },
-      { label: "Yes", description: "Include gitignored files. Useful when secrets/artifacts genuinely contain searchable intent." }
-    ]
   }
 ])
 ```
@@ -307,7 +297,6 @@ Search Integrations
 | brave_search       | true or false     | BRAVE_API_KEY: set or not set |
 | firecrawl          | true or false     | FIRECRAWL_API_KEY: set or not set |
 | exa_search         | true or false     | EXA_API_KEY: set or not set |
-| search_gitignored  | true or false     | (none) |
 
 Code Review CLI Routing
 | Lane        | Model id                             |

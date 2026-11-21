@@ -791,10 +791,9 @@ Separate from per-task commits — captures execution results only.
 **Handling the git outcome (#3678):**
 
 - The commit succeeded — record the hash in the completion format.
-- The user has `commit_docs` off (`specforge settings`): this is an intentional success path. Do not commit the
-  documents; record "skipped (commit_docs disabled)" in the completion format and move on.
-- The project's `.spec` files are gitignored: also an intentional success path. Record "skipped (.spec gitignored)"
-  and move on.
+- The project's `.spec` files are gitignored: an error, never a skip. The spec is source and is committed like code,
+  so a commit that leaves it out loses the plan's record: surface it in the completion notes, naming the ignored
+  path, for the user to un-ignore.
 - Nothing to commit, or the commit failed — surface it in the completion notes.
 - `git commit` was timeout-killed mid-hook (#3886): nothing is committed. A retry CAN succeed after removing the stale
   lock git names (`…/index.lock`): verify no git process is running, remove it, address why the pre-commit hook
@@ -802,9 +801,9 @@ Separate from per-task commits — captures execution results only.
 - `git add` itself failed (#2608), e.g. an unwritable index: nothing is committed. Surface git's stderr; do not
   retry — a retry hits the same cause.
 
-**Do not fall back to `git add -f`** when the files are gitignored. The ignore is the user's deliberate choice to keep
-the `.spec` files out of git history; force-staging them is forbidden — that bug is exactly the regression #3678
-reported, where the agent leaks planning artifacts into the user's project history.
+**Do not fall back to `git add -f`** when the files are gitignored: surface the ignore instead. Force-staging what a
+project ignores is forbidden — that bug is exactly the regression #3678 reported, where the agent leaks files the
+user keeps out of history into it.
 </final_commit>
 
 </final_commit>
@@ -841,6 +840,7 @@ Plan execution complete when:
 - [ ] Self-check passed: the commits counted, no artifact missing
 - [ ] The summary entity written with a substantive one-liner, its deliverables and deviations
 - [ ] `complete-plan` closed the plan; decisions and blockers recorded as entities
-- [ ] Final metadata commit made (the plan's `.spec` files with its changes), or an intentional skip (`commit_docs` off / `.spec` gitignored) — record "skipped (<reason>)" in completion notes
+- [ ] Final metadata commit made (the plan's `.spec` files with its changes); a gitignored spec surfaced as an error,
+      never recorded as a skip
 - [ ] Completion format returned to orchestrator
 </success_criteria>

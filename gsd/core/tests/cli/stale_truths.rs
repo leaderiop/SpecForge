@@ -1,0 +1,309 @@
+//! A check since a commit says what changed under each stale truth (`gsd/I527`), on the taskboard twin, and names
+//! exactly the truths `re-verify --stale-only` lists as stale: the stale set is the verifier's judgements, and the
+//! graph delta and the judgement at the base say why. A truth no verdict was recorded on is listed there too, and is
+//! `gsd/E501`'s alone.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use serde_json::{Value, json};
+
+use super::fresh_taskboard::touch;
+use super::harness::{Project, judged, taskboard};
+
+const I527: &str = "gsd/I527";
+
+/// `{nodes, edges}` of `specforge diff --kind truth --kind plan --kind phase`: what the delta of the pass holds since
+/// `HEAD`.
+fn delta_nodes(p: &Project) -> Value {
+    let run = p.run(&[
+        "diff", "--kind", "truth", "--kind", "plan", "--kind", "phase", "--format", "json",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let diff: Value = serde_json::from_str(&run.stdout)
+        .unwrap_or_else(|e| panic!("diff prints JSON ({e}): {}", run.all()));
+    serde_json::json!({ "nodes": diff["nodes"], "edges": diff["edges"] })
+}
+
+/// The codes of a check since `revision`.
+fn codes_since(p: &Project, revision: &str) -> Vec<String> {
+    p.checked_since(revision)
+        .iter()
+        .filter_map(|d| d["code"].as_str().map(String::from))
+        .collect()
+}
+
+#[test]
+fn an_edit_to_a_cited_file_names_the_stale_truths_re_verify_lists() {
+    let p = taskboard();
+    p.commit();
+    let base: String = p.head().chars().take(12).collect();
+    touch(&p, "src/tasks.js");
+    // A one-file edit is not in the delta: files are not graph nodes.
+    assert_eq!(
+        delta_nodes(&p),
+        serde_json::json!({ "nodes": [], "edges": [] })
+    );
+    let codes = codes_since(&p, "HEAD");
+    assert!(!codes.iter().any(|c| c == "W021"), "{codes:?}");
+    let advisories = p.advisories(I527, "HEAD");
+    let named: BTreeSet<String> = advisories.keys().cloned().collect();
+    assert_eq!(named, citing_tasks_js());
+    assert_eq!(named, p.stale_truths("v1.0/01"));
+    for (truth, advisory) in &advisories {
+        assert_eq!(advisory["severity"], "Info", "{truth}: {advisory}");
+        let message = advisory["message"].as_str().expect("a message");
+        assert!(message.contains(&format!("since {base}")), "{message}");
+        assert!(
+            message.contains("only the files it cites changed: 'src/tasks.js'"),
+            "{message}"
+        );
+        assert!(!message.contains("test/tasks.test.js"), "{message}");
+    }
+}
+
+#[test]
+fn the_unedited_twin_names_nothing_since_its_commit() {
+    let p = taskboard();
+    p.commit();
+    assert_eq!(
+        delta_nodes(&p),
+        serde_json::json!({ "nodes": [], "edges": [] })
+    );
+    let codes = codes_since(&p, "HEAD");
+    assert!(!codes.iter().any(|c| c == I527 || c == "W021"), "{codes:?}");
+}
+
+/// Truth TR1 of plan 01-01, whose text the spec edit changes.
+const TR1: &str = "v1.0/01/01-01/TR1";
+
+/// The truths that cite `src/tasks.js`.
+fn citing_tasks_js() -> BTreeSet<String> {
+    BTreeSet::from(
+        [
+            "v1.0/01/01-01/TR1",
+            "v1.0/01/01-02/TR1",
+            "v1.0/01/01-02/TR2",
+        ]
+        .map(String::from),
+    )
+}
+
+/// The message of an advisory.
+fn message(advisory: &Value) -> &str {
+    advisory["message"].as_str().expect("a message")
+}
+
+#[test]
+fn a_truth_text_edit_is_named_as_the_spec() {
+    let p = taskboard();
+    p.commit();
+    p.edit(
+        "spec/plans.spec",
+        "text \"A task added to a board has the next integer id and keeps its title\"",
+        "text \"A task added to a board has the next integer id and keeps its title exactly\"",
+    );
+    let advisories = p.advisories(I527, "HEAD");
+    let named: BTreeSet<String> = advisories.keys().cloned().collect();
+    assert_eq!(named, p.stale_truths("v1.0/01"));
+    let on_tr1 = message(
+        advisories
+            .get(TR1)
+            .unwrap_or_else(|| panic!("{I527} on {TR1}: {advisories:#?}")),
+    );
+    assert!(
+        on_tr1.contains(&format!("the spec it reads changed: truth '{TR1}' (text)")),
+        "{on_tr1}"
+    );
+    assert!(on_tr1.contains("no file it cites changed"), "{on_tr1}");
+}
+
+#[test]
+fn a_verdict_recorded_again_before_an_edit_is_not_the_spec() {
+    let p = taskboard();
+    p.commit();
+    let citing = p.citing(TR1);
+    let extra: Vec<&str> = citing.iter().map(String::as_str).collect();
+    let run = p.record(TR1, "E501", "verified_coincidental", &extra);
+    assert_eq!(run.code, 0, "{}", run.all());
+    touch(&p, "src/tasks.js");
+    let nodes = delta_nodes(&p)["nodes"].clone();
+    let node = nodes
+        .as_array()
+        .expect("nodes")
+        .iter()
+        .find(|n| n["id"] == TR1)
+        .unwrap_or_else(|| panic!("{TR1} is in the delta: {nodes:#}"));
+    assert_eq!(node["change"], "modified", "{node}");
+    assert!(
+        node["aspects"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|x| x == "verdicts")),
+        "{node}"
+    );
+    assert_eq!(node["before"], node["after"], "{node}");
+    let advisories = p.advisories(I527, "HEAD");
+    let on_tr1 = message(
+        advisories
+            .get(TR1)
+            .unwrap_or_else(|| panic!("{I527} on {TR1}: {advisories:#?}")),
+    );
+    assert!(
+        on_tr1.contains("only the files it cites changed: 'src/tasks.js'"),
+        "{on_tr1}"
+    );
+    assert!(!on_tr1.contains("the spec it reads changed"), "{on_tr1}");
+}
+
+#[test]
+fn the_baseline_is_read_at_the_revision_since_names() {
+    let p = taskboard();
+    p.commit();
+    let judged = p.head();
+    touch(&p, "src/tasks.js");
+    p.commit();
+    let edited = p.head();
+    let cases = [
+        (
+            judged.as_str(),
+            &judged,
+            "only the files it cites changed: 'src/tasks.js'",
+        ),
+        (
+            "HEAD",
+            &edited,
+            "neither the spec it reads nor a file it cites changed",
+        ),
+    ];
+    for (revision, commit, cause) in cases {
+        let advisories = p.advisories(I527, revision);
+        let named: BTreeSet<String> = advisories.keys().cloned().collect();
+        assert_eq!(named, citing_tasks_js(), "since {revision}");
+        let since = format!("since {}", &commit[..12]);
+        for (truth, advisory) in &advisories {
+            let text = message(advisory);
+            assert!(text.contains(&since), "{truth} since {revision}: {text}");
+            assert!(text.contains(cause), "{truth} since {revision}: {text}");
+        }
+    }
+}
+
+/// `src/cli.js` and `README.md` are files no truth's verdict cites: an edit of either stales no truth, so the advisory
+/// names none.
+#[test]
+fn an_edit_to_a_file_no_truth_cites_names_no_truth() {
+    let p = taskboard();
+    p.commit();
+    for file in ["src/cli.js", "README.md"] {
+        touch(&p, file);
+        assert_eq!(p.advisories(I527, "HEAD"), BTreeMap::new(), "{file}");
+        assert_eq!(p.stale_truths("v1.0/01"), BTreeSet::new(), "{file}");
+    }
+}
+
+/// A plain `check` has no base: `gsd/E501` reports each stale verdict and the advisory says nothing.
+#[test]
+fn a_plain_check_of_an_edited_twin_says_nothing() {
+    let p = taskboard();
+    p.commit();
+    touch(&p, "src/tasks.js");
+    let codes: Vec<String> = p.report_all().into_iter().map(|(code, _)| code).collect();
+    assert!(codes.iter().any(|c| c == "gsd/E501"), "{codes:?}");
+    assert!(!codes.iter().any(|c| c == I527), "{codes:?}");
+}
+
+#[test]
+fn the_advisory_is_info_under_every_profile_and_repeats_byte_for_byte() {
+    let p = taskboard();
+    p.commit();
+    touch(&p, "src/tasks.js");
+    for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
+        p.settings(json!({ "profile": profile }));
+        let advisories = p.advisories(I527, "HEAD");
+        let named: BTreeSet<String> = advisories.keys().cloned().collect();
+        assert_eq!(named, citing_tasks_js(), "{profile}");
+        for (truth, advisory) in &advisories {
+            assert_eq!(
+                advisory["severity"], "Info",
+                "{profile}, {truth}: {advisory}"
+            );
+        }
+    }
+    p.settings(json!({ "profile": "gsd-compat" }));
+    // Each run's advisories as printed, serialized in report order.
+    let i527 = || -> (usize, String) {
+        let found: Vec<Value> = p
+            .checked_since("HEAD")
+            .into_iter()
+            .filter(|d| d["code"] == I527)
+            .collect();
+        (found.len(), serde_json::to_string(&found).expect("JSON"))
+    };
+    let first = i527();
+    assert_eq!(first.0, citing_tasks_js().len(), "{}", first.1);
+    assert_eq!(first, i527());
+}
+
+/// On a fork, `check --since <branch>` reads the baseline at the merge-base of the branch and `HEAD`, the commit the
+/// delta's base names, never at the branch's own commit or at `HEAD`: so it can say which cited file changed.
+#[test]
+fn the_baseline_of_a_fork_is_read_at_its_merge_base() {
+    let p = taskboard();
+    p.commit();
+    let judged = p.head();
+    let at = "2026-11-20T10:00:00Z";
+    p.git(&["checkout", "-q", "-b", "side"], at);
+    let readme = format!("{}A line on the side branch.\n", p.read("README.md"));
+    let side = p.git_commit("side", &[("README.md", &readme)], at);
+    p.git(&["checkout", "-q", "main"], at);
+    touch(&p, "src/tasks.js");
+    p.commit();
+    let advisories = p.advisories(I527, "side");
+    let named: BTreeSet<String> = advisories.keys().cloned().collect();
+    assert_eq!(named, citing_tasks_js());
+    for (truth, advisory) in &advisories {
+        let text = message(advisory);
+        assert!(
+            text.contains(&format!("since {}", &judged[..12])),
+            "{truth}: {text}"
+        );
+        assert!(!text.contains(&side[..12]), "{truth}: {text}");
+        assert!(
+            text.contains("only the files it cites changed: 'src/tasks.js'"),
+            "{truth}: {text}"
+        );
+    }
+}
+
+/// A truth added to a complete plan owes a verdict no one recorded: `re-verify --stale-only` lists it as `missing`
+/// and `gsd/E501` reports it, but no input it cites changed since a base, so the advisory names the stale truths and
+/// not it.
+#[test]
+fn a_truth_no_verdict_was_recorded_on_is_listed_by_re_verify_and_not_named() {
+    const UNJUDGED: &str = "v1.0/01/01-01/TR9";
+    let p = taskboard();
+    p.commit();
+    let truth = r#"
+truth TR9 "A new board holds no task" {
+  plan v1.0/01/01-01
+  text "A new board holds no task"
+}
+"#;
+    let plans = p.read("spec/plans.spec");
+    p.write("spec/plans.spec", &format!("{plans}{truth}"));
+    touch(&p, "src/tasks.js");
+    let listed = p.listed_truths("v1.0/01");
+    assert_eq!(
+        listed.get(UNJUDGED).map(String::as_str),
+        Some("missing"),
+        "{listed:#?}"
+    );
+    let owed = judged(&p.report_all());
+    assert!(
+        owed.contains(&("gsd/E501".to_string(), UNJUDGED.to_string())),
+        "{owed:?}"
+    );
+    let named: BTreeSet<String> = p.advisories(I527, "HEAD").into_keys().collect();
+    assert!(!named.contains(UNJUDGED), "{named:?}");
+    assert_eq!(named, p.stale_truths("v1.0/01"));
+    assert_eq!(named, citing_tasks_js());
+}

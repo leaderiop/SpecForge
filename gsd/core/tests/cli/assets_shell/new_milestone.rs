@@ -40,9 +40,7 @@ fn requirement(id: &str, text: &str, tier: &str) -> String {
 /// reports nothing new.
 #[test]
 fn the_requirements_step() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let step = requirements_step();
     assert!(
         step.contains("`<requirements>` block") && step.contains("one roadmap edit"),
@@ -112,9 +110,7 @@ fn the_requirements_step() {
 /// 10 sends without a milestone op then writes the phases under it; the check reports nothing new.
 #[test]
 fn a_workstream_milestone_is_recorded() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let run = p.run(&[
         "new",

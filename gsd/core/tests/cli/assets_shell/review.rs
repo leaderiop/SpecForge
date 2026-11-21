@@ -18,9 +18,7 @@ fn inline<'a>(line: &'a str, start: &str) -> &'a str {
 /// `plan-coverage` use, not every plan a depth-2 query of the phase reaches.
 #[test]
 fn the_review_and_the_learnings_read_the_phases_own_plans() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     for (path, marker) in [
         ("gsd-core/workflows/review.md", "For each plan of the phase"),
@@ -54,9 +52,7 @@ fn the_review_and_the_learnings_read_the_phases_own_plans() {
 /// `ALL_PHASES_VERIFIED=true`. Only two counts that SpecForge answered, and agree, make it true.
 #[test]
 fn a_failed_readiness_query_does_not_verify_the_milestone() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let text = asset("gsd-core/workflows/complete-milestone.md");
     let line = super::line(&text, "ALL_PHASES_VERIFIED=false;");
@@ -107,9 +103,7 @@ fn the_batch_and_sub_repo_prose_says_what_runs() {
 /// graduation's window is the milestone's last N lessons in the graph's id order, which replaced `sort | tail -n`.
 #[test]
 fn the_learnings_window_is_the_last_lessons() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     p.write(
         "spec/learning.spec",
@@ -142,9 +136,7 @@ fn the_learnings_window_is_the_last_lessons() {
 /// directory. No copy reaches a directory outside the roots.
 #[test]
 fn the_review_block_keeps_only_lane_evidence() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let text = asset("gsd-core/workflows/review.md");
     let script = &fence_from(&text, "shopt -s nullglob");
@@ -266,9 +258,7 @@ fn a_model_filled_list_runs_nothing() {
 /// that refusal, so no lane result or manifest vanishes from what the review reads.
 #[test]
 fn an_appended_read_stops_the_block_when_refused() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/review.md");
     let appends: Vec<&str> = text
         .lines()
@@ -294,9 +284,7 @@ fn an_appended_read_stops_the_block_when_refused() {
 /// the tool as missing, and an installed tool prints its version's first line.
 #[test]
 fn the_environment_audit_runs_the_tool_or_says_it_is_missing() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("agents/gsd-phase-researcher.md");
     let audit = super::line(&text, "V=$(specforge run -- \"$TOOL\"");
     let dir = tempfile::tempdir().expect("a dir");
@@ -314,9 +302,7 @@ fn the_environment_audit_runs_the_tool_or_says_it_is_missing() {
 /// no round the channel is shut and nothing is written.
 #[test]
 fn a_revision_conflict_is_recorded_once_and_closed_by_the_replan() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     p.settings(serde_json::json!({ "workflow.plan_review_convergence": true }));
     let served = p.run(&["gsd", "reference", "gsd-core/workflows/plan-phase.md"]);

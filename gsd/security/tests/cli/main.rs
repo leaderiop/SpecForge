@@ -39,6 +39,7 @@ mod prompt;
 mod record;
 mod rejudge_scope;
 mod settings;
+mod stale_truths;
 mod threat_ids;
 mod verdict_freshness;
 

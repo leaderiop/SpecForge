@@ -40,9 +40,7 @@ fn extracted(text: &str) -> Vec<String> {
 /// JSON whose every `phases` item carries each key the step's "Extract from result" line names.
 #[test]
 fn the_transition_reads_the_next_phase_from_progress() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("gsd-core/workflows/transition.md");
     let step = block(&text, "<step name=\"update_roadmap_and_state\">", "</step>");
     let code = fence_after(&step, "update_roadmap_and_state");
@@ -76,9 +74,7 @@ fn the_transition_reads_the_next_phase_from_progress() {
 /// project decision joins its `key_decisions`; the check gains no finding.
 #[test]
 fn the_project_evolution_is_typed_edits() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let text = asset("gsd-core/workflows/transition.md");
     let step = block(&text, "<step name=\"evolve_project\">", "</step>");
@@ -140,9 +136,7 @@ fn the_project_evolution_is_typed_edits() {
 /// state `shipped`. On a milestone with no audit the refused close stops the fence.
 #[test]
 fn the_close_reads_the_answer_and_the_milestones_stats() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("gsd-core/workflows/complete-milestone.md");
     let built = "The board's `save` keeps $HOME";
     let close = typed::filled(
@@ -191,9 +185,7 @@ fn the_close_reads_the_answer_and_the_milestones_stats() {
 /// The milestone summary's decisions line, run on a taskboard, prints the phase decision `v1.0/02/D-01`.
 #[test]
 fn the_milestone_summary_reads_decisions_from_the_graph() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let text = asset("gsd-core/workflows/milestone-summary.md");
     let line = text
@@ -211,9 +203,7 @@ fn the_milestone_summary_reads_decisions_from_the_graph() {
 /// the retrospective template's fences close a ready milestone with its lists and record a lesson of it.
 #[test]
 fn the_milestone_templates_record_a_milestone_its_close_and_a_lesson() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let template = asset("gsd-core/templates/milestone.md");
     let create = typed::filled(
@@ -291,9 +281,7 @@ fn the_milestone_templates_record_a_milestone_its_close_and_a_lesson() {
 /// passes, the resolve fence closes it and the list is empty again.
 #[test]
 fn a_deferred_verification_is_a_blocker_the_reentry_lists() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("gsd-core/workflows/autonomous.md");
     assert!(!text.contains("## Deferred Verification\n"));
     let at = "MILESTONE=v1.0\nPHASE_NUM=01\n";
@@ -324,9 +312,7 @@ fn a_deferred_verification_is_a_blocker_the_reentry_lists() {
 /// plans it was given as its success criteria; the check gains no finding.
 #[test]
 fn a_deferred_plan_becomes_a_backlog_phase() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let defer = typed::filled(
         &fence_holding(&asset("gsd-core/workflows/next.md"), "phase --backlog"),
@@ -359,9 +345,7 @@ fn a_deferred_plan_becomes_a_backlog_phase() {
 /// `v1.0/999.1` with the criteria as written.
 #[test]
 fn a_criterion_with_quotes_and_a_dollar_reaches_the_backlog_phase() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let first = "02-01: save the user's board with `mv` under $HOME (ran, no summary)";
     let criteria = serde_json::json!([first]);
@@ -399,9 +383,7 @@ const LESSONS: &str = r#"["v1.0/v1.0-RETROSPECTIVE/L1", "v1.0/v1.0-RETROSPECTIVE
 /// both read `status` `dismissed`, and the workflow no longer names `graduation_backlog`.
 #[test]
 fn a_dismissed_cluster_stays_dismissed_on_the_next_run() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = with_lessons();
     let text = asset("gsd-core/workflows/graduation.md");
     assert!(!text.contains("graduation_backlog"));
@@ -429,9 +411,7 @@ fn a_dismissed_cluster_stays_dismissed_on_the_next_run() {
 /// target; the check gains no finding.
 #[test]
 fn a_promoted_cluster_becomes_a_project_decision() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = with_lessons();
     let promote = typed::filled(
         &fence_holding(
@@ -469,9 +449,7 @@ fn a_promoted_cluster_becomes_a_project_decision() {
 /// the plan that claims it.
 #[test]
 fn the_audit_reads_requirements_through_their_threads() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let code = fence_holding(&audit(), "trace --route gsd/requirement-thread");
     let (out, err, status) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{code}"));
@@ -487,9 +465,7 @@ fn the_audit_reads_requirements_through_their_threads() {
 /// finding.
 #[test]
 fn the_audit_creates_its_entity_once_and_writes_only_tech_debt() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let count = |p: &crate::harness::Project| p.nodes_of("milestone_audit").len();
     let (_, err, code) = sh.run_in(p.root(), &resolve_audit("v9.9"));

@@ -27,9 +27,20 @@ pub const CAP: u64 = cap!();
 /// and 5,500,412 B at protocol 2.3.0, then 5,633,814 B once it placed, threaded and measured plans, 5,643,169 B
 /// after the review of that plan flow, 5,643,233 B once gsd-strict preset the traceability, verdict and trailer
 /// gates, 5,653,802 B once a gsd/E516 refusal named the prompts that remedy it and every phase holding the verdict,
-/// the trailer reader took a task's full path and gsd/E521 suggested the trailer to add, and 5,678,141 B once each
-/// workflow declared the judges it runs again and the refusal listed what blocks every named run.
-pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_700_000)];
+/// the trailer reader took a task's full path and gsd/E521 suggested the trailer to add, 5,678,141 B once each
+/// workflow declared the judges it runs again and the refusal listed what blocks every named run, 5,683,226 B once a
+/// commit carried a person's waiver, `waive_trailer` recorded it at a terminal and one rule said what gsd/E521 judges,
+/// 5,683,413 B once that rule also said why it does not judge a commit and the refusal named the reason, and
+/// 5,704,569 B once a check since a revision said what changed under each stale truth (gsd/I527), which took the
+/// allowance to 5,800,000 B, and 5,702,268 B once that advisory stopped claiming files it could not compare unchanged
+/// and escaped every id and name it echoes, 5,709,951 B once a gsd/E516 refusal named the entities owing each verdict
+/// that blocks its runs, a bounded number per holder and judge, and a verdict no phase or milestone holds by its own
+/// entity, 5,720,045 B once that refusal escaped every id it echoes as gsd/I527 does and built its tail once per set
+/// of runs, 5,717,309 B once a phase's plans were written in one edit, its spec was committed like code with no
+/// setting read for it, and an open question the strict profile refuses was returned to the planner, and 5,719,421 B
+/// once the user answered that question after the planner, chunked mode read a blocked plan as blocked and planned
+/// only the rest, and the keys the committed spec rules out were swept whole.
+pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_800_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].
 pub fn cap_of(path: &str) -> u64 {

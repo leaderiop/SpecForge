@@ -381,8 +381,9 @@ GSD_REVIEWERS
 # #3034: opt-in concurrent lane dispatch. STRICT equality on "true" is deliberate — "1", "yes" and
 # "TRUE" must NOT opt in, so a mistyped config gets the conservative behaviour rather than firing
 # concurrent requests at a rate-limited provider. Note the `|| echo "false"` fallback is the
-# OPPOSITE polarity from the commit_docs guard, which fails OPEN: there, failing open preserves the
-# user's intent; here it would fire exactly the requests the default exists to prevent.
+# OPPOSITE polarity from a guard that keeps a commit on when its key is unset, which fails OPEN:
+# there, failing open preserves the user's intent; here it would fire exactly the requests the
+# default exists to prevent.
 PARALLEL_LANES="{{setting:review.parallel_lanes|}}"   # review.parallel_lanes (the settings)
 
 # Shared budget-trim helper. Was defined inside the Ollama leg; it is lane-agnostic, so it is

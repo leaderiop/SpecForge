@@ -235,3 +235,46 @@ fn a_taken_batch_id_or_a_phase_plan_is_refused() {
     );
     super::commands_support::unchanged(&p, &before);
 }
+
+/// Quick's mint (the init step of `workflows/quick.md`) writes the plan before its must-haves exist: accepted under
+/// gsd-compat; under gsd-strict a plan with no truth and no artifact is `gsd/W309`, raised to an error that E080
+/// counts, so the mint is refused and writes nothing. It pins a limit ADR 0384 names; it flips when a rule a later
+/// step of the same workflow settles may wait.
+#[test]
+fn a_quick_plan_minted_without_must_haves_is_refused_under_strict_only() {
+    use super::commands_support::{refused, strict, twin};
+    let mint = "specforge new --in spec/quick.spec --field type=execute --field files_modified= \
+                --field \"objective=$DESCRIPTION\" --field \"slug=$slug\" -- plan \"$quick_id\" \"$title\"";
+    assert!(
+        super::assets_shell::asset("gsd-core/workflows/quick.md").contains(mint),
+        "quick.md's init step no longer mints with: {mint}"
+    );
+    let args = [
+        "new",
+        "--in",
+        "spec/quick.spec",
+        "--field",
+        "type=execute",
+        "--field",
+        "files_modified=",
+        "--field",
+        "objective=Trim titles",
+        "--field",
+        "slug=trim-titles",
+        "--",
+        "plan",
+        "261121-abc",
+        "Trim titles",
+    ];
+    let minted =
+        |p: &crate::harness::Project| p.nodes_of("plan").iter().any(|n| n["id"] == "261121-abc");
+    let compat = twin();
+    let run = compat.run(&args);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(minted(&compat));
+    let p = twin();
+    strict(&p);
+    let run = p.run(&args);
+    refused(&run, "E080", &["gsd/W309", "nothing was written"]);
+    assert!(!minted(&p));
+}

@@ -17,7 +17,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | CLI modules | 288 | 170 | 21 | 97 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 93 | 51 | 14 | 13 | `core/tests/parity_rules/cutover.rs` |
-| Codes | 71 | 71 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
+| Codes | 72 | 72 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
 `core/spec/*.md`; they have no inventory family, so no count. They are exercised by every row above.
@@ -48,7 +48,7 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   argument shape); 51 belong to an extension, 14 are the gate engine, and 13 are core codes whose verdict is not reproduced: 10
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
-- Codes: 71 of the 71 codes fire and stay silent in a named test.
+- Codes: 72 of the 72 codes fire and stay silent in a named test.
 - Verification: the verifier's `gsd/E501` verdict on a truth reads what it cites, files and tests, and one that cites
   nothing is refused; an artifact's reads its `path` and a key link's its `from` and `to` (ADR 0377). A must-have owes
   its verdict once its plan is complete, a plan check while its plan is open, and a judgment-tier prohibition owes
@@ -56,7 +56,10 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   verdicts of a phase that are not fresh, and `execute_phase` runs it before the verifier, which judges only those,
   where upstream re-verifies the whole phase. The taskboard twin shows it
   (`core/tests/cli/fresh_taskboard.rs`): an edit re-judges exactly the verdicts that read the edited file, and every
-  other verdict stays byte-identical.
+  other verdict stays byte-identical. A check since a commit names what changed under each stale truth (`gsd/I527`,
+  ADR 0382): on both twins exactly the truths `re_verify` lists as stale, with the one edited file, and never a
+  truth no verdict was recorded on
+  (`core/tests/cli/stale_truths.rs`, `security/tests/cli/stale_truths.rs`).
 - Plan flow, SpecForge's own, beyond upstream (ADR 0378): a plan's computed `strict_wave` keeps the plans of a phase
   that share a path apart, where upstream runs such a wave sequentially (`gsd/W305`), and `gsd/W526` says where a pushed
   plan runs; `plan_phase` threads a phase's plans through `thread_plan` and `specforge trace --plan` before the plan
@@ -201,9 +204,10 @@ Not verified:
   upstream's own rule (any single mode but `whitespace` refuses), a change from the old gsd behaviour (D-K20c-3).
 - `[cwd-branch]` `workflow_guard` judges a `git -C <dir> add -f` by the branch of the hook's cwd, not of `<dir>` (upstream
   probes the target); upgrade when the host can be asked another directory's branch (ADR 0320).
-- The six commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
-  `approve_validation`, `waive_window`, `dispose_refactor`) are run by the person at a terminal and refused to an agent
-  (ADR 0301); upstream's agent transcribes the person's reply. `pause` stays an agent's. An automated UAT result
+- The seven commands that record what a person says (`answer_checkpoint`, `confirm_setup`, `set_uat_result`,
+  `approve_validation`, `waive_window`, `dispose_refactor`, `waive_trailer`) are run by the person at a terminal and
+  refused to an agent (ADR 0301); upstream's agent transcribes the person's reply. `waive_trailer` (a person's waiver of
+  gsd/E521 on a recorded commit, ADR 0381) has no upstream counterpart: upstream records no commit. `pause` stays an agent's. An automated UAT result
   (upstream's `auto_passed`, recorded without asking the person) is the agent's: `record_automated_uat` writes
   `source: automated`, and `set_uat_result --source automated` is refused with a hint naming it (REVIEW-k20a M1).
 - Limit of the human-attested commands: the proof is that stdin is a terminal, and the kernel's `core.human_guard`
@@ -224,7 +228,7 @@ Not verified:
   judgment-tier prohibition without evidence and halts or marks it unverified; here W525 warns at `check` until the
   verifier records a fresh verdict, which is a model's and not authoritative, so it never halts).
 - The 10 other unreached verdicts are named in `cutover.rs`.
-- The "silent" evidence of 38 of the 71 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
+- The "silent" evidence of 38 of the 72 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 - `[agent-namespace-one-rule]` `workflow_guard` reads the agent namespace as `worktree_path_guard` does, with `worktree-wf_` and the charset; upstream's workflow guard has the two prefixes `agent-` and `worktree-agent-`.
 - `[protected-set]` `branch_check` protects `main`, `master`, `develop`, `trunk`, `release/…`, `git.protected_branches` and `git.base_branch`, and `git.allow_default_branch_commits` changes `blocks_commit`, not `protected`, so ship's and the `none` strategy's warnings still show on `main`. Upstream also reads the real default branch; the git port answers no remotes, so `origin/HEAD` is not read here.

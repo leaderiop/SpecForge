@@ -20,6 +20,7 @@ mod new_milestone;
 mod new_project;
 mod pick;
 mod plan_edits;
+mod planner_edit;
 mod probe;
 mod relics;
 mod researchers;
@@ -57,18 +58,17 @@ fn which(tool: &str) -> Option<PathBuf> {
 
 impl Shell {
     /// `bash` with a `PATH` of [`PICK_TOOLS`] and `specforge` (`SPECFORGE_BIN`), and no jq: a line that
-    /// still ran jq would print nothing. `None` (and a skip note) when bash is absent.
-    fn without_jq() -> Option<Shell> {
+    /// still ran jq would print nothing.
+    fn without_jq() -> Shell {
         Shell::only(PICK_TOOLS)
     }
 
-    /// `bash` with a `PATH` of `tools` and `specforge` (`SPECFORGE_BIN`) alone. `None` (and a skip note) when bash is
-    /// absent.
-    pub(super) fn only(tools: &[&str]) -> Option<Shell> {
-        let Some(bash) = which("bash") else {
-            eprintln!("skipped: bash is absent");
-            return None;
-        };
+    /// `bash` with a `PATH` of `tools` and `specforge` (`SPECFORGE_BIN`) alone. Panics when bash is absent: the suite
+    /// runs the workflows' shell lines on every host it supports, so a missing bash fails the test rather than letting
+    /// it pass having run nothing.
+    pub(super) fn only(tools: &[&str]) -> Shell {
+        let bash =
+            which("bash").expect("bash is on PATH: the asset tests run the workflows' shell lines");
         let bin = tempfile::tempdir().expect("a bin dir");
         for tool in tools {
             if let Some(path) = which(tool) {
@@ -77,7 +77,7 @@ impl Shell {
         }
         let specforge = std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN (see harness.rs)");
         std::os::unix::fs::symlink(specforge, bin.path().join("specforge")).expect("a link");
-        Some(Shell { bash, bin })
+        Shell { bash, bin }
     }
 
     /// `script` under `bash -c` in `dir`: `(stdout, stderr, exit code)`.

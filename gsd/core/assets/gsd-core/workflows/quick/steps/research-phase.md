@@ -67,5 +67,8 @@ Return: ## RESEARCH COMPLETE with file path
 After researcher returns:
 1. Verify the research exists: `specforge query "${quick_id}-RESEARCH" --depth 0 >/dev/null`
 2. Report: "Research complete: research ${quick_id}-RESEARCH"
+3. When the return lists `### Open Questions` (questions the profile refused to record, gsd/W204: no decision
+   resolves them yet), report them and pass them to the planner's prompt (its **Open questions the research
+   returned:**). The user answers them after the planner returns.
 
 If research file not found, warn but continue: "Research agent did not produce output — proceeding to planning without research."

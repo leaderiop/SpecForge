@@ -98,3 +98,21 @@ fn the_guards_are_declared_with_their_reports() {
             .all(|p| p["computes"].as_array().is_none_or(Vec::is_empty))
     );
 }
+
+#[test]
+fn the_stale_truths_pass_reads_the_delta_of_what_a_truths_verdict_reads() {
+    let passes = describe("passes");
+    let pass = passes["items"]
+        .as_array()
+        .expect("passes")
+        .iter()
+        .find(|p| p["name"] == "stale_truths")
+        .unwrap_or_else(|| panic!("no stale_truths pass: {passes}"));
+    assert_eq!(pass["phase"], "check", "{pass}");
+    assert_eq!(pass["baseline"], serde_json::json!(["truth"]), "{pass}");
+    assert_eq!(
+        pass["inputs"],
+        serde_json::json!([{ "input": "delta", "kinds": ["truth", "plan", "phase"] }]),
+        "{pass}"
+    );
+}

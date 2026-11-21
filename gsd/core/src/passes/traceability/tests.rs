@@ -23,6 +23,14 @@ fn codes_of(found: &[PassDiagnostic]) -> Vec<(&str, Option<&str>)> {
         .collect()
 }
 
+/// The one commit entity of `input`, found by its kind.
+fn the_commit(input: &mut PassInput) -> &mut PassEntity {
+    let mut commits = input.entities.iter_mut().filter(|e| e.kind == "commit");
+    let commit = commits.next().expect("a commit");
+    assert!(commits.next().is_none(), "one commit");
+    commit
+}
+
 /// A recorded commit of plan `v/1/1-01` with a subject of `kind`, naming `task` as `linked_by` says.
 fn commit(kind: &str, task: Option<&str>, linked_by: Option<&str>) -> PassInput {
     let mut c = entity("0123456789ab", "commit");
@@ -49,16 +57,40 @@ fn a_title_linked_commit_is_e521() {
         found[0].message,
         "commit '0123456789ab' names task 'v/1/1-01/T1' by its subject's title, not by a Gsd-Task trailer"
     );
-    // The trailer the task's later commits add: its full id, or the plan-local form as written; this one stays.
+    // The trailer the task's later commits add: its full id, or the plan-local form as written; this one stays
+    // unless a person waives it.
     assert_eq!(
         found[0].suggestion.as_deref(),
         Some(
             "end the message of each later commit of the task with the trailer 'Gsd-Task: v/1/1-01/T1' (its full id; \
              '1-01/T1' reads the same while one plan has that name), then collect; this commit is recorded and keeps \
              its fields: amending it records a new commit beside it, so its own error stays while \
-             `specforge.task_trailers` is on"
+             `specforge.task_trailers` is on, unless a person waives it at a terminal: `specforge gsd waive-trailer \
+             0123456789ab '<reason>' <who>`"
         )
     );
+}
+
+/// The waiver the suggestion names is the commit's own: its 12-hex name and no other.
+#[test]
+fn the_suggestion_names_the_waiver_with_the_commits_own_name() {
+    let mut input = commit("feat", Some("v/1/1-01/T1"), Some("title"));
+    the_commit(&mut input).id = "0123456789ac".into();
+    for edge in &mut input.edges {
+        edge.source = "0123456789ac".into();
+    }
+    let found = check(&input);
+    assert_eq!(codes_of(&found), [("E521", Some("0123456789ac"))]);
+    let suggestion = found[0].suggestion.as_deref().expect("a suggestion");
+    assert!(
+        suggestion.ends_with("`specforge gsd waive-trailer 0123456789ac '<reason>' <who>`"),
+        "{suggestion}"
+    );
+    let names: Vec<&str> = suggestion
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|w| w.len() == 12 && w.bytes().all(|b| b.is_ascii_hexdigit()))
+        .collect();
+    assert_eq!(names, ["0123456789ac"], "{suggestion}");
 }
 
 #[test]
@@ -77,7 +109,8 @@ fn a_task_type_commit_naming_no_task_is_e521() {
                 "end the message of each later task commit of the plan with the trailer 'Gsd-Task: v/1/1-01/<task>', \
                  naming one of its tasks ('1-01/<task>' reads the same while one plan has that name), then collect; \
                  this commit is recorded and keeps its fields: amending it records a new commit beside it, so its own \
-                 error stays while `specforge.task_trailers` is on"
+                 error stays while `specforge.task_trailers` is on, unless a person waives it at a terminal: \
+                 `specforge gsd waive-trailer 0123456789ab '<reason>' <who>`"
             ),
             "{kind}"
         );
@@ -91,6 +124,24 @@ fn a_trailer_linked_or_docs_commit_is_not_e521() {
     assert!(check(&commit("", None, None)).is_empty());
     // A docs commit whose subject matches a task's title is a plan's metadata commit too.
     assert!(check(&commit("docs", Some("v/1/1-01/T1"), Some("title"))).is_empty());
+}
+
+/// A person's waiver clears gsd/E521 on its own commit only: a sibling with the same fault is still judged.
+#[test]
+fn a_waived_commit_is_not_judged_and_its_sibling_still_is() {
+    let mut input = commit("feat", Some("v/1/1-01/T1"), Some("title"));
+    the_commit(&mut input)
+        .fields
+        .insert("waiver".into(), "reason, by, at".into()); // a block's text is its keys
+    let mut sibling = entity("0123456789ac", "commit");
+    sibling.fields.insert("type".into(), "feat".into());
+    sibling.fields.insert("linked_by".into(), "title".into());
+    input.entities.push(sibling);
+    input.edges.push(edge("0123456789ac", "v/1/1-01", "plan"));
+    input
+        .edges
+        .push(edge("0123456789ac", "v/1/1-01/T1", "task"));
+    assert_eq!(codes_of(&check(&input)), [("E521", Some("0123456789ac"))]);
 }
 
 /// Complete plan `v/1/1-01` planning `src/a.js` and `src/lib` (its artifact's path), deleting `src/old.js`, whose

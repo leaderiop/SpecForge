@@ -197,7 +197,7 @@ AGENT_SKILLS_ROADMAPPER=""   # the host install carries the skills of gsd-roadma
 needs it sets WS from the ws argument itself, so no file holds it and
 none is removed in Step 10. -->
 
-Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (`name` and `state` are its fields), and its phases are among the other nodes. `commit_docs` and `workflow.research` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model; the project, its roadmap and its requirements are entities, read with `specforge query`, so no path is read.
+Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (`name` and `state` are its fields), and its phases are among the other nodes. `workflow.research` is a setting: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model; the project, its roadmap and its requirements are entities, read with `specforge query`, so no path is read.
 
 **If `agents_installed` is false:** Display a warning before proceeding:
 ```
@@ -637,7 +637,7 @@ Also: `/gsd:plan-phase [N]` — skip discussion, plan directly
 - [ ] Roadmap written immediately, in one edit (not draft)
 - [ ] User feedback incorporated (if any)
 - [ ] Phase numbering mode respected (continued or reset)
-- [ ] All commits made (if planning docs committed)
+- [ ] All commits made
 - [ ] Pending todos scanned for phase matches; matched todos tagged with `resolves_phase: N`
 - [ ] User knows next step: `/gsd:discuss-phase [N]`
 

@@ -34,12 +34,19 @@ yet, so nothing reports them missing, and an executed plan's plan check is histo
 
 **Re-verification.** `specforge gsd re-verify <phase|plan> --stale-only` (the command `re_verify`) lists the verifier's
 verdicts of the subject that are not fresh: stale, missing, unrecorded or unreadable, each with the inputs that changed
-and the selector the rule reads them with. `/gsd-execute-phase` runs it before the verifier, which judges exactly what it
-lists; every other verdict stays as recorded, byte for byte. A fresh verdict, passing or failing, is never listed, since
-it would be judged the same again. Upstream re-verifies the whole phase. Under gsd-strict and gsd-plus a verdict that is
-not fresh also refuses every workflow step, in any phase, but the ones that judge it on the phase that holds it, and the
-refusal's help names the prompt to run on that phase and every verdict, in another phase or of another judge, that
-refuses that run (gsd/E516, [rules.md](rules.md)).
+and the selector the rule reads them with. A check with a base, `specforge check --since <rev>` (read at its merge-base)
+or a session's next check, adds gsd/I527, an Info under every profile, on each truth whose verdict is stale: it names
+the base and whether the spec the verdict reads (the truth, its plan, its phase) changed since then, read from the graph
+delta, and, under `--since`, which of the files it cites changed, read from the truth's judgement at the base
+(ADR 0382). It names exactly the truths `--stale-only` lists as stale, never one whose verdict is missing, unrecorded
+or unreadable (gsd/E501 reports those), and a plain `check`, which has no base, says nothing.
+`/gsd-execute-phase` runs `re_verify` before the verifier, which judges exactly what it lists; every other verdict stays
+as recorded, byte for byte. A fresh verdict, passing or failing, is never listed, since it would be judged the same
+again. Upstream re-verifies the whole phase. Under gsd-strict and gsd-plus a verdict that is not fresh also refuses
+every workflow step, in any phase, but the ones that judge it on the phase that holds it, and the refusal's help names
+the prompt to run on that phase and every verdict, in another phase or of another judge, that refuses every run it
+names, by the entities owing it, at most five per holder and judge, and a verdict no phase or milestone holds by its
+own entity (gsd/E516, [rules.md](rules.md)).
 
 **Prohibitions.** A judgment-tier prohibition, one that names no enforcing `test`, owes the verifier a verdict once its
 plan is complete (gsd/W525: `held`, `violated` or `unverified`, passing `held`), over the prohibition, its plan, its

@@ -1,12 +1,16 @@
 //! The prompt an E516 refusal names, run on the subject it names, is not refused by that verdict and runs the judge
 //! that records it again: for a missing verdict (the plan checks of a draft plan), for a stale one held in another
-//! phase, and for two judges' verdicts held in two phases, where each named run is refused by the other's verdict and
-//! the refusal names it and the gate-free `record-verdict`, on the taskboard twin under gsd-strict.
+//! phase, and for two judges' verdicts held in two phases, where each named run is refused by the other's verdicts and
+//! the refusal names the entities that owe them and the gate-free `record-verdict`, on the taskboard twin under
+//! gsd-strict; and, on the discuss project, a verdict no phase or milestone holds, named by its own entity and
+//! recorded without a gate.
+
+use serde_json::Value;
 
 use super::commands_support::{strict, twin};
-use super::harness::Project;
+use super::harness::{Project, project};
 use super::prompts_gates::{
-    PHASE, gate_failed, not_refused_by, refused_by, renders, stale_plan_check,
+    PHASE, gate_failed, judge_discussion, not_refused_by, refused_by, renders, stale_plan_check,
 };
 use super::prompts_support::{payload, prompt};
 
@@ -16,8 +20,8 @@ const VERIFIED: &str = "v1.0/01";
 const PLAN: &str = "v1.0/02/02-01";
 /// The rules the plan checker judges on an open plan.
 const PLAN_CHECKS: [&str; 4] = ["W311", "W313", "W315", "W316"];
-/// The words that open the tail naming the verdicts that refuse every named run.
-const TAIL: &str = "is also refused by the verdicts owed on";
+/// The words that open every tail naming the verdicts that refuse every named run.
+const TAIL: &str = "is also refused by the verdicts owed";
 
 /// The `(prompt id, subject)` of every `specforge prompt gsd.<id> <subject>` a suggestion names.
 fn named(suggestion: &str) -> Vec<(String, String)> {
@@ -67,6 +71,37 @@ fn rejudges(p: &Project, id: &str, subject: &str, judge: &str) {
 /// The phase that scopes an entity id (`v1.0/02/02-01` and `v1.0/02/02-01/TR1` are in `v1.0/02`).
 fn phase_of(entity: &str) -> String {
     entity.split('/').take(2).collect::<Vec<_>>().join("/")
+}
+
+/// The entities whose verifier verdicts a `re-verify --stale-only` `answer` lists, each once, in its order, every item
+/// `stale`.
+fn stale_listed(answer: &Value) -> Vec<String> {
+    let mut entities: Vec<String> = Vec::new();
+    for item in answer["items"].as_array().expect("re-verify lists items") {
+        assert_eq!(item["state"], "stale", "{item}");
+        let entity = item["entity"].as_str().expect("an entity").to_string();
+        if !entities.contains(&entity) {
+            entities.push(entity);
+        }
+    }
+    entities
+}
+
+/// How many entities a tail group names before it counts the rest.
+const NAMED: usize = 5;
+
+/// The entities a tail group names, each quoted as the message quotes its own: the first five, then how many more.
+fn quoted(entities: &[String]) -> String {
+    let names = entities
+        .iter()
+        .take(NAMED)
+        .map(|e| format!("'{e}'"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    match entities.len().saturating_sub(NAMED) {
+        0 => names,
+        n => format!("{names}, and {n} more"),
+    }
 }
 
 /// The entity a message names (`the gsd/W311 verdict on 'v1.0/02/02-01' is missing`).
@@ -182,8 +217,14 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
             [("execute_phase".to_string(), VERIFIED.to_string())],
             "{suggestion}"
         );
+        // The open plan owes four plan checks and is named once.
         assert!(
-            suggestion.contains(&format!("{TAIL} {PHASE} (gsd-plan-checker)")),
+            suggestion.contains(&format!("{TAIL} on {PHASE} (gsd-plan-checker: '{PLAN}')")),
+            "{suggestion}"
+        );
+        assert_eq!(
+            suggestion.matches(&format!("'{PLAN}'")).count(),
+            1,
             "{suggestion}"
         );
         assert!(
@@ -191,7 +232,28 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
             "{suggestion}"
         );
     }
-    // execute_phase on the executed phase excuses its verifier verdicts; the open plan's checks refuse it.
+    // execute_phase on the executed phase excuses its verifier verdicts; the open plan's checks refuse it. The
+    // stale must-haves the edit left in the executed phase are those re-verify lists.
+    let stale = stale_listed(&p.re_verify(VERIFIED, true));
+    assert_eq!(
+        stale,
+        [
+            "v1.0/01/01-01/AR1",
+            "v1.0/01/01-01/KL1",
+            "v1.0/01/01-01/TR1",
+            "v1.0/01/01-02/KL1",
+            "v1.0/01/01-02/TR1",
+            "v1.0/01/01-02/TR2",
+        ]
+    );
+    let owed = format!("{TAIL} on {VERIFIED} (gsd-verifier: {})", quoted(&stale));
+    assert_eq!(
+        owed,
+        format!(
+            "{TAIL} on v1.0/01 (gsd-verifier: 'v1.0/01/01-01/AR1', 'v1.0/01/01-01/KL1', 'v1.0/01/01-01/TR1', \
+             'v1.0/01/01-02/KL1', 'v1.0/01/01-02/TR1', and 1 more)"
+        )
+    );
     let found = e516_suggestions(&p, "execute_phase", &[VERIFIED]);
     assert_eq!(found.len(), PLAN_CHECKS.len(), "{found:?}");
     for (message, suggestion) in &found {
@@ -204,8 +266,9 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
             [("plan_phase", PHASE), ("plan_review_convergence", PHASE)],
             "{suggestion}"
         );
+        assert!(suggestion.contains(&owed), "{suggestion}");
         assert!(
-            suggestion.contains(&format!("{TAIL} {VERIFIED} (gsd-verifier)")),
+            suggestion.contains(&format!("'{VERIFIED}/01-01/TR1'")),
             "{suggestion}"
         );
     }
@@ -217,4 +280,126 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
     assert!(p.verify_phase(VERIFIED) > 0);
     renders(&p, "execute_phase", &[VERIFIED]);
     renders(&p, "plan_phase", &[PHASE]);
+}
+
+/// The seven must-haves of a stale phase are named five and counted two: with `src/tasks.js` and `src/cli.js` edited,
+/// each refusal of `/gsd-execute-phase` on the executed phase names the first five that `re-verify --stale-only` lists
+/// beside their holder and judge, then `and 2 more`.
+#[test]
+fn the_seven_must_haves_of_a_stale_phase_are_named_five_and_two_more() {
+    let p = twin();
+    strict(&p);
+    stale_plan_check(&p, PLAN);
+    for path in ["src/tasks.js", "src/cli.js"] {
+        p.write(path, &format!("{}\n// edited\n", p.read(path)));
+    }
+    let stale = stale_listed(&p.re_verify(VERIFIED, true));
+    assert_eq!(
+        stale,
+        [
+            "v1.0/01/01-01/AR1",
+            "v1.0/01/01-01/KL1",
+            "v1.0/01/01-01/TR1",
+            "v1.0/01/01-02/AR1",
+            "v1.0/01/01-02/KL1",
+            "v1.0/01/01-02/TR1",
+            "v1.0/01/01-02/TR2",
+        ]
+    );
+    let owed = format!("{TAIL} on {VERIFIED} (gsd-verifier: {})", quoted(&stale));
+    assert_eq!(
+        owed,
+        format!(
+            "{TAIL} on v1.0/01 (gsd-verifier: 'v1.0/01/01-01/AR1', 'v1.0/01/01-01/KL1', 'v1.0/01/01-01/TR1', \
+             'v1.0/01/01-02/AR1', 'v1.0/01/01-02/KL1', and 2 more)"
+        )
+    );
+    let found = e516_suggestions(&p, "execute_phase", &[VERIFIED]);
+    assert_eq!(found.len(), PLAN_CHECKS.len(), "{found:?}");
+    for (message, suggestion) in &found {
+        assert_eq!(entity_of(message), PLAN, "{message}");
+        assert!(suggestion.contains(&owed), "{suggestion}");
+    }
+}
+
+/// A package audit of the project's research, which no phase or milestone holds, and one of phase 02's research, both
+/// stale after their packages are edited: the refusal of `/gsd-plan-review-convergence` on phase 02 (which runs no
+/// researcher) names, in the phase audit's help, `/gsd-plan-phase` on the phase and the project audit by its own id,
+/// owed by it itself, never `RESEARCH` as a holder; the project audit's own help names `record-verdict` with its id,
+/// and recording it that way clears its refusal and the phase audit's tail.
+#[test]
+fn a_verdict_no_phase_holds_is_named_by_its_own_entity_and_recorded_without_a_gate() {
+    let p = project("discuss");
+    p.write(
+        "spec/project_audit.spec",
+        "package_audit PA2 \"node:path\" {\n  research RESEARCH\n  package  \"node:path\"\n  registry \"builtin\"\n}\n",
+    );
+    let audits: Vec<String> = p
+        .nodes_of("package_audit")
+        .iter()
+        .map(|n| n["id"].as_str().expect("an id").to_string())
+        .collect();
+    let (phase_audit, project_audit) = ("v1.0/02/02-RESEARCH/PA1", "RESEARCH/PA2");
+    assert!(audits.iter().any(|id| id == phase_audit), "{audits:?}");
+    assert!(audits.iter().any(|id| id == project_audit), "{audits:?}");
+    strict(&p);
+    judge_discussion(&p);
+    renders(&p, "plan_review_convergence", &[PHASE]);
+    p.edit(
+        "spec/research.spec",
+        "package  \"node:fs\"\n",
+        "package  \"node:fs/promises\"\n",
+    );
+    p.edit(
+        "spec/project_audit.spec",
+        "package  \"node:path\"\n",
+        "package  \"node:path/posix\"\n",
+    );
+    for audit in [phase_audit, project_audit] {
+        assert_eq!(
+            p.inputs(audit, "W205")["verdict"]["state"],
+            "stale",
+            "{audit}"
+        );
+    }
+    let help = |found: &[(String, String)], entity: &str| -> String {
+        found
+            .iter()
+            .find(|(message, _)| entity_of(message) == entity)
+            .map(|(_, suggestion)| suggestion.clone())
+            .unwrap_or_else(|| panic!("no E516 on {entity}: {found:?}"))
+    };
+    let found = e516_suggestions(&p, "plan_review_convergence", &[PHASE]);
+    let phase_help = help(&found, phase_audit);
+    assert!(
+        phase_help.contains(&format!("/gsd-plan-phase {PHASE}")),
+        "{phase_help}"
+    );
+    assert!(
+        phase_help.contains(&format!(
+            "{TAIL} by '{project_audit}' itself (gsd-phase-researcher), outside its scope"
+        )),
+        "{phase_help}"
+    );
+    assert_eq!(
+        help(&found, project_audit),
+        format!(
+            "no prompt judges it again where no phase or milestone scopes it: record its verdict with `specforge gsd \
+             record-verdict {project_audit} W205 <outcome> <model> '<basis>'` over its inputs (`specforge query \
+             {project_audit} --inputs gsd/W205`), which no gate refuses (its judge: gsd-phase-researcher)"
+        )
+    );
+    for (_, suggestion) in &found {
+        assert!(!suggestion.contains("on RESEARCH"), "{suggestion}");
+    }
+    let run = p.record(project_audit, "W205", "legitimate", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let found = e516_suggestions(&p, "plan_review_convergence", &[PHASE]);
+    assert!(
+        found
+            .iter()
+            .all(|(message, _)| !message.contains(&format!("'{project_audit}'"))),
+        "{found:?}"
+    );
+    assert!(!help(&found, phase_audit).contains(TAIL), "{found:?}");
 }

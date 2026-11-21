@@ -3,10 +3,14 @@
 //! `gsd/parity/upstream/v1.19.0/`, so the check runs offline.
 
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use gsd_core::build;
 use serde_json::Value;
 use specforge_extension_sdk::testing::MockHost;
+
+#[path = "common/files.rs"]
+mod files;
 
 const MANIFEST: &str = include_str!(gsd_kit::snapshot!("config-schema.manifest.json"));
 const CAPABILITIES: &str = include_str!(gsd_kit::snapshot!("capabilities.json"));
@@ -282,4 +286,272 @@ fn flatten(prefix: &str, value: &Value, out: &mut Vec<(String, Value)>) {
         }
         _ => out.push((prefix.to_string(), value.clone())),
     }
+}
+
+/// The asset `path` under `assets/`, as text.
+fn asset(path: &str) -> String {
+    let file = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join(path);
+    std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()))
+}
+
+/// The plan-phase workflow, the planner and the phase researcher read no `commit_docs`: `@gsd/core` declares no such
+/// setting, and the spec they record is committed like code. Step 13d commits the plans and says what its "nothing to
+/// commit" answer means.
+#[test]
+fn the_plan_phase_family_reads_no_commit_docs() {
+    for path in [
+        "gsd-core/workflows/plan-phase.md",
+        "agents/gsd-planner.md",
+        "agents/gsd-phase-researcher.md",
+    ] {
+        let named: Vec<String> = asset(path)
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.to_lowercase().contains("commit_docs"))
+            .map(|(n, line)| format!("{path}:{}: {line}", n + 1))
+            .collect();
+        assert!(named.is_empty(), "{}", named.join("\n"));
+    }
+    let plan_phase = asset("gsd-core/workflows/plan-phase.md");
+    let lines: Vec<&str> = plan_phase.lines().collect();
+    let start = lines
+        .iter()
+        .position(|line| *line == "## 13d. Commit Plans")
+        .expect("a line `## 13d. Commit Plans`");
+    let end = start
+        + lines[start..]
+            .iter()
+            .position(|line| line.starts_with("## 13e."))
+            .expect("step 13e after 13d");
+    let step = lines[start..end].join("\n");
+    assert!(step.contains("nothing to commit"), "{step}");
+    assert!(step.contains("`specforge git commit --add spec`"), "{step}");
+}
+
+/// Every `.md` file under `assets/`, with its path under `assets/` and its text.
+fn asset_texts() -> Vec<(String, String)> {
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+    files::under(&assets)
+        .into_iter()
+        .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
+        .map(|path| {
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            let rel = path
+                .strip_prefix(&assets)
+                .expect("under assets")
+                .display()
+                .to_string();
+            (rel, text)
+        })
+        .collect()
+}
+
+/// A sentence that calls a key a setting ("`a`, `b` and `c` are settings", "`a` is a setting") names only keys of
+/// the roster, `gsd_core::settings::key_names()`, never a copied list: a key `@gsd/core` does not declare is read as
+/// unset by one agent and as on by another. The scan reads every asset's whole text, so a claim that a line break
+/// splits is still one sentence, and it sees the 13 claims the assets hold.
+#[test]
+fn every_key_an_asset_calls_a_setting_is_a_key_of_the_roster() {
+    let roster: BTreeSet<&str> = gsd_core::settings::key_names().collect();
+    let claim = regex::Regex::new(
+        r"((?:`[^`]+`(?:,\s*|\s+and\s+|,\s+and\s+)?)+)\s+(?:are settings|is a setting)\b",
+    )
+    .expect("the claim pattern");
+    let code = regex::Regex::new(r"`([^`]+)`").expect("the code pattern");
+    let mut seen = 0;
+    let mut false_claims = Vec::new();
+    for (path, text) in asset_texts() {
+        for found in claim.captures_iter(&text) {
+            seen += 1;
+            for key in code.captures_iter(&found[1]).map(|c| c[1].to_string()) {
+                if !roster.contains(key.as_str()) {
+                    false_claims.push(format!("{path}: `{key}` is called a setting"));
+                }
+            }
+        }
+    }
+    assert!(false_claims.is_empty(), "{}", false_claims.join("\n"));
+    assert_eq!(seen, 13, "the claims the assets hold");
+}
+
+/// The step of the settings workflow named `name`.
+fn settings_step(text: &str, name: &str) -> String {
+    let open = format!("<step name=\"{name}\">");
+    let at = text.find(&open).unwrap_or_else(|| panic!("no step {name}"));
+    let end = text[at..].find("</step>").expect("the step's end");
+    text[at..at + end].to_string()
+}
+
+/// The settings workflow presents the settings of its section layout and says how many: each setting of the layout
+/// names its key, a key `@gsd/core` declares or one the owner table gives another `@gsd/*` extension, never a key the
+/// Not applicable table lists; the layout's names are the `header`s of the questions, every question's header is in
+/// the layout, the confirmation shows a row per setting, and every count the workflow states (the settings, the
+/// sections) is the layout's.
+#[test]
+fn the_settings_workflow_counts_the_settings_of_its_section_layout() {
+    const WORDS: [&str; 11] = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    ];
+    let text = asset("gsd-core/workflows/settings.md");
+    let present = settings_step(&text, "present_settings");
+    let layout = present
+        .split_once("Section layout")
+        .expect("the section layout")
+        .1;
+    let layout = layout
+        .split_once("**Conditional visibility")
+        .expect("the layout's end")
+        .0;
+    let item = regex::Regex::new(r"([A-Z][A-Za-z &/-]*?) \(`([^`]+)`").expect("the item pattern");
+    let mut sections = 0;
+    let mut asked = BTreeSet::new();
+    let mut keys = Vec::new();
+    for line in layout.lines() {
+        if line.starts_with("### ") {
+            sections += 1;
+            continue;
+        }
+        for found in item.captures_iter(line) {
+            asked.extend(found[1].split(" / ").map(str::to_string));
+            keys.push(found[2].to_string());
+        }
+    }
+    assert_eq!(sections, 6, "{layout}");
+
+    let roster: BTreeSet<&str> = gsd_core::settings::key_names().collect();
+    let owners = other_owners();
+    let na = not_applicable();
+    for key in &keys {
+        let owned = roster.contains(key.as_str())
+            || owners
+                .iter()
+                .any(|(_, tokens)| tokens.iter().any(|t| names(t, key)));
+        assert!(owned, "`{key}` is no setting of a `@gsd/*` extension");
+        assert!(
+            !na.iter().any(|t| names(t, key)),
+            "`{key}` is not applicable"
+        );
+    }
+
+    let header = regex::Regex::new(r#"header: "([^"]+)""#).expect("the header pattern");
+    let headers: BTreeSet<String> = header
+        .captures_iter(&present)
+        .map(|c| c[1].to_string())
+        .collect();
+    assert_eq!(headers, asked, "the questions' headers and the layout");
+
+    let confirm = settings_step(&text, "confirm");
+    let rows = confirm
+        .lines()
+        .filter(|l| l.starts_with("| ") && !l.starts_with("| Setting "))
+        .count();
+    assert_eq!(rows, keys.len(), "the confirmation's rows");
+
+    let stated =
+        regex::Regex::new(r"User presented with (\d+) settings").expect("the count pattern");
+    let count = stated.captures(&text).expect("the stated count")[1]
+        .parse::<usize>()
+        .expect("a number");
+    assert_eq!(count, keys.len(), "the settings the layout holds");
+    let grouped =
+        regex::Regex::new(r"grouped into (?:its )?(\w+) (?:visual )?sections").expect("a pattern");
+    let mut seen = 0;
+    for found in grouped.captures_iter(&text) {
+        seen += 1;
+        assert_eq!(&found[1], WORDS[sections], "{}", &found[0]);
+    }
+    assert_eq!(seen, 2, "the statements of the section count");
+}
+
+/// The keys of the Not applicable table's row that holds `commit_docs`, by their last name: `planning.pr_strict` is
+/// `pr_strict`, `phase_commit_docs.<phase-id>` is `phase_commit_docs`.
+fn committed_spec_keys() -> BTreeSet<String> {
+    let row = table(|t| t.heading == "Not applicable")
+        .rows
+        .into_iter()
+        .find(|cells| backticked(&cells[0]).iter().any(|t| t == "commit_docs"))
+        .expect("the row of `commit_docs`");
+    backticked(&row[0])
+        .iter()
+        .filter_map(|token| {
+            token
+                .split('.')
+                .rfind(|segment| *segment != "planning" && !segment.starts_with('<'))
+                .map(str::to_string)
+        })
+        .collect()
+}
+
+/// `commit_docs`, `search_gitignored` and `pr_strict` are not settings of `@gsd/core` (the spec is source and is
+/// committed like code: nothing of it is gitignored, and a PR branch always leaves it out), so an asset names one only
+/// to say so: every line of every asset that names a key of that row of the Not applicable table, in any case, says
+/// "not a setting here". The row is read from `spec/settings.md`, and the lines that say it (new-project's,
+/// planning-config's and pr-branch's) are seen, so the scan cannot pass on an empty tree.
+#[test]
+fn the_committed_spec_keys_are_named_only_as_not_a_setting_here() {
+    let keys = committed_spec_keys();
+    for key in [
+        "commit_docs",
+        "phase_commit_docs",
+        "search_gitignored",
+        "pr_strict",
+    ] {
+        assert!(keys.contains(key), "the row lacks {key}: {keys:?}");
+    }
+    let mut allowed = BTreeSet::new();
+    let mut named = Vec::new();
+    for (path, text) in asset_texts() {
+        for (n, line) in text.lines().enumerate() {
+            let lower = line.to_lowercase();
+            let hits: Vec<&String> = keys.iter().filter(|k| lower.contains(k.as_str())).collect();
+            if hits.is_empty() {
+                continue;
+            }
+            if lower.contains("not a setting here") {
+                allowed.extend(hits.into_iter().cloned());
+            } else {
+                named.push(format!("{path}:{}: {line}", n + 1));
+            }
+        }
+    }
+    assert!(named.is_empty(), "{}", named.join("\n"));
+    for key in ["commit_docs", "search_gitignored", "pr_strict"] {
+        assert!(
+            allowed.contains(key),
+            "no line says `{key}` is not a setting here"
+        );
+    }
+}
+
+/// The spec is committed like code, so no asset makes its commit conditional or treats an ignored spec as a skip: no
+/// line holds a phrase of that conditional ("if planning docs committed", "intentional skip", "skipped (.spec"), and
+/// the executor's line on a gitignored spec calls it an error to surface.
+#[test]
+fn no_asset_makes_the_spec_commit_conditional_or_skips_an_ignored_spec() {
+    let mut found = Vec::new();
+    for (path, text) in asset_texts() {
+        for (n, line) in text.lines().enumerate() {
+            let lower = line.to_lowercase();
+            if [
+                "if planning docs committed",
+                "intentional skip",
+                "skipped (.spec",
+            ]
+            .iter()
+            .any(|phrase| lower.contains(phrase))
+            {
+                found.push(format!("{path}:{}: {line}", n + 1));
+            }
+        }
+    }
+    assert!(found.is_empty(), "{}", found.join("\n"));
+    let executor = asset("agents/gsd-executor.md");
+    let ignored = executor
+        .lines()
+        .find(|l| l.contains("`.spec` files are gitignored"))
+        .expect("the executor's line on a gitignored spec");
+    assert!(ignored.contains("an error, never a skip"), "{ignored}");
 }

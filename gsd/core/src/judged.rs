@@ -34,6 +34,15 @@ pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     ("instructions", "file(\"CLAUDE.md\", \"AGENTS.md\")"),
 ];
 
+/// What the verifier's verdict on a truth reads: the truth, its plan, its phase and the tests that name it. The
+/// stale-truths pass's delta reads its entity inputs.
+pub(crate) const TRUTH_INPUTS: &[(&str, &str)] = &[
+    ("truth", "self"),
+    ("plan", "self.plan"),
+    ("phase", "self.plan.phase"),
+    ("tests", "test(self<test.names)"),
+];
+
 /// What E518 reads of a milestone audit; the `gsd/integration-checker` route serves the same sections.
 pub(crate) const INTEGRATION_INPUTS: &[(&str, &str)] = &[
     ("audit", "self"),
@@ -63,12 +72,7 @@ const PLAN_CHECK: &[Target] = &[Target {
 const E501: &[Target] = &[
     Target {
         kind: "truth",
-        inputs: &[
-            ("truth", "self"),
-            ("plan", "self.plan"),
-            ("phase", "self.plan.phase"),
-            ("tests", "test(self<test.names)"),
-        ],
+        inputs: TRUTH_INPUTS,
         unless_set: &[],
         judged_while: Some(Owed::Complete),
     },

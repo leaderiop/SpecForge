@@ -17,9 +17,10 @@ pub(super) const CLOSED: [(&str, &str); 5] = [
     ("v1.0/01/01-02/T-01-03", "src/cli.js"),
     ("v1.0/01/01-02/T-01-SC", "package.json"),
 ];
-/// 01-01's truth cites `src/vault.js` and `test/vault.test.js`; 01-02's `src/cli.js` and `src/vault.js`.
-const SEALED: &str = "v1.0/01/01-01/TR1";
-const COMMAND_LINE: &str = "v1.0/01/01-02/TR1";
+/// 01-01's truth, on the sealed store: it cites `src/vault.js` and `test/vault.test.js`.
+pub(super) const SEALED: &str = "v1.0/01/01-01/TR1";
+/// 01-02's truth, on the command line: it cites `src/cli.js` and `src/vault.js`.
+pub(super) const COMMAND_LINE: &str = "v1.0/01/01-02/TR1";
 
 /// The vault with phase 01 judged: the verifier's verdict on each of its six must-haves and `holds` on each closed
 /// threat.
@@ -37,7 +38,7 @@ pub(super) fn judged_phase() -> Project {
 }
 
 /// Appends one comment line to a file of the project.
-fn touch(p: &Project, file: &str) {
+pub(super) fn touch(p: &Project, file: &str) {
     let text = p.read(file);
     assert!(text.ends_with('\n'), "{file} ends with a line break");
     p.write(file, &format!("{text}// edited\n"));

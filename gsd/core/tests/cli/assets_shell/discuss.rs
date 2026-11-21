@@ -66,9 +66,7 @@ fn picked(p: &Project, id: &str, pick: &str) -> String {
 /// the check reports nothing new.
 #[test]
 fn the_context_fence_records_the_phase_context() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let run = typed::apply(&sh, &p, &context_fence());
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
@@ -90,9 +88,7 @@ fn the_context_fence_records_the_phase_context() {
 /// The log fence records the discussion log, an entry's notes included, and the check reports nothing new.
 #[test]
 fn the_log_fence_records_the_discussion() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let entries = r#"[{"area": "Ordering", "question": "Which tasks come first?", "options": ["Oldest first — the order they were added", "Newest first — the latest on top"], "chosen": "Oldest first — the order they were added", "mode": "interactive", "notes": "The board is a queue"}, {"area": "Filter", "question": "How is a word matched?", "options": ["Anywhere in the title", "Whole words only"], "chosen": "Anywhere in the title", "mode": "interactive", "notes": ""}]"#;
     let run = typed::apply(&sh, &p, &log_fence(entries));
@@ -133,9 +129,7 @@ fn checkpoint_fence() -> String {
 /// reports nothing new.
 #[test]
 fn an_interrupted_discussion_resumes_from_its_checkpoint() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let workflow = asset("gsd-core/workflows/discuss-phase.md");
     let check = format!(
@@ -173,9 +167,7 @@ fn an_interrupted_discussion_resumes_from_its_checkpoint() {
 /// evidence, a correction its reason, and the check reports nothing new.
 #[test]
 fn the_assumptions_log_keeps_confidence_and_evidence() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let entries = r#"[{"area": "Ordering", "question": "Open tasks are listed oldest first", "options": [], "chosen": "Open tasks are listed oldest first", "mode": "assumptions", "confidence": "likely", "evidence": ["src/board.js", "src/cli.js"]}, {"area": "Filter", "question": "A word matches whole words only", "options": ["Whole words only", "Anywhere in the title"], "chosen": "Anywhere in the title", "mode": "assumptions", "notes": "Titles are short phrases"}]"#;
     let run = typed::apply(&sh, &p, &log_fence(entries));
@@ -203,9 +195,7 @@ const HOSTILE: &str = r#"`useAuth` in `src/hooks/useAuth.ts` costs $5 a "seat""#
 /// string at a `"`, and a JSON value keeps its apostrophe. Each value is a quoted heredoc's body.
 #[test]
 fn a_fence_stores_free_text_as_written() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let fence = context_fence()
         .replace(
@@ -231,9 +221,7 @@ fn a_fence_stores_free_text_as_written() {
 /// the check reports nothing new.
 #[test]
 fn a_second_discussion_appends_to_the_log() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let first = r#"[{"area": "Ordering", "question": "Which tasks come first?", "options": ["Oldest first", "Newest first"], "chosen": "Oldest first", "mode": "interactive", "notes": ""}]"#;
     let run = typed::apply(&sh, &p, &log_fence(first));

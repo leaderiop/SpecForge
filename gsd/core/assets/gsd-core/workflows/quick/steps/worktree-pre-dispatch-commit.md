@@ -17,48 +17,43 @@ are committed in Step 8 as usual).
 QUICK_PLAN_PARENT=""
 QUICK_PLAN_COMMIT=""
 if [ "${USE_WORKTREES}" != "false" ]; then
-  COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
-  if [ "$COMMIT_DOCS" != "false" ]; then
-    # pre-dispatch plan commit. SpecForge writes no plan, context or research
-    # file: the plan is the entity `plan ${quick_id}` in
-    # spec/quick.spec, and what --discuss / --research found is entities under spec/
-    # as well. So the one path is `spec`, as Step 8 commits it (`git add spec`), and
-    # no mode flag adds or drops one.
-    QUICK_PREDISPATCH_PATHS=(spec)
-    # The executor's first action checks the same entity at QUICK_PLAN_COMMIT, and
-    # the alternate worktree base below is the parent of the commit that declared it:
-    # with no such commit, QUICK_PLAN_PARENT stays empty and the guard fails closed.
-    # An array (not a space-joined string) keeps each path a single git argument
-    # under `set -u` word-splitting rules (ShellCheck SC2086), as the git commit
-    # lines below pass it.
-    specforge git add "${QUICK_PREDISPATCH_PATHS[@]}"
-    # No-op skip if nothing actually staged (idempotent re-runs).
-    if [ "$(specforge git diff --staged --pick .count -- "${QUICK_PREDISPATCH_PATHS[@]}")" = 0 ]; then
-      echo "ℹ Pre-dispatch artifact commit skipped (no staged changes)"
+  # pre-dispatch plan commit. SpecForge writes no plan, context or research
+  # file: the plan is the entity `plan ${quick_id}` in
+  # spec/quick.spec, and what --discuss / --research found is entities under spec/
+  # as well. So the one path is `spec`, as Step 8 commits it (`git add spec`), and
+  # no mode flag adds or drops one.
+  QUICK_PREDISPATCH_PATHS=(spec)
+  # The executor's first action checks the same entity at QUICK_PLAN_COMMIT, and
+  # the alternate worktree base below is the parent of the commit that declared it:
+  # with no such commit, QUICK_PLAN_PARENT stays empty and the guard fails closed.
+  # An array (not a space-joined string) keeps each path a single git argument
+  # under `set -u` word-splitting rules (ShellCheck SC2086), as the git commit
+  # lines below pass it.
+  specforge git add "${QUICK_PREDISPATCH_PATHS[@]}"
+  # No-op skip if nothing actually staged (idempotent re-runs).
+  if [ "$(specforge git diff --staged --pick .count -- "${QUICK_PREDISPATCH_PATHS[@]}")" = 0 ]; then
+    echo "ℹ Pre-dispatch artifact commit skipped (no staged changes)"
+  else
+    # Run hooks normally (#2924). If a project opts out via
+    # workflow.worktree_skip_hooks=true, honor that opt-in only.
+    SKIP_HOOKS="{{setting:workflow.worktree_skip_hooks|}}"   # workflow.worktree_skip_hooks (the settings)
+    if [ "$SKIP_HOOKS" = "true" ]; then
+      specforge git commit --no-verify -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
+        || { echo "ERROR: pre-dispatch artifact commit failed (--no-verify path). Aborting before executor dispatch." >&2; exit 1; }
     else
-      # Run hooks normally (#2924). If a project opts out via
-      # workflow.worktree_skip_hooks=true, honor that opt-in only.
-      SKIP_HOOKS="{{setting:workflow.worktree_skip_hooks|}}"   # workflow.worktree_skip_hooks (the settings)
-      if [ "$SKIP_HOOKS" = "true" ]; then
-        specforge git commit --no-verify -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
-          || { echo "ERROR: pre-dispatch artifact commit failed (--no-verify path). Aborting before executor dispatch." >&2; exit 1; }
-      else
-        specforge git commit -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
-          || { echo "ERROR: pre-dispatch artifact commit failed — likely a pre-commit hook failure. Fix the hook output above (or set workflow.worktree_skip_hooks=true to bypass) and re-run." >&2; exit 1; }
-      fi
-      QUICK_PLAN_COMMIT=$(specforge git head --pick .sha)
+      specforge git commit -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
+        || { echo "ERROR: pre-dispatch artifact commit failed — likely a pre-commit hook failure. Fix the hook output above (or set workflow.worktree_skip_hooks=true to bypass) and re-run." >&2; exit 1; }
     fi
+    QUICK_PLAN_COMMIT=$(specforge git head --pick .sha)
   fi
   if [ -z "$QUICK_PLAN_COMMIT" ]; then
     QUICK_PLAN_COMMIT=$(specforge git head --pick .sha)
   fi
   # #5209: the alternate base is the PLAN commit's immediate parent, read AFTER the
   # commit attempt so it holds whether the planner already committed the plan or this
-  # step just did. Empty when docs commits are off, for a root commit, and with no plan commit.
-  if [ "$COMMIT_DOCS" != "false" ]; then
-    _GSD_PLAN_AT=$(specforge git log --max 1 --pickaxe-regex -S "^plan ${quick_id} " --pick '.commits[0].sha' -- spec 2>/dev/null || true)
-    QUICK_PLAN_PARENT=""
-    [ -z "$_GSD_PLAN_AT" ] || QUICK_PLAN_PARENT=$(specforge git rev "${_GSD_PLAN_AT}^" --pick '.revs[0].sha' 2>/dev/null || true)
-  fi
+  # step just did. Empty for a root commit and with no plan commit.
+  _GSD_PLAN_AT=$(specforge git log --max 1 --pickaxe-regex -S "^plan ${quick_id} " --pick '.commits[0].sha' -- spec 2>/dev/null || true)
+  QUICK_PLAN_PARENT=""
+  [ -z "$_GSD_PLAN_AT" ] || QUICK_PLAN_PARENT=$(specforge git rev "${_GSD_PLAN_AT}^" --pick '.revs[0].sha' 2>/dev/null || true)
 fi
 ```

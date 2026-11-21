@@ -1,5 +1,5 @@
 //! What the passes read from the recorded commits: each commit's plan, task, how the task was found, type, subject,
-//! time and files, from the entity and its resolved `plan` and `task` edges.
+//! time, files and whether a person waived its gsd/E521, from the entity and its resolved `plan` and `task` edges.
 
 use specforge_extension_sdk::prelude::*;
 
@@ -32,6 +32,8 @@ pub struct Commit {
     pub deletions: i64,
     /// The ids of the recorded commits of its plan it descends from; `None` when the collector wrote no ancestry.
     pub descends_from: Option<Vec<String>>,
+    /// A person waived gsd/E521 on it: its `waiver` block is set (ADR 0381).
+    pub waived: bool,
 }
 
 /// A commit's type, as its subject's `type(scope):` header names it: the executor's commit types
@@ -67,6 +69,65 @@ impl CommitType {
     /// A task commit's type: every one but `docs`, a plan's metadata commit, which names no task by design.
     pub fn is_task(self) -> bool {
         self != Self::Docs
+    }
+}
+
+/// Why gsd/E521 judges a commit: what [`unlinked`] answers for one it judges.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unlinked<'a> {
+    /// Its subject's title found `task`, and no `Gsd-Task:` trailer names it.
+    ByTitle { task: &'a str },
+    /// It is a task commit of `plan` that names no task.
+    NoTask { plan: &'a str },
+}
+
+/// Why gsd/E521 does not judge a commit: what [`unlinked`] answers for one it does not judge, so a refusal to waive it
+/// names the exclusion that applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Unjudged {
+    /// It names no plan: gsd-git records none such.
+    NoPlan,
+    /// It is a `docs` commit, a plan's metadata commit, whatever it names.
+    Docs,
+    /// Its subject's title did not find its task: its `Gsd-Task:` trailer did (gsd-git writes `linked_by` with every
+    /// task it finds).
+    NotByTitle,
+    /// It names no task and its type is not a task type: its subject has no `type:` header, or another word.
+    NoTaskType,
+}
+
+/// The rule of what gsd/E521 judges, read by the pass and by `waive_trailer` so they cannot disagree (ADR 0381 D3): a
+/// commit of a plan that is not `docs` (a plan's metadata commit) and whose task its subject's title found
+/// ([`Unlinked::ByTitle`]), or whose type is a task type and that names no task ([`Unlinked::NoTask`]). Anything else
+/// it does not judge, and it says why ([`Unjudged`]). A waived commit is still one the rule judges: the pass skips it
+/// before reading the rule.
+pub fn unlinked<'a>(
+    plan: Option<&'a str>,
+    task: Option<&'a str>,
+    kind: Option<CommitType>,
+    linked_by: Option<LinkedBy>,
+) -> Result<Unlinked<'a>, Unjudged> {
+    let plan = plan.ok_or(Unjudged::NoPlan)?;
+    if kind == Some(CommitType::Docs) {
+        return Err(Unjudged::Docs);
+    }
+    match (task, linked_by) {
+        (Some(task), Some(LinkedBy::Title)) => Ok(Unlinked::ByTitle { task }),
+        (Some(_), _) => Err(Unjudged::NotByTitle),
+        (None, _) if kind.is_some_and(CommitType::is_task) => Ok(Unlinked::NoTask { plan }),
+        (None, _) => Err(Unjudged::NoTaskType),
+    }
+}
+
+impl Commit {
+    /// [`unlinked`] over the commit's own plan, task, type and `linked_by`.
+    pub fn unlinked(&self) -> Result<Unlinked<'_>, Unjudged> {
+        unlinked(
+            self.plan.as_deref(),
+            self.task.as_deref(),
+            self.kind,
+            self.linked_by,
+        )
     }
 }
 
@@ -120,6 +181,7 @@ pub fn commits(input: &PassInput) -> Vec<Commit> {
                             .map(|d| d.target.clone())
                             .collect()
                     }),
+                    waived: e.fields.contains_key("waiver"),
                 },
                 place,
             )

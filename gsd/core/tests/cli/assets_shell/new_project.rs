@@ -39,9 +39,7 @@ fn sub_repo_step(
 /// bare name, and not a plain directory.
 #[test]
 fn new_project_lists_the_sub_repos() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let (out, err, _) = sub_repo_step(&sh, "printf '%s\\n' \"$SUB_REPOS\"", |_| {});
     assert_eq!(out, "backend\nlinked-wt\n", "{err}");
 }
@@ -51,9 +49,7 @@ fn new_project_lists_the_sub_repos() {
 #[test]
 fn a_failed_sub_repo_listing_stops_the_step() {
     use std::os::unix::fs::PermissionsExt;
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let (out, err, code) = sub_repo_step(&sh, "echo listed", |root| {
         std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o300)).expect("a mode");
     });
@@ -64,9 +60,7 @@ fn a_failed_sub_repo_listing_stops_the_step() {
 #[cfg(unix)]
 #[test]
 fn a_sub_repo_name_holding_a_newline_stops_the_step() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let (out, err, code) = sub_repo_step(&sh, "printf '%s\\n' \"$SUB_REPOS\"", |root| {
         let odd = root.join("we\nird");
         std::fs::create_dir_all(odd.join(".git")).expect("a dir");
@@ -133,9 +127,7 @@ fn requirement_fence(id: &str, text: &str, tier: &str) -> String {
 /// `v1.0/03` first, as the roadmapper maps it: `gsd/E101` binds once phases exist. The check reports nothing new.
 #[test]
 fn the_project_fence_records_the_project_and_its_requirements() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     std::fs::remove_file(p.root().join("spec/project.spec")).expect("the project file");
     let roadmap = p.read("spec/v1.0.spec");
@@ -195,9 +187,7 @@ const RETURNED: &str = "## Executive Summary\nIt's a small board: node:fs reads 
 /// overall confidence, and a second check finds it and writes nothing. The check reports nothing new.
 #[test]
 fn the_synthesizer_self_heal_sets_the_research_summary() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let workflow = asset("gsd-core/workflows/new-project.md");
     let open = typed::filled(

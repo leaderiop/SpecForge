@@ -193,9 +193,7 @@ const PATTERNS: &str = "gsd-core/references/verification-patterns.md";
 /// Step 4 of the integration checker lists the pages whose name says they need a login.
 #[test]
 fn the_protected_pages_are_found() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = sample();
     let step = super::block(
         &super::asset(CHECKER),
@@ -209,9 +207,7 @@ fn the_protected_pages_are_found() {
 /// The environment check finds a file that reads the variable through `process.env`.
 #[test]
 fn the_env_variable_use_is_found() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = sample();
     let search = line_with(&super::asset(PATTERNS), r"process\.env\.$VAR_NAME");
     let (out, err, _) = sh.run_in(p.path(), &format!("VAR_NAME=API_KEY\n{search}"));
@@ -224,9 +220,7 @@ fn the_env_variable_use_is_found() {
 /// `check_substantive` on a file long enough but without the pattern reports one count of lines and one of matches.
 #[test]
 fn a_thin_file_names_its_count_once() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = sample();
     let check = function(&super::asset(PATTERNS), "check_substantive() {");
     let (out, err, _) = sh.run_in(
@@ -239,9 +233,7 @@ fn a_thin_file_names_its_count_once() {
 /// The stub catalog's hard-coded count check finds `count = 5`.
 #[test]
 fn a_hardcoded_count_is_found() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = sample();
     let check = line_with(&super::asset(PATTERNS), r"count.*=.*\d+");
     let (out, err, _) = sh.run_in(p.path(), &format!("file=c.ts\n{check}"));
@@ -252,9 +244,7 @@ fn a_hardcoded_count_is_found() {
 /// unprotected one, as `$(… -q … && echo yes)` made it.
 #[test]
 fn a_verdict_keeps_could_not_read_apart_from_no() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = sample();
     std::fs::write(p.path().join("src/guarded.tsx"), "useAuth();\n").expect("a page");
     std::fs::write(p.path().join("src/open.tsx"), "<a/>\n").expect("a page");
@@ -287,9 +277,7 @@ fn a_verdict_keeps_could_not_read_apart_from_no() {
 /// A tally that exists and cannot be read stops the step: it is not the same as no failures.
 #[test]
 fn the_failure_tally_reads_zero_only_when_it_is_absent() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = crate::harness::taskboard();
     let read = handoff_block("gsd-core/workflows/execute-phase.md", "wave-failure-read");
     let (out, err, code) = sh.run_in(p.root(), &read);
@@ -312,9 +300,7 @@ const WIRING: &str = "gsd-core/references/verifier-wiring-patterns.md";
 /// X, and nothing at N + 1.
 #[test]
 fn a_proximity_line_finds_y_before_x_and_within_n_lines() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     // (asset, the line's own text, its variables, X, Y, N)
     let table = [
         (
@@ -402,9 +388,7 @@ fn a_proximity_line_finds_y_before_x_and_within_n_lines() {
 /// name is not, and with no path the check stops rather than exclude everything.
 #[test]
 fn the_hook_check_leaves_out_only_the_hooks_own_file() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = tempfile::tempdir().expect("a project");
     let write = |path: &str, text: &str| {
         let at = p.path().join(path);
@@ -444,13 +428,11 @@ fn the_hook_check_leaves_out_only_the_hooks_own_file() {
 }
 
 /// A walk skips what `.gitignore` names and every hidden name. A phase's planning files can be
-/// gitignored (`commit_docs: false`) and a test directory's helpers hidden: the two gates that
-/// walk them ask for them, or they would pass on a file they never saw.
+/// gitignored and a test directory's helpers hidden: the two gates that walk them ask for them,
+/// or they would pass on a file they never saw.
 #[test]
 fn a_gate_over_a_directory_reads_what_its_meaning_needs() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = tempfile::tempdir().expect("a project");
     let write = |path: &str, text: &str| {
         let at = p.path().join(path);
@@ -491,9 +473,7 @@ fn printed<'a>(out: &'a str, name: &str) -> Option<&'a str> {
 /// prints the name the planner is told to write. With no phase it stops.
 #[test]
 fn an_outline_is_reused_only_for_its_own_milestones_phase() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = two_milestones();
     let text = super::asset("gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md");
     let check = super::block(&text, "MILESTONE=$(specforge query", "# OUTLINE_REUSE=true");
@@ -534,9 +514,7 @@ fn handoff_block(path: &str, name: &str) -> String {
 /// list written in one reach the block that reads them, and a reset clears what an earlier run left.
 #[test]
 fn the_handoff_blocks_share_one_directory() {
-    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
-        return;
-    };
+    let sh = Shell::only(super::PICK_TOOLS);
     let p = crate::harness::taskboard();
     let run = |script: String| {
         let (out, err, code) = sh.run_in(p.root(), &script);

@@ -7393,6 +7393,50 @@
             "required": false,
             "target_kind": "item",
             "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "a person's waiver of gsd/E521 on this commit, written once by `waive_trailer` (human-attested), never by the collector",
+            "edge": null,
+            "field_type": "block",
+            "immutable": true,
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "reason",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "by",
+                "required": true,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "at",
+                "required": true,
+                "target_kind": null
+              }
+            ],
+            "name": "waiver",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
           }
         ],
         "has_body_parser": false,

@@ -2,7 +2,7 @@
 //! and playing a judge (reading a rule's inputs and recording its verdict). A child of `harness.rs`, so it reaches
 //! [`Project`]'s fields; `@gsd/security`'s tests compile it through their include of `harness.rs`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use gsd_kit::judged::{Judged, Owed};
 use serde_json::Value;
@@ -331,6 +331,33 @@ impl Project {
         assert_eq!(run.code, 0, "{}", run.all());
         serde_json::from_str(&run.stdout)
             .unwrap_or_else(|e| panic!("re-verify prints JSON ({e}): {}", run.all()))
+    }
+
+    /// The truths of `subject` (a phase or a plan) whose verdict is not fresh, as `re-verify --stale-only` lists them,
+    /// each with its verdict's state: `stale`, `missing`, `unrecorded` or `unreadable`.
+    pub fn listed_truths(&self, subject: &str) -> BTreeMap<String, String> {
+        let answer = self.re_verify(subject, true);
+        answer["items"]
+            .as_array()
+            .unwrap_or_else(|| panic!("re-verify lists items: {answer}"))
+            .iter()
+            .filter(|item| item["kind"] == "truth")
+            .map(|item| {
+                let entity = item["entity"].as_str().expect("an entity").to_string();
+                let state = item["state"].as_str().expect("a state").to_string();
+                (entity, state)
+            })
+            .collect()
+    }
+
+    /// The truths of `subject` whose verdict is stale: the stale entries of [`Project::listed_truths`], the set
+    /// `gsd/I527` names under a check with a base.
+    pub fn stale_truths(&self, subject: &str) -> BTreeSet<String> {
+        self.listed_truths(subject)
+            .into_iter()
+            .filter(|(_, state)| state == "stale")
+            .map(|(truth, _)| truth)
+            .collect()
     }
 
     /// Every recorded verdict of the project, byte for byte: each `verdict <rule> …` block of `spec/` by its entity

@@ -47,9 +47,9 @@ specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[fields.
 - Plans that depend on other gap closure plans → max(dependency waves) + 1
 - Also consider dependencies on existing (non-gap) plans in the phase
 
-**8. Write each gap plan with the typed edits of the planner's `<plan_format>`**, numbered after the existing plans,
-with the gaps it closes: `--gap_closure` takes the `verify_gap` or `uat_gap` ids, comma-separated. `wave` and
-`autonomous` are computed. The gaps are read with:
+**8. Write the gap plans with the plan edit of the planner's `<plan_format>`**, all of them in one `specforge.edit`
+call, numbered after the existing plans: each plan's `gap_closure` field lists the `verify_gap` or `uat_gap` ids it
+closes. `wave` and `autonomous` are computed. The gaps are read with:
 
 ```bash
 specforge query "$PHASE_ID" --depth 3 --kinds verify_gap,uat_gap --format context

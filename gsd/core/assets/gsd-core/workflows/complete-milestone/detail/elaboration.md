@@ -34,7 +34,7 @@ Use `init milestone-op` for context, or load config directly:
 
 ```
 
-The strategy is `git.branching_strategy` and each branch the computed `branch` of its phase or milestone. `commit_docs` and `git.create_tag` are settings: `specforge settings --format json --extension @gsd/core`; no init bundle prints a section manifest, so it is null and the `git_tag` step below is read.
+The strategy is `git.branching_strategy` and each branch the computed `branch` of its phase or milestone. `git.create_tag` is a setting: `specforge settings --format json --extension @gsd/core`; no init bundle prints a section manifest, so it is null and the `git_tag` step below is read.
 
 `BASE_BRANCH` is already resolved by the spine at this point (via the shared `git.base-branch` resolver) — the branch options below use it as-is.
 
@@ -78,20 +78,14 @@ AskUserQuestion with options: Squash merge (Recommended), Merge with history, De
 : "${MILESTONE:?MILESTONE is not set: the milestone being completed}"
 BRANCHES=$(specforge gsd milestone-branches "$MILESTONE" --pick '.branches[]') || exit 1
 BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
-COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
 CURRENT_BRANCH=$(specforge git head --pick .branch) || exit 1
 specforge git switch "$BASE_BRANCH" || exit 1
 
 while IFS= read -r branch; do
   [ -n "$branch" ] || continue
   specforge git merge --squash "$branch" || exit 1
-  # Strip spec/ from staging if commit_docs is false
-  if [ "$COMMIT_DOCS" = "false" ]; then
-    specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
-  fi
   specforge git commit -m "feat: $branch for v[X.Y]" || exit 1
 done <<<"$BRANCHES"
-
 
 specforge git switch "$CURRENT_BRANCH"
 ```
@@ -102,20 +96,14 @@ specforge git switch "$CURRENT_BRANCH"
 : "${MILESTONE:?MILESTONE is not set: the milestone being completed}"
 BRANCHES=$(specforge gsd milestone-branches "$MILESTONE" --pick '.branches[]') || exit 1
 BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
-COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
 CURRENT_BRANCH=$(specforge git head --pick .branch) || exit 1
 specforge git switch "$BASE_BRANCH" || exit 1
 
 while IFS= read -r branch; do
   [ -n "$branch" ] || continue
   specforge git merge --no-ff --no-commit "$branch" || exit 1
-  # Strip spec/ from staging if commit_docs is false
-  if [ "$COMMIT_DOCS" = "false" ]; then
-    specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
-  fi
   specforge git commit -m "Merge branch '$branch' for v[X.Y]" || exit 1
 done <<<"$BRANCHES"
-
 
 specforge git switch "$CURRENT_BRANCH"
 ```

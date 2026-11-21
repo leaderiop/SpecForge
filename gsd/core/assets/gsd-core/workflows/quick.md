@@ -128,7 +128,7 @@ AGENT_SKILLS_VERIFIER=""   # the host install carries the skills of gsd-verifier
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
 ```
 
-The fence above printed `quick_id`, `slug`, `branch_name`, `title` and `date`; `quick_dir` and `task_dir` are `$quick_id`. Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`.
+The fence above printed `quick_id`, `slug`, `branch_name`, `title` and `date`; `quick_dir` and `task_dir` are `$quick_id`. Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.
 
 The project is no file, so there is no path to hand a subagent: it reads it with `specforge` (#2376):
 ```bash
@@ -318,6 +318,10 @@ ${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds 
 ${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings — use to inform implementation choices)' : ''}
 </required_reading>
 
+**Open questions the research returned:** {the items of the researcher's `### Open Questions`, or none}.
+Each is the user's to answer, not yours: record no decision that resolves it and do not record it; write the
+plans so they hold whatever the answer, and list it under `### Open Questions` in your return.
+
 ${AGENT_SKILLS_PLANNER}
 
 **Project skills:** Check .claude/skills/ or .agents/skills/ directory (if either exists) — read SKILL.md files, plans should account for project skill rules
@@ -354,6 +358,31 @@ After planner returns:
 1. Verify the plan is planned (it holds a task; the plan the init step wrote holds none): `[ -n "$(specforge query "${quick_id}" --kinds task --depth 1 --pick '.nodes[kind=task].id')" ]`
 2. Extract plan count (typically 1 for quick tasks)
 3. Report: "Plan created: plan ${quick_id}"
+4. When the return lists `### Open Questions`, ask the user each one (under `--auto`, ask nothing and report
+   them as open). For each answer, record the answer as a decision, then the question resolved by it, in
+   that order: gsd-strict refuses the question while no decision resolves it (`gsd/W204`), and accepts it
+   once the decision exists.
+
+```bash
+QUICK_ID="{the quick plan's id, e.g. 261121-abc}"
+RESEARCH_ID="{the research id, e.g. 261121-abc-RESEARCH}"
+DECISION_ID="{the quick plan's next decision id, e.g. 261121-abc-D-01}"
+QUESTION_ID="{the question's id, e.g. 261121-abc-Q1}"
+IFS= read -rd '' ANSWER <<'TEXT' || true; ANSWER=${ANSWER%$'\n'}
+{the user's answer}
+TEXT
+IFS= read -rd '' QUESTION <<'TEXT' || true; QUESTION=${QUESTION%$'\n'}
+{the question, as the research returned it}
+TEXT
+IFS= read -rd '' UNCLEAR <<'TEXT' || true; UNCLEAR=${UNCLEAR%$'\n'}
+{what was unclear, as the research returned it}
+TEXT
+SPEC_FILE=spec/quick.spec
+specforge new decision "$DECISION_ID" "$ANSWER" --in "$SPEC_FILE" --plan "$QUICK_ID" --text "$ANSWER" --origin checkpoint || exit 1
+specforge new open_question "$QUESTION_ID" "$QUESTION" --in "$SPEC_FILE" --research "$RESEARCH_ID" --question "$QUESTION" --unclear "$UNCLEAR" --resolved_by "$DECISION_ID" || exit 1
+```
+
+   A question the user leaves open is not recorded, since gsd-strict refuses it.
 
 If the plan holds no task, error: "Planner failed to create plan ${quick_id}"
 

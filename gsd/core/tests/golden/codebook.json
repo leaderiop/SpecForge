@@ -426,6 +426,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
       "explanation": "A plan that shares a path with an earlier plan of its phase, or depends on one that does, runs after it: its strict wave is above its declared wave. It is a warning.",
       "title": "Wave collision"
+    },
+    {
+      "code": "I527",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "On a check with a base (check --since a revision, read at its merge-base, or a session's last check), each truth whose verifier verdict is stale says what changed since that base: the spec it reads (the truth, its plan or its phase) or only the files its verdict cites; silent on a plain check. It is information.",
+      "title": "What changed under a stale truth since the base"
     }
   ]
 }

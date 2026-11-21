@@ -71,16 +71,16 @@ every field is immutable and the kind is append-only (E084, E085).
 ## commit
 
 Written by the git collector, not by an agent: every field is `H` (a command's or collector's plan sets it; the host
-refuses any other writer). The collector (`gsd-git`) reads the whole log through the host's git port (ADR 0352) and is
-named explicitly (`specforge collect --runner gsd-git`) or detected; an incremental `{since}` is not needed at core's
-scale. It reads GSD's
-own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`), and matches the
-task by its title. A `Gsd-Task:` trailer, `<plan>/<task>` or the task's full id, comes first (ADR 0331 D3, ADR 0380):
-one that names a task fixes the plan and the task, whatever the subject says (`linked_by Gsd-Task`); otherwise the
-subject decides (`linked_by title`). A
-commit whose description is no task's title (the metadata commit `docs(03-02): complete … plan`) names its plan
-only. A commit that names no plan is not recorded. Each is recorded in its plan's file (so executors of one wave never
-write the same file), in the project scope, named by the first 12 hex digits of its hash.
+refuses any other writer), and every field but `waiver` is the collector's; a person writes `waiver` with
+`waive_trailer` (human-attested, ADR 0381). The collector (`gsd-git`) reads the whole log through the host's git port
+(ADR 0352) and is named explicitly (`specforge collect --runner gsd-git`) or detected; an incremental `{since}` is not
+needed at core's scale. It reads GSD's own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02):
+issue a token on sign-in`), and matches the task by its title. A `Gsd-Task:` trailer, `<plan>/<task>` or the task's full
+id, comes first (ADR 0331 D3, ADR 0380): one that names a task fixes the plan and the task, whatever the subject says
+(`linked_by Gsd-Task`); otherwise the subject decides (`linked_by title`). A commit whose description is no task's title
+(the metadata commit `docs(03-02): complete … plan`) names its plan only. A commit that names no plan is not recorded.
+Each is recorded in its plan's file (so executors of one wave never write the same file), in the project scope, named by
+the first 12 hex digits of its hash.
 
 | Field | Type | Flags | |
 |---|---|---|---|
@@ -96,6 +96,7 @@ write the same file), in the project scope, named by the first 12 hex digits of 
 | insertions, deletions | int | H | the lines it added and removed, of every file it touched |
 | items_changed | →* item | H I | the `@code/core` items whose lines it wrote, or deleted inside, as named when it is recorded: its diff's line ranges carried to the worktree by one more diff and met with the stored item facts' spans (ADR 0352 D1); written once (a history reference, never `code/E101`); a commit recorded before item facts were served gets it on the first collect that serves them; absent without `@code/core` |
 | descends_from | →* commit | H | the recorded commits of the same plan this one reaches through its parents (`%P`, merges included), oldest first; `[]` for none, absent on a commit recorded before ancestry was collected. W403 reads it (#5275) |
+| waiver | block{reason, by, at} | H I | a person's waiver of gsd/E521 on this commit, set once by `specforge gsd waive-trailer <commit> '<reason>' <who>` at the host's clock; never written by the collector (ADR 0381) |
 
 **Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs the collector, which
 runs no program: it asks the host's git port for the typed log from `HEAD` (its trailers and author times), then one
@@ -128,7 +129,10 @@ title notes `(trailer of <12 hex> names no task: <value or "unreadable">)`. A re
 GSD's executor writes the trailer: `gsd-executor.md`'s commit step ends the message with it as a second `-m`, its last
 paragraph (ADR 0351). A commit already recorded keeps its fields: a trailer added later links only the commits
 recorded from then on, and amending a commit to add one gives a new hash, recorded beside the old commit, whose
-`linked_by` and gsd/E521 stay (ADR 0380).
+`linked_by` and gsd/E521 stay (ADR 0380) unless a person waives the error: the waiver sets the `waiver` block beside the
+recorded fields and leaves every field gsd-git recorded as it was through every later collect, bar the one-time
+`items_changed` backfill onto a commit recorded before item facts were served, and gsd/E521's suggestion names its
+command line with the commit's name (ADR 0381).
 
 A plan op refused `stale_revision` (the plan's file changed since the compile) writes
 nothing, and the next run records the same commits. Merges are read for their parents and never recorded.

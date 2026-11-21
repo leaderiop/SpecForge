@@ -23,12 +23,30 @@ fn items(judge: &str, at: &str) -> String {
         .join(" or ")
 }
 
-/// The tail naming the verdicts that refuse every named run, `blockers` as `<holder> (<judge>)`, joined.
-fn tail(blockers: &str) -> String {
+/// The tail naming the verdicts that refuse every named run, `owed` as [`on`] writes its groups.
+fn tail(owed: &str) -> String {
     format!(
-        "; every run named here is also refused by the verdicts owed on {blockers}, outside its scope or of a judge it \
-         does not run: record those first, a gsd rule's with `specforge gsd record-verdict`, which no gate refuses"
+        "; every run named here is also refused by the verdicts owed {owed}, outside its scope or of a judge it does \
+         not run: record those first, a gsd rule's with `specforge gsd record-verdict`, which no gate refuses"
     )
+}
+
+/// The groups of a tail held by a phase or milestone, each written by [`held`]: `on <group>, <group>`.
+fn on(groups: &[String]) -> String {
+    format!("on {}", groups.join(", "))
+}
+
+/// One group of a tail: its `holder`, its judge `by` and the `entities` owing it, quoted, in the order given.
+fn held(holder: &str, by: &str, entities: &[&str]) -> String {
+    let quoted: Vec<String> = entities.iter().map(|e| format!("'{e}'")).collect();
+    format!("{holder} ({by}: {})", quoted.join(", "))
+}
+
+/// One group of a tail no phase or milestone holds: its `entities`, quoted, each owing its judge `by` itself.
+fn itself(by: &str, entities: &[&str]) -> String {
+    let quoted: Vec<String> = entities.iter().map(|e| format!("'{e}'")).collect();
+    let each = if entities.len() == 1 { "" } else { ", each" };
+    format!("by {}{each} itself ({by})", quoted.join(", "))
 }
 
 /// The suggestion of a stale or unrecorded verdict of another core judge than the verifier on `entity`, held on `at`.
@@ -115,7 +133,10 @@ fn e516_names_the_remedy_of_a_verdict_by_its_judge() {
         "record the verdict again over the current inputs: run /gsd-execute-phase v1.0/01 (`specforge prompt \
          gsd.execute_phase v1.0/01`); `specforge gsd re-verify v1.0/01/01-01 --stale-only` lists the verifier's \
          verdicts that are not fresh{}",
-        tail("v1.0/01 (gsd-plan-checker), v1.0/01 (gsd.security/W302)")
+        tail(&on(&[
+            held("v1.0/01", "gsd-plan-checker", &["v1.0/01/01-01"]),
+            held("v1.0/01", "gsd.security/W302", &["v1.0/01/01-01/T1"])
+        ]))
     );
     assert_eq!(how(&found, "v1.0/01/01-01/TR1"), exact);
     assert_eq!(how(&found, "v1.0/01/01-01/PR1"), exact);
@@ -130,7 +151,14 @@ fn e516_names_the_remedy_of_a_verdict_by_its_judge() {
     assert_eq!(
         checker,
         again("gsd/W311", "gsd-plan-checker", "v1.0/01/01-01", "v1.0/01")
-            + &tail("v1.0/01 (gsd-verifier), v1.0/01 (gsd.security/W302)")
+            + &tail(&on(&[
+                held(
+                    "v1.0/01",
+                    "gsd-verifier",
+                    &["v1.0/01/01-01/PR1", "v1.0/01/01-01/TR1"]
+                ),
+                held("v1.0/01", "gsd.security/W302", &["v1.0/01/01-01/T1"])
+            ]))
     );
     assert_eq!(
         how(&found, "v1.0/01/01-01/T1"),
@@ -188,13 +216,22 @@ fn a_stale_verdict_in_another_phase_names_that_phase() {
             .all(|(entity, _)| entity == "v1.0/02"),
         "{found:?}"
     );
-    let exact = verifier("v1.0/01", "v1.0/01/01-01") + &tail("v1.0/01 (gsd-plan-checker)");
+    let exact = verifier("v1.0/01", "v1.0/01/01-01")
+        + &tail(&on(&[held(
+            "v1.0/01",
+            "gsd-plan-checker",
+            &["v1.0/01/01-01"],
+        )]));
     assert_eq!(how(&found, "v1.0/01/01-01/TR1"), exact);
     assert_eq!(how(&found, "v1.0/01/01-01/PR1"), exact);
     assert_eq!(
         how(&found, "v1.0/01/01-01"),
         again("gsd/W311", "gsd-plan-checker", "v1.0/01/01-01", "v1.0/01")
-            + &tail("v1.0/01 (gsd-verifier)")
+            + &tail(&on(&[held(
+                "v1.0/01",
+                "gsd-verifier",
+                &["v1.0/01/01-01/PR1", "v1.0/01/01-01/TR1"]
+            )]))
     );
     for d in &found {
         let suggestion = d.suggestion.as_deref().unwrap_or_default();
@@ -241,7 +278,8 @@ fn a_prompt_judged_rule_names_its_own_prompt() {
 }
 
 /// A quick plan has no phase or milestone above it: no prompt's run covers it, so its verdict names the gate-free
-/// `record-verdict`, never a placeholder, and it refuses every run another verdict names (it sits outside each scope).
+/// `record-verdict`, never a placeholder, and it refuses every run another verdict names (it sits outside each scope),
+/// which names it by its own id, never as a holder.
 #[test]
 fn an_entity_no_phase_scopes_names_the_gate_free_route_and_refuses_the_named_runs() {
     let found = e516(&input(
@@ -273,7 +311,7 @@ fn an_entity_no_phase_scopes_names_the_gate_free_route_and_refuses_the_named_run
     // The missing verdict refuses only a gate that covers it: no run on a phase does.
     assert_eq!(
         how(&found, "v1.0/01/01-01/TR1"),
-        verifier("v1.0/01", "v1.0/01/01-01") + &tail("260321-a1b (gsd-plan-checker)")
+        verifier("v1.0/01", "v1.0/01/01-01") + &tail(&itself("gsd-plan-checker", &["260321-a1b"]))
     );
     for d in &found {
         assert!(
@@ -338,11 +376,21 @@ fn a_verdict_owed_in_two_phases_names_both_and_the_gate_free_route() {
     assert_eq!(found.len(), 2, "{found:?}");
     assert_eq!(
         how(&found, "v1.0/01/01-01/TR1"),
-        verifier("v1.0/01", "v1.0/01/01-01") + &tail("v1.0/03 (gsd-verifier)")
+        verifier("v1.0/01", "v1.0/01/01-01")
+            + &tail(&on(&[held(
+                "v1.0/03",
+                "gsd-verifier",
+                &["v1.0/03/03-01/TR1"]
+            )]))
     );
     assert_eq!(
         how(&found, "v1.0/03/03-01/TR1"),
-        verifier("v1.0/03", "v1.0/03/03-01") + &tail("v1.0/01 (gsd-verifier)")
+        verifier("v1.0/03", "v1.0/03/03-01")
+            + &tail(&on(&[held(
+                "v1.0/01",
+                "gsd-verifier",
+                &["v1.0/01/01-01/TR1"]
+            )]))
     );
     // Three holders: the tail lists the other two, in natural order.
     let found = e516(&project(
@@ -355,13 +403,17 @@ fn a_verdict_owed_in_two_phases_names_both_and_the_gate_free_route() {
         ],
     ));
     assert!(
-        how(&found, "v1.0/01/01-01/TR1")
-            .ends_with(&tail("v1.0/9 (gsd-verifier), v1.0/10 (gsd-verifier)")),
+        how(&found, "v1.0/01/01-01/TR1").ends_with(&tail(&on(&[
+            held("v1.0/9", "gsd-verifier", &["v1.0/9/9-01/TR1"]),
+            held("v1.0/10", "gsd-verifier", &["v1.0/10/10-01/TR1"])
+        ]))),
         "{found:?}"
     );
     assert!(
-        how(&found, "v1.0/10/10-01/TR1")
-            .ends_with(&tail("v1.0/01 (gsd-verifier), v1.0/9 (gsd-verifier)")),
+        how(&found, "v1.0/10/10-01/TR1").ends_with(&tail(&on(&[
+            held("v1.0/01", "gsd-verifier", &["v1.0/01/01-01/TR1"]),
+            held("v1.0/9", "gsd-verifier", &["v1.0/9/9-01/TR1"])
+        ]))),
         "{found:?}"
     );
 }
@@ -382,7 +434,12 @@ fn a_holder_the_gate_excuses_is_still_named_for_another_holder() {
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(
         how(&found, "v1.0/03/03-01/TR1"),
-        verifier("v1.0/03", "v1.0/03/03-01") + &tail("v1.0/01 (gsd-verifier)")
+        verifier("v1.0/03", "v1.0/03/03-01")
+            + &tail(&on(&[held(
+                "v1.0/01",
+                "gsd-verifier",
+                &["v1.0/01/01-01/TR1"]
+            )]))
     );
 }
 
@@ -405,7 +462,11 @@ fn a_missing_verdict_names_a_stale_holder_elsewhere() {
         format!(
             "run {} to judge it (its judge: gsd-plan-checker){}",
             items("gsd-plan-checker", "v1.0/02"),
-            tail("v1.0/03 (gsd-plan-checker)")
+            tail(&on(&[held(
+                "v1.0/03",
+                "gsd-plan-checker",
+                &["v1.0/03/03-01"]
+            )]))
         )
     );
     assert_eq!(
@@ -462,7 +523,12 @@ fn an_unreadable_verdict_keeps_its_text_and_refuses_the_named_runs() {
     );
     assert_eq!(
         how(&found, "v1.0/02/02-01/TR1"),
-        verifier("v1.0/02", "v1.0/02/02-01") + &tail("v1.0/01 (gsd-verifier)")
+        verifier("v1.0/02", "v1.0/02/02-01")
+            + &tail(&on(&[held(
+                "v1.0/01",
+                "gsd-verifier",
+                &["v1.0/01/01-01/TR1"]
+            )]))
     );
 }
 
@@ -507,12 +573,21 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
     assert_eq!(found.len(), 2, "{found:?}");
     assert_eq!(
         how(&found, "v1.0/01/01-01/TR1"),
-        verifier("v1.0/01", "v1.0/01/01-01") + &tail("v1.0/02 (gsd-plan-checker)")
+        verifier("v1.0/01", "v1.0/01/01-01")
+            + &tail(&on(&[held(
+                "v1.0/02",
+                "gsd-plan-checker",
+                &["v1.0/02/02-01"]
+            )]))
     );
     assert_eq!(
         how(&found, "v1.0/02/02-01"),
         again("gsd/W311", "gsd-plan-checker", "v1.0/02/02-01", "v1.0/02")
-            + &tail("v1.0/01 (gsd-verifier)")
+            + &tail(&on(&[held(
+                "v1.0/01",
+                "gsd-verifier",
+                &["v1.0/01/01-01/TR1"]
+            )]))
     );
 }
 
@@ -527,12 +602,22 @@ fn verdicts_of_two_judges_in_one_phase_name_each_other() {
          again (its judge: gsd-phase-researcher): it records the verdict over the current inputs (`specforge query \
          v1.0/01/01-RESEARCH/PA1 --inputs gsd/W205`)"
             .to_string()
-            + &tail("v1.0/01 (gsd-verifier), v1.0/02 (gsd-plan-checker)")
+            + &tail(&on(&[
+                held("v1.0/01", "gsd-verifier", &["v1.0/01/01-01/TR1"]),
+                held("v1.0/02", "gsd-plan-checker", &["v1.0/02/02-01"])
+            ]))
     );
     assert_eq!(
         how(&found, "v1.0/01/01-01/TR1"),
         verifier("v1.0/01", "v1.0/01/01-01")
-            + &tail("v1.0/01 (gsd-phase-researcher), v1.0/02 (gsd-plan-checker)")
+            + &tail(&on(&[
+                held(
+                    "v1.0/01",
+                    "gsd-phase-researcher",
+                    &["v1.0/01/01-RESEARCH/PA1"]
+                ),
+                held("v1.0/02", "gsd-plan-checker", &["v1.0/02/02-01"])
+            ]))
     );
 }
 
@@ -551,7 +636,14 @@ fn a_researcher_verdict_in_a_complete_phase_names_the_gate_free_route() {
     assert_eq!(
         how(&found, "v1.0/02/02-01"),
         again("gsd/W311", "gsd-plan-checker", "v1.0/02/02-01", "v1.0/02")
-            + &tail("v1.0/01 (gsd-phase-researcher), v1.0/01 (gsd-verifier)")
+            + &tail(&on(&[
+                held(
+                    "v1.0/01",
+                    "gsd-phase-researcher",
+                    &["v1.0/01/01-RESEARCH/PA1"]
+                ),
+                held("v1.0/01", "gsd-verifier", &["v1.0/01/01-01/TR1"])
+            ]))
     );
 }
 
@@ -583,3 +675,6 @@ fn a_verdict_that_refuses_only_some_named_runs_is_not_listed() {
         "{found:?}"
     );
 }
+
+mod docs;
+mod tail;

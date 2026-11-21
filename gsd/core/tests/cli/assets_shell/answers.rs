@@ -23,7 +23,7 @@ fn run(
     (out, err)
 }
 
-fn shell() -> Option<Shell> {
+fn shell() -> Shell {
     Shell::without_jq()
 }
 
@@ -33,7 +33,7 @@ fn shell() -> Option<Shell> {
 /// story on two lines is no user story, which a `grep` for `.+` let through.
 #[test]
 fn the_user_story_guard_reads_the_phase_goal() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let path = "agents/gsd-verifier.md";
     let guard = |phase: &str| {
@@ -80,7 +80,7 @@ fn the_user_story_guard_reads_the_phase_goal() {
 /// nothing. With none named, every verification is prior: this phase has none yet (the gate runs before it).
 #[test]
 fn the_regression_gate_keeps_every_verification_when_no_phase_is_named() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let path = "gsd-core/workflows/execute-phase/steps/regression-gate.md";
     let prior = |phase: &str| {
@@ -107,7 +107,7 @@ fn the_regression_gate_keeps_every_verification_when_no_phase_is_named() {
 
 #[test]
 fn a_setting_is_picked_by_its_name() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let path = "agents/gsd-executor.md";
     let starts = ["AUTO_CFG=$(", "HUMAN_VERIFY_MODE=$("];
@@ -128,7 +128,7 @@ fn a_setting_is_picked_by_its_name() {
 /// progress count missed the skip, and verify-work's gates missed both (a missing result matched no pattern).
 #[test]
 fn the_uat_debt_follows_the_uat_test_kinds_rule() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let spec = p.root().join("spec/verify.spec");
     let mut text = std::fs::read_to_string(&spec).expect("the UAT file");
@@ -177,7 +177,7 @@ fn the_uat_debt_follows_the_uat_test_kinds_rule() {
 /// `--depth 2` query also reached the next phase's 02-01 (upstream globs the phase's own `*-PLAN.md`).
 #[test]
 fn the_plan_coverage_is_specforges() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let dir = tempfile::tempdir().expect("a run dir");
     std::fs::write(
@@ -243,7 +243,7 @@ fn the_plan_coverage_is_specforges() {
 /// back to, not a `{"worktrees":[]}` file.
 #[test]
 fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let dir = tempfile::tempdir().expect("a dir");
     let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
     let create = line(&text, "QB_CREATE_LIST=");
@@ -276,7 +276,7 @@ fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
 
 #[test]
 fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let (out, _) = run(
         &sh,
@@ -400,7 +400,7 @@ fn inline(text: &str, start: &str) -> String {
 
 #[test]
 fn an_inline_run_reads_the_graph_with_pick() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     for path in [
         "gsd-core/workflows/discuss-phase.md",
@@ -436,7 +436,7 @@ fn an_inline_run_reads_the_graph_with_pick() {
 /// blank slot (the three answers were only checked for being empty) is re-prompted.
 #[test]
 fn a_user_story_is_checked_by_specforge() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let text = asset("gsd-core/workflows/mvp-phase.md");
     let check = block(&text, "USER_STORY_RESULT=$(", "RE_PROMPT_USER_STORY=true") + "\nfi";
@@ -473,7 +473,7 @@ fn a_user_story_is_checked_by_specforge() {
 /// period, which its `grep -qiE` took, is refused.
 #[test]
 fn the_mvp_uat_framing_checks_the_goal_with_specforge() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let spec = p.root().join("spec/v1.0.spec");
     let text = std::fs::read_to_string(&spec).expect("the roadmap");
@@ -506,7 +506,7 @@ fn the_mvp_uat_framing_checks_the_goal_with_specforge() {
 
 #[test]
 fn the_decision_coverage_gate_fails_on_a_listed_finding() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let text = asset("gsd-core/workflows/plan-phase.md");
     let gate = block(&text, "[ -z \"$GATE_RESULT\" ] || {", "}");
     for (result, want) in [
@@ -529,7 +529,7 @@ fn the_decision_coverage_gate_fails_on_a_listed_finding() {
 
 #[test]
 fn the_default_reviewers_are_counted_from_the_setting() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let text = asset("gsd-core/workflows/plan-review-convergence.md");
     let pick = block(
@@ -551,7 +551,7 @@ fn the_default_reviewers_are_counted_from_the_setting() {
 /// The PR's head, state and checks come from GitHub's REST API, one GET a field; checks are runs plus statuses.
 #[test]
 fn the_pull_request_state_is_read_from_github_s_rest_api() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let text = asset("gsd-core/workflows/ship.md");
     let read = [
         line(&text, "HEAD_OID=$(specforge http get"),
@@ -582,7 +582,7 @@ fn the_pull_request_state_is_read_from_github_s_rest_api() {
 /// placeholder one-liner are named by their entity's id, the others not.
 #[test]
 fn the_text_scans_read_one_row_per_entity() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let scan = |path: &str, start: &str| run(&sh, &p, path, "MILESTONE=v1.0", &[start], "").0;
     let deferred = (
@@ -624,7 +624,7 @@ fn the_text_scans_read_one_row_per_entity() {
 /// (`--reset-phase-numbers`): v2.0/01 has two plans and no summary, v1.0/01 two plans with their summaries.
 #[test]
 fn a_phases_counts_are_read_by_its_own_id() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     p.write(
         "spec/v2.0.spec",
@@ -668,7 +668,7 @@ fn a_phases_counts_are_read_by_its_own_id() {
 /// report naming the failure, never the empty file a reader takes for "nothing to report".
 #[test]
 fn a_failed_plan_coverage_check_is_loud() {
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let dir = tempfile::tempdir().expect("a run dir");
     let review = dir.path().join("gsd-review-x.md");
@@ -718,7 +718,7 @@ fn the_debt_step_reads_the_verification_debt_answer() {
         step.contains("`{milestone, current, archived, archived_total, blockers}`"),
         "{path}"
     );
-    let Some(sh) = shell() else { return };
+    let sh = shell();
     let p = taskboard();
     let (out, err) = run(
         &sh,

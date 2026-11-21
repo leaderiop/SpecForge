@@ -9,9 +9,7 @@ use crate::harness::taskboard;
 /// file is looked up: a close writes none.
 #[test]
 fn the_autonomous_close_check_reads_the_milestones_completion() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = crate::cmd_milestone::ready();
     let check = fence_after(
         &asset("gsd-core/workflows/autonomous.md"),
@@ -36,9 +34,7 @@ fn the_autonomous_close_check_reads_the_milestones_completion() {
 /// prints, and prints nothing for a phase that has none. A context is an entity, never a `*-CONTEXT.md` file.
 #[test]
 fn the_next_phases_context_is_read_from_the_graph() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let entity = p.run(&[
         "query",
@@ -74,9 +70,7 @@ fn the_next_phases_context_is_read_from_the_graph() {
 /// requirement ids as a JSON list. No guard over a file path is left to skip an entity id.
 #[test]
 fn the_audit_reads_every_summarys_requirements() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let check = fence_after(&asset("gsd-core/workflows/audit-milestone.md"), "### 5c.");
     let (out, err, _) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{check}"));
@@ -95,9 +89,7 @@ fn the_audit_reads_every_summarys_requirements() {
 /// fence, and is skipped only when the phase has none. Ship names no phase directory.
 #[test]
 fn a_ship_hook_is_handed_the_phases_uat_session() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let text = asset("gsd-core/workflows/ship.md");
     assert!(!text.contains("PHASE_DIR"), "ship.md names PHASE_DIR");
@@ -137,9 +129,7 @@ fn a_ship_hook_is_handed_the_phases_uat_session() {
 /// `**UI hint**: yes`, so a grep of the phase's text for it is always false.
 #[test]
 fn the_ui_gate_reads_the_phases_frontend_field() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/progress.md");
     let lines: Vec<&str> = text.lines().map(str::trim_start).collect();
     let at = lines
@@ -163,9 +153,7 @@ fn the_ui_gate_reads_the_phases_frontend_field() {
 /// line `printf … > <path>`, with its path swapped for prose, wrote a file named `a`.
 #[test]
 fn the_milestone_close_writes_no_scratch_file() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/complete-milestone.md");
     let step = block(
         &text,
@@ -194,9 +182,7 @@ fn the_milestone_close_writes_no_scratch_file() {
 /// replans it.
 #[test]
 fn a_chunked_plan_resumes_past_its_entity() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let text = asset("gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md");
     let check = block(&text, "PLAN_ENTITY=", "fi");
@@ -219,9 +205,7 @@ fn a_chunked_plan_resumes_past_its_entity() {
 /// manifest, a phase directory or a requirements file) is left for the model to fill.
 #[test]
 fn the_verify_step_reads_its_own_inputs() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     p.settings(serde_json::json!({ "response_language": "fr" }));
     let text = asset("gsd-core/workflows/execute-phase/steps/verify-phase-goal.md");

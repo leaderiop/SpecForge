@@ -5,6 +5,9 @@
 trailer's value. Builds on [ADR 0351](0351-a-plan-lists-its-decisions-and-the-threads-gaps-have-codes.md) D6
 (`gsd/E521` reads the trailer) and [ADR 0303](0303-a-collectors-plan-is-judged-for-host-errors-only.md) (a
 collector's plan is never refused for it). No protocol change, no kernel change, no new code and no new setting.
+Its Limits item on a recorded commit's error and its Consequences item on the suggestion are amended by
+[ADR 0381](0381-a-person-waives-a-recorded-commits-trailer-error-beside-its-record.md): a person waives the error
+beside the record.
 
 ## Context
 

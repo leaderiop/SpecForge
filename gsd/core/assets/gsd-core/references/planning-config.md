@@ -5,11 +5,6 @@ Configuration options for spec behavior.
 
 <config_schema>
 ```json
-"planning": {
-  "commit_docs": true,
-  "pr_strict": false,
-  "search_gitignored": false
-},
 "git": {
   "branching_strategy": "none",
   "base_branch": null,
@@ -29,9 +24,6 @@ Configuration options for spec behavior.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `commit_docs` | `true` | Whether to commit planning artifacts to git |
-| `pr_strict` | `false` | Filter mode for `/gsd:pr-branch`. `false` keeps the spec's planning entities (the project, its milestones, phases and requirements) in the PR branch; `true` drops every spec path |
-| `search_gitignored` | `false` | Add `--no-ignore` to broad rg searches |
 | `git.branching_strategy` | `"none"` | Git branching approach: `"none"`, `"phase"`, or `"milestone"` |
 | `git.base_branch` | `null` (auto-detect) | Target branch for PRs and merges (e.g. `"master"`, `"develop"`). When `null`, auto-detects from `git symbolic-ref refs/remotes/origin/HEAD`, falling back to `"main"`. |
 | `git.protected_branches` | (none) | Optional array of non-empty strings naming additional shared branches that should trigger protected-branch warnings |
@@ -73,85 +65,8 @@ still apply.
 }
 ```
 
-<commit_docs_behavior>
-
-**When `commit_docs: true` (default):**
-- Planning files committed normally
-- SUMMARY.md, STATE.md, ROADMAP.md tracked in git
-- Full history of planning decisions preserved
-
-**When `commit_docs: false`:**
-- Skip all `git add`/`git commit` for the spec files
-- The spec stays tracked (never `.gitignore` it); keep it out of a pull request with `/gsd-pr-branch`
-- Useful for: OSS contributions, client projects, keeping planning private
-
-**Using `specforge` (preferred):**
-
-```bash
-# Commit with automatic commit_docs + gitignore checks:
-specforge git commit --add spec -m "docs: update state" && specforge collect --runner gsd-git --yes
-
-# Load config via state load (returns JSON):
-INIT=$(specforge gsd progress-report --format json)
-
-# commit_docs is available in the JSON output
-
-# Or use init commands which include commit_docs:
-INIT=$(specforge query "$MILESTONE/01" --depth 1 --format json)
-
-# commit_docs is included in all init command outputs
-```
-
-**Auto-detection:** If the spec is gitignored, `commit_docs` is automatically `false` regardless of config.json. This prevents git errors when users have the spec in `.gitignore`.
-
-**Per-phase override:** `phase_commit_docs.<phase-id>` (e.g. `phase_commit_docs.03`) overrides `commit_docs` for one phase only, and wins over both the explicit config value and gitignore auto-detection — see `docs/CONFIGURATION.md#per-phase-override-phase_commit_docs` for the full precedence chain and examples.
-
-**Commit via CLI (handles checks automatically):**
-
-```bash
-specforge git commit --add spec -m "docs: update state" && specforge collect --runner gsd-git --yes
-```
-
-The CLI checks `commit_docs` config and gitignore status internally — no manual conditionals needed.
-
-</commit_docs_behavior>
-
-<search_behavior>
-
-**When `search_gitignored: false` (default):**
-- Standard rg behavior (respects .gitignore)
-- Direct path searches work: `specforge files search "pattern" spec/` finds files
-- Broad searches skip gitignored: `specforge files search "pattern"` skips `spec/`
-
-**When `search_gitignored: true`:**
-- Add `--no-ignore` to broad rg searches that should include `spec/`
-- Only needed when searching entire repo and expecting `spec/` matches
-
-**Note:** Most GSD operations use direct file reads or explicit paths, which work regardless of gitignore status.
-
-</search_behavior>
-
-<setup_uncommitted_mode>
-
-To use uncommitted mode:
-
-1. **Set config:**
-   ```json
-   "planning": {
-     "commit_docs": false,
-     "search_gitignored": true
-   }
-   ```
-
-2. **Do not add the spec to `.gitignore`, and do not untrack it.** The spec is the project here, not a planning
-   folder next to it: `spec/` is what `specforge check` reads and what a collaborator pulls. To keep planning out of a
-   pull request, use `/gsd-pr-branch`, which filters the spec out of the PR branch and leaves your history alone.
-
-3. **Existing tracked files:** keep them tracked. `git rm -r --cached spec/` would stage the deletion of the whole spec.
-
-4. **Branch merges:** When using `branching_strategy: phase` or `milestone`, the `complete-milestone` workflow automatically strips the spec files from staging before merge commits when `commit_docs: false`.
-
-</setup_uncommitted_mode>
+`commit_docs`, `search_gitignored` and `pr_strict` (also under `planning.`) are not a setting here: the spec is
+source and is committed like code, never gitignored, so a search finds it and `/gsd:pr-branch` always leaves it out.
 
 <branching_strategy_behavior>
 
@@ -256,8 +171,6 @@ Generated from `CONFIG_DEFAULTS` (configuration.cjs) and `VALID_CONFIG_KEYS` (co
 | `model_profile` | string | `"balanced"` | `"quality"`, `"balanced"`, `"budget"`, `"adaptive"`, `"inherit"` | Model selection preset for subagents |
 | `mode` | string | `"interactive"` | `"interactive"`, `"yolo"` | Operation mode: `"interactive"` shows gates and confirmations; `"yolo"` runs autonomously without prompts |
 | `granularity` | string | (none) | `"coarse"`, `"standard"`, `"fine"` | Planning depth for phase plans (migrated from deprecated `depth`) |
-| `commit_docs` | boolean | `true` | `true`, `false` | Commit the spec artifacts to git (auto-false if the spec is gitignored) |
-| `search_gitignored` | boolean | `false` | `true`, `false` | Include gitignored paths in broad rg searches via `--no-ignore` |
 | `phase_naming` | string | `"sequential"` | `"sequential"`, `"custom"` | Phase numbering: auto-increment or arbitrary string IDs |
 | `project_code` | string\|null | `null` | Any short string | Prefix for phase dirs (e.g., `"CK"` produces `CK-01-foundation`) |
 | `response_language` | string\|null | `null` | Any language name | Language for user-facing prompts (e.g., `"Portuguese"`, `"Japanese"`) |
@@ -408,12 +321,10 @@ Set via `manager.*` namespace (e.g., `"manager": { "flags": { "discuss": "--auto
 
 ### Planning Fields
 
-These can be set at top level or nested under `planning.*` (e.g., `"planning": { "commit_docs": false }`). Both forms are equivalent; top-level takes precedence if both exist.
+Set via the `planning.*` namespace (e.g., `"planning": { "chunked_parallel": true }`).
 
 | Key | Type | Default | Allowed Values | Description |
 |-----|------|---------|----------------|-------------|
-| `planning.commit_docs` | boolean | `true` | `true`, `false` | Alias for top-level `commit_docs` |
-| `planning.search_gitignored` | boolean | `false` | `true`, `false` | Alias for top-level `search_gitignored` |
 | `planning.chunked_parallel` | boolean | `false` | `true`, `false` | Opt-in for `workflow.plan_chunked`'s per-plan loop (§8.5.2 of `chunked-planning-mode.md`, #3777). When `true`, the runnable per-plan planners within one outline Wave are dispatched concurrently (one message, `run_in_background=true` each) instead of one at a time, honoring the outline's Wave column as the schedule (`Depends On` is expected to name only an earlier Wave and is not separately parsed — batching strictly by Wave already respects it). Gated on the negotiated `dispatch-capacity` query (#3673): a host that declares no `maxConcurrency` (capacity resolves to `1`) stays serial regardless of this setting. Default `false` is byte-identical to the pre-#3777 serial loop. Trade-off: per-plan commits interleave within a batch instead of strictly one-at-a-time, and a stalled plan's retry no longer blocks sibling plans in the same batch from having already committed. |
 
 ---
@@ -422,23 +333,19 @@ These can be set at top level or nested under `planning.*` (e.g., `"planning": {
 
 Several config fields affect each other or trigger special behavior:
 
-1. **`commit_docs` resolution chain** -- Four tiers, highest wins: (1) `phase_commit_docs.<phase-id>` for the phase being committed, (2) an explicit `commit_docs` (or `planning.commit_docs`) value in config.json, (3) `.gitignore` auto-detection (the spec in `.gitignore` resolves to `false`), (4) the manifest default (`true`). Precedence: per-phase → explicit config → gitignore auto-detect → default.
+1. **`branching_strategy` controls branch templates** -- The `phase_branch_template` and `milestone_branch_template` fields are only used when `branching_strategy` is set to `"phase"` or `"milestone"` respectively. When `branching_strategy` is `"none"`, all template fields are ignored.
 
-2. **`branching_strategy` controls branch templates** -- The `phase_branch_template` and `milestone_branch_template` fields are only used when `branching_strategy` is set to `"phase"` or `"milestone"` respectively. When `branching_strategy` is `"none"`, all template fields are ignored.
+2. **`context_window` threshold triggers** -- When `context_window >= 500000`, workflows enable adaptive context enrichment: full-body reads of prior phase SUMMARYs, cross-phase context injection in plan-phase, and deeper read depth for anti-pattern references. Below 500000, only frontmatter and summaries are read.
 
-3. **`context_window` threshold triggers** -- When `context_window >= 500000`, workflows enable adaptive context enrichment: full-body reads of prior phase SUMMARYs, cross-phase context injection in plan-phase, and deeper read depth for anti-pattern references. Below 500000, only frontmatter and summaries are read.
+3. **`parallelization` polymorphism** -- Accepts both a simple boolean and an object with an `enabled` field. `loadConfig()` normalizes either form to a boolean. `{ "enabled": true }` is equivalent to `true`.
 
-4. **`parallelization` polymorphism** -- Accepts both a simple boolean and an object with an `enabled` field. `loadConfig()` normalizes either form to a boolean. `{ "enabled": true }` is equivalent to `true`.
+4. **Search API keys and flags** -- `brave_search`, `firecrawl`, and `exa_search` are auto-set to `true` during project creation if the corresponding API key is detected (environment variable or `$GSD_HOME/.gsd/<name>_api_key` file; `GSD_HOME` defaults to the home directory). Setting them to `true` without the API key has no effect.
 
-5. **Search API keys and flags** -- `brave_search`, `firecrawl`, and `exa_search` are auto-set to `true` during project creation if the corresponding API key is detected (environment variable or `$GSD_HOME/.gsd/<name>_api_key` file; `GSD_HOME` defaults to the home directory). Setting them to `true` without the API key has no effect.
+5. **`depth` to `granularity` migration** -- The deprecated `depth` key (`quick`/`standard`/`comprehensive`) is automatically migrated to `granularity` (`coarse`/`standard`/`fine`) on config load and persisted back to disk.
 
-6. **`planning.*` and top-level equivalence** -- `planning.commit_docs` and `commit_docs` are equivalent; `planning.search_gitignored` and `search_gitignored` are equivalent. If both are set, the top-level value takes precedence.
+6. **`sub_repos` auto-sync** -- On every config load, GSD scans for child directories with `.git` and updates the `sub_repos` array if the filesystem has changed. Legacy `multiRepo: true` is automatically migrated to a detected `sub_repos` array.
 
-7. **`depth` to `granularity` migration** -- The deprecated `depth` key (`quick`/`standard`/`comprehensive`) is automatically migrated to `granularity` (`coarse`/`standard`/`fine`) on config load and persisted back to disk.
-
-8. **`sub_repos` auto-sync** -- On every config load, GSD scans for child directories with `.git` and updates the `sub_repos` array if the filesystem has changed. Legacy `multiRepo: true` is automatically migrated to a detected `sub_repos` array.
-
-9. **`workflow.use_worktrees` and branch divergence** -- When `use_worktrees` is `true` (default) and `worktree.baseRef` is unset, executor worktrees are forked from `origin/HEAD` -- by the host's own harness on `dispatch.isolation: harness-worktree` runtimes (Claude Code, Cursor), or by GSD itself on `orchestrator-worktree` runtimes (Codex, OpenCode, Kimi, Kimi Code). The divergence behavior below is identical either way, because the fork base is a property of the repository rather than of whoever creates the worktree. If your current branch has commits that `origin/HEAD` does not (for example an unmerged milestone or feature branch), GSD automatically degrades to sequential execution for that run and prints a one-line `⚠ Worktree base mismatch` warning. To restore parallel execution permanently, set `worktree.baseRef:"head"` in `.claude/settings.local.json` (set it in that file by hand). GSD-created worktrees then fork from the live HEAD instead of `origin/HEAD` by construction, and the Claude Code harness does the same as measured from every settings layer (#4588; Cursor has not been measured — its exit-42 spawn-time guard is the backstop). A configured Claude Code `WorktreeCreate` hook is the exception: it creates the worktree without applying the setting, so GSD keeps comparing against `origin/HEAD` on such a host (#4588). A prior harness worktree at the current HEAD does not lift that comparison — it records no creator, so one left there before the hook was configured would read as evidence for the hook; pass `--observed-fork-base` for a trusted verdict (#4881). Both fresh installs and upgrades of GSD Core set this automatically (no-clobber) when `use_worktrees` is enabled; you can also run the command manually at any time. Setting `workflow.use_worktrees: false` is the alternative if worktrees are not needed at all. On a runtime whose declared `dispatch.isolation` is `none`, an explicit `true` is a config the execution workflows fail closed on; `/gsd:health` reports it as warning `W025` and `/gsd:settings` offers to repair it (#2486).
+7. **`workflow.use_worktrees` and branch divergence** -- When `use_worktrees` is `true` (default) and `worktree.baseRef` is unset, executor worktrees are forked from `origin/HEAD` -- by the host's own harness on `dispatch.isolation: harness-worktree` runtimes (Claude Code, Cursor), or by GSD itself on `orchestrator-worktree` runtimes (Codex, OpenCode, Kimi, Kimi Code). The divergence behavior below is identical either way, because the fork base is a property of the repository rather than of whoever creates the worktree. If your current branch has commits that `origin/HEAD` does not (for example an unmerged milestone or feature branch), GSD automatically degrades to sequential execution for that run and prints a one-line `⚠ Worktree base mismatch` warning. To restore parallel execution permanently, set `worktree.baseRef:"head"` in `.claude/settings.local.json` (set it in that file by hand). GSD-created worktrees then fork from the live HEAD instead of `origin/HEAD` by construction, and the Claude Code harness does the same as measured from every settings layer (#4588; Cursor has not been measured — its exit-42 spawn-time guard is the backstop). A configured Claude Code `WorktreeCreate` hook is the exception: it creates the worktree without applying the setting, so GSD keeps comparing against `origin/HEAD` on such a host (#4588). A prior harness worktree at the current HEAD does not lift that comparison — it records no creator, so one left there before the hook was configured would read as evidence for the hook; pass `--observed-fork-base` for a trusted verdict (#4881). Both fresh installs and upgrades of GSD Core set this automatically (no-clobber) when `use_worktrees` is enabled; you can also run the command manually at any time. Setting `workflow.use_worktrees: false` is the alternative if worktrees are not needed at all. On a runtime whose declared `dispatch.isolation` is `none`, an explicit `true` is a config the execution workflows fail closed on; `/gsd:health` reports it as warning `W025` and `/gsd:settings` offers to repair it (#2486).
 
 ---
 
@@ -449,7 +356,6 @@ Several config fields affect each other or trigger special behavior:
 ```json
 {
   "model_profile": "balanced",
-  "commit_docs": true,
   "workflow": {
     "research": true,
     "plan_check": true,
@@ -464,7 +370,6 @@ Several config fields affect each other or trigger special behavior:
 ```json
 {
   "model_profile": "quality",
-  "commit_docs": true,
   "project_code": "APP",
   "git": {
     "branching_strategy": "phase",
@@ -496,7 +401,6 @@ Several config fields affect each other or trigger special behavior:
 {
   "model_profile": "quality",
   "context_window": 1000000,
-  "commit_docs": true,
   "project_code": "MEGA",
   "phase_naming": "sequential",
   "git": {

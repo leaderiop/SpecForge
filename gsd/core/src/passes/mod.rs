@@ -1,7 +1,7 @@
 //! The passes of `@gsd/core`.
 
 mod citations;
-mod commits;
+pub(crate) mod commits;
 mod cross_plan;
 mod decision_coverage;
 pub(crate) mod derive;
@@ -18,6 +18,7 @@ mod roadmap;
 mod scan;
 mod schema_drift;
 mod scope;
+mod stale_truths;
 pub(crate) mod thread;
 mod traceability;
 mod verify_paths;
@@ -45,6 +46,17 @@ pub const CLAIMED: &[&str] = &[
     "wave0_item.done",
 ];
 
+/// A text a pass echoes but did not write (a path, an id, a field or an input name), escaped so its message and its
+/// help stay one line. An id or a name of the grammar comes out unchanged; the one-line text does not rest on that.
+pub(crate) fn one_line(text: &str) -> String {
+    text.escape_debug().to_string()
+}
+
+/// `text` [`one_line`] between single quotes: how a message or a help names an id or a path it echoes.
+pub(crate) fn quoted(text: &str) -> String {
+    format!("'{}'", one_line(text))
+}
+
 pub fn declare(c: &mut ContributionsBuilder) {
     // The scan is declared before `derive`: compute passes run in declaration order and derive reads its values.
     // `waves` computes `plan.wave`, which derive reads for a validation row.
@@ -66,6 +78,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     verify_paths::declare(c);
     nyquist::declare(c);
     verify_rules::declare(c);
+    stale_truths::declare(c);
     windows::declare(c);
     workstreams::declare(c);
     gates::declare(c);

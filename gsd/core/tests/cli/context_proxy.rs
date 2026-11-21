@@ -231,9 +231,7 @@ fn pack(p: &Project, row: &Row, room: usize) -> usize {
 
 #[test]
 fn the_executor_pack_is_at_most_seven_tenths_of_the_reads_it_replaces() {
-    let Some(sh) = Shell::only(&["tee"]) else {
-        return;
-    };
+    let sh = Shell::only(&["tee"]);
     eprintln!("fixture window reads pack ratio");
     for row in ROWS {
         let p =

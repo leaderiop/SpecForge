@@ -17,9 +17,7 @@ pub(super) fn fence_holding(text: &str, mark: &str) -> String {
 /// plan and its verified truth.
 #[test]
 fn the_verifier_traces_its_phases_requirements() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let code = fence_holding(
         &asset("agents/gsd-verifier.md"),
@@ -37,9 +35,7 @@ fn the_verifier_traces_its_phases_requirements() {
 /// accepted; the verdict then cites the test (`cited_tests`) and is fresh.
 #[test]
 fn the_verifier_cites_a_test_by_its_check_ref() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let run = p.collect_node_test_golden();
     assert_eq!(run.code, 0, "{}", run.all());
@@ -113,9 +109,7 @@ fn the_verifier_cites_a_test_by_its_check_ref() {
 /// `PHASE_ID=v1.0/01`, the line serves the phase's truths.
 #[test]
 fn the_verifier_spawn_reads_one_context_line() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("gsd-core/workflows/execute-phase/steps/verify-phase-goal.md");
     assert!(!text.contains("CONTEXT_WINDOW"));
     let reading = super::block(&text, "<required_reading>", "</required_reading>");
@@ -135,9 +129,7 @@ fn the_verifier_spawn_reads_one_context_line() {
 /// that test.
 #[test]
 fn the_uat_template_records_a_session_a_test_and_a_gap() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = without_a_session();
     let template = asset("gsd-core/templates/UAT.md");
     let session = typed::filled(
@@ -181,9 +173,7 @@ fn the_uat_template_records_a_session_a_test_and_a_gap() {
 /// what is missing, with no new finding.
 #[test]
 fn a_uat_gap_diagnosis_is_a_typed_edit() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let gap = "v1.0/01/01-UAT/U2/G1";
     let diagnosis = typed::filled(
@@ -227,9 +217,7 @@ fn a_uat_gap_diagnosis_is_a_typed_edit() {
 /// one `follow_ups` entry to the session, and the step's count reads it.
 #[test]
 fn a_deferred_follow_up_lands_on_the_session() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("gsd-core/workflows/verify-work.md");
     assert!(text.contains(
         "`specforge gsd set-uat-result <uat_test> skipped --by <who> --follow-up \"<their words>\"`"
@@ -258,9 +246,7 @@ fn a_deferred_follow_up_lands_on_the_session() {
 /// exempt from gsd/W103.
 #[test]
 fn uat_follow_ups_promote_to_backlog_phases() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let promote = typed::filled(
         &fence_holding(&asset("gsd-core/workflows/verify-work.md"), "--backlog"),
@@ -284,9 +270,7 @@ fn uat_follow_ups_promote_to_backlog_phases() {
 /// the auditor spawn's context line, run with that phase, names the validation.
 #[test]
 fn the_validation_audit_writes_rows() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     for task in ["v1.0/02/02-01/T1", "v1.0/02/02-01/T2"] {
         let run = p.run(&[
@@ -383,9 +367,7 @@ fn person_line(text: &str, start: &str, values: &[(&str, &str)]) -> Vec<String> 
 /// session `diagnosed`.
 #[test]
 fn the_uat_loop_records_a_pass_and_a_gap_the_diagnosis_reads() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = without_a_session();
     let template = asset("gsd-core/templates/UAT.md");
     let session = typed::filled(
@@ -536,9 +518,7 @@ fn the_uat_loop_records_a_pass_and_a_gap_the_diagnosis_reads() {
 /// the verification's next gap number itself: run again, it records `VG2`.
 #[test]
 fn the_verifier_records_each_gap_as_a_verify_gap() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let truth = "v1.0/01/01-02/TR2";
     let inputs = p.run(&[
@@ -627,9 +607,7 @@ fn the_verifier_records_each_gap_as_a_verify_gap() {
 /// takes `HI2`.
 #[test]
 fn the_verifier_records_each_human_check_as_a_human_item() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let fence = fence_holding(&asset("agents/gsd-verifier.md"), "new human_item");
     for (id, check) in [
@@ -661,9 +639,7 @@ fn the_verifier_records_each_human_check_as_a_human_item() {
 /// the verification off `gaps_found`.
 #[test]
 fn a_phase_whose_only_failure_is_deferred_has_no_gaps() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let truth = "v1.0/01/01-02/TR2";
     let inputs = p.run(&[

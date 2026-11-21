@@ -15,6 +15,10 @@ for `gsd/E521`) and ADR 0371 D1 (`gsd/E519` left with `truth.requirement`). It a
 the three-profile claim of [ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md): no
 check the root runs can see the three gates (Consequences). No protocol change, no kernel change, no new code and no
 new setting: one table of `@gsd/core` moves.
+Its Consequences item that the refusal names every verdict refusing each run it names by its holder and its judge is
+amended by [ADR 0383](0383-a-refusal-names-the-entities-owing-the-verdicts-that-block-its-runs.md): the refusal names
+the entities that owe those verdicts, at most five per holder and judge, and a verdict no phase or milestone holds by
+its own entity.
 
 ## Context
 

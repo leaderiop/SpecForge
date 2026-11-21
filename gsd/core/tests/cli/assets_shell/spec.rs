@@ -59,9 +59,7 @@ fn spec_fence() -> String {
 /// that wait for the spec's verdict left out).
 #[test]
 fn the_spec_fences_record_the_spec_and_its_rows() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let workflow = asset("gsd-core/workflows/spec-phase.md");
     let edge = typed::filled(
