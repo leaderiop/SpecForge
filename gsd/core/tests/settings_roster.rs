@@ -468,7 +468,9 @@ fn the_settings_workflow_counts_the_settings_of_its_section_layout() {
 
 /// One key of the Not applicable table, as a line names it: a key by its last name (not `planning`, not a `<..>`
 /// placeholder) in any case and anywhere in the line, so `sub_repos` also finds `SUB_REPOS` and `handle_sub_repos`; a
-/// family `x.*` by a member written after it (`x.y`) or by its object key (`"x":`).
+/// family `x.*` by a member written after it (`x.y`), by its object key quoted or bare (`"x":`, `x: {`, `x = {`), or
+/// named as settings (`the x settings`, `x config`). A bare `x` alone is not a key: `graphify` is also the
+/// `/gsd-graphify` command's name, and `capabilities` a word of plain prose.
 struct NotApplicable {
     token: String,
     matcher: regex::Regex,
@@ -482,7 +484,12 @@ fn not_applicable_matchers() -> Vec<NotApplicable> {
             let pattern = match token.strip_suffix(".*") {
                 Some(family) => {
                     let family = regex::escape(family);
-                    format!(r#"(?i)\b{family}\.[a-z_]|"{family}"\s*:"#)
+                    let member = format!(r"\b{family}\.[a-z_]");
+                    let quoted = format!(r#""{family}"\s*:"#);
+                    let named =
+                        r"\s+(?:settings?|config(?:uration)?|section|block|keys?|options?)\b";
+                    let bare = format!(r"(?:^|[^-/\w.]){family}(?:\s*:|\s*=?\s*\{{|{named})");
+                    format!("(?i){member}|{quoted}|{bare}")
                 }
                 None => {
                     let leaf = token
@@ -496,6 +503,31 @@ fn not_applicable_matchers() -> Vec<NotApplicable> {
             NotApplicable { token, matcher }
         })
         .collect()
+}
+
+/// A family's matcher reads its member, its object key quoted or bare and its settings named, never the command or
+/// the word that shares its name.
+#[test]
+fn a_family_matcher_reads_a_key_not_a_command() {
+    let matchers = not_applicable_matchers();
+    let graphify = &matchers
+        .iter()
+        .find(|m| m.token == "graphify.*")
+        .expect("the graphify row")
+        .matcher;
+    for key in [
+        "graphify.enabled",
+        "\"graphify\": {",
+        "graphify: {",
+        "graphify = {",
+        "the graphify settings",
+        "Graphify config",
+    ] {
+        assert!(graphify.is_match(key), "{key}");
+    }
+    for not in ["/gsd-graphify", "run gsd-graphify", "map graphify docs"] {
+        assert!(!graphify.is_match(not), "{not}");
+    }
 }
 
 /// The keys upstream writes: the roster's, and each dynamic pattern's written form (`phase_commit_docs.<phase-id>`).
