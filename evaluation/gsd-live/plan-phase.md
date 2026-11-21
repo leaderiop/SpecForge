@@ -156,7 +156,6 @@ The order the prompt prescribes, the thread step before the plan check, is pinne
 - The kernel question of ADR 0384's Limits: E080 counts, on the write that creates its entity, a finding a later step of
   the same workflow settles (an open question under gsd-strict, chunked mode's first plan, quick's mint under
   gsd-strict). Whether E080 should stop counting such a finding is a kernel decision.
-- Whether to retitle the spec's phases that carry a global "Phase N:" number.
 - The `gsd/plan-checker` route's budget against a plan of a real phase.
 
 ## Closed since the run
@@ -166,3 +165,5 @@ The order the prompt prescribes, the thread step before the plan check, is pinne
   `gsd/core/spec/settings.md` and scans the assets and the prompt and install goldens. The advanced settings no
   longer ask for `graphify.build_timeout` or `workflow.auto_prune_state`
   (`settings_roster::the_advanced_settings_workflow_reads_and_confirms_only_settings`).
+- The spec's thirteen phases that carried a global "Phase N:" number are titled by their names, and absorb, which
+  wrote those titles, titles a converted phase by its name (`tests::roadmap` and `absorb_e2e` in `xtask`).

@@ -4,6 +4,7 @@
 use serde_json::json;
 use specforge_ops::authoring::edit::{Edit, Input};
 
+use super::super::how;
 use super::super::ledger::Why;
 use super::super::plan;
 use super::super::table::{self, Home};
@@ -18,7 +19,7 @@ fn a_decision_becomes_one_create_keeping_its_title_and_file() {
     let entities = old.entities();
     plan::prechecks(&entities).expect("the fixture converts");
     let planned = plan::plan(&entities);
-    let headers: Vec<(&str, String, &str, &str)> = planned
+    let headers: Vec<(&str, String, String, &str)> = planned
         .creates
         .iter()
         .map(|edit| match edit {
@@ -27,27 +28,27 @@ fn a_decision_becomes_one_create_keeping_its_title_and_file() {
             } => (
                 kind.as_str(),
                 super::path_of(edit),
-                title.as_str(),
+                title.clone(),
                 file.as_str(),
             ),
             other => panic!("only creates: {other:?}"),
         })
         .collect();
-    let expected: Vec<(&str, String, &str, &str)> = entities
+    let expected: Vec<(&str, String, String, &str)> = entities
         .iter()
         .filter_map(|e| {
             let new = planned.ids.get(&e.kind, &e.id)?;
-            Some((
-                new.kind,
-                new.path(),
-                e.title.as_deref().unwrap(),
-                e.file.as_str(),
-            ))
+            let title = e.title.as_deref().unwrap();
+            let title = match new.kind {
+                "phase" => how::phase_name(title),
+                _ => title.to_string(),
+            };
+            Some((new.kind, new.path(), title, e.file.as_str()))
         })
         .collect();
     assert_eq!(
         headers, expected,
-        "every converted entity, once, in the old order, by its new path"
+        "every converted entity, once, in the old order, by its new path, a phase titled by its name"
     );
     let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
     assert_eq!(

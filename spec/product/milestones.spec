@@ -1,4 +1,4 @@
-phase 01 "Phase 1: Structural Parsing" {
+phase 01 "Structural Parsing" {
   milestone        v0.1.0
   name             "Structural Parsing"
   slug             "structural-parsing"
@@ -14,7 +14,7 @@ phase 01 "Phase 1: Structural Parsing" {
   """
 }
 
-phase 02 "Phase 2: Resolution & Graph Construction" {
+phase 02 "Resolution & Graph Construction" {
   milestone        v0.1.0
   name             "Resolution & Graph Construction"
   slug             "resolution-graph-construction"
@@ -32,7 +32,7 @@ phase 02 "Phase 2: Resolution & Graph Construction" {
   """
 }
 
-phase 03 "Phase 3: Validation & Error Reporting" {
+phase 03 "Validation & Error Reporting" {
   milestone        v0.1.0
   name             "Validation & Error Reporting"
   slug             "validation-error-reporting"
@@ -50,7 +50,7 @@ phase 03 "Phase 3: Validation & Error Reporting" {
   """
 }
 
-phase 04 "Phase 4: Output & Agent Export" {
+phase 04 "Output & Agent Export" {
   milestone        v0.1.0
   name             "Output & Agent Export"
   slug             "output-agent-export"
@@ -68,7 +68,7 @@ phase 04 "Phase 4: Output & Agent Export" {
   """
 }
 
-phase 05 "Phase 5: Project Initialization" {
+phase 05 "Project Initialization" {
   milestone        v0.1.0
   name             "Project Initialization"
   slug             "project-initialization"
@@ -86,7 +86,7 @@ phase 05 "Phase 5: Project Initialization" {
   """
 }
 
-phase 01 "Phase 6: Incremental Compilation" {
+phase 01 "Incremental Compilation" {
   milestone        v0.5.0
   name             "Incremental Compilation"
   slug             "incremental-compilation"
@@ -103,7 +103,7 @@ phase 01 "Phase 6: Incremental Compilation" {
   """
 }
 
-phase 02 "Phase 7: LSP Server" {
+phase 02 "LSP Server" {
   milestone        v0.5.0
   name             "LSP Server"
   slug             "lsp-server"
@@ -130,7 +130,7 @@ phase 02 "Phase 7: LSP Server" {
   """
 }
 
-phase 03 "Phase 8: Code Formatting" {
+phase 03 "Code Formatting" {
   milestone        v0.5.0
   name             "Code Formatting"
   slug             "code-formatting"
@@ -147,7 +147,7 @@ phase 03 "Phase 8: Code Formatting" {
   """
 }
 
-phase 04 "Phase 9: Zero-Entity Core Architecture" {
+phase 04 "Zero-Entity Core Architecture" {
   milestone        v0.5.0
   name             "Zero-Entity Core Architecture"
   slug             "zero-entity-core-architecture"
@@ -177,7 +177,7 @@ phase 04 "Phase 9: Zero-Entity Core Architecture" {
   """
 }
 
-phase 01 "Phase 10: Wasm Extension Runtime" {
+phase 01 "Wasm Extension Runtime" {
   milestone        v1.0.0
   name             "Wasm Extension Runtime"
   slug             "wasm-extension-runtime"
@@ -205,7 +205,7 @@ phase 01 "Phase 10: Wasm Extension Runtime" {
   """
 }
 
-phase 02 "Phase 11: Extension Ecosystem" {
+phase 02 "Extension Ecosystem" {
   milestone        v1.0.0
   name             "Extension Ecosystem"
   slug             "extension-ecosystem"
@@ -234,7 +234,7 @@ phase 02 "Phase 11: Extension Ecosystem" {
   """
 }
 
-phase 03 "Phase 12: Graph Protocol Schema Versioning" {
+phase 03 "Graph Protocol Schema Versioning" {
   milestone        v1.0.0
   name             "Graph Protocol Schema Versioning"
   slug             "graph-protocol-schema-versioning"
@@ -251,7 +251,7 @@ phase 03 "Phase 12: Graph Protocol Schema Versioning" {
   """
 }
 
-phase 05 "Phase 13: MCP Server" {
+phase 05 "MCP Server" {
   milestone        v0.5.0
   name             "MCP Server"
   slug             "mcp-server"

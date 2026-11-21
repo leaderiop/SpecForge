@@ -148,12 +148,16 @@ fn a_listed_milestone_becomes_a_phase_numbered_in_source_order_under_its_release
         ids.contains(&("milestone", "third", "v0.2.0/01")),
         "{ids:?}"
     );
-    let specforge_ops::authoring::edit::Edit::Create { id, .. } = &planned.creates[4] else {
+    let specforge_ops::authoring::edit::Edit::Create { id, title, .. } = &planned.creates[4] else {
         panic!("a create")
     };
     assert_eq!(
         id, "01",
         "a name holds no `/`: the milestone field places it"
+    );
+    assert_eq!(
+        title, "Third Cut",
+        "a phase is titled by its name: GSD prints its number from its id"
     );
     let (kind, fields) = create(&planned, "v0.2.0/01");
     assert_eq!(kind, "phase");
