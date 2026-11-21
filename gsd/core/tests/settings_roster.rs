@@ -376,3 +376,30 @@ fn every_key_an_asset_calls_a_setting_is_a_key_of_the_roster() {
     assert!(false_claims.is_empty(), "{}", false_claims.join("\n"));
     assert_eq!(seen, 13, "the claims the assets hold");
 }
+
+/// `commit_docs` is not a setting of `@gsd/core` (the spec is source and is committed like code), so an asset names
+/// it only to say so: every line of every asset that names it, in any case, says "not a setting here". The lines that
+/// say it (new-project's and planning-config's) are seen, so the scan cannot pass on an empty tree.
+#[test]
+fn commit_docs_is_named_only_as_not_a_setting_here() {
+    let mut allowed = 0;
+    let mut named = Vec::new();
+    for (path, text) in asset_texts() {
+        for (n, line) in text.lines().enumerate() {
+            let lower = line.to_lowercase();
+            if !lower.contains("commit_docs") {
+                continue;
+            }
+            if lower.contains("not a setting here") {
+                allowed += 1;
+            } else {
+                named.push(format!("{path}:{}: {line}", n + 1));
+            }
+        }
+    }
+    assert!(named.is_empty(), "{}", named.join("\n"));
+    assert!(
+        allowed >= 2,
+        "{allowed} lines say `commit_docs` is not a setting here"
+    );
+}

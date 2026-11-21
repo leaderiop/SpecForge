@@ -10,7 +10,7 @@ cherry-picked history. Two modes, selected by the `planning.pr_strict` config ke
   SUMMARY.md, CONTEXT.md, RESEARCH.md, etc.), but milestone archives, STATE.md,
   ROADMAP.md, and PROJECT.md changes are preserved.
 - **strict** (`planning.pr_strict: true`) — *every* spec path is filtered out,
-  structural files included. This is what makes `planning.commit_docs: true` safe for a
+  structural files included. This is what makes committing the spec safe for a
   project that versions its planning tree locally but publishes none of it: planning state
   keeps real git history (so `/gsd:undo` and revert paths have something to restore) and
   executor worktrees still find their PLAN.md, while the public PR carries nothing from

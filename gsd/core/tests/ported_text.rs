@@ -277,7 +277,6 @@ fn no_render_keeps_a_setting_token_or_a_literal_default() {
 /// ephemeral chain flag is runtime state): a line that reads one always takes its fallback, as `config-get` of an unset
 /// key did.
 const NOT_SETTINGS: &[&str] = &[
-    "commit_docs",
     "features.graduation",
     "features.graduation_threshold",
     "features.graduation_window",

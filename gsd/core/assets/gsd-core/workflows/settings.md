@@ -45,7 +45,6 @@ Parse current values (default to `true` if not present):
 - `workflow.code_review` — enable /gsd:code-review and /gsd:code-review --fix commands (default: true if absent)
 - `workflow.code_review_depth` — default depth for /gsd:code-review: `quick`, `standard`, or `deep` (default: `"standard"` if absent; only relevant when `code_review` is on)
 - `workflow.ui_review` — run visual quality audit (/gsd:ui-review) in autonomous mode (default: true if absent)
-- `commit_docs` — whether the spec files are committed to git (default: true if absent)
 - `intel.enabled` — enable queryable codebase intelligence (/gsd:map-codebase --query) (default: false if absent)
 - `graphify.enabled` — enable project knowledge graph (/gsd:graphify) (default: false if absent)
 - `graphify.auto_update` — opt-in: auto-rebuild graph after main HEAD advances (#3347) (default: `false`)
@@ -116,7 +115,7 @@ Research, Plan Checker, Drift Guard, Pattern Mapper, Nyquist, UI Phase, UI Gate,
 Verifier, TDD Mode, Code Review, Code Review Depth _(conditional — only when code_review=on)_, UI Review
 
 ### Docs & Output
-Commit Docs, Skip Discuss, Worktrees
+Skip Discuss, Worktrees
 
 ### Features
 Intel, Graphify, Graph auto-update _(conditional — only when graphify=on)_
@@ -395,15 +394,6 @@ AskUserQuestion([
     ]
   },
   {
-    question: "Commit the spec to git? (not a setting here: the spec is source and is committed like code, so skip this question)",
-    header: "Commit Docs",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recommended)", description: "The spec is committed like code. Plans, research, and phase artifacts travel with the repo." },
-      { label: "No", description: "Not available: there is no setting to keep the spec local only." }
-    ]
-  },
-  {
     question: "Skip discuss-phase in autonomous mode? (use ROADMAP phase goals as spec)",
     header: "Skip Discuss",
     multiSelect: false,
@@ -459,7 +449,6 @@ Merge new settings into existing config.json:
 {
   ...existing_config,
   "model_profile": "quality" | "balanced" | "budget" | "adaptive" | "inherit",
-  "commit_docs": true/false,
   "workflow": {
     "research": true/false,
     "plan_check": true/false,
@@ -536,7 +525,7 @@ Merge new settings into existing config.json:
 
   `code_review_depth` is written only if the `code_review` question was answered `on`; otherwise leave the existing value in place.
 
-- **Non-capability keys** (`model_profile`, `commit_docs`, `workflow.plan_check`, `workflow.verifier`, `workflow.auto_advance`, `workflow.text_mode`, `workflow.compact_content`, `workflow.research_before_questions`, `workflow.discuss_mode`, `workflow.skip_discuss`, `workflow.use_worktrees`, `plan_review.source_grounding`, `graphify.auto_update`, `git.*`, `hooks.*`, `model_policy.*`): write via `specforge settings set @gsd/core <key.path> <value>` as before.
+- **Non-capability keys** (`model_profile`, `workflow.plan_check`, `workflow.verifier`, `workflow.auto_advance`, `workflow.text_mode`, `workflow.compact_content`, `workflow.research_before_questions`, `workflow.discuss_mode`, `workflow.skip_discuss`, `workflow.use_worktrees`, `plan_review.source_grounding`, `graphify.auto_update`, `git.*`, `hooks.*`, `model_policy.*`): write via `specforge settings set @gsd/core <key.path> <value>` as before.
 
 `model_profile` is written on Q1 "Adaptive (Recommended)" (→ adaptive) or Q1 "Inherit" (→ inherit) immediately; for Q1 "Standard tier…", `model_profile` is written from Q2's answer. If Q1 = "Standard tier…" but Q2 is cancelled, leave the existing `model_profile` value unchanged — do not write any new value.
 
@@ -569,7 +558,6 @@ Display:
 | Plan Drift Guard     | {On/Off} |
 | Code Review Depth    | {quick/standard/deep} |
 | UI Review            | {On/Off} |
-| Commit Docs          | {On/Off} |
 | Intel                | {On/Off} |
 | Graphify             | {On/Off} |
 | Auto-Advance         | {On/Off} |

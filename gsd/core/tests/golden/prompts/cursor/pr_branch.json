@@ -27,7 +27,7 @@
     "  SUMMARY.md, CONTEXT.md, RESEARCH.md, etc.), but milestone archives, STATE.md,",
     "  ROADMAP.md, and PROJECT.md changes are preserved.",
     "- **strict** (`planning.pr_strict: true`) — *every* spec path is filtered out,",
-    "  structural files included. This is what makes `planning.commit_docs: true` safe for a",
+    "  structural files included. This is what makes committing the spec safe for a",
     "  project that versions its planning tree locally but publishes none of it: planning state",
     "  keeps real git history (so `/gsd-undo` and revert paths have something to restore) and",
     "  executor worktrees still find their PLAN.md, while the public PR carries nothing from",
@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 23478,
+  "bytes": 23469,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:782cb2f7291d687001e16389641bb5e02984f42624363f1c1773c1f4cff434c8",
+    "digest": "sha256:751328e849b3b7bf7154471d898568b4ba0af286f2c8c5ebfc9e7cf64b7eb797",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "782cb2f7291d687001e16389641bb5e02984f42624363f1c1773c1f4cff434c8"
+  "sha256": "751328e849b3b7bf7154471d898568b4ba0af286f2c8c5ebfc9e7cf64b7eb797"
 }

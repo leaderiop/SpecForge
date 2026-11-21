@@ -444,8 +444,8 @@ fn the_hook_check_leaves_out_only_the_hooks_own_file() {
 }
 
 /// A walk skips what `.gitignore` names and every hidden name. A phase's planning files can be
-/// gitignored (`commit_docs: false`) and a test directory's helpers hidden: the two gates that
-/// walk them ask for them, or they would pass on a file they never saw.
+/// gitignored and a test directory's helpers hidden: the two gates that walk them ask for them,
+/// or they would pass on a file they never saw.
 #[test]
 fn a_gate_over_a_directory_reads_what_its_meaning_needs() {
     let Some(sh) = Shell::only(super::PICK_TOOLS) else {

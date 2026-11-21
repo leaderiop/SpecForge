@@ -162,8 +162,8 @@ person to run it, and gsd/E521's suggestion names `specforge gsd waive-trailer` 
 The assets are upstream's text; where the spec has no counterpart a line was defaulted, not ported (each is a line in
 `REWRITTEN` of `tests/port_workflows.rs`):
 
-- Settings. `{{setting:<key>|<fallback>}}` reads the settings block. `commit_docs`, `features.graduation*`,
-  `workflow._auto_chain_active`, `workflow.code_review_command` and `workflow.live_dom_uat` are not keys of the roster
+- Settings. `{{setting:<key>|<fallback>}}` reads the settings block. `features.graduation*`, `workflow._auto_chain_active`,
+  `workflow.code_review_command` and `workflow.live_dom_uat` are not keys of the roster
   (`NOT_SETTINGS` in `tests/ported_text.rs`), so they always take their fallback, and a `settings set` on them would be
   refused. `USE_WORKTREES` is `false` and `ISOLATION` is `none`: `@gsd/core` runs no worktree isolation, so every
   plan of `execute_phase` dispatches in sequential mode and its four isolation steps are not reached (ADR 0343).

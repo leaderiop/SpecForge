@@ -53,7 +53,7 @@
     "- `is_brownfield`: the repository has files other than `*.spec` (`git ls-files`); `fast_mode`: `--fast` was parsed; `has_codebase_map`, `has_fast_codebase_map`: false",
     "- `missing_codebase_map_files`, `missing_fast_codebase_map_files`: not applicable (no map is expected here)",
     "- `has_docs_candidates`: `DOC_CANDIDATES` is above 0; `doc_candidate_count`: `DOC_CANDIDATES`; `onboarding_summary_exists`: false (the summary is shown, never written)",
-    "- `commit_docs`: false; `text_mode`: the `--text` flag; `has_git`, `git_worktree_root`, `in_nested_subdir`: from `git rev-parse` (nested when `--show-toplevel` is above the current directory)",
+    "- `text_mode`: the `--text` flag; `has_git`, `git_worktree_root`, `in_nested_subdir`: from `git rev-parse` (nested when `--show-toplevel` is above the current directory)",
     "- `response_language`",
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `AskUserQuestion` call below with a plain-text numbered list and ask the user to type their choice number — required for non-the agent runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available."
   ],
-  "bytes": 39065,
+  "bytes": 39043,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f509138c171afd17db8db24de0f2e466225816b198f9f80f98092e425a2643c7",
+    "digest": "sha256:c514ca4229fc606e8a540b4eebd80b2875a942d957fd71da59abfb80881dbb42",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "f509138c171afd17db8db24de0f2e466225816b198f9f80f98092e425a2643c7"
+  "sha256": "c514ca4229fc606e8a540b4eebd80b2875a942d957fd71da59abfb80881dbb42"
 }

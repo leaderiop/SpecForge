@@ -31,7 +31,7 @@ Work out these fields from `ENTITIES`, `DOC_CANDIDATES` and git (no projection s
 - `is_brownfield`: the repository has files other than `*.spec` (`git ls-files`); `fast_mode`: `--fast` was parsed; `has_codebase_map`, `has_fast_codebase_map`: false
 - `missing_codebase_map_files`, `missing_fast_codebase_map_files`: not applicable (no map is expected here)
 - `has_docs_candidates`: `DOC_CANDIDATES` is above 0; `doc_candidate_count`: `DOC_CANDIDATES`; `onboarding_summary_exists`: false (the summary is shown, never written)
-- `commit_docs`: false; `text_mode`: the `--text` flag; `has_git`, `git_worktree_root`, `in_nested_subdir`: from `git rev-parse` (nested when `--show-toplevel` is above the current directory)
+- `text_mode`: the `--text` flag; `has_git`, `git_worktree_root`, `in_nested_subdir`: from `git rev-parse` (nested when `--show-toplevel` is above the current directory)
 - `response_language`
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
