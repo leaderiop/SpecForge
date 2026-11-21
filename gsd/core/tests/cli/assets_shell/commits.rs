@@ -88,7 +88,7 @@ fn the_plan_commit_step_commits_the_spec_and_an_empty_one_says_nothing_to_commit
 
 /// Commits the project's files as its baseline and gives the repository its own identity: the developer's
 /// configuration is never read.
-fn committed(p: &Project) {
+pub(super) fn committed(p: &Project) {
     p.commit();
     for (key, value) in [
         ("user.name", "gsd"),

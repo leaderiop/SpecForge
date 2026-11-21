@@ -128,7 +128,7 @@ AGENT_SKILLS_VERIFIER=""   # the host install carries the skills of gsd-verifier
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
 ```
 
-The fence above printed `quick_id`, `slug`, `branch_name`, `title` and `date`; `quick_dir` and `task_dir` are `$quick_id`. Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`.
+The fence above printed `quick_id`, `slug`, `branch_name`, `title` and `date`; `quick_dir` and `task_dir` are `$quick_id`. Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.
 
 The project is no file, so there is no path to hand a subagent: it reads it with `specforge` (#2376):
 ```bash

@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 13624,
+  "bytes": 13381,
   "end": [
     "</step>",
     "",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 340,
+  "lines": 334,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:fef109472f494959eb112f9fb242219ffdab5a0737fdfe01940055853c077695",
+    "digest": "sha256:04807da6ede1d8924623e6bd1c50fc99641adb0a6c5742df5d118277595a09b8",
     "prompt": "@gsd/core@VERSION:fast"
   },
-  "sha256": "fef109472f494959eb112f9fb242219ffdab5a0737fdfe01940055853c077695"
+  "sha256": "04807da6ede1d8924623e6bd1c50fc99641adb0a6c5742df5d118277595a09b8"
 }

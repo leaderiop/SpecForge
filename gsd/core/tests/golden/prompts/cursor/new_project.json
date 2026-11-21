@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 77633,
+  "bytes": 76853,
   "end": [
     "TIER=\"{v1, v2 or out_of_scope}\"",
     "IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\\n'}",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 1890,
+  "lines": 1868,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b0753522861a34517e5b59ae3c75ba0fae9a87723839b9ab71c83cb27b9d0380",
+    "digest": "sha256:7d03913ddd697bc3d5ca3be88520c8290f8d3eab555e508bd1f4f33b56e382ce",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "b0753522861a34517e5b59ae3c75ba0fae9a87723839b9ab71c83cb27b9d0380"
+  "sha256": "7d03913ddd697bc3d5ca3be88520c8290f8d3eab555e508bd1f4f33b56e382ce"
 }

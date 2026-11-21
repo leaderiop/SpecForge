@@ -59,15 +59,9 @@ Commit the change atomically:
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-# fast writes no plan and no summary (its own guardrails forbid both); spec/
-# is excluded from staging ONLY when commit_docs is false — otherwise this path is
-# byte-identical to an unconditional `git add -A`, unchanged from before #3585.
-COMMIT_DOCS="true"   # commit_docs: every spec change is committed with the work
-if [ "$COMMIT_DOCS" = "false" ]; then
-  specforge git add -A --except-spec
-else
-  ADDS=(--add "$(specforge git repo --pick .top)")
-fi
+# fast writes no plan and no summary (its own guardrails forbid both); every change,
+# the spec included, is committed with the work: an unconditional `git add -A`.
+ADDS=(--add "$(specforge git repo --pick .top)")
 specforge git commit "${ADDS[@]}" -m "fix: {concise description of what changed}"
 ```
 

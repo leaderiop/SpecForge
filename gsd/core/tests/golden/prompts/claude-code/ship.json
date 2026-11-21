@@ -51,7 +51,7 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
     "",
-    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error). `commit_docs` is a setting: `specforge settings --format json --extension @gsd/core`.",
+    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error).",
     "",
     "Also load config for branching strategy:",
     "```bash",
@@ -61,7 +61,7 @@
     "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
     ""
   ],
-  "bytes": 46089,
+  "bytes": 45977,
   "end": [
     "Branch: {branch} → ${BASE_BRANCH}",
     "Commits: {count}",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:21b96a6d0354290f2fd1c918c940b0171d80cae1a281c6bfe9b8d3e9bfb0d2fa",
+    "digest": "sha256:b4accc599f5cc0d10e924c7c49d8bbcc4de9fd53c7feb56b82d661ad619de806",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "21b96a6d0354290f2fd1c918c940b0171d80cae1a281c6bfe9b8d3e9bfb0d2fa"
+  "sha256": "b4accc599f5cc0d10e924c7c49d8bbcc4de9fd53c7feb56b82d661ad619de806"
 }

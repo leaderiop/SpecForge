@@ -9,6 +9,9 @@ use gsd_core::build;
 use serde_json::Value;
 use specforge_extension_sdk::testing::MockHost;
 
+#[path = "common/files.rs"]
+mod files;
+
 const MANIFEST: &str = include_str!(gsd_kit::snapshot!("config-schema.manifest.json"));
 const CAPABILITIES: &str = include_str!(gsd_kit::snapshot!("capabilities.json"));
 const DEFAULTS: &str = include_str!(gsd_kit::snapshot!("config-defaults.manifest.json"));
@@ -325,4 +328,51 @@ fn the_plan_phase_family_reads_no_commit_docs() {
     let step = lines[start..end].join("\n");
     assert!(step.contains("nothing to commit"), "{step}");
     assert!(step.contains("`specforge git commit --add spec`"), "{step}");
+}
+
+/// Every `.md` file under `assets/`, with its path under `assets/` and its text.
+fn asset_texts() -> Vec<(String, String)> {
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+    files::under(&assets)
+        .into_iter()
+        .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
+        .map(|path| {
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            let rel = path
+                .strip_prefix(&assets)
+                .expect("under assets")
+                .display()
+                .to_string();
+            (rel, text)
+        })
+        .collect()
+}
+
+/// A sentence that calls a key a setting ("`a`, `b` and `c` are settings", "`a` is a setting") names only keys of
+/// the roster, `gsd_core::settings::key_names()`, never a copied list: a key `@gsd/core` does not declare is read as
+/// unset by one agent and as on by another. The scan reads every asset's whole text, so a claim that a line break
+/// splits is still one sentence, and it sees the 13 claims the assets hold.
+#[test]
+fn every_key_an_asset_calls_a_setting_is_a_key_of_the_roster() {
+    let roster: BTreeSet<&str> = gsd_core::settings::key_names().collect();
+    let claim = regex::Regex::new(
+        r"((?:`[^`]+`(?:,\s*|\s+and\s+|,\s+and\s+)?)+)\s+(?:are settings|is a setting)\b",
+    )
+    .expect("the claim pattern");
+    let code = regex::Regex::new(r"`([^`]+)`").expect("the code pattern");
+    let mut seen = 0;
+    let mut false_claims = Vec::new();
+    for (path, text) in asset_texts() {
+        for found in claim.captures_iter(&text) {
+            seen += 1;
+            for key in code.captures_iter(&found[1]).map(|c| c[1].to_string()) {
+                if !roster.contains(key.as_str()) {
+                    false_claims.push(format!("{path}: `{key}` is called a setting"));
+                }
+            }
+        }
+    }
+    assert!(false_claims.is_empty(), "{}", false_claims.join("\n"));
+    assert_eq!(seen, 13, "the claims the assets hold");
 }

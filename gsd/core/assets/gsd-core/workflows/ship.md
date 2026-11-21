@@ -36,7 +36,7 @@ PHASE_NUMBER="${PHASE_ID##*/}"   # the phase number is the last segment of its i
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error). `commit_docs` is a setting: `specforge settings --format json --extension @gsd/core`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error).
 
 Also load config for branching strategy:
 ```bash
@@ -474,7 +474,7 @@ Report the PR URL and suggest: "Review the diff at {url}/files"
 <step name="track_shipping">
 There is no project state to update: the last activity is computed from the commits, and the PR number is in the PR itself.
 
-If `commit_docs` is true, commit the ship-note AND push it onto the PR branch so
+Commit the ship-note AND push it onto the PR branch so
 it reaches the default branch when the PR merges. Without this push the ship-note
 commit stays local-only and is silently discarded when the branch is deleted on
 merge (#2138). The `[ci skip]` trailer suppresses the redundant pipeline the push

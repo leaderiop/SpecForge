@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 70876,
+  "bytes": 70858,
   "end": [
     "the roadmap wait for it, and the roadmapper maps each `v1` requirement to exactly one phase (the phase's",
     "`requirements`). Coverage, traceability and status are computed from the phases, plans and verifications that cover a",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3b1bc3696442231bbd71abcd9f733650dde66bed47bde8dbdf81b68b576090cb",
+    "digest": "sha256:fa6d03b1cf9914d4c648c7ee0548ae15a6b91ddf4af2a89cdb83e78a9d41eb94",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "3b1bc3696442231bbd71abcd9f733650dde66bed47bde8dbdf81b68b576090cb"
+  "sha256": "fa6d03b1cf9914d4c648c7ee0548ae15a6b91ddf4af2a89cdb83e78a9d41eb94"
 }

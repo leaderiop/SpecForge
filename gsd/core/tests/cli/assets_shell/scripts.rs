@@ -3,6 +3,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use super::commits::committed;
 use super::{Shell, asset, block, fence_after, fence_from, line};
 
 /// T3, end to end: the commit lines' producer (`specforge query … --kinds commit`) and reader, in a project whose plan
@@ -454,18 +455,23 @@ fn the_plan_ledger_counts_from_the_head_the_plan_started_at() {
     assert_eq!(at(&unborn, "head"), first.as_str());
 }
 
-/// `forensic-audit` and `fast` leave the spec files out from any directory of the project, and with any spec root.
+/// From any directory of the project, `forensic-audit` leaves the spec files out of the status it reads, and `fast`
+/// commits the spec with the code: the spec is source, committed like code, and no setting keeps it out.
 #[test]
-fn the_spec_files_are_left_out_from_a_subdirectory() {
+fn forensic_audit_leaves_the_spec_out_and_fast_commits_it_from_a_subdirectory() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
     let audit = asset("gsd-core/workflows/progress/steps/forensic-audit.md");
     let check = line(&audit, "specforge git status --except-spec");
-    let fast = asset("gsd-core/workflows/fast.md");
-    let add = line(&fast, "specforge git add -A --except-spec");
+    let commit = fence_after(
+        &asset("gsd-core/workflows/fast.md"),
+        "<step name=\"commit\">",
+    )
+    .replace("{concise description of what changed}", "the change");
 
     let p = crate::harness::project("execute");
+    committed(&p);
     p.git_commit(
         "feat: code",
         &[("src/sub/a.js", "a\n")],
@@ -477,9 +483,16 @@ fn the_spec_files_are_left_out_from_a_subdirectory() {
     let (out, err, code) = sh.run_in(&sub, check);
     assert_eq!(code, 0, "{err}");
     assert_eq!(out.trim(), "src/sub/a.js", "only the code is left");
-    let (_, err, code) = sh.run_in(&sub, add);
-    assert_eq!(code, 0, "{err}");
-    let (out, err, code) = sh.run_in(&sub, "specforge git status --pick '.untracked[]'");
-    assert_eq!(code, 0, "{err}");
-    assert!(out.lines().any(|l| l == "spec/"), "not staged: {out}");
+    let (out, err, code) = sh.run_in(&sub, &commit);
+    assert_eq!(code, 0, "{commit}\n{out}{err}");
+    let files = p.git(
+        &["show", "--name-only", "--format=", "HEAD"],
+        "2026-10-29T09:00:00Z",
+    );
+    let files: Vec<&str> = files.lines().collect();
+    assert_eq!(
+        files,
+        ["spec/noise.spec", "src/sub/a.js"],
+        "the commit holds both"
+    );
 }
