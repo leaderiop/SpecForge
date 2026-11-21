@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 
 use super::{Shell, asset, block, line, mcp_edit, span, typed};
 use crate::commands_support::{refused, strict};
-use crate::harness::{Project, taskboard};
+use crate::harness::{Project, is_judged, taskboard};
 
 /// The planner's body.
 fn planner() -> String {
@@ -216,14 +216,39 @@ fn added(before: &[String], after: Vec<String>) -> Vec<String> {
         .collect()
 }
 
+/// `(code, severity, entity)` of each judged rule's diagnostic `check --format json` reports on an entity whose id
+/// starts with `prefix`, sorted. The entity is the quoted id a judged message names first.
+fn owed(p: &Project, prefix: &str) -> Vec<(String, String, String)> {
+    let run = p.run(&["check", "--format", "json"]);
+    let found: Value = serde_json::from_str(&run.stdout)
+        .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+    let mut owed: Vec<(String, String, String)> = found
+        .as_array()
+        .expect("a list of diagnostics")
+        .iter()
+        .filter_map(|d| {
+            let code = d["code"].as_str()?;
+            let entity = d["message"].as_str()?.split('\'').nth(1)?;
+            (is_judged(code) && entity.starts_with(prefix)).then(|| {
+                let severity = d["severity"].as_str().unwrap_or_default();
+                (code.to_string(), severity.to_string(), entity.to_string())
+            })
+        })
+        .collect();
+    owed.sort();
+    owed
+}
+
 /// The two plan files the edit writes.
 const FILES: [&str; 2] = ["spec/plans/03-01.spec", "spec/plans/03-02.spec"];
 
 /// On the planless phase, under gsd-compat and under gsd-strict, the plan edit with 03-02's requirements emptied is
 /// refused whole (`gsd/E301`) and writes no file; the edit as filled is accepted in one call, writes both plans with
 /// their task, truth, artifact and key link (and 03-02's checkpoint, prohibition and user setup step), reads the task
-/// action back exactly and adds no code but the judged rules'; sent again, it is refused as a conflict and leaves both
-/// files byte for byte.
+/// action back exactly and adds no code outside the judged rules. It leaves each plan owing exactly the plan checker's
+/// four judged findings (`gsd/W311`, `gsd/W313`, `gsd/W315`: errors under gsd-strict, warnings under gsd-compat;
+/// `gsd/W316`: a warning in both), which E080 does not count (ADR 0297). Sent again, it is refused as a conflict and
+/// leaves both files byte for byte.
 #[test]
 fn the_planner_writes_a_phase_in_one_edit() {
     for profile in ["gsd-compat", "gsd-strict"] {
@@ -232,6 +257,7 @@ fn the_planner_writes_a_phase_in_one_edit() {
             strict(&p);
         }
         let before = p.codes();
+        assert_eq!(owed(&p, "v1.0/03/"), Vec::new(), "{profile}");
         let mut empty = whole_edit();
         op(&mut empty, "plan", "03-02")["fields"]["requirements"] = json!([]);
         let refusal = mcp_edit(&p, &empty);
@@ -286,6 +312,24 @@ fn the_planner_writes_a_phase_in_one_edit() {
             Vec::<String>::new(),
             "{profile}: added codes"
         );
+        let raised = if profile == "gsd-strict" {
+            "Error"
+        } else {
+            "Warning"
+        };
+        let mut want = Vec::new();
+        for plan in ["v1.0/03/03-01", "v1.0/03/03-02"] {
+            for (code, severity) in [
+                ("gsd/W311", raised),
+                ("gsd/W313", raised),
+                ("gsd/W315", raised),
+                ("gsd/W316", "Warning"),
+            ] {
+                want.push((code.to_string(), severity.to_string(), plan.to_string()));
+            }
+        }
+        want.sort();
+        assert_eq!(owed(&p, "v1.0/03/"), want, "{profile}: the judged findings");
 
         let files: Vec<String> = FILES.iter().map(|f| p.read(f)).collect();
         let again = mcp_edit(&p, &edit);
