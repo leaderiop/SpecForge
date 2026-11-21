@@ -17,7 +17,7 @@ check the root runs can see the three gates (Consequences). No protocol change, 
 new setting: one table of `@gsd/core` moves.
 Its Consequences item that the refusal names every verdict refusing each run it names by its holder and its judge is
 amended by [ADR 0383](0383-a-refusal-names-the-entities-owing-the-verdicts-that-block-its-runs.md): the refusal names
-the entities that owe those verdicts, five at most per holder and judge, and a verdict no phase or milestone holds by
+the entities that owe those verdicts, at most five per holder and judge, and a verdict no phase or milestone holds by
 its own entity.
 
 ## Context

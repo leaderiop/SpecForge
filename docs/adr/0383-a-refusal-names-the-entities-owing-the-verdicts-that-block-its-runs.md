@@ -70,7 +70,8 @@ The reason: this decision is about what the help says, not about what the gate j
 - **Ids relative to the holder.** Shorter, but not what `record-verdict` and `query` take, and not how the message
   spells them.
 - **No bound.** A phase's every must-have in one line.
-- **One bound for the whole tail.** It would hide whole holders.
+- **One bound for the whole tail, or a count of the holders past a limit.** Either would hide whole holders, and a
+  holder tells the user where a prompt runs (D3).
 - **Escaping ids in the tail alone, or echoing them raw.** Escaping in one place would spell one id two ways; echoed
   raw, an id with a line break would break the one-line help and reach a terminal as it is (D1).
 - **Naming the outermost id as before.** It names a holder no prompt runs on (D3).
@@ -80,8 +81,11 @@ The reason: this decision is about what the help says, not about what the gate j
 - Past five, a group's entities are counted, not named; for the verifier's verdicts
   `specforge gsd re-verify <plan> --stale-only` lists them all.
 - The tail lists only verdicts that refuse every named run, so a verdict refusing some of them is named by none.
-- Within one help every named run is on one subject today, where the per-entity reading names what the per-group one
-  did, with the entities added.
+- Within one help every named run is on one subject, because every prompt that records one judge's verdicts again
+  runs on one kind; there the per-entity reading names what the per-group one did, with the entities added. Runs on
+  two subjects name only the entities whose verdict refuses both, and leave out a group none of whose entities does.
+- Nothing bounds the number of groups: the help names every holder and judge whose verdicts refuse its runs, each by
+  at most five ids, so it grows with the holders that owe verdicts.
 
 ## What each decision becomes
 
@@ -108,6 +112,8 @@ D1 (the entities): `passes::gates::e516::tests::tail::the_tail_names_each_entity
 `passes::gates::e516::tests::tail::an_entity_owing_several_rules_of_one_judge_is_named_once`,
 `passes::gates::e516::tests::tail::the_entities_are_named_in_id_order`,
 `passes::gates::e516::tests::tail::only_the_entities_whose_verdict_refuses_every_named_run_are_named`,
+`passes::gates::e516::tests::tail::a_group_whose_entities_refuse_different_runs_is_left_out_beside_one_that_stays`,
+`passes::gates::e516::tests::tail::every_remedy_of_a_judge_runs_on_one_kind` (the one subject of Limits),
 `passes::gates::e516::tests::a_verdict_that_refuses_only_some_named_runs_is_not_listed` and, on the taskboard twin,
 `e516_remedy::verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route`.
 
@@ -115,14 +121,17 @@ D2 (five names): `passes::gates::e516::tests::tail::five_entities_owing_one_hold
 `passes::gates::e516::tests::tail::a_sixth_entity_is_counted_not_named`,
 `passes::gates::e516::tests::tail::many_entities_name_the_first_five_in_id_order_and_count_the_rest`,
 `passes::gates::e516::tests::tail::the_bound_is_per_holder_and_judge`,
+`passes::gates::e516::tests::tail::every_holder_is_named_however_many_owe_verdicts` (no bound on the groups, Limits),
+`passes::gates::e516::tests::tail::a_thousand_stale_truths_a_phase_share_one_bounded_tail` (one tail per set of runs),
 `e516_remedy::the_seven_must_haves_of_a_stale_phase_are_named_five_and_two_more` and
 `passes::gates::e516::tests::docs::the_docs_state_the_bound_the_tail_applies`, which fails when the bound in the code
-and the number the docs and D2 state differ.
+and the number any doc stating it gives differ, wherever its lines break.
 
 D3 (no holder): `passes::gates::e516::tests::tail::a_verdict_no_phase_holds_is_named_by_its_own_entity`,
 `passes::gates::e516::tests::tail::held_groups_come_first_then_a_verdict_no_phase_holds`,
 `passes::gates::e516::tests::tail::the_entities_of_one_outer_id_are_named_each_itself`,
 `passes::gates::e516::tests::tail::the_groups_no_holder_scopes_follow_the_held_ones_in_id_order`,
+`passes::gates::e516::tests::tail::an_outer_id_owing_two_judges_names_a_group_per_judge`,
 `passes::gates::e516::tests::tail::the_bound_holds_for_the_entities_of_an_outer_id`,
 `passes::gates::e516::tests::tail::a_holder_is_a_kind_a_remedy_prompt_runs_on` and, on the discuss project,
 `e516_remedy::a_verdict_no_phase_holds_is_named_by_its_own_entity_and_recorded_without_a_gate`; with the behaviours
