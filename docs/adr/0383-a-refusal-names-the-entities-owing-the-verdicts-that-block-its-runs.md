@@ -116,7 +116,7 @@ D2 (five names): `passes::gates::e516::tests::tail::five_entities_owing_one_hold
 `passes::gates::e516::tests::tail::many_entities_name_the_first_five_in_id_order_and_count_the_rest`,
 `passes::gates::e516::tests::tail::the_bound_is_per_holder_and_judge`,
 `e516_remedy::the_seven_must_haves_of_a_stale_phase_are_named_five_and_two_more` and
-`passes::gates::e516::tests::tail::the_docs_state_the_bound_the_tail_applies`, which fails when the bound in the code
+`passes::gates::e516::tests::docs::the_docs_state_the_bound_the_tail_applies`, which fails when the bound in the code
 and the number the docs and D2 state differ.
 
 D3 (no holder): `passes::gates::e516::tests::tail::a_verdict_no_phase_holds_is_named_by_its_own_entity`,

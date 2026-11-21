@@ -673,4 +673,5 @@ fn a_verdict_that_refuses_only_some_named_runs_is_not_listed() {
     );
 }
 
+mod docs;
 mod tail;
