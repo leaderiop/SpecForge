@@ -26,8 +26,12 @@ setting.
 Each blocking verdict is grouped by its holder and its judge (another extension's rule when it has no core judge), as
 before, and the group names the entities that owe its verdicts, each by its full id between single quotes, as the
 message writes it, in the order a person reads plan and task ids. An entity owing several rules of one judge is named
-once. A group names only the entities whose verdict refuses every run the help names, read with the same rule the gate
-reads, and is left out when none does.
+once. A group names only the entities whose verdict refuses every run the help names, read with the same rule the
+gate reads, and is left out when none does.
+
+An id is read from plan text and may hold a quote, a backslash or a control character: one helper, the one `gsd/I527`
+escapes with, escapes it in the message and the tail alike, and every other id or name the help echoes, so the refusal
+stays one line and spells one id one way. An id holding none of those comes out unchanged.
 
 The reason: the user records a verdict on an entity, by its id; the holder says where a prompt runs, the entity says
 what to judge.
@@ -53,7 +57,7 @@ nowhere.
 
 The message, the static helps (an unreadable verdict, another extension's rule, a verdict no prompt's run records
 again), when `gsd/E516` refuses and the count of diagnostics (one per entity and rule) stay as ADR 0377 D7 and ADR 0379
-left them.
+left them, for every id and name that holds no quote, backslash or control character; one that does is escaped (D1).
 
 The reason: this decision is about what the help says, not about what the gate judges.
 
@@ -67,8 +71,8 @@ The reason: this decision is about what the help says, not about what the gate j
   spells them.
 - **No bound.** A phase's every must-have in one line.
 - **One bound for the whole tail.** It would hide whole holders.
-- **Escaping ids in the tail alone.** The message echoes them raw, and the grammar's ids hold no quote, space or
-  control character, so both spell one id one way.
+- **Escaping ids in the tail alone, or echoing them raw.** Escaping in one place would spell one id two ways; echoed
+  raw, an id with a line break would break the one-line help and reach a terminal as it is (D1).
 - **Naming the outermost id as before.** It names a holder no prompt runs on (D3).
 
 ## Limits
@@ -129,8 +133,9 @@ it keeps, `passes::gates::e516::tests::a_holder_the_gate_excuses_is_still_named_
 
 D4 (what does not change): `passes::gates::tests::*`, unchanged; the message-only pins of `flow_strict::*`,
 `prompts_gates::*`, `cmd_execute::*` and `verdict_freshness::*`; and the determinism and encoding tests
-`passes::gates::e516::tests::tail::the_tail_is_the_same_whatever_the_input_order_and_on_repeat` and
-`passes::gates::e516::tests::tail::an_entity_id_is_named_in_a_tail_as_its_message_names_it`.
+`passes::gates::e516::tests::tail::the_tail_is_the_same_whatever_the_input_order_and_on_repeat`,
+`passes::gates::e516::tests::tail::an_entity_id_is_named_in_a_tail_as_its_message_names_it` and
+`passes::gates::e516::tests::tail::an_id_or_a_name_with_a_line_break_stays_on_one_line`.
 
 ## Would reopen it
 

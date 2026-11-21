@@ -14,6 +14,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::{link, of_kind, phase_of};
+use super::{one_line, quoted};
 use crate::commands::id_order;
 
 /// The verifier's rule, whose stale judgement on a truth is the stale set.
@@ -158,11 +159,11 @@ fn spec_changes(delta: &DeltaPayload, read: &[(&str, &str)]) -> Vec<String> {
                     .collect(),
                 DeltaChange::Modified | DeltaChange::Removed => return None,
             };
-            let id = one_line(id);
+            let id = quoted(id);
             Some(if what.is_empty() {
-                format!("{kind} '{id}'")
+                format!("{kind} {id}")
             } else {
-                format!("{kind} '{id}' ({})", what.join(", "))
+                format!("{kind} {id} ({})", what.join(", "))
             })
         })
         .collect()
@@ -230,7 +231,7 @@ fn message(
         let inputs: Vec<String> = verdict.changed.iter().map(|name| one_line(name)).collect();
         format!(" ({} changed since it was recorded)", inputs.join(", "))
     };
-    let cites = quoted(verdict.files.iter().map(|(path, _)| *path));
+    let cites = listed(verdict.files.iter().map(|(path, _)| *path));
     let it_cites = if cites.is_empty() {
         String::new()
     } else {
@@ -244,41 +245,32 @@ fn message(
         (false, Some(files)) => format!(
             "the spec it reads changed: {}; the files it cites changed too: {}",
             spec.join(", "),
-            quoted(files.iter().copied())
+            listed(files.iter().copied())
         ),
         (false, None) => format!("the spec it reads changed: {}{it_cites}", spec.join(", ")),
         (true, Some([])) => "neither the spec it reads nor a file it cites changed".to_string(),
         (true, Some(files)) => format!(
             "only the files it cites changed: {}",
-            quoted(files.iter().copied())
+            listed(files.iter().copied())
         ),
         (true, None) => format!("the spec it reads is unchanged{it_cites}"),
     };
     let uncited = match files {
         Some(files) if !files.uncited.is_empty() => format!(
             "; it did not cite {} at the base",
-            quoted(files.uncited.iter().copied())
+            listed(files.uncited.iter().copied())
         ),
         _ => String::new(),
     };
-    let truth = one_line(truth);
+    let truth = quoted(truth);
     format!(
-        "the verifier's verdict on truth '{truth}' is stale{changed}: since {base}, {cause}{uncited}"
+        "the verifier's verdict on truth {truth} is stale{changed}: since {base}, {cause}{uncited}"
     )
 }
 
-/// Each path in single quotes, [`one_line`], joined by `, `.
-fn quoted<'a>(paths: impl Iterator<Item = &'a str>) -> String {
-    paths
-        .map(|path| format!("'{}'", one_line(path)))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// A text the pass echoes but did not write (a path, an id, a field or an input name), escaped so the message stays
-/// one line. An id or a name of the grammar comes out unchanged; the one-line message does not rest on that.
-fn one_line(text: &str) -> String {
-    text.escape_debug().to_string()
+/// Each path [`quoted`], joined by `, `.
+fn listed<'a>(paths: impl Iterator<Item = &'a str>) -> String {
+    paths.map(quoted).collect::<Vec<_>>().join(", ")
 }
 
 /// The command that lists the plan's verdicts that are not fresh, and why to run it.

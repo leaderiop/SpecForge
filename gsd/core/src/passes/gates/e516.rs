@@ -17,7 +17,8 @@
 //! that owe it (each once, by its full id, as the message writes it; at most five per holder and judge, then how many
 //! more), and the gate-free `record-verdict`; a verdict no phase or milestone holds is named after the holders by its
 //! own entity, owed by it itself. With no such run (no phase or milestone scopes the entity, or the prompt stops on
-//! its complete phase) it names `record-verdict` alone. `re_verify` lists the verifier's verdicts only.
+//! its complete phase) it names `record-verdict` alone. `re_verify` lists the verifier's verdicts only. Every id and
+//! name the message and the help echo is [`one_line`], each id in the message and the tail [`quoted`] alike.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -27,6 +28,7 @@ use super::{gate, phases, plans_in, refuse};
 use crate::commands::id_order;
 use crate::passes::commits::target;
 use crate::passes::plans::text;
+use crate::passes::{one_line, quoted};
 use crate::prompts::{Rejudge, Spec, judges_run_by, rejudging};
 use crate::scope::scope_of;
 
@@ -111,8 +113,8 @@ struct Blocker<'a> {
 /// The verdicts that refuse a run, per holder and judge: the entities that owe them.
 type Owed<'a> = BTreeMap<Blocker<'a>, BTreeSet<&'a str>>;
 
-/// The entities of one group of a tail: the first [`NAMED`] in `id_order`, each between single quotes as the message
-/// writes its own, then how many more.
+/// The entities of one group of a tail: the first [`NAMED`] in `id_order`, each [`quoted`] as the message writes its
+/// own, then how many more.
 fn names(entities: &BTreeSet<&str>) -> String {
     let mut sorted: Vec<&str> = entities.iter().copied().collect();
     sorted.sort_by(|a, b| id_order(a).cmp(&id_order(b)));
@@ -122,7 +124,7 @@ fn names(entities: &BTreeSet<&str>) -> String {
     };
     let named: Vec<String> = sorted[..sorted.len().min(NAMED)]
         .iter()
-        .map(|id| format!("'{id}'"))
+        .map(|id| quoted(id))
         .collect();
     format!("{}{more}", named.join(", "))
 }
@@ -132,7 +134,7 @@ type Runs<'a> = Vec<(Remedy, &'a str)>;
 
 /// `/gsd-<command> <at> <flags>` and its CLI form: one prompt run a suggestion names.
 fn item(remedy: &Remedy, at: &str) -> String {
-    let run = std::iter::once(at.to_string())
+    let run = std::iter::once(one_line(at))
         .chain(
             remedy
                 .rejudge
@@ -334,7 +336,14 @@ impl<'a> Index<'a> {
         if !held.is_empty() {
             let listed: Vec<String> = held
                 .iter()
-                .map(|(b, entities)| format!("{} ({}: {})", b.holder, b.by, names(entities)))
+                .map(|(b, entities)| {
+                    format!(
+                        "{} ({}: {})",
+                        one_line(b.holder),
+                        one_line(b.by),
+                        names(entities)
+                    )
+                })
                 .collect();
             parts.push(format!("on {}", listed.join(", ")));
         }
@@ -344,7 +353,7 @@ impl<'a> Index<'a> {
             } else {
                 ", each itself"
             };
-            format!("by {}{owing} ({})", names(entities), b.by)
+            format!("by {}{owing} ({})", names(entities), one_line(b.by))
         }));
         format!(
             "; every run named here is also refused by the verdicts owed {}, outside its scope or of a judge it does \
@@ -368,19 +377,22 @@ impl<'a> Index<'a> {
         if state == "unreadable" {
             return "fix what the inputs cannot read, then record the verdict again".to_string();
         }
+        // The entity and rule as the help echoes them; `entity` itself is the key every lookup reads.
+        let (id, rule) = (one_line(entity), one_line(rule));
         let Some((code, judge)) = core else {
             return if missing {
                 format!(
-                    "run the step of its extension that judges it (`specforge query {entity} --inputs {rule}` names \
-                     its judge)"
+                    "run the step of its extension that judges it (`specforge query {id} --inputs {rule}` names its \
+                     judge)"
                 )
             } else {
                 format!(
                     "run the step of its extension that judges it again: it records the verdict over the current \
-                     inputs (`specforge query {entity} --inputs {rule}` names its judge)"
+                     inputs (`specforge query {id} --inputs {rule}` names its judge)"
                 )
             };
         };
+        let code = one_line(code);
         let (named, stopped) = self.runs(entity, judge);
         if named.is_empty() {
             let again = if missing { "" } else { " again" };
@@ -392,15 +404,16 @@ impl<'a> Index<'a> {
                         .collect();
                     let verb = if commands.len() == 1 { "stops" } else { "stop" };
                     format!(
-                        "on the complete phase {at}, where {} {verb}",
+                        "on the complete phase {}, where {} {verb}",
+                        one_line(at),
                         commands.join(" and ")
                     )
                 }
                 None => "where no phase or milestone scopes it".to_string(),
             };
             return format!(
-                "no prompt judges it{again} {why}: record its verdict with `specforge gsd record-verdict {entity} \
-                 {code} <outcome> <model> '<basis>'` over its inputs (`specforge query {entity} --inputs {rule}`), \
+                "no prompt judges it{again} {why}: record its verdict with `specforge gsd record-verdict {id} \
+                 {code} <outcome> <model> '<basis>'` over its inputs (`specforge query {id} --inputs {rule}`), \
                  which no gate refuses (its judge: {judge})"
             );
         }
@@ -417,8 +430,8 @@ impl<'a> Index<'a> {
             let listing = target(self.input, entity, "plan")
                 .map(|plan| {
                     format!(
-                        "; `specforge gsd re-verify {plan} --stale-only` lists the verifier's verdicts that are not \
-                         fresh"
+                        "; `specforge gsd re-verify {} --stale-only` lists the verifier's verdicts that are not fresh",
+                        one_line(plan)
                     )
                 })
                 .unwrap_or_default();
@@ -428,7 +441,7 @@ impl<'a> Index<'a> {
         }
         format!(
             "run {items} to judge it again (its judge: {judge}): it records the verdict over the current inputs \
-             (`specforge query {entity} --inputs {rule}`){tail}"
+             (`specforge query {id} --inputs {rule}`){tail}"
         )
     }
 }
@@ -452,7 +465,10 @@ pub(super) fn e516(input: &PassInput) -> Vec<PassDiagnostic> {
         for j in &entity.judgements {
             let message = match j.state.as_str() {
                 "stale" if j.changed.is_empty() => "is stale".to_string(),
-                "stale" => format!("is stale: {} changed", j.changed.join(", ")),
+                "stale" => {
+                    let changed: Vec<String> = j.changed.iter().map(|c| one_line(c)).collect();
+                    format!("is stale: {} changed", changed.join(", "))
+                }
                 "unrecorded" => "is not recorded in specforge-harness".to_string(),
                 "unreadable" => "cannot be read".to_string(),
                 "missing" => "is missing".to_string(),
@@ -476,7 +492,11 @@ pub(super) fn e516(input: &PassInput) -> Vec<PassDiagnostic> {
                 "E516",
                 PassSeverity::Error,
                 subject.unwrap_or(&entity.id),
-                format!("the {} verdict on '{}' {message}", j.rule, entity.id),
+                format!(
+                    "the {} verdict on {} {message}",
+                    one_line(&j.rule),
+                    quoted(&entity.id)
+                ),
                 &how,
             ));
         }

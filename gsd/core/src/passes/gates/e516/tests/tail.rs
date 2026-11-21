@@ -270,7 +270,8 @@ fn the_tail_is_the_same_whatever_the_input_order_and_on_repeat() {
     }
 }
 
-/// An id holding a quote, a space and a non-ASCII letter is written in a tail exactly as its own message writes it.
+/// An id holding a quote, a space and a non-ASCII letter is written in a tail exactly as its own message writes it:
+/// between single quotes, its quote escaped, its space and its letter unchanged.
 #[test]
 fn an_entity_id_is_named_in_a_tail_as_its_message_names_it() {
     let id = "v1.0/01/01-01/T'R é";
@@ -282,15 +283,71 @@ fn an_entity_id_is_named_in_a_tail_as_its_message_names_it() {
             ("v1.0/02/02-01", stale_check("gsd/W311")),
         ],
     ));
-    let quoted = format!("'{id}'");
-    assert!(how(&found, "v1.0/02/02-01").contains(&format!("(gsd-verifier: {quoted})")));
+    let escaped = "'v1.0/01/01-01/T\\'R é'";
+    assert_eq!(quoted(id), escaped);
+    assert!(how(&found, "v1.0/02/02-01").contains(&format!("(gsd-verifier: {escaped})")));
     assert!(
         found
             .iter()
             .any(|d| d.message
-                == format!("the gsd/E501 verdict on {quoted} is stale: cited changed")),
+                == format!("the gsd/E501 verdict on {escaped} is stale: cited changed")),
         "{found:?}"
     );
+}
+
+/// An id, a rule's input name or a holder holding a line break or a tab leaves every message and help of the gate on
+/// one line: the message, the tail and the commands the help names escape it alike, and an id of the grammar comes
+/// out unchanged beside it.
+#[test]
+fn an_id_or_a_name_with_a_line_break_stays_on_one_line() {
+    let truth = "v1.0/0\n1/0\n1-01/TR1";
+    let quick = "260321-a1b/T\tR1";
+    let found = e516(&with(
+        project(
+            ship(None),
+            &["0\n1", "02"],
+            &[
+                (truth, judged("gsd/E501", "stale", &["ci\nted"])),
+                ("v1.0/02/02-01", stale_check("gsd/W311")),
+            ],
+        ),
+        vec![json!({ "id": quick, "kind": "truth", "judgements": [stale_truth()] })],
+    ));
+    assert_eq!(found.len(), 3, "{found:?}");
+    for d in &found {
+        let help = d.suggestion.as_deref().unwrap_or_default();
+        assert!(!d.message.contains(['\n', '\t']), "{}", d.message);
+        assert!(!help.contains(['\n', '\t']), "{help}");
+    }
+    let (phase, plan, truth) = (
+        "v1.0/0\\n1",
+        "v1.0/0\\n1/0\\n1-01",
+        "v1.0/0\\n1/0\\n1-01/TR1",
+    );
+    let quick = "260321-a1b/T\\tR1";
+    assert!(
+        found.iter().any(|d| d.message
+            == format!("the gsd/E501 verdict on '{truth}' is stale: ci\\nted changed")),
+        "{found:?}"
+    );
+    let unheld_quick = format!("and by '{quick}' itself (gsd-verifier)");
+    assert_eq!(
+        how(&found, truth),
+        verifier(phase, plan)
+            + &tail(&format!(
+                "{}, {unheld_quick}",
+                on(&[held("v1.0/02", "gsd-plan-checker", &["v1.0/02/02-01"])])
+            ))
+    );
+    assert_eq!(
+        how(&found, "v1.0/02/02-01"),
+        again("gsd/W311", "gsd-plan-checker", "v1.0/02/02-01", "v1.0/02")
+            + &tail(&format!(
+                "{}, {unheld_quick}",
+                on(&[held(phase, "gsd-verifier", &[truth])])
+            ))
+    );
+    assert_eq!(how(&found, quick), unheld(quick, "E501", "gsd-verifier"));
 }
 
 /// `input` with the entities `extra` beside its own.
