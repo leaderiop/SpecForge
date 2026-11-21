@@ -158,6 +158,11 @@ Derive plans from actual work. Granularity determines compression tolerance, not
 | {phase}-01 | [brief] | 2 | [files] |
 | {phase}-02 | [brief] | 3 | [files] |
 
+### Open Questions
+
+{each open question the prompt handed you, as you received it, for the user to answer; leave the section out when
+there is none}
+
 ### Next Steps
 
 Run `/clear` first for a fresh context window, then execute: `/gsd:execute-phase {phase}`

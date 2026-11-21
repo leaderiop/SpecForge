@@ -767,6 +767,12 @@ message is a brief confirmation (see `<structured_returns>`), never the plan's c
 The call is checked before it writes: a refusal names its codes (E080 carries the errors), and
 `specforge explain <code>` says what each code means and how to fix it. Fix the list and send the whole call again; a
 refused call writes nothing, so nothing is left half-written. Never hand-edit a spec file instead.
+
+An open question the research could not record (the prompt's **Open questions the research returned:**:
+gsd-strict refuses one that no decision resolves, `gsd/W204`) is the user's to answer, not yours. Record no decision
+that resolves it and do not record the question. Write the plans so they hold whatever the answer; a task that
+cannot follows a `decision` checkpoint that asks it. List each question, as you received it, under
+`### Open Questions` in your return: the orchestrator asks the user and records the answer with the question.
 </step>
 
 <step name="validate_plan">

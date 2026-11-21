@@ -92,6 +92,10 @@ PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
    ${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings, if present)' : ''}
    </required_reading>
 
+   **Open questions the research returned:** {the item's researcher's `### Open Questions`, or none}.
+   Each is the user's to answer, not yours: record no decision that resolves it and do not record it; write the
+   plans so they hold whatever the answer, and list it under `### Open Questions` in your return.
+
    ${AGENT_SKILLS_PLANNER}
 
    {For each active entry in `PLAN_PRE_HOOKS_JSON` where `kind == \"contribution\"` and `into == \"planner\"` (in array order): inject the entry's `fragment.inline` verbatim here, plus its resolved `configValues` when the entry carries them. If none, omit this block.}
@@ -133,6 +137,32 @@ PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
    that item `failed` (`quick-batch complete` is never called for it) and
    continue with the rest of the layer — one item's planner failure does not
    block unrelated items (row 33).
+
+   When an item's planner lists `### Open Questions`, ask the user each one (under `--auto`, ask nothing and
+   report them as open). For each answer, record the answer as a decision, then the question resolved by it, in
+   that order: gsd-strict refuses the question while no decision resolves it (`gsd/W204`), and accepts it
+   once the decision exists.
+
+```bash
+QUICK_ID="{the item's quick id, e.g. 261121-abc}"
+RESEARCH_ID="{the research id, e.g. 261121-abc-RESEARCH}"
+DECISION_ID="{the quick plan's next decision id, e.g. 261121-abc-D-01}"
+QUESTION_ID="{the question's id, e.g. 261121-abc-Q1}"
+IFS= read -rd '' ANSWER <<'TEXT' || true; ANSWER=${ANSWER%$'\n'}
+{the user's answer}
+TEXT
+IFS= read -rd '' QUESTION <<'TEXT' || true; QUESTION=${QUESTION%$'\n'}
+{the question, as the research returned it}
+TEXT
+IFS= read -rd '' UNCLEAR <<'TEXT' || true; UNCLEAR=${UNCLEAR%$'\n'}
+{what was unclear, as the research returned it}
+TEXT
+SPEC_FILE=spec/quick.spec
+specforge new decision "$DECISION_ID" "$ANSWER" --in "$SPEC_FILE" --plan "$QUICK_ID" --text "$ANSWER" --origin checkpoint || exit 1
+specforge new open_question "$QUESTION_ID" "$QUESTION" --in "$SPEC_FILE" --research "$RESEARCH_ID" --question "$QUESTION" --unclear "$UNCLEAR" --resolved_by "$DECISION_ID" || exit 1
+```
+
+   A question the user leaves open is not recorded, since gsd-strict refuses it.
 
 7. **If `$VALIDATE_MODE`:** read and execute `gsd-core/workflows/quick-batch/steps/plan-checker-loop.md`
    for this layer's items now, before persisting
