@@ -20,6 +20,7 @@ mod new_milestone;
 mod new_project;
 mod pick;
 mod plan_edits;
+mod planner_edit;
 mod probe;
 mod relics;
 mod researchers;
