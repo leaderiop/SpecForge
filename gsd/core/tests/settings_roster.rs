@@ -3,6 +3,7 @@
 //! `gsd/parity/upstream/v1.19.0/`, so the check runs offline.
 
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use gsd_core::build;
 use serde_json::Value;
@@ -282,4 +283,46 @@ fn flatten(prefix: &str, value: &Value, out: &mut Vec<(String, Value)>) {
         }
         _ => out.push((prefix.to_string(), value.clone())),
     }
+}
+
+/// The asset `path` under `assets/`, as text.
+fn asset(path: &str) -> String {
+    let file = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join(path);
+    std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()))
+}
+
+/// The plan-phase workflow, the planner and the phase researcher read no `commit_docs`: `@gsd/core` declares no such
+/// setting, and the spec they record is committed like code. Step 13d commits the plans and says what its "nothing to
+/// commit" answer means.
+#[test]
+fn the_plan_phase_family_reads_no_commit_docs() {
+    for path in [
+        "gsd-core/workflows/plan-phase.md",
+        "agents/gsd-planner.md",
+        "agents/gsd-phase-researcher.md",
+    ] {
+        let named: Vec<String> = asset(path)
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.to_lowercase().contains("commit_docs"))
+            .map(|(n, line)| format!("{path}:{}: {line}", n + 1))
+            .collect();
+        assert!(named.is_empty(), "{}", named.join("\n"));
+    }
+    let plan_phase = asset("gsd-core/workflows/plan-phase.md");
+    let lines: Vec<&str> = plan_phase.lines().collect();
+    let start = lines
+        .iter()
+        .position(|line| *line == "## 13d. Commit Plans")
+        .expect("a line `## 13d. Commit Plans`");
+    let end = start
+        + lines[start..]
+            .iter()
+            .position(|line| line.starts_with("## 13e."))
+            .expect("step 13e after 13d");
+    let step = lines[start..end].join("\n");
+    assert!(step.contains("nothing to commit"), "{step}");
+    assert!(step.contains("`specforge git commit --add spec`"), "{step}");
 }

@@ -99,7 +99,7 @@ The planner reads the planner pack (`specforge context gsd/planner`) at the rout
 
 **#2401 — `prior_verify_commands` is NOT part of that pack and is never gated on the context window.** It is a handful of one-line `<automated>` commands harvested from the nearest prior phase that had any; the payload is tiny and its absence at 200k is exactly what made the planner re-invent a verify command and author an unrunnable path. Surface it at every context window.
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug`, `goal`, `status` and `requirements` are its fields; a phase not in the graph is an E003 error), and the other nodes are what links to it or from it: its milestone, its requirements, its `plan` entities and its `context`, `research`, `verification` and `uat_session` when it has them. `phase_status` (#3569) is the phase's `status`, `phase_req_ids` its `requirements`, `plan_count` the number of its plans, and `has_research`, `has_context` and `has_plans` whether one is there. `commit_docs`, `workflow.research`, `workflow.plan_check`, `workflow.nyquist_validation`, `workflow.text_mode`, `response_language` and `granularity` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model. `prior_verify_commands` (#2401) are the `verification` of each plan of the nearest earlier phase that has plans, read with a depth-1 query of that phase.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug`, `goal`, `status` and `requirements` are its fields; a phase not in the graph is an E003 error), and the other nodes are what links to it or from it: its milestone, its requirements, its `plan` entities and its `context`, `research`, `verification` and `uat_session` when it has them. `phase_status` (#3569) is the phase's `status`, `phase_req_ids` its `requirements`, `plan_count` the number of its plans, and `has_research`, `has_context` and `has_plans` whether one is there. `workflow.research`, `workflow.plan_check`, `workflow.nyquist_validation`, `workflow.text_mode`, `response_language` and `granularity` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model. `prior_verify_commands` (#2401) are the `verification` of each plan of the nearest earlier phase that has plans, read with a depth-1 query of that phase.
 
 **#2517:** omit the `model=` param from an `Agent()` call when its `researcher`/`planner`/`checker`_model is `"inherit"` or empty — passing `model=""` 404s on non-Claude runtimes; omitting inherits the orchestrator model (mirrors execute-phase).
 
@@ -456,7 +456,7 @@ specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=resea
 [ -n "$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id')" ] && echo "VALIDATION_CREATED=true" || echo "VALIDATION_CREATED=false"
 ```
 3. If `VALIDATION_CREATED=false`: STOP — do not proceed to Step 6
-4. When `commit_docs` is set, the strategy goes into a commit of its own, made with `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`.
+4. The strategy goes into a commit of its own, made with `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`.
 
 **If not found:** Warn and continue — plans may fail Dimension 8.
 
@@ -1391,15 +1391,18 @@ specforge gsd phase --edit "${PHASE_NUMBER}" --depends-on '<json of the phase nu
 
 Skip this step if the phase has no plan, or its dependencies did not change.
 
-## 13d. Commit Plans if commit_docs is true
+## 13d. Commit Plans
 
-If `commit_docs` is true (from the init JSON parsed in step 1), commit the plan entities and the phase's recorded dependencies (step 13c):
+Commit the plan entities and the phase's recorded dependencies (step 13c). The spec is source and is committed like
+code, so no setting decides this step. The planner's own commit usually holds the plans already: then
+`specforge git commit --add spec` answers `git_refused`, "nothing to commit", and exits 1, which means an earlier
+commit of this run holds them; continue to 13e.
 
 ```bash
 specforge git commit --add spec -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
 ```
 
-This commits the spec, which holds the phase's plans. Skip this step if `commit_docs` is false.
+This commits the spec, which holds the phase's plans.
 
 ## 13e. Post-Planning Gap Analysis (plan:post capability gate dispatch)
 

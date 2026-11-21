@@ -717,7 +717,7 @@ List missing test files, framework config, or shared fixtures needed before impl
 
 ## Step 6: Record the research
 
-Record the research with `specforge new`, never with a file tool or a heredoc: the research is an entity in the graph, not a file. This rule applies regardless of `commit_docs` setting.
+Record the research with `specforge new`, never with a file tool or a heredoc: the research is an entity in the graph, not a file.
 
 **Record contract (hard rules — must follow):**
 
@@ -807,7 +807,7 @@ This section is REQUIRED when IDs are provided. The planner uses it to map requi
 
 Record in: the `research` entity `{phase_id}/{phase_num}-RESEARCH` and its items (`specforge new`)
 
-⚠️ `commit_docs` controls git only, NOT recording. Always record first.
+⚠️ Record first: a commit holds only what is recorded.
 
 ## Step 7: Commit Research (optional)
 

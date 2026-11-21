@@ -526,7 +526,7 @@ That is the planner pack: the phase, its requirements, context, decisions, resea
 gaps and UAT gaps, the summaries of the plans it depends on, the project and its decisions, `CLAUDE.md` / `AGENTS.md`
 and the settings. Over MCP it is the resource `specforge://context/{+entity_id}?role=gsd/planner`; a host that
 generates this agent's `## Context` section already holds it there. `--pick .budget` lists what the budget cut: read a
-cut entity with `specforge query <id> --format context`. `commit_docs` and `workflow.research` are settings:
+cut entity with `specforge query <id> --format context`. `workflow.research` is a setting:
 `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
 If the spec has no project entity yet, offer to create one with `/gsd-new-project` or continue without.
