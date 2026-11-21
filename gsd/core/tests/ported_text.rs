@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use gsd_core::prompts::{asset, asset_paths, render_text, repoint, without_notice};
-use gsd_kit::prompt::args::Values;
+use prompt_combos::prompts;
 use regex::Regex;
 use roster::ROSTER;
 
@@ -19,6 +19,8 @@ mod command_word;
 mod files;
 #[path = "common/ledger.rs"]
 mod ledger;
+#[path = "common/prompt_combos.rs"]
+mod prompt_combos;
 #[path = "common/roster.rs"]
 mod roster;
 #[path = "common/specforge_only.rs"]
@@ -53,61 +55,6 @@ const NOT_COMMANDS: &[&str] = &[
 
 /// Files of upstream's tree that no ticket of r34-r44 ports: a rendered text names them as "not part of @gsd/core".
 const NOT_PORTED: &[&str] = &["gsd-core/workflows/node-repair.md"];
-
-/// One render's input: the argument text and every declared name with its placeholder value (`args::values`).
-type Combo = (String, Values);
-
-/// Every prompt as `(command stem, combinations)`: none, every flag, every enum value, text and integer options.
-fn prompts() -> Vec<(String, Vec<Combo>)> {
-    let declaration = gsd_core::build().declaration();
-    declaration
-        .surfaces
-        .prompts
-        .iter()
-        .map(|p| {
-            // `(name, words, value)` of each given argument
-            let combo = |given: &[(String, String, String)]| -> Combo {
-                let words: Vec<&str> = given.iter().map(|(_, w, _)| w.as_str()).collect();
-                let values = p
-                    .args
-                    .iter()
-                    .map(|a| {
-                        let value = given.iter().find(|(n, _, _)| *n == a.name);
-                        (a.name.clone(), value.map(|(_, _, v)| v.clone()))
-                    })
-                    .collect();
-                (words.join(" "), values)
-            };
-            let mut base = Vec::new();
-            for a in p.args.iter().filter(|a| a.required) {
-                base.push((a.name.clone(), "03".to_string(), "03".to_string()));
-            }
-            let mut texts = vec![combo(&base)];
-            let mut flags = base.clone();
-            for a in &p.args {
-                let option = format!("--{}", a.name.replace('_', "-"));
-                let name = a.name.clone();
-                match a.field_type.as_str() {
-                    "bool" => flags.push((name, option, "true".to_string())),
-                    "integer" => flags.push((name, format!("{option} 2"), "2".to_string())),
-                    "string" => {
-                        flags.push((name, format!("{option} \"text\""), "text".to_string()))
-                    }
-                    "enum" => {
-                        for value in &a.enum_values {
-                            let mut one = base.clone();
-                            one.push((name.clone(), format!("{option} {value}"), value.clone()));
-                            texts.push(combo(&one));
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            texts.push(combo(&flags));
-            (p.id.replace('_', "-"), texts)
-        })
-        .collect()
-}
 
 /// `(command, host, arguments, text)` for the whole sweep.
 fn sweep() -> Vec<(String, &'static str, String, String)> {
@@ -752,42 +699,4 @@ fn no_asset_names_an_upstream_installer_or_runtime() {
         })
         .collect();
     assert!(hits.is_empty(), "{hits:?}");
-}
-
-/// A phase's label is `Phase <its id's last segment>: <its name>`: plan-phase's step 3 and autonomous's phase details
-/// say which part of the node each value is (a node holds no `phase_number` key), `{X}` is defined, and plan-phase's
-/// own body prints no `{Name}` that no step sets.
-#[test]
-fn the_phase_label_is_read_from_the_id_and_the_name_field() {
-    let all = prompts();
-    let rendered = |command: &str| {
-        let (_, combos) = all.iter().find(|(c, _)| c == command).expect("the prompt");
-        render_text(command, "claude-code", &combos[0].0, &combos[0].1).expect("a render")
-    };
-    let plan = rendered("plan-phase");
-    let (_, step) = plan.split_once("## 3. Validate Phase").expect("step 3");
-    let step = step.split_once("\n## ").expect("step 4").0;
-    let autonomous = rendered("autonomous");
-    for (text, said) in [
-        (step, "`phase_number` is the last segment of its `id`"),
-        (step, "`phase_name` is its `.fields.name`"),
-        (step, "`{X}` is `phase_number`"),
-        (
-            step,
-            "a phase's label reads \"Phase {phase_number}: {phase_name}\"",
-        ),
-        (
-            &autonomous,
-            "`PHASE_NAME` (`phase_name`) is its `.fields.name`",
-        ),
-        (&autonomous, "`PHASE_NUM` is the last segment of its `id`"),
-        (
-            &autonomous,
-            "a phase's label reads \"Phase ${PHASE_NUM}: ${PHASE_NAME}\"",
-        ),
-    ] {
-        assert!(text.contains(said), "{said:?} is not said");
-    }
-    let own = asset("gsd-core/workflows/plan-phase.md").expect("an asset");
-    assert!(!own.contains("{Name}"), "plan-phase prints a `{{Name}}`");
 }
