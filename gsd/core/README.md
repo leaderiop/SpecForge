@@ -31,12 +31,13 @@ project resolves them to. A rule whose code is in the book is silent until its r
 Under gsd-strict and gsd-plus an edit to a file a verdict cites refuses every gated step, in every phase and
 milestone, but the prompts that judge that verdict again on the phase or milestone that holds it, until the verdict is
 recorded again. The refusal (`gsd/E516`) names those prompts and that holder, with the flags a run needs
-(`/gsd-plan-phase <phase> --research` for a researcher verdict), and every verdict that refuses each run it names: one
-owed in another phase or milestone, or one of another judge in the same phase. Record those with
-`specforge gsd record-verdict`, which no gate refuses; `specforge gsd re-verify <plan> --stale-only` lists the
-verifier's verdicts that are not fresh and records nothing. A verdict no prompt's run records again (a quick plan's,
-or a researcher's in a complete phase) names `specforge gsd record-verdict` alone. `specforge.verdict_gate: false`
-beside the profile is the way out for a project that will not judge again.
+(`/gsd-plan-phase <phase> --research` for a researcher verdict), and every verdict that refuses every run it names, by
+the entities that owe it, at most five per holder and judge then how many more: one owed in another phase or
+milestone, or one of another judge in the same phase, and one no phase or milestone holds by its own entity. Record
+those with `specforge gsd record-verdict`, which no gate refuses; `specforge gsd re-verify <plan> --stale-only` lists
+the verifier's verdicts that are not fresh and records nothing. A verdict no prompt's run records again (a quick
+plan's, or a researcher's in a complete phase) names `specforge gsd record-verdict` alone.
+`specforge.verdict_gate: false` beside the profile is the way out for a project that will not judge again.
 
 ## Build, test, load
 

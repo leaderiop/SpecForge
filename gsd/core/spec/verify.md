@@ -44,8 +44,9 @@ or unreadable (gsd/E501 reports those), and a plain `check`, which has no base, 
 as recorded, byte for byte. A fresh verdict, passing or failing, is never listed, since it would be judged the same
 again. Upstream re-verifies the whole phase. Under gsd-strict and gsd-plus a verdict that is not fresh also refuses
 every workflow step, in any phase, but the ones that judge it on the phase that holds it, and the refusal's help names
-the prompt to run on that phase and every verdict, in another phase or of another judge, that refuses that run
-(gsd/E516, [rules.md](rules.md)).
+the prompt to run on that phase and every verdict, in another phase or of another judge, that refuses every run it
+names, by the entities owing it, at most five per holder and judge, and a verdict no phase or milestone holds by its
+own entity (gsd/E516, [rules.md](rules.md)).
 
 **Prohibitions.** A judgment-tier prohibition, one that names no enforcing `test`, owes the verifier a verdict once its
 plan is complete (gsd/W525: `held`, `violated` or `unverified`, passing `held`), over the prohibition, its plan, its
