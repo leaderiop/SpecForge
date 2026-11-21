@@ -53,15 +53,15 @@
     "",
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error).",
     "",
+    "In a phase's label, `{phase_number}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and",
+    "`{phase_name}` is its `.fields.name`.",
+    "",
     "Also load config for branching strategy:",
     "```bash",
     "CONFIG=$(specforge settings)",
-    "```",
-    "",
-    "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
-    ""
+    "```"
   ],
-  "bytes": 54468,
+  "bytes": 54658,
   "end": [
     "Branch: {branch} → ${BASE_BRANCH}",
     "Commits: {count}",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 931,
+  "lines": 934,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:dd910c54a5b90fcc9190b433d98c0c0e17a1f11fc6cc1ef777fe484494f8ebeb",
+    "digest": "sha256:b82bf2cef07060e328161007db84fd409a305578edfb3e89eb8858c12be7234b",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "dd910c54a5b90fcc9190b433d98c0c0e17a1f11fc6cc1ef777fe484494f8ebeb"
+  "sha256": "b82bf2cef07060e328161007db84fd409a305578edfb3e89eb8858c12be7234b"
 }

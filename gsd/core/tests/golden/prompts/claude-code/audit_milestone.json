@@ -61,7 +61,7 @@
     "Resolve the milestone's audit, the `milestone_audit` entity this workflow records into. A re-audit reuses it; the first audit creates `<milestone>/A1`, before the integration checker is spawned, since its verdict is recorded on it:",
     ""
   ],
-  "bytes": 28285,
+  "bytes": 28424,
   "end": [
     "",
     "<success_criteria>",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 616,
+  "lines": 619,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8fe691b8db18e44fe7ad0fb4eba2e253558576702a7e9d7634afe310c51cb2b8",
+    "digest": "sha256:2f1e0ea230103f5ae242ae4f0c7414e1e45ed5e4c69fab63ec02ca79d46b2dd6",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "8fe691b8db18e44fe7ad0fb4eba2e253558576702a7e9d7634afe310c51cb2b8"
+  "sha256": "2f1e0ea230103f5ae242ae4f0c7414e1e45ed5e4c69fab63ec02ca79d46b2dd6"
 }

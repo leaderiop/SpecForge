@@ -811,6 +811,8 @@ specforge wait --for 30s --url http://localhost:3000
 - Reviewing test quality (tests fail for the right reason)
 - Confirming minimal GREEN implementations
 
+In a phase's label, `{X}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
+
 **Structure:**
 ```xml
 <task type="checkpoint:tdd-review" gate="advisory">

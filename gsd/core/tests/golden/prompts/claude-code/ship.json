@@ -53,15 +53,15 @@
     "",
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error).",
     "",
+    "In a phase's label, `{phase_number}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and",
+    "`{phase_name}` is its `.fields.name`.",
+    "",
     "Also load config for branching strategy:",
     "```bash",
     "CONFIG=$(specforge settings)",
-    "```",
-    "",
-    "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
-    ""
+    "```"
   ],
-  "bytes": 45977,
+  "bytes": 46167,
   "end": [
     "Branch: {branch} → ${BASE_BRANCH}",
     "Commits: {count}",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 813,
+  "lines": 816,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b4accc599f5cc0d10e924c7c49d8bbcc4de9fd53c7feb56b82d661ad619de806",
+    "digest": "sha256:a91891f4495a0ef601bbd9b987cf109a645fd0631035e1428daf633a1e995fb5",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "b4accc599f5cc0d10e924c7c49d8bbcc4de9fd53c7feb56b82d661ad619de806"
+  "sha256": "a91891f4495a0ef601bbd9b987cf109a645fd0631035e1428daf633a1e995fb5"
 }

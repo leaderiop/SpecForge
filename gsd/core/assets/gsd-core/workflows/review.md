@@ -141,6 +141,8 @@ echo "RUN_DIR=$RUN_DIR"
 
 Read from the query: the phase's `name` and goal, and its plans, contexts and research notes.
 
+In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
+
 Capture `RUN_DIR` above (created ONCE) and thread it into every `{run_dir}`
 placeholder and `$RUN_DIR`/`${RUN_DIR}` reference within a bash block. Do NOT
 re-run `specforge files temp --dir` later — every block must resolve to this same directory, or

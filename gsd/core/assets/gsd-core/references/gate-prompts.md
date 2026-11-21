@@ -3,6 +3,8 @@
 
 Reusable prompt patterns for structured gate checks in workflows and agents.
 
+In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
+
 **For checkpoint format details, see `gsd-core/references/ui-brand.md`** -- a checkpoint is a `### CHECKPOINT: {Type}` heading followed by its content, then a `---` break and the bolded action prompt. Never a fixed-width drawn border: it wraps in a narrow pane.
 
 ## Rules

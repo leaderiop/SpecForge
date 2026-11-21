@@ -121,6 +121,9 @@ Closeout type: {closeout_type}
 Requirements: {N}/{M} v1 requirements checked off
 ```
 
+In a phase's label, `{X}` and `{Y}` are phases' numbers, each the last segment of its phase's `id` (`v1.0/03` gives
+`03`).
+
 **If requirements incomplete** (N < M):
 
 ```

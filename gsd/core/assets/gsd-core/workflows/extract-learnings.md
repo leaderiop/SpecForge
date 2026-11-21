@@ -26,7 +26,8 @@ INIT=$(specforge query "$PHASE_ID" --depth 2 --format json)
 PHASE_NUMBER="${PHASE_ID##*/}"   # the phase number is the last segment of its id
 ```
 
-Parse from the query JSON: the phase's `name` (its number is the last segment of `$PHASE_ID`, kept in `PHASE_NUMBER`).
+Parse from the query JSON: in a phase's label, `{PHASE_NUMBER}` is the phase's number, the last segment of `$PHASE_ID`
+(kept in `PHASE_NUMBER`), and `{PHASE_NAME}` is its `.fields.name`; `{PHASE_ID}` is its `id`.
 
 If phase not found, exit with error: "Phase {PHASE_ID} not found."
 </step>
@@ -219,7 +220,7 @@ The project state is computed from the entities, so there is nothing to update:
 ```
 ---------------------------------------------------------------
 
-## Learnings Extracted: Phase {X} — {Name}
+## Learnings Extracted: Phase {PHASE_NUMBER} — {PHASE_NAME}
 
 Decisions:  {N}
 Lessons:    {N}

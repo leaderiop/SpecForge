@@ -74,6 +74,8 @@ specforge query "$PROJECT" --depth 0 --format context 2>/dev/null || true
 Parse current position to verify we're transitioning the right phase.
 Note accumulated context that may need updating after transition.
 
+In a phase's label, `{X}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
+
 </step>
 
 <step name="verify_completion">

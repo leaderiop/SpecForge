@@ -51,6 +51,9 @@ AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-plan-chec
 
 Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error), and its `verification` and `uat_session` entities, when it has them, are among the other nodes. `response_language` is a setting: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
+In a phase's label, `{phase}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{Name}`
+is its `.fields.name`.
+
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
 ```bash
@@ -438,7 +441,7 @@ echo "open tests: ${OPEN_TESTS:-none}"
 Commit the recorded results when the person's lines or the gaps changed the spec:
 
 ```bash
-specforge git commit --add spec -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "test({phase}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
 ```
 
 **If the session holds deferred follow-ups,** offer to promote them to backlog phases so they stay visible at the project level (#4546). Count them:
@@ -455,7 +458,7 @@ When the count is above 0, read them with `specforge query "$UAT_SESSION" --dept
 ```
 Deferred follow-ups recorded: {N}
 
-They currently live only on the session {phase_num}-UAT. Promote them to backlog phases?
+They currently live only on the session {phase}-UAT. Promote them to backlog phases?
 
   [P] Promote to 999.x backlog phases
   [K] Keep them on the session only
@@ -477,7 +480,7 @@ specforge gsd phase --backlog --name "Follow-up — Phase ${PHASE_ID##*/} deferr
 
 Then commit the deferral record:
 ```bash
-specforge git commit --add spec -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: defer Phase {phase} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
 ```
 
 **If the user chooses [K]:** continue to the summary unchanged — the deferred items stay in the session's `follow_ups`.
@@ -656,7 +659,7 @@ Parse the JSON output. For the CURRENT PHASE ONLY, surface:
 
 If any are found, display:
 ```
-Phase {N} Artifact Check
+Phase {phase} Artifact Check
 
 ---
 
@@ -762,7 +765,7 @@ Exact Agent() prompt fields (revision_context, required_reading): `gsd-core/work
 ```
 ### GSD ► FIXES READY ✓
 
-**Phase {X}: {Name}** — {N} gap(s) diagnosed, {M} fix plan(s) created
+**Phase {phase}: {Name}** — {N} gap(s) diagnosed, {M} fix plan(s) created
 
 | Gap | Root Cause | Fix Plan |
 |-----|------------|----------|

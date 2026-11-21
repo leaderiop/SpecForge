@@ -70,7 +70,7 @@ Agent(
   Return: ## OUTLINE COMPLETE with plan count.",
   subagent_type="gsd-planner",
   model="{planner_model}",
-  description="Outline Phase {phase} (chunked)",
+  description="Outline Phase {X} (chunked)",
   run_in_background=true
 )
 ```

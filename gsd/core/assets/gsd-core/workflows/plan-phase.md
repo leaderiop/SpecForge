@@ -213,7 +213,10 @@ If `section_manifest` is `null` or `"reviews-prerequisite"` is in its `included`
 PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0]')   # the phase node, compact: found when the query does not refuse it, phase_number is the last segment of its id, the rest are its fields
 ```
 
-**If `found` is false:** Error with available phases. **If `found` is true:** read the phase from that node: `phase_number` is the last segment of its `id` (`v1.0/03` gives `03`), `phase_name` is its `.fields.name` and `goal` its `.fields.goal`. Below, `{X}` is `phase_number`, and a phase's label reads "Phase {phase_number}: {phase_name}".
+**If `found` is false:** Error with available phases. **If `found` is true:** read the phase from that node:
+`phase_number` is the last segment of its `id` (`v1.0/03` gives `03`), `phase_name` is its `.fields.name` and `goal` its
+`.fields.goal`. Below, `{X}` is `phase_number`, and a phase's label reads "Phase {phase_number}: {phase_name}"; in the
+planner's proven verify commands, `{phase}` is the number of the earlier phase that ran each one.
 
 Now that `PHASE` is finalized, resolve MVP mode:
 ```bash
@@ -410,7 +413,7 @@ Agent(
   prompt=filled_research_hook_fragment,
   subagent_type=research_hook.ref.agent,
   model="{researcher_model}",
-  description="Research Phase {phase}"
+  description="Research Phase {X}"
 )
 ```
 
@@ -517,7 +520,7 @@ Read the `activeHooks` of every line of `PLAN_PRE_HOOKS_JSON` / `HOOKS_JSON`, on
 
 **AI integration capability:** If the active `ai-integration` step hook is present, `AI_SPEC_PATH` is empty, and the phase goal contains AI keywords (`agent`, `llm`, `rag`, `chatbot`, `embedding`, `langchain`, `llamaindex`, `crewai`, `langgraph`, `openai`, `anthropic`, `vector`, `llm eval`), then:
 - In pipeline / `--auto` mode, invoke the hook's `ref.skill` via `Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto")`.
-- In manual mode, display the existing non-blocking `/gsd:ai-integration-phase {N}` recommendation and let the user continue planning without AI-SPEC or stop to run the capability workflow first.
+- In manual mode, display the existing non-blocking `/gsd:ai-integration-phase {X}` recommendation and let the user continue planning without AI-SPEC or stop to run the capability workflow first.
 
 Run the UI deterministic gate whenever **any** `plan:pre` UI hook is active — including the step-only case (`workflow.ui_safety_gate` off). (`check.query` = `"ui.plan-gate"`, dot-normalized to `ui-plan-gate` per `loop-hook-dispatch.md` § `gate`.)
 
@@ -569,13 +572,13 @@ Continue to step 6.
 Output this markdown directly (not as a code block):
 
 ```
-## ⚠ UI-SPEC.md missing for Phase {N}
+## ⚠ No UI spec for Phase {X}
 ▶ Recommended next step:
-`/gsd:ui-phase {N}` — generate UI design contract before planning
+`/gsd:ui-phase {X}` — generate UI design contract before planning
 
 ---
 Also available:
-- `/gsd:plan-phase {N} --skip-ui` — plan without UI-SPEC (not recommended for frontend phases)
+- `/gsd:plan-phase {X} --skip-ui` — plan without UI-SPEC (not recommended for frontend phases)
 ```
 
 **Exit the plan-phase workflow. Do not continue.**
@@ -947,7 +950,7 @@ Agent(
   prompt=filled_prompt,
   subagent_type="gsd-planner",
   model="{planner_model}",
-  description="Plan Phase {phase}",
+  description="Plan Phase {X}",
   run_in_background=true
 )
 ```
@@ -1109,7 +1112,7 @@ Agent(
   prompt=checker_prompt,
   subagent_type="gsd-plan-checker",
   model="{checker_model}",
-  description="Verify Phase {phase} plans",
+  description="Verify Phase {X} plans",
   run_in_background=true
 )
 ````
@@ -1205,7 +1208,7 @@ Agent(
   prompt=revision_prompt,
   subagent_type="gsd-planner",
   model="{planner_model}",
-  description="Revise Phase {phase} plans",
+  description="Revise Phase {X} plans",
   run_in_background=true
 )
 ```

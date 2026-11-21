@@ -38,6 +38,9 @@ PHASE_NUMBER="${PHASE_ID##*/}"   # the phase number is the last segment of its i
 
 Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error).
 
+In a phase's label, `{phase_number}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and
+`{phase_name}` is its `.fields.name`.
+
 Also load config for branching strategy:
 ```bash
 CONFIG=$(specforge settings)
@@ -220,7 +223,7 @@ Read ROADMAP.md for phase goal. Read VERIFICATION.md for verification status.
 ```markdown
 ## Summary
 
-**Phase {N}: {Name}**
+**Phase {phase_number}: {phase_name}**
 **Goal:** {goal from ROADMAP.md}
 **Status:** Verified ✓
 
@@ -575,7 +578,7 @@ Each dispatch is best-effort: if it errors, record a warning and continue — ne
 ```
 ---
 
-## ✓ Phase {X}: {Name} — Shipped
+## ✓ Phase {phase_number}: {phase_name} — Shipped
 
 PR: #{number} ({url})
 Branch: {branch} → ${BASE_BRANCH}

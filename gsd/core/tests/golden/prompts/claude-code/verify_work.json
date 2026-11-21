@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 62996,
+  "bytes": 63135,
   "end": [
     "</section_rules>",
     "",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 1149,
+  "lines": 1152,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9d0755e17ea6ae65ac55ebc8be92c54e4ddd3c9d0911a5c5e9bb7bbb0441780c",
+    "digest": "sha256:455e0dd61e5e80f39642908da5295f015eae55369317ffafcf62fac5f08a7ab3",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "9d0755e17ea6ae65ac55ebc8be92c54e4ddd3c9d0911a5c5e9bb7bbb0441780c"
+  "sha256": "455e0dd61e5e80f39642908da5295f015eae55369317ffafcf62fac5f08a7ab3"
 }

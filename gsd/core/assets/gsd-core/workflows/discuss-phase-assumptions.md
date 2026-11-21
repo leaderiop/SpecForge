@@ -80,6 +80,9 @@ AGENT_SKILLS_ANALYZER=""   # the host install carries the skills of gsd-assumpti
 Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields; a phase not in the graph is an E003 error),
 and its `plan`, `research`, `context` and `verification` entities, when it has them, are among the other nodes (`plan_count` counts the plans). The phase's spec is read in `check_spec`, from the graph.
 
+In a phase's label, `{PHASE}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and
+`{phase_name}` is its `.fields.name`.
+
 **If `phase_found` is false:**
 ```
 Phase [X] not found in roadmap.

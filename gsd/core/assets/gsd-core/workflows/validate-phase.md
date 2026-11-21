@@ -30,6 +30,9 @@ AGENT_SKILLS_AUDITOR=""   # the host install carries the skills of gsd-nyquist-a
 
 Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields).
 
+In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{name}` is
+its `.fields.name`.
+
 ```bash
 AUDITOR_MODEL=""   # resolve-model is not part of @gsd/core: the host picks the model
 VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
@@ -168,7 +171,7 @@ specforge new validation_row "$ROW_ID" "$TASK" --in "$PHASE_FILE" --validation "
 ```bash
 : "verification.append-audit: record the audit in the validation entity (specforge gsd record-validation)" \
   --heading "Validation Audit" \
-  --rows "{\"Gaps found\": {N}, \"Resolved\": {M}, \"Escalated\": {K}}"
+  --rows "{\"Gaps found\": {found}, \"Resolved\": {resolved}, \"Escalated\": {escalated}}"
 ```
 
 ## 7. Commit

@@ -48,6 +48,9 @@
     "",
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields).",
     "",
+    "In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{name}` is",
+    "its `.fields.name`.",
+    "",
     "```bash",
     "AUDITOR_MODEL=\"\"   # resolve-model is not part of @gsd/core: the host picks the model",
     "VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd \"$c-hooks\" verify:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo \"⚠ $c-hooks failed: its hooks are left out\" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order",
@@ -56,12 +59,9 @@
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"validate-phase\"`.",
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via $gsd-settings.\"",
-    "",
-    "Display banner: `GSD > VALIDATE PHASE {N}: {name}`",
-    "",
-    "## 1. Detect Input State"
+    ""
   ],
-  "bytes": 28928,
+  "bytes": 29086,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 547,
+  "lines": 550,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:98735f38f030d4b4258ebdeaa6c54d0eec2e21891e6196b4f0c443e1881f6b46",
+    "digest": "sha256:08f7c309f0fcd018de783b025a31b5e028a5430ef4b390ff22b1ceca1a058aab",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "98735f38f030d4b4258ebdeaa6c54d0eec2e21891e6196b4f0c443e1881f6b46"
+  "sha256": "08f7c309f0fcd018de783b025a31b5e028a5430ef4b390ff22b1ceca1a058aab"
 }

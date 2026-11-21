@@ -61,7 +61,7 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 22950,
+  "bytes": 23086,
   "end": [
     "## Anti-Patterns",
     "",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 549,
+  "lines": 551,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a6227f57712a50a78a76751febece5818a25c23867a73adb5132e71c6aadc026",
+    "digest": "sha256:0f6160707f1e3656b5657efa4ad5e6c20b824daaffe09ac3d990906708f27b5f",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "a6227f57712a50a78a76751febece5818a25c23867a73adb5132e71c6aadc026"
+  "sha256": "0f6160707f1e3656b5657efa4ad5e6c20b824daaffe09ac3d990906708f27b5f"
 }

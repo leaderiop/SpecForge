@@ -30,6 +30,9 @@ AGENT_SKILLS_AUDITOR=""   # the host install carries the skills of gsd-security-
 
 The phase is `$PHASE_ID`: its number is the id's last segment, and its name the phase entity's `name` in `INIT`.
 
+In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{name}` is
+its `.fields.name`.
+
 ```bash
 AUDITOR_MODEL=""   # resolve-model is not part of @gsd/security: the host picks the model
 VERIFY_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:post --pick . 2>/dev/null; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order

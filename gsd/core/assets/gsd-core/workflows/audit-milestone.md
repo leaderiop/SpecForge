@@ -280,6 +280,9 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 **Score:** {N}/{M} requirements satisfied
 **Report:** the spec
 
+In a phase's label, `{X}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{name}` is
+its `.fields.name`.
+
 ### Unsatisfied Requirements
 
 {For each unsatisfied requirement:}

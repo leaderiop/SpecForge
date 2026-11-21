@@ -61,10 +61,10 @@
     "",
     "If `summary.parse_gap_files` is greater than 0, render this section FIRST (before the `## UAT Audit Report` below, or standalone if `total_items` is also 0). Filter `results` for entries with `parse_gap: true`:"
   ],
-  "bytes": 14140,
+  "bytes": 14243,
   "end": [
-    "<step name=\"test_plan\">",
-    "Generate a human UAT test plan for \"Testable Now\" + \"active\" items only:",
+    "",
+    "In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).",
     "",
     "Group by what can be tested together (same screen, same feature, same prerequisite):",
     "",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 330,
+  "lines": 332,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:60fe82ea8c022e3e9015df18014260b8e684cb4fae5755ea889b09d6b7de4dd7",
+    "digest": "sha256:74870d0e470ee2e5e09356215f01c4e420d24a42aea7c810180b1e659d2d2d07",
     "prompt": "@gsd/core@VERSION:audit_uat",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "60fe82ea8c022e3e9015df18014260b8e684cb4fae5755ea889b09d6b7de4dd7"
+  "sha256": "74870d0e470ee2e5e09356215f01c4e420d24a42aea7c810180b1e659d2d2d07"
 }

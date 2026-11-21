@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 84333,
+  "bytes": 84469,
   "end": [
     "TIER=\"{v1, v2 or out_of_scope}\"",
     "IFS= read -rd '' REASON <<'TEXT' || true; REASON=${REASON%$'\\n'}",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1961,
+  "lines": 1963,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:61f3949669bc774255bf47fa677b0ecc20cc213bd6ef8d46e7e1635e28fb93a5",
+    "digest": "sha256:48275c1ec8e356d4627c691f22396889c3b6313a61d77cbc489990298a8f1fc9",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "61f3949669bc774255bf47fa677b0ecc20cc213bd6ef8d46e7e1635e28fb93a5"
+  "sha256": "48275c1ec8e356d4627c691f22396889c3b6313a61d77cbc489990298a8f1fc9"
 }

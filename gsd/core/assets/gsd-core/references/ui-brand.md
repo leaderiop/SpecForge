@@ -49,16 +49,18 @@ Use for major workflow transitions.
 ```
 ### GSD ► {STAGE NAME}
 ```
+In a phase's label, `{phase_number}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
+
 **Stage names (uppercase):**
 ```text
 QUESTIONING
 RESEARCHING
 DEFINING REQUIREMENTS
 CREATING ROADMAP
-PLANNING PHASE {N}
+PLANNING PHASE {phase_number}
 EXECUTING WAVE {N}
 VERIFYING
-PHASE {N} COMPLETE ✓
+PHASE {phase_number} COMPLETE ✓
 MILESTONE COMPLETE 🎉
 ```
 ---

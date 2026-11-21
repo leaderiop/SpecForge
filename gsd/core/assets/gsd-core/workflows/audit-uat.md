@@ -105,6 +105,8 @@ Present the audit report:
 <step name="test_plan">
 Generate a human UAT test plan for "Testable Now" + "active" items only:
 
+In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
+
 Group by what can be tested together (same screen, same feature, same prerequisite):
 
 ```
