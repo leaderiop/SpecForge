@@ -36,8 +36,10 @@ pub const CAP: u64 = cap!();
 /// and escaped every id and name it echoes, 5,709,951 B once a gsd/E516 refusal named the entities owing each verdict
 /// that blocks its runs, a bounded number per holder and judge, and a verdict no phase or milestone holds by its own
 /// entity, 5,720,045 B once that refusal escaped every id it echoes as gsd/I527 does and built its tail once per set
-/// of runs, and 5,717,309 B once a phase's plans were written in one edit, its spec was committed like code with no
-/// setting read for it, and an open question the strict profile refuses was returned to the planner.
+/// of runs, 5,717,309 B once a phase's plans were written in one edit, its spec was committed like code with no
+/// setting read for it, and an open question the strict profile refuses was returned to the planner, and 5,719,421 B
+/// once the user answered that question after the planner, chunked mode read a blocked plan as blocked and planned
+/// only the rest, and the keys the committed spec rules out were swept whole.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_800_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].
