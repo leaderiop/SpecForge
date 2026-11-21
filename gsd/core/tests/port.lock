@@ -439,14 +439,16 @@ agents/gsd-phase-researcher.md	own	702+1	1	ae4c5c7cbc69	7803549aaebb	agent
 agents/gsd-phase-researcher.md	kept	703+28	bb605c9eae2d
 agents/gsd-phase-researcher.md	own	731+1	1	db8dc47bc34e	cf9fe9f6ee8e	ported-name
 agents/gsd-phase-researcher.md	kept	732+22	1d85c5ece93f
-agents/gsd-phase-researcher.md	own	754+16	58	ff2a71303f6c	1c0d3a99cf3f	typed-edit
+agents/gsd-phase-researcher.md	own	754+16	59	ff2a71303f6c	ee410ed9c48c	typed-edit
 agents/gsd-phase-researcher.md	kept	770+32	18913e4d0779
 agents/gsd-phase-researcher.md	own	802+3	3	1a822f25e883	9fff29926ea0	typed-edit
 agents/gsd-phase-researcher.md	kept	805+4	c3b5e58593ad
 agents/gsd-phase-researcher.md	own	809+1	1	08975eddfc55	d4f349dc8ddd	ported-name
 agents/gsd-phase-researcher.md	kept	810+20	efc04d348bbf
 agents/gsd-phase-researcher.md	own	830+1	1	df98dbe9acd1	0ca9e038b82b	agent
-agents/gsd-phase-researcher.md	kept	831+12	543f72bfedc9
+agents/gsd-phase-researcher.md	kept	831+9	e8e15eef40d9
+agents/gsd-phase-researcher.md	own	840+1	1	caa27c963aa2	6923285a63a0	review
+agents/gsd-phase-researcher.md	kept	841+2	8bbcfa884edf
 agents/gsd-phase-researcher.md	own	843+1	1	32265ebaf12d	e76472b4387c	agent
 agents/gsd-phase-researcher.md	kept	844+44	54b4e197a445
 agents/gsd-phase-researcher.md	own	888+1	1	9bcdb1b32863	714f645cddc3	agent
@@ -3976,7 +3978,7 @@ gsd-core/workflows/plan-phase.md	own	414+1	1	62c091501e55	bb77cafddd4a	ported-na
 gsd-core/workflows/plan-phase.md	kept	415+1	2fe91229ed87
 gsd-core/workflows/plan-phase.md	own	416+1	1	a21bd339d8ae	8f135aa264e3	ported-name
 gsd-core/workflows/plan-phase.md	kept	417+23	3daf91c1f4aa
-gsd-core/workflows/plan-phase.md	own	440+1	7	11e35e174e1b	eb5b5dac363e	prose
+gsd-core/workflows/plan-phase.md	own	440+1	10	11e35e174e1b	40bbfda042dd	review
 gsd-core/workflows/plan-phase.md	kept	441+10	9fa442bd8905
 gsd-core/workflows/plan-phase.md	own	451+1	1	8357ad127d40	99589cf686f1	prose
 gsd-core/workflows/plan-phase.md	kept	452+6	a158cba9f1fa
@@ -4044,7 +4046,7 @@ gsd-core/workflows/plan-phase.md	own	747+2	2	429243add2a3	09dca53c7b21	wait
 gsd-core/workflows/plan-phase.md	kept	749+13	47262067949b
 gsd-core/workflows/plan-phase.md	own	762+1	1	307c96a4d2ab	307c96a4d2ab	markdown
 gsd-core/workflows/plan-phase.md	kept	763+3	5105cdc8e3f6
-gsd-core/workflows/plan-phase.md	own	766+1	1	e3b0c44298fc	bc9b9486901d	prose
+gsd-core/workflows/plan-phase.md	own	766+1	2	e3b0c44298fc	645010b0e552	review
 gsd-core/workflows/plan-phase.md	kept	767+1	9841e6b9c48f
 gsd-core/workflows/plan-phase.md	own	768+12	7	14e74cac4d31	4bff4ba46848	prose
 gsd-core/workflows/plan-phase.md	kept	780+3	82960f6be81c
@@ -4704,7 +4706,9 @@ gsd-core/workflows/quick-batch/steps/research-phase.md	kept	61+16	b6b3904b9c08
 gsd-core/workflows/quick-batch/steps/research-phase.md	own	77+1	1	87d0aa709fe7	f84bcb92cf68	typed-edit
 gsd-core/workflows/quick-batch/steps/research-phase.md	kept	78+12	36fb22298df2
 gsd-core/workflows/quick-batch/steps/research-phase.md	own	90+1	1	189098c3074e	0610be80ac36	quick
-gsd-core/workflows/quick-batch/steps/research-phase.md	kept	91+6	11b39888a2cf
+gsd-core/workflows/quick-batch/steps/research-phase.md	kept	91+2	fcde1dd2dcad
+gsd-core/workflows/quick-batch/steps/research-phase.md	own	93+0	4	e3b0c44298fc	9c2c72d748b1	review
+gsd-core/workflows/quick-batch/steps/research-phase.md	kept	93+4	cda1e40c7dfc
 gsd-core/workflows/quick-batch/steps/resume-mode.md	kept	1+10	3f036a3c1962
 gsd-core/workflows/quick-batch/steps/resume-mode.md	own	11+5	14	f1fdd3103079	e9c25cb0ea40	ported-name
 gsd-core/workflows/quick-batch/steps/resume-mode.md	kept	16+7	3143848c20de
@@ -4944,7 +4948,7 @@ gsd-core/workflows/quick/steps/research-phase.md	own	35+1	1	1f7c6c014826	9c9a0db
 gsd-core/workflows/quick/steps/research-phase.md	kept	36+17	51a40bffef62
 gsd-core/workflows/quick/steps/research-phase.md	own	53+1	1	9c1fa56c490b	e2bbac82a5ed	typed-edit
 gsd-core/workflows/quick/steps/research-phase.md	kept	54+13	2dc2cfac689d
-gsd-core/workflows/quick/steps/research-phase.md	own	67+2	2	ce190f1bc506	a869a48c6d51	quick
+gsd-core/workflows/quick/steps/research-phase.md	own	67+2	3	ce190f1bc506	45481bfa5655	review
 gsd-core/workflows/quick/steps/research-phase.md	kept	69+3	ae6d36e59d60
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	kept	1+2	e854054f92d6
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	own	3+7	7	ccc84325a42d	59ae51501876	workflow

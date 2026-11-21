@@ -1,8 +1,10 @@
 //! The discuss and project researchers' reads, run as the agents hold them under bash with only `specforge`: each
-//! names its context pack, and the analyzer's search and anchors find the earlier phases' work.
+//! names its context pack, and the analyzer's search and anchors find the earlier phases' work; and the route of an
+//! open question gsd-strict refuses, from the phase researcher to the planner.
 
-use super::{Shell, asset, span};
-use crate::harness::taskboard;
+use super::{Shell, asset, block, span};
+use crate::commands_support::{refused, strict};
+use crate::harness::{Project, Run, taskboard};
 
 /// The command of the code span in agent `name` that starts with `prefix`, its placeholder (from the first `<` or
 /// `"` on: `<phase>`, `"$PHASE_ID"`, `"<goal terms>"`) replaced by `subject`.
@@ -100,4 +102,118 @@ fn the_project_researcher_reads_its_pack() {
         assert_eq!(code, 0, "{workflow}: {err}");
         assert!(out.contains("taskboard"), "{workflow}: {out}");
     }
+}
+
+/// A question holding a double quote, an em dash and a non-ASCII letter.
+const QUESTION: &str = "Sort by \"due\" — or by é?";
+
+/// The phase file of v1.0/02, read as the phase researcher reads it.
+fn phase_file(p: &Project) -> String {
+    let read = p.run(&[
+        "query",
+        "v1.0/02",
+        "--depth",
+        "0",
+        "--pick",
+        ".nodes[0].file",
+    ]);
+    assert_eq!(read.code, 0, "{}", read.all());
+    read.stdout.trim().to_string()
+}
+
+/// `specforge new open_question OQ2` in `file` for the research of v1.0/02, with these extra arguments.
+fn record_question(p: &Project, file: &str, extra: &[&str]) -> Run {
+    let mut args = vec![
+        "new",
+        "open_question",
+        "OQ2",
+        "Sort order",
+        "--in",
+        file,
+        "--research",
+        "v1.0/02/02-RESEARCH",
+        "--question",
+        QUESTION,
+        "--unclear",
+        "which order users expect",
+    ];
+    args.extend_from_slice(extra);
+    p.run(&args)
+}
+
+/// The refusal the live run met at research and its return path. Under gsd-strict an open question no decision
+/// resolves is refused (E080 with gsd/W204) and nothing is written; with the decision that resolves it the same write
+/// is accepted and the question reads back exactly; under gsd-compat it is accepted with a gsd/W204 warning. So the
+/// phase researcher returns such a question under `### Open Questions` instead of dropping it, plan-phase shows it and
+/// hands it to the planner, and quick's and quick-batch's research steps hand it on the same way.
+#[test]
+fn an_open_question_strict_refuses_is_returned_not_dropped() {
+    let researcher = asset("agents/gsd-phase-researcher.md");
+    assert!(
+        researcher.contains("specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].file'"),
+        "the researcher reads its phase file as this test does"
+    );
+    let rule = block(
+        &researcher,
+        "4. **One item per call.**",
+        "5. **If a call is still refused",
+    );
+    for words in [
+        "`gsd/W204`",
+        "### Open Questions",
+        "what is known, what is unclear",
+    ] {
+        assert!(
+            rule.contains(words),
+            "the researcher's rule 4 lacks {words}:\n{rule}"
+        );
+    }
+    let template = researcher
+        .lines()
+        .skip_while(|l| *l != "### Open Questions")
+        .nth(1)
+        .expect("a line under the template's ### Open Questions");
+    assert!(template.contains("gsd/W204"), "{template}");
+    let plan_phase = asset("gsd-core/workflows/plan-phase.md");
+    let handle = block(
+        &plan_phase,
+        "### Handle Researcher Return",
+        "<!-- gsd:section id=\"research-only-early-exit\"",
+    );
+    assert!(handle.contains("### Open Questions"), "{handle}");
+    let context = block(&plan_phase, "<planning_context>", "</planning_context>");
+    assert!(
+        context.contains("**Open questions the research returned:**"),
+        "{context}"
+    );
+    for step in [
+        "gsd-core/workflows/quick/steps/research-phase.md",
+        "gsd-core/workflows/quick-batch/steps/research-phase.md",
+    ] {
+        assert!(asset(step).contains("### Open Questions"), "{step}");
+    }
+
+    let id = "v1.0/02/02-RESEARCH/OQ2";
+    let held = |p: &Project| {
+        p.nodes_of("open_question")
+            .iter()
+            .any(|n| n["id"].as_str() == Some(id))
+    };
+    let p = taskboard();
+    strict(&p);
+    let file = phase_file(&p);
+    let kept = p.read(&file);
+    let run = record_question(&p, &file, &[]);
+    refused(&run, "E080", &["gsd/W204", "nothing was written"]);
+    assert!(!held(&p), "a refused question was written");
+    assert_eq!(p.read(&file), kept, "the refused run changed {file}");
+    let run = record_question(&p, &file, &["--resolved_by", "D-02"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(held(&p));
+    assert_eq!(p.fields_of(id)["question"], QUESTION);
+
+    let p = taskboard();
+    let run = record_question(&p, &phase_file(&p), &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("gsd/W204"), "{}", run.all());
 }

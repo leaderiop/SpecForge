@@ -426,6 +426,9 @@ Agent(
   RESEARCH_ID="{the research id the researcher returned, e.g. v1.0/02/02-RESEARCH}"
   specforge gsd record-research "$RESEARCH_ID" || exit 1
   ```
+
+  When the return lists `### Open Questions`, display them: each is a question the profile kept out of the graph
+  (gsd/W204: no decision resolves it yet). Keep them for step 8, which hands them to the planner.
 - **`## RESEARCH BLOCKED`:** Display blocker, offer: 1) Provide context, 2) Skip research, 3) Abort
 
 <!-- gsd:section id="research-only-early-exit" when="flag:--research-phase" -->
@@ -749,6 +752,7 @@ Planner prompt:
 **Phase:** {phase_number}
 **Mode:** {standard | gap_closure | reviews}
 **Graph context:** {the `/gsd-graphify` line of "Graph context on this install" at the end of the plan-phase prompt}
+**Open questions the research returned:** {the items of the researcher's `### Open Questions`, or none}. Answer each with a decision of the phase, then record the question with `--resolved_by` naming that decision: the one write of it gsd-strict accepts.
 <required_reading>
 - `specforge context gsd/planner {PHASE_ID}` (the planner pack: the phase, its requirements, USER DECISIONS from /gsd:discuss-phase, the research and its items, the plans, the milestone, verification and UAT gaps, the summaries of the plans it depends on, the project and its decisions, `CLAUDE.md` / `AGENTS.md` and the settings; `--pick .budget` lists what the budget cut, read with `specforge query <id> --format context`)
 - `specforge export --kinds lesson --format context` (Lessons, which the pack does not select)

@@ -771,6 +771,7 @@ The `research` entity `{phase_id}/{phase_num}-RESEARCH` (`$RESEARCH_ID`) is the 
 4. **One item per call.** Each item of the structure below is its own `specforge new` call, of its kind, with `--research "$RESEARCH_ID"` (`finding`, `stack_choice`, `pattern`, `pitfall`, `dont_hand_roll`, `open_question`, `source`, `package_audit`), as Step D records a finding:
    - no single call carries the whole research, so no tool call is cut mid-payload;
    - a refused call names the field it refused: fix that value and run the call again;
+   - an `open_question` refused with `gsd/W204` is the exception: no decision resolves it yet, and gsd-strict raises that warning to an error, so the write is refused. Do not invent a decision to resolve it and never drop it: record every other item, then return the question under `### Open Questions` with what is known, what is unclear and your recommendation; the planner answers it with a decision;
    - an item already recorded is not recorded twice: `specforge query "$RESEARCH_ID" --depth 1` lists them.
 5. **If a call is still refused, surface its error in your return message.** **Do NOT silently fall back to returning content** — that hides the failure from the orchestrator.
 
@@ -843,7 +844,7 @@ the `research` entity `{phase_id}/{phase_num}-RESEARCH`
 | Pitfalls | [level] | [why] |
 
 ### Open Questions
-[Gaps that couldn't be resolved]
+[Gaps that couldn't be resolved, and each open question the profile refused (gsd/W204): the question, what is known, what is unclear, the recommendation]
 
 ### Ready for Planning
 Research complete. The planner can now write plan entities.
