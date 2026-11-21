@@ -56,3 +56,11 @@ scorer. It is tagged `gsd-ab-v1` once its review ([REVIEW.md](gsd-ab/REVIEW.md))
 `python3 -I evaluation/gsd-ab/seed.py --self-test` and `score.py --self-test` check the scripts; the gsd test suite
 checks every seeded defect's signal (`gsd/core/tests/cli/ab_seeds.rs` for taskboard and ledger,
 `gsd/security/tests/cli/ab_seeds.rs` for vault).
+
+## GSD live runs
+
+[`gsd-live/plan-phase.md`](gsd-live/plan-phase.md) records a real agent running the plan-phase prompt end to end on a
+phase of this repository's own spec under `profile: gsd-strict`: the run's setup and permissions, the steps it took,
+each refusal it met and how it was cleared, the thread step before the plan check, and every defect it showed, fixed
+or logged. Each statement about a refusal or a rule names the test of this repository that pins it, or is labelled
+observed in the run only; the transcripts are archived outside the repository.

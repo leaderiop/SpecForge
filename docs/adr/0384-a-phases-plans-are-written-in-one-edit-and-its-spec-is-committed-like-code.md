@@ -105,12 +105,25 @@ the same workflow settles. It is an owner question.
 
 ADR 0343: 1 kept. ADR 0363: 1 kept. ADR 0297: 1 kept. `gsd/core/spec/settings.md`: 1 kept.
 
+## Tests that hold it
+
+Each test fails when the decision or the limit it holds stops being true. They are in `gsd/core/tests`.
+
+| Decision or limit | Tests |
+|---|---|
+| D1 | `assets_shell::planner_edit::the_planner_writes_a_phase_in_one_edit`, `assets_shell::planner_edit::a_dependency_found_later_is_linked`, `assets_shell::planner_edit::a_plan_written_alone_is_refused_and_nothing_is_written`, `assets_shell::planner_edit::the_plan_format_is_one_edit_of_the_whole_phase`, `assets_shell::planner_edit::every_writer_of_a_phases_plans_names_the_plan_edit` |
+| D2 | `assets_shell::commits::the_plan_commit_step_commits_the_spec_and_an_empty_one_says_nothing_to_commit`, `settings_roster::the_plan_phase_family_reads_no_commit_docs`, `settings_roster::every_key_an_asset_calls_a_setting_is_a_key_of_the_roster`, `settings_roster::commit_docs_is_named_only_as_not_a_setting_here`, `ported_text::every_setting_a_line_reads_is_a_key_of_the_roster` |
+| D3 | `assets_shell::researchers::an_open_question_strict_refuses_is_returned_not_dropped` |
+| Limits | `assets_shell::researchers::an_open_question_strict_refuses_is_returned_not_dropped` (gsd/W204 at research under gsd-strict), `assets_shell::planner_edit::a_whole_plan_written_alone_is_refused_while_a_requirement_of_its_phase_is_in_no_plan` (chunked mode's first plan, gsd/E301), `cmd_quick::a_quick_plan_minted_without_must_haves_is_refused_under_strict_only` (quick's mint under gsd-strict, gsd/W309) |
+
+The live run itself, with each refusal it met and the test that pins the same rule, is recorded in
+[`evaluation/gsd-live/plan-phase.md`](../../evaluation/gsd-live/plan-phase.md).
+
 ## Consequences
 
 - The planner, its callers, the plan-phase steps, the researcher and every asset that named `commit_docs` change text.
 - The `@gsd/core` blob is re-vendored: its assets changed, its declarations did not.
-- The record of the live run cites the tests; the commit that adds the record adds here the list of tests that hold
-  each decision.
+- The record of the live run cites the tests; "Tests that hold it" lists them by decision.
 
 ## Would reopen it
 
