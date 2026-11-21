@@ -525,3 +525,33 @@ fn the_committed_spec_keys_are_named_only_as_not_a_setting_here() {
         );
     }
 }
+
+/// The spec is committed like code, so no asset makes its commit conditional or treats an ignored spec as a skip: no
+/// line holds a phrase of that conditional ("if planning docs committed", "intentional skip", "skipped (.spec"), and
+/// the executor's line on a gitignored spec calls it an error to surface.
+#[test]
+fn no_asset_makes_the_spec_commit_conditional_or_skips_an_ignored_spec() {
+    let mut found = Vec::new();
+    for (path, text) in asset_texts() {
+        for (n, line) in text.lines().enumerate() {
+            let lower = line.to_lowercase();
+            if [
+                "if planning docs committed",
+                "intentional skip",
+                "skipped (.spec",
+            ]
+            .iter()
+            .any(|phrase| lower.contains(phrase))
+            {
+                found.push(format!("{path}:{}: {line}", n + 1));
+            }
+        }
+    }
+    assert!(found.is_empty(), "{}", found.join("\n"));
+    let executor = asset("agents/gsd-executor.md");
+    let ignored = executor
+        .lines()
+        .find(|l| l.contains("`.spec` files are gitignored"))
+        .expect("the executor's line on a gitignored spec");
+    assert!(ignored.contains("an error, never a skip"), "{ignored}");
+}

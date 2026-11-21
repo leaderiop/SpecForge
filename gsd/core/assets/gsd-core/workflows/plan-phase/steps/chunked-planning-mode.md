@@ -150,7 +150,8 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
      prompt="{same planning_context as step 8, plus:}
 
      **Chunked mode: single-plan.**
-     Write exactly ONE plan: the plan entity `{phase_id}/{plan_id}`, with the plan edit of `<plan_format>` holding this plan alone.
+     Write exactly ONE plan: the plan entity `{phase_id}/{plan_id}`, with the plan edit of `<plan_format>`
+     holding this plan alone.
      A plan written alone is refused `gsd/E301` while another requirement of the phase is in no plan:
      then return ## PLAN BLOCKED with the codes.
      Plan to write: {plan_id} — {objective}

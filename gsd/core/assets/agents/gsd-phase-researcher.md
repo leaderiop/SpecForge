@@ -717,7 +717,8 @@ List missing test files, framework config, or shared fixtures needed before impl
 
 ## Step 6: Record the research
 
-Record the research with `specforge new`, never with a file tool or a heredoc: the research is an entity in the graph, not a file.
+Record the research with `specforge new`, never with a file tool or a heredoc: the research is an entity in the graph,
+not a file.
 
 **Record contract (hard rules — must follow):**
 

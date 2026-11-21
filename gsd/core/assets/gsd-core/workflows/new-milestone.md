@@ -637,7 +637,7 @@ Also: `/gsd:plan-phase [N]` — skip discussion, plan directly
 - [ ] Roadmap written immediately, in one edit (not draft)
 - [ ] User feedback incorporated (if any)
 - [ ] Phase numbering mode respected (continued or reset)
-- [ ] All commits made (if planning docs committed)
+- [ ] All commits made
 - [ ] Pending todos scanned for phase matches; matched todos tagged with `resolves_phase: N`
 - [ ] User knows next step: `/gsd:discuss-phase [N]`
 

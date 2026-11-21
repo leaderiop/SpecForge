@@ -837,7 +837,8 @@ See @~/.claude/gsd-core/references/planner-chunked.md for `## OUTLINE COMPLETE` 
 - **No re-reads:** Never re-read a range already in context. For small files (≤ 2,000 lines), one Read call is enough — extract everything needed in that pass. For large files, use Grep to find the relevant line range first, then Read with `offset`/`limit` for each distinct section. Duplicate range reads are forbidden.
 - **Codebase pattern reads (Level 1+):** Read each source file once. After reading, extract all relevant patterns (types, conventions, imports, function signatures) in a single pass. Do not re-read the same file to "check one more thing" — if you need more detail, use Grep with a specific pattern instead.
 - **Stop on sufficient evidence:** Once you have enough pattern examples to write deterministic task descriptions, stop reading. There is no benefit to reading more analogs of the same pattern.
-- **No hand-written spec:** a phase's plans are written with one `specforge.edit` call (the plan edit of `<plan_format>`), changed with `specforge set` and `specforge link`, never with Write, Edit or a heredoc.
+- **No hand-written spec:** a phase's plans are written with one `specforge.edit` call (the plan edit of
+  `<plan_format>`), changed with `specforge set` and `specforge link`, never with Write, Edit or a heredoc.
 
 </critical_rules>
 

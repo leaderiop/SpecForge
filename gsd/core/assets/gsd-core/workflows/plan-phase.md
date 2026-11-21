@@ -460,7 +460,8 @@ specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=resea
 [ -n "$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id')" ] && echo "VALIDATION_CREATED=true" || echo "VALIDATION_CREATED=false"
 ```
 3. If `VALIDATION_CREATED=false`: STOP — do not proceed to Step 6
-4. The strategy goes into a commit of its own, made with `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`.
+4. The strategy goes into a commit of its own, made with
+   `specforge git commit --add spec -m "docs(phase-${PHASE}): add validation strategy"`.
 
 **If not found:** Warn and continue — plans may fail Dimension 8.
 
@@ -963,7 +964,8 @@ If `section_manifest` is `null` or `"chunked-planning-mode"` is in its `included
 
 ## 9. Handle Planner Return
 
-- **`## PLANNING COMPLETE`:** Display plan count. When the return lists `### Open Questions`, step 9d first. If `--skip-verify` or `plan_checker_enabled` is false (from init): skip to step 13. Otherwise: step 10.
+- **`## PLANNING COMPLETE`:** Display plan count. When the return lists `### Open Questions`, step 9d first.
+  If `--skip-verify` or `plan_checker_enabled` is false (from init): skip to step 13. Otherwise: step 10.
 - **`## PHASE SPLIT RECOMMENDED`:** The planner determined the phase exceeds the context budget for full-fidelity implementation of all source items. Handle in step 9b.
 - **`## ⚠ Source Audit: Unplanned Items Found`:** The planner's multi-source coverage audit found items from REQUIREMENTS.md, RESEARCH.md, ROADMAP goal, or CONTEXT.md decisions that are not covered by any plan. Handle in step 9c.
 - **`## CHECKPOINT REACHED`:** Present to user, get response, spawn continuation (step 12)
