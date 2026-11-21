@@ -377,6 +377,95 @@ fn every_key_an_asset_calls_a_setting_is_a_key_of_the_roster() {
     assert_eq!(seen, 13, "the claims the assets hold");
 }
 
+/// The step of the settings workflow named `name`.
+fn settings_step(text: &str, name: &str) -> String {
+    let open = format!("<step name=\"{name}\">");
+    let at = text.find(&open).unwrap_or_else(|| panic!("no step {name}"));
+    let end = text[at..].find("</step>").expect("the step's end");
+    text[at..at + end].to_string()
+}
+
+/// The settings workflow presents the settings of its section layout and says how many: each setting of the layout
+/// names its key, a key `@gsd/core` declares or one the owner table gives another `@gsd/*` extension, never a key the
+/// Not applicable table lists; the layout's names are the `header`s of the questions, every question's header is in
+/// the layout, the confirmation shows a row per setting, and every count the workflow states (the settings, the
+/// sections) is the layout's.
+#[test]
+fn the_settings_workflow_counts_the_settings_of_its_section_layout() {
+    const WORDS: [&str; 11] = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    ];
+    let text = asset("gsd-core/workflows/settings.md");
+    let present = settings_step(&text, "present_settings");
+    let layout = present
+        .split_once("Section layout")
+        .expect("the section layout")
+        .1;
+    let layout = layout
+        .split_once("**Conditional visibility")
+        .expect("the layout's end")
+        .0;
+    let item = regex::Regex::new(r"([A-Z][A-Za-z &/-]*?) \(`([^`]+)`").expect("the item pattern");
+    let mut sections = 0;
+    let mut asked = BTreeSet::new();
+    let mut keys = Vec::new();
+    for line in layout.lines() {
+        if line.starts_with("### ") {
+            sections += 1;
+            continue;
+        }
+        for found in item.captures_iter(line) {
+            asked.extend(found[1].split(" / ").map(str::to_string));
+            keys.push(found[2].to_string());
+        }
+    }
+    assert_eq!(sections, 6, "{layout}");
+
+    let roster: BTreeSet<&str> = gsd_core::settings::key_names().collect();
+    let owners = other_owners();
+    let na = not_applicable();
+    for key in &keys {
+        let owned = roster.contains(key.as_str())
+            || owners
+                .iter()
+                .any(|(_, tokens)| tokens.iter().any(|t| names(t, key)));
+        assert!(owned, "`{key}` is no setting of a `@gsd/*` extension");
+        assert!(
+            !na.iter().any(|t| names(t, key)),
+            "`{key}` is not applicable"
+        );
+    }
+
+    let header = regex::Regex::new(r#"header: "([^"]+)""#).expect("the header pattern");
+    let headers: BTreeSet<String> = header
+        .captures_iter(&present)
+        .map(|c| c[1].to_string())
+        .collect();
+    assert_eq!(headers, asked, "the questions' headers and the layout");
+
+    let confirm = settings_step(&text, "confirm");
+    let rows = confirm
+        .lines()
+        .filter(|l| l.starts_with("| ") && !l.starts_with("| Setting "))
+        .count();
+    assert_eq!(rows, keys.len(), "the confirmation's rows");
+
+    let stated =
+        regex::Regex::new(r"User presented with (\d+) settings").expect("the count pattern");
+    let count = stated.captures(&text).expect("the stated count")[1]
+        .parse::<usize>()
+        .expect("a number");
+    assert_eq!(count, keys.len(), "the settings the layout holds");
+    let grouped =
+        regex::Regex::new(r"grouped into (?:its )?(\w+) (?:visual )?sections").expect("a pattern");
+    let mut seen = 0;
+    for found in grouped.captures_iter(&text) {
+        seen += 1;
+        assert_eq!(&found[1], WORDS[sections], "{}", &found[0]);
+    }
+    assert_eq!(seen, 2, "the statements of the section count");
+}
+
 /// `commit_docs` is not a setting of `@gsd/core` (the spec is source and is committed like code), so an asset names
 /// it only to say so: every line of every asset that names it, in any case, says "not a setting here". The lines that
 /// say it (new-project's and planning-config's) are seen, so the scan cannot pass on an empty tree.

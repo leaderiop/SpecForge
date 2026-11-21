@@ -5267,7 +5267,9 @@ gsd-core/workflows/settings.md	kept	40+9	dbaf7e4586c9
 gsd-core/workflows/settings.md	own	49+1	1	0706f28c36c5	5b3f1393c8cd	prose
 gsd-core/workflows/settings.md	kept	50+6	45bf739cc698
 gsd-core/workflows/settings.md	own	56+1	0	93decfccfb6c	e3b0c44298fc	ported-name
-gsd-core/workflows/settings.md	kept	57+5	68a7a50d04f5
+gsd-core/workflows/settings.md	kept	57+1	d4f234eab4a6
+gsd-core/workflows/settings.md	own	58+2	0	ce1d074570fe	e3b0c44298fc	served
+gsd-core/workflows/settings.md	kept	60+2	4e60a595d8be
 gsd-core/workflows/settings.md	own	62+1	1	6944540124ce	4dea7b43ad28	ported-name
 gsd-core/workflows/settings.md	kept	63+17	bfae9c2aabb2
 gsd-core/workflows/settings.md	own	80+1	1	d0da01e34fe3	293152cdf967	ported-name
@@ -5277,29 +5279,55 @@ gsd-core/workflows/settings.md	kept	89+11	d60e267932a3
 gsd-core/workflows/settings.md	own	100+1	1	247a5302bd75	d44b7ad1b9d2	ported-name
 gsd-core/workflows/settings.md	kept	101+12	3f31fa5f975f
 gsd-core/workflows/settings.md	own	113+1	1	609dda54da1f	2e72bd719896	ported-name
-gsd-core/workflows/settings.md	kept	114+13	008cfe0392b1
-gsd-core/workflows/settings.md	own	127+1	1	d483b54b8cad	f6577037c24f	review
-gsd-core/workflows/settings.md	kept	128+205	c5b8035ee977
+gsd-core/workflows/settings.md	kept	114+4	adc6357d99de
+gsd-core/workflows/settings.md	own	118+1	1	4f8dab8c0dc4	2ad9f2dc1b6e	review
+gsd-core/workflows/settings.md	kept	119+2	6342427c05bb
+gsd-core/workflows/settings.md	own	121+1	1	4f7de227c394	b84295c9b10c	review
+gsd-core/workflows/settings.md	kept	122+2	02194faaed15
+gsd-core/workflows/settings.md	own	124+1	1	8d6ba0db21c2	05a1ff297e4a	review
+gsd-core/workflows/settings.md	kept	125+2	2cfa1be35aba
+gsd-core/workflows/settings.md	own	127+1	1	d483b54b8cad	ec49b383585c	review
+gsd-core/workflows/settings.md	kept	128+2	50591a86f99e
+gsd-core/workflows/settings.md	own	130+1	1	b0bd0246ed1e	555ccd0ee13e	review
+gsd-core/workflows/settings.md	kept	131+2	5835edb14c29
+gsd-core/workflows/settings.md	own	133+1	1	58fdedf0427a	e79e384f044c	review
+gsd-core/workflows/settings.md	kept	134+2	abd4cafd7b3f
+gsd-core/workflows/settings.md	own	136+1	1	c1c3b1119622	a88787710f9f	review
+gsd-core/workflows/settings.md	kept	137+3	feda7bbddf01
+gsd-core/workflows/settings.md	own	140+2	0	279e50ec1ec9	e3b0c44298fc	review
+gsd-core/workflows/settings.md	kept	142+191	112f11aac670
 gsd-core/workflows/settings.md	own	333+1	1	21c120d57596	ec8232fa56e1	prose
 gsd-core/workflows/settings.md	kept	334+72	3c9e65e936e3
 gsd-core/workflows/settings.md	own	406+9	0	480af5392ad7	e3b0c44298fc	ported-name
 gsd-core/workflows/settings.md	kept	415+18	fb99c5f77c3d
 gsd-core/workflows/settings.md	own	433+1	1	ecaa8d8b6fd1	b228af47eae2	ported-name
-gsd-core/workflows/settings.md	kept	434+8	82fbbd586bde
-gsd-core/workflows/settings.md	own	442+1	1	4ce0f9d6463e	311adf3e0528	ported-name
-gsd-core/workflows/settings.md	kept	443+27	0d925b7a61fd
+gsd-core/workflows/settings.md	kept	434+6	eeeac19b94b0
+gsd-core/workflows/settings.md	own	440+18	0	a2daf137e573	e3b0c44298fc	ported-name
+gsd-core/workflows/settings.md	kept	458+12	039fee02bcdf
 gsd-core/workflows/settings.md	own	470+1	0	0cc7b28a7bc1	e3b0c44298fc	review
-gsd-core/workflows/settings.md	kept	471+56	5f8e7411465f
+gsd-core/workflows/settings.md	kept	471+27	67a2a789d39b
+gsd-core/workflows/settings.md	own	498+4	0	b91aee11fc2f	e3b0c44298fc	review
+gsd-core/workflows/settings.md	kept	502+25	8135fb0ce670
 gsd-core/workflows/settings.md	own	527+1	1	82713a8afb67	49a6eccbdc55	ported-name
-gsd-core/workflows/settings.md	kept	528+19	ac8d936dd065
-gsd-core/workflows/settings.md	own	547+1	1	665e2a7c7e23	c4c89b4ecb3b	ported-name
+gsd-core/workflows/settings.md	kept	528+15	800fa6d237b3
+gsd-core/workflows/settings.md	own	543+1	0	2523b171ea4f	e3b0c44298fc	served
+gsd-core/workflows/settings.md	kept	544+3	14bae557d56e
+gsd-core/workflows/settings.md	own	547+1	1	665e2a7c7e23	684c3300426b	ported-name
 gsd-core/workflows/settings.md	kept	548+3	04b23c56ded8
 gsd-core/workflows/settings.md	own	551+1	1	0c2d4ed4824b	f5482c4d5ac5	ported-name
 gsd-core/workflows/settings.md	kept	552+3	c15f43a663e1
 gsd-core/workflows/settings.md	own	555+61	5	b543b8813268	a5698a5788a9	workflow
 gsd-core/workflows/settings.md	kept	616+20	28a308fef584
 gsd-core/workflows/settings.md	own	636+1	0	8638fc2b0ea3	e3b0c44298fc	served
-gsd-core/workflows/settings.md	kept	637+32	fb92695caab9
+gsd-core/workflows/settings.md	kept	637+1	ee60d7418c63
+gsd-core/workflows/settings.md	own	638+1	0	fa33d718d01e	e3b0c44298fc	served
+gsd-core/workflows/settings.md	kept	639+8	d32177aed49d
+gsd-core/workflows/settings.md	own	647+0	1	e3b0c44298fc	1c0e6ee78eae	review
+gsd-core/workflows/settings.md	kept	647+2	58bd969c8b06
+gsd-core/workflows/settings.md	own	649+1	1	76d085b54ee4	ac0b23656fbe	review
+gsd-core/workflows/settings.md	kept	650+17	57231d8cf4ef
+gsd-core/workflows/settings.md	own	667+1	1	91dfbe5ef7cf	d6fe648e02c3	served
+gsd-core/workflows/settings.md	kept	668+1	775f4bb5f08b
 gsd-core/workflows/settings.md	own	669+1	1	421af67f908b	8ca276a3c89d	workflow
 gsd-core/workflows/settings.md	kept	670+3	b75f7be1d6e5
 gsd-core/workflows/ship.md	kept	1+26	6d72d05fb9b8

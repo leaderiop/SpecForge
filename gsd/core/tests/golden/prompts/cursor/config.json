@@ -61,7 +61,7 @@
     "specforge settings --format json --extension @gsd/core",
     "```"
   ],
-  "bytes": 98492,
+  "bytes": 97244,
   "end": [
     "- [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)",
     "- [ ] Config merge preserves all keys outside the three sections this workflow owns",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 2048,
+  "lines": 2021,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:d7e166452b6dc32e0d191beab46c9fb26e94c49e153c4a3ed4f4478e76928305",
+    "digest": "sha256:db0fd382cc6f2b3244dc9a76f22451733fcf175f77a41efbd2f3f7174abc5cbf",
     "prompt": "@gsd/core@VERSION:config"
   },
-  "sha256": "d7e166452b6dc32e0d191beab46c9fb26e94c49e153c4a3ed4f4478e76928305"
+  "sha256": "db0fd382cc6f2b3244dc9a76f22451733fcf175f77a41efbd2f3f7174abc5cbf"
 }
