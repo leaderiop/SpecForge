@@ -86,8 +86,9 @@ Three refusals no `@gsd/core` text can clear, each of the same shape: a rule a l
 settles, counted by E080 on the write that creates its entity.
 
 - An open question at research time under gsd-strict (`gsd/W204`): returned, per D3.
-- Chunked mode's first plan of a phase whose requirements span plans (`gsd/E301` in every profile): chunked mode then
-  offers the whole-phase run.
+- Chunked mode's first plan of a phase whose requirements span plans (`gsd/E301` in every profile): the planner
+  returns `## PLAN BLOCKED`, which chunked mode reads as blocked, not stalled, and it then offers to plan the rest of
+  the phase in one run, an edit of the plans the graph does not hold yet.
 - Quick's plan mint under gsd-strict (`gsd/W309`): the mint writes the plan before its must-haves exist.
 
 The fix they share is a kernel one, outside this decision: E080 must not count, on a write, a finding a later step of
@@ -115,7 +116,7 @@ Each test fails when the decision or the limit it holds stops being true. They a
 | D1 | `assets_shell::planner_edit::the_planner_writes_a_phase_in_one_edit`, `assets_shell::planner_edit::a_dependency_found_later_is_linked`, `assets_shell::planner_edit::a_plan_written_alone_is_refused_and_nothing_is_written`, `assets_shell::planner_edit::the_plan_format_is_one_edit_of_the_whole_phase`, `assets_shell::planner_edit::every_writer_of_a_phases_plans_names_the_plan_edit` |
 | D2 | `assets_shell::commits::the_plan_commit_step_commits_the_spec_and_an_empty_one_says_nothing_to_commit`, `settings_roster::the_plan_phase_family_reads_no_commit_docs`, `settings_roster::every_key_an_asset_calls_a_setting_is_a_key_of_the_roster`, `settings_roster::the_committed_spec_keys_are_named_only_as_not_a_setting_here`, `ported_text::every_setting_a_line_reads_is_a_key_of_the_roster` |
 | D3 | `assets_shell::researchers::an_open_question_strict_refuses_is_returned_not_dropped` |
-| Limits | `assets_shell::researchers::an_open_question_strict_refuses_is_returned_not_dropped` (gsd/W204 at research under gsd-strict), `assets_shell::planner_edit::a_whole_plan_written_alone_is_refused_while_a_requirement_of_its_phase_is_in_no_plan` (chunked mode's first plan, gsd/E301), `cmd_quick::a_quick_plan_minted_without_must_haves_is_refused_under_strict_only` (quick's mint under gsd-strict, gsd/W309) |
+| Limits | `assets_shell::researchers::an_open_question_strict_refuses_is_returned_not_dropped` (gsd/W204 at research under gsd-strict), `assets_shell::planner_edit::a_whole_plan_written_alone_is_refused_while_a_requirement_of_its_phase_is_in_no_plan` (chunked mode's first plan, gsd/E301), `assets_shell::planner_edit::the_rest_of_a_chunked_run_writes_only_the_plans_the_graph_lacks` (its recovery), `cmd_quick::a_quick_plan_minted_without_must_haves_is_refused_under_strict_only` (quick's mint under gsd-strict, gsd/W309) |
 
 The live run itself, with each refusal it met and the test that pins the same rule, is recorded in
 [`evaluation/gsd-live/plan-phase.md`](../../evaluation/gsd-live/plan-phase.md).

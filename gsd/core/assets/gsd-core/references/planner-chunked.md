@@ -36,7 +36,8 @@ supports it (#3777; see `gsd-core/workflows/plan-phase/steps/chunked-planning-mo
 Write **exactly one** plan entity, `{plan_id}`, with the plan edit of the planner's `<plan_format>` holding that plan
 and its tasks, truths, artifacts and key links only, in its own file. Write no other plan. A plan written alone is
 refused `gsd/E301` while another requirement of the phase is in no plan yet, and the refused call writes nothing: then
-return `## PLAN BLOCKED` naming the refusal and its codes, and the orchestrator offers the whole-phase run.
+return `## PLAN BLOCKED` naming the refusal and its codes, and the orchestrator offers to plan the rest of the
+phase in one run.
 Return:
 
 ```markdown

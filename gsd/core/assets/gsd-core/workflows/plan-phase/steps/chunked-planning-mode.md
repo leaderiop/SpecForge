@@ -150,8 +150,9 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
      prompt="{same planning_context as step 8, plus:}
 
      **Chunked mode: single-plan.**
-     Write exactly ONE plan: the plan entity `{phase_id}/{plan_id}`, with the plan edit of `<plan_format>` holding this plan alone
-     A plan written alone is refused `gsd/E301` while another requirement of the phase is in no plan: then return ## PLAN BLOCKED with the codes.
+     Write exactly ONE plan: the plan entity `{phase_id}/{plan_id}`, with the plan edit of `<plan_format>` holding this plan alone.
+     A plan written alone is refused `gsd/E301` while another requirement of the phase is in no plan:
+     then return ## PLAN BLOCKED with the codes.
      Plan to write: {plan_id} — {objective}
      Wave: {wave} | Depends on: {depends_on}
      Phase requirement IDs to cover in this plan: {plan_requirements}
@@ -171,19 +172,23 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
 
 5. **ORCHESTRATOR RULE — ALL RUNTIMES, per batch (when `PLANNER_STALL_DETECTION_ENABLED` is `true`):** for every entry dispatched in this round,
    repeat the watch cycle, one for the whole batch; after each, read each waiting entry's `{outputFile}` with the Read tool:
-   a line holding `## PLAN COMPLETE` -> `marker_received`; a quiet cycle once the cycles add up to `planner.stall_threshold_minutes` -> `stalled`, for THAT entry. Serial dispatch waits on one entry at a time (unchanged).
+   a line holding `## PLAN COMPLETE` -> `marker_received`; a line holding `## PLAN BLOCKED` -> `blocked` (a
+   return like the first: no further cycle for that entry); a quiet cycle once the cycles add up to
+   `planner.stall_threshold_minutes` -> `stalled`, for THAT entry. Serial dispatch waits on one entry at a time
+   (unchanged).
    Concurrent dispatch waits on every entry issued in step 4 before proceeding — this is the
    "per-batch" join the config makes possible: nothing in step 6 runs until every plan dispatched
-   this round has reached `marker_received` or `stalled`. A `stalled` entry falls into step 7's
-   Retry/Stop recovery for that one plan; it does not block verifying/committing sibling entries
+   this round has reached `marker_received`, `blocked` or `stalled`. A `blocked` or `stalled` entry falls
+   into step 8's recovery for that one plan; it does not block verifying/committing sibling entries
    in the same batch that already reached `marker_received`.
 
    - **`false`:** when `PLANNER_STALL_DETECTION_ENABLED` is `false`, omit `run_in_background`
      from every call, skip the watch cycle, and await each real returned result through the
      ordinary runtime-native completion mechanism. A concurrent batch still issues the runnable
      calls together and awaits all of their ordinary results before step 6. Treat each recognized
-     `## PLAN COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep
-     step 8's existing Retry/Stop path. This is never fire-and-forget.
+     `## PLAN COMPLETE` return exactly like `marker_received` and each `## PLAN BLOCKED` return like
+     `blocked`; empty or unrecognized returns keep step 8's Retry/Stop path. This is never
+     fire-and-forget.
 
 6. **Verify disk, per entry:** check the plan entity `{phase_id}/{plan_id}` exists (`specforge query`) for each entry that
    reached `marker_received`. Unchanged per-plan check.
@@ -196,13 +201,16 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
 specforge git commit --add spec -m "docs(${PADDED_PHASE}): plan ${plan_id} (chunked)" && specforge collect --runner gsd-git --yes
 ```
 
-8. **Recovery:** any entry that did not reach `marker_received` (missing file in step 6, or
-   `stalled` in step 5) offers 1) Retry, 2) Stop — scoped to that one plan. Sibling entries in the
-   same batch that already verified and committed keep their commits either way; only the
-   failed/stalled plan is retried or the run stopped. An entry whose return is `## PLAN BLOCKED`
-   naming `gsd/E301` (a requirement of the phase is in no plan yet, so this plan cannot be written
-   alone) offers instead 1) Plan the phase in one run (step 8's single planner spawn, with `CHUNKED_MODE`
-   false), 2) Stop; the plans already committed stay.
+8. **Recovery:** an entry that is `stalled` in step 5, or whose plan is missing in step 6, offers
+   1) Retry, 2) Stop — scoped to that one plan. Sibling entries in the same batch that already
+   verified and committed keep their commits either way; only the failed/stalled plan is retried
+   or the run stopped. A `blocked` entry (its `## PLAN BLOCKED` names `gsd/E301`: a requirement of
+   the phase is in no plan yet, so this plan cannot be written alone, and a retry is refused the
+   same way) offers instead 1) Plan the rest of the phase in one run, 2) Stop. Option 1 is step 8's
+   single planner spawn with `CHUNKED_MODE` false, whose prompt names the plans the graph already
+   holds (`specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id'`): its plan edit
+   creates every plan the outline still lists and none of those, since an id that exists is refused
+   as a conflict. The plans already committed stay.
 
 Move to the next Wave only once every entry in the current Wave is committed or the run was
 stopped. After every Wave's plans are written and committed, treat this as `## PLANNING COMPLETE`

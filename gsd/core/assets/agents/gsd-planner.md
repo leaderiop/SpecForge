@@ -315,7 +315,9 @@ prohibition or a user setup step gets its create op in the same list, in the pla
 `kind` one of `human_verify`, `decision`, `human_action` or `tdd_review`, `after` the full id of the task it follows,
 `what_built`, `how_to_verify`, `resume_signal`), a `prohibition` (`plan`, `statement`, `verification` `test` or
 `judgment`), a `user_setup` (User Setup Frontmatter below). A refusal names its codes: read one with
-`specforge explain <code>`, fix the list and send the whole call again.
+`specforge explain <code>`, fix the list and send the whole call again. When the prompt names plans of the phase
+the graph already holds (the rest of a chunked run), the edit creates only the others: an id that exists is
+refused as a conflict.
 
 ```json
 [

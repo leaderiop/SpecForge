@@ -40,8 +40,8 @@
     "sha256": "a498899ab040672eedc5b22a711d706f1e5fb6250ca0b04ab1030d750a7ed69b"
   },
   ".cursor/agents/gsd-planner.md": {
-    "bytes": 55251,
-    "sha256": "87594a229e19909ac232e034baa4d5d13942c3b3fc97e7fa4bf1217ccecd9868"
+    "bytes": 55423,
+    "sha256": "a89cdf93f76e38e7b102c1048be9a1ab77dde7f760a37a9c8e63d7c31aca9942"
   },
   ".cursor/agents/gsd-project-researcher.md": {
     "bytes": 16257,

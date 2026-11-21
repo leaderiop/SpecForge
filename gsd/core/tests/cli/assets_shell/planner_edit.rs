@@ -4,7 +4,7 @@
 
 use serde_json::{Value, json};
 
-use super::{Shell, asset, block, line, mcp_edit, typed};
+use super::{Shell, asset, block, line, mcp_edit, span, typed};
 use crate::commands_support::{refused, strict};
 use crate::harness::{Project, taskboard};
 
@@ -442,7 +442,9 @@ fn refusal_codes(result: &Value) -> Vec<String> {
 /// Every other writer of a phase's plans names the plan edit and none points at the planner's typed edits: chunked
 /// single-plan mode (its reference and its spawn prompt, which names no typed plan creation), gap closure and the
 /// quick-batch planner wave. Chunked mode says a plan written alone is refused `gsd/E301` while another requirement of
-/// the phase is in no plan, and its recovery offers the whole-phase run.
+/// the phase is in no plan; its wait reads a `## PLAN BLOCKED` return as `blocked`, in both of its paths, never as a
+/// stall; and its recovery of a blocked entry plans the rest of the phase in one run, naming the plans the graph holds
+/// with a query line, since the planner's plan edit creates only the others.
 #[test]
 fn every_writer_of_a_phases_plans_names_the_plan_edit() {
     let chunked = asset("gsd-core/references/planner-chunked.md");
@@ -458,8 +460,9 @@ fn every_writer_of_a_phases_plans_names_the_plan_edit() {
     let recovery = block(
         &mode,
         "8. **Recovery:**",
-        "the plans already committed stay",
+        "The plans already committed stay",
     );
+    let wait = block(&mode, "5. **ORCHESTRATOR RULE", "6. **Verify disk");
     for (name, text) in [
         ("single-plan", &single),
         ("gap closure", &block(&gap, "**8. Write", "**9.")),
@@ -488,10 +491,35 @@ fn every_writer_of_a_phases_plans_names_the_plan_edit() {
         );
     }
     assert!(
-        recovery.contains("## PLAN BLOCKED")
-            && recovery.contains("gsd/E301")
-            && recovery.contains("Plan the phase in one run"),
-        "{recovery}"
+        spawn.contains("holding this plan alone.\n"),
+        "the spawn prompt's sentence ends: {spawn}"
+    );
+    for words in [
+        "a line holding `## PLAN BLOCKED` -> `blocked`",
+        "each `## PLAN BLOCKED` return like\n     `blocked`",
+        "`marker_received`, `blocked` or `stalled`",
+    ] {
+        assert!(wait.contains(words), "the wait lacks {words}:\n{wait}");
+    }
+    for words in [
+        "## PLAN BLOCKED",
+        "gsd/E301",
+        "Plan the rest of the phase in one run",
+        "specforge query \"$PHASE_ID\" --kinds plan",
+        "conflict",
+    ] {
+        assert!(
+            recovery.contains(words),
+            "the recovery lacks {words}:\n{recovery}"
+        );
+    }
+    assert!(
+        single.contains("plan the rest of the\nphase in one run"),
+        "{single}"
+    );
+    assert!(
+        plan_format().contains("the edit creates only the others"),
+        "the plan edit says nothing of the plans that exist"
     );
 }
 
@@ -534,5 +562,78 @@ fn a_whole_plan_written_alone_is_refused_while_a_requirement_of_its_phase_is_in_
             "{profile}: {plans:?}"
         );
         assert!(!p.exists("spec/plans/03-01.spec"), "{profile}");
+    }
+}
+
+/// The rest of a chunked run, as the recovery of a blocked entry writes it. A plan of phase v1.0/03 that covers both
+/// requirements exists (written alone, which `gsd/E301` accepts then); under gsd-compat and gsd-strict the
+/// whole-phase plan edit is refused as a conflict and writes nothing, while the edit without the plans the recovery's
+/// own query line lists (03-01) is accepted and writes 03-02.
+#[test]
+fn the_rest_of_a_chunked_run_writes_only_the_plans_the_graph_lacks() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let mode = asset("gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md");
+    let recovery = block(
+        &mode,
+        "8. **Recovery:**",
+        "The plans already committed stay",
+    );
+    let query = span(&recovery, "specforge query");
+    for profile in ["gsd-compat", "gsd-strict"] {
+        let p = taskboard();
+        if profile == "gsd-strict" {
+            strict(&p);
+        }
+        let mut edit = plan_edit();
+        op(&mut edit, "plan", "03-01")["fields"]["requirements"] = json!(["TASK-03", "LIST-01"]);
+        let file = op(&mut edit, "plan", "03-01")["file"].clone();
+        let first: Vec<Value> = edit
+            .as_array()
+            .expect("a list of edits")
+            .iter()
+            .filter(|e| e["file"] == file)
+            .cloned()
+            .collect();
+        let written = mcp_edit(&p, &Value::Array(first));
+        assert_ne!(written["isError"], true, "{profile}: {written}");
+
+        let whole = mcp_edit(&p, &plan_edit());
+        assert_eq!(whole["isError"], true, "{profile}: {whole}");
+        assert!(whole.to_string().contains("conflict"), "{profile}: {whole}");
+        assert!(
+            !p.exists(FILES[1]),
+            "{profile}: a refused edit wrote {}",
+            FILES[1]
+        );
+
+        let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID='v1.0/03'\n{query}"));
+        assert_eq!(code, 0, "{profile}: {query}: {err}");
+        let listed: Vec<&str> = out
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .collect();
+        assert_eq!(listed, ["v1.0/03/03-01"], "{profile}: {query}");
+        let rest: Vec<Value> = plan_edit()
+            .as_array()
+            .expect("a list of edits")
+            .iter()
+            .filter(|e| {
+                let plan = match e["kind"].as_str() {
+                    Some("plan") => format!("v1.0/03/{}", e["id"].as_str().expect("an id")),
+                    _ => e["fields"]["plan"].as_str().expect("a plan").to_string(),
+                };
+                !listed.contains(&plan.as_str())
+            })
+            .cloned()
+            .collect();
+        let written = mcp_edit(&p, &Value::Array(rest));
+        assert_ne!(written["isError"], true, "{profile}: {written}");
+        assert!(
+            ids(&p, "plan").iter().any(|id| id == "v1.0/03/03-02"),
+            "{profile}"
+        );
     }
 }
