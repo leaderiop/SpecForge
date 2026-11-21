@@ -70,7 +70,7 @@ step the prompt's step list runs between the planner and the plan checker.
 | 03:31:53 | 5, research | the researcher spawned | one research, four findings, three pitfalls; two open questions refused (see Refusals) |
 | 03:33:34 | 5, research | `specforge gsd record-research v1.0.0/03/03-RESEARCH` | exit 0: the pack's digest recorded |
 | 03:33:54 | 5.5, validation | `specforge new validation 03-VALIDATION ...` | written (its first form, a compound line, was denied by the allowlist) |
-| 03:34:10 | 7.95, spec-less probe | `specforge gsd edge-probe v1.0.0/03 --format json` | 7 applicable probes, 7 unresolved (two forms redirecting to a file were denied first) |
+| 03:34:10 | 7.95, spec-less probe | `specforge gsd edge-probe v1.0.0/03 --format json` | 7 applicable probes, 7 unresolved (three forms redirecting to a file were denied first; observed in the run only) |
 | | 7.8, pattern mapper | none | skipped: the pattern mapper is not served |
 | 03:34:46 | 8, plan | the planner spawned | three refused dry runs and an accepted one, then one 34-op `specforge.edit` written at 03:44:26; returned at 03:44:54 |
 | 03:44:58 | thread | `specforge gsd thread-plan v1.0.0/03` (shell, redirected) | denied by the allowlist (an output redirection) |

@@ -177,6 +177,7 @@ fn an_open_question_strict_refuses_is_returned_not_dropped() {
         "`gsd/W204`",
         "### Open Questions",
         "what is known, what is unclear",
+        "send it again without the refused question",
     ] {
         assert!(
             rule.contains(words),
