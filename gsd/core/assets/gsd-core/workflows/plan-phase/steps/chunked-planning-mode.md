@@ -150,7 +150,8 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
      prompt="{same planning_context as step 8, plus:}
 
      **Chunked mode: single-plan.**
-     Write exactly ONE plan: the plan entity `{phase_id}/{plan_id}` (`specforge new plan`)
+     Write exactly ONE plan: the plan entity `{phase_id}/{plan_id}`, with the plan edit of `<plan_format>` holding this plan alone
+     A plan written alone is refused `gsd/E301` while another requirement of the phase is in no plan: then return ## PLAN BLOCKED with the codes.
      Plan to write: {plan_id} — {objective}
      Wave: {wave} | Depends on: {depends_on}
      Phase requirement IDs to cover in this plan: {plan_requirements}
@@ -198,7 +199,10 @@ specforge git commit --add spec -m "docs(${PADDED_PHASE}): plan ${plan_id} (chun
 8. **Recovery:** any entry that did not reach `marker_received` (missing file in step 6, or
    `stalled` in step 5) offers 1) Retry, 2) Stop — scoped to that one plan. Sibling entries in the
    same batch that already verified and committed keep their commits either way; only the
-   failed/stalled plan is retried or the run stopped.
+   failed/stalled plan is retried or the run stopped. An entry whose return is `## PLAN BLOCKED`
+   naming `gsd/E301` (a requirement of the phase is in no plan yet, so this plan cannot be written
+   alone) offers instead 1) Plan the phase in one run (step 8's single planner spawn, with `CHUNKED_MODE`
+   false), 2) Stop; the plans already committed stay.
 
 Move to the next Wave only once every entry in the current Wave is committed or the run was
 stopped. After every Wave's plans are written and committed, treat this as `## PLANNING COMPLETE`

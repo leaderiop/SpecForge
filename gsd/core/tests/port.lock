@@ -1487,7 +1487,7 @@ gsd-core/references/planner-antipatterns.md	kept	222+35	db910477d9ba
 gsd-core/references/planner-chunked.md	kept	1+10	86be6ea0f1ec
 gsd-core/references/planner-chunked.md	own	11+1	2	ceaa30df472b	7944035b3eec	prose
 gsd-core/references/planner-chunked.md	kept	12+22	a4b167f71227
-gsd-core/references/planner-chunked.md	own	34+1	2	23dfd78cb85d	5fadf41f8d1d	prose
+gsd-core/references/planner-chunked.md	own	34+1	4	23dfd78cb85d	d3bb54a34a79	review
 gsd-core/references/planner-chunked.md	kept	35+7	792fae059829
 gsd-core/references/planner-chunked.md	own	42+1	1	1e1594c63e17	b12b37868960	prose
 gsd-core/references/planner-chunked.md	kept	43+3	cd89b7295a10
@@ -1508,7 +1508,7 @@ gsd-core/references/planner-gap-closure.md	own	13+1	1	f6a91a3e07db	b570ca6b508e	
 gsd-core/references/planner-gap-closure.md	kept	14+2	7c38be306870
 gsd-core/references/planner-gap-closure.md	own	16+1	1	0a4eb110df3b	239740b21ee1	served
 gsd-core/references/planner-gap-closure.md	kept	17+32	5dd9a8e0606d
-gsd-core/references/planner-gap-closure.md	own	49+16	9	d8677aee106b	e295f3651ec1	prose
+gsd-core/references/planner-gap-closure.md	own	49+16	9	d8677aee106b	bcccf77b9db2	typed-edit
 gsd-core/references/planner-gap-closure.md	kept	65+1	e3b0c44298fc
 gsd-core/references/planner-guidance.md	kept	1+247	4d307cecacab
 gsd-core/references/planner-interface-context.md	kept	1+11	dcb7dd27e40c
@@ -4208,7 +4208,7 @@ gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	125+6	3	dd28ef5
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	131+15	33bf4586f25d
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	146+1	1	b4a9bb5e51f2	ffb48df336da	prose
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	147+9	d348edd5ad12
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	156+1	1	ba53416989a6	a07122ccd7d9	prose
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	156+1	2	ba53416989a6	9eb16eacd320	review
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	157+18	5e0bce91d2ca
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	175+2	2	652512b3e803	afb5ff7c7f1e	wait
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	177+7	2a7f14f941d4
@@ -4217,7 +4217,9 @@ gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	185+5	3fbe511a
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	190+1	1	35b425d70396	5c0a0704dae8	prose
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	191+7	0112cf152b73
 gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	198+1	1	06c3e78acc2c	b332e536eaef	ported-name
-gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	199+11	06779e491020
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	199+5	755fcc78de0a
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	own	204+1	4	a8d8ce51c169	627a731a146f	review
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	kept	205+5	1a3f74c3857a
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	kept	1+2	560f00672a3c
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	own	3+3	3	5292b4e63756	ae6f6aed0b86	args
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	kept	6+2	5f046190424d
@@ -4680,7 +4682,7 @@ gsd-core/workflows/quick-batch/steps/planner-wave.md	own	91+1	1	699cd0d0f68e	3ea
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	92+9	854a7718a02b
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	101+1	1	382c5ed9d513	a40e518efc6d	quick
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	102+13	fa9cb53d2e4f
-gsd-core/workflows/quick-batch/steps/planner-wave.md	own	115+2	3	ded99c8aad4d	e1d1656054f0	typed-edit
+gsd-core/workflows/quick-batch/steps/planner-wave.md	own	115+2	4	ded99c8aad4d	2ccda6b56c20	typed-edit
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	117+12	5a2f18e76edb
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	129+1	1	b9f79ea5d2df	ac9d7b058861	quick
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	130+10	d837c0cdcf9e

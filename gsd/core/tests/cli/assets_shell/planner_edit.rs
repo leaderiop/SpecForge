@@ -423,3 +423,116 @@ fn the_plan_format_is_one_edit_of_the_whole_phase() {
     let rule = line(&body, "- **No hand-written spec:**");
     assert!(rule.contains("`specforge.edit`"), "{rule}");
 }
+
+/// The codes of the diagnostics a refused `specforge.edit` call carries.
+fn refusal_codes(result: &Value) -> Vec<String> {
+    let text = result["content"][0]["text"]
+        .as_str()
+        .expect("the call's text");
+    let body: Value =
+        serde_json::from_str(text).unwrap_or_else(|e| panic!("the refusal is JSON ({e}): {text}"));
+    body["data"]["diagnostics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no diagnostics in {body}"))
+        .iter()
+        .filter_map(|d| d["code"].as_str().map(str::to_string))
+        .collect()
+}
+
+/// Every other writer of a phase's plans names the plan edit and none points at the planner's typed edits: chunked
+/// single-plan mode (its reference and its spawn prompt, which names no typed plan creation), gap closure and the
+/// quick-batch planner wave. Chunked mode says a plan written alone is refused `gsd/E301` while another requirement of
+/// the phase is in no plan, and its recovery offers the whole-phase run.
+#[test]
+fn every_writer_of_a_phases_plans_names_the_plan_edit() {
+    let chunked = asset("gsd-core/references/planner-chunked.md");
+    let gap = asset("gsd-core/references/planner-gap-closure.md");
+    let mode = asset("gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md");
+    let wave = asset("gsd-core/workflows/quick-batch/steps/planner-wave.md");
+    let single = block(&chunked, "### single-plan", "## Resume Behaviour");
+    let spawn = block(
+        &mode,
+        "**Chunked mode: single-plan.**",
+        "Return: ## PLAN COMPLETE",
+    );
+    let recovery = block(
+        &mode,
+        "8. **Recovery:**",
+        "the plans already committed stay",
+    );
+    for (name, text) in [
+        ("single-plan", &single),
+        ("gap closure", &block(&gap, "**8. Write", "**9.")),
+        ("the chunked spawn", &spawn),
+        (
+            "the quick-batch wave",
+            &block(&wave, "<output>", "</output>"),
+        ),
+    ] {
+        assert!(text.contains("plan edit"), "{name}: {text}");
+    }
+    for (name, text) in [
+        ("planner-chunked.md", &chunked),
+        ("planner-gap-closure.md", &gap),
+        ("chunked-planning-mode.md", &mode),
+        ("planner-wave.md", &wave),
+        ("gsd-planner.md", &planner()),
+    ] {
+        assert!(!text.contains("typed edits of the planner"), "{name}");
+    }
+    assert!(!spawn.contains("`specforge new plan`"), "{spawn}");
+    for (name, text) in [("single-plan", &single), ("the chunked spawn", &spawn)] {
+        assert!(
+            text.contains("gsd/E301") && text.contains("## PLAN BLOCKED"),
+            "{name}: {text}"
+        );
+    }
+    assert!(
+        recovery.contains("## PLAN BLOCKED")
+            && recovery.contains("gsd/E301")
+            && recovery.contains("Plan the phase in one run"),
+        "{recovery}"
+    );
+}
+
+/// A whole plan written alone, with its task, truth, artifact and key link (the plan edit's ops of plan 03-01, taken
+/// by their file), is refused `gsd/E301` under gsd-compat and under gsd-strict while LIST-01 is in no plan, and names
+/// no `gsd/W309`, since the plan has its must-haves; nothing is written. It pins a limit ADR 0384 names: chunked mode's
+/// first plan of such a phase cannot be written, whatever its text; it flips when a rule a later step settles may wait.
+#[test]
+fn a_whole_plan_written_alone_is_refused_while_a_requirement_of_its_phase_is_in_no_plan() {
+    let mut edit = plan_edit();
+    let file = op(&mut edit, "plan", "03-01")["file"].clone();
+    let alone: Vec<Value> = edit
+        .as_array()
+        .expect("a list of edits")
+        .iter()
+        .filter(|e| e["file"] == file)
+        .cloned()
+        .collect();
+    let kinds: Vec<&str> = alone.iter().filter_map(|e| e["kind"].as_str()).collect();
+    assert_eq!(kinds, ["plan", "task", "truth", "artifact", "key_link"]);
+    for profile in ["gsd-compat", "gsd-strict"] {
+        let p = taskboard();
+        if profile == "gsd-strict" {
+            strict(&p);
+        }
+        let refusal = mcp_edit(&p, &Value::Array(alone.clone()));
+        assert_eq!(refusal["isError"], true, "{profile}: {refusal}");
+        let codes = refusal_codes(&refusal);
+        assert!(
+            codes.iter().any(|c| c == "gsd/E301"),
+            "{profile}: {codes:?}"
+        );
+        assert!(
+            codes.iter().all(|c| c != "gsd/W309"),
+            "{profile}: {codes:?}"
+        );
+        let plans = ids(&p, "plan");
+        assert!(
+            plans.iter().all(|id| !id.starts_with("v1.0/03/")),
+            "{profile}: {plans:?}"
+        );
+        assert!(!p.exists("spec/plans/03-01.spec"), "{profile}");
+    }
+}

@@ -113,8 +113,9 @@ PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
    </constraints>
 
    <output>
-   Fill the item's plan, which exists (`${quick_id}`): its fields with `specforge set`, one
-   `specforge new task` per task (the typed edits of the planner's `<plan_format>`)
+   Fill the item's plan, which exists (`${quick_id}`): its fields with `specforge set`, then its
+   tasks, truths and artifacts as typed creations on that plan (`--in spec/quick.spec --plan ${quick_id}`:
+   adding to an existing plan), with each kind's fields as the plan edit of the planner's `<plan_format>` lists them
    Return: ## PLANNING COMPLETE with the plan id
    </output>
    ",
