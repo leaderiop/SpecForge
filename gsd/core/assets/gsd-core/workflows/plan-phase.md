@@ -213,7 +213,7 @@ If `section_manifest` is `null` or `"reviews-prerequisite"` is in its `included`
 PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0]')   # the phase node, compact: found when the query does not refuse it, phase_number is the last segment of its id, the rest are its fields
 ```
 
-**If `found` is false:** Error with available phases. **If `found` is true:** Extract `phase_number`, `phase_name`, `goal` from JSON.
+**If `found` is false:** Error with available phases. **If `found` is true:** read the phase from that node: `phase_number` is the last segment of its `id` (`v1.0/03` gives `03`), `phase_name` is its `.fields.name` and `goal` its `.fields.goal`. Below, `{X}` is `phase_number`, and a phase's label reads "Phase {phase_number}: {phase_name}".
 
 Now that `PHASE` is finalized, resolve MVP mode:
 ```bash
@@ -1507,7 +1507,7 @@ Output this markdown directly (not as a code block):
 
 ### GSD ► PHASE {X} PLANNED ✓
 
-**Phase {X}: {Name}** — {N} plan(s) in {M} wave(s)
+**Phase {X}: {phase_name}** — {N} plan(s) in {M} wave(s)
 
 | Wave | Plans | What it builds |
 |------|-------|----------------|

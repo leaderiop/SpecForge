@@ -191,7 +191,7 @@ Exit cleanly.
 DETAIL=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 0 --format json)
 ```
 
-Extract `phase_name`, `goal`, `success_criteria` from each. Store for use in execute_phase and transition messages.
+From each node: `PHASE_NAME` (`phase_name`) is its `.fields.name`, `goal` and `success_criteria` are its fields of those names, and `PHASE_NUM` is the last segment of its `id`, so a phase's label reads "Phase ${PHASE_NUM}: ${PHASE_NAME}". Store them for use in execute_phase and transition messages.
 
 </step>
 

@@ -2282,8 +2282,8 @@ gsd-core/workflows/autonomous.md	own	176+4	5	40909d1b418c	27b5f054cd45	prose
 gsd-core/workflows/autonomous.md	kept	180+48	74220499d10c
 gsd-core/workflows/autonomous.md	own	228+1	1	22e79ac0d0a7	7b8541a40a2c	served
 gsd-core/workflows/autonomous.md	kept	229+4	45ea607a405e
-gsd-core/workflows/autonomous.md	own	233+1	1	89be3e3d06fe	8b524ce5964a	ported-name
-gsd-core/workflows/autonomous.md	kept	234+16	33a7581efee0
+gsd-core/workflows/autonomous.md	own	233+4	4	7944201eb984	f0abb5de1857	ported-name
+gsd-core/workflows/autonomous.md	kept	237+13	ec8f2ca164dc
 gsd-core/workflows/autonomous.md	own	250+1	1	fce050f81f5e	9ebaca097eaa	prose
 gsd-core/workflows/autonomous.md	kept	251+6	75220f83a11d
 gsd-core/workflows/autonomous.md	own	257+6	2	aeedfe7ff0c2	4ed6a2a58c21	ported-name
@@ -3941,8 +3941,8 @@ gsd-core/workflows/plan-phase.md	own	210+5	2	7c9339a6244f	a5a2e430d08f	ported-na
 gsd-core/workflows/plan-phase.md	kept	215+1	47597e7be384
 gsd-core/workflows/plan-phase.md	own	216+1	1	915251152b7c	ac81aa9e57ae	args
 gsd-core/workflows/plan-phase.md	kept	217+11	f3d1e5d57eb7
-gsd-core/workflows/plan-phase.md	own	228+1	1	4e8ecd7262b3	9075379f2700	ported-name
-gsd-core/workflows/plan-phase.md	kept	229+6	b322a563f93b
+gsd-core/workflows/plan-phase.md	own	228+4	4	765ce2fb10f3	9489adfc4494	ported-name
+gsd-core/workflows/plan-phase.md	kept	232+3	93e8c08e90fd
 gsd-core/workflows/plan-phase.md	own	235+1	1	91b15134c8a0	744f302dc87d	ported-name
 gsd-core/workflows/plan-phase.md	kept	236+12	1d3220abd5fb
 gsd-core/workflows/plan-phase.md	own	248+7	7	8722ae4b14b1	72e1f31af843	prose
@@ -4140,7 +4140,9 @@ gsd-core/workflows/plan-phase.md	kept	1488+3	b888b3ad6568
 gsd-core/workflows/plan-phase.md	own	1491+1	1	ac97f8f721c3	0f17ff10657e	ported-name
 gsd-core/workflows/plan-phase.md	kept	1492+16	f605ae87f954
 gsd-core/workflows/plan-phase.md	own	1508+1	2	c9b5b03b89c1	1397ada8c519	review
-gsd-core/workflows/plan-phase.md	kept	1509+32	8b2877ec0ae8
+gsd-core/workflows/plan-phase.md	kept	1509+14	54ce6d873f45
+gsd-core/workflows/plan-phase.md	own	1523+1	1	feb1a1178519	0e2023199b16	review
+gsd-core/workflows/plan-phase.md	kept	1524+17	0e417ff875ff
 gsd-core/workflows/plan-phase.md	own	1541+1	1	5501d8735797	2a9da5bba9bd	args
 gsd-core/workflows/plan-phase.md	kept	1542+4	0cb6ac40b83c
 gsd-core/workflows/plan-phase.md	own	1546+1	1	c5e03d4f96a6	773194c15d1c	ported-name
