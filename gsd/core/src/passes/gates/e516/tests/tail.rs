@@ -104,21 +104,26 @@ fn the_entities_are_named_in_id_order() {
     );
 }
 
-/// Runs on two subjects: a group names only the entities whose verdict refuses both. A missing verdict refuses only a
-/// run whose scope holds it, so it is named by no tail of runs on two phases, though its group (holder and judge)
-/// refuses both runs through the stale verdict beside it.
-#[test]
-fn only_the_entities_whose_verdict_refuses_every_named_run_are_named() {
+/// The remedy `plan_phase` runs as for the plan checker's verdicts: a prompt that does not run the verifier.
+fn plan_phase() -> Remedy {
     assert!(!judges_run_by("plan_phase").contains(VERIFIER));
     let (spec, rejudge) = rejudging("gsd-plan-checker")
         .into_iter()
         .find(|(spec, _)| spec.id == "plan_phase")
         .expect("plan_phase records the plan checker's verdicts again");
-    let remedy = Remedy {
+    Remedy {
         spec,
         rejudge,
         kind: spec.subject_kind().expect("plan_phase runs on a subject"),
-    };
+    }
+}
+
+/// Runs on two subjects: a group names only the entities whose verdict refuses both. A missing verdict refuses only a
+/// run whose scope holds it, so it is named by no tail of runs on two phases, though its group (holder and judge)
+/// refuses both runs through the stale verdict beside it.
+#[test]
+fn only_the_entities_whose_verdict_refuses_every_named_run_are_named() {
+    let remedy = plan_phase();
     let named = [(remedy, "v1.0/02"), (remedy, "v1.0/03")];
     let both = project(
         ship(None),
@@ -144,6 +149,54 @@ fn only_the_entities_whose_verdict_refuses_every_named_run_are_named() {
     let mut index = Index::new(&missing_alone);
     assert!(!index.blockers(remedy, "v1.0/02").is_empty());
     assert_eq!(index.tail(&named), "");
+}
+
+/// Runs on two subjects, each refused by one group with entities the other run does not share: that group is left out
+/// while the group both runs share stays. A plan the milestone scopes by its id (`v1.0/P2`) and a phase by its edge is
+/// held by the milestone and inside only its phase's run, so the missing truths of two such plans, in two phases, make
+/// one group whose entities refuse one run each.
+#[test]
+fn a_group_whose_entities_refuse_different_runs_is_left_out_beside_one_that_stays() {
+    let remedy = plan_phase();
+    let named = [(remedy, "v1.0/02"), (remedy, "v1.0/03")];
+    let mut entities = vec![json!({ "id": "v1.0", "kind": "milestone" })];
+    let mut edges = Vec::new();
+    for (phase, plan, truth, state) in [
+        ("v1.0/02", "v1.0/P2", "v1.0/P2/TR1", "missing"),
+        ("v1.0/03", "v1.0/P3", "v1.0/P3/TR1", "missing"),
+        ("v1.0/04", "v1.0/04/04-01", "v1.0/04/04-01/TR1", "stale"),
+    ] {
+        entities.push(json!({ "id": phase, "kind": "phase" }));
+        entities.push(json!({ "id": plan, "kind": "plan" }));
+        entities.push(
+            json!({ "id": truth, "kind": "truth", "fields": { "plan": plan },
+                              "judgements": [judged("gsd/E501", state, &[])] }),
+        );
+        edges.push(json!({ "source": plan, "target": phase, "label": "phase" }));
+    }
+    let given = input(ship(None), entities, edges);
+    let mut index = Index::new(&given);
+    let milestone = Blocker {
+        holder: "v1.0",
+        by: VERIFIER,
+    };
+    for (at, alone) in [("v1.0/02", "v1.0/P2/TR1"), ("v1.0/03", "v1.0/P3/TR1")] {
+        let found = index.blockers(remedy, at);
+        assert_eq!(
+            found.get(&milestone),
+            Some(&BTreeSet::from([alone])),
+            "{at}"
+        );
+        assert_eq!(found.len(), 2, "{at}");
+    }
+    assert_eq!(
+        index.tail(&named),
+        tail(&on(&[held(
+            "v1.0/04",
+            "gsd-verifier",
+            &["v1.0/04/04-01/TR1"]
+        )]))
+    );
 }
 
 /// The ids `v1.0/<nn>/<nn>-01/TR<k>` for `k` in `ks`, each owing a stale verifier verdict.
@@ -231,6 +284,47 @@ fn the_bound_is_per_holder_and_judge() {
     );
 }
 
+/// One group of a tail past the bound: its `holder`, its judge `by`, the first `entities` it names and the `more` it
+/// counts.
+fn bounded(holder: &str, by: &str, entities: &[String], more: usize) -> String {
+    let entities: Vec<&str> = entities.iter().map(String::as_str).collect();
+    let group = held(holder, by, &entities);
+    format!(
+        "{}, and {more} more)",
+        group.strip_suffix(')').unwrap_or(&group)
+    )
+}
+
+/// The bound is per holder and judge and nothing bounds the groups: seven phases, each owing six stale truths, are
+/// all named, each by its first five truths and a count of one, so the help grows with the holders that owe verdicts.
+#[test]
+fn every_holder_is_named_however_many_owe_verdicts() {
+    let others = ["01", "03", "04", "05", "06", "07", "08"];
+    let owed: Vec<(String, Value)> = others
+        .iter()
+        .flat_map(|nn| stale_truths(nn, 1..=NAMED + 1))
+        .collect();
+    let groups: Vec<String> = others
+        .iter()
+        .map(|nn| {
+            let first: Vec<String> = (1..=NAMED)
+                .map(|k| format!("v1.0/{nn}/{nn}-01/TR{k}"))
+                .collect();
+            bounded(&format!("v1.0/{nn}"), "gsd-verifier", &first, 1)
+        })
+        .collect();
+    let help = plan_check_beside(&["01", "02", "03", "04", "05", "06", "07", "08"], &owed);
+    assert_eq!(
+        help,
+        again("gsd/W311", "gsd-plan-checker", "v1.0/02/02-01", "v1.0/02") + &tail(&on(&groups))
+    );
+    assert_eq!(
+        help.matches(", and 1 more)").count(),
+        others.len(),
+        "{help}"
+    );
+}
+
 /// `e516` is a pure function of its input: the same help per message with the input's entities and edges reversed,
 /// and on a second call.
 #[test]
@@ -295,12 +389,11 @@ fn a_thousand_stale_truths_a_phase_share_one_bounded_tail() {
         let first: Vec<String> = (1..=NAMED)
             .map(|k| format!("v1.0/{other}/{other}-01/TR{k}"))
             .collect();
-        let first: Vec<&str> = first.iter().map(String::as_str).collect();
-        let group = held(&format!("v1.0/{other}"), "gsd-verifier", &first);
-        let group = format!(
-            "{}, and {} more)",
-            group.strip_suffix(')').unwrap_or(&group),
-            TRUTHS - NAMED
+        let group = bounded(
+            &format!("v1.0/{other}"),
+            "gsd-verifier",
+            &first,
+            TRUTHS - NAMED,
         );
         let expected =
             verifier(&format!("v1.0/{nn}"), &format!("v1.0/{nn}/{nn}-01")) + &tail(&on(&[group]));
@@ -562,6 +655,30 @@ fn the_groups_no_holder_scopes_follow_the_held_ones_in_id_order() {
     no_outer_holder(&found, &["RESEARCH", "251101-abc-RESEARCH"]);
 }
 
+/// One outer id no holder scopes owing verdicts of two judges, a quick plan's plan check and its truth's verifier
+/// verdict, makes two groups, each after `, and`, in the order of their judges, each entity owing its verdict itself.
+#[test]
+fn an_outer_id_owing_two_judges_names_a_group_per_judge() {
+    let found = e516(&with(
+        project(ship(None), &["01"], &[("v1.0/01/01-01/TR1", stale_truth())]),
+        vec![
+            json!({ "id": "260321-a1b", "kind": "plan", "judgements": [stale_check("gsd/W311")] }),
+            json!({ "id": "260321-a1b/TR1", "kind": "truth", "judgements": [stale_truth()] }),
+        ],
+    ));
+    assert_eq!(found.len(), 3, "{found:?}");
+    assert_eq!(
+        how(&found, "v1.0/01/01-01/TR1"),
+        verifier("v1.0/01", "v1.0/01/01-01")
+            + &tail(&format!(
+                "{}, and {}",
+                itself("gsd-plan-checker", &["260321-a1b"]),
+                itself("gsd-verifier", &["260321-a1b/TR1"])
+            ))
+    );
+    no_outer_holder(&found, &["260321-a1b"]);
+}
+
 /// A group no holder scopes is bounded like a held one: six audits name five and count one.
 #[test]
 fn the_bound_holds_for_the_entities_of_an_outer_id() {
@@ -633,4 +750,22 @@ fn a_holder_is_a_kind_a_remedy_prompt_runs_on() {
         "{remedied:?}"
     );
     assert_eq!(accepted, remedied);
+}
+
+/// Every prompt that records one judge's verdicts again runs on one kind of subject, as the registry gives them: the
+/// runs one help names are then on one subject, where the tail's per-entity reading names what a per-group one would.
+/// A remedy of a judge on a second kind fails here.
+#[test]
+fn every_remedy_of_a_judge_runs_on_one_kind() {
+    let judges: BTreeSet<&str> = crate::judged::JUDGED.iter().map(|j| j.judge).collect();
+    let mut remedied = 0;
+    for judge in judges {
+        let kinds: BTreeSet<&str> = rejudging(judge)
+            .into_iter()
+            .filter_map(|(spec, _)| spec.subject_kind())
+            .collect();
+        assert!(kinds.len() <= 1, "{judge}: {kinds:?}");
+        remedied += kinds.len();
+    }
+    assert!(remedied > 1, "no judge has a remedy");
 }

@@ -602,7 +602,10 @@ fn verdicts_of_two_judges_in_one_phase_name_each_other() {
          again (its judge: gsd-phase-researcher): it records the verdict over the current inputs (`specforge query \
          v1.0/01/01-RESEARCH/PA1 --inputs gsd/W205`)"
             .to_string()
-            + &tail(&on(&[held("v1.0/01", "gsd-verifier", &["v1.0/01/01-01/TR1"]), held("v1.0/02", "gsd-plan-checker", &["v1.0/02/02-01"])]))
+            + &tail(&on(&[
+                held("v1.0/01", "gsd-verifier", &["v1.0/01/01-01/TR1"]),
+                held("v1.0/02", "gsd-plan-checker", &["v1.0/02/02-01"])
+            ]))
     );
     assert_eq!(
         how(&found, "v1.0/01/01-01/TR1"),
