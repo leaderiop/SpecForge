@@ -1,8 +1,8 @@
 //! `phase` (D-r41-8): the roadmap's phase CRUD behind `/gsd-phase`. The action is chosen by flag, as upstream's
 //! `[--insert X|--remove N|--edit N]`: none adds, `--insert` makes a decimal phase, `--remove` deletes a phase and
-//! renumbers the later ones in one plan, `--edit` sets fields (a new name retitles the phase), `--promote` moves a
-//! backlog phase (999.x) into the numbered phases, and `--backlog` adds a phase to the backlog at the first free 999.x
-//! number.
+//! renumbers the later ones in one plan, `--edit` sets fields (a new name retitles the phase and rewrites its slug),
+//! `--promote` moves a backlog phase (999.x) into the numbered phases, and `--backlog` adds a phase to the backlog at
+//! the first free 999.x number.
 //!
 //! Also ports gsd-core bin/lib modules: phase-estimation.cjs, phase-id-card.cjs, phase-id-display.cjs, phase-
 //! id.cjs, phase-lifecycle.cjs, phase-locator.cjs, phase-status.cjs.
@@ -143,6 +143,12 @@ pub(super) fn target<'a, 'p>(phases: &'p [Phase<'a>], name: &str) -> Result<&'p 
     find(phases, name)
 }
 
+/// The fields a phase's name sets, for `--add` and `--edit` alike: the name and the slug derived from it, which
+/// names the phase's branch (`git.phase_branch_template`'s `{slug}`). The phase is titled by the name too.
+fn named(name: &str) -> [(&'static str, Value); 2] {
+    [("name", json!(name)), ("slug", json!(slug(name)))]
+}
+
 /// Creates the phase `number` after `previous`, in the milestone's own file.
 fn create(
     call: &CommandCall<'_>,
@@ -155,20 +161,20 @@ fn create(
     let goal = given(call, "goal")?.unwrap_or(goal_default);
     let criteria = texts(call, "criteria")?.unwrap_or_else(|| vec![TO_BE_PLANNED.to_string()]);
     let id = format!("{}/{}", ms.id, number.name());
+    let mut held = fields([
+        ("milestone", json!(ms.id)),
+        ("goal", json!(goal)),
+        ("success_criteria", json!(criteria)),
+        ("depends_on", previous.map_or(Value::Null, |p| json!([p]))),
+    ]);
+    held.extend(named(name).map(|(k, v)| (k.to_string(), v)));
     let mut plan = call.plan();
     plan.create(
         "phase",
         &number.name(),
         &title(name),
         ms.file.as_deref().unwrap_or_default(),
-        fields([
-            ("milestone", json!(ms.id)),
-            ("name", json!(name)),
-            ("slug", json!(slug(name))),
-            ("goal", json!(goal)),
-            ("success_criteria", json!(criteria)),
-            ("depends_on", previous.map_or(Value::Null, |p| json!([p]))),
-        ]),
+        held,
         Vec::new(),
     );
     Ok(answer(
@@ -253,10 +259,14 @@ fn edit(
     let mut plan = call.plan();
     let mut set = Vec::new();
     if let Some(v) = given(call, "name")? {
-        // the title is the phase's label, as `create` writes it: a new name retitles the phase too
-        plan.set(&phase.node.id, "name", v);
+        // as `create` writes them: a new name rewrites the slug and the title too. A branch already cut under the old
+        // slug keeps its name: the phase's computed `branch` names the new slug, so the next execute-phase opens the
+        // branch of the new name and `milestone_branches` lists it, not the old one; `git branch -m` moves the work.
+        for (field, value) in named(v) {
+            plan.set(&phase.node.id, field, value);
+        }
         plan.retitle(&phase.node.id, &title(v));
-        set.extend(["name", "title"]);
+        set.extend(["name", "slug", "title"]);
     }
     if let Some(v) = given(call, "goal")? {
         plan.set(&phase.node.id, "goal", v);

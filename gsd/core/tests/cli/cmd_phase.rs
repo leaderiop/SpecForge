@@ -300,10 +300,32 @@ fn edit_sets_goal_and_criteria() {
     assert_eq!(fields["success_criteria"], json!(["saved", "loaded"]));
 }
 
-/// A new name retitles the phase, as `--add` titles it: the title is the phase's label, so the two never drift.
+/// A new name rewrites the title and the slug, as `--add` writes them: the title is the phase's label and the slug
+/// names its branch, so neither keeps the old name. A branch cut under the old slug keeps its name, and is no longer
+/// the phase's branch.
 #[test]
-fn edit_name_retitles_the_phase() {
+fn a_new_name_rewrites_the_title_and_the_slug() {
+    const AT: &str = "2026-01-01T00:00:00Z";
     let p = twin();
+    p.commit();
+    p.settings(json!({"git.branching_strategy": "phase"}));
+    let phase = |p: &Project| {
+        let query = p.run(&["query", "v1.0/02", "--depth", "0", "--format", "json"]);
+        let graph: serde_json::Value = serde_json::from_str(&query.stdout).expect("JSON");
+        let nodes = graph["nodes"].as_array().expect("nodes");
+        let found = nodes.iter().find(|n| n["id"] == "v1.0/02");
+        found
+            .unwrap_or_else(|| panic!("no v1.0/02: {graph}"))
+            .clone()
+    };
+    let branches = |p: &Project| json(&gsd(p, "milestone-branches", &["v1.0", "--format", "json"]));
+    assert_eq!(phase(&p)["fields"]["slug"], "persistence");
+    assert_eq!(phase(&p)["fields"]["branch"], "gsd/phase-02-persistence");
+    p.git(&["branch", "gsd/phase-02-persistence"], AT);
+    assert_eq!(
+        branches(&p)["branches"],
+        json!(["gsd/phase-02-persistence"])
+    );
     let run = gsd(
         &p,
         "phase",
@@ -317,17 +339,25 @@ fn edit_name_retitles_the_phase() {
         ],
     );
     assert_eq!(run.code, 0, "{}", run.all());
-    let answer: serde_json::Value = serde_json::from_str(&run.stdout).expect("JSON");
+    let answer = json(&run);
     assert_eq!(
         answer["output"]["set"],
-        json!(["name", "title"]),
+        json!(["name", "slug", "title"]),
         "{answer}"
     );
-    let query = p.run(&["query", "v1.0/02", "--depth", "0", "--format", "json"]);
-    let graph: serde_json::Value = serde_json::from_str(&query.stdout).expect("JSON");
-    let node = &graph["nodes"][0];
+    let node = phase(&p);
     assert_eq!(node["title"], "Durable tasks", "{node}");
     assert_eq!(node["fields"]["name"], "Durable tasks", "{node}");
+    assert_eq!(node["fields"]["slug"], "durable-tasks", "{node}");
+    assert_eq!(
+        node["fields"]["branch"], "gsd/phase-02-durable-tasks",
+        "{node}"
+    );
+    assert_eq!(
+        branches(&p)["branches"],
+        json!([]),
+        "the old branch is not the phase's any more, and the new one is not cut yet"
+    );
 }
 
 #[test]
