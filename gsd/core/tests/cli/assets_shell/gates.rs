@@ -16,9 +16,7 @@ fn served(p: &Project, path: &str) -> String {
 /// A file a project holds can name a command: the python build gate spliced the name into the string `bash -c` read.
 #[test]
 fn a_python_file_name_never_runs_as_a_command() {
-    let Some(sh) = Shell::only(&["git", "touch", "mkdir", "printf", "bash"]) else {
-        return;
-    };
+    let sh = Shell::only(&["git", "touch", "mkdir", "printf", "bash"]);
     let p = project("execute");
     p.write("pyproject.toml", "[project]\nname = \"x\"\n");
     p.write("x;touch pwned;y.py", "print(1)\n");
@@ -34,9 +32,7 @@ fn a_python_file_name_never_runs_as_a_command() {
 #[cfg(unix)]
 #[test]
 fn the_gate_fences_stop_on_a_manifest_present_but_unread() {
-    let Some(sh) = Shell::only(&["git", "touch", "mkdir", "printf", "bash"]) else {
-        return;
-    };
+    let sh = Shell::only(&["git", "touch", "mkdir", "printf", "bash"]);
     let p = project("execute");
     std::os::unix::fs::symlink("/nonexistent/Makefile", p.root().join("Makefile")).expect("a link");
     let step_a = fence_after(&served(&p, POST_MERGE), "**Step A");
@@ -48,9 +44,7 @@ fn the_gate_fences_stop_on_a_manifest_present_but_unread() {
 /// A commit guard with no answer says it could not read, and never that the branch is protected.
 #[test]
 fn the_commit_guard_says_could_not_read_when_it_has_no_answer() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let p = on_branch("feat");
     let guard = fence_after(
         &asset("agents/gsd-executor.md"),
@@ -70,9 +64,7 @@ fn the_commit_guard_says_could_not_read_when_it_has_no_answer() {
 /// Step 0b's path check is the guard's, with a boundary: `<top>-evil` is not inside `<top>`, and `..` leaves it.
 #[test]
 fn the_absolute_path_guard_reads_the_answer() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let p = on_branch("main");
     let top = p.root().canonicalize().expect("a real path");
     let top = top.display();
@@ -93,9 +85,7 @@ fn the_absolute_path_guard_reads_the_answer() {
 /// Step 0a keeps its sentinel in a linked worktree: `.linked` says it is one, whatever the directory is called.
 #[test]
 fn the_sentinel_fence_reads_linked_from_the_answer() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let p = on_branch("main");
     let linked = tempfile::tempdir().expect("a directory");
     let at = linked.path().join("wt");
@@ -125,9 +115,7 @@ const PATH_SAFETY: &str = "gsd-core/references/worktree-path-safety.md";
 /// Step 0c reads the task's commands from the graph, and any read that fails stops the block.
 #[test]
 fn the_step_0c_fence_reads_the_tasks_commands_and_stops_on_a_failed_answer() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let run = |p: &Project, task: &str| {
         let fence = fence_after(&served(p, PATH_SAFETY), "command guard — step 0c");
         let fence = fence.replacen("TASK_ID='{TASK_ID}'", &format!("TASK_ID='{task}'"), 1);
@@ -161,7 +149,7 @@ fn the_step_0c_fence_reads_the_tasks_commands_and_stops_on_a_failed_answer() {
 const PROTECTED_BRANCH: &str = "gsd-core/workflows/execute-phase/steps/protected-branch.md";
 
 /// `Shell` for the blocks that read the branch: specforge and git, and no `grep` to hold a rule.
-fn branch_shell() -> Option<Shell> {
+fn branch_shell() -> Shell {
     Shell::only(&["git", "printf"])
 }
 
@@ -178,9 +166,7 @@ fn on_branch(branch: &str) -> Project {
 /// The executor's commit guard reads the setting that lets it commit on the default branch.
 #[test]
 fn the_commit_guard_reads_the_default_branch_override() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let p = on_branch("main");
     p.settings(serde_json::json!({"git.allow_default_branch_commits": true}));
     let guard = fence_after(
@@ -198,9 +184,7 @@ fn the_commit_guard_reads_the_default_branch_override() {
 /// A protected list the answer cannot read refuses the commit, on the branch it meant to protect.
 #[test]
 fn the_commit_guard_refuses_on_a_broken_protected_list() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let p = on_branch("feat");
     let guard = fence_after(
         &asset("agents/gsd-executor.md"),
@@ -219,9 +203,7 @@ fn the_commit_guard_refuses_on_a_broken_protected_list() {
 /// The `none` strategy warns on every protected branch: `trunk` and a listed one too.
 #[test]
 fn protected_branch_warns_on_trunk_and_on_a_listed_branch() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let warns = |p: &Project| {
         let step = fence_after(&served(p, PROTECTED_BRANCH), "# Protected-branch warning");
         sh.run_in(p.root(), &step)
@@ -238,9 +220,7 @@ fn protected_branch_warns_on_trunk_and_on_a_listed_branch() {
 /// A name git refuses stops the fence that would hand it to `git switch`, on the branch it started on.
 #[test]
 fn a_phase_with_no_branch_name_stops_the_branch_creation_fence() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let p = crate::harness::taskboard();
     p.settings(serde_json::json!({
         "git.branching_strategy": "phase",
@@ -270,9 +250,7 @@ echo went-on"
 /// A HEAD no one can read is not "not protected": both warnings say they could not tell, and a free branch says nothing.
 #[test]
 fn a_broken_head_warns_that_it_could_not_determine() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let fences = |p: &Project| {
         let ship = fence_after(
             &served(p, "gsd-core/workflows/ship.md"),
@@ -304,9 +282,7 @@ fn a_broken_head_warns_that_it_could_not_determine() {
 /// What complete-milestone squash-merges: the branches its phases compute and that exist, never another local branch.
 #[test]
 fn complete_milestone_lists_only_the_phase_branches() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let p = crate::harness::taskboard();
     p.settings(serde_json::json!({"git.branching_strategy": "phase"}));
     p.commit();
@@ -350,9 +326,7 @@ const ELABORATION: &str = "gsd-core/workflows/complete-milestone/detail/elaborat
 /// Each option's fence runs alone: a host keeps no shell between fences, so nothing it reads comes from another.
 #[test]
 fn each_complete_milestone_option_runs_from_its_own_fence() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     for (option, moves) in [
         ("**Squash merge:**", true),
         ("**Merge with history:**", true),
@@ -382,9 +356,7 @@ fn each_complete_milestone_option_runs_from_its_own_fence() {
 /// A value no fence bound stops the fence loudly, not as "no branches found".
 #[test]
 fn an_unset_milestone_or_phase_fails_loudly() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let (p, before) = with_a_phase_branch();
     let served_body = served(&p, ELABORATION);
     for option in [
@@ -415,9 +387,7 @@ fn an_unset_milestone_or_phase_fails_loudly() {
 /// The milestone strategy's one branch, once it exists.
 #[test]
 fn complete_milestone_finds_the_milestone_branch_when_it_exists() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
+    let sh = branch_shell();
     let p = crate::harness::taskboard();
     p.settings(serde_json::json!({"git.branching_strategy": "milestone"}));
     p.commit();
@@ -444,9 +414,7 @@ fn complete_milestone_finds_the_milestone_branch_when_it_exists() {
 /// and keeps the wait's exit: a wait that cannot wait still fails the step.
 #[test]
 fn ships_wait_for_the_pr_prints_nothing_and_keeps_its_exit() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("gsd-core/workflows/ship.md");
     let line = text
         .lines()
@@ -477,9 +445,7 @@ fn ships_wait_for_the_pr_prints_nothing_and_keeps_its_exit() {
 /// heredoc's last newline: the blocker records the words alone, with no newline after them.
 #[test]
 fn a_blocker_raised_from_execute_plan_holds_the_words_alone() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = crate::commands_support::twin();
     let text = asset("gsd-core/workflows/execute-plan.md");
     let start = text
@@ -503,9 +469,7 @@ fn a_blocker_raised_from_execute_plan_holds_the_words_alone() {
 /// tripping again reuses the open blocker.
 #[test]
 fn a_tripped_tdd_gate_raises_a_blocker_on_its_task() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = crate::harness::taskboard();
     let gate = fence_after(
         &asset("gsd-core/workflows/execute-phase.md"),

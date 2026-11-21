@@ -32,9 +32,7 @@ fn quick_creates_a_quick_plan() {
         .lines()
         .find(|l| l.contains("specforge gsd quick-init --description="))
         .expect("the init line");
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let (id, err, code) = sh.run_in(
         p.root(),
         &format!("DESCRIPTION='Trim titles'\n{init}\nprintf '%s' \"$quick_id\" >&2"),
@@ -230,9 +228,7 @@ fn the_batch_makes_one_quick_id_per_item() {
         .lines()
         .find(|l| l.starts_with("QB_CREATE_LIST="))
         .expect("the batch-init line");
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = twin();
     let run = |items: &str| {
         p.write("tasks.txt", items);
@@ -340,9 +336,7 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
         .lines()
         .find(|l| l.contains(init))
         .expect("the init line");
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let (said, err, _) = sh.run_in(
         p.root(),
         &format!(
@@ -408,14 +402,6 @@ mod worktree {
     const ID: &str = "251031-abc";
     const AT: &str = "2026-10-31T08:00:00Z";
     const PLAN: &str = "plan 251031-abc \"Trim titles\" {\n  objective \"Titles are trimmed\"\n}\n";
-
-    fn no_bash() -> bool {
-        if Command::new("bash").arg("--version").output().is_ok() {
-            return false;
-        }
-        eprintln!("skipped: bash is absent");
-        true
-    }
 
     /// `script` under bash in `dir`, with git's identity pinned and none of the developer's configuration. The built
     /// `specforge` is first on PATH: the block reads git through `specforge git`, not a git binary.
@@ -500,9 +486,6 @@ mod worktree {
 
     #[test]
     fn the_pre_dispatch_commit_holds_the_plan_and_the_base_is_its_parent() {
-        if no_bash() {
-            return;
-        }
         let p = project("empty");
         let prior = p.git_commit("chore: start", &[("README.md", "taskboard\n")], AT);
         let block = pre_dispatch(&p);
@@ -541,9 +524,6 @@ mod worktree {
 
     #[test]
     fn without_a_plan_there_is_no_alternate_base() {
-        if no_bash() {
-            return;
-        }
         let p = project("empty");
         p.git_commit("chore: start", &[("README.md", "taskboard\n")], AT);
         p.git_commit(
@@ -602,9 +582,6 @@ mod worktree {
 
     #[test]
     fn the_executor_finds_the_plan_in_its_worktree_and_stops_without_it() {
-        if no_bash() {
-            return;
-        }
         let block = first_action();
         let p = project("empty");
         p.git_commit("chore: start", &[("README.md", "taskboard\n")], AT);
@@ -638,9 +615,6 @@ mod worktree {
     /// plan in its own `spec/`; the first action restores it from the plan commit.
     #[test]
     fn a_worktree_forked_from_the_alternate_base_gets_the_plan_restored() {
-        if no_bash() {
-            return;
-        }
         let block = first_action();
         let p = project("empty");
         let parent = p.git_commit("chore: start", &[("README.md", "taskboard\n")], AT);

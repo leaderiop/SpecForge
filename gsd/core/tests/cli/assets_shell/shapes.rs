@@ -48,9 +48,7 @@ fn committed(commits: &[(&str, &[(&str, &str)])]) -> Project {
 
 #[test]
 fn a_count_of_plans_and_summaries_is_picked() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let starts = ["PLAN_COUNT=$(", "SUMMARY_COUNT=$("];
     let counts = |path, setup| {
@@ -93,9 +91,7 @@ fn a_count_of_plans_and_summaries_is_picked() {
 
 #[test]
 fn a_phase_is_read_field_by_field() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let mvp = "gsd-core/workflows/mvp-phase.md";
     let starts = ["PHASE_FOUND=", "PHASE_MODE=$(", "DISK_STATUS=$("];
@@ -134,9 +130,7 @@ fn a_phase_is_read_field_by_field() {
 
 #[test]
 fn a_milestone_is_verified_only_when_every_phase_is() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let path = "gsd-core/workflows/complete-milestone.md";
     let verified = values(
@@ -152,9 +146,7 @@ fn a_milestone_is_verified_only_when_every_phase_is() {
 
 #[test]
 fn the_open_windows_are_counted_and_an_unreadable_ledger_is_unknown() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let path = "gsd-core/workflows/ship.md";
     let starts = ["WINDOWS_OPEN_COUNT=$("];
@@ -173,9 +165,7 @@ pub(super) const OPEN_WINDOW: &str = "\nbroken_window BW1 \"A stub\" {\n  kind s
 
 #[test]
 fn a_verification_status_routes_in_the_shell() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let goal = "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md";
     let starts = ["STATUS=$(", "case \"$STATUS\""];
@@ -205,9 +195,7 @@ fn a_verification_status_routes_in_the_shell() {
 #[test]
 fn a_quick_tasks_changed_files_are_its_commits_files() {
     // the collector's capability runs git: nothing else
-    let Some(sh) = Shell::only(&["git"]) else {
-        return;
-    };
+    let sh = Shell::only(&["git"]);
     let p = committed(&[
         (
             "feat(01-01): Store module",
@@ -250,9 +238,7 @@ fn a_quick_tasks_changed_files_are_its_commits_files() {
 /// listed indented, at most 20 of them; a read that fails or finds nothing prints no line.
 #[test]
 fn the_worktree_handoff_counts_and_lists_what_is_left_indented() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = committed(&[
         ("feat: one", &[("a.txt", "1\n")]),
         ("feat: two", &[("b.txt", "2\n")]),
@@ -298,9 +284,7 @@ fn the_worktree_handoff_counts_and_lists_what_is_left_indented() {
 /// id 0x1f-separated, from one export, where a loop over the kinds prefixed each id with `sed`.
 #[test]
 fn the_onboarding_entities_are_one_row_per_entity() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let read = line(&asset("gsd-core/workflows/onboard.md"), "ENTITIES=$(").to_string();
     let (out, err, _) = run(&sh, &p, &format!("{read}\nprintf '%s\\n' \"$ENTITIES\""));
@@ -323,9 +307,7 @@ fn the_onboarding_entities_are_one_row_per_entity() {
 /// `/gsd-quick status <slug>` reads the slug's plan: a quick plan's title is prose, and the slug is dashed.
 #[test]
 fn a_quick_plan_is_found_by_its_slug() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = project("execute");
     let made = p.run(&[
         "new",
@@ -415,9 +397,7 @@ fn a_quick_plan_is_found_by_its_slug() {
 fn an_inline_plan_is_closed_on_its_summary() {
     use crate::cmd_execute::{PLAN, PLANTED, SUMMARY};
     use crate::commands_support::{plant, twin};
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = twin();
     let text = asset("gsd-core/workflows/execute-plan.md");
     let fence = |start: &str| {
@@ -495,9 +475,7 @@ fn committing(subject: &str) -> String {
 /// last collect count. With no commit recorded, the line prints nothing.
 #[test]
 fn a_milestone_summary_counts_from_the_milestones_first_commit() {
-    let Some(sh) = Shell::only(&["git"]) else {
-        return;
-    };
+    let sh = Shell::only(&["git"]);
     let p = project("execute");
     p.init_repository();
     let (_, err, code) = run(&sh, &p, &committing("baseline"));
@@ -516,9 +494,7 @@ fn a_milestone_summary_counts_from_the_milestones_first_commit() {
 /// three, however the two clocks read.
 #[test]
 fn a_rebased_milestone_counts_its_own_commits() {
-    let Some(sh) = Shell::only(&["git"]) else {
-        return;
-    };
+    let sh = Shell::only(&["git"]);
     let p = project("execute");
     p.init_repository();
     let script = format!(

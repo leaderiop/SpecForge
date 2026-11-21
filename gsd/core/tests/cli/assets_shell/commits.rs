@@ -10,9 +10,7 @@ const AT: &str = "2026-10-29T09:00:00Z";
 /// `specforge` on `PATH` (ADR 0343); the gsd-git collector then records the commit against `01-01`'s task `T1`.
 #[test]
 fn the_executors_task_commit_links_its_task_by_trailer() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = crate::harness::project("execute");
     committed(&p);
     p.write("src/tasks.js", "export const tasks = [];\n");
@@ -49,9 +47,7 @@ fn the_executors_task_commit_links_its_task_by_trailer() {
 /// means an earlier commit of the run holds the plans.
 #[test]
 fn the_plan_commit_step_commits_the_spec_and_an_empty_one_says_nothing_to_commit() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = crate::harness::taskboard();
     committed(&p);
     let set = p.run(&[

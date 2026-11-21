@@ -6,9 +6,7 @@ use crate::commands_support::{is_quick_id, rows, twin};
 
 #[test]
 fn a_task_list_becomes_one_line_per_quick_task() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = twin();
     let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
     let lines = [
@@ -55,9 +53,7 @@ fn a_task_list_becomes_one_line_per_quick_task() {
 /// has no fence to get lost in. Another shell then finds it by that slug, and a slug read empty writes nothing.
 #[test]
 fn a_quick_plan_is_written_in_the_fence_that_mints_its_id() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = twin();
     let text = asset("gsd-core/workflows/quick.md");
     let init = line(&text, "IFS=$'\\x1f' read -r quick_id slug")
@@ -102,9 +98,7 @@ fn a_quick_plan_is_written_in_the_fence_that_mints_its_id() {
 
 #[test]
 fn a_verification_status_routes_the_batch_item() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/quick-batch/steps/verification-wave.md");
     let route = line(&text, "case \"$STATUS\" in");
     for (status, want) in [
@@ -126,9 +120,7 @@ fn a_verification_status_routes_the_batch_item() {
 /// computed or entities, and the values that named them were always empty.
 #[test]
 fn a_quick_batch_item_is_its_quick_plan() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     for path in [
         "gsd-core/workflows/quick-batch/steps/research-phase.md",
         "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
@@ -169,7 +161,7 @@ fn a_quick_batch_item_is_its_quick_plan() {
 /// as an entry of a batch's list.
 #[test]
 fn a_task_starting_with_a_hyphen_is_a_task() {
-    let Some(sh) = Shell::only(&[]) else { return };
+    let sh = Shell::only(&[]);
     let p = twin();
     let quick = asset("gsd-core/workflows/quick.md");
     let init = line(&quick, "IFS=$'\\x1f' read -r quick_id slug")
@@ -220,7 +212,7 @@ fn a_task_starting_with_a_hyphen_is_a_task() {
 /// a help text.
 #[test]
 fn a_task_file_starting_with_a_hyphen_names_a_file() {
-    let Some(sh) = Shell::only(&[]) else { return };
+    let sh = Shell::only(&[]);
     let p = twin();
     let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
     let read = line(&text, "QB_TASKS=$(specforge files read");
@@ -241,7 +233,7 @@ fn a_task_file_starting_with_a_hyphen_names_a_file() {
 /// An id the graph already holds is refused, so two tasks never share a plan, and no init line skips the write.
 #[test]
 fn a_colliding_quick_id_writes_nothing() {
-    let Some(sh) = Shell::only(&[]) else { return };
+    let sh = Shell::only(&[]);
     let p = twin();
     let quick = asset("gsd-core/workflows/quick.md");
     let init = line(&quick, "IFS=$'\\x1f' read -r quick_id slug")
@@ -292,7 +284,7 @@ fn one_call_of_quick_init_reads_everything() {
         let calls = asset(path).matches("specforge gsd quick-init").count();
         assert_eq!(calls, 1, "{path}");
     }
-    let Some(sh) = Shell::only(&[]) else { return };
+    let sh = Shell::only(&[]);
     let p = twin();
     let quick = asset("gsd-core/workflows/quick.md");
     let init = line(&quick, "IFS=$'\\x1f' read -r quick_id slug")
@@ -316,9 +308,7 @@ fn one_call_of_quick_init_reads_everything() {
 /// Resume refuses closed: a batch id nothing recorded, and a batch whose base is no longer an ancestor of `HEAD`.
 #[test]
 fn resuming_an_unknown_or_diverged_batch_stops() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = twin();
     p.commit();
     let resume = fence_after(
@@ -359,9 +349,7 @@ fn resuming_an_unknown_or_diverged_batch_stops() {
 
 #[test]
 fn a_batch_resumes_after_head_moves_forward_and_stops_once_its_base_is_left() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = twin();
     p.commit();
     quick_plans(&p);
@@ -432,9 +420,7 @@ fn quick_plans(p: &crate::harness::Project) {
 /// its manifest and its eligible items.
 #[test]
 fn a_batch_is_recorded_and_resumed_from_the_graph() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = twin();
     p.commit();
     let init = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");

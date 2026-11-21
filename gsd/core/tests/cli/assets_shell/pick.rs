@@ -20,9 +20,7 @@ fn value(sh: &Shell, p: &Project, path: &str, setup: &str, start: &str, var: &st
 /// T3: a field of a `specforge gsd` answer.
 #[test]
 fn a_field_of_a_gsd_answer_is_picked() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let code = line(&asset("agents/gsd-executor.md"), "specforge gsd start-plan").to_string();
     let (_, status) = run(&sh, &p, &format!("PHASE=v1.0/01/01; PLAN=01\n{code}"));
@@ -74,9 +72,7 @@ fn a_field_of_a_gsd_answer_is_picked() {
 /// T3: pause-work's phase in progress is the number of the first phase whose status is `In Progress`.
 #[test]
 fn the_phase_in_progress_is_read_by_its_status() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let path = "gsd-core/workflows/pause-work.md";
     // no phase of the taskboard is in progress
@@ -89,9 +85,7 @@ fn the_phase_in_progress_is_read_by_its_status() {
 /// T3: review-backlog's promote prints the new phase's last segment.
 #[test]
 fn a_promoted_phase_number_is_picked() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = crate::cmd_phase::backlogged();
     let code =
         line(&asset("commands/gsd/review-backlog.md"), "NEW_NUM=$(").replace("<id>", "999.1");
@@ -110,9 +104,7 @@ fn a_promoted_phase_number_is_picked() {
 /// a computed boolean, a status with its default and its route, a list joined, a string built of two fields.
 #[test]
 fn a_graph_read_is_picked() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let w = "gsd-core/workflows/";
     let phase = "PHASE_ID=v1.0/01";
@@ -419,9 +411,7 @@ fn a_graph_read_is_picked() {
 /// T4: a read whose failure the next line checks keeps the command's exit status (no pipe after `--pick`).
 #[test]
 fn a_graph_read_keeps_its_exit_status() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let tdd = asset("gsd-core/workflows/execute-phase/steps/tdd-applicability-resolution.md");
     let read = line(&tdd, "TDD_APPLICABLE_RAW=$(").to_string();
@@ -436,9 +426,7 @@ fn a_graph_read_keeps_its_exit_status() {
 /// Review R4: a read of an id the graph does not have shows specforge's refusal on stderr; no `2>/dev/null` hides it.
 #[test]
 fn a_refused_read_shows_its_cause() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let p = taskboard();
     let setup = "UNDO_MILESTONE=nope; TARGET_PHASE=09; PLAN_PHASE=09; PLAN_ID=nope; PHASE_ID=nope";
     for (file, start) in [

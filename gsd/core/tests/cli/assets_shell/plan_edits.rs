@@ -11,9 +11,7 @@ const ROUND: &str = r#"{"plans": ["v1.0/02/02-01"], "reviewers": [{"name": "code
 /// `files_modified`, the step prints `E006` beside what the clean copy prints.
 #[test]
 fn the_plan_check_step_reads_the_codes_check_prints() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("agents/gsd-planner.md");
     let fence = fence_after(&text, "<step name=\"validate_plan\">");
     let codes = |p: &crate::harness::Project| {
@@ -50,9 +48,7 @@ fn the_plan_check_step_reads_the_codes_check_prints() {
 /// addresses the high concern closes it.
 #[test]
 fn the_convergence_step_counts_the_open_concerns() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     // a single-reviewer, unconfirmed HIGH: recorded high with `actionable` false, so HIGH_COUNT stays 1
     let round = ROUND.replace(
@@ -137,9 +133,7 @@ fn the_convergence_step_counts_the_open_concerns() {
 /// and convergence does not pass on the first cycle.
 #[test]
 fn a_one_reviewer_round_keeps_its_high_concern() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let round = r#"{"plans": ["v1.0/02/02-01"], "reviewers": [{"name": "codex", "model": "unknown", "source": "unknown"}], "lanes": [{"reviewer": "codex", "summary": "One gap", "strengths": ["small plan"], "suggestions": ["fsync the file"], "risk": "high"}], "consensus": "The save is not crash-safe", "strengths": [], "divergent": [], "concerns": [{"plan": "v1.0/02/02-01", "reviewers": ["codex"], "severity": "high", "text": "The rename is not atomic on every platform", "actionable": true}]}"#;
     let record = typed::filled(
@@ -166,9 +160,7 @@ fn a_one_reviewer_round_keeps_its_high_concern() {
 /// The convergence counts block stops when the phase has no recorded round.
 #[test]
 fn the_convergence_step_stops_without_a_review() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let counts = typed::filled(
         &typed::typed_fence(
@@ -185,9 +177,7 @@ fn the_convergence_step_stops_without_a_review() {
 /// `/gsd-review` records its round with the concerns the lanes agreed on, then commits it.
 #[test]
 fn a_review_is_recorded_with_its_concerns() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     p.commit();
     // The commit fence commits through specforge, which reads the repository's identity, not the harness's flags.
@@ -234,9 +224,7 @@ fn a_review_is_recorded_with_its_concerns() {
 /// research read when the researcher returns.
 #[test]
 fn the_research_fence_records_the_phase_research() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let text = asset("agents/gsd-phase-researcher.md");
     let fence = typed::filled(
@@ -280,9 +268,7 @@ fn the_research_fence_records_the_phase_research() {
 /// an assumption in the purpose.
 #[test]
 fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let text = asset("gsd-core/references/specless-probe-fallback.md");
     let fence = typed::filled(
@@ -324,9 +310,7 @@ fn the_spec_less_lift_writes_truths_and_a_descriptor_less_prohibition() {
 /// project field: each a typed edit, nothing written to a roadmap or project file.
 #[test]
 fn the_mvp_and_dependency_edits_change_the_phase() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let story = "As a user, I want to filter my tasks, so that I see only what matters now.";
     let mvp = typed::filled(
@@ -396,9 +380,7 @@ fn the_mvp_and_dependency_edits_change_the_phase() {
 /// the phase lists that no plan claims says `no plan`.
 #[test]
 fn the_coverage_trace_names_an_uncovered_requirement() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let text = asset("agents/gsd-plan-checker.md");
     let trace = typed::filled(
@@ -449,9 +431,7 @@ fn spans(text: &str, start: &str) -> Vec<String> {
 /// sections, and the block reads no entity path the pack serves and no context-window branch.
 #[test]
 fn the_planner_spawn_reads_the_planner_route() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let text = asset("gsd-core/workflows/plan-phase.md");
     let reading = block(
@@ -483,9 +463,7 @@ fn the_planner_spawn_reads_the_planner_route() {
 /// The plan checker spawn reads one check pack per plan of the phase.
 #[test]
 fn the_plan_checker_spawn_reads_one_pack_per_plan() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let text = asset("gsd-core/workflows/plan-phase.md");
     let [pack, plans] = &spans(&text, "- `specforge context gsd/plan-checker <id>`")[..2] else {
@@ -514,9 +492,7 @@ fn the_plan_checker_spawn_reads_one_pack_per_plan() {
 /// A source-audit gap the developer defers is recorded as a deferred idea of the phase, as the model fills the fence.
 #[test]
 fn a_deferred_audit_gap_is_a_deferred_idea() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let defer = typed::filled(
         &typed::typed_fence(
@@ -544,9 +520,7 @@ fn a_deferred_audit_gap_is_a_deferred_idea() {
 /// clears it.
 #[test]
 fn the_decision_coverage_reads_e310_and_discretion_clears_it() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let plans = p.read("spec/plans.spec");
     // The twin's plan 02-01 cites D-03 in a task and a truth: both go.
@@ -605,9 +579,7 @@ fn the_decision_coverage_reads_e310_and_discretion_clears_it() {
 /// alternatives.
 #[test]
 fn the_conflict_fence_records_its_values_as_written() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let property = "the user's `save` keeps $HOME";
     let fence = typed::filled(

@@ -226,11 +226,16 @@ fn owed(p: &Project, prefix: &str) -> Vec<(String, String, String)> {
         .as_array()
         .expect("a list of diagnostics")
         .iter()
+        .filter(|d| d["code"].as_str().is_some_and(is_judged))
         .filter_map(|d| {
-            let code = d["code"].as_str()?;
-            let entity = d["message"].as_str()?.split('\'').nth(1)?;
-            (is_judged(code) && entity.starts_with(prefix)).then(|| {
-                let severity = d["severity"].as_str().unwrap_or_default();
+            let message = d["message"].as_str().expect("a message");
+            let entity = message
+                .split('\'')
+                .nth(1)
+                .unwrap_or_else(|| panic!("a judged message names its entity: {message}"));
+            entity.starts_with(prefix).then(|| {
+                let code = d["code"].as_str().expect("a code");
+                let severity = d["severity"].as_str().expect("a severity");
                 (code.to_string(), severity.to_string(), entity.to_string())
             })
         })
@@ -355,9 +360,7 @@ fn the_planner_writes_a_phase_in_one_edit() {
 /// adding no code.
 #[test]
 fn a_dependency_found_later_is_linked() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     let mut edit = whole_edit();
     let fields = op(&mut edit, "plan", "03-02")["fields"]
@@ -615,9 +618,7 @@ fn a_whole_plan_written_alone_is_refused_while_a_requirement_of_its_phase_is_in_
 /// own query line lists (03-01) is accepted and writes 03-02.
 #[test]
 fn the_rest_of_a_chunked_run_writes_only_the_plans_the_graph_lacks() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let mode = asset("gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md");
     let recovery = block(
         &mode,

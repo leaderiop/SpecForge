@@ -19,9 +19,7 @@ fn read_of(name: &str, prefix: &str, subject: &str) -> String {
 /// phase's context, and the analyzer's search finds the decision an earlier phase recorded.
 #[test]
 fn the_discuss_researchers_read_their_packs_and_search() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     for (agent, subject, carries) in [
         (
@@ -79,9 +77,7 @@ fn the_discuss_researchers_read_their_packs_and_search() {
 /// taskboard and prints the pack.
 #[test]
 fn the_project_researcher_reads_its_pack() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let p = taskboard();
     for workflow in [
         "gsd-core/workflows/new-project/detail/elaboration.md",
@@ -107,8 +103,18 @@ fn the_project_researcher_reads_its_pack() {
 /// A question holding a double quote, an em dash and a non-ASCII letter.
 const QUESTION: &str = "Sort by \"due\" — or by é?";
 
-/// The phase file of v1.0/02, read as the phase researcher reads it.
+/// The file of phase v1.0/02, found by its id; the phase researcher's read of it (a depth-0 query of the id) gives the
+/// same file.
 fn phase_file(p: &Project) -> String {
+    let phase = p
+        .nodes_of("phase")
+        .into_iter()
+        .find(|n| n["id"] == "v1.0/02")
+        .expect("phase v1.0/02");
+    let file = phase["file"]
+        .as_str()
+        .expect("the phase's file")
+        .to_string();
     let read = p.run(&[
         "query",
         "v1.0/02",
@@ -118,7 +124,12 @@ fn phase_file(p: &Project) -> String {
         ".nodes[0].file",
     ]);
     assert_eq!(read.code, 0, "{}", read.all());
-    read.stdout.trim().to_string()
+    assert_eq!(
+        read.stdout.trim(),
+        file,
+        "the researcher's read finds the phase's file"
+    );
+    file
 }
 
 /// `specforge new open_question OQ2` in `file` for the research of v1.0/02, with these extra arguments.
@@ -172,11 +183,7 @@ fn an_open_question_strict_refuses_is_returned_not_dropped() {
             "the researcher's rule 4 lacks {words}:\n{rule}"
         );
     }
-    let template = researcher
-        .lines()
-        .skip_while(|l| *l != "### Open Questions")
-        .nth(1)
-        .expect("a line under the template's ### Open Questions");
+    let template = block(&researcher, "### Open Questions", "### Ready for Planning");
     assert!(template.contains("gsd/W204"), "{template}");
     let plan_phase = asset("gsd-core/workflows/plan-phase.md");
     let handle = block(
@@ -298,9 +305,7 @@ fn records_the_answer_then_the_question(
 /// and records both with it.
 #[test]
 fn plan_phase_records_the_users_answer_then_the_question() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let plan_phase = asset("gsd-core/workflows/plan-phase.md");
     let context = block(&plan_phase, "<planning_context>", "</planning_context>");
     for words in [
@@ -410,9 +415,7 @@ fn quick_with_research() -> Project {
 /// its decision line and records both with it.
 #[test]
 fn quick_and_quick_batch_record_the_users_answer_then_the_question() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     for (research, prompt, after, heading) in [
         (
             "gsd-core/workflows/quick/steps/research-phase.md",

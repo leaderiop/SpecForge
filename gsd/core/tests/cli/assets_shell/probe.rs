@@ -7,9 +7,7 @@ use crate::harness::{project, taskboard};
 /// recorded edges from the graph through `specforge gsd edge-probe`, and prints the engine's report.
 #[test]
 fn the_spec_phase_edge_probe_runs_in_a_project() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let fence = fence_after(
         &asset("gsd-core/workflows/spec-phase.md"),
         "**Runtime coverage compute",
@@ -89,9 +87,7 @@ fn the_spec_phase_edge_probe_runs_in_a_project() {
 /// `edge` and `spec_prohibition` rows, and the probe runs on the phase's requirement entities.
 #[test]
 fn the_specless_gate_and_probe_run_in_a_project() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
+    let sh = Shell::only(&[]);
     let text = asset("gsd-core/references/specless-probe-fallback.md");
     let gate = fence_after(&text, "## 0. Gate");
     let probe = fence_after(&text, "## A. Edge probe");

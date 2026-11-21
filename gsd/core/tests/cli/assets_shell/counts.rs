@@ -16,9 +16,7 @@ fn run_count(sh: &Shell, path: &str, start: &str, setup: &str, var: &str) -> (St
 /// or "no tasks" (run inline).
 #[test]
 fn a_failed_count_query_is_not_zero() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     for (path, start, setup, var) in [
         (
             "gsd-core/workflows/plan-phase.md",
@@ -50,9 +48,7 @@ fn a_failed_count_query_is_not_zero() {
 /// reading as "nothing ahead".
 #[test]
 fn a_failed_ahead_count_is_not_zero() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let (out, err, code) = run_count(
         &sh,
         "gsd-core/workflows/execute-phase.md",
@@ -68,9 +64,7 @@ fn a_failed_ahead_count_is_not_zero() {
 /// there is no local default branch (only origin's copy).
 #[test]
 fn the_ahead_count_reads_the_local_branch_when_there_is_one() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/execute-phase.md");
     let line = super::line(&text, "AHEAD");
     let p = crate::harness::project("empty");
@@ -93,9 +87,7 @@ fn the_ahead_count_reads_the_local_branch_when_there_is_one() {
 /// fence sets. Only phase 01 of an mvp milestone with no summary yet starts a walking skeleton.
 #[test]
 fn the_walking_skeleton_gate_reads_its_own_answers() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
+    let sh = Shell::without_jq();
     let text = asset("gsd-core/workflows/plan-phase.md");
     let fence = fence_from(&text, "WALKING_SKELETON=false;");
     let p = crate::harness::taskboard();
