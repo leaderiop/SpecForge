@@ -15,9 +15,9 @@
 //! excuses a verdict only inside its own scope and only for a judge it runs, so the suggestion also names every
 //! verdict, of any judge or extension, that refuses every run it names, by its holder, its judge and the entities
 //! that owe it (each once, by its full id, as the message writes it; at most five per holder and judge, then how many
-//! more), and the gate-free `record-verdict`. With no such run (no phase or milestone scopes the entity, or the
-//! prompt stops on its complete phase) it names `record-verdict` alone. `re_verify` lists the verifier's verdicts
-//! only.
+//! more), and the gate-free `record-verdict`; a verdict no phase or milestone holds is named after the holders by its
+//! own entity, owed by it itself. With no such run (no phase or milestone scopes the entity, or the prompt stops on
+//! its complete phase) it names `record-verdict` alone. `re_verify` lists the verifier's verdicts only.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -230,15 +230,19 @@ impl<'a> Index<'a> {
         None
     }
 
+    /// Whether `id` is an entity of a kind a remedy prompt runs on (a phase, a milestone): one that holds the verdicts
+    /// it scopes. [`Index::holder`] and the tail read it.
+    fn holds(&self, id: &str) -> bool {
+        self.kind(id)
+            .is_some_and(|kind| self.holders.contains(kind))
+    }
+
     /// The phase or milestone that holds a verdict on `entity`, else its outermost scope (a quick plan, the project's
-    /// research).
+    /// research), which holds nothing.
     fn holder(&self, entity: &'a str) -> &'a str {
         let (mut at, mut outermost) = (entity, entity);
         while !at.is_empty() {
-            if self
-                .kind(at)
-                .is_some_and(|kind| self.holders.contains(kind))
-            {
+            if self.holds(at) {
                 return at;
             }
             outermost = at;
@@ -297,7 +301,8 @@ impl<'a> Index<'a> {
     /// The tail naming the verdicts that refuse every run of `named`, in natural order, by their holder, their judge
     /// and the entities that owe them, each once: each sits outside the run's scope or waits for a judge or extension
     /// the run does not run. An entity is named only when its verdict refuses every run, and a group with none left is
-    /// left out. Empty when no group is left.
+    /// left out. The groups a phase or milestone holds come first, behind one `on`; then each group whose outermost id
+    /// holds nothing, its entities named by their own ids, each owing the verdict itself. Empty when no group is left.
     fn tail(&mut self, named: &[(Remedy, &'a str)]) -> String {
         let mut common: Option<Owed<'a>> = None;
         for &(remedy, at) in named {
@@ -323,14 +328,28 @@ impl<'a> Index<'a> {
         }
         groups
             .sort_by(|(a, _), (b, _)| (id_order(a.holder), a.by).cmp(&(id_order(b.holder), b.by)));
-        let listed: Vec<String> = groups
-            .iter()
-            .map(|(b, entities)| format!("{} ({}: {})", b.holder, b.by, names(entities)))
-            .collect();
+        let (held, unheld): (Vec<_>, Vec<_>) =
+            groups.iter().partition(|(b, _)| self.holds(b.holder));
+        let mut parts: Vec<String> = Vec::new();
+        if !held.is_empty() {
+            let listed: Vec<String> = held
+                .iter()
+                .map(|(b, entities)| format!("{} ({}: {})", b.holder, b.by, names(entities)))
+                .collect();
+            parts.push(format!("on {}", listed.join(", ")));
+        }
+        parts.extend(unheld.iter().map(|(b, entities)| {
+            let owing = if entities.len() == 1 {
+                " itself"
+            } else {
+                ", each itself"
+            };
+            format!("by {}{owing} ({})", names(entities), b.by)
+        }));
         format!(
-            "; every run named here is also refused by the verdicts owed on {}, outside its scope or of a judge it \
-             does not run: record those first, a gsd rule's with `specforge gsd record-verdict`, which no gate refuses",
-            listed.join(", ")
+            "; every run named here is also refused by the verdicts owed {}, outside its scope or of a judge it does \
+             not run: record those first, a gsd rule's with `specforge gsd record-verdict`, which no gate refuses",
+            parts.join(", and ")
         )
     }
 

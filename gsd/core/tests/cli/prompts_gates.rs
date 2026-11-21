@@ -90,7 +90,7 @@ fn discuss_file(file: &str) -> String {
 /// The verdicts of the `discuss` project's phase 02 that gsd-strict's verdict gate owes at every planning prompt, as
 /// their judges record them: `spec_phase`'s on the spec's ambiguity scores (gsd/E202) and on each locked requirement
 /// (gsd/W203), and the researcher's on each package it audited (gsd/W205).
-fn judge_discussion(p: &Project) {
+pub(super) fn judge_discussion(p: &Project) {
     let scores =
         r#"{"scores":{"goal":90,"boundary":80,"constraint":70,"acceptance":80,"ambiguity":10}}"#;
     let run = p.record("v1.0/02/02-SPEC", "E202", "passed", &["--values", scores]);

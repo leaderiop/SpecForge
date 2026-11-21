@@ -2,14 +2,15 @@
 //! that records it again: for a missing verdict (the plan checks of a draft plan), for a stale one held in another
 //! phase, and for two judges' verdicts held in two phases, where each named run is refused by the other's verdicts and
 //! the refusal names the entities that owe them and the gate-free `record-verdict`, on the taskboard twin under
-//! gsd-strict.
+//! gsd-strict; and, on the discuss project, a verdict no phase or milestone holds, named by its own entity and
+//! recorded without a gate.
 
 use serde_json::Value;
 
 use super::commands_support::{strict, twin};
-use super::harness::Project;
+use super::harness::{Project, project};
 use super::prompts_gates::{
-    PHASE, gate_failed, not_refused_by, refused_by, renders, stale_plan_check,
+    PHASE, gate_failed, judge_discussion, not_refused_by, refused_by, renders, stale_plan_check,
 };
 use super::prompts_support::{payload, prompt};
 
@@ -319,4 +320,86 @@ fn the_seven_must_haves_of_a_stale_phase_are_named_five_and_two_more() {
         assert_eq!(entity_of(message), PLAN, "{message}");
         assert!(suggestion.contains(&owed), "{suggestion}");
     }
+}
+
+/// A package audit of the project's research, which no phase or milestone holds, and one of phase 02's research, both
+/// stale after their packages are edited: the refusal of `/gsd-plan-review-convergence` on phase 02 (which runs no
+/// researcher) names, in the phase audit's help, `/gsd-plan-phase` on the phase and the project audit by its own id,
+/// owed by it itself, never `RESEARCH` as a holder; the project audit's own help names `record-verdict` with its id,
+/// and recording it that way clears its refusal and the phase audit's tail.
+#[test]
+fn a_verdict_no_phase_holds_is_named_by_its_own_entity_and_recorded_without_a_gate() {
+    let p = project("discuss");
+    p.write(
+        "spec/project_audit.spec",
+        "package_audit PA2 \"node:path\" {\n  research RESEARCH\n  package  \"node:path\"\n  registry \"builtin\"\n}\n",
+    );
+    let audits: Vec<String> = p
+        .nodes_of("package_audit")
+        .iter()
+        .map(|n| n["id"].as_str().expect("an id").to_string())
+        .collect();
+    let (phase_audit, project_audit) = ("v1.0/02/02-RESEARCH/PA1", "RESEARCH/PA2");
+    assert!(audits.iter().any(|id| id == phase_audit), "{audits:?}");
+    assert!(audits.iter().any(|id| id == project_audit), "{audits:?}");
+    strict(&p);
+    judge_discussion(&p);
+    renders(&p, "plan_review_convergence", &[PHASE]);
+    p.edit(
+        "spec/research.spec",
+        "package  \"node:fs\"\n",
+        "package  \"node:fs/promises\"\n",
+    );
+    p.edit(
+        "spec/project_audit.spec",
+        "package  \"node:path\"\n",
+        "package  \"node:path/posix\"\n",
+    );
+    for audit in [phase_audit, project_audit] {
+        assert_eq!(
+            p.inputs(audit, "W205")["verdict"]["state"],
+            "stale",
+            "{audit}"
+        );
+    }
+    let help = |found: &[(String, String)], entity: &str| -> String {
+        found
+            .iter()
+            .find(|(message, _)| entity_of(message) == entity)
+            .map(|(_, suggestion)| suggestion.clone())
+            .unwrap_or_else(|| panic!("no E516 on {entity}: {found:?}"))
+    };
+    let found = e516_suggestions(&p, "plan_review_convergence", &[PHASE]);
+    let phase_help = help(&found, phase_audit);
+    assert!(
+        phase_help.contains(&format!("/gsd-plan-phase {PHASE}")),
+        "{phase_help}"
+    );
+    assert!(
+        phase_help.contains(&format!(
+            "{TAIL} by '{project_audit}' itself (gsd-phase-researcher), outside its scope"
+        )),
+        "{phase_help}"
+    );
+    assert_eq!(
+        help(&found, project_audit),
+        format!(
+            "no prompt judges it again where no phase or milestone scopes it: record its verdict with `specforge gsd \
+             record-verdict {project_audit} W205 <outcome> <model> '<basis>'` over its inputs (`specforge query \
+             {project_audit} --inputs gsd/W205`), which no gate refuses (its judge: gsd-phase-researcher)"
+        )
+    );
+    for (_, suggestion) in &found {
+        assert!(!suggestion.contains("on RESEARCH"), "{suggestion}");
+    }
+    let run = p.record(project_audit, "W205", "legitimate", &[]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let found = e516_suggestions(&p, "plan_review_convergence", &[PHASE]);
+    assert!(
+        found
+            .iter()
+            .all(|(message, _)| !message.contains(&format!("'{project_audit}'"))),
+        "{found:?}"
+    );
+    assert!(!help(&found, phase_audit).contains(TAIL), "{found:?}");
 }

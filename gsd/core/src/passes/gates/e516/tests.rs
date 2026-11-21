@@ -42,6 +42,13 @@ fn held(holder: &str, by: &str, entities: &[&str]) -> String {
     format!("{holder} ({by}: {})", quoted.join(", "))
 }
 
+/// One group of a tail no phase or milestone holds: its `entities`, quoted, each owing its judge `by` itself.
+fn itself(by: &str, entities: &[&str]) -> String {
+    let quoted: Vec<String> = entities.iter().map(|e| format!("'{e}'")).collect();
+    let each = if entities.len() == 1 { "" } else { ", each" };
+    format!("by {}{each} itself ({by})", quoted.join(", "))
+}
+
 /// The suggestion of a stale or unrecorded verdict of another core judge than the verifier on `entity`, held on `at`.
 fn again(rule: &str, judge: &str, entity: &str, at: &str) -> String {
     format!(
@@ -271,7 +278,8 @@ fn a_prompt_judged_rule_names_its_own_prompt() {
 }
 
 /// A quick plan has no phase or milestone above it: no prompt's run covers it, so its verdict names the gate-free
-/// `record-verdict`, never a placeholder, and it refuses every run another verdict names (it sits outside each scope).
+/// `record-verdict`, never a placeholder, and it refuses every run another verdict names (it sits outside each scope),
+/// which names it by its own id, never as a holder.
 #[test]
 fn an_entity_no_phase_scopes_names_the_gate_free_route_and_refuses_the_named_runs() {
     let found = e516(&input(
@@ -303,12 +311,7 @@ fn an_entity_no_phase_scopes_names_the_gate_free_route_and_refuses_the_named_run
     // The missing verdict refuses only a gate that covers it: no run on a phase does.
     assert_eq!(
         how(&found, "v1.0/01/01-01/TR1"),
-        verifier("v1.0/01", "v1.0/01/01-01")
-            + &tail(&on(&[held(
-                "260321-a1b",
-                "gsd-plan-checker",
-                &["260321-a1b"]
-            )]))
+        verifier("v1.0/01", "v1.0/01/01-01") + &tail(&itself("gsd-plan-checker", &["260321-a1b"]))
     );
     for d in &found {
         assert!(
