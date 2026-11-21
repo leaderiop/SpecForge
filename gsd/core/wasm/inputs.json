@@ -1,6 +1,6 @@
 {
   "artifact": "gsd_core.wasm",
-  "artifact_sha256": "e592449d107695ba4ea770c0f8c5ca4454c9b7e7baf62a3cbb2134700b9ca893",
+  "artifact_sha256": "08e30d2023259a20def00001f4b3636fc484294935bcbb2871c852d728fd7234",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -491,8 +491,8 @@
     "gsd/core/src/passes/fails_when.rs": "07023030831ddf8f3f7773ae79cb19e4404eb721468575ab92f0fbf9ea16cc8c",
     "gsd/core/src/passes/file_scope.rs": "d1dffbc91ac4a03088c801493db76448f4d35b62c2cf40d39b4058b30adfa001",
     "gsd/core/src/passes/gates.rs": "b7232e5f078d357c7ad12d4a5ac12b898555e8f5d207024470f26182a2a1b81a",
-    "gsd/core/src/passes/gates/e516.rs": "95475752f00cd265d9b2358cef1088bcd61bc5a577606ab4a1e3985eb20c30bd",
-    "gsd/core/src/passes/mod.rs": "ce6b6921a5de350f17eaf13d7afcf4e4653d122e5548327689487d9a93c6d2d5",
+    "gsd/core/src/passes/gates/e516.rs": "d920528d39e0fe95f0dbeb9ae7c5fcaaff9a30c0ad961e5da6de21e8cbbca19c",
+    "gsd/core/src/passes/mod.rs": "779604aafaed2c7bc09110516e6dd2d85b81199a6de3f4beee2de973e6c11cd0",
     "gsd/core/src/passes/nyquist.rs": "4e7c5c01988561f121ff449c6e0ce1ee8c6bf34ef6e7e4714fbde658b03f98e8",
     "gsd/core/src/passes/plan_shape.rs": "a4d08d1052633e254c82dfd5c443f786be9b4081e76434f984ece4ae6db4bb4e",
     "gsd/core/src/passes/plan_shape/checkpoint.rs": "738c8b9459aeb606d34a5368d1ae2bff09e59f9cbe31e34ee96d73d603901b93",
@@ -509,7 +509,7 @@
     "gsd/core/src/passes/scan/patterns.rs": "33c1cb492ab275da361e095e623290f1725c6c4f74d52669ff727449edfee197",
     "gsd/core/src/passes/schema_drift.rs": "536f6ea532ac93e8344e9b01bcdf846ad9a17373f1ef45c7773377157268e2f7",
     "gsd/core/src/passes/scope.rs": "9ca0a70d5583ad967e1df799c78515052df524b389d3f5281d00abdd87e79b2d",
-    "gsd/core/src/passes/stale_truths.rs": "1297a5fcd8be77c1ee2e5cbcfd7941c52c828292de33e26c0b3e899ca5c9d3d3",
+    "gsd/core/src/passes/stale_truths.rs": "17acaf6ebb91ea02a7dfdb7521d52210b97a0ca42088b88d620a57f514d986c2",
     "gsd/core/src/passes/thread.rs": "357eeb73f0b765bf6f112b5a64ed908951e95e3e23ec84431db5df204faec704",
     "gsd/core/src/passes/traceability.rs": "878bf0fd15094ab2f7b454dfeeba99d2e016c60ea777d71fd389fd772d75a9a0",
     "gsd/core/src/passes/verify_paths.rs": "61dbd01d4c1a68fb8dc82b1134476a758a90d5852154008e909e1094334134ed",

@@ -33,9 +33,10 @@ pub const CAP: u64 = cap!();
 /// 5,683,413 B once that rule also said why it does not judge a commit and the refusal named the reason, and
 /// 5,704,569 B once a check since a revision said what changed under each stale truth (gsd/I527), which took the
 /// allowance to 5,800,000 B, and 5,702,268 B once that advisory stopped claiming files it could not compare unchanged
-/// and escaped every id and name it echoes, and 5,709,951 B once a gsd/E516 refusal named the entities owing each
-/// verdict that blocks its runs, five per holder and judge, and a verdict no phase or milestone holds by its own
-/// entity.
+/// and escaped every id and name it echoes, 5,709,951 B once a gsd/E516 refusal named the entities owing each verdict
+/// that blocks its runs, a bounded number per holder and judge, and a verdict no phase or milestone holds by its own
+/// entity, and 5,720,045 B once that refusal escaped every id it echoes as gsd/I527 does and built its tail once per
+/// set of runs.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_800_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].
