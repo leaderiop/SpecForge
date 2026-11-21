@@ -165,7 +165,9 @@ agents/gsd-executor.md	kept	108+14	93b6477a48aa
 agents/gsd-executor.md	own	122+3	3	ee78dfb1d1d2	745506e1f931	served
 agents/gsd-executor.md	kept	125+6	6f1cd221ec52
 agents/gsd-executor.md	own	131+4	4	270269f22421	58229bb88836	served
-agents/gsd-executor.md	kept	135+130	6b4ad3852512
+agents/gsd-executor.md	kept	135+25	682a24f8cd73
+agents/gsd-executor.md	own	160+1	1	f65b2865ec6a	4088ea0b75ad	review
+agents/gsd-executor.md	kept	161+104	6984f586389a
 agents/gsd-executor.md	own	265+1	5	6378f092b76e	dd510c61d4c3	agent
 agents/gsd-executor.md	kept	266+5	b096bbe8df8d
 agents/gsd-executor.md	own	271+1	1	1a8cf58ac29b	ed1eba1506f2	agent
@@ -206,7 +208,7 @@ agents/gsd-executor.md	own	554+10	7	0167aef9ed33	6e1040e5d65f	relic
 agents/gsd-executor.md	kept	564+1	ad332335cfaa
 agents/gsd-executor.md	own	565+1	1	765d60237c65	9b52da7b606a	served
 agents/gsd-executor.md	kept	566+3	3c1505c0f61e
-agents/gsd-executor.md	own	569+6	4	00cb2082d05d	db72033fc03a	served
+agents/gsd-executor.md	own	569+6	6	00cb2082d05d	3e8a6eb4a6cb	review
 agents/gsd-executor.md	kept	575+3	ef06832c93d1
 agents/gsd-executor.md	own	578+1	1	45112a019f85	e1c5aa32277a	served
 agents/gsd-executor.md	kept	579+6	eaaadde66552
@@ -1577,7 +1579,7 @@ gsd-core/references/planning-config.md	own	31+3	0	161e6cc1ba66	e3b0c44298fc	port
 gsd-core/references/planning-config.md	kept	34+4	16ba2286bc64
 gsd-core/references/planning-config.md	own	38+1	0	d1061523ace8	e3b0c44298fc	served
 gsd-core/references/planning-config.md	kept	39+36	d38edcdcbc01
-gsd-core/references/planning-config.md	own	75+84	4	0552e128d4a0	aaea100539de	ported-name
+gsd-core/references/planning-config.md	own	75+84	6	0552e128d4a0	607f140d2a5a	ported-name
 gsd-core/references/planning-config.md	kept	159+38	5ce6afe5d22c
 gsd-core/references/planning-config.md	own	197+1	1	37aa4c6f5de6	f969b0a20454	answer
 gsd-core/references/planning-config.md	kept	198+1	ad332335cfaa
@@ -2453,7 +2455,7 @@ gsd-core/workflows/complete-milestone.md	own	525+1	1	7465dc85e59c	4271851e1cc5	a
 gsd-core/workflows/complete-milestone.md	kept	526+1	ad332335cfaa
 gsd-core/workflows/complete-milestone.md	own	527+4	4	76489f4b2857	516beea9f8b8	ported-name
 gsd-core/workflows/complete-milestone.md	kept	531+6	3fa7475a4951
-gsd-core/workflows/complete-milestone.md	own	537+1	1	5ce1c04d769f	17ead37841a1	served
+gsd-core/workflows/complete-milestone.md	own	537+1	3	5ce1c04d769f	5129158f9d6d	served
 gsd-core/workflows/complete-milestone.md	kept	538+1	0cb799edbed9
 gsd-core/workflows/complete-milestone.md	own	539+6	0	f02d71d88cf4	e3b0c44298fc	served
 gsd-core/workflows/complete-milestone.md	kept	545+3	0fa2acd16ead
@@ -3214,7 +3216,7 @@ gsd-core/workflows/execute-plan.md	own	266+1	1	4adb97b002bd	476e02ba85b8	review
 gsd-core/workflows/execute-plan.md	kept	267+20	c3b1455e747c
 gsd-core/workflows/execute-plan.md	own	287+1	1	bbab1f41e5c9	bba9e92aaaf3	review
 gsd-core/workflows/execute-plan.md	kept	288+49	78a64a5b9a13
-gsd-core/workflows/execute-plan.md	own	337+1	1	c9a42f57bf32	bc5971004b69	served
+gsd-core/workflows/execute-plan.md	own	337+1	3	c9a42f57bf32	14f71e84a697	review
 gsd-core/workflows/execute-plan.md	kept	338+18	09398d7f26a7
 gsd-core/workflows/execute-plan.md	own	356+0	6	e3b0c44298fc	c88177ce2f34	prose
 gsd-core/workflows/execute-plan.md	kept	356+8	20d26f4e8678
@@ -3646,8 +3648,8 @@ gsd-core/workflows/new-project.md	own	651+1	1	b881db5614a7	9415e450a36e	served
 gsd-core/workflows/new-project.md	kept	652+2	5f046190424d
 gsd-core/workflows/new-project.md	own	654+5	5	3fba837013b9	c8a729eab1f6	ported-name
 gsd-core/workflows/new-project.md	kept	659+11	e519c651333c
-gsd-core/workflows/new-project.md	own	670+7	6	5a561c0f1855	497e365dfc22	ported-name
-gsd-core/workflows/new-project.md	kept	677+29	c1f3e444f956
+gsd-core/workflows/new-project.md	own	670+9	8	09b94a1d3723	c7f123504828	ported-name
+gsd-core/workflows/new-project.md	kept	679+27	0b2c80781b8a
 gsd-core/workflows/new-project.md	own	706+1	1	d0d3416a8b37	0cf1d1fd4f78	prose
 gsd-core/workflows/new-project.md	kept	707+2	5f046190424d
 gsd-core/workflows/new-project.md	own	709+1	10	64a3f6f424a2	f8d5ced62931	ported-name

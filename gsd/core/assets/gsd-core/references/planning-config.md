@@ -67,7 +67,9 @@ still apply.
 `commit_docs`, `search_gitignored` and `pr_strict` (also under `planning.`) are not a setting here: the spec is
 source and is committed like code, never gitignored, so a search finds it and `/gsd:pr-branch` always leaves it out.
 
-`planning.sub_repos`, `git.repo_tagging`, `workflow.auto_prune_state` and `graphify.*` are not settings here: a sub-repository is another SpecForge project with its own milestone tags, the project state is computed and holds nothing to prune, and SpecForge is the graph.
+`planning.sub_repos`, `git.repo_tagging`, `workflow.auto_prune_state` and `graphify.*` are not settings here:
+a sub-repository is another SpecForge project with its own milestone tags, the project state is computed and holds
+nothing to prune, and SpecForge is the graph.
 
 <branching_strategy_behavior>
 

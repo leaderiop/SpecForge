@@ -359,7 +359,9 @@ Exact bash for each of the four options (squash, history-preserving merge, delet
 </step>
 
 <!-- gsd:section id="git-tag" when="state:git-create-tag" -->
-If `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute `gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to `git_commit_milestone`.
+If `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute
+`gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to
+`git_commit_milestone`.
 <!-- /gsd:section -->
 
 <step name="git_commit_milestone">

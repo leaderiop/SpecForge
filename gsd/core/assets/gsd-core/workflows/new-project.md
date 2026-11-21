@@ -554,7 +554,7 @@ Use AskUserQuestion:
 
 The spec stays committed like code: `commit_docs` is not a setting here.
 
-**If no sub-repos found or user selects none:** Continue with no changes to config.
+**If no sub-repos found or user selects none:** Continue.
 
 ## 5.5. Resolve Model Profile
 

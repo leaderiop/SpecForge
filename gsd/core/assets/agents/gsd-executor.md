@@ -148,7 +148,7 @@ For each task:
    - Handle auth errors as authentication gates
    - Run verification, confirm done criteria
    - Commit (see task_commit_protocol)
-   - Track completion + commit hash for Summary
+   - Track completion and the commit's hash for the checks and the return (the summary names no hash)
 
 2. **If `type="tracer"`:** (production-quality, never a throwaway)
    - Execute and commit exactly like `type="auto"`.
@@ -578,7 +578,9 @@ specforge git commit -m "{type}({phase}-{plan}): {concise task description}
 " -m "Gsd-Task: {phase}-{plan}/{task}"
 ```
 
-**5. Record hash:** `TASK_COMMIT=$(git rev-parse --short HEAD)` — track for SUMMARY.
+**5. Record hash:** `TASK_COMMIT=$(git rev-parse --short HEAD)` — for the post-commit check below and the return's
+commit list (a checkpoint's Completed Tasks, the completion format's **Commits**). The summary names no hash: the
+commits are collected (`specforge collect --runner gsd-git --yes`) and its `actuals.commits` is read from the graph.
 
 **6. Post-commit deletion check:** After recording the hash, verify the commit did not accidentally delete tracked files:
 ```bash
