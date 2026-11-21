@@ -270,6 +270,61 @@ fn the_tail_is_the_same_whatever_the_input_order_and_on_repeat() {
     }
 }
 
+/// Two phases of a thousand stale truths each, every truth naming its plan: each of the 2,000 helps names the runs on
+/// its own phase and the other phase's first five truths, counting the rest, one text for every truth of a phase; and
+/// the gate builds one tail per set of runs its helps name, not one per diagnostic.
+#[test]
+fn a_thousand_stale_truths_a_phase_share_one_bounded_tail() {
+    const TRUTHS: usize = 1000;
+    let mut entities = vec![json!({ "id": "v1.0", "kind": "milestone" })];
+    let mut edges = Vec::new();
+    for nn in ["01", "02"] {
+        let (phase, plan) = (format!("v1.0/{nn}"), format!("v1.0/{nn}/{nn}-01"));
+        entities.push(json!({ "id": phase, "kind": "phase" }));
+        entities.push(json!({ "id": plan, "kind": "plan" }));
+        edges.push(json!({ "source": plan, "target": phase, "label": "phase" }));
+        entities.extend((1..=TRUTHS).map(|k| {
+            json!({ "id": format!("{plan}/TR{k}"), "kind": "truth", "fields": { "plan": plan },
+                    "judgements": [stale_truth()] })
+        }));
+    }
+    let given = input(ship(None), entities, edges);
+    let found = e516(&given);
+    assert_eq!(found.len(), 2 * TRUTHS);
+    for (nn, other) in [("01", "02"), ("02", "01")] {
+        let first: Vec<String> = (1..=NAMED)
+            .map(|k| format!("v1.0/{other}/{other}-01/TR{k}"))
+            .collect();
+        let first: Vec<&str> = first.iter().map(String::as_str).collect();
+        let group = held(&format!("v1.0/{other}"), "gsd-verifier", &first);
+        let group = format!(
+            "{}, and {} more)",
+            group.strip_suffix(')').unwrap_or(&group),
+            TRUTHS - NAMED
+        );
+        let expected =
+            verifier(&format!("v1.0/{nn}"), &format!("v1.0/{nn}/{nn}-01")) + &tail(&on(&[group]));
+        let of_phase: Vec<&PassDiagnostic> = found
+            .iter()
+            .filter(|d| d.message.contains(&format!("'v1.0/{nn}/")))
+            .collect();
+        assert_eq!(of_phase.len(), TRUTHS, "phase {nn}");
+        for d in of_phase {
+            assert_eq!(
+                d.suggestion.as_deref(),
+                Some(expected.as_str()),
+                "{}",
+                d.message
+            );
+        }
+    }
+    let mut index = Index::new(&given);
+    for truth in given.entities.iter().filter(|e| e.kind == "truth") {
+        index.suggestion(&truth.id, "gsd/E501", core("gsd/E501"), "stale");
+    }
+    assert_eq!(index.tails.len(), 2, "one tail per phase's runs");
+}
+
 /// An id holding a quote, a space and a non-ASCII letter is written in a tail exactly as its own message writes it:
 /// between single quotes, its quote escaped, its space and its letter unchanged.
 #[test]

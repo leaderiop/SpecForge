@@ -114,23 +114,28 @@ struct Blocker<'a> {
 type Owed<'a> = BTreeMap<Blocker<'a>, BTreeSet<&'a str>>;
 
 /// The entities of one group of a tail: the first [`NAMED`] in `id_order`, each [`quoted`] as the message writes its
-/// own, then how many more.
+/// own, then how many more. Each id's order key is read once and only the first [`NAMED`] are sorted: the key holds the
+/// id, so the order is total and the selection exact.
 fn names(entities: &BTreeSet<&str>) -> String {
-    let mut sorted: Vec<&str> = entities.iter().copied().collect();
-    sorted.sort_by(|a, b| id_order(a).cmp(&id_order(b)));
-    let more = match sorted.len().saturating_sub(NAMED) {
+    let mut keyed: Vec<_> = entities.iter().map(|id| id_order(id)).collect();
+    if keyed.len() > NAMED {
+        keyed.select_nth_unstable(NAMED);
+        keyed.truncate(NAMED);
+    }
+    keyed.sort_unstable();
+    let more = match entities.len().saturating_sub(NAMED) {
         0 => String::new(),
         n => format!(", and {n} more"),
     };
-    let named: Vec<String> = sorted[..sorted.len().min(NAMED)]
-        .iter()
-        .map(|id| quoted(id))
-        .collect();
+    let named: Vec<String> = keyed.iter().map(|(_, id)| quoted(id)).collect();
     format!("{}{more}", named.join(", "))
 }
 
 /// Prompt runs: each remedy with the subject it runs on.
 type Runs<'a> = Vec<(Remedy, &'a str)>;
+
+/// A prompt run as the index keys what it reads of it: the prompt's id and the subject.
+type Run<'a> = (&'static str, &'a str);
 
 /// `/gsd-<command> <at> <flags>` and its CLI form: one prompt run a suggestion names.
 fn item(remedy: &Remedy, at: &str) -> String {
@@ -151,8 +156,8 @@ fn item(remedy: &Remedy, at: &str) -> String {
 }
 
 /// What the suggestions of one gate read, built at its first refusal: every entity by id, the prompts that record each
-/// core judge's verdicts again (read from the registry once), every judgement that refuses some gate, and, per named
-/// run, the verdicts that refuse it.
+/// core judge's verdicts again (read from the registry once), every judgement that refuses some gate, per named run
+/// the verdicts that refuse it, and per set of named runs its tail.
 struct Index<'a> {
     input: &'a PassInput,
     entities: BTreeMap<&'a str, &'a PassEntity>,
@@ -161,7 +166,9 @@ struct Index<'a> {
     holders: BTreeSet<&'static str>,
     owing: Vec<Owing<'a>>,
     /// By `(prompt, subject)`: the verdicts that refuse its run, per holder and judge, with the entities owing them.
-    blocking: BTreeMap<(&'static str, &'a str), Owed<'a>>,
+    blocking: BTreeMap<Run<'a>, Owed<'a>>,
+    /// By the runs a help names: its tail, which depends on nothing else, so every diagnostic naming them shares it.
+    tails: BTreeMap<Vec<Run<'a>>, String>,
 }
 
 impl<'a> Index<'a> {
@@ -211,6 +218,7 @@ impl<'a> Index<'a> {
             holders,
             owing,
             blocking: BTreeMap::new(),
+            tails: BTreeMap::new(),
         }
     }
 
@@ -305,7 +313,19 @@ impl<'a> Index<'a> {
     /// the run does not run. An entity is named only when its verdict refuses every run, and a group with none left is
     /// left out. The groups a phase or milestone holds come first, behind one `on`; then each group whose outermost id
     /// holds nothing, its entities named by their own ids, each owing the verdict itself. Empty when no group is left.
+    /// Built once per set of runs: the gate's diagnostics that name the same runs share it.
     fn tail(&mut self, named: &[(Remedy, &'a str)]) -> String {
+        let key: Vec<Run<'a>> = named.iter().map(|(r, at)| (r.spec.id, *at)).collect();
+        if let Some(tail) = self.tails.get(&key) {
+            return tail.clone();
+        }
+        let tail = self.build_tail(named);
+        self.tails.insert(key, tail.clone());
+        tail
+    }
+
+    /// The tail of [`Index::tail`], built.
+    fn build_tail(&mut self, named: &[(Remedy, &'a str)]) -> String {
         let mut common: Option<Owed<'a>> = None;
         for &(remedy, at) in named {
             let found = self.blockers(remedy, at);
@@ -328,8 +348,7 @@ impl<'a> Index<'a> {
         if groups.is_empty() {
             return String::new();
         }
-        groups
-            .sort_by(|(a, _), (b, _)| (id_order(a.holder), a.by).cmp(&(id_order(b.holder), b.by)));
+        groups.sort_by_cached_key(|(b, _)| (id_order(b.holder), b.by));
         let (held, unheld): (Vec<_>, Vec<_>) =
             groups.iter().partition(|(b, _)| self.holds(b.holder));
         let mut parts: Vec<String> = Vec::new();
