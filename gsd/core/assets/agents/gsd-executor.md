@@ -558,11 +558,7 @@ specforge git add src/types/user.ts
 
 **4. Commit:**
 
-**If `sub_repos` is configured (non-empty array from init context):** Use `commit-to-subrepo` to route files to their correct sub-repo:
-```bash
-specforge git --in "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -m "Gsd-Task: {phase}-{plan}/{task}" -- file1 file2 ...
-```
-**0c. Plan commit ledger (#3968, single-repo):** nothing to run here.
+**0c. Plan commit ledger (#3968):** nothing to run here.
 Each Bash call is a FRESH shell, so the ledger is in the graph: `record_start_time` above gave
 `start-plan` the plan's head, which its `plan_start` keeps once, across shells and worktrees.
 A rebase after the start can overcount: a commit collected before it keeps its entity and its old id.
@@ -571,11 +567,9 @@ A rebase after the start can overcount: a commit collected before it keeps its e
 
 ```
 The summary's `actuals.commits` is computed from this ledger, and `/gsd:verify-work` reads the same recorded
-head for its same-instrument check. Multi-repo keeps commit-to-subrepo JSON hashes instead.
+head for its same-instrument check.
 
-Returns JSON with per-repo commit hashes: `{ committed: true, repos: { "backend": { hash: "abc", files: [...] }, ... } }`. The summary names no hash: the commits are collected (`specforge collect --runner gsd-git --yes`) and read from the graph.
-
-**Otherwise (standard single-repo):**
+**The task commit:**
 ```bash
 specforge git commit -m "{type}({phase}-{plan}): {concise task description}
 
@@ -584,9 +578,7 @@ specforge git commit -m "{type}({phase}-{plan}): {concise task description}
 " -m "Gsd-Task: {phase}-{plan}/{task}"
 ```
 
-**5. Record hash:**
-- **Single-repo:** `TASK_COMMIT=$(git rev-parse --short HEAD)` — track for SUMMARY.
-- **Multi-repo (sub_repos):** Extract hashes from `commit-to-subrepo` JSON output (`repos.{name}.hash`). The summary names none of them: the collector reads the commits.
+**5. Record hash:** `TASK_COMMIT=$(git rev-parse --short HEAD)` — track for SUMMARY.
 
 **6. Post-commit deletion check:** After recording the hash, verify the commit did not accidentally delete tracked files:
 ```bash

@@ -40,7 +40,7 @@ fn sub_repo_step(
 #[test]
 fn new_project_lists_the_sub_repos() {
     let sh = Shell::without_jq();
-    let (out, err, _) = sub_repo_step(&sh, "printf '%s\\n' \"$SUB_REPOS\"", |_| {});
+    let (out, err, _) = sub_repo_step(&sh, "printf '%s\\n' \"$CHILD_REPOS\"", |_| {});
     assert_eq!(out, "backend\nlinked-wt\n", "{err}");
 }
 
@@ -61,7 +61,7 @@ fn a_failed_sub_repo_listing_stops_the_step() {
 #[test]
 fn a_sub_repo_name_holding_a_newline_stops_the_step() {
     let sh = Shell::without_jq();
-    let (out, err, code) = sub_repo_step(&sh, "printf '%s\\n' \"$SUB_REPOS\"", |root| {
+    let (out, err, code) = sub_repo_step(&sh, "printf '%s\\n' \"$CHILD_REPOS\"", |root| {
         let odd = root.join("we\nird");
         std::fs::create_dir_all(odd.join(".git")).expect("a dir");
     });

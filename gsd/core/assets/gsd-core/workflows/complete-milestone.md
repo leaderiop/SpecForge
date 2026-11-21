@@ -356,14 +356,8 @@ Exact bash for each of the four options (squash, history-preserving merge, delet
 </step>
 
 <!-- gsd:section id="git-tag" when="state:git-create-tag" -->
-`PER_REPO_TAGGING` is always `false` in @gsd/core (no sub-repositories, no per-repository tags), so this section is never skipped for it. If `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute `gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to `git_commit_milestone`.
+If `section_manifest` is `null` or `"git-tag"` is in its `included` list: read and execute `gsd-core/workflows/complete-milestone/steps/git-tag.md`. Otherwise skip — do not read the file; proceed to `git_commit_milestone`.
 <!-- /gsd:section -->
-
-<step name="push_release_tags">
-
-**Per-repository tag push (#3628): not part of @gsd/core.** `PER_REPO_TAGGING` is always `false` (a SpecForge project has no sub-repositories), so there are no per-repository tags to push and no release map to read. Skip this step.
-
-</step>
 
 <step name="git_commit_milestone">
 
@@ -374,8 +368,6 @@ specforge git commit -m "chore: complete v[X.Y] milestone"
 ```
 
 Confirm: "Committed: chore: complete v[X.Y] milestone"
-
-`PER_REPO_TAGGING` is always `false` in @gsd/core: there is no release-map scratch directory to remove.
 
 </step>
 
@@ -446,8 +438,7 @@ Milestone completion is successful when:
 - [ ] Key Decisions updated with outcomes
 - [ ] Safety commit made BEFORE the final commit
 - [ ] `requirement` entities kept with the completed milestone (none deleted)
-- [ ] Git tag created (v[X.Y]) (if `git.create_tag` enabled and `PER_REPO_TAGGING` is not `true`)
-- [ ] Release map archived and per-repository tags created (if `PER_REPO_TAGGING` is `true`); no tag pushed without a per-repository confirmation
+- [ ] Git tag created (v[X.Y]) (if `git.create_tag` enabled)
 - [ ] Milestone commit made (includes archive files and deletion)
 - [ ] Requirements completion checked against REQUIREMENTS.md traceability table
 - [ ] Incomplete requirements surfaced with proceed/audit/abort options

@@ -46,8 +46,9 @@ The reason: coverage (`gsd/E301`) binds from a phase's first plan and, under gsd
 `commit_docs` is not a setting of `@gsd/core` (the Not applicable table): no step reads it, branches on it or asks for
 it. Each step that committed planning documents commits the spec files it changed, unconditionally, and a
 `specforge git commit` that finds nothing staged (`git_refused`, "nothing to commit") means an earlier commit of the
-same run already holds them. A line naming `commit_docs`, or another key of its row of the Not applicable
-table (`search_gitignored`, `pr_strict`), says it is not a setting here.
+same run already holds them. A line naming `commit_docs`, or another key of the Not applicable table
+(`search_gitignored`, `pr_strict`, `planning.sub_repos`, `graphify.*` and the other rows but the secrets one), says it
+is not a setting here.
 
 The reason: the spec is source; a condition on an undeclared key is read differently by each agent.
 
@@ -111,7 +112,7 @@ the same workflow settles. It is an owner question.
 | ADR or source | Decision | Outcome | Why |
 |---|---|---|---|
 | 0343 | D10 (a write is a typed edit or a `specforge.edit`) | kept, applied | a phase's plans are one edit (D1) |
-| `gsd/core/spec/settings.md` | Not applicable (`commit_docs`) | kept, applied | every asset says so (D2) |
+| `gsd/core/spec/settings.md` | Not applicable (every row but the secrets one) | kept, applied | every asset says so (D2) |
 | 0363 | D3 (an entity a write creates reveals nothing) | kept | the Limits |
 | 0297 | Decision (a judged rule's finding is no added error) | kept | the plan edit adds only judged findings (D4) |
 
@@ -124,7 +125,7 @@ Each test fails when the decision or the limit it holds stops being true. They a
 | Decision or limit | Tests |
 |---|---|
 | D1 | `assets_shell::planner_edit::the_planner_writes_a_phase_in_one_edit`, `assets_shell::planner_edit::a_dependency_found_later_is_linked`, `assets_shell::planner_edit::a_plan_written_alone_is_refused_and_nothing_is_written`, `assets_shell::planner_edit::the_plan_format_is_one_edit_of_the_whole_phase`, `assets_shell::planner_edit::every_writer_of_a_phases_plans_names_the_plan_edit` |
-| D2 | `assets_shell::commits::the_plan_commit_step_commits_the_spec_and_an_empty_one_says_nothing_to_commit`, `settings_roster::the_plan_phase_family_reads_no_commit_docs`, `settings_roster::every_key_an_asset_calls_a_setting_is_a_key_of_the_roster`, `settings_roster::the_committed_spec_keys_are_named_only_as_not_a_setting_here`, `settings_roster::the_settings_workflow_counts_the_settings_of_its_section_layout`, `settings_roster::no_asset_makes_the_spec_commit_conditional_or_skips_an_ignored_spec`, `ported_text::every_setting_a_line_reads_is_a_key_of_the_roster` |
+| D2 | `assets_shell::commits::the_plan_commit_step_commits_the_spec_and_an_empty_one_says_nothing_to_commit`, `settings_roster::the_plan_phase_family_reads_no_commit_docs`, `settings_roster::every_key_an_asset_calls_a_setting_is_a_key_of_the_roster`, `settings_roster::no_asset_names_a_not_applicable_key`, `settings_roster::the_settings_workflow_counts_the_settings_of_its_section_layout`, `settings_roster::the_advanced_settings_workflow_reads_and_confirms_only_settings`, `settings_roster::no_asset_makes_the_spec_commit_conditional_or_skips_an_ignored_spec`, `ported_text::every_setting_a_line_reads_is_a_key_of_the_roster` |
 | D3 | `assets_shell::researchers::an_open_question_strict_refuses_is_returned_not_dropped`, `assets_shell::researchers::plan_phase_records_the_users_answer_then_the_question`, `assets_shell::researchers::quick_and_quick_batch_record_the_users_answer_then_the_question` |
 | Limits | `assets_shell::researchers::an_open_question_strict_refuses_is_returned_not_dropped` (gsd/W204 at research under gsd-strict), `assets_shell::planner_edit::a_whole_plan_written_alone_is_refused_while_a_requirement_of_its_phase_is_in_no_plan` (chunked mode's first plan, gsd/E301), `assets_shell::planner_edit::the_rest_of_a_chunked_run_writes_only_the_plans_the_graph_lacks` (its recovery), `cmd_quick::a_quick_plan_minted_without_must_haves_is_refused_under_strict_only` (quick's mint under gsd-strict, gsd/W309) |
 

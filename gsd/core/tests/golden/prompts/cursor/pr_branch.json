@@ -61,7 +61,7 @@
     "if [ -n \"$DIRTY\" ]; then",
     "  echo \"Working tree has uncommitted changes — commit or stash them first:\" >&2"
   ],
-  "bytes": 23015,
+  "bytes": 22817,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 519,
+  "lines": 514,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:beebc0510bfcc9d4067fdd4566cf8086c475e2a3bde160d5a542ef6fa217d375",
+    "digest": "sha256:700f6a9feaa70fb24ae6e12699cdb650d73d6a3d790ed22a7ea993b51f0b2c61",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "beebc0510bfcc9d4067fdd4566cf8086c475e2a3bde160d5a542ef6fa217d375"
+  "sha256": "700f6a9feaa70fb24ae6e12699cdb650d73d6a3d790ed22a7ea993b51f0b2c61"
 }

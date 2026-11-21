@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 50850,
+  "bytes": 50805,
   "end": [
     "SUMMARY_COUNT=$(specforge gsd progress-report --phase \"$PHASE_ID\" --pick '.phases[0].summaries')",
     "```",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:d71f0f7b2eeb468d1829480facec5ba7ab1b9ef9f9e139e5012eedb8a46dd59d",
+    "digest": "sha256:46a6fac9809736090621f9f99d220bf8b2e020957fcc973680c0c59fc4f97d84",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "d71f0f7b2eeb468d1829480facec5ba7ab1b9ef9f9e139e5012eedb8a46dd59d"
+  "sha256": "46a6fac9809736090621f9f99d220bf8b2e020957fcc973680c0c59fc4f97d84"
 }

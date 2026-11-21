@@ -4,7 +4,7 @@ Apply response_language to all user-facing prose — narration between tool call
 <purpose>
 Interactive configuration of GSD power-user knobs — plan bounce, planner stall detection, node
 repair, subagent timeouts, inline plan threshold, cross-AI execution, base branch, branch templates, response language,
-context window, graphify build timeout, runtime model tier overrides, and
+context window, runtime model tier overrides, and
 model policy configuration (provider + budget → canonical tier mapping, or manual model ID
 assignment per cost tier).
 
@@ -60,7 +60,6 @@ Planning Tuning:
 Execution Tuning:
 - `workflow.node_repair` (default: `true`)
 - `workflow.node_repair_budget` (default: `2`)
-- `workflow.auto_prune_state` (default: `false`)
 
 Discussion Tuning:
 - `workflow.max_discuss_passes` (default: `3`)
@@ -78,7 +77,6 @@ Git Customization:
 Runtime / Output:
 - `response_language` (default: `null`)
 - `context_window` (default: `200000`)
-- `graphify.build_timeout` (default: `300`)
 
 Runtime Model Tiers:
 - `runtime` (default: `null` — reads as `"claude"`)
@@ -106,7 +104,7 @@ in `$ARGUMENTS` OR `text_mode` is true in config. When `TEXT_MODE=true`, replace
 choice number or free-text value.
 
 **Numeric-input validation.** For any numeric field (`*_passes`, `*_budget`, `*_timeout`,
-`*_threshold`, `context_window`, `graphify.build_timeout`), if the user types a value that
+`*_threshold`, `context_window`), if the user types a value that
 is not a non-negative integer, the workflow MUST reject it, state which value was invalid,
 and re-prompt that single field. The minimum accepted value is field-specific and is stated
 in each field's prompt below — `workflow.plan_bounce_passes` and `workflow.max_discuss_passes`
@@ -211,15 +209,6 @@ AskUserQuestion([
     options: [
       { label: "Keep current", description: "Leave existing budget unchanged." },
       { label: "Enter number", description: "Integer >= 0. Non-numeric rejected. Default: 2" }
-    ]
-  },
-  {
-    question: "Auto-prune stale STATE.md entries at phase boundaries? (current: <value or false>)",
-    header: "Auto Prune",
-    multiSelect: false,
-    options: [
-      { label: "No (default: false)", description: "Prompt before pruning." },
-      { label: "Yes", description: "Prune stale entries without prompting." }
     ]
   }
 ])
@@ -331,15 +320,6 @@ AskUserQuestion([
     options: [
       { label: "Keep current", description: "Leave unchanged." },
       { label: "Enter number", description: "Integer. Non-numeric rejected. Default: 200000. Use 1000000 for 1M-context models. Values >= 500000 enable adaptive enrichment." }
-    ]
-  },
-  {
-    question: "Graphify build timeout (seconds)? (current: <value or 300>)",
-    header: "Graphify Timeout",
-    multiSelect: false,
-    options: [
-      { label: "Keep current", description: "Leave timeout unchanged." },
-      { label: "Enter seconds", description: "Integer seconds. Non-numeric rejected. Default: 300" }
     ]
   }
 ])
@@ -537,7 +517,6 @@ anything not listed in Sections 1–8 MUST survive the update):
     "inline_plan_threshold": <new|existing>,
     "node_repair": <new|existing>,
     "node_repair_budget": <new|existing>,
-    "auto_prune_state": <new|existing>,
     "max_discuss_passes": <new|existing>,
     "cross_ai_execution": <new|existing>,
     "cross_ai_command": <new|existing|null>,
@@ -551,10 +530,6 @@ anything not listed in Sections 1–8 MUST survive the update):
   },
   "response_language": <new|existing|null>,
   "context_window": <new|existing>,
-  "graphify": {
-    ...existing_graphify,
-    "build_timeout": <new|existing>
-  },
   "runtime": <new|existing|null>,
   "model_profile_overrides": {
     ...existing_model_profile_overrides,
@@ -769,7 +744,6 @@ Display:
 | workflow.inline_plan_threshold             | {n} |
 | workflow.node_repair                       | {on/off} |
 | workflow.node_repair_budget                | {n} |
-| workflow.auto_prune_state                  | {on/off} |
 | workflow.max_discuss_passes                | {n} |
 | workflow.cross_ai_execution                | {on/off} |
 | workflow.cross_ai_command                  | {cmd/null} |
@@ -779,7 +753,6 @@ Display:
 | git.milestone_branch_template              | {template} |
 | response_language                          | {lang/null} |
 | context_window                             | {tokens} |
-| graphify.build_timeout                     | {seconds} |
 | runtime                                    | {runtime/null} |
 | model_profile_overrides.<runtime>.opus     | {model/built-in/null} |
 | model_profile_overrides.<runtime>.sonnet   | {model/built-in/null} |
