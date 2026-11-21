@@ -39,7 +39,8 @@ pub const CAP: u64 = cap!();
 /// of runs, 5,717,309 B once a phase's plans were written in one edit, its spec was committed like code with no
 /// setting read for it, and an open question the strict profile refuses was returned to the planner, and 5,719,421 B
 /// once the user answered that question after the planner, chunked mode read a blocked plan as blocked and planned
-/// only the rest, and the keys the committed spec rules out were swept whole.
+/// only the rest, and the keys the committed spec rules out were swept whole, and 5,713,230 B once every key of the
+/// Not applicable table was swept and a phase's label said where its number and name are read.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_800_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].
