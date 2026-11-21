@@ -145,3 +145,150 @@ fn only_the_entities_whose_verdict_refuses_every_named_run_are_named() {
     assert!(!index.blockers(remedy, "v1.0/02").is_empty());
     assert_eq!(index.tail(&named), "");
 }
+
+/// The ids `v1.0/<nn>/<nn>-01/TR<k>` for `k` in `ks`, each owing a stale verifier verdict.
+fn stale_truths(nn: &str, ks: impl IntoIterator<Item = usize>) -> Vec<(String, Value)> {
+    ks.into_iter()
+        .map(|k| (format!("v1.0/{nn}/{nn}-01/TR{k}"), stale_truth()))
+        .collect()
+}
+
+/// The plan check of `v1.0/02/02-01` at a gate on `v1.0/02`, beside the stale truths `owed` of other phases: its help.
+fn plan_check_beside(phases: &[&str], owed: &[(String, Value)]) -> String {
+    let mut all: Vec<(&str, Value)> = owed
+        .iter()
+        .map(|(id, j)| (id.as_str(), j.clone()))
+        .collect();
+    all.push(("v1.0/02/02-01", stale_check("gsd/W311")));
+    how(
+        &e516(&project(ship(Some("v1.0/02")), phases, &all)),
+        "v1.0/02/02-01",
+    )
+}
+
+/// Five entities owing one holder's verdicts to one judge are all named, with no count.
+#[test]
+fn five_entities_owing_one_holder_are_all_named() {
+    let help = plan_check_beside(&["01", "02"], &stale_truths("01", 1..=5));
+    assert!(
+        help.ends_with(
+            "owed on v1.0/01 (gsd-verifier: 'v1.0/01/01-01/TR1', 'v1.0/01/01-01/TR2', 'v1.0/01/01-01/TR3', \
+             'v1.0/01/01-01/TR4', 'v1.0/01/01-01/TR5'), outside its scope or of a judge it does not run: record \
+             those first, a gsd rule's with `specforge gsd record-verdict`, which no gate refuses"
+        ),
+        "{help}"
+    );
+    assert!(!help.contains(" more"), "{help}");
+}
+
+/// A sixth entity is counted, not named.
+#[test]
+fn a_sixth_entity_is_counted_not_named() {
+    let help = plan_check_beside(&["01", "02"], &stale_truths("01", 1..=6));
+    assert!(
+        help.contains(
+            "v1.0/01 (gsd-verifier: 'v1.0/01/01-01/TR1', 'v1.0/01/01-01/TR2', 'v1.0/01/01-01/TR3', \
+             'v1.0/01/01-01/TR4', 'v1.0/01/01-01/TR5', and 1 more)"
+        ),
+        "{help}"
+    );
+    assert!(!help.contains("'v1.0/01/01-01/TR6'"), "{help}");
+}
+
+/// Past five, the names are the first five in `id_order` (`TR2` before `TR10`), whatever the input's order, and the
+/// count is the rest.
+#[test]
+fn many_entities_name_the_first_five_in_id_order_and_count_the_rest() {
+    let help = plan_check_beside(&["01", "02"], &stale_truths("01", (1..=12).rev()));
+    assert!(
+        help.contains(
+            "v1.0/01 (gsd-verifier: 'v1.0/01/01-01/TR1', 'v1.0/01/01-01/TR2', 'v1.0/01/01-01/TR3', \
+             'v1.0/01/01-01/TR4', 'v1.0/01/01-01/TR5', and 7 more)"
+        ),
+        "{help}"
+    );
+    for k in 6..=12 {
+        assert!(
+            !help.contains(&format!("'v1.0/01/01-01/TR{k}'")),
+            "TR{k}: {help}"
+        );
+    }
+}
+
+/// Each holder-and-judge group has its own bound: two groups of six each name five and count one.
+#[test]
+fn the_bound_is_per_holder_and_judge() {
+    let mut owed = stale_truths("01", 1..=6);
+    owed.extend(stale_truths("03", 1..=6));
+    assert_eq!(
+        plan_check_beside(&["01", "02", "03"], &owed),
+        again("gsd/W311", "gsd-plan-checker", "v1.0/02/02-01", "v1.0/02")
+            + &tail(
+                "on v1.0/01 (gsd-verifier: 'v1.0/01/01-01/TR1', 'v1.0/01/01-01/TR2', 'v1.0/01/01-01/TR3', \
+                 'v1.0/01/01-01/TR4', 'v1.0/01/01-01/TR5', and 1 more), v1.0/03 (gsd-verifier: 'v1.0/03/03-01/TR1', \
+                 'v1.0/03/03-01/TR2', 'v1.0/03/03-01/TR3', 'v1.0/03/03-01/TR4', 'v1.0/03/03-01/TR5', and 1 more)"
+            )
+    );
+}
+
+/// `e516` is a pure function of its input: the same help per message with the input's entities and edges reversed,
+/// and on a second call.
+#[test]
+fn the_tail_is_the_same_whatever_the_input_order_and_on_repeat() {
+    let mut owed = stale_truths("01", 1..=7);
+    owed.extend(stale_truths("03", [2, 1]));
+    owed.extend(stale_truths("04", [1]));
+    owed.push(("v1.0/02/02-01".to_string(), stale_check("gsd/W311")));
+    let owed: Vec<(&str, Value)> = owed
+        .iter()
+        .map(|(id, j)| (id.as_str(), j.clone()))
+        .collect();
+    let forward = project(ship(None), &["01", "02", "03", "04"], &owed);
+    let mut reversed = project(ship(None), &["01", "02", "03", "04"], &owed);
+    reversed.entities.reverse();
+    reversed.edges.reverse();
+    let helps = |input: &PassInput| -> BTreeMap<String, String> {
+        e516(input)
+            .into_iter()
+            .map(|d| (d.message, d.suggestion.unwrap_or_default()))
+            .collect()
+    };
+    let first = helps(&forward);
+    assert_eq!(first.len(), 11, "{first:?}");
+    let check = how(&e516(&forward), "v1.0/02/02-01");
+    assert!(
+        check.contains(
+            "also refused by the verdicts owed on v1.0/01 (gsd-verifier: 'v1.0/01/01-01/TR1'"
+        ),
+        "{check}"
+    );
+    for (n, other) in [helps(&forward), helps(&reversed), helps(&reversed)]
+        .iter()
+        .enumerate()
+    {
+        assert_eq!(&first, other, "run {n}");
+    }
+}
+
+/// An id holding a quote, a space and a non-ASCII letter is written in a tail exactly as its own message writes it.
+#[test]
+fn an_entity_id_is_named_in_a_tail_as_its_message_names_it() {
+    let id = "v1.0/01/01-01/T'R é";
+    let found = e516(&project(
+        ship(None),
+        &["01", "02"],
+        &[
+            (id, stale_truth()),
+            ("v1.0/02/02-01", stale_check("gsd/W311")),
+        ],
+    ));
+    let quoted = format!("'{id}'");
+    assert!(how(&found, "v1.0/02/02-01").contains(&format!("(gsd-verifier: {quoted})")));
+    assert!(
+        found
+            .iter()
+            .any(|d| d.message
+                == format!("the gsd/E501 verdict on {quoted} is stale: cited changed")),
+        "{found:?}"
+    );
+}

@@ -86,13 +86,21 @@ fn stale_listed(answer: &Value) -> Vec<String> {
     entities
 }
 
-/// The entities a tail group names, each quoted as the message quotes its own.
+/// How many entities a tail group names before it counts the rest.
+const NAMED: usize = 5;
+
+/// The entities a tail group names, each quoted as the message quotes its own: the first five, then how many more.
 fn quoted(entities: &[String]) -> String {
-    entities
+    let names = entities
         .iter()
+        .take(NAMED)
         .map(|e| format!("'{e}'"))
         .collect::<Vec<_>>()
-        .join(", ")
+        .join(", ");
+    match entities.len().saturating_sub(NAMED) {
+        0 => names,
+        n => format!("{names}, and {n} more"),
+    }
 }
 
 /// The entity a message names (`the gsd/W311 verdict on 'v1.0/02/02-01' is missing`).
@@ -238,6 +246,13 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
         ]
     );
     let owed = format!("{TAIL} on {VERIFIED} (gsd-verifier: {})", quoted(&stale));
+    assert_eq!(
+        owed,
+        format!(
+            "{TAIL} on v1.0/01 (gsd-verifier: 'v1.0/01/01-01/AR1', 'v1.0/01/01-01/KL1', 'v1.0/01/01-01/TR1', \
+             'v1.0/01/01-02/KL1', 'v1.0/01/01-02/TR1', and 1 more)"
+        )
+    );
     let found = e516_suggestions(&p, "execute_phase", &[VERIFIED]);
     assert_eq!(found.len(), PLAN_CHECKS.len(), "{found:?}");
     for (message, suggestion) in &found {
@@ -264,4 +279,44 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
     assert!(p.verify_phase(VERIFIED) > 0);
     renders(&p, "execute_phase", &[VERIFIED]);
     renders(&p, "plan_phase", &[PHASE]);
+}
+
+/// The seven must-haves of a stale phase are named five and counted two: with `src/tasks.js` and `src/cli.js` edited,
+/// each refusal of `/gsd-execute-phase` on the executed phase names the first five that `re-verify --stale-only` lists
+/// beside their holder and judge, then `and 2 more`.
+#[test]
+fn the_seven_must_haves_of_a_stale_phase_are_named_five_and_two_more() {
+    let p = twin();
+    strict(&p);
+    stale_plan_check(&p, PLAN);
+    for path in ["src/tasks.js", "src/cli.js"] {
+        p.write(path, &format!("{}\n// edited\n", p.read(path)));
+    }
+    let stale = stale_listed(&p.re_verify(VERIFIED, true));
+    assert_eq!(
+        stale,
+        [
+            "v1.0/01/01-01/AR1",
+            "v1.0/01/01-01/KL1",
+            "v1.0/01/01-01/TR1",
+            "v1.0/01/01-02/AR1",
+            "v1.0/01/01-02/KL1",
+            "v1.0/01/01-02/TR1",
+            "v1.0/01/01-02/TR2",
+        ]
+    );
+    let owed = format!("{TAIL} on {VERIFIED} (gsd-verifier: {})", quoted(&stale));
+    assert_eq!(
+        owed,
+        format!(
+            "{TAIL} on v1.0/01 (gsd-verifier: 'v1.0/01/01-01/AR1', 'v1.0/01/01-01/KL1', 'v1.0/01/01-01/TR1', \
+             'v1.0/01/01-02/AR1', 'v1.0/01/01-02/KL1', and 2 more)"
+        )
+    );
+    let found = e516_suggestions(&p, "execute_phase", &[VERIFIED]);
+    assert_eq!(found.len(), PLAN_CHECKS.len(), "{found:?}");
+    for (message, suggestion) in &found {
+        assert_eq!(entity_of(message), PLAN, "{message}");
+        assert!(suggestion.contains(&owed), "{suggestion}");
+    }
 }

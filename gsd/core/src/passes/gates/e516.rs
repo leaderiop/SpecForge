@@ -14,9 +14,10 @@
 //! workflow's `rejudges`), with the flags the run needs, on the phase or milestone that holds the verdict. A run
 //! excuses a verdict only inside its own scope and only for a judge it runs, so the suggestion also names every
 //! verdict, of any judge or extension, that refuses every run it names, by its holder, its judge and the entities
-//! that owe it (each once, by its full id, as the message writes it), and the gate-free `record-verdict`. With no
-//! such run (no phase or milestone scopes the entity, or the prompt stops on its complete phase) it names
-//! `record-verdict` alone. `re_verify` lists the verifier's verdicts only.
+//! that owe it (each once, by its full id, as the message writes it; at most five per holder and judge, then how many
+//! more), and the gate-free `record-verdict`. With no such run (no phase or milestone scopes the entity, or the
+//! prompt stops on its complete phase) it names `record-verdict` alone. `re_verify` lists the verifier's verdicts
+//! only.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -71,6 +72,9 @@ fn core(rule: &str) -> Option<(&str, &'static str)> {
 /// The judge whose verdicts `re_verify` lists.
 const VERIFIER: &str = "gsd-verifier";
 
+/// How many of the entities owing one holder's verdicts to one judge the tail names; the count says how many more.
+const NAMED: usize = 5;
+
 /// Whether a judgement on record refuses a gate whose workflow runs the judges `runs`: a stale, unrecorded or
 /// unreadable verdict wherever it is, a `missing` one only `inside` the gate's scope, unless it is inside and the
 /// workflow runs its core `judge` (that workflow is its remedy). The gate and every run its suggestion names read it.
@@ -107,15 +111,20 @@ struct Blocker<'a> {
 /// The verdicts that refuse a run, per holder and judge: the entities that owe them.
 type Owed<'a> = BTreeMap<Blocker<'a>, BTreeSet<&'a str>>;
 
-/// The entities of one group of a tail, in `id_order`, each between single quotes as the message writes its own.
+/// The entities of one group of a tail: the first [`NAMED`] in `id_order`, each between single quotes as the message
+/// writes its own, then how many more.
 fn names(entities: &BTreeSet<&str>) -> String {
     let mut sorted: Vec<&str> = entities.iter().copied().collect();
     sorted.sort_by(|a, b| id_order(a).cmp(&id_order(b)));
-    sorted
+    let more = match sorted.len().saturating_sub(NAMED) {
+        0 => String::new(),
+        n => format!(", and {n} more"),
+    };
+    let named: Vec<String> = sorted[..sorted.len().min(NAMED)]
         .iter()
         .map(|id| format!("'{id}'"))
-        .collect::<Vec<_>>()
-        .join(", ")
+        .collect();
+    format!("{}{more}", named.join(", "))
 }
 
 /// Prompt runs: each remedy with the subject it runs on.
