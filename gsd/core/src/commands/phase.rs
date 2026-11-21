@@ -1,7 +1,8 @@
 //! `phase` (D-r41-8): the roadmap's phase CRUD behind `/gsd-phase`. The action is chosen by flag, as upstream's
 //! `[--insert X|--remove N|--edit N]`: none adds, `--insert` makes a decimal phase, `--remove` deletes a phase and
-//! renumbers the later ones in one plan, `--edit` sets fields, `--promote` moves a backlog phase (999.x) into the
-//! numbered phases, and `--backlog` adds a phase to the backlog at the first free 999.x number.
+//! renumbers the later ones in one plan, `--edit` sets fields (a new name retitles the phase), `--promote` moves a
+//! backlog phase (999.x) into the numbered phases, and `--backlog` adds a phase to the backlog at the first free 999.x
+//! number.
 //!
 //! Also ports gsd-core bin/lib modules: phase-estimation.cjs, phase-id-card.cjs, phase-id-display.cjs, phase-
 //! id.cjs, phase-lifecycle.cjs, phase-locator.cjs, phase-status.cjs.
@@ -252,8 +253,10 @@ fn edit(
     let mut plan = call.plan();
     let mut set = Vec::new();
     if let Some(v) = given(call, "name")? {
+        // the title is the phase's label, as `create` writes it: a new name retitles the phase too
         plan.set(&phase.node.id, "name", v);
-        set.push("name");
+        plan.retitle(&phase.node.id, &title(v));
+        set.extend(["name", "title"]);
     }
     if let Some(v) = given(call, "goal")? {
         plan.set(&phase.node.id, "goal", v);

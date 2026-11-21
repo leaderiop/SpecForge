@@ -300,6 +300,36 @@ fn edit_sets_goal_and_criteria() {
     assert_eq!(fields["success_criteria"], json!(["saved", "loaded"]));
 }
 
+/// A new name retitles the phase, as `--add` titles it: the title is the phase's label, so the two never drift.
+#[test]
+fn edit_name_retitles_the_phase() {
+    let p = twin();
+    let run = gsd(
+        &p,
+        "phase",
+        &[
+            "--edit",
+            "02",
+            "--name",
+            "Durable tasks",
+            "--format",
+            "json",
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    let answer: serde_json::Value = serde_json::from_str(&run.stdout).expect("JSON");
+    assert_eq!(
+        answer["output"]["set"],
+        json!(["name", "title"]),
+        "{answer}"
+    );
+    let query = p.run(&["query", "v1.0/02", "--depth", "0", "--format", "json"]);
+    let graph: serde_json::Value = serde_json::from_str(&query.stdout).expect("JSON");
+    let node = &graph["nodes"][0];
+    assert_eq!(node["title"], "Durable tasks", "{node}");
+    assert_eq!(node["fields"]["name"], "Durable tasks", "{node}");
+}
+
 #[test]
 fn insert_and_edit_refuse_a_backlog_phase() {
     let p = twelve();
