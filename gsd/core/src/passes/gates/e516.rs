@@ -13,7 +13,8 @@
 //! The suggestion of a core rule's verdict names the prompts whose run records its judge's verdicts again (each
 //! workflow's `rejudges`), with the flags the run needs, on the phase or milestone that holds the verdict. A run
 //! excuses a verdict only inside its own scope and only for a judge it runs, so the suggestion also names every
-//! verdict, of any judge or extension, that refuses every run it names, and the gate-free `record-verdict`. With no
+//! verdict, of any judge or extension, that refuses every run it names, by its holder, its judge and the entities
+//! that owe it (each once, by its full id, as the message writes it), and the gate-free `record-verdict`. With no
 //! such run (no phase or milestone scopes the entity, or the prompt stops on its complete phase) it names
 //! `record-verdict` alone. `re_verify` lists the verifier's verdicts only.
 
@@ -95,12 +96,26 @@ struct Owing<'a> {
     missing: bool,
 }
 
-/// A verdict that refuses a named run: the phase or milestone that holds it, and its judge (another extension's rule
-/// when it has no core judge).
+/// The group a verdict that refuses a named run falls in: the phase or milestone that holds it, else the outermost id
+/// it falls back to, and its judge (another extension's rule when it has no core judge).
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Blocker<'a> {
     holder: &'a str,
     by: &'a str,
+}
+
+/// The verdicts that refuse a run, per holder and judge: the entities that owe them.
+type Owed<'a> = BTreeMap<Blocker<'a>, BTreeSet<&'a str>>;
+
+/// The entities of one group of a tail, in `id_order`, each between single quotes as the message writes its own.
+fn names(entities: &BTreeSet<&str>) -> String {
+    let mut sorted: Vec<&str> = entities.iter().copied().collect();
+    sorted.sort_by(|a, b| id_order(a).cmp(&id_order(b)));
+    sorted
+        .iter()
+        .map(|id| format!("'{id}'"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// Prompt runs: each remedy with the subject it runs on.
@@ -134,8 +149,8 @@ struct Index<'a> {
     /// The kinds a remedy prompt runs on (`phase`, `milestone`): what holds a verdict.
     holders: BTreeSet<&'static str>,
     owing: Vec<Owing<'a>>,
-    /// By `(prompt, subject)`: the verdicts that refuse its run.
-    blocking: BTreeMap<(&'static str, &'a str), BTreeSet<Blocker<'a>>>,
+    /// By `(prompt, subject)`: the verdicts that refuse its run, per holder and judge, with the entities owing them.
+    blocking: BTreeMap<(&'static str, &'a str), Owed<'a>>,
 }
 
 impl<'a> Index<'a> {
@@ -243,52 +258,65 @@ impl<'a> Index<'a> {
     }
 
     /// The verdicts that refuse a run of `remedy` on `at`, as the gate of that run would read them: owed elsewhere,
-    /// or owed inside its scope to a judge or extension it does not run. Computed once per run.
-    fn blockers(&mut self, remedy: Remedy, at: &'a str) -> &BTreeSet<Blocker<'a>> {
+    /// or owed inside its scope to a judge or extension it does not run; per holder and judge, the entities that owe
+    /// them. Computed once per run.
+    fn blockers(&mut self, remedy: Remedy, at: &'a str) -> &Owed<'a> {
         let key = (remedy.spec.id, at);
         if !self.blocking.contains_key(&key) {
             let covered = covered(self.input, Some(at));
             let runs = judges_run_by(remedy.spec.id);
-            let found = self
-                .owing
-                .iter()
-                .filter(|o| {
-                    refuses(
-                        within(covered.as_ref(), o.entity),
-                        o.missing,
-                        &runs,
-                        o.judge,
-                    )
-                })
-                .map(|o| Blocker {
+            let mut found = Owed::new();
+            for o in self.owing.iter().filter(|o| {
+                refuses(
+                    within(covered.as_ref(), o.entity),
+                    o.missing,
+                    &runs,
+                    o.judge,
+                )
+            }) {
+                let blocker = Blocker {
                     holder: self.holder(o.entity),
                     by: o.judge.unwrap_or(o.rule),
-                })
-                .collect();
+                };
+                found.entry(blocker).or_default().insert(o.entity);
+            }
             self.blocking.insert(key, found);
         }
         &self.blocking[&key]
     }
 
-    /// The tail naming the verdicts that refuse every run of `named`, in natural order: each sits outside the run's
-    /// scope or waits for a judge or extension the run does not run. Empty when one of the runs is refused by none.
+    /// The tail naming the verdicts that refuse every run of `named`, in natural order, by their holder, their judge
+    /// and the entities that owe them, each once: each sits outside the run's scope or waits for a judge or extension
+    /// the run does not run. An entity is named only when its verdict refuses every run, and a group with none left is
+    /// left out. Empty when no group is left.
     fn tail(&mut self, named: &[(Remedy, &'a str)]) -> String {
-        let mut common: Option<BTreeSet<Blocker<'a>>> = None;
+        let mut common: Option<Owed<'a>> = None;
         for &(remedy, at) in named {
             let found = self.blockers(remedy, at);
             common = Some(match common {
                 None => found.clone(),
-                Some(common) => common.intersection(found).copied().collect(),
+                Some(common) => common
+                    .into_iter()
+                    .filter_map(|(blocker, entities)| {
+                        let both: BTreeSet<&'a str> = entities
+                            .intersection(found.get(&blocker)?)
+                            .copied()
+                            .collect();
+                        (!both.is_empty()).then_some((blocker, both))
+                    })
+                    .collect(),
             });
         }
-        let mut blockers: Vec<Blocker<'a>> = common.unwrap_or_default().into_iter().collect();
-        if blockers.is_empty() {
+        let mut groups: Vec<(Blocker<'a>, BTreeSet<&'a str>)> =
+            common.unwrap_or_default().into_iter().collect();
+        if groups.is_empty() {
             return String::new();
         }
-        blockers.sort_by(|a, b| (id_order(a.holder), a.by).cmp(&(id_order(b.holder), b.by)));
-        let listed: Vec<String> = blockers
+        groups
+            .sort_by(|(a, _), (b, _)| (id_order(a.holder), a.by).cmp(&(id_order(b.holder), b.by)));
+        let listed: Vec<String> = groups
             .iter()
-            .map(|b| format!("{} ({})", b.holder, b.by))
+            .map(|(b, entities)| format!("{} ({}: {})", b.holder, b.by, names(entities)))
             .collect();
         format!(
             "; every run named here is also refused by the verdicts owed on {}, outside its scope or of a judge it \

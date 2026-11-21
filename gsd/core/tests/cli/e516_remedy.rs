@@ -1,7 +1,10 @@
 //! The prompt an E516 refusal names, run on the subject it names, is not refused by that verdict and runs the judge
 //! that records it again: for a missing verdict (the plan checks of a draft plan), for a stale one held in another
-//! phase, and for two judges' verdicts held in two phases, where each named run is refused by the other's verdict and
-//! the refusal names it and the gate-free `record-verdict`, on the taskboard twin under gsd-strict.
+//! phase, and for two judges' verdicts held in two phases, where each named run is refused by the other's verdicts and
+//! the refusal names the entities that owe them and the gate-free `record-verdict`, on the taskboard twin under
+//! gsd-strict.
+
+use serde_json::Value;
 
 use super::commands_support::{strict, twin};
 use super::harness::Project;
@@ -16,8 +19,8 @@ const VERIFIED: &str = "v1.0/01";
 const PLAN: &str = "v1.0/02/02-01";
 /// The rules the plan checker judges on an open plan.
 const PLAN_CHECKS: [&str; 4] = ["W311", "W313", "W315", "W316"];
-/// The words that open the tail naming the verdicts that refuse every named run.
-const TAIL: &str = "is also refused by the verdicts owed on";
+/// The words that open every tail naming the verdicts that refuse every named run.
+const TAIL: &str = "is also refused by the verdicts owed";
 
 /// The `(prompt id, subject)` of every `specforge prompt gsd.<id> <subject>` a suggestion names.
 fn named(suggestion: &str) -> Vec<(String, String)> {
@@ -67,6 +70,29 @@ fn rejudges(p: &Project, id: &str, subject: &str, judge: &str) {
 /// The phase that scopes an entity id (`v1.0/02/02-01` and `v1.0/02/02-01/TR1` are in `v1.0/02`).
 fn phase_of(entity: &str) -> String {
     entity.split('/').take(2).collect::<Vec<_>>().join("/")
+}
+
+/// The entities whose verifier verdicts a `re-verify --stale-only` `answer` lists, each once, in its order, every item
+/// `stale`.
+fn stale_listed(answer: &Value) -> Vec<String> {
+    let mut entities: Vec<String> = Vec::new();
+    for item in answer["items"].as_array().expect("re-verify lists items") {
+        assert_eq!(item["state"], "stale", "{item}");
+        let entity = item["entity"].as_str().expect("an entity").to_string();
+        if !entities.contains(&entity) {
+            entities.push(entity);
+        }
+    }
+    entities
+}
+
+/// The entities a tail group names, each quoted as the message quotes its own.
+fn quoted(entities: &[String]) -> String {
+    entities
+        .iter()
+        .map(|e| format!("'{e}'"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// The entity a message names (`the gsd/W311 verdict on 'v1.0/02/02-01' is missing`).
@@ -182,8 +208,14 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
             [("execute_phase".to_string(), VERIFIED.to_string())],
             "{suggestion}"
         );
+        // The open plan owes four plan checks and is named once.
         assert!(
-            suggestion.contains(&format!("{TAIL} {PHASE} (gsd-plan-checker)")),
+            suggestion.contains(&format!("{TAIL} on {PHASE} (gsd-plan-checker: '{PLAN}')")),
+            "{suggestion}"
+        );
+        assert_eq!(
+            suggestion.matches(&format!("'{PLAN}'")).count(),
+            1,
             "{suggestion}"
         );
         assert!(
@@ -191,7 +223,21 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
             "{suggestion}"
         );
     }
-    // execute_phase on the executed phase excuses its verifier verdicts; the open plan's checks refuse it.
+    // execute_phase on the executed phase excuses its verifier verdicts; the open plan's checks refuse it. The
+    // stale must-haves the edit left in the executed phase are those re-verify lists.
+    let stale = stale_listed(&p.re_verify(VERIFIED, true));
+    assert_eq!(
+        stale,
+        [
+            "v1.0/01/01-01/AR1",
+            "v1.0/01/01-01/KL1",
+            "v1.0/01/01-01/TR1",
+            "v1.0/01/01-02/KL1",
+            "v1.0/01/01-02/TR1",
+            "v1.0/01/01-02/TR2",
+        ]
+    );
+    let owed = format!("{TAIL} on {VERIFIED} (gsd-verifier: {})", quoted(&stale));
     let found = e516_suggestions(&p, "execute_phase", &[VERIFIED]);
     assert_eq!(found.len(), PLAN_CHECKS.len(), "{found:?}");
     for (message, suggestion) in &found {
@@ -204,8 +250,9 @@ fn verdicts_of_two_judges_in_two_phases_name_each_other_and_the_gate_free_route(
             [("plan_phase", PHASE), ("plan_review_convergence", PHASE)],
             "{suggestion}"
         );
+        assert!(suggestion.contains(&owed), "{suggestion}");
         assert!(
-            suggestion.contains(&format!("{TAIL} {VERIFIED} (gsd-verifier)")),
+            suggestion.contains(&format!("'{VERIFIED}/01-01/TR1'")),
             "{suggestion}"
         );
     }
