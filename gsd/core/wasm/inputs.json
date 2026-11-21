@@ -1,6 +1,6 @@
 {
   "artifact": "gsd_core.wasm",
-  "artifact_sha256": "994eca178099bf7219e881a5e1aab13ceab5936a52d6de613e13eccc8d953fce",
+  "artifact_sha256": "e592449d107695ba4ea770c0f8c5ca4454c9b7e7baf62a3cbb2134700b9ca893",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -491,7 +491,7 @@
     "gsd/core/src/passes/fails_when.rs": "07023030831ddf8f3f7773ae79cb19e4404eb721468575ab92f0fbf9ea16cc8c",
     "gsd/core/src/passes/file_scope.rs": "d1dffbc91ac4a03088c801493db76448f4d35b62c2cf40d39b4058b30adfa001",
     "gsd/core/src/passes/gates.rs": "b7232e5f078d357c7ad12d4a5ac12b898555e8f5d207024470f26182a2a1b81a",
-    "gsd/core/src/passes/gates/e516.rs": "b531ae078d4038eec30783e30578110772f5dd680aa44d46658a0bea226bb77b",
+    "gsd/core/src/passes/gates/e516.rs": "95475752f00cd265d9b2358cef1088bcd61bc5a577606ab4a1e3985eb20c30bd",
     "gsd/core/src/passes/mod.rs": "ce6b6921a5de350f17eaf13d7afcf4e4653d122e5548327689487d9a93c6d2d5",
     "gsd/core/src/passes/nyquist.rs": "4e7c5c01988561f121ff449c6e0ce1ee8c6bf34ef6e7e4714fbde658b03f98e8",
     "gsd/core/src/passes/plan_shape.rs": "a4d08d1052633e254c82dfd5c443f786be9b4081e76434f984ece4ae6db4bb4e",
