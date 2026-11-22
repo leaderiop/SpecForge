@@ -175,6 +175,27 @@ fn a_context_route_over_loaded_kinds_is_registered_with_its_sections_in_order() 
 }
 
 #[spec(requirement = "FEATURE-012")]
+fn a_route_of_core_sections_only_is_registered_without_an_allowance() {
+    let build = build([
+        proof(),
+        work(|c| {
+            c.context("checker", |r| {
+                r.subject("plan")
+                    .core("plan", "self")
+                    .core("tasks", "self<task.plan");
+            });
+        }),
+    ]);
+    assert!(
+        coded(&build, "E123").is_empty(),
+        "{:?}",
+        coded(&build, "E123")
+    );
+    let route = build.contexts().named("work/checker").expect("registered");
+    assert_eq!(route.budget, 0);
+}
+
+#[spec(requirement = "FEATURE-012")]
 fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
     type Declare = fn(&mut ContributionsBuilder);
     let cases: &[(&str, &str, Declare)] = &[
@@ -183,11 +204,17 @@ fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
                 r.subject("plan").budget(10).core("plan", "self");
             });
         }),
-        ("r", "a context route's budget is a positive number", |c| {
-            c.context("r", |r| {
-                r.subject("plan").core("plan", "self");
-            });
-        }),
+        (
+            "r",
+            "a context route with an enrich section allows it a positive number",
+            |c| {
+                c.context("r", |r| {
+                    r.subject("plan")
+                        .core("plan", "self")
+                        .enrich("more", "self");
+                });
+            },
+        ),
         ("r", "at least one core section", |c| {
             c.context("r", |r| {
                 r.subject("plan").budget(10).enrich("plan", "self");

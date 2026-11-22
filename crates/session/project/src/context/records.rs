@@ -1,10 +1,12 @@
-//! The records a context route keeps of its pack (ADR 0356 D12): on each check, every record of a route with a stale
-//! code, when its field's owner gate admits it, is evaluated again at its recorded budget. A pack whose digest moved,
-//! a record with no subject or several, or a core above its budget is one finding of the route's stale code at the
-//! field, with the record's suggestion. A project that holds no record evaluates no pack.
+//! The records a context route keeps of its pack (ADR 0356 D12, ADR 0386): on each check, every record of a route with
+//! a stale code, when its field's owner gate admits it, is evaluated again under its recorded cap, the cap its pack was
+//! fitted to. A pack whose digest moved, a record with no subject or several, or a core above its cap is one finding
+//! of the route's stale code at the field, with the record's suggestion. A project that holds no record evaluates no
+//! pack.
 
 use specforge_common::{Diagnostic, DiagnosticData, Severity};
 use specforge_diagnostics::{CodeRef, Level, letter_level};
+use specforge_emitter::pack::Budget;
 use specforge_emitter::{EmitFormat, EmitterError, generate_schema};
 use specforge_protocol_types::OwnerState;
 use specforge_registry::{ContextRecord, ContextRoute, EntityRecord, FieldRecord};
@@ -12,7 +14,7 @@ use specforge_registry::{ContextRecord, ContextRoute, EntityRecord, FieldRecord}
 use super::{Over, pack_over};
 use crate::select::Selection;
 
-/// A held record: the field written, the route it names, the digest and the budget it recorded.
+/// A held record: the field written, the route it names, the digest and the cap it recorded.
 struct Held<'a> {
     field: &'a FieldRecord,
     route: &'a str,
@@ -90,7 +92,7 @@ pub(crate) fn stale(over: &Over<'_>) -> Vec<Diagnostic> {
                         over,
                         route,
                         &subject,
-                        held.budget,
+                        Budget::Cap(held.budget),
                         EmitFormat::Context,
                         schema,
                     ) {

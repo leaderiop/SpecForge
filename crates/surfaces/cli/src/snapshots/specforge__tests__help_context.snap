@@ -2,7 +2,7 @@
 source: crates/surfaces/cli/src/main.rs
 expression: command.clone().render_long_help().to_string()
 ---
-Read the context a route of an extension declares for one entity: its sections fitted to a token budget in declared order, with a digest
+Read the context a route of an extension declares for one entity: its core sections whole, then its enrich sections in declared order within the route's allowance, with a digest
 
 Usage: specforge context [OPTIONS] <ROUTE> <SUBJECT>
 
@@ -15,7 +15,7 @@ Arguments:
 
 Options:
       --max-tokens <MAX_TOKENS>
-          Token budget for the pack (default: the route's own). The subject and the core sections are never cut, and a budget below them fails (E062); enrich sections are served whole in declared order, the first that does not fit keeps its most connected entities that fit, and the pack lists what was cut under `budget`
+          A cap on the whole pack. Without one, the subject and the core sections are served whole whatever they cost, and enrich sections fill the route's allowance beyond them; a cap below the core fails (E062). Enrich sections are served whole in declared order, the first that does not fit keeps its most connected entities that fit, and the pack lists what was cut, and the cap it was fitted to, under `budget`
 
       --format <FORMAT>
           Format of the pack's graph
@@ -28,7 +28,7 @@ Options:
           [default: context]
 
       --record <ENTITY>
-          Record the pack on ENTITY, a kind the route records whose subject is <SUBJECT>: the host writes the route, the pack's digest and its budget, with its ledger line, then prints the pack it recorded (in the context format, which a record is fitted in)
+          Record the pack on ENTITY, a kind the route records whose subject is <SUBJECT>: the host writes the route, the pack's digest and the cap it was fitted to, with its ledger line, then prints the pack it recorded (in the context format, which a record is fitted in)
 
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)

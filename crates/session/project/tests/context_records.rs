@@ -1,12 +1,13 @@
 //! The records a context route keeps of its pack (ADR 0356 D12): the GSD-shaped executor route records the plan's
 //! `context_pack` and raises `gsd/W910` when the pack it recorded has moved, when it reaches no subject or several, or
-//! when its core outgrew the recorded budget; the plan's owner gate decides when it is checked, and a check evaluates
+//! when its core outgrew the recorded cap; the plan's owner gate decides when it is checked, and a check evaluates
 //! one pack per record and none without one.
 
 use std::sync::Arc;
 
 use serde_json::json;
 use specforge_common::{Diagnostic, DiagnosticData, Severity};
+use specforge_emitter::pack::Budget;
 use specforge_emitter::{EmitFormat, generate_schema};
 use specforge_project::context::{pack, testing::packs_evaluated};
 use specforge_project::testing::{
@@ -55,7 +56,7 @@ fn runtime(complete: &[&str]) -> SharedRuntime {
     Arc::new(runtime)
 }
 
-/// The digest the executor's pack of the plan has at `budget` in `project`.
+/// The digest the executor's pack of the plan has under the cap `budget` in `project`.
 fn digest_at(project: &TestProject, budget: usize) -> String {
     let compiled = project.compile_in(runtime(&[]));
     let route = compiled
@@ -70,7 +71,7 @@ fn digest_at(project: &TestProject, budget: usize) -> String {
         &PlainDisk,
         route,
         CONTEXT_PLAN,
-        budget,
+        Budget::Cap(budget),
         EmitFormat::Context,
         &schema,
     )

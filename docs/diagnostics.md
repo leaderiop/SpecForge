@@ -780,7 +780,7 @@ Level: error
 ## E062
 
 ```
-E062: Token budget too small for the export
+E062: Token budget too small for the export or the context pack
 
 `specforge export --max-tokens` (or the MCP `export` tool's `max_tokens`) keeps
 the most central entities that fit the budget, but some of the export never
@@ -788,7 +788,14 @@ shrinks: the envelope (`format_version`, `schema_version`), the `token_budget`
 block listing the dropped entity IDs, and, with `--with-schema`, the embedded
 schema, which is never cut short, and, in a scoped export (`--scope`), the
 scope's own entity. The budget is below that fixed part, so no export fits.
-Raise the budget, or drop `--with-schema` when the schema alone is over it.
+Raise the budget, or drop `--with-schema` when the schema alone is over it. A
+context pack (`specforge context`, the MCP `specforge.context` tool or the
+`role` of `specforge://context/{+entity_id}`, an edit plan's `record_context`)
+always serves its subject and its route's core sections whole, and a read that
+states no cap fills the route's allowance of enrich sections beyond them, so it
+is never refused for its size. Only a cap the read states (`--max-tokens`,
+`max_tokens`) below that core is E062, naming the route: raise the cap, or state
+none (ADR 0386).
 
 Owner: core
 Level: error

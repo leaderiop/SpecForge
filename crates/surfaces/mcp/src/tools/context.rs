@@ -16,7 +16,8 @@ pub struct Args {
     route: String,
     /// The entity to read it for: one of the route's subject kind
     subject: String,
-    /// The token budget (default: the route's own); the subject and the core sections are never cut
+    /// A cap on the whole pack, refused below the subject and the core sections; without one they are served whole and
+    /// enrich sections fill the route's allowance
     max_tokens: Option<usize>,
     /// Format of the pack's graph
     #[arg(choice = specforge_ops::read::context::PACK_FORMAT)]
@@ -37,7 +38,7 @@ impl ArgumentOf<ContextField> for Tool {
 
 impl CoreTool for Tool {
     const NAME: &'static str = "specforge.context";
-    const DESCRIPTION: &'static str = "Read the context a route declares for one entity: its sections in declared order under a token budget, with a digest";
+    const DESCRIPTION: &'static str = "Read the context a route declares for one entity: its core sections whole, then its enrich sections in declared order within the route's allowance, with a digest";
     const EFFECT: Effect = Effect::Reads {
         group: ToolGroup::Core,
     };

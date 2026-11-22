@@ -1,5 +1,6 @@
 //! The context routes an extension declares (protocol 2.1.0, ADR 0356): for one entity of a subject kind, the ordered
-//! sections a role reads, each a named selector, cut to a token budget in declared order.
+//! sections a role reads, each a named selector: the core whole, the enrich sections in declared order within the
+//! route's allowance (ADR 0386).
 
 use serde::{Deserialize, Serialize};
 
@@ -19,9 +20,10 @@ pub struct ContextDescriptor {
     /// The extension's own agent that reads it: the host appends a Context section to its body.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent: Option<String>,
-    /// The token budget a read takes when it names none; positive.
+    /// The enrich allowance, positive: the tokens of enrich sections a read that states no cap serves beyond its floor
+    /// (the subject and the core sections, served whole whatever they cost).
     pub budget: u32,
-    /// The sections, in the order a budget serves them.
+    /// The sections, in the order they are served.
     pub sections: Vec<ContextSectionDescriptor>,
     /// Settings of the extension's own whose values the pack carries.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -59,14 +61,14 @@ pub struct ContextSectionDescriptor {
     pub tier: ContextTier,
 }
 
-/// Whether a budget may cut a section.
+/// Whether a section is the floor of a pack or fills what is left.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ContextTier {
-    /// Never cut: a budget below the core sections is refused.
+    /// Never cut: served whole; a stated cap below the core sections is refused.
     #[default]
     Core,
-    /// Served whole while it fits, in declared order.
+    /// Served whole while it fits the allowance or the stated cap, in declared order.
     Enrich,
 }
 
