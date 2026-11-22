@@ -16,6 +16,9 @@ converter and its id map) and [ADR 0373](0373-gsd-core-is-vendored-on-a-pinned-r
 (the vendored blob the root now loads). No protocol, SDK, host-rule or attribute-grammar change comes with this
 decision.
 
+D5 amended by [ADR 0388](0388-x2-is-the-share-of-test-ids-a-standard-report-saw.md): the dogfood check also prints
+X2 for SpecForge, taskboard and ledger.
+
 ## Context
 
 **What the swap moves.** This repository's own spec, `spec/` and `specforge.json`, was written in the old
