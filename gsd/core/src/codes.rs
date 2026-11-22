@@ -43,6 +43,9 @@ pub struct Code {
     pub severity: Severity,
     /// The severity under `gsd-strict` and `gsd-plus`; never below `severity`.
     pub strict: Severity,
+    /// A later step of the authoring settles the code's finding (ADR 0385): an edit that creates the entity it names,
+    /// or one under it, reports the finding and is not refused for it.
+    pub settled_later: bool,
 }
 
 impl Code {
@@ -52,7 +55,25 @@ impl Code {
         } else {
             format!(", and {} under gsd-strict", self.strict.noun())
         };
-        format!("{}. It is {}{raised}.", self.rule, self.severity.noun())
+        let settled = if self.settled_later {
+            " A later step of the authoring settles it: an edit that creates the entity it names, or one under that \
+             entity, reports the finding and is not refused for it."
+        } else {
+            ""
+        };
+        format!(
+            "{}. It is {}{raised}.{settled}",
+            self.rule,
+            self.severity.noun()
+        )
+    }
+
+    /// The code as one a later step of the authoring settles.
+    const fn settled_later(self) -> Code {
+        Code {
+            settled_later: true,
+            ..self
+        }
     }
 
     fn docs(&self) -> String {
@@ -79,6 +100,7 @@ const fn code(
         section,
         severity,
         strict,
+        settled_later: false,
     }
 }
 
@@ -179,7 +201,8 @@ pub static CODES: &[Code] = &[
         "discuss-spec-research",
         Severity::Warning,
         Severity::Error,
-    ),
+    )
+    .settled_later(),
     code(
         "W205",
         "Package without a legitimacy verdict",
@@ -203,7 +226,8 @@ pub static CODES: &[Code] = &[
         "plan",
         Severity::Error,
         Severity::Error,
-    ),
+    )
+    .settled_later(),
     code(
         "E302",
         "Plan names no requirement",
@@ -267,7 +291,8 @@ pub static CODES: &[Code] = &[
         "plan",
         Severity::Warning,
         Severity::Error,
-    ),
+    )
+    .settled_later(),
     code(
         "E310",
         "Context decision cited by no plan",
@@ -275,7 +300,8 @@ pub static CODES: &[Code] = &[
         "plan",
         Severity::Error,
         Severity::Error,
-    ),
+    )
+    .settled_later(),
     code(
         "W311",
         "Plan does not achieve its phase goal",
@@ -668,6 +694,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
             d.title(k.title)
                 .explanation(&k.explanation())
                 .docs(&k.docs());
+            if k.settled_later {
+                d.settled_later();
+            }
         });
     }
 }

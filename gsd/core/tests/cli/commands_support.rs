@@ -125,6 +125,27 @@ pub fn refused(run: &Run, code: &str, words: &[&str]) {
     }
 }
 
+/// What `specforge check` says of `code` (qualified, `gsd/W309`): whether the check failed, and the `(severity,
+/// entity)` of each of its diagnostics, in report order. A settled-later finding a write reports stays in the project
+/// until the step that settles it is written (ADR 0385), so the check reads it.
+pub fn checked(p: &Project, code: &str) -> (bool, Vec<(String, String)>) {
+    let failed = p.run(&["check"]).code != 0;
+    let run = p.run(&["check", "--format", "json"]);
+    let found: serde_json::Value = serde_json::from_str(&run.stdout)
+        .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
+    let rows = found
+        .as_array()
+        .expect("a list of diagnostics")
+        .iter()
+        .filter(|d| d["code"] == code)
+        .map(|d| {
+            let text = |v: &serde_json::Value| v.as_str().unwrap_or_default().to_string();
+            (text(&d["severity"]), text(&d["data"]["entity"]))
+        })
+        .collect();
+    (failed, rows)
+}
+
 /// The taskboard twin.
 pub fn twin() -> Project {
     taskboard()

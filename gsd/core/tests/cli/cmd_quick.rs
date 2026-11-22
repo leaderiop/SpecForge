@@ -236,13 +236,13 @@ fn a_taken_batch_id_or_a_phase_plan_is_refused() {
     super::commands_support::unchanged(&p, &before);
 }
 
-/// Quick's mint (the init step of `workflows/quick.md`) writes the plan before its must-haves exist: accepted under
-/// gsd-compat; under gsd-strict a plan with no truth and no artifact is `gsd/W309`, raised to an error that E080
-/// counts, so the mint is refused and writes nothing. It pins a limit ADR 0384 names; it flips when a rule a later
-/// step of the same workflow settles may wait.
+/// Quick's mint (the init step of `workflows/quick.md`) writes the plan before its must-haves exist, and its planner
+/// adds them later: a plan with no truth and no artifact is `gsd/W309`, settled later (ADR 0385), so the mint is
+/// accepted under gsd-compat and under gsd-strict alike. Under gsd-strict the finding is an error the mint reports and
+/// `check` fails on, until the planner writes the plan's must-haves.
 #[test]
-fn a_quick_plan_minted_without_must_haves_is_refused_under_strict_only() {
-    use super::commands_support::{refused, strict, twin};
+fn a_quick_plan_minted_without_must_haves_is_accepted_and_its_finding_reported_under_strict() {
+    use super::commands_support::{checked, strict, twin};
     let mint = "specforge new --in spec/quick.spec --field type=execute --field files_modified= \
                 --field \"objective=$DESCRIPTION\" --field \"slug=$slug\" -- plan \"$quick_id\" \"$title\"";
     assert!(
@@ -268,13 +268,21 @@ fn a_quick_plan_minted_without_must_haves_is_refused_under_strict_only() {
     ];
     let minted =
         |p: &crate::harness::Project| p.nodes_of("plan").iter().any(|n| n["id"] == "261121-abc");
-    let compat = twin();
-    let run = compat.run(&args);
-    assert_eq!(run.code, 0, "{}", run.all());
-    assert!(minted(&compat));
-    let p = twin();
-    strict(&p);
-    let run = p.run(&args);
-    refused(&run, "E080", &["gsd/W309", "nothing was written"]);
-    assert!(!minted(&p));
+    for (profile, severity) in [("gsd-compat", "Warning"), ("gsd-strict", "Error")] {
+        let p = twin();
+        if profile == "gsd-strict" {
+            strict(&p);
+        }
+        let run = p.run(&args);
+        assert_eq!(run.code, 0, "{profile}: {}", run.all());
+        assert!(minted(&p), "{profile}");
+        assert!(run.all().contains("gsd/W309"), "{profile}: {}", run.all());
+        let (failed, found) = checked(&p, "gsd/W309");
+        assert_eq!(
+            found,
+            [(severity.to_string(), "261121-abc".to_string())],
+            "{profile}"
+        );
+        assert_eq!(failed, profile == "gsd-strict", "{profile}");
+    }
 }

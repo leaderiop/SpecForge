@@ -1,10 +1,11 @@
 //! The discuss and project researchers' reads, run as the agents hold them under bash with only `specforge`: each
 //! names its context pack, and the analyzer's search and anchors find the earlier phases' work; and the route of an
-//! open question gsd-strict refuses, from the phase researcher through the planner to the user's answer.
+//! open question, recorded open by the phase researcher and resolved later by the user's answer (ADR 0385).
 
 use super::{Shell, asset, block, line, span, typed};
-use crate::commands_support::{refused, strict};
+use crate::commands_support::{checked, refused, strict};
 use crate::harness::{Project, Run, taskboard};
+use crate::prompts_gates::{not_refused_by, refused_by};
 
 /// The command of the code span in agent `name` that starts with `prefix`, its placeholder (from the first `<` or
 /// `"` on: `<phase>`, `"$PHASE_ID"`, `"<goal terms>"`) replaced by `subject`.
@@ -152,59 +153,13 @@ fn record_question(p: &Project, file: &str, extra: &[&str]) -> Run {
     p.run(&args)
 }
 
-/// The refusal the live run met at research and its return path. Under gsd-strict an open question no decision
-/// resolves is refused (E080 with gsd/W204) and nothing is written; with the decision that resolves it the same write
-/// is accepted and the question reads back exactly; under gsd-compat it is accepted with a gsd/W204 warning. So the
-/// phase researcher returns such a question under `### Open Questions` instead of dropping it, plan-phase shows it and
-/// hands it to the planner, and quick's and quick-batch's research steps hand it on the same way; the user answers it
-/// after the planner (the tests below).
+/// An open question no decision resolves is `gsd/W204`, settled later (ADR 0385): the researcher records it open, in
+/// every profile. Under gsd-strict the write reports it as an error, `check` fails on it, and the plan-phase entry gate
+/// refuses the next run on the phase; the user's answer, recorded as a decision and set as the question's
+/// `resolved_by`, settles it and adds nothing. Unsetting that `resolved_by` again creates nothing, so it is refused
+/// (E080 with gsd/W204) and changes nothing. Under gsd-compat the question is a warning.
 #[test]
-fn an_open_question_strict_refuses_is_returned_not_dropped() {
-    let researcher = asset("agents/gsd-phase-researcher.md");
-    assert!(
-        researcher.contains("specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].file'"),
-        "the researcher reads its phase file as this test does"
-    );
-    let rule = block(
-        &researcher,
-        "4. **One item per call.**",
-        "5. **If a call is still refused",
-    )
-    .split_whitespace()
-    .collect::<Vec<_>>()
-    .join(" ");
-    for words in [
-        "`gsd/W204`",
-        "### Open Questions",
-        "what is known, what is unclear",
-        "send it again without the refused question",
-    ] {
-        assert!(
-            rule.contains(words),
-            "the researcher's rule 4 lacks {words}:\n{rule}"
-        );
-    }
-    let template = block(&researcher, "### Open Questions", "### Ready for Planning");
-    assert!(template.contains("gsd/W204"), "{template}");
-    let plan_phase = asset("gsd-core/workflows/plan-phase.md");
-    let handle = block(
-        &plan_phase,
-        "### Handle Researcher Return",
-        "<!-- gsd:section id=\"research-only-early-exit\"",
-    );
-    assert!(handle.contains("### Open Questions"), "{handle}");
-    let context = block(&plan_phase, "<planning_context>", "</planning_context>");
-    assert!(
-        context.contains("**Open questions the research returned:**"),
-        "{context}"
-    );
-    for step in [
-        "gsd-core/workflows/quick/steps/research-phase.md",
-        "gsd-core/workflows/quick-batch/steps/research-phase.md",
-    ] {
-        assert!(asset(step).contains("### Open Questions"), "{step}");
-    }
-
+fn an_open_question_is_recorded_open_and_its_answer_resolves_it_later() {
     let id = "v1.0/02/02-RESEARCH/OQ2";
     let held = |p: &Project| {
         p.nodes_of("open_question")
@@ -214,20 +169,50 @@ fn an_open_question_strict_refuses_is_returned_not_dropped() {
     let p = taskboard();
     strict(&p);
     let file = phase_file(&p);
-    let kept = p.read(&file);
     let run = record_question(&p, &file, &[]);
-    refused(&run, "E080", &["gsd/W204", "nothing was written"]);
-    assert!(!held(&p), "a refused question was written");
-    assert_eq!(p.read(&file), kept, "the refused run changed {file}");
-    let run = record_question(&p, &file, &["--resolved_by", "D-02"]);
     assert_eq!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("gsd/W204"), "{}", run.all());
     assert!(held(&p));
     assert_eq!(p.fields_of(id)["question"], QUESTION);
+    assert_eq!(
+        checked(&p, "gsd/W204"),
+        (true, vec![("Error".to_string(), id.to_string())])
+    );
+    refused_by(&p, "plan_phase", &["v1.0/02"], "W204");
+
+    let decided = p.run(&[
+        "new",
+        "decision",
+        "D-04",
+        ANSWER,
+        "--in",
+        &file,
+        "--phase",
+        "v1.0/02",
+        "--text",
+        ANSWER,
+        "--origin",
+        "checkpoint",
+    ]);
+    assert_eq!(decided.code, 0, "{}", decided.all());
+    let set = p.run(&["set", id, "resolved_by", "D-04"]);
+    assert_eq!(set.code, 0, "{}", set.all());
+    assert_eq!(checked(&p, "gsd/W204").1, Vec::new());
+    not_refused_by(&p, "plan_phase", &["v1.0/02"], "W204");
+
+    let kept = p.read(&file);
+    let unset = p.run(&["unset", id, "resolved_by"]);
+    refused(&unset, "E080", &["gsd/W204", "nothing was written"]);
+    assert_eq!(p.read(&file), kept, "the refused unset changed {file}");
 
     let p = taskboard();
     let run = record_question(&p, &phase_file(&p), &[]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("gsd/W204"), "{}", run.all());
+    assert_eq!(
+        checked(&p, "gsd/W204").1,
+        [("Warning".to_string(), id.to_string())]
+    );
 }
 
 /// The user's answer to [`QUESTION`].
@@ -256,9 +241,8 @@ fn answered(
     )
 }
 
-/// Runs `fence` under gsd-strict on `p`: first without its decision (the decision line and the question's
-/// `--resolved_by`), which is refused gsd/W204 and writes nothing, then whole, which records the user's answer as
-/// decision `decision` and the question `question` resolved by it, adding no code.
+/// Runs `fence` under gsd-strict on `p`: it records the user's answer as decision `decision` and the question
+/// `question` resolved by it, adding no code.
 fn records_the_answer_then_the_question(
     sh: &Shell,
     p: &Project,
@@ -266,27 +250,6 @@ fn records_the_answer_then_the_question(
     decision: &str,
     question: &str,
 ) {
-    let alone: String = fence
-        .lines()
-        .filter(|l| !l.starts_with("specforge new decision "))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .replace(" --resolved_by \"$DECISION_ID\"", "");
-    assert_ne!(alone, fence, "the fence records a decision");
-    let refused = typed::apply(sh, p, &alone);
-    assert_ne!(refused.code, 0, "{}{}", refused.out, refused.err);
-    assert!(
-        refused.err.contains("gsd/W204") || refused.out.contains("gsd/W204"),
-        "{}{}",
-        refused.out,
-        refused.err
-    );
-    assert!(
-        p.nodes_of("open_question")
-            .iter()
-            .all(|n| n["id"] != question)
-    );
-
     let applied = typed::apply(sh, p, fence);
     assert_eq!(applied.code, 0, "{}{}", applied.out, applied.err);
     assert!(applied.added.is_empty(), "{:?}", applied.added);
@@ -364,10 +327,11 @@ fn plan_phase_records_the_users_answer_then_the_question() {
     );
 }
 
-/// The quick plan `261121-abc` with its research, minted as quick's init step and research step write them, under
-/// gsd-compat (gsd-strict refuses the mint: ADR 0384's Limits), then the project set to gsd-strict.
+/// The quick plan `261121-abc` with its research, minted under gsd-strict as quick's init step and research step write
+/// them (the mint reports `gsd/W309`, settled later by the planner).
 fn quick_with_research() -> Project {
     let p = taskboard();
+    strict(&p);
     for args in [
         &[
             "new",
@@ -406,7 +370,6 @@ fn quick_with_research() -> Project {
         let run = p.run(args);
         assert_eq!(run.code, 0, "{}", run.all());
     }
-    strict(&p);
     p
 }
 

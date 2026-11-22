@@ -1,11 +1,11 @@
 //! The planner's plan edit: the `json` fence of its `<plan_format>`, filled and sent as one MCP `specforge.edit` call
 //! on the taskboard twin's planless phase v1.0/03 (requirements TASK-03 and LIST-01) under gsd-compat and gsd-strict,
-//! and the refusals of the plan-by-plan route it replaces.
+//! and the plan-by-plan route beside it, whose findings a later plan settles (ADR 0385).
 
 use serde_json::{Value, json};
 
 use super::{Shell, asset, block, line, mcp_edit, span, typed};
-use crate::commands_support::{refused, strict};
+use crate::commands_support::{checked, refused, strict};
 use crate::harness::{Project, is_judged, taskboard};
 
 /// The planner's body.
@@ -247,8 +247,10 @@ fn owed(p: &Project, prefix: &str) -> Vec<(String, String, String)> {
 /// The two plan files the edit writes.
 const FILES: [&str; 2] = ["spec/plans/03-01.spec", "spec/plans/03-02.spec"];
 
-/// On the planless phase, under gsd-compat and under gsd-strict, the plan edit with 03-02's requirements emptied is
-/// refused whole (`gsd/E301`) and writes no file; the edit as filled is accepted in one call, writes both plans with
+/// On the planless phase, under gsd-compat and under gsd-strict, the plan edit with 03-02 naming TASK-03 in place of
+/// LIST-01 is written and reports `gsd/E301` (LIST-01 is in no plan of the phase), which `check` fails on: the finding
+/// is settled later (ADR 0385), by the plan that holds LIST-01. With 03-02 naming no requirement it is refused whole
+/// (`gsd/E302`, which no later step settles) and writes no file. The edit as filled is accepted in one call, writes both plans with
 /// their task, truth, artifact and key link (and 03-02's checkpoint, prohibition and user setup step), reads the task
 /// action back exactly and adds no code outside the judged rules. It leaves each plan owing exactly the plan checker's
 /// four judged findings (`gsd/W311`, `gsd/W313`, `gsd/W315`: errors under gsd-strict, warnings under gsd-compat;
@@ -263,17 +265,43 @@ fn the_planner_writes_a_phase_in_one_edit() {
         }
         let before = p.codes();
         assert_eq!(owed(&p, "v1.0/03/"), Vec::new(), "{profile}");
+        let uncovered = taskboard();
+        if profile == "gsd-strict" {
+            strict(&uncovered);
+        }
         let mut empty = whole_edit();
         op(&mut empty, "plan", "03-02")["fields"]["requirements"] = json!([]);
-        let refusal = mcp_edit(&p, &empty);
+        let refusal = mcp_edit(&uncovered, &empty);
         assert_eq!(refusal["isError"], true, "{profile}: {refusal}");
         assert!(
-            refusal.to_string().contains("gsd/E301"),
+            refusal.to_string().contains("gsd/E302"),
             "{profile}: {refusal}"
         );
         for file in FILES {
-            assert!(!p.exists(file), "{profile}: a refused edit wrote {file}");
+            assert!(
+                !uncovered.exists(file),
+                "{profile}: a refused edit wrote {file}"
+            );
         }
+        let mut short = whole_edit();
+        op(&mut short, "plan", "03-02")["fields"]["requirements"] = json!(["TASK-03"]);
+        let reported = mcp_edit(&uncovered, &short);
+        assert_ne!(reported["isError"], true, "{profile}: {reported}");
+        assert!(
+            reported.to_string().contains("gsd/E301"),
+            "{profile}: {reported}"
+        );
+        for file in FILES {
+            assert!(
+                uncovered.exists(file),
+                "{profile}: the edit wrote no {file}"
+            );
+        }
+        assert_eq!(
+            checked(&uncovered, "gsd/E301"),
+            (true, vec![("Error".to_string(), "v1.0/03".to_string())]),
+            "{profile}"
+        );
 
         let edit = whole_edit();
         let written = mcp_edit(&p, &edit);
@@ -393,12 +421,13 @@ fn a_dependency_found_later_is_linked() {
     assert_eq!(p.fields_of("v1.0/03/03-02")["depends_on"], json!(["03-01"]));
 }
 
-/// The first line of the plan-by-plan route the planner used to be told is refused in every profile: under gsd-compat
-/// E080 carries `gsd/E301` (LIST-01 is in no plan of the phase) and no `gsd/W309`, under gsd-strict both; nothing is
-/// written, so the phase has no plan and the plan's file does not exist.
+/// A plan written alone by a typed creation, before the phase's other plans, is accepted in every profile: the phase's
+/// coverage (`gsd/E301`: LIST-01 is in no plan of the phase) and, under gsd-strict, the plan's must-haves (`gsd/W309`)
+/// are settled later (ADR 0385), so the write reports them and `check` fails on them until the rest is written. Under
+/// gsd-compat `gsd/W309` is a warning.
 #[test]
-fn a_plan_written_alone_is_refused_and_nothing_is_written() {
-    for profile in ["gsd-compat", "gsd-strict"] {
+fn a_plan_written_alone_is_written_and_reports_what_a_later_write_settles() {
+    for (profile, must_haves) in [("gsd-compat", "Warning"), ("gsd-strict", "Error")] {
         let p = taskboard();
         if profile == "gsd-strict" {
             strict(&p);
@@ -421,19 +450,25 @@ fn a_plan_written_alone_is_refused_and_nothing_is_written() {
             "--objective",
             "List open tasks oldest first",
         ]);
-        refused(&run, "E080", &["gsd/E301", "nothing was written"]);
-        assert_eq!(
-            run.all().contains("gsd/W309"),
-            profile == "gsd-strict",
-            "{profile}: {}",
-            run.all()
-        );
-        let plans = ids(&p, "plan");
+        assert_eq!(run.code, 0, "{profile}: {}", run.all());
+        for code in ["gsd/E301", "gsd/W309"] {
+            assert!(run.all().contains(code), "{profile}: {code}: {}", run.all());
+        }
         assert!(
-            plans.iter().all(|id| !id.starts_with("v1.0/03/")),
-            "{profile}: {plans:?}"
+            ids(&p, "plan").iter().any(|id| id == "v1.0/03/03-01"),
+            "{profile}"
         );
-        assert!(!p.exists("spec/plans/03-01.spec"), "{profile}");
+        assert!(p.exists("spec/plans/03-01.spec"), "{profile}");
+        assert_eq!(
+            checked(&p, "gsd/E301"),
+            (true, vec![("Error".to_string(), "v1.0/03".to_string())]),
+            "{profile}"
+        );
+        assert_eq!(
+            checked(&p, "gsd/W309").1,
+            [(must_haves.to_string(), "v1.0/03/03-01".to_string())],
+            "{profile}"
+        );
     }
 }
 
@@ -469,21 +504,6 @@ fn the_plan_format_is_one_edit_of_the_whole_phase() {
     );
     let rule = line(&body, "- **No hand-written spec:**");
     assert!(rule.contains("`specforge.edit`"), "{rule}");
-}
-
-/// The codes of the diagnostics a refused `specforge.edit` call carries.
-fn refusal_codes(result: &Value) -> Vec<String> {
-    let text = result["content"][0]["text"]
-        .as_str()
-        .expect("the call's text");
-    let body: Value =
-        serde_json::from_str(text).unwrap_or_else(|e| panic!("the refusal is JSON ({e}): {text}"));
-    body["data"]["diagnostics"]
-        .as_array()
-        .unwrap_or_else(|| panic!("no diagnostics in {body}"))
-        .iter()
-        .filter_map(|d| d["code"].as_str().map(str::to_string))
-        .collect()
 }
 
 /// Every other writer of a phase's plans names the plan edit and none points at the planner's typed edits: chunked
@@ -570,45 +590,61 @@ fn every_writer_of_a_phases_plans_names_the_plan_edit() {
     );
 }
 
-/// A whole plan written alone, with its task, truth, artifact and key link (the plan edit's ops of plan 03-01, taken
-/// by their file), is refused `gsd/E301` under gsd-compat and under gsd-strict while LIST-01 is in no plan, and names
-/// no `gsd/W309`, since the plan has its must-haves; nothing is written. It pins a limit ADR 0384 names: chunked mode's
-/// first plan of such a phase cannot be written, whatever its text; it flips when a rule a later step settles may wait.
+/// The plan edit's plans written one at a time, as chunked mode writes them: plan 03-01 alone, with its task, truth,
+/// artifact and key link (the plan edit's ops of plan 03-01, taken by their file), is accepted under gsd-compat and
+/// under gsd-strict while LIST-01 is in no plan; the edit reports `gsd/E301` and no `gsd/W309` (the plan has its
+/// must-haves), and `check` fails on the phase until plan 03-02, written next, holds LIST-01. Deleting 03-02 again is
+/// refused: a delete creates nothing, so the coverage it would break is an error it adds (E080).
 #[test]
-fn a_whole_plan_written_alone_is_refused_while_a_requirement_of_its_phase_is_in_no_plan() {
-    let mut edit = plan_edit();
-    let file = op(&mut edit, "plan", "03-01")["file"].clone();
-    let alone: Vec<Value> = edit
-        .as_array()
-        .expect("a list of edits")
-        .iter()
-        .filter(|e| e["file"] == file)
-        .cloned()
-        .collect();
-    let kinds: Vec<&str> = alone.iter().filter_map(|e| e["kind"].as_str()).collect();
+fn a_phases_plans_written_one_at_a_time_are_each_accepted_and_the_last_settles_coverage() {
+    let edit = plan_edit();
+    let of_plan = |plan: &str| -> Vec<Value> {
+        let mut edit = edit.clone();
+        let file = op(&mut edit, "plan", plan)["file"].clone();
+        edit.as_array()
+            .expect("a list of edits")
+            .iter()
+            .filter(|e| e["file"] == file)
+            .cloned()
+            .collect()
+    };
+    let first = of_plan("03-01");
+    let kinds: Vec<&str> = first.iter().filter_map(|e| e["kind"].as_str()).collect();
     assert_eq!(kinds, ["plan", "task", "truth", "artifact", "key_link"]);
     for profile in ["gsd-compat", "gsd-strict"] {
         let p = taskboard();
         if profile == "gsd-strict" {
             strict(&p);
         }
-        let refusal = mcp_edit(&p, &Value::Array(alone.clone()));
-        assert_eq!(refusal["isError"], true, "{profile}: {refusal}");
-        let codes = refusal_codes(&refusal);
-        assert!(
-            codes.iter().any(|c| c == "gsd/E301"),
-            "{profile}: {codes:?}"
+        let written = mcp_edit(&p, &Value::Array(first.clone()));
+        assert_ne!(written["isError"], true, "{profile}: {written}");
+        let text = written.to_string();
+        assert!(text.contains("gsd/E301"), "{profile}: {text}");
+        assert!(!text.contains("gsd/W309"), "{profile}: {text}");
+        assert!(p.exists(FILES[0]), "{profile}");
+        assert_eq!(
+            checked(&p, "gsd/E301"),
+            (true, vec![("Error".to_string(), "v1.0/03".to_string())]),
+            "{profile}"
         );
+
+        let written = mcp_edit(&p, &Value::Array(of_plan("03-02")));
+        assert_ne!(written["isError"], true, "{profile}: {written}");
         assert!(
-            codes.iter().all(|c| c != "gsd/W309"),
-            "{profile}: {codes:?}"
+            !written.to_string().contains("gsd/E301"),
+            "{profile}: {written}"
         );
-        let plans = ids(&p, "plan");
-        assert!(
-            plans.iter().all(|id| !id.starts_with("v1.0/03/")),
-            "{profile}: {plans:?}"
+        assert_eq!(checked(&p, "gsd/E301").1, Vec::new(), "{profile}");
+
+        let file = p.read(FILES[1]);
+        let deleted = p.run(&["delete", "v1.0/03/03-02"]);
+        refused(&deleted, "E080", &["gsd/E301"]);
+        assert_eq!(
+            p.read(FILES[1]),
+            file,
+            "{profile}: a refused delete changed {}",
+            FILES[1]
         );
-        assert!(!p.exists("spec/plans/03-01.spec"), "{profile}");
     }
 }
 

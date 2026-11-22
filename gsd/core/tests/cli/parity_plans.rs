@@ -206,11 +206,15 @@ pub(super) fn without_decision(p: &Project, name: &str) {
     );
 }
 
+/// The decision each E310 names: the finding is on the phase, and its message names the decision first.
 pub(super) fn e310_ids(p: &Project) -> Vec<String> {
     diagnostics(p)
         .iter()
         .filter(|(c, ..)| c == "gsd/E310")
-        .map(|(_, entity, _)| entity.rsplit('/').next().unwrap_or_default().to_string())
+        .map(|(_, _, message)| {
+            let decision = message.split('\'').nth(1).unwrap_or_default();
+            decision.rsplit('/').next().unwrap_or_default().to_string()
+        })
         .collect()
 }
 
@@ -226,7 +230,7 @@ fn gate_cutover_plan_verdicts_reproduce() {
         ]
     );
 
-    // Decision coverage: the uncovered ids are the E310 entities. The project's plans cite their decisions by id in
+    // Decision coverage: the uncovered ids are the decisions the E310s name. The project's plans cite their decisions by id in
     // their prose, as upstream's fixture does; the verdicts' items are equal.
     let uncovered: Vec<String> = printed("decision-coverage-plan-uncovered")["uncovered"]
         .as_array()

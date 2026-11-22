@@ -66,7 +66,8 @@ fn uncovered_requirements(
 /// E310: every trackable decision of the phase's context, a `decision` with `origin context`, is cited by its id in the
 /// text of one of its plans (`citations::cited_by`): a bare id resolves in the plan's own phase, so another phase's
 /// decision is cited by its path (`01/D-01`) and a paraphrase cites nothing. `settled` plays no part; discretion items
-/// are not decisions.
+/// are not decisions. The finding is on the phase, as E301's is: it judges the phase's plans together, and a plan the
+/// write creates under the phase is the step that settles it (ADR 0385).
 fn uncited_decisions(
     input: &PassInput,
     phase: &PassEntity,
@@ -90,7 +91,7 @@ fn uncited_decisions(
                 name_of(&decision.id),
                 name_of(&decision.id)
             ))
-            .with_entity(&decision.id)
+            .with_entity(&phase.id)
         })
         .collect()
 }

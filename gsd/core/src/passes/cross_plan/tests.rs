@@ -84,9 +84,9 @@ fn decision_input(text: &str, objective: &str, task_action: &str) -> PassInput {
 }
 
 #[test]
-fn an_uncited_context_decision_is_e310_on_the_decision() {
+fn an_uncited_context_decision_is_e310_on_the_phase() {
     let found = check(&decision_input("Log every retry", "Build it", "Write it"));
-    assert_eq!(codes_of(&found), [("E310", Some("v/1/D-03"))]);
+    assert_eq!(codes_of(&found), [("E310", Some("v/1"))]);
     assert_eq!(
         found[0].message,
         "decision 'v/1/D-03' is cited by no plan of phase 'v/1'"
@@ -111,14 +111,14 @@ fn a_decision_is_covered_by_its_id_in_a_plans_text() {
     ] {
         assert_eq!(
             codes_of(&check(&decision_input(text, objective, action))),
-            [("E310", Some("v/1/D-03"))],
+            [("E310", Some("v/1"))],
             "{objective} / {action}"
         );
     }
     // The project's namesake, cited by its rooted path, covers nothing of the phase.
     assert_eq!(
         codes_of(&check(&decision_input(text, "Honour /D-03", "Write it"))),
-        [("E310", Some("v/1/D-03"))]
+        [("E310", Some("v/1"))]
     );
 }
 
@@ -153,7 +153,7 @@ fn phase_two_citing_01_d_01_leaves_its_own_d_01_uncited() {
         ],
         ..Default::default()
     };
-    assert_eq!(codes_of(&check(&input)), [("E310", Some("v1.0/02/D-01"))]);
+    assert_eq!(codes_of(&check(&input)), [("E310", Some("v1.0/02"))]);
     assert!(
         check(&input)[0]
             .suggestion
@@ -300,7 +300,7 @@ fn every_context_decision_is_counted_with_no_supersession() {
             };
             assert_eq!(
                 codes_of(&check(&input)),
-                [("E310", Some("v/1/D-03"))],
+                [("E310", Some("v/1"))],
                 "{origin}, settled {settled}"
             );
         }
