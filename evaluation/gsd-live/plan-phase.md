@@ -143,7 +143,7 @@ The order the prompt prescribes, the thread step before the plan check, is pinne
 | the agents called the phase "Phase 12: Graph Protocol Schema Versioning" while every command said `v1.0.0/03` | the phase entity's own title | logged at the run: not a product defect, the agents echoed the spec; closed since (see Closed since the run) | none at the run | at the run, `grep -n '"Phase 12: ' spec/product/milestones.spec` printed `237:phase 03 "Phase 12: Graph Protocol Schema Versioning" {` and 13 phases of that file carried a "Phase N:" title in a global numbering; the rendered prompt held no "12". At HEAD the grep prints nothing |
 | found reading the same class, not met by the run: chunked mode writes a phase's first plan alone, refused gsd/E301 in every profile when the phase's requirements span plans | chunked planning mode | fixed: since ADR 0385 each plan of a chunked run is written, reporting what a later plan settles; `## PLAN BLOCKED` means a refused call, and a run stopped midway leaves a half-planned phase that `execute_phase` refuses | `85ed24dfd` (above); `63715598f` fix(gsd): chunked mode reads a blocked plan as blocked, and its recovery writes only missing plans; `c5a950a59` feat(gsd): an open question, a phase's plan coverage and a plan's must-haves are settled later; `8112e112a` fix(gsd): a phase's plans may be written one at a time; the planner's one edit stays atomic; `e974b190a` feat(gsd): execute_phase refuses a half-planned phase (gsd/E301, gsd/W309, gsd/E310) | `assets_shell::planner_edit::a_phases_plans_written_one_at_a_time_are_each_accepted_and_the_last_settles_coverage`, `assets_shell::planner_edit::the_rest_of_a_chunked_run_writes_only_the_plans_the_graph_lacks`, `assets_shell::planner_edit::every_writer_of_a_phases_plans_names_the_plan_edit`, `prompts_gates::e301_e310_w309_a_half_planned_phase_refuses_execute_phase` |
 | found reading the same class, not met by the run: quick's plan mint is refused gsd/W309 under gsd-strict | quick's mint line | fixed: since ADR 0385 the mint is written under gsd-strict, reporting gsd/W309 until the planner writes the must-haves | `85ed24dfd` (above); `c5a950a59` feat(gsd): an open question, a phase's plan coverage and a plan's must-haves are settled later | `cmd_quick::a_quick_plan_minted_without_must_haves_is_accepted_and_its_finding_reported_under_strict` |
-| the plan checker's context route could not hold its core sections for the run's plan (E062, 21039 tokens against 8000) | the `gsd/plan-checker` route's budget | logged | none | observed in the run only: the plan is not in the repository; `specforge context gsd/plan-checker <a plan>` on a plan of that size |
+| the plan checker's context route could not hold its core sections for the run's plan (E062, 21039 tokens against 8000) | the `gsd/plan-checker` route's budget, and every route's | fixed: since ADR 0386 a read that states no cap serves the core whole, a route's budget is its enrich allowance, and E062 is a stated cap below the core; the plan check reads the project's decisions and those its research resolves, not every decision | `a531e90d7` docs(adr): a context pack serves its core whole, and a route's budget is its enrich allowance; `d8ccac10c` feat(context)!: a pack serves its core whole, and E062 is a stated cap below it; `31cb07b50` feat(gsd)!: the plan check reads the decisions its plan answers to, and a real-size plan starts | `contexts::the_plan_checker_serves_a_real_size_plan_whole_where_a_fixed_budget_refused_it` on `gsd/core/tests/projects/real-size` (the 100 project decisions and a plan of the run's size: a core of 20,724 tokens served, a cap of 8000 is E062); `contexts::start_plan_records_a_real_size_plans_executor_pack_and_only_a_stated_cap_refuses_it` |
 
 ## Limits of the run
 
@@ -153,11 +153,13 @@ The order the prompt prescribes, the thread step before the plan check, is pinne
 - One phase, one host, one pair of models.
 - The phase's feature was already built: the plan closes requirement threads, it builds nothing.
 
-## Open for the owner
-
-- The `gsd/plan-checker` route's budget against a plan of a real phase.
-
 ## Closed since the run
+
+- The `gsd/plan-checker` route's budget against a plan of a real phase, the run's one open point for the owner.
+  ADR 0386 answers it for every route: a read that states no cap serves the core whole, a route's budget is its
+  enrich allowance, and the plan check reads the project's decisions and those its research resolves. A real-size
+  fixture holds it (`contexts::every_route_serves_its_core_whole_within_its_allowance_in_each_fixture`), and the
+  executor, which refused at `gsd start-plan` on a plan of the run's size, now records its pack.
 
 - The kernel question of ADR 0384's Limits: E080 counted, on the write that creates its entity, a finding a later
   step of the same workflow settles. ADR 0385 answers it: a code may be settled later, and `@gsd/core` declares
