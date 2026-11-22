@@ -1,0 +1,58 @@
+---
+source: crates/surfaces/cli/tests/explain_declared.rs
+expression: "texts.join(\"\\n\")"
+---
+code/W104: A report entry names no item
+
+A fact a report reader minted cites no item, because the report's file or line
+lies in no collected item (a macro expansion, top-level statements, or a file no
+source pack collected), or because an API snapshot's entry has a path no
+collected item has: a re-exported path whose definition path differs, an item a
+macro generates, or a crate whose library is named apart from its package. A
+static finding is reported only when no collected package holds its file either,
+or it has no location. The entry is kept with what the report says of it, so
+nothing is lost. Collect the source pack for those files (`@rust/source`,
+`@javascript/source`) and the manifest pack for their packages, then collect the
+report again.
+
+Owner: @code/core
+Level: warning
+
+code/W105: A finding's rule or level is unknown
+
+A static finding's SARIF result states no rule (no `ruleId`, no `rule`, and no
+rule index naming a rule of its tool's driver), or states no level (none on the
+result, and none in its rule's `defaultConfiguration`): the field reads
+`unknown`. The finding is kept, never dropped. SARIF's own default level is
+`warning`; it is not applied, so a level the tool never wrote cannot pass for
+one it did. Make the tool write its rule ids and levels in its SARIF output, or
+the rule metadata (`tool.driver.rules` with a `defaultConfiguration.level`),
+then collect the report again.
+
+Owner: @code/core
+Level: warning
+
+code/W106: A dependency has no purl
+
+A component of a CycloneDX bill of materials carries no package URL (`purl`), so
+its dependency is named by name and version only
+(`dep:<package>/@<name@version>`). The dependency is kept, never dropped, but no
+other report can be matched to it: an OSV scan or another BOM names a package by
+its purl. Generate the BOM with an SBOM tool that writes a purl for every
+component (cargo-cyclonedx, cyclonedx-npm), then collect it again.
+
+Owner: @code/core
+Level: warning
+
+code/W107: A vulnerability's severity is unknown
+
+An OSV record of a vulnerability scan has no severity label
+(`database_specific.severity`) and no CVSS v3 vector this reader rates: its only
+severity entries are CVSS v4 or v2 vectors, or its v3 vector is malformed. The
+vulnerability is kept with severity `unknown`, never dropped and never given a
+guessed rating, so a gate on severity cannot pass it by mistake. Read the
+advisory by its OSV id (osv.dev, or the database its id names) and judge its
+severity there.
+
+Owner: @code/core
+Level: warning
