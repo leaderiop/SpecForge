@@ -18,9 +18,9 @@ use specforge_code_facts::{relative, shown, Branch, CoverageFile, Function};
 /// the project root `cwd`. Read: `SF`, `FN`, `FNDA`, the LCOV 2.2 group form `FNL`/`FNA`, `DA`, `BRDA` and
 /// `end_of_record`; ignored: `TN`, `VER`, the file
 /// totals (`FNF`, `FNH`, `LF`, `LH`, `BRF`, `BRH`), `MCDC`/`MCF`/`MCH`, `#` comments, blank lines and any other
-/// all-capitals `KEY:`. An error names the 1-based line: a line that is no `KEY:value`, a record outside a file
-/// section, a malformed number, an `SF` outside the project, and a text ending inside a file section, which must not
-/// drop its last file. An empty text has no file.
+/// all-capitals `KEY:`. An `SF` path is trimmed. An error names the 1-based line: a line that is no `KEY:value`, a
+/// record outside a file section, a malformed number, an `SF` naming no file or one outside the project, and a text
+/// ending inside a file section, which must not drop its last file. An empty text has no file.
 pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
     let mut files = Vec::new();
     let mut open: Option<Section> = None;
@@ -48,6 +48,10 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
                     shown(&section.file.file),
                     section.opened
                 ));
+            }
+            let value = value.trim();
+            if value.is_empty() {
+                return Err(format!("line {at}: SF names no file"));
             }
             let file = relative(value, cwd).ok_or_else(|| {
                 format!(

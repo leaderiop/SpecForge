@@ -188,6 +188,25 @@ fn an_error_naming_an_open_file_shows_it_bounded_and_escaped() {
 }
 
 #[test]
+fn an_sf_path_is_trimmed_and_an_empty_one_has_its_own_error() {
+    for text in [
+        "SF:src/a.rs \nend_of_record\n",
+        "SF: src/a.rs\r\t\nend_of_record\n",
+    ] {
+        let files = read(text, "/project").expect("the report reads");
+        assert_eq!(files[0].file, "src/a.rs", "{text:?}");
+    }
+    for text in ["SF:\nend_of_record\n", "SF: \t\nend_of_record\n"] {
+        let error = read(text, "/project").expect_err("no path");
+        assert!(
+            error.contains("line 1:") && error.contains("names no file"),
+            "{text:?}: {error}"
+        );
+        assert!(!error.contains("outside"), "{error}");
+    }
+}
+
+#[test]
 fn crlf_line_endings_read_like_lf() {
     let crlf = LLVM_COV.replace('\n', "\r\n");
     assert_eq!(read(&crlf, "/project"), read(LLVM_COV, "/project"));
