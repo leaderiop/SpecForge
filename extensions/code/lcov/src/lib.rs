@@ -12,7 +12,7 @@ mod tests;
 
 use std::collections::HashMap;
 
-use specforge_code_facts::{relative, Branch, CoverageFile, Function};
+use specforge_code_facts::{relative, shown, Branch, CoverageFile, Function};
 
 /// The file sections of the LCOV tracefile `text`, in document order, each `SF:` path made project-relative against
 /// the project root `cwd`. Read: `SF`, `FN`, `FNDA`, the LCOV 2.2 group form `FNL`/`FNA`, `DA`, `BRDA` and
@@ -45,7 +45,8 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
             if let Some(section) = &open {
                 return Err(format!(
                     "line {at}: a new file section opens before `{}` (line {}) ends with end_of_record",
-                    section.file.file, section.opened
+                    shown(&section.file.file),
+                    section.opened
                 ));
             }
             let file = relative(value, cwd).ok_or_else(|| {
@@ -70,7 +71,8 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
     match open {
         Some(section) => Err(format!(
             "line {}: the report ends inside the file `{}` opened here, with no end_of_record",
-            section.opened, section.file.file
+            section.opened,
+            shown(&section.file.file)
         )),
         None => Ok(files),
     }
@@ -230,13 +232,4 @@ fn count(text: &str) -> Result<u64, String> {
     text.trim()
         .parse()
         .map_err(|_| format!("has `{}` where a count belongs", shown(text)))
-}
-
-/// At most 80 characters of report text, control characters escaped, for an error message.
-fn shown(text: &str) -> String {
-    let mut shown: String = text.chars().take(80).flat_map(char::escape_debug).collect();
-    if text.chars().nth(80).is_some() {
-        shown.push('…');
-    }
-    shown
 }

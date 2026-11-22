@@ -61,6 +61,33 @@ pub fn id_part(text: &str) -> String {
     out
 }
 
+/// The most characters of report text [`shown`] keeps.
+const SHOWN: usize = 80;
+
+/// Report text made safe to place in an error or a diagnostic message: its first 80 characters, control characters,
+/// quotes and backslashes escaped as Rust writes them (`\u{1b}`, `\"`), and `…` when more followed. A report can then
+/// carry no terminal escape, nor a megabyte of text, into the user's terminal or a log.
+pub fn shown(text: &str) -> String {
+    let mut shown: String = text
+        .chars()
+        .take(SHOWN)
+        .flat_map(char::escape_debug)
+        .collect();
+    if text.chars().nth(SHOWN).is_some() {
+        shown.push('…');
+    }
+    shown
+}
+
+/// A report's JSON value made safe to place in a message as [`shown`] does: a string quoted (`"2.0"`), any other value
+/// as its JSON text, either way bounded and escaped.
+pub fn shown_json(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => format!("\"{}\"", shown(text)),
+        other => shown(&other.to_string()),
+    }
+}
+
 /// `text` with each `%XX` (`%` and two ASCII hex digits) decoded: an id this crate wrote, or a report's URI. A `%`
 /// that starts no such escape is kept, and so is a run of escapes whose bytes are no UTF-8, spelled as written, while
 /// every other escape of `text` still decodes.

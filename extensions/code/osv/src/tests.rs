@@ -101,6 +101,26 @@ fn a_workspace_lockfile_reaches_every_member_and_a_nested_one_its_own_package() 
     insta::assert_json_snapshot!("workspace", facts);
 }
 
+#[test]
+fn an_error_shows_the_reports_text_bounded_and_escaped() {
+    let hostile = format!("\u{1b}]0;{}", "a".repeat(5_000));
+    let smallvec =
+        || serde_json::json!({"name": "smallvec", "version": "1.6.0", "ecosystem": "crates.io"});
+    let record = || serde_json::json!({"id": "RUSTSEC-2099-0001"});
+    for source in [
+        serde_json::json!({"path": hostile, "type": "docker"}),
+        serde_json::json!({"path": "/project/Cargo.lock", "type": hostile}),
+        serde_json::json!({"path": format!("/elsewhere/{hostile}"), "type": "lockfile"}),
+    ] {
+        let error = read(&scan(source, smallvec(), record()), "/project").expect_err("refused");
+        assert!(
+            !error.contains('\u{1b}') && error.contains("\\u{1b}"),
+            "{error}"
+        );
+        assert!(error.len() < 400, "{} bytes", error.len());
+    }
+}
+
 /// A minimal scan of one `source` holding one `package` of `ecosystem`, its record `vulnerability`.
 fn scan(source: Value, package: Value, vulnerability: Value) -> String {
     serde_json::json!({

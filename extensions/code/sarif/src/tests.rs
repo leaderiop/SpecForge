@@ -185,6 +185,23 @@ fn a_bad_report_is_an_error_naming_its_value_or_path_and_reads_nothing() {
 }
 
 #[test]
+fn an_error_shows_the_reports_text_bounded_and_escaped() {
+    let hostile = format!("file:///elsewhere/\\u001b]0;{}\\u0007", "a".repeat(5_000));
+    let log = format!(
+        r#"{{"version": "2.1.0", "runs": [{{"tool": {{"driver": {{"name": "t"}}}}, "results": [{{
+            "locations": [{{"physicalLocation": {{"artifactLocation": {{"uri": "{hostile}"}}}}}}]}}]}}]}}"#
+    );
+    let error = read(&log, "/project").expect_err("outside the project");
+    assert!(
+        !error.contains(['\u{1b}', '\u{7}']) && error.contains("\\u{1b}"),
+        "{error}"
+    );
+    assert!(error.len() < 400, "{} bytes", error.len());
+    let version = format!(r#"{{"version": "{}", "runs": []}}"#, "9".repeat(5_000));
+    assert!(read(&version, "/project").expect_err("version").len() < 400);
+}
+
+#[test]
 fn an_empty_results_array_is_a_run_that_found_nothing() {
     let log =
         r#"{"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "t"}}, "results": []}]}"#;

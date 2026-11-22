@@ -84,6 +84,23 @@ fn a_root_naming_no_package_or_several_or_none_is_an_error() {
 }
 
 #[test]
+fn a_root_error_shows_its_purl_and_name_bounded_and_escaped() {
+    let served = [package("pkg:cargo/demo")];
+    let hostile = format!("pkg:cargo/x\u{1b}]0;{}@1", "a".repeat(5_000));
+    let error = dependency_facts(&[bom(&hostile, vec![], None)], &served).expect_err("unserved");
+    assert!(
+        !error.contains('\u{1b}') && error.contains("\\u{1b}"),
+        "{error}"
+    );
+    assert!(error.len() < 400, "{} bytes", error.len());
+    let mut purl_less = bom("pkg:cargo/demo", vec![], None);
+    purl_less.root.purl = None;
+    purl_less.root.name = "r\u{7}".repeat(1_000);
+    let error = dependency_facts(&[purl_less], &served).expect_err("no purl");
+    assert!(!error.contains('\u{7}') && error.len() < 400, "{error}");
+}
+
+#[test]
 fn direct_is_true_false_or_absent_as_the_graph_states() {
     let served = [package("pkg:cargo/demo")];
     let components = vec![

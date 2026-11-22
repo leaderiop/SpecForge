@@ -154,6 +154,24 @@ fn bom_text(spec_version: &str, format: &str, root_purl: &str, scope: &str) -> S
 }
 
 #[test]
+fn an_error_shows_the_boms_values_bounded_and_escaped() {
+    let hostile = format!("\u{1b}]0;{}", "a".repeat(5_000));
+    let root = "pkg:cargo/demo@0.1.0";
+    for text in [
+        bom_text("1.5", &hostile, root, "required"),
+        bom_text(&hostile, "CycloneDX", root, "required"),
+        bom_text("1.5", "CycloneDX", root, &hostile),
+    ] {
+        let error = read(&text).expect_err("refused");
+        assert!(
+            !error.contains('\u{1b}') && error.contains("\\u{1b}"),
+            "{error}"
+        );
+        assert!(error.len() < 400, "{} bytes", error.len());
+    }
+}
+
+#[test]
 fn a_bad_bom_is_an_error_naming_its_value_or_key_and_mints_nothing() {
     let root = "pkg:cargo/demo@0.1.0";
     let ok = |version: &str| bom_text(version, "CycloneDX", root, "required");

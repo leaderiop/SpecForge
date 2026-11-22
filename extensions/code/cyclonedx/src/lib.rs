@@ -11,7 +11,7 @@
 mod tests;
 
 use serde_json::Value;
-use specforge_code_facts::{Component, Scope};
+use specforge_code_facts::{shown_json, Component, Scope};
 
 pub use specforge_code_facts::Bom;
 
@@ -36,7 +36,8 @@ pub fn read(text: &str) -> Result<Bom, String> {
         Some(Value::String(format)) if format == "CycloneDX" => {}
         Some(format) => {
             return Err(format!(
-                "bomFormat: {format} is not read, only \"CycloneDX\""
+                "bomFormat: {} is not read, only \"CycloneDX\"",
+                shown_json(format)
             ))
         }
         None => return Err("bomFormat: absent, only \"CycloneDX\" is read".to_string()),
@@ -46,7 +47,8 @@ pub fn read(text: &str) -> Result<Bom, String> {
         Some(Value::String(version)) if SPEC_VERSIONS.contains(&version.as_str()) => {}
         Some(version) => {
             return Err(format!(
-                "specVersion: {version} is not read, only {accepted}"
+                "specVersion: {} is not read, only {accepted}",
+                shown_json(version)
             ))
         }
         None => return Err(format!("specVersion: absent, only {accepted} are read")),
@@ -106,7 +108,8 @@ fn component(value: &Value, at: &str) -> Result<Component, String> {
         None => Scope::Required,
         Some(scope) => scope.as_str().and_then(Scope::parse).ok_or_else(|| {
             format!(
-                "{at}.scope: {scope} is not one of {}",
+                "{at}.scope: {} is not one of {}",
+                shown_json(scope),
                 Scope::NAMES.join(", ")
             )
         })?,

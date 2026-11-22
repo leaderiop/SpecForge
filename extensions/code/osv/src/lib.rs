@@ -11,7 +11,7 @@
 mod tests;
 
 use serde_json::Value;
-use specforge_code_facts::{relative, OsvPackage, OsvRecord, OsvScore, OsvSource};
+use specforge_code_facts::{relative, shown, OsvPackage, OsvRecord, OsvScore, OsvSource};
 
 pub use specforge_code_facts::OsvReport;
 
@@ -42,12 +42,18 @@ pub fn read(text: &str, cwd: &str) -> Result<OsvReport, String> {
         let kind = string(result, "/source/type", &format!("{at}.source.type"))?;
         if !SOURCE_TYPES.contains(&kind) {
             return Err(format!(
-                "{at}.source.type: '{kind}' of '{path}' is not read, only {}",
+                "{at}.source.type: '{}' of '{}' is not read, only {}",
+                shown(kind),
+                shown(path),
                 SOURCE_TYPES.join(" and ")
             ));
         }
-        let lockfile = relative(path, cwd)
-            .ok_or_else(|| format!("{at}.source.path: '{path}' lies outside the project"))?;
+        let lockfile = relative(path, cwd).ok_or_else(|| {
+            format!(
+                "{at}.source.path: '{}' lies outside the project",
+                shown(path)
+            )
+        })?;
         let mut packages = Vec::new();
         for (j, entry) in array(result, "packages", &at)?.iter().enumerate() {
             packages.push(package(entry, &format!("{at}.packages[{j}]"))?);

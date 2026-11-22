@@ -23,7 +23,9 @@
 //!   line, the `package` holding a file or a directory (ADR 0388).
 //! - [`ReportKind`]s name the five kinds a standard report mints and their schemes ([`COVERAGE`], [`API_ITEM`],
 //!   [`STATIC_FINDING`], [`DEPENDENCY`], [`VULNERABILITY`]), [`UNKNOWN`] what a report leaves unstated; [`id_part`]
-//!   makes report text safe in an id and [`Repeats`] suffixes an id answered twice `~2`, `~3`, ….
+//!   makes report text safe in an id, [`shown`] and [`shown_json`] in an error or a diagnostic message, and
+//!   [`Repeats`] suffixes an id
+//!   answered twice `~2`, `~3`, ….
 //! - [`coverage_facts`] mints a `coverage` per item a coverage report's [`CoverageFile`]s reach, and one per file for
 //!   what no item holds.
 //! - [`api_facts`] mints an `api_item` per public entry an API snapshot's reader read ([`ApiEntry`], [`ApiKind`]),
@@ -71,8 +73,8 @@ pub use mint::{
 pub use paths::{file_uri_path, joined, relative};
 pub use places::Places;
 pub use report::{
-    id_part, Repeats, ReportKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN,
-    VULNERABILITY,
+    id_part, shown, shown_json, Repeats, ReportKind, API_ITEM, COVERAGE, DEPENDENCY,
+    STATIC_FINDING, UNKNOWN, VULNERABILITY,
 };
 pub use syntax::parse_all;
 pub use vulnerability::{

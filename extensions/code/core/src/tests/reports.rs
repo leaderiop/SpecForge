@@ -43,6 +43,33 @@ fn a_coverage_naming_no_item_is_w104() {
 }
 
 #[test]
+fn a_warning_shows_the_reports_text_bounded_and_escaped() {
+    let hostile = format!("\u{1b}]0;{}", "a".repeat(5_000));
+    let mut api = api_item("api:rust:demo::f", "function", None);
+    api.fields.insert("path".to_string(), hostile.clone());
+    let mut purl_less = dependency("x", None);
+    purl_less.fields.insert("name".to_string(), hostile.clone());
+    let mut unrated = vulnerability("X-1", "unknown");
+    unrated.fields.insert("osv_id".to_string(), hostile.clone());
+    let found = reported(vec![
+        coverage("cov:@x", &hostile, None),
+        api,
+        purl_less,
+        unrated,
+    ]);
+    let codes: Vec<&str> = found.iter().map(|d| d.code.as_str()).collect();
+    assert_eq!(codes, ["W104", "W104", "W106", "W107"]);
+    for warning in &found {
+        let message = &warning.message;
+        assert!(
+            !message.contains('\u{1b}') && message.contains("\\u{1b}"),
+            "{message}"
+        );
+        assert!(message.len() < 500, "{} bytes", message.len());
+    }
+}
+
+#[test]
 fn a_coverage_citing_an_item_or_another_kind_is_not_w104() {
     let mut pending = coverage("cov:@src%2Fa.rs", "src/a.rs", None);
     pending.pending = true;

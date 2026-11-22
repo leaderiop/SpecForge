@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use specforge_extension_sdk::prelude::Fact;
 
 use crate::places::Places;
-use crate::report::{id_part, DEPENDENCY};
+use crate::report::{id_part, shown, DEPENDENCY};
 
 /// A component's scope: CycloneDX's three, widest first. A BOM stating none means `required`, the spec's default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -175,17 +175,20 @@ fn project_package<'a>(root: &Component, places: &Places<'a>) -> Result<&'a str,
     let Some(purl) = &root.purl else {
         return Err(format!(
             "the BOM's root component '{}' has no purl, so it names no collected package",
-            root.name
+            shown(&root.name)
         ));
     };
     let base = package_base(purl);
     match places.packages_named(&base).as_slice() {
         [package] => Ok(*package),
         [] => Err(format!(
-            "the BOM's root component '{purl}' names no collected package (looked for '{base}')"
+            "the BOM's root component '{}' names no collected package (looked for '{}')",
+            shown(purl),
+            shown(&base)
         )),
         several => Err(format!(
-            "the BOM's root component '{purl}' names several collected packages: {}",
+            "the BOM's root component '{}' names several collected packages: {}",
+            shown(purl),
             several.join(", ")
         )),
     }

@@ -2,7 +2,7 @@
 //! class, and the catalogue of those codes.
 
 use specforge_code_facts::{
-    ItemKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN, VULNERABILITY,
+    shown, ItemKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN, VULNERABILITY,
 };
 use specforge_extension_sdk::prelude::*;
 
@@ -37,7 +37,7 @@ fn unmapped(fact: &PassEntity) -> Option<PassDiagnostic> {
         format!(
             "the coverage fact '{}' names no item: no collected item holds its lines of `{}`",
             fact.id,
-            field("file")
+            shown(field("file"))
         )
     } else if fact.kind == API_ITEM.kind
         && ItemKind::NAMES.contains(&field("kind"))
@@ -46,7 +46,7 @@ fn unmapped(fact: &PassEntity) -> Option<PassDiagnostic> {
         format!(
             "the api_item '{}' names no item: no collected item has its path `{}`",
             fact.id,
-            field("path")
+            shown(field("path"))
         )
     } else if fact.kind == STATIC_FINDING.kind && !fact.fields.contains_key("package") {
         format!(
@@ -87,7 +87,7 @@ fn purl_less(fact: &PassEntity) -> Option<PassDiagnostic> {
     let message = format!(
         "the dependency '{}' has no purl: its BOM component `{}` is named by name and version only",
         fact.id,
-        fact.fields.get("name").map_or("", String::as_str)
+        shown(fact.fields.get("name").map_or("", String::as_str))
     );
     Some(PassDiagnostic::warning("W106", message).with_entity(&fact.id))
 }
@@ -103,7 +103,7 @@ fn unrated(fact: &PassEntity) -> Option<PassDiagnostic> {
         "the vulnerability '{}' has an unknown severity: its OSV record `{}` states no label and no CVSS v3 vector \
          this reader rates",
         fact.id,
-        fact.fields.get("osv_id").map_or("", String::as_str)
+        shown(fact.fields.get("osv_id").map_or("", String::as_str))
     );
     Some(PassDiagnostic::warning("W107", message).with_entity(&fact.id))
 }

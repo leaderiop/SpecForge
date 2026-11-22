@@ -10,7 +10,7 @@
 mod tests;
 
 use serde_json::Value;
-use specforge_code_facts::{file_uri_path, relative, Level, UNKNOWN};
+use specforge_code_facts::{file_uri_path, relative, shown, shown_json, Level, UNKNOWN};
 
 pub use specforge_code_facts::SarifResult;
 
@@ -34,7 +34,12 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<SarifResult>, String> {
     let log: Value = serde_json::from_str(text).map_err(|e| format!("no JSON: {e}"))?;
     match log.get("version") {
         Some(Value::String(version)) if version == "2.1.0" => {}
-        Some(version) => return Err(format!("version: {version} is not read, only \"2.1.0\"")),
+        Some(version) => {
+            return Err(format!(
+                "version: {} is not read, only \"2.1.0\"",
+                shown_json(version)
+            ))
+        }
         None => return Err("version: absent, only \"2.1.0\" is read".to_string()),
     }
     let runs = log
@@ -170,7 +175,10 @@ fn place_of(result: &Value, artifacts: &[Value], cwd: &str, at: &str) -> Result<
             file_uri_path(uri)
                 .and_then(|path| relative(&path, cwd))
                 .ok_or_else(|| {
-                    format!("{at}: the uri `{uri}` names no file in the project `{cwd}`")
+                    format!(
+                        "{at}: the uri `{}` names no file in the project `{cwd}`",
+                        shown(uri)
+                    )
                 })?,
         ),
         None => None,

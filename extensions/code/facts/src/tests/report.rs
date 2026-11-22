@@ -13,6 +13,20 @@ fn an_id_part_encodes_every_delimiter_whitespace_and_control() {
 }
 
 #[test]
+fn shown_text_is_bounded_and_escapes_control_characters() {
+    assert_eq!(shown("a\u{1b}]0;x\u{7}\"é"), "a\\u{1b}]0;x\\u{7}\\\"é");
+    let long = "x".repeat(10_000);
+    assert_eq!(shown(&long), format!("{}…", "x".repeat(80)));
+    assert_eq!(shown(&"y".repeat(80)), "y".repeat(80));
+    assert_eq!(
+        shown_json(&serde_json::json!("2.0\u{1b}")),
+        "\"2.0\\u{1b}\""
+    );
+    assert_eq!(shown_json(&serde_json::json!(2)), "2");
+    assert!(shown_json(&serde_json::json!([long])).len() < 100);
+}
+
+#[test]
 fn a_repeated_id_gets_a_numbered_suffix() {
     let mut repeats = Repeats::default();
     let ids: Vec<String> = ["x", "x", "y", "x"]

@@ -143,6 +143,22 @@ fn a_bad_or_outside_report_is_an_error_naming_its_line_or_path() {
 }
 
 #[test]
+fn an_error_naming_an_open_file_shows_it_bounded_and_escaped() {
+    let file = format!("src/\u{1b}]0;{}.rs", "a".repeat(5_000));
+    for text in [
+        format!("SF:{file}\nDA:1,1\n"),
+        format!("SF:{file}\nSF:src/b.rs\nend_of_record\n"),
+    ] {
+        let error = read(&text, "/project").expect_err("refused");
+        assert!(
+            !error.contains('\u{1b}') && error.contains("\\u{1b}"),
+            "{error}"
+        );
+        assert!(error.len() < 400, "{} bytes", error.len());
+    }
+}
+
+#[test]
 fn crlf_line_endings_read_like_lf() {
     let crlf = LLVM_COV.replace('\n', "\r\n");
     assert_eq!(read(&crlf, "/project"), read(LLVM_COV, "/project"));
