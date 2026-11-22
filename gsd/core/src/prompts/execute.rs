@@ -113,7 +113,11 @@ static EXECUTE_PHASE: Spec = Spec {
     command: "execute-phase",
     args: PHASE_ARGS,
     subject: Some("phase"),
-    gates: &["W311", "W313", "W315", "W318", "E516"],
+    // A half-planned phase is not executed: its coverage and its plans' must-haves are settled later (ADR 0385), so
+    // the plan writes report them and this gate reads them.
+    gates: &[
+        "E301", "W309", "E310", "W311", "W313", "W315", "W318", "E516",
+    ],
     steps: PHASE_STEPS,
     slash: Some(Slash {
         hint: "<phase> [--wave N] [--gaps-only] [--interactive] [--tdd]",
