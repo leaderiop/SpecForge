@@ -198,3 +198,31 @@ fn an_edge_between_two_undeclared_entities_is_beyond() {
 
     assert_eq!(declared.beyond(changed).added_edges.len(), 1);
 }
+
+#[specforge_test(requirement = "FEATURE-131")]
+fn a_created_entity_is_followed_through_a_later_move() {
+    let create = Edit::Create {
+        kind: "plan".into(),
+        id: "P1".into(),
+        title: "P1".into(),
+        file: "f.spec".into(),
+        fields: Default::default(),
+        verify: Vec::new(),
+    };
+    let delete = Edit::Delete {
+        entity_id: "Q1".into(),
+        unlink_references: false,
+    };
+    let mut declared = Declared::default();
+    declared.edit(&create, "PH/P1");
+    declared.edit(&create, "Q1/T1");
+    declared.edit(&create, "R1");
+    // Moved, its new id is the created one; deleted, a created entity and what is under it are created no more.
+    declared.moved("PH", "PX");
+    declared.edit(&delete, "Q1");
+    // A delete creates nothing, and neither does a move.
+    declared.edit(&delete, "S1");
+    declared.moved("U1", "U2");
+    let created: Vec<&String> = declared.created().collect();
+    assert_eq!(created, ["PX/P1", "R1"]);
+}

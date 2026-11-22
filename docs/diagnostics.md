@@ -1119,8 +1119,12 @@ removes the references a delete would leave dangling. A judged rule's finding
 settles it, not the edit (ADR 0297). Nor is an extension's finding whose code
 waits for an owner state (`reported_while`) and that the edit revealed by moving
 its entity into that state: the edit is accepted and the finding is reported
-once it is written (ADR 0363). A writing collector's plan is compared with the
-project as its collect left it, and is refused for host errors only: an
+once it is written (ADR 0363). Nor is an extension's finding whose code a later
+step of the authoring settles (`settled_later`) on an entity the edit creates,
+or creates something under: the edit is accepted, lists the finding, and `check`
+reports it until that step is written; an edit that creates neither, and a
+migration, still count it (ADR 0385). A writing collector's plan is compared
+with the project as its collect left it, and is refused for host errors only: an
 extension's error refuses no collected fact (ADR 0303).
 
 Owner: core

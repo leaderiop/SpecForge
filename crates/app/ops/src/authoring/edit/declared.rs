@@ -15,6 +15,9 @@ pub(crate) struct Declared {
     /// The files a rename of the plan rewrites: it changes the graph by a substitution only (ADR 0198), so every
     /// entity of these files may read differently afterwards.
     renamed: BTreeSet<String>,
+    /// The entities a create names, each at the id it has once the later moves are made, less those a later delete
+    /// removes: what the edits create (ADR 0385).
+    created: BTreeSet<String>,
 }
 
 #[derive(Debug, Default)]
@@ -39,16 +42,34 @@ impl Declared {
             Edit::AddVerify { .. } | Edit::RemoveVerify { .. } => {
                 self.aspect(path, NodeAspect::Obligations);
             }
-            Edit::Create { .. } | Edit::Delete { .. } => {
+            Edit::Create { .. } => {
                 self.whole.insert(path.to_string());
+                self.created.insert(path.to_string());
+            }
+            Edit::Delete { .. } => {
+                self.whole.insert(path.to_string());
+                let under = format!("{path}/");
+                self.created
+                    .retain(|id| id != path && !id.starts_with(&under));
             }
         }
     }
 
-    /// The entity at `old` is now at `new` (a move, ADR 0284): both ids are declared whole.
+    /// The entity at `old` is now at `new` (a move, ADR 0284): both ids are declared whole, and an entity the edits
+    /// created at or under `old` is created at its new id.
     pub(crate) fn moved(&mut self, old: &str, new: &str) {
         self.whole.insert(old.to_string());
         self.whole.insert(new.to_string());
+        let moves = [(old.to_string(), new.to_string())];
+        self.created = std::mem::take(&mut self.created)
+            .into_iter()
+            .map(|id| super::steps::relocated(&id, &moves))
+            .collect();
+    }
+
+    /// The entities the edits create, at their ids once every move is made (ADR 0385).
+    pub(crate) fn created(&self) -> impl Iterator<Item = &String> {
+        self.created.iter()
     }
 
     /// The entities a create, a delete or a move names, at either id of a move.

@@ -359,8 +359,7 @@ fn rejudge(
         &before,
         &after,
         project.environment().registries(),
-        change.moved(),
-        &|id| change.renews(id),
+        change,
         host_only,
     )
     .map_err(|refusal| refusal.error)

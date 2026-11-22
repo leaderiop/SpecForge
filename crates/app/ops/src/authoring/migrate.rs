@@ -367,8 +367,9 @@ pub fn judge(
     verdict.compared = true;
     verdict.graph_delta = beyond_steps(compute_graph_delta(pre.graph(), post.graph()), pre.graph());
     verdict.post_diagnostics = post.diagnostics();
-    // No plan says which entities a migration's texts create or delete: it reveals nothing (ADR 0363).
-    let judged = not_added(pre, &post, |_: &str| true);
+    // No plan says which entities a migration's texts create or delete: it reveals nothing (ADR 0363) and creates
+    // nothing, so a settled-later finding is counted (ADR 0385).
+    let judged = not_added(pre, &post, None);
     verdict.added_errors = added(
         &pre.checked_diagnostics(),
         verdict.post_diagnostics.clone(),

@@ -36,6 +36,8 @@ pub struct PlannedChange {
     /// The entities the change creates or deletes, as its plan names them: with [`Self::moved`], what
     /// [`Self::renews`] reads.
     renewed: BTreeSet<String>,
+    /// The entities the change creates, at their ids once its moves are made: what [`Self::opens`] reads.
+    created: BTreeSet<String>,
     /// Files outside the sources the change writes whatever they hold then, by path from the root: a collect's fact
     /// stores (ADR 0327).
     root_files: BTreeMap<String, Vec<u8>>,
@@ -112,6 +114,7 @@ impl PlannedChange {
             locked: false,
             moved: Vec::new(),
             renewed: BTreeSet::new(),
+            created: BTreeSet::new(),
             root_files: BTreeMap::new(),
             superseded: Vec::new(),
             rewritten: BTreeMap::new(),
@@ -189,6 +192,22 @@ impl PlannedChange {
             path = at.rsplit_once('/').map(|(scope, _)| scope);
         }
         false
+    }
+
+    /// This change creating `ids`, as its plan names them once its moves are made.
+    pub(crate) fn creating(mut self, ids: impl IntoIterator<Item = String>) -> Self {
+        self.created.extend(ids);
+        self
+    }
+
+    /// Whether the change creates the entity `id` or an entity under it (ADR 0385): a settled-later finding on `id` is
+    /// then no error the change adds.
+    pub(crate) fn opens(&self, id: &str) -> bool {
+        self.created.iter().any(|created| {
+            created
+                .strip_prefix(id)
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+        })
     }
 
     /// This change keeping the harness ledger true to the project `before` (ADR 0287): the ledger as the host would
@@ -566,6 +585,20 @@ mod tests {
         }
         for id in ["Q", "v1", "v1/c", "PP"] {
             assert!(!change.renews(id), "{id}");
+        }
+    }
+
+    #[test]
+    fn a_change_opens_what_it_creates_and_every_entity_it_is_under() {
+        let change = change(Vec::new())
+            .creating(["v1/01/01-01".to_string(), "Q".to_string()])
+            .renewing(["D".to_string()]);
+        for id in ["v1/01/01-01", "v1/01", "v1", "Q"] {
+            assert!(change.opens(id), "{id}");
+        }
+        // Under what it creates, beside it, a prefix that is no scope, or only deleted: nothing it creates.
+        for id in ["v1/01/01-01/T1", "v1/02", "v1/0", "QQ", "D"] {
+            assert!(!change.opens(id), "{id}");
         }
     }
 
