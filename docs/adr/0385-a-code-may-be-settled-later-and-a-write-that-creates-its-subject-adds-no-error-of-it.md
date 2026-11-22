@@ -5,10 +5,11 @@
 [ADR 0363](0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md) D3 (an
 unmatched error is counted unless it is judged, revealed or settled later) and
 [ADR 0286](0286-a-diagnostic-code-is-namespaced-by-its-extension.md) D3 (a `codes` entry may declare
-`settled_later`). Answers the Limits of
-[ADR 0384](0384-a-phases-plans-are-written-in-one-edit-and-its-spec-is-committed-like-code.md) in the kernel and
-amends its D4 ("E080 and what it counts" do not change). Protocol 2.3.0 is unreleased: the key goes into its row, no
-bump. The wire and the SDK change, so every builtin is re-vendored.
+`settled_later`). Closes the Limits of
+[ADR 0384](0384-a-phases-plans-are-written-in-one-edit-and-its-spec-is-committed-like-code.md), in the kernel and
+in `@gsd/core`, rewords its D1's reason, replaces its D3 and amends its D4 ("E080 and what it counts" do not
+change). Protocol 2.3.0 is unreleased: the key goes into its row, no bump. The wire and the SDK change, so every
+builtin is re-vendored.
 
 ## Context
 
@@ -16,9 +17,10 @@ bump. The wire and the SDK change, so every builtin is re-vendored.
   severity, message shape, file and, for an extension's finding, its subject, ADR 0302). Two findings are exempt: a
   judged rule's (ADR 0297) and one a write revealed by moving its entity's owner state (ADR 0363).
 - Some findings name a state an authoring workflow passes through on purpose: an entity is created first, and what
-  settles it comes in a later step. `@gsd/core` has three: an open question no decision resolves yet (`gsd/W204`, on
-  the question), a phase whose requirement is in no plan yet (`gsd/E301`, on the phase, from its first plan) and,
-  under gsd-strict, a plan with no truth and no artifact yet (`gsd/W309`, on the plan).
+  settles it comes in a later step. `@gsd/core`'s live run met three: an open question no decision resolves yet
+  (`gsd/W204`, on the question), a phase whose requirement is in no plan yet (`gsd/E301`, on the phase, from its first
+  plan) and, under gsd-strict, a plan with no truth and no artifact yet (`gsd/W309`, on the plan). Its audit found a
+  fourth (`@gsd/core`'s side).
 - E080 refuses the write that creates such an entity, because the finding is new. The only accepted route is one edit
   that also settles it. There is none when the settling is a person's later answer (the question's decision), a later
   run (quick's plan, minted before its planner runs) or the rest of a phase planned plan by plan. ADR 0384 recorded
@@ -63,6 +65,42 @@ profile's raise applies to it, and the write lists it among the findings it repo
 hidden: it stays in the project, failing `check` at its severity, until the step that settles it is written. A paired
 finding (one the project already reports) is unchanged. ADR 0363 D3 holds: an entity a write creates reveals nothing.
 
+## `@gsd/core`'s side
+
+`@gsd/core` declares four codes settled later, after an audit of its code book: a code is one when a separate, later
+write of the authoring settles its finding on an entity an earlier write creates.
+
+| Code | The finding's entity | The later write that settles it |
+|---|---|---|
+| `gsd/W204` | the open question | the user's answer, recorded as a decision and set as the question's `resolved_by` |
+| `gsd/E301` | the phase | the plan that holds the requirement |
+| `gsd/E310` | the phase | the plan that cites the decision |
+| `gsd/W309` | the plan | its truth and its artifact, written by quick's planner after the mint |
+
+`gsd/E310` was reported on the decision; it is now on the phase, as `gsd/E301` is, its message still naming the
+decision. On the decision a plan created under the phase is neither the subject nor under it, so chunked mode's first
+plan stayed refused whenever the phase's context held a decision a later plan cites.
+
+Not settled later: `gsd/E101` (the roadmap edit, its settling write, creates a v1 requirement with the phase that
+holds it; declaring it would let that edit leave one in no phase), the plan checker's `gsd/W311`, `gsd/W313`,
+`gsd/W315` and `gsd/W316` and the other judged rules (no added error already, ADR 0297), `gsd/W317` (a warning in
+every profile), `gsd/W510` (on the research, and the validation is written before the plans), and `gsd/E302`,
+`gsd/E303` and `gsd/E314` (written whole by the edit that creates the plan or the task). `spec/rules.md` lists the four
+in its Settled later section.
+
+The workflows follow:
+
+- The phase researcher records every open question open (no `resolved_by`); it invents no decision, drops none and
+  returns none in place of recording it. Plan-phase's step 9d, quick and quick-batch ask the user after the planner,
+  record the answer as a decision and set it as the question's `resolved_by`. A question left open, every one under
+  `--auto`, stays in the graph: under gsd-strict `check` fails on it, and plan-phase's entry gate (`gsd/W204`) refuses
+  the next run on the phase until it is answered.
+- The planner's one `specforge.edit` stays the atomic route of a phase's plans. A plan written alone is accepted and
+  reports what a later plan settles; chunked mode writes plan by plan, and its `## PLAN BLOCKED` means a refused call
+  only. A run stopped midway leaves the phase half-planned, failing `check`.
+- Quick mints its plan under gsd-strict too, reporting `gsd/W309` until its planner writes the must-haves.
+- `execute_phase` gates on `gsd/E301`, `gsd/E310` and `gsd/W309`, so a half-planned phase is not executed.
+
 ## Rejected
 
 - **Never counting a settled-later code** (the declaration alone): any write could leave such a finding anywhere,
@@ -89,9 +127,14 @@ rule on that phase in the same write. `check` and every gate still report it.
   finding is reported by the write, by `check` and by every gate until then.
 - A state left between two steps (a chunked run stopped midway, a question left open) is in the repository and fails
   `check` at its severity, under gsd-strict and in CI too. That is intended; a workflow says so.
-- `@gsd/core`'s side is recorded in the next change, the one that declares its codes settled later: which codes, the
-  workflows' texts that then record an open question open and write a phase's plans plan by plan, ADR 0384's D1
-  reason, D3 and Limits, and the gates that then read those findings.
+- `@gsd/core` declares `gsd/W204`, `gsd/E301`, `gsd/E310` and `gsd/W309` settled later. Its researcher records an
+  open question open and the user's answer resolves it later; a phase's plans may be written plan by plan, the
+  planner's one edit staying the atomic route; quick mints its plan under gsd-strict too. ADR 0384's D1 reason is
+  reworded, its D3 replaced, its D4 amended and its Limits closed.
+- A half-planned phase is not executed: `execute_phase` gates on `gsd/E301`, `gsd/E310` and `gsd/W309`. A question
+  left open blocks the next plan-phase run on its phase under gsd-strict (`gsd/W204`, its entry gate).
+- The record of the live run (`evaluation/gsd-live/plan-phase.md`) marks each refusal it met accepted since, with the
+  test that now holds it.
 
 ## What each decision becomes
 
@@ -102,9 +145,12 @@ rule on that phase in the same write. `check` and every gate still report it.
 | 0363 | D3 (an entity a write creates reveals nothing) | kept | D3 |
 | 0286 | D3 (an extension catalogs its codes) | amended | an entry may declare `settled_later` (D1) |
 | 0384 | D4 (E080 and what it counts do not change) | amended | D2 |
-| 0384 | Limits (a kernel fix, an owner decision) | answered in the kernel | D1, D2; `@gsd/core`'s side in the next change |
+| 0384 | D1 (a phase's plans are written in one edit) | kept, reason reworded | the edit is the atomic route; a plan alone is accepted (`@gsd/core`'s side) |
+| 0384 | D3 (an open question gsd-strict refuses is returned) | replaced | it is recorded open, and the answer resolves it (`@gsd/core`'s side) |
+| 0384 | Limits (a kernel fix, an owner decision) | closed | D1, D2 and `@gsd/core`'s side |
 
-ADR 0297: 1 amended. ADR 0363: 1 amended, 1 kept. ADR 0286: 1 amended. ADR 0384: 1 amended, 1 answered.
+ADR 0297: 1 amended. ADR 0363: 1 amended, 1 kept. ADR 0286: 1 amended. ADR 0384: 1 amended, 1 kept, 1 replaced,
+1 closed.
 
 ## Tests that hold it
 
@@ -115,6 +161,7 @@ Each test fails when the decision it holds stops being true.
 | D1 | `specforge-protocol-types` `declaration::codes_round_trip_on_the_wire`, `specforge-extension-sdk` `declaration::a_code_entry_may_be_settled_later`, `specforge-diagnostics` `codebook::tests::settled_later_reads_the_owners_own_entry`, `specforge-registry` `build::namespaces::a_settled_later_code_reaches_the_code_book_and_no_e030` |
 | D2 | `specforge-ops` `authoring::planned::tests::a_change_opens_what_it_creates_and_every_entity_it_is_under`, `authoring::edit::declared::tests::a_created_entity_is_followed_through_a_later_move`; in `operations::settled_later`: `a_finding_on_an_entity_the_write_creates_adds_no_error`, `a_finding_on_an_entity_the_write_creates_something_under_adds_no_error`, `a_write_that_creates_nothing_there_still_adds_the_finding`, `only_the_owners_settled_later_code_is_exempt`, `the_re_judge_under_the_lock_exempts_it_too`, `a_migration_counts_it` |
 | D3 | `operations::settled_later::a_finding_on_an_entity_the_write_creates_adds_no_error` (the write lists the finding, and `check` reports it once written) |
+| `@gsd/core`'s side | in `gsd/core`: `declaration::the_settled_later_codes_are_the_rows_of_rules_md` (the four codes and `spec/rules.md`), `passes::cross_plan::tests::an_uncited_context_decision_is_e310_on_the_phase`; in `tests/cli`: `assets_shell::researchers::an_open_question_is_recorded_open_and_its_answer_resolves_it_later` (and the unset that is refused), `assets_shell::researchers::the_researcher_records_every_open_question_open`, `assets_shell::researchers::plan_phase_resolves_the_recorded_question_with_the_users_answer`, `assets_shell::researchers::quick_and_quick_batch_resolve_the_recorded_question_with_the_users_answer`, `assets_shell::planner_edit::the_planner_writes_a_phase_in_one_edit`, `assets_shell::planner_edit::a_plan_written_alone_is_written_and_reports_what_a_later_write_settles`, `assets_shell::planner_edit::a_phases_plans_written_one_at_a_time_are_each_accepted_and_the_last_settles_coverage` (and the delete that is refused), `cmd_quick::a_quick_plan_minted_without_must_haves_is_accepted_and_its_finding_reported_under_strict`, `prompts_gates::e301_e310_w309_a_half_planned_phase_refuses_execute_phase` |
 
 ## Would reopen it
 
