@@ -52,12 +52,12 @@
     "sha256": "1ba1ddd318bc5ff4a45df0fcdd29775bb6b8a9a927e8192d2406c496a7cfa496"
   },
   ".cursor/agents/gsd-roadmapper.md": {
-    "bytes": 24804,
-    "sha256": "a01ccda555f89bfb251c935e454228d088e414c63c73b25aad0e83bdfc2f11a6"
+    "bytes": 24870,
+    "sha256": "eb5371c154fbe90dfe3402e80432a2c978fdc24454a14011a523cd29304f0061"
   },
   ".cursor/agents/gsd-verifier.md": {
-    "bytes": 58449,
-    "sha256": "6cdf80c44e887ffa3d9af4815206a956dfc3c3d114c2b81f1976338ddee7d1cf"
+    "bytes": 58442,
+    "sha256": "bdb22eb96c1caf44aff1a454fa481467c9c5d4e7e1bd9073647c6a417ef91e41"
   },
   ".cursor/hooks.json": {
     "bytes": 2050,

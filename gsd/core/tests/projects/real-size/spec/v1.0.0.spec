@@ -1,10 +1,8 @@
 milestone v1.0.0 "Graph Protocol 1.0" {
-  name "Graph Protocol 1.0"
 }
 
 phase 02 "Graph Protocol Export" {
   milestone        v1.0.0
-  name             "Graph Protocol Export"
   slug             "graph-protocol-export"
   goal             "The compiled graph is exported as deterministic Graph Protocol JSON"
   requirements     [FEATURE-047]
@@ -16,7 +14,6 @@ phase 02 "Graph Protocol Export" {
 
 phase 03 "Graph Protocol Schema Versioning" {
   milestone        v1.0.0
-  name             "Graph Protocol Schema Versioning"
   slug             "graph-protocol-schema-versioning"
   depends_on       [02]
   requirements     [FEATURE-120, FEATURE-048]

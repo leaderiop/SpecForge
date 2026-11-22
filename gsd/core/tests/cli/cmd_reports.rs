@@ -133,7 +133,7 @@ fn stats_on_the_twin_leave_a_backlog_phase_out() {
     plant(
         &p,
         "spec/v1.0.spec",
-        "phase 999.1 \"Someday\" {\n  milestone v1.0\n  name \"Someday\"\n  slug \"someday\"\n}\n",
+        "phase 999.1 \"Someday\" {\n  milestone v1.0\n  slug \"someday\"\n}\n",
     );
     let got = report(&p, "stats");
     assert_eq!(got["phases_total"], 4, "{got}");

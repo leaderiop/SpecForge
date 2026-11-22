@@ -51,17 +51,17 @@
     "Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints; each phase has `number`, `name`, `plans`, `summaries`, `status`). The rest is derived, there is no init JSON: `phase_count` is the length of `phases`; `completed_count` counts status `Complete`; `in_progress_count` counts `In Progress`; `all_complete` is `completed_count == phase_count`; `recommended_actions` has one entry per phase that is not `Complete`, in order (`Pending` → `$gsd-discuss-phase N`, or `$gsd-plan-phase N` once a `context` entity exists, `specforge query \"$MILESTONE/N\" --depth 1 --kinds context`; `Planned` or `In Progress` → `$gsd-execute-phase N`); `waiting_signal` is always absent (no background-work signal here); `queued_milestone_version`, `queued_milestone_name` and `queued_phases` are absent (skip the Queued section); `response_language` is ``; `manager_flags` are the settings ``, `` and ``.",
     "",
     "In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{phase_name}`",
-    "is its `.fields.name`. They are the `number` and `name` `progress-report` prints for it.",
+    "is its `title`. The number is the `number` `progress-report` prints for it; its `name` is the phase's slug read as",
+    "words, so a label reads the title from the phase node (`specforge query \"$MILESTONE\" --kinds phase --depth 1`).",
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated. Subagent dispatches (discuss/plan/execute) stay in English at the prompt level; include `response_language` in their spawn args per the workflow being dispatched.",
     "",
     "`manager_flags` are the per-step passthrough flags from the settings:",
     "- `manager_flags.discuss` — appended to `$gsd-discuss-phase` args (e.g. `\"--auto --analyze\"`)",
     "- `manager_flags.plan` — appended to plan agent init command",
-    "- `manager_flags.execute` — appended to execute agent init command",
-    ""
+    "- `manager_flags.execute` — appended to execute agent init command"
   ],
-  "bytes": 47028,
+  "bytes": 47166,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 989,
+  "lines": 990,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6548b740cc1fe7407f285d7f88dd6bba5e316f3914fe55f1165ec6ba931c6d05",
+    "digest": "sha256:a8571eb1c9cf1cc8d7836e6c58387f31190b3541d39b2f9174c9bfb404d8c291",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "6548b740cc1fe7407f285d7f88dd6bba5e316f3914fe55f1165ec6ba931c6d05"
+  "sha256": "a8571eb1c9cf1cc8d7836e6c58387f31190b3541d39b2f9174c9bfb404d8c291"
 }

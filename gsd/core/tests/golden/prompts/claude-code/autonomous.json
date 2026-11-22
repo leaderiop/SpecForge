@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 55562,
+  "bytes": 55555,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:31be736d3b19710fc52f8f82ee09f77595b086cd1ff16747a8b7863f3c7b1bc4",
+    "digest": "sha256:be2186db0f99c238da1f30462987b869597621ba698250aff79d81b17df90aee",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "31be736d3b19710fc52f8f82ee09f77595b086cd1ff16747a8b7863f3c7b1bc4"
+  "sha256": "be2186db0f99c238da1f30462987b869597621ba698250aff79d81b17df90aee"
 }

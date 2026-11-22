@@ -35,7 +35,7 @@ pub fn decisions(input: &PassInput) -> BTreeSet<&str> {
 /// `src/decision-coverage-support.cts`), which are `<objective>`, the tasks and the must-haves. Here the plan's
 /// `objective`, `purpose` and `output`, then every field of its tasks, checkpoints, truths, artifacts, key links and
 /// prohibitions, joined by a line break. Not its context references, its verification or its success criteria, and no
-/// title (the pass input carries none). Fenced code and HTML comments are not stripped.
+/// title (upstream's sections hold none). Fenced code and HTML comments are not stripped.
 pub fn plan_text(input: &PassInput, plan: &PassEntity) -> String {
     let mut parts: Vec<String> = ["objective", "purpose", "output"]
         .iter()

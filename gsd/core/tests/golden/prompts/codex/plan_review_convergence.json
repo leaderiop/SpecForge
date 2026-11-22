@@ -61,7 +61,7 @@
     "operator's explicit flag overrides this gate for that run. Standalone invocation carries no such",
     "flag and remains gated by the config below."
   ],
-  "bytes": 76087,
+  "bytes": 76091,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:803f80decc02d47cdea8ae6553263f62168f9e4c87eb79bc0af12f38e577fb4a",
+    "digest": "sha256:3b0e1a77a747629c7e193792229e9bc86414dfdd26643a6418f2dd0df94f5dd7",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "803f80decc02d47cdea8ae6553263f62168f9e4c87eb79bc0af12f38e577fb4a"
+  "sha256": "3b0e1a77a747629c7e193792229e9bc86414dfdd26643a6418f2dd0df94f5dd7"
 }

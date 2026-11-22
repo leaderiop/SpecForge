@@ -89,7 +89,7 @@ fn two_milestones(closed: bool) -> Project {
     p.write(
         "spec/v2.spec",
         &format!(
-            "milestone v2.0 \"Next\" {{\n  name \"Next\"\n{ruling}}}\n\nphase 01 \"Next one\" {{\n  milestone v2.0\n  name \"Next one\"\n  slug \"next-one\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}}\n"
+            "milestone v2.0 \"Next\" {{\n{ruling}}}\n\nphase 01 \"Next one\" {{\n  milestone v2.0\n  slug \"next-one\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}}\n"
         ),
     );
     p

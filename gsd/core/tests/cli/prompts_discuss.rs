@@ -178,7 +178,7 @@ fn the_shell_ids_skip_an_abandoned_milestone() {
     let p = twin();
     p.write(
         "spec/v0.spec",
-        "milestone v0.5 \"Dropped\" {\n  name \"Dropped\"\n  abandoned { reason \"dropped\" ruled_by \"tester\" at 2026-10-01 }\n}\n",
+        "milestone v0.5 \"Dropped\" {\n  abandoned { reason \"dropped\" ruled_by \"tester\" at 2026-10-01 }\n}\n",
     );
     let text = text_of(&payload(&prompt(
         &p,

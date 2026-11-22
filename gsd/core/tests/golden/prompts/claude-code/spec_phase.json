@@ -61,7 +61,7 @@
     "- \"If you had to cut 50%, what's the irreducible core?\"",
     "- \"What would make this phase a success even without the nice-to-haves?\""
   ],
-  "bytes": 52828,
+  "bytes": 52838,
   "end": [
     "<context>",
     "Phase number: the `<arguments>` block (required)",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:137a02b5a7b73e3774db365a46e4cf3c72d51e03dc2af3f1025b5b654915c22b",
+    "digest": "sha256:e8b2e6fecc48e4ad8ff8c1768c9ac4e21621921a9104bd044f879b7155986cc6",
     "judged": [
       {
         "outcomes": [
@@ -235,5 +235,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "137a02b5a7b73e3774db365a46e4cf3c72d51e03dc2af3f1025b5b654915c22b"
+  "sha256": "e8b2e6fecc48e4ad8ff8c1768c9ac4e21621921a9104bd044f879b7155986cc6"
 }

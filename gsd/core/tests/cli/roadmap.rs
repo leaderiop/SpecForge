@@ -11,7 +11,8 @@ fn roadmap_errors_report_each_code_once() {
     assert_eq!(
         codes,
         [
-            "gsd/E101", "gsd/E101", "gsd/E102", "gsd/E102", "gsd/E102", "gsd/E105", "gsd/W104"
+            "gsd/E101", "gsd/E101", "gsd/E102", "gsd/E102", "gsd/E102", "gsd/E105", "gsd/W104",
+            "gsd/W109"
         ],
         "{found:#?}"
     );
@@ -28,6 +29,7 @@ fn roadmap_errors_report_each_code_once() {
         "phase 'v1.0/05' is on a dependency cycle",
         "requirement 'GONE-01' is out of scope but gives no reason",
         "phase numbers skip 03, before 'v1.0/04'",
+        "phase 'v1.0/02' is titled 'Phase 02: Second', which begins with the phase number 'Phase 02'",
     ] {
         assert!(text.contains(expected), "missing `{expected}` in:\n{text}");
     }
@@ -53,7 +55,7 @@ fn a_second_project_is_e108() {
 
 fn phase_spec(number: &str) -> String {
     format!(
-        "phase {number} \"P{number}\" {{\n  milestone v1.0\n  name \"P{number}\"\n  slug \"p\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}}\n\n"
+        "phase {number} \"P{number}\" {{\n  milestone v1.0\n  slug \"p\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}}\n\n"
     )
 }
 
@@ -89,7 +91,7 @@ fn a_far_phase_number_is_one_warning() {
 fn phase_with_criteria(number: &str, criteria: &[&str]) -> String {
     let items: Vec<String> = criteria.iter().map(|c| format!("{c:?}")).collect();
     format!(
-        "phase {number} \"P{number}\" {{\n  milestone v1.0\n  name \"P{number}\"\n  slug \"p\"\n  goal \"g\"\n  success_criteria [{}]\n}}\n",
+        "phase {number} \"P{number}\" {{\n  milestone v1.0\n  slug \"p\"\n  goal \"g\"\n  success_criteria [{}]\n}}\n",
         items.join(", ")
     )
 }
@@ -149,6 +151,73 @@ fn w103_is_an_error_under_gsd_strict() {
     let check = p.run(&["check"]);
     assert_eq!(check.code, 1, "check: {}", check.all());
     assert!(check.all().contains("W103"), "check: {}", check.all());
+}
+
+fn titled_phase(number: &str, title: &str) -> String {
+    format!(
+        "phase {number} {title:?} {{\n  milestone v1.0\n  slug \"p\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}}\n\n"
+    )
+}
+
+/// A phase is labelled `Phase <its id's last segment>: <title>` (ADR 0387): a title that begins with a phase number
+/// prints a second one, which a renumber leaves behind.
+#[test]
+fn a_numbered_phase_title_is_w109() {
+    let p = project("roadmap");
+    p.write(
+        "spec/more.spec",
+        &[
+            titled_phase("02", "Phase 12: Graph Protocol"),
+            titled_phase("03", "3. Listing"),
+        ]
+        .concat(),
+    );
+    let found = p.findings();
+    let codes: Vec<&str> = found.iter().map(|(code, _)| code.as_str()).collect();
+    assert_eq!(codes, ["gsd/W109", "gsd/W109"], "{found:#?}");
+    assert!(
+        found[0].1.contains(
+            "phase 'v1.0/02' is titled 'Phase 12: Graph Protocol', which begins with the phase number 'Phase 12'"
+        ),
+        "{found:#?}"
+    );
+    let check = p.run(&["check", "--format", "json"]);
+    assert!(
+        check.stdout.contains(
+            "retitle it 'Graph Protocol': its label then reads 'Phase 02: Graph Protocol'"
+        ),
+        "the suggestion names the title without its number: {}",
+        check.all()
+    );
+    assert_eq!(p.run(&["check"]).code, 0, "a warning under gsd-compat");
+}
+
+#[test]
+fn a_title_with_a_number_inside_is_not_w109() {
+    let p = project("roadmap");
+    p.write(
+        "spec/more.spec",
+        &[
+            titled_phase("02", "HTTP 2 support"),
+            titled_phase("03", "2FA login"),
+            titled_phase("04", "v2.0 migration"),
+        ]
+        .concat(),
+    );
+    assert_eq!(p.findings(), []);
+}
+
+#[test]
+fn w109_is_an_error_under_gsd_strict() {
+    let p = project("roadmap");
+    p.write(
+        "spec/more.spec",
+        &titled_phase("02", "Phase 2: Persistence"),
+    );
+    p.settings(serde_json::json!({ "profile": "gsd-strict" }));
+    let check = p.run(&["check"]);
+    assert_eq!(check.code, 1, "check: {}", check.all());
+    assert!(check.all().contains("W109"), "check: {}", check.all());
 }
 
 #[test]

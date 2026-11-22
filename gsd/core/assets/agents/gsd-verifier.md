@@ -695,7 +695,7 @@ Read each truth's inputs with `specforge query <truth> --inputs gsd/E501 --cite-
 Then report in this shape: a message, not a file, and no frontmatter, since the verification's `status`, `score`, covered files and re-verification are computed from your verdicts (the header shows them for the reader):
 
 In a phase's label, `{X}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{Name}` is
-its `.fields.name`.
+its `title`.
 
 ```markdown
 # Phase {X}: {Name} Verification Report

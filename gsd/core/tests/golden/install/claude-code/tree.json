@@ -52,12 +52,12 @@
     "sha256": "c42fa6aacdb776a4e381f939d284b9e38ed55197e5b7cb1cdab3221bdbc39107"
   },
   ".claude/agents/gsd-roadmapper.md": {
-    "bytes": 25397,
-    "sha256": "e5786f5f88b41e5a7e8be7857421784964a3dfd492560be9c00d50b95c5ead23"
+    "bytes": 25463,
+    "sha256": "68c35cafb3be5c9e5a750cbcb780af28ac6e3c8fa8e0bcbae450ddd6f93e7355"
   },
   ".claude/agents/gsd-verifier.md": {
-    "bytes": 59082,
-    "sha256": "acc48514fa5e0ce04f7717a2ed159e5fc4271af57f8637f7e33ef96fe93459b4"
+    "bytes": 59075,
+    "sha256": "2b5c1355036613bd61839a7e441cd563d81c8d7f077bb75838cd8c18625f5894"
   },
   ".claude/settings.json": {
     "bytes": 3736,

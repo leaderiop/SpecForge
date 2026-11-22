@@ -84,7 +84,7 @@ research 02-RESEARCH "Persistence research" {
   ]
   context_pack {
     route  "gsd/phase-context"
-    digest "sha256:6b581dc0ec29be698b84ebe813ad16dc1241d5b16d86cce89be01fdddbd469a2"
+    digest "sha256:d4f9ad9ec2946fd212df4ddd5bd22b6059ec3a24ab254a8cac9b9f6a78c9ad59"
   }
 }
 

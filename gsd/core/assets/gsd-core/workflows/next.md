@@ -75,7 +75,7 @@ Use `--force` to bypass this check.
 Exit.
 
 In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{name}` is
-its `.fields.name`. `{src}` is the number of the phase whose items are deferred (`$SRC`).
+its `title`. `{src}` is the number of the phase whose items are deferred (`$SRC`).
 
 **Gate 3: Unchecked verification**
 Check if the current phase has a VERIFICATION.md with any `FAIL` items that don't have overrides:

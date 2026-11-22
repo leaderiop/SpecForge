@@ -387,7 +387,7 @@ fn the_picked_phase_is_in_the_milestone_the_report_is_about() {
     let plans = p.read("spec/plans.spec");
     p.write(
         "spec/plans.spec",
-        &format!("{plans}\nmilestone v2.0 \"Taskboard 2.0\" {{\n  name \"Taskboard 2.0\"\n}}\n\nphase 01 \"Later\" {{\n  milestone v2.0\n  name \"Later\"\n  slug \"later\"\n  goal \"Later.\"\n  requirements [TASK-01]\n  success_criteria [\"x\"]\n}}\n"),
+        &format!("{plans}\nmilestone v2.0 \"Taskboard 2.0\" {{\n}}\n\nphase 01 \"Later\" {{\n  milestone v2.0\n  slug \"later\"\n  goal \"Later.\"\n  requirements [TASK-01]\n  success_criteria [\"x\"]\n}}\n"),
     );
     let report = json(&p.run(&["gsd", "progress-report", "--format", "json"]));
     let picked = payload(&prompt(&p, "plan_phase", &[], "claude-code"));

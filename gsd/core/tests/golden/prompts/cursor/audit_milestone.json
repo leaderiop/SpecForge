@@ -42,7 +42,7 @@
     "AGENT_SKILLS_CHECKER=\"\"   # the host install carries the skills of gsd-integration-checker",
     "```",
     "",
-    "Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (its version is that id; `name` and `progress` are its fields, and `phase_count` and `completed_phases` are its `progress`'s `phases` and `phases_complete`), and its phases are among the other nodes.",
+    "Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (its version is that id; its name is its `title`, `progress` is its field, and `phase_count` and `completed_phases` are its `progress`'s `phases` and `phases_complete`), and its phases are among the other nodes.",
     "",
     "Resolve integration checker model:",
     "```bash",
@@ -61,7 +61,7 @@
     "Resolve the milestone's audit, the `milestone_audit` entity this workflow records into. A re-audit reuses it; the first audit creates `<milestone>/A1`, before the integration checker is spawned, since its verdict is recorded on it:",
     ""
   ],
-  "bytes": 29169,
+  "bytes": 29174,
   "end": [
     "",
     "<success_criteria>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:bcf41867d2e05e4f799f9a6f6e1b981ebb752fda8594f46f0f2d766f2a1e5874",
+    "digest": "sha256:4c2bf36cf37651965e8ed219d208d182592b989c797956e7a103edfb5bb8c652",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "bcf41867d2e05e4f799f9a6f6e1b981ebb752fda8594f46f0f2d766f2a1e5874"
+  "sha256": "4c2bf36cf37651965e8ed219d208d182592b989c797956e7a103edfb5bb8c652"
 }

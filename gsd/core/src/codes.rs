@@ -686,6 +686,14 @@ pub static CODES: &[Code] = &[
         Severity::Info,
         Severity::Info,
     ),
+    code(
+        "W109",
+        "Phase title embeds a number",
+        "A phase's title does not begin with a phase number: its label reads the number from its id",
+        "project-and-roadmap",
+        Severity::Warning,
+        Severity::Error,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

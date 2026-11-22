@@ -39,7 +39,7 @@ Normalize per `@~/.claude/gsd-core/references/phase-argument-parsing.md` (zero-p
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 
 PHASE_FOUND=true; specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].id' >/dev/null 2>&1 || PHASE_FOUND=false
-PHASE_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.name' 2>/dev/null)
+PHASE_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].title' 2>/dev/null)
 PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)
 PHASE_MODE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)
 

@@ -32,6 +32,7 @@ every profile, while that setting is false; its letter is still the severity it 
 | gsd/E106 | a milestone completes only with a passing (or accepted) audit: at the gate, the subject milestone's latest audit is `passed`, or `tech_debt` with a person's `debt_accepted`; no audit is refused too. Silent outside a gate | guard | E | E | complete-milestone |
 | gsd/E107 | a timestamp field holds an RFC 3339 UTC time (every authored `ts` field, and every authored `ts` member of an authored block, is a `str` that `matches` `YYYY-MM-DDTHH:MM:SS[.f]Z` with ASCII digits and RFC 3339's ranges for month, day, hour, minute and second; the day is not checked against the month; generated per field and member. `project.updated` is computed, so the first is `blocker.resolved.at` (r38, fired by a black-box test); `answer.at`, `done.at`, `pause.at` and `blocker.raised` are harness values and get none) | decl | E | E | (new: SpecForge has no timestamp type) |
 | gsd/E108 | a repository has one `project` (the kernel keeps `singleton` as metadata, so the second and later `project` entities, by id, are reported) | pass | E | E | (new: `PROJECT.md` is one file) |
+| gsd/W109 | a phase's title does not begin with a phase number: `Phase` (any case) and a number in GSD's grammar (`Phase 12:`, `phase 03.1 -`), or a bare number before `:` or `.` and a space, `)` or a spaced dash (`03: Core`, `3. Core`); a number inside the title is not one. A phase is labelled `Phase <its id's last segment>: <title>` (ADR 0387), so a numbered title prints a second number, which a renumber leaves behind. A `999.x` backlog phase is read too | pass | W | E | (new: GSD's heading `### Phase N: Name` keeps the number out of the name) |
 
 ## Discuss, spec, research
 
@@ -143,6 +144,8 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   own, and the delta of the truth, its plan and its phase, so it names exactly the truths `re_verify --stale-only`
   lists as stale (a missing, unrecorded or unreadable verdict, which it also lists, is gsd/E501's alone); a file
   edit is not in the delta, so the files it names come from the truth's judgement at the base and now.
+- `gsd/W109` reads a phase's title, which a pass is sent since protocol 2.3.0 (ADR 0387): `phase` and `milestone`
+  declare no `name`, so the title is a phase's one name and the rule watches the drift two copies once allowed.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.
 
 - **Kernel behaviour the rules rely on.** The host's E080 no longer counts a judged rule's finding as an error a write adds (K17, ADR 0297), and pairs an extension's finding by its subject (ADR 0302); a collector's plan is judged for host errors only (ADR 0303). The human-only guarantee holds for every existing entity of a human-only kind and against deleting a person's value (K17, ADR 0298): an agent cannot change an `override` or delete a `milestone_audit` that carries a `debt_accepted`.

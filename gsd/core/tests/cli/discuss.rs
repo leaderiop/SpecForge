@@ -47,7 +47,7 @@ fn two_phases_may_each_have_a_d_01() {
     p.write(
         "spec/v1.0.spec",
         &(fixture("v1.0.spec")
-            + "\nphase 03 \"Sharing\" {\n  milestone v1.0\n  name \"Sharing\"\n  slug \"sharing\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}\n"),
+            + "\nphase 03 \"Sharing\" {\n  milestone v1.0\n  slug \"sharing\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}\n"),
     );
     p.write(
         "spec/more.spec",

@@ -41,7 +41,7 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; its name is its `title`). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 

@@ -53,7 +53,7 @@ pub(super) fn state_of(graph: &CommandGraph) -> StateSeg {
     let mut seg = StateSeg::default();
     if let Some(m) = reports::current(graph) {
         seg.milestone = m.id.clone();
-        seg.milestone_name = m.text("name").unwrap_or_default().to_string();
+        seg.milestone_name = m.title.clone().unwrap_or_default();
         if let Some(p) = m.fields.get("progress") {
             seg.percent = count(p, "percent");
             seg.completed_phases = count(p, "phases_complete");

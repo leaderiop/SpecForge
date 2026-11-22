@@ -457,7 +457,7 @@ fn two_milestones() -> crate::harness::Project {
     let p = crate::harness::taskboard();
     std::fs::write(
         p.root().join("spec/v2.spec"),
-        "milestone v2.0 \"Next\" {\n  name \"Next\"\n}\n\nphase 01 \"Later\" {\n  milestone v2.0\n  name \"Later\"\n  slug \"later\"\n  goal \"A later goal\"\n  success_criteria [\"It works\"]\n}\n",
+        "milestone v2.0 \"Next\" {\n}\n\nphase 01 \"Later\" {\n  milestone v2.0\n  slug \"later\"\n  goal \"A later goal\"\n  success_criteria [\"It works\"]\n}\n",
     )
     .expect("a second milestone");
     p

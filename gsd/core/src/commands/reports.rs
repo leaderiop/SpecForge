@@ -100,8 +100,8 @@ fn percent(part: u64, whole: u64) -> u64 {
 }
 
 /// What `progress json` answers: the phases with their plans, summaries and status label, and the plan-based percent.
-/// `milestone_version` and `milestone_name` are the milestone's (upstream reads them from STATE.md, which a project of
-/// this extension has none of).
+/// `milestone_version` and `milestone_name` are the milestone's id and title (upstream reads them from STATE.md, which
+/// a project of this extension has none of).
 pub(crate) fn progress(graph: &CommandGraph) -> Result<Value, String> {
     progress_of(graph, None)
 }
@@ -142,7 +142,7 @@ fn progress_json(milestone: Option<&GraphNode>, found: &[Phase]) -> Value {
     let summaries: u64 = found.iter().map(|p| p.summaries).sum();
     json!({
         "milestone_version": milestone.map(|m| m.id.as_str()),
-        "milestone_name": milestone.and_then(|m| m.text("name")),
+        "milestone_name": milestone.and_then(|m| m.title.as_deref()),
         "phases": found.iter().map(|p| json!({
             "number": p.number, "name": p.name, "plans": p.plans, "summaries": p.summaries, "status": p.status,
         })).collect::<Vec<_>>(),
@@ -373,11 +373,10 @@ mod tests {
     fn a_phase_reads_its_computed_values() {
         let graph = CommandGraph::new(
             vec![
-                node(
-                    "v1.0",
-                    "milestone",
-                    &[("state", "in_progress"), ("name", "One")],
-                ),
+                GraphNode {
+                    title: Some("One".to_string()),
+                    ..node("v1.0", "milestone", &[("state", "in_progress")])
+                },
                 node(
                     "v1.0/02.1",
                     "phase",

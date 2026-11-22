@@ -53,15 +53,15 @@
     "Read from the answer (what `progress-report` prints): `milestone_version`, `milestone_name`, `phases` (each `number`, `name`, `plans`, `summaries`, `status`), `total_plans`, `total_summaries`, `percent` and `phase_scope`. `phase_count` is the length of `phases` and `completed_count` counts those with status `Complete`; the current phase is the first that is not, and the next phase the one after it; `roadmap_exists` is `phases` non-empty and `state_exists` is `milestone_version` non-null (the project state is computed, so no path is read); a pause is a `pause` entity, and a phase's mode its `mode` field.",
     "",
     "In a phase's label, `{phase}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{Name}`",
-    "is its `.fields.name`. They are the `number` and `name` `progress-report` prints for it. `{Z}` is the number of the",
-    "phase just completed, and `{Z+1}` the next one's.",
+    "is its `title`. The number is the `number` `progress-report` prints for it; its `name` is the phase's slug read as",
+    "words, so a label reads the title from the phase node (`specforge query \"$MILESTONE\" --kinds phase --depth 1`). `{Z}` is",
+    "the number of the phase just completed, and `{Z+1}` the next one's.",
     "",
     "```bash",
     "DISCUSS_MODE=\"discuss\"   # workflow.discuss_mode (the settings)",
-    "```",
-    ""
+    "```"
   ],
-  "bytes": 78011,
+  "bytes": 78142,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1732,
+  "lines": 1733,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:46ae70593a3d6e140581f91adfd09f7085d92bf11ce2cc8783e8428757013816",
+    "digest": "sha256:170f2cdef2f817e3d0cd2077f777153d145b5e196c7fd978d83ad9a89663563f",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "46ae70593a3d6e140581f91adfd09f7085d92bf11ce2cc8783e8428757013816"
+  "sha256": "170f2cdef2f817e3d0cd2077f777153d145b5e196c7fd978d83ad9a89663563f"
 }

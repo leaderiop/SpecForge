@@ -21,7 +21,7 @@ PHASE_INFO=$(specforge query "${PHASE}" --depth 0 --pick '.nodes[0]')   # the ph
 Read from the phase node:
 - `found`: true when the query does not refuse the id
 - `phase_number`: the last segment of its `id`, normalized (e.g., "06", "06.1")
-- `phase_name`: its `.fields.name`, the name its label shows (e.g., "Foundation")
+- `phase_name`: its `title`, the name its label shows (e.g., "Foundation")
 - its plans and summaries: entities linked to it, not files; a phase has no directory
 
 ## Manual Normalization (Legacy)

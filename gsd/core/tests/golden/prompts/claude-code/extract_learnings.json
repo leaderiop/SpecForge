@@ -40,7 +40,7 @@
     "```",
     "",
     "Parse from the query JSON: in a phase's label, `{PHASE_NUMBER}` is the phase's number, the last segment of `$PHASE_ID`",
-    "(kept in `PHASE_NUMBER`), and `{PHASE_NAME}` is its `.fields.name`; `{PHASE_ID}` is its `id`.",
+    "(kept in `PHASE_NUMBER`), and `{PHASE_NAME}` is its `title`; `{PHASE_ID}` is its `id`.",
     "",
     "If phase not found, exit with error: \"Phase {PHASE_ID} not found.\"",
     "</step>",
@@ -61,7 +61,7 @@
     "",
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field."
   ],
-  "bytes": 21114,
+  "bytes": 21107,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2239d0b4d3aa9e2346fa0874c46e1625526c5c4b145aed626cce32fc1deb85e6",
+    "digest": "sha256:c01b615a08398f9295f8e3bce01580afe455ef939adab66ac8f787ea096cc689",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "2239d0b4d3aa9e2346fa0874c46e1625526c5c4b145aed626cce32fc1deb85e6"
+  "sha256": "c01b615a08398f9295f8e3bce01580afe455ef939adab66ac8f787ea096cc689"
 }

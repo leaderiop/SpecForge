@@ -241,7 +241,7 @@ fn e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_strict() {
     let p = ready();
     p.write(
         "spec/next.spec",
-        "milestone v2.0 \"N\" {\n  name \"N\"\n}\n\nphase 01 \"Next\" {\n  milestone v2.0\n  name \"Next\"\n  slug \"next\"\n  goal \"Do more\"\n  success_criteria [\"More is done\"]\n}\n\nplan 01-01 \"Q\" {\n  phase v2.0/01\n  type execute\n  objective \"Do more\"\n}\n",
+        "milestone v2.0 \"N\" {\n}\n\nphase 01 \"Next\" {\n  milestone v2.0\n  slug \"next\"\n  goal \"Do more\"\n  success_criteria [\"More is done\"]\n}\n\nplan 01-01 \"Q\" {\n  phase v2.0/01\n  type execute\n  objective \"Do more\"\n}\n",
     );
     stale_plan_check(&p, "v2.0/01/01-01");
     assert_eq!(

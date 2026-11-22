@@ -361,17 +361,17 @@ fn node(id: &str, kind: &str, fields: &[(&str, serde_json::Value)]) -> GraphNode
 fn project_graph(extra: Vec<GraphNode>) -> CommandGraph {
     let mut nodes = vec![
         node("taskboard", "project", &[]),
-        node(
-            "v1.0",
-            "milestone",
-            &[
-                ("name", json!("Taskboard")),
-                (
+        GraphNode {
+            title: Some("Taskboard".into()),
+            ..node(
+                "v1.0",
+                "milestone",
+                &[(
                     "progress",
                     json!({"phases": 4, "phases_complete": 1, "plans": 3, "plans_complete": 1, "percent": 25}),
-                ),
-            ],
-        ),
+                )],
+            )
+        },
         node(
             "v1.0/01",
             "phase",

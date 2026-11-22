@@ -1,6 +1,6 @@
-//! The roadmap pass: `gsd/E101`, `gsd/E102`, `gsd/W103`, `gsd/W104`, `gsd/E108` and `gsd/E206` over the project,
-//! requirements, phases and their references. Pure functions over the pass input; the plan half of E102 is `plans`
-//! and E106 is a gate guard (r39).
+//! The roadmap pass: `gsd/E101`, `gsd/E102`, `gsd/W103`, `gsd/W104`, `gsd/E108`, `gsd/W109` and `gsd/E206` over the
+//! project, requirements, phases and their references. Pure functions over the pass input; the plan half of E102 is
+//! `plans` and E106 is a gate guard (r39).
 //!
 //! Also ports gsd-core bin/lib modules: gap-checker.cjs, roadmap-parser.cjs, roadmap-upgrade.cjs.
 //!
@@ -10,6 +10,7 @@ mod criteria;
 pub(crate) mod numbering;
 mod one_per_phase;
 mod plans;
+mod titles;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -29,6 +30,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     found.extend(dependencies(input));
     found.extend(criteria::check(input));
     found.extend(numbering::check(input));
+    found.extend(titles::check(input));
     found.extend(one_per_phase::check(input));
     found.extend(plans::check(input));
     found

@@ -100,7 +100,7 @@ fn a_label_and_a_definition_read_as_written() {
         BTreeSet::from(["X", "phase_number", "PHASE_NUMBER", "Name"].map(String::from))
     );
     assert!(
-        defined("and `{Name}`\nis its `.fields.name`").contains("Name"),
+        defined("and `{Name}`\nis its `title`").contains("Name"),
         "a wrapped one"
     );
     assert!(defined("the `{X}` placeholder").is_empty());
@@ -150,11 +150,11 @@ fn every_phase_label_defines_its_placeholders() {
     );
 }
 
-/// A phase's label is `Phase <its id's last segment>: <its name>`: plan-phase's step 3 and autonomous's phase details
-/// say which part of the node each value is (a node holds no `phase_number` key), `{X}` is defined, and plan-phase's
-/// own body prints no `{Name}` that no step sets.
+/// A phase's label is `Phase <its id's last segment>: <its title>` (ADR 0387): plan-phase's step 3 and autonomous's
+/// phase details say which part of the node each value is (a node holds no `phase_number` key), `{X}` is defined, and
+/// plan-phase's own body prints no `{Name}` that no step sets.
 #[test]
-fn the_phase_label_is_read_from_the_id_and_the_name_field() {
+fn the_phase_label_is_read_from_the_id_and_the_title() {
     let all = prompts();
     let rendered = |command: &str| {
         let (_, combos) = all.iter().find(|(c, _)| c == command).expect("the prompt");
@@ -169,16 +169,13 @@ fn the_phase_label_is_read_from_the_id_and_the_name_field() {
     let autonomous = one_line(&rendered("autonomous"));
     for (text, said) in [
         (step, "`phase_number` is the last segment of its `id`"),
-        (step, "`phase_name` is its `.fields.name`"),
+        (step, "`phase_name` is its `title`"),
         (step, "`{X}` is `phase_number`"),
         (
             step,
             "a phase's label reads \"Phase {phase_number}: {phase_name}\"",
         ),
-        (
-            &autonomous,
-            "`PHASE_NAME` (`phase_name`) is its `.fields.name`",
-        ),
+        (&autonomous, "`PHASE_NAME` (`phase_name`) is its `title`"),
         (&autonomous, "`PHASE_NUM` is the last segment of its `id`"),
         (
             &autonomous,
@@ -189,4 +186,13 @@ fn the_phase_label_is_read_from_the_id_and_the_name_field() {
     }
     let own = asset("gsd-core/workflows/plan-phase.md").expect("an asset");
     assert!(!own.contains("{Name}"), "plan-phase prints a `{{Name}}`");
+    let named: Vec<String> = assets()
+        .into_iter()
+        .filter(|(_, _, text)| text.contains(".fields.name"))
+        .map(|(_, path, _)| path)
+        .collect();
+    assert!(
+        named.is_empty(),
+        "no phase or milestone has a name field: {named:?}"
+    );
 }

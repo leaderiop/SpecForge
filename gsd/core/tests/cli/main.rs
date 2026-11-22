@@ -259,7 +259,7 @@ fn two_milestones_may_each_have_a_phase_01() {
     let p = project("roadmap");
     p.write(
         "spec/v2.0.spec",
-        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\nphase 01 \"Sharing\" {\n  milestone v2.0\n  name \"Sharing\"\n  slug \"sharing\"\n  goal \"Boards are shared\"\n  success_criteria [\"a\", \"b\"]\n}\n",
+        "milestone v2.0 \"Taskboard 2.0\" {\n}\n\nphase 01 \"Sharing\" {\n  milestone v2.0\n  slug \"sharing\"\n  goal \"Boards are shared\"\n  success_criteria [\"a\", \"b\"]\n}\n",
     );
     let check = p.run(&["check"]);
     assert_eq!(check.code, 0, "check: {}", check.all());
@@ -274,7 +274,7 @@ fn an_ambiguous_short_form_names_each_candidate() {
     let p = project("roadmap");
     p.write(
         "spec/v2.0.spec",
-        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\nphase 01 \"Sharing\" {\n  milestone v2.0\n  name \"Sharing\"\n  slug \"sharing\"\n  goal \"Boards are shared\"\n  success_criteria [\"a\", \"b\"]\n}\n",
+        "milestone v2.0 \"Taskboard 2.0\" {\n}\n\nphase 01 \"Sharing\" {\n  milestone v2.0\n  slug \"sharing\"\n  goal \"Boards are shared\"\n  success_criteria [\"a\", \"b\"]\n}\n",
     );
     let query = p.run(&["query", "01", "--depth", "0", "--format", "brief"]);
     assert_ne!(
@@ -296,7 +296,7 @@ fn a_milestone_in_a_workstream_is_named_by_its_workstream() {
     // `v1.0` of the workstream is a second milestone beside the project's own `v1.0`.
     p.write(
         "spec/learning.spec",
-        "workstream auth-rework \"Auth rework\" {\n  purpose \"Replace the session store\"\n}\n\nmilestone v1.0 \"Auth rework 1.0\" {\n  name \"Auth rework 1.0\"\n  workstream auth-rework\n}\n\nphase 01 \"Store\" {\n  milestone auth-rework/v1.0\n  name \"Store\"\n  slug \"store\"\n  goal \"The store is replaced\"\n  success_criteria [\"a\", \"b\"]\n}\n",
+        "workstream auth-rework \"Auth rework\" {\n  purpose \"Replace the session store\"\n}\n\nmilestone v1.0 \"Auth rework 1.0\" {\n  workstream auth-rework\n}\n\nphase 01 \"Store\" {\n  milestone auth-rework/v1.0\n  slug \"store\"\n  goal \"The store is replaced\"\n  success_criteria [\"a\", \"b\"]\n}\n",
     );
     let check = p.run(&["check"]);
     assert_eq!(check.code, 0, "check: {}", check.all());

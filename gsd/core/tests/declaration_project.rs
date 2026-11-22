@@ -52,9 +52,19 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
     );
 }
 
+/// The title is a phase's and a milestone's one name (ADR 0387): a phase is labelled `Phase {its id's last segment}:
+/// {title}`, so no field repeats the title.
+#[test]
+fn phase_and_milestone_are_named_by_their_title() {
+    for kind in ["milestone", "phase"] {
+        let fields = fields_of(kind);
+        assert!(!fields.iter().any(|f| f == "name"), "{kind}: {fields:?}");
+    }
+}
+
 #[test]
 fn milestone_and_phase_declare_the_fields_of_the_model() {
-    let milestone = "name delivered accomplishments whats_next goal target_features abandoned workstream completion \
+    let milestone = "delivered accomplishments whats_next goal target_features abandoned workstream completion \
         state first_commit shipped stats git_range progress branch";
     let milestone: Vec<&str> = milestone.split_whitespace().collect();
     assert_eq!(fields_of("milestone"), milestone);
@@ -62,7 +72,6 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
         fields_of("phase"),
         [
             "milestone",
-            "name",
             "slug",
             "goal",
             "depends_on",
@@ -146,9 +155,10 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 2: the lesson's `graduated` and `status`; + 2: the milestone's `goal` and `target_features`.
     // + 2: the requirement's computed `proof` (its thread's state) and `satisfied_by` (the items its tasks' commits changed).
     // + 2: the phase's computed `critical_path` and `critical_weight` (its heaviest chain of plans).
+    // - 2: the milestone's and the phase's `name`: each is named by its title (ADR 0387).
     assert_eq!(
         total,
-        68 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2 + 2,
+        68 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2 + 2 - 2,
         "the kinds' fields"
     );
 }

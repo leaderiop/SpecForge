@@ -11,9 +11,9 @@ fn graph(done: usize, plans: &[(&str, &str)]) -> CommandGraph {
     let mut nodes = vec![GraphNode {
         id: "v1.0".into(),
         kind: "milestone".into(),
+        title: Some("Taskboard".into()),
         fields: [
             ("state".to_string(), json!("in_progress")),
-            ("name".to_string(), json!("Taskboard")),
             ("progress".to_string(), json!({"phases": 4, "phases_complete": done, "plans": 3, "plans_complete": 2, "percent": done * 25})),
         ]
         .into(),

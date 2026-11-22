@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 72] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 73] = [
     (
         "E101",
         Evidence::Tests {
@@ -512,6 +512,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 72] = [
         Evidence::Tests {
             fires: "an_edit_to_a_cited_file_names_the_stale_truths_re_verify_lists",
             silent: "a_plain_check_of_an_edited_twin_says_nothing",
+        },
+    ),
+    (
+        "W109",
+        Evidence::Tests {
+            fires: "a_numbered_phase_title_is_w109",
+            silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
         },
     ),
 ];

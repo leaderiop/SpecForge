@@ -224,7 +224,7 @@ fn the_milestone_templates_record_a_milestone_its_close_and_a_lesson() {
     assert_eq!(done.code, 0, "{}{}", done.out, done.err);
     assert!(done.added.is_empty(), "{:?}", done.added);
     assert_eq!(p.fields_of("v1.1")["goal"], "Share a board with a link");
-    assert_eq!(p.fields_of("v1.1/01")["name"], "Links");
+    assert_eq!(p.title_of("v1.1/01"), "Links");
     let shipped = typed::filled(
         &fence_holding(&template, "whats_next"),
         &[

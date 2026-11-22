@@ -25,8 +25,9 @@ INIT=$(specforge gsd progress-report --format json)
 Read from the answer (what `progress-report` prints): `milestone_version`, `milestone_name`, `phases` (each `number`, `name`, `plans`, `summaries`, `status`), `total_plans`, `total_summaries`, `percent` and `phase_scope`. `phase_count` is the length of `phases` and `completed_count` counts those with status `Complete`; the current phase is the first that is not, and the next phase the one after it; `roadmap_exists` is `phases` non-empty and `state_exists` is `milestone_version` non-null (the project state is computed, so no path is read); a pause is a `pause` entity, and a phase's mode its `mode` field.
 
 In a phase's label, `{phase}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{Name}`
-is its `.fields.name`. They are the `number` and `name` `progress-report` prints for it. `{Z}` is the number of the
-phase just completed, and `{Z+1}` the next one's.
+is its `title`. The number is the `number` `progress-report` prints for it; its `name` is the phase's slug read as
+words, so a label reads the title from the phase node (`specforge query "$MILESTONE" --kinds phase --depth 1`). `{Z}` is
+the number of the phase just completed, and `{Z+1}` the next one's.
 
 ```bash
 DISCUSS_MODE="{{setting:workflow.discuss_mode|}}"   # workflow.discuss_mode (the settings)

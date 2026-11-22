@@ -611,3 +611,71 @@ fn a_workstream_sharing_a_requirements_id_hides_no_phase_of_it() {
         assert!(found.is_empty(), "workstream after: {after}: {found:?}");
     }
 }
+
+fn titled(id: &str, title: &str) -> PassEntity {
+    PassEntity {
+        title: Some(title.into()),
+        ..phase(id)
+    }
+}
+
+#[test]
+fn a_title_that_begins_with_a_phase_number_is_w109() {
+    for (title, number, rest) in [
+        ("Phase 12: Graph Protocol", "Phase 12", "Graph Protocol"),
+        ("phase 03.1 - Hotfix", "phase 03.1", "Hotfix"),
+        ("PHASE 12A: Split", "PHASE 12A", "Split"),
+        ("Phase 4", "Phase 4", ""),
+        ("03: Core", "03", "Core"),
+        ("3. Core", "3", "Core"),
+        ("1.5: Hotfix", "1.5", "Hotfix"),
+        ("2) Core", "2", "Core"),
+        ("04 - Core", "04", "Core"),
+        ("04 — Core", "04", "Core"),
+    ] {
+        assert_eq!(titles::numbered(title), Some((number, rest)), "{title}");
+    }
+    let found = check(&input(
+        vec![
+            titled("v1.0/01", "Phase 1: Core"),
+            titled("v1.0/999.1", "3. Later"),
+        ],
+        vec![],
+    ));
+    assert_eq!(
+        codes(&found),
+        [("W109", "v1.0/01"), ("W109", "v1.0/999.1")],
+        "a backlog phase prints the same label"
+    );
+    assert!(
+        found[0]
+            .message
+            .contains("begins with the phase number 'Phase 1'"),
+        "{found:?}"
+    );
+    assert_eq!(
+        found[0].suggestion.as_deref(),
+        Some("retitle it 'Core': its label then reads 'Phase 01: Core'")
+    );
+}
+
+#[test]
+fn a_number_inside_a_title_is_not_w109() {
+    for title in [
+        "Core",
+        "HTTP 2 support",
+        "2FA login",
+        "3D view",
+        "v2.0 migration",
+        "2.0 migration",
+        "10 things to ship",
+        "3:00 standup notes",
+        "Phases of the release",
+        "Phase one",
+        "Phase 3a rollout",
+    ] {
+        assert_eq!(titles::numbered(title), None, "{title}");
+    }
+    let found = check(&input(vec![titled("v1.0/01", "HTTP 2 support")], vec![]));
+    assert!(found.is_empty(), "{found:?}");
+}

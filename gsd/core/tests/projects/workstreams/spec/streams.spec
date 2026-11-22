@@ -23,18 +23,15 @@ workstream store "Store" {
 }
 
 milestone v1.0 "Auth 1.0" {
-  name       "Auth 1.0"
   workstream auth
 }
 
 milestone v1.0 "Store 1.0" {
-  name       "Store 1.0"
   workstream store
 }
 
 phase 01 "Login" {
   milestone        auth/v1.0
-  name             "Login"
   slug             "login"
   goal             "A user can sign in"
   requirements     [TASK-01]
@@ -43,7 +40,6 @@ phase 01 "Login" {
 
 phase 01 "Files" {
   milestone        store/v1.0
-  name             "Files"
   slug             "files"
   goal             "The board is saved"
   success_criteria ["The board is saved", "The board is loaded"]

@@ -169,7 +169,7 @@ fn a_backlog_phase_is_in_no_count() {
     let p = twin();
     let before = entry(&p, &[]);
     let mut text = p.read("spec/v1.0.spec");
-    text.push_str("\nphase 999.1 \"Idea\" {\n  milestone v1.0\n  name \"Idea\"\n  slug \"idea\"\n  goal \"later\"\n  success_criteria [\"a\"]\n}\n");
+    text.push_str("\nphase 999.1 \"Idea\" {\n  milestone v1.0\n  slug \"idea\"\n  goal \"later\"\n  success_criteria [\"a\"]\n}\n");
     p.write("spec/v1.0.spec", &text);
     let after = entry(&p, &[]);
     for key in ["total_phases", "current_phase", "progress"] {

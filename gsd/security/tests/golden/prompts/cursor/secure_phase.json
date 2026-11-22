@@ -46,10 +46,10 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
     "",
-    "The phase is `$PHASE_ID`: its number is the id's last segment, and its name the phase entity's `name` in `INIT`.",
+    "The phase is `$PHASE_ID`: its number is the id's last segment, and its name the phase entity's `title` in `INIT`.",
     "",
     "In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{name}` is",
-    "its `.fields.name`.",
+    "its `title`.",
     "",
     "```bash",
     "AUDITOR_MODEL=\"\"   # resolve-model is not part of @gsd/security: the host picks the model",
@@ -61,7 +61,7 @@
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"secure-phase\"`.",
     ""
   ],
-  "bytes": 20618,
+  "bytes": 20612,
   "end": [
     "",
     "This prompt judges two rules. The auditor returns its findings and records nothing; after the audit is recorded, you record each verdict:",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3c30720dfe3bfe6805e06e4e8018c5e7c6575f78933944b38eab67073e8650ad",
+    "digest": "sha256:0e2697ce44c4e3eb7096227b4fc52406f8134bdc576a615cf80000b4c5931a2a",
     "judged": [
       {
         "outcomes": [
@@ -249,5 +249,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "3c30720dfe3bfe6805e06e4e8018c5e7c6575f78933944b38eab67073e8650ad"
+  "sha256": "0e2697ce44c4e3eb7096227b4fc52406f8134bdc576a615cf80000b4c5931a2a"
 }

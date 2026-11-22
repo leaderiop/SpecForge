@@ -139,7 +139,7 @@ RUN_DIR=$(specforge files temp --dir --prefix gsd-review- --pick .path)
 echo "RUN_DIR=$RUN_DIR"
 ```
 
-Read from the query: the phase's `name` and goal, and its plans, contexts and research notes.
+Read from the query: the phase's title and goal, and its plans, contexts and research notes.
 
 In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
 

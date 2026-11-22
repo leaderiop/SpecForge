@@ -28,10 +28,10 @@ AGENT_SKILLS_AUDITOR=""   # the host install carries the skills of gsd-security-
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-The phase is `$PHASE_ID`: its number is the id's last segment, and its name the phase entity's `name` in `INIT`.
+The phase is `$PHASE_ID`: its number is the id's last segment, and its name the phase entity's `title` in `INIT`.
 
 In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{name}` is
-its `.fields.name`.
+its `title`.
 
 ```bash
 AUDITOR_MODEL=""   # resolve-model is not part of @gsd/security: the host picks the model

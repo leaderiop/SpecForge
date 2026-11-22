@@ -43,7 +43,7 @@ fn a_context_naming_both_a_phase_and_a_plan_is_e206() {
     let p = project("quick-context");
     p.write(
         "spec/v1.0.spec",
-        "milestone v1.0 \"One\" {\n  name \"One\"\n}\n\nphase 01 \"Core\" {\n  milestone v1.0\n  name \"Core\"\n  slug \"core\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}\n",
+        "milestone v1.0 \"One\" {\n}\n\nphase 01 \"Core\" {\n  milestone v1.0\n  slug \"core\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}\n",
     );
     p.edit(
         QUICK,
@@ -64,7 +64,7 @@ fn a_context_of_a_phases_plan_is_e206() {
     let p = project("quick-context");
     p.write(
         "spec/v1.0.spec",
-        "milestone v1.0 \"One\" {\n  name \"One\"\n}\n\nphase 01 \"Core\" {\n  milestone v1.0\n  name \"Core\"\n  slug \"core\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}\n\nplan 01-01 \"Core plan\" {\n  phase v1.0/01\n  type execute\n  files_modified [\"src/a.js\"]\n  objective \"o\"\n}\n",
+        "milestone v1.0 \"One\" {\n}\n\nphase 01 \"Core\" {\n  milestone v1.0\n  slug \"core\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}\n\nplan 01-01 \"Core plan\" {\n  phase v1.0/01\n  type execute\n  files_modified [\"src/a.js\"]\n  objective \"o\"\n}\n",
     );
     p.edit(
         QUICK,

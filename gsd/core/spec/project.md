@@ -53,11 +53,11 @@ is written from one side, never both (W162).
 
 ## milestone
 
-GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. Name: `v1.0`.
+GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. Name: `v1.0`. Its title is its name
+(`MVP`): no field repeats it (ADR 0387), and `progress-report`'s `milestone_name` reads it.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
-| name | str | R | `MVP` |
 | delivered | str | | `**Delivered:**` |
 | accomplishments | strs | | `**Key accomplishments:**` |
 | whats_next | str | | `**What's next:**` |
@@ -72,21 +72,22 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | stats | {files int, loc int, phases int, plans int, tasks int, days int} | C | `**Stats:**`: from the graph and the recorded commits (`loc` sums their `insertions` and `deletions`; `files` counts distinct paths; `days` runs from the first commit to `completion.at`, or to the last commit); the commit-based members are absent with no commit |
 | git_range | str | C | `**Git range:**`: the first and last recorded `feat` commit as `` `feat(01-01)` → `feat(01-02)` `` (the scope is the name of the plan the commit names); absent with none |
 | progress | {phases int, phases_complete int, plans int, plans_complete int, percent int} | C | `STATE.md`'s `progress`, per milestone: `percent` is the smaller of plans_complete/plans and phases_complete/phases (a side with nothing counts 1, `state-document.cts:861-878`); `phases_complete` counts the phases whose verification passed, which needs r40's verdicts. `plans_complete` counts every plan with a summary, a halted one too (#2830), and the sentinel `999.x` backlog phases are left out (#3167) |
-| branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{milestone}`, `{slug}`); under the `milestone` strategy, else absent |
+| branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{milestone}`, `{slug}`: its title's slug); under the `milestone` strategy, else absent |
 
 GSD's archive copies (`milestones/<v>-ROADMAP.md` …) have no counterpart: a shipped milestone's entities stay where
 they are, and `specforge query` answers what an archive answered.
 
 ## phase
 
-GSD: `### Phase N: Name` in `ROADMAP.md` and its directory. Name: `03`, `03.1` (inserted), `999.1` (backlog; `/gsd-phase --promote 999.1` renames it, and its children, to the next integer of the milestone, and `--remove 999.1` deletes it without renumbering).
-Scoped by milestone.
+GSD: `### Phase N: Name` in `ROADMAP.md` and its directory. `Name` is its title and `N` the last segment of its id, so
+its label is `Phase {N}: {title}` and no field repeats either (ADR 0387); a title that begins with a phase number is
+`gsd/W109`. Name: `03`, `03.1` (inserted), `999.1` (backlog; `/gsd-phase --promote 999.1` renames it, and its children,
+to the next integer of the milestone, and `--remove 999.1` deletes it without renumbering). Scoped by milestone.
 
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | milestone | → milestone | R I | the section it sits in |
-| name | str | R | heading text |
-| slug | str | R | directory `NN-slug` |
+| slug | str | R | directory `NN-slug`: `phase` writes it from the title it gives (`--add`, `--insert`, `--backlog`, `--edit --name`) |
 | goal | str | R | `**Goal**:` |
 | depends_on | →* phase | | `**Depends on**:` |
 | requirements | →* requirement | | `**Requirements**:`; a requirement reads its phase back as `phase` |

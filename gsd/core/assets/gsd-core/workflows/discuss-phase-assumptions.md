@@ -77,11 +77,11 @@ AGENT_SKILLS_ANALYZER=""   # the host install carries the skills of gsd-assumpti
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields; a phase not in the graph is an E003 error),
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `slug` is its field and its name its `title`; a phase not in the graph is an E003 error),
 and its `plan`, `research`, `context` and `verification` entities, when it has them, are among the other nodes (`plan_count` counts the plans). The phase's spec is read in `check_spec`, from the graph.
 
 In a phase's label, `{PHASE}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and
-`{phase_name}` is its `.fields.name`.
+`{phase_name}` is its `title`.
 
 **If `phase_found` is false:**
 ```

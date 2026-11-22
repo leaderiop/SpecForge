@@ -77,13 +77,13 @@
     ]
   },
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "7c9813189960a847c4c7d5731a90af0df1a68152", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "e9d400f9ae7e0cf8f7c73f6495ed767677a7376d", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
       "baseline": [
         "I213 -:0", "gsd/W311 spec/plans.spec:192", "gsd/W313 spec/plans.spec:192", "gsd/W315 spec/plans.spec:192",
         "gsd/W316 spec/plans.spec:192", "gsd/W407 spec/plans.spec:101", "gsd/W407 spec/plans.spec:110", "gsd/W407 spec/plans.spec:14",
         "gsd/W407 spec/plans.spec:23"
       ] },
-    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "2f0f30421993c498d4d4fb946e2068c1ffbf897e", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"],
+    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "a00b1dfc6e163d31e52bc7828a072a6455ad68ec", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"],
       "baseline": [
         "I213 -:0", "W019 -:0", "gsd.security/E101 spec/plans.spec:166", "gsd.security/E101 spec/plans.spec:82",
         "gsd.security/W302 spec/plans.spec:176", "gsd.security/W302 spec/plans.spec:187", "gsd.security/W302 spec/plans.spec:70", "gsd.security/W302 spec/plans.spec:82",
@@ -92,7 +92,7 @@
         "gsd/W103 spec/v1.0.spec:17", "gsd/W311 spec/plans.spec:199", "gsd/W313 spec/plans.spec:199", "gsd/W315 spec/plans.spec:199",
         "gsd/W316 spec/plans.spec:199", "gsd/W407 spec/plans.spec:120", "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:23"
       ] },
-    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "b463648ae3502b91f4f2722bf0fda77707d945ee", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"],
+    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "4ac8c20bb145d803f6635ea60ddd8772c6f55da9", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"],
       "baseline": [
         "I213 -:0", "gsd/E501 spec/quick.spec:20", "gsd/E501 spec/quick.spec:25", "gsd/W311 spec/plans.spec:210",
         "gsd/W313 spec/plans.spec:210", "gsd/W315 spec/plans.spec:210", "gsd/W316 spec/plans.spec:210", "gsd/W407 spec/plans.spec:119",

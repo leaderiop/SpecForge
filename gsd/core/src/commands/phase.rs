@@ -17,7 +17,7 @@ use std::cmp::Ordering;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{self, answer, fields, given, required, run, text, texts, title};
+use super::support::{self, answer, fields, given, required, run, text, texts};
 use crate::branch::slug;
 
 const TO_BE_PLANNED: &str = "[To be planned]";
@@ -143,10 +143,22 @@ pub(super) fn target<'a, 'p>(phases: &'p [Phase<'a>], name: &str) -> Result<&'p 
     find(phases, name)
 }
 
-/// The fields a phase's name sets, for `--add` and `--edit` alike: the name and the slug derived from it, which
-/// names the phase's branch (`git.phase_branch_template`'s `{slug}`). The phase is titled by the name too.
-fn named(name: &str) -> [(&'static str, Value); 2] {
-    [("name", json!(name)), ("slug", json!(slug(name)))]
+/// What a phase's name sets, for `--add` and `--edit` alike: its title, the name a person calls it by (ADR 0387), and
+/// the slug derived from it, which names the phase's branch (`git.phase_branch_template`'s `{slug}`).
+struct Named {
+    title: String,
+    slug: Value,
+}
+
+fn named(name: &str) -> Result<Named, String> {
+    let name = name.trim();
+    if name.contains('\n') {
+        return Err("a phase's name is one line: it is the phase's title".into());
+    }
+    Ok(Named {
+        title: name.to_string(),
+        slug: json!(slug(name)),
+    })
 }
 
 /// Creates the phase `number` after `previous`, in the milestone's own file.
@@ -167,12 +179,13 @@ fn create(
         ("success_criteria", json!(criteria)),
         ("depends_on", previous.map_or(Value::Null, |p| json!([p]))),
     ]);
-    held.extend(named(name).map(|(k, v)| (k.to_string(), v)));
+    let named = named(name)?;
+    held.insert("slug".to_string(), named.slug);
     let mut plan = call.plan();
     plan.create(
         "phase",
         &number.name(),
-        &title(name),
+        &named.title,
         ms.file.as_deref().unwrap_or_default(),
         held,
         Vec::new(),
@@ -259,14 +272,14 @@ fn edit(
     let mut plan = call.plan();
     let mut set = Vec::new();
     if let Some(v) = given(call, "name")? {
-        // as `create` writes them: a new name rewrites the slug and the title too. A branch already cut under the old
-        // slug keeps its name: the phase's computed `branch` names the new slug, so the next execute-phase opens the
-        // branch of the new name and `milestone_branches` lists it, not the old one; `git branch -m` moves the work.
-        for (field, value) in named(v) {
-            plan.set(&phase.node.id, field, value);
-        }
-        plan.retitle(&phase.node.id, &title(v));
-        set.extend(["name", "slug", "title"]);
+        // as `create` writes them: a new name retitles the phase and rewrites its slug. A branch already cut under the
+        // old slug keeps its name: the phase's computed `branch` names the new slug, so the next execute-phase opens
+        // the branch of the new name and `milestone_branches` lists it, not the old one; `git branch -m` moves the
+        // work.
+        let named = named(v)?;
+        plan.retitle(&phase.node.id, &named.title);
+        plan.set(&phase.node.id, "slug", named.slug);
+        set.extend(["title", "slug"]);
     }
     if let Some(v) = given(call, "goal")? {
         plan.set(&phase.node.id, "goal", v);
@@ -349,7 +362,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.flag().description("add the phase to the backlog at the first free 999.x number");
             })
             .arg("name", |a| {
-                a.description("the phase's name (required to add or insert)");
+                a.description("the phase's name, its title (required to add or insert; editing it retitles the phase)");
             })
             .arg("goal", |a| {
                 a.description("the phase's goal");

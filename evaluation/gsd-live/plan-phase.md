@@ -174,3 +174,7 @@ The order the prompt prescribes, the thread step before the plan check, is pinne
   (`settings_roster::the_advanced_settings_workflow_reads_and_confirms_only_settings`).
 - The spec's thirteen phases that carried a global "Phase N:" number are titled by their names, and absorb, which
   wrote those titles, titles a converted phase by its name (`tests::roadmap` and `absorb_e2e` in `xtask`).
+- A phase's label has one source: ADR 0387 drops `name` from `@gsd/core`'s phase and milestone, so a phase is
+  labelled `Phase <its id's last segment>: <its title>`, and a pass reads each entity's title. A title that begins
+  with a phase number is `gsd/W109` (`roadmap::a_numbered_phase_title_is_w109`), so the drift the run met is reported
+  wherever it is written.

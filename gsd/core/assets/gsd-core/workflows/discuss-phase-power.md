@@ -122,7 +122,7 @@ Write a self-contained HTML companion file to:
 The file must be a single self-contained HTML file with inline CSS and JavaScript. No external dependencies.
 
 In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{phase_name}`
-is its `.fields.name`.
+is its `title`.
 
 **Layout:**
 
