@@ -36,10 +36,13 @@ verbatim. The same id with another signature takes `~2`.
 names; the level is the result's, else `none` for a `kind` other than `fail`, else the rule's
 `defaultConfiguration.level`, else `unknown`. SARIF's own `warning` default is never applied. One `static_finding` per
 result, `sarif:<tool>/<rule>#<file>:<line>` (`~2` on a repeat), cites the innermost item holding its line (edge
-`found_in`), else the package holding its file (edge `found_in_package`).
+`found_in`), else the package holding its file (edge `found_in_package`). Of two packages at one directory (a crate
+with a `package.json`), it is the one of the file's ecosystem, read from an item on the file, else its manifest name or
+extension; with no such evidence the finding names neither.
 
 **CycloneDX.** `read` takes `bomFormat` `CycloneDX` with `specVersion` `1.4`, `1.5` or `1.6`, and needs
-`metadata.component`, the project package the BOM describes. Components flatten depth first; a missing `scope` reads
+`metadata.component`, the project package the BOM describes: of two packages of one name, the one whose directory is
+the root purl's subpath, else the one whose id is the purl's exactly. Components flatten depth first; a missing `scope` reads
 `required`; `direct` is set only when the BOM states the root's `dependsOn`. One `dependency` per component,
 `dep:<package id>/<purl without qualifiers and subpath>`, cites that package (edge `dependency_of`); a component with
 no purl is `dep:<package id>/@<[group/]name[@version]>`.

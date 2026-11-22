@@ -3,11 +3,13 @@
 //! dependency is direct is what the BOM's own dependency graph states, and stays unknown (absent) when it states none.
 
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
 use specforge_extension_sdk::prelude::Fact;
 
+use crate::ids::PackageId;
 use crate::places::Places;
-use crate::report::{id_part, shown, DEPENDENCY};
+use crate::report::{id_part, shown, unescape, DEPENDENCY};
 
 /// A component's scope: CycloneDX's three, widest first. A BOM stating none means `required`, the spec's default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -79,10 +81,12 @@ pub struct Bom {
 
 /// The `dependency` facts of `boms`, sorted by id, each citing the served `package` its BOM describes.
 ///
-/// A BOM's project package is the one served package [`Places::packages_named`] finds by the root's purl with its
+/// A BOM's project package is a served package [`Places::packages_named`] finds by the root's purl with its
 /// qualifiers (`?…`), subpath (`#…`) and version (after the last `@` of the last segment) removed, a namespace
-/// starting with a literal `@` written `%40`. No such package, several, or a root with no purl is an error naming the
-/// root's purl or name: a BOM about no collected package is no report about this project.
+/// starting with a literal `@` written `%40`: the one whose directory is the purl's subpath (decoded, no leading or
+/// trailing `/`), else the one whose id is exactly that, else the only one. No such package, several with none of
+/// them selected, or a root with no purl is an error naming the root's purl or name: a BOM about no collected package
+/// is no report about this project.
 ///
 /// The id is `dep:<package id>/<id_part(purl without qualifiers and subpath)>`, or
 /// `dep:<package id>/@<id_part([group/]name[@version])>` for a component with no purl ([`id_part`] encodes `@`, so the
@@ -179,7 +183,18 @@ fn project_package<'a>(root: &Component, places: &Places<'a>) -> Result<&'a str,
         ));
     };
     let base = package_base(purl);
-    match places.packages_named(&base).as_slice() {
+    let named = places.packages_named(&base);
+    // The purl's subpath (`#crates/demo`) names the directory of a second package of one name.
+    let subpath = purl
+        .split_once('#')
+        .map(|(_, subpath)| unescape(subpath).trim_matches('/').to_string());
+    let by_subpath = named.iter().find(|id| {
+        subpath.is_some() && PackageId::from_str(id).is_ok_and(|id| id.dir() == subpath.as_deref())
+    });
+    if let Some(package) = by_subpath.or_else(|| named.iter().find(|id| **id == base)) {
+        return Ok(*package);
+    }
+    match named.as_slice() {
         [package] => Ok(*package),
         [] => Err(format!(
             "the BOM's root component '{}' names no collected package (looked for '{}')",

@@ -51,13 +51,58 @@ impl<'a> Places<'a> {
     }
 
     /// The id of the package whose directory is the longest one holding `file` (`""` holds every file, `crates/a` holds
-    /// `crates/a/x.rs` but not `crates/ab/x.rs`); the smaller id of two at one directory.
+    /// `crates/a/x.rs` but not `crates/ab/x.rs`). Of several at that directory (a crate with a `package.json` beside
+    /// its `Cargo.toml`), the one of the file's ecosystem: the scheme of a served item on it, else its manifest's name
+    /// or its extension. `None` when that leaves none or several, never the one whose id sorts first.
     pub fn package_of(&self, file: &str) -> Option<&'a str> {
-        self.packages
+        let holding = self
+            .packages
             .iter()
-            .filter(|(path, _)| path.is_empty() || below(file, path))
-            .min_by_key(|(path, id)| (std::cmp::Reverse(path.len()), *id))
+            .filter(|(path, _)| path.is_empty() || below(file, path));
+        let longest = holding.clone().map(|(path, _)| path.len()).max()?;
+        let tied: Vec<&'a str> = holding
+            .filter(|(path, _)| path.len() == longest)
             .map(|(_, id)| *id)
+            .collect();
+        if let [only] = tied[..] {
+            return Some(only);
+        }
+        let prefix = format!("pkg:{}/", self.purl_type_of(file)?);
+        match tied
+            .iter()
+            .filter(|id| id.starts_with(&prefix))
+            .collect::<Vec<_>>()[..]
+        {
+            [only] => Some(*only),
+            _ => None,
+        }
+    }
+
+    /// The purl type `file` belongs to by its own evidence: the scheme of a served item on it (`rust:` is `cargo`,
+    /// `js:` is `npm`), else its manifest's name (`Cargo.toml`, `package.json`, …) or its extension (`.rs`; `.js`,
+    /// `.ts` and their module and JSX forms). `None` without evidence, or with items of both schemes.
+    fn purl_type_of(&self, file: &str) -> Option<&'static str> {
+        let mut schemes = self
+            .items
+            .get(file)
+            .into_iter()
+            .flatten()
+            .filter_map(|(_, id)| match id.split_once(':')?.0 {
+                "rust" => Some("cargo"),
+                "js" => Some("npm"),
+                _ => None,
+            });
+        if let Some(first) = schemes.next() {
+            return schemes.all(|other| other == first).then_some(first);
+        }
+        let name = file.rsplit('/').next().unwrap_or(file);
+        let extension = name.rsplit_once('.').map(|(_, extension)| extension);
+        match (name, extension) {
+            ("Cargo.toml" | "Cargo.lock", _) | (_, Some("rs")) => Some("cargo"),
+            ("package.json" | "package-lock.json" | "npm-shrinkwrap.json", _)
+            | (_, Some("js" | "mjs" | "cjs" | "jsx" | "ts" | "mts" | "cts" | "tsx")) => Some("npm"),
+            _ => None,
+        }
     }
 
     /// The ids of the packages of purl type `purl_type` (`pkg:<purl_type>/…`) at the directory `dir`, else of those

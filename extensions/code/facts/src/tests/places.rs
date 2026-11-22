@@ -99,9 +99,11 @@ fn a_file_belongs_to_the_package_of_the_longest_directory_holding_it() {
     ];
     let places = Places::new(&served);
     assert_eq!(places.package_of("crates/a/src/x.rs"), Some("pkg:cargo/a"));
-    // `crates/a` does not hold `crates/ab`; of the two root packages (no `path` reads `""`) the smaller id wins.
+    // `crates/a` does not hold `crates/ab`; of the two root packages (no `path` reads `""`) the file's ecosystem
+    // wins, and a file with no evidence of one names neither.
     assert_eq!(places.package_of("crates/ab/x.rs"), Some("pkg:cargo/root"));
-    assert_eq!(places.package_of("crates/a"), Some("pkg:cargo/root"));
+    assert_eq!(places.package_of("crates/ab/x.js"), Some("pkg:npm/no-path"));
+    assert_eq!(places.package_of("crates/a"), None);
     assert_eq!(Places::new(&[]).package_of("x.rs"), None);
 }
 
@@ -141,4 +143,31 @@ fn a_package_name_finds_its_second_packages_too() {
         ["pkg:cargo/x", "pkg:cargo/x#crates/y"]
     );
     assert!(places.packages_named("pkg:cargo/z").is_empty());
+}
+
+#[test]
+fn a_tie_at_one_directory_goes_to_the_files_ecosystem_else_to_none() {
+    let served = vec![
+        package("pkg:cargo/root", ""),
+        package("pkg:npm/web", "web"),
+        package("pkg:cargo/web", "web"),
+        item("rust:web::main", span("web/src/main.inc", 1, 9, 2)),
+        item("js:web/gen/x.inc::x", span("web/gen/x.inc", 1, 9, 2)),
+    ];
+    let places = Places::new(&served);
+    for (file, package) in [
+        ("web/src/index.ts", Some("pkg:npm/web")),
+        ("web/src/a.mjs", Some("pkg:npm/web")),
+        ("web/package.json", Some("pkg:npm/web")),
+        ("web/src/lib.rs", Some("pkg:cargo/web")),
+        ("web/Cargo.toml", Some("pkg:cargo/web")),
+        // A source pack's item on the file is the evidence first.
+        ("web/src/main.inc", Some("pkg:cargo/web")),
+        ("web/gen/x.inc", Some("pkg:npm/web")),
+        // No evidence: neither package, rather than the one whose id sorts first.
+        ("web/README.md", None),
+        ("src/main.rs", Some("pkg:cargo/root")),
+    ] {
+        assert_eq!(places.package_of(file), package, "{file}");
+    }
 }

@@ -185,8 +185,8 @@ fn a_bad_bom_is_an_error_naming_its_value_or_key_and_mints_nothing() {
     let mut not_listed: Value = serde_json::from_str(&ok("1.5")).unwrap();
     not_listed["components"] = serde_json::json!({"name": "serde"});
     let twins = vec![
-        Fact::new("package", "pkg:cargo/demo").field("path", ""),
         Fact::new("package", "pkg:cargo/demo#crates/demo").field("path", "crates/demo"),
+        Fact::new("package", "pkg:cargo/demo#tools/demo").field("path", "tools/demo"),
     ];
     let rows: [(&str, String, Vec<Fact>, &[&str]); 10] = [
         (

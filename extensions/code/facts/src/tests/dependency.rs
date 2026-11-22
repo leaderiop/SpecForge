@@ -67,11 +67,11 @@ fn a_bom_root_resolves_by_its_purl_without_version_or_qualifiers() {
 #[test]
 fn a_root_naming_no_package_or_several_or_none_is_an_error() {
     let served = [
-        package("pkg:cargo/demo"),
         package("pkg:cargo/demo#crates/demo"),
+        package("pkg:cargo/demo#tools/demo"),
     ];
     let several = dependency_facts(&[bom("pkg:cargo/demo@0.1.0", vec![], None)], &served)
-        .expect_err("two packages of one name");
+        .expect_err("two packages of one name, neither the plain id");
     assert!(several.contains("pkg:cargo/demo@0.1.0"), "{several}");
     assert!(several.contains("pkg:cargo/demo#crates/demo"), "{several}");
     let none = dependency_facts(&[bom("pkg:cargo/elsewhere@1.0.0", vec![], None)], &served)
@@ -81,6 +81,50 @@ fn a_root_naming_no_package_or_several_or_none_is_an_error() {
     purl_less.root.purl = None;
     let no_purl = dependency_facts(&[purl_less], &served).expect_err("no purl");
     assert!(no_purl.contains("'root'"), "{no_purl}");
+}
+
+#[test]
+fn the_exact_package_id_wins_and_a_purl_subpath_selects_among_several() {
+    let serde = || {
+        component(
+            None,
+            Some("pkg:cargo/serde@1.0.0"),
+            "serde",
+            Scope::Required,
+        )
+    };
+    let cited = |root: &str, served: &[Fact]| -> String {
+        let facts = dependency_facts(&[bom(root, vec![serde()], None)], served)
+            .unwrap_or_else(|e| panic!("{root}: {e}"));
+        field(&facts[0], "package")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let twins = [
+        package("pkg:cargo/demo"),
+        package("pkg:cargo/demo#crates/demo"),
+    ];
+    assert_eq!(cited("pkg:cargo/demo@0.1.0", &twins), "pkg:cargo/demo");
+    assert_eq!(
+        cited("pkg:cargo/demo@0.1.0#crates/demo", &twins),
+        "pkg:cargo/demo#crates/demo"
+    );
+    assert_eq!(
+        cited("pkg:cargo/demo@0.1.0#/crates/demo/", &twins),
+        "pkg:cargo/demo#crates/demo"
+    );
+    // A subpath no package has falls back to the plain id.
+    assert_eq!(cited("pkg:cargo/demo#sub/path", &twins), "pkg:cargo/demo");
+    let spaced = [
+        package("pkg:cargo/demo#a"),
+        package("pkg:cargo/demo#my%20dir"),
+    ];
+    assert_eq!(
+        cited("pkg:cargo/demo@1#my%20dir", &spaced),
+        "pkg:cargo/demo#my%20dir"
+    );
+    assert_eq!(cited("pkg:cargo/demo@1#a", &spaced), "pkg:cargo/demo#a");
 }
 
 #[test]
