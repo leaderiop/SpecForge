@@ -101,7 +101,8 @@ fn item_and_package_reference_their_facts() {
             "in_package",
             "uses_package",
             "runs_as",
-            "covers"
+            "covers",
+            "api_of"
         ]
     );
 }

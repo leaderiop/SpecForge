@@ -1,6 +1,9 @@
 //! The report facts' kinds, and the `reports` pass: a report entry that names no item (W104).
 
-use specforge_code_facts::{coverage_facts, Branch, CoverageFile, Function};
+use specforge_code_facts::{
+    api_facts, coverage_facts, ApiEntry, ApiKind, Branch, CoverageFile, Function, ItemKind, Owner,
+    Scheme, Visibility,
+};
 
 use super::*;
 
@@ -120,6 +123,148 @@ fn every_field_a_coverage_fact_is_minted_with_is_declared() {
         .collect();
     for fact in &minted {
         assert_eq!(fact.kind, "coverage");
+        for name in fact.fields.keys() {
+            assert!(fields.contains(&name.as_str()), "{name} of {}", fact.id);
+        }
+    }
+}
+
+/// An `api_item` fact of `kind` at `path`, citing `item` when there is one.
+fn api_item(id: &str, kind: &str, item: Option<&str>) -> PassEntity {
+    let mut fact = entity(id, "api_item");
+    let path = id.strip_prefix("api:rust:").unwrap_or(id);
+    fact.fields.insert("path".to_string(), path.to_string());
+    fact.fields.insert("kind".to_string(), kind.to_string());
+    if let Some(item) = item {
+        fact.fields.insert("item".to_string(), item.to_string());
+    }
+    fact
+}
+
+#[test]
+fn an_item_capable_api_item_naming_no_item_is_w104() {
+    let found = reported(vec![api_item(
+        "api:rust:demo::from_macro",
+        "function",
+        None,
+    )]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    let w104 = &found[0];
+    assert_eq!(
+        (w104.code.as_str(), w104.severity, w104.entity.as_deref()),
+        (
+            "W104",
+            PassSeverity::Warning,
+            Some("api:rust:demo::from_macro")
+        )
+    );
+    assert!(
+        w104.message.contains("api:rust:demo::from_macro"),
+        "{}",
+        w104.message
+    );
+    assert!(
+        w104.message.contains("demo::from_macro"),
+        "{}",
+        w104.message
+    );
+}
+
+#[test]
+fn an_api_item_no_item_can_hold_or_citing_one_is_not_w104() {
+    let mut entities: Vec<PassEntity> = ["variant", "reexport", "extern_crate", "other"]
+        .iter()
+        .map(|kind| api_item(&format!("api:rust:demo::{kind}"), kind, None))
+        .collect();
+    entities.push(api_item(
+        "api:rust:demo::add",
+        "function",
+        Some("rust:demo::add"),
+    ));
+    // The crate root, which no item is.
+    entities.push(api_item("api:rust:demo", "module", None));
+    let found = reported(entities);
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn api_item_is_collected_and_is_the_api_of_an_item() {
+    let declared = declaration();
+    let api = kind(&declared, "api_item");
+    assert_eq!(
+        (api.writer.as_deref(), &api.schemes[..]),
+        (Some("collector"), &strings(&["api"])[..])
+    );
+    let field = |name: &str| api.fields.iter().find(|f| f.name == name).unwrap();
+    let item = field("item");
+    assert_eq!(
+        (
+            item.field_type.as_str(),
+            item.target_kind.as_deref(),
+            item.edge.as_deref()
+        ),
+        ("reference", Some("item"), Some("api_of"))
+    );
+    assert_eq!(field("kind").enum_values, strings(&ApiKind::NAMES));
+    assert_eq!(field("visibility").enum_values, strings(&Visibility::NAMES));
+    for text in ["path", "signature", "tag"] {
+        assert_eq!(field(text).field_type, "string", "{text}");
+    }
+    let api_of = declared.edges.iter().find(|e| e.label == "api_of").unwrap();
+    assert_eq!(
+        (api_of.source_kind.as_deref(), api_of.target_kind.as_deref()),
+        (Some("api_item"), Some("item"))
+    );
+}
+
+#[test]
+fn every_field_an_api_item_fact_is_minted_with_is_declared() {
+    let entry = |scheme, container: &str, path: &[&str], owner, kind, tag: Option<&str>| ApiEntry {
+        scheme,
+        container: container.to_string(),
+        path: strings(path),
+        owner,
+        kind,
+        visibility: Visibility::Public,
+        signature: "as written".to_string(),
+        tag: tag.map(str::to_string),
+    };
+    let entries = [
+        entry(
+            Scheme::Rust,
+            "demo",
+            &["demo", "S", "fmt"],
+            Some(Owner {
+                self_ty: "demo::S".to_string(),
+                trait_ty: Some("core::fmt::Debug".to_string()),
+            }),
+            ApiKind::Item(ItemKind::Method),
+            None,
+        ),
+        entry(
+            Scheme::Js,
+            "@demo/widget",
+            &["Widget"],
+            None,
+            ApiKind::Item(ItemKind::Class),
+            Some("Public"),
+        ),
+    ];
+    let served = [
+        Fact::new("item", "rust:demo::<S as Debug>::fmt"),
+        Fact::new("item", "js:@demo/widget/src/widget.ts::Widget"),
+    ];
+    let minted = api_facts(&entries, &served);
+    assert_eq!(minted.len(), 2);
+    let declared = declaration();
+    let fields: Vec<&str> = kind(&declared, "api_item")
+        .fields
+        .iter()
+        .map(|f| f.name.as_str())
+        .collect();
+    for fact in &minted {
+        assert_eq!(fact.kind, "api_item");
+        assert!(fact.fields.contains_key("item"), "{fact:?}");
         for name in fact.fields.keys() {
             assert!(fields.contains(&name.as_str()), "{name} of {}", fact.id);
         }

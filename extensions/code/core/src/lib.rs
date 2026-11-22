@@ -14,7 +14,9 @@
 //! - `package` (scheme `pkg`): a cargo or npm package, a purl without version, with its manifest's values and the
 //!   project packages it `depends_on` (edge `uses_package`);
 //! - the report facts a standard report's reader mints (ADR 0388): `coverage` (scheme `cov`), what a coverage report
-//!   says of the `item` it `covers` (`cov:<item id>`), or of a file's lines no item holds (`cov:@<file>`).
+//!   says of the `item` it `covers` (`cov:<item id>`), or of a file's lines no item holds (`cov:@<file>`); `api_item`
+//!   (scheme `api`), one public entry of an API snapshot, `api:rust:<crate>::<path>` or `api:js:<package>::<name
+//!   path>`, with the `item` it is the API of (`api_of`), its kind, visibility, signature as written and release tag.
 //!
 //! Every kind is collector-written and none is scoped: a scheme reference names the fact whole. `@code/core` declares
 //! no collector: a pack collects, minting the facts with the linked `specforge-code-facts` library, so every pack
@@ -28,7 +30,7 @@
 //! the `test` and `test_run` facts, `proof` the facts of its four kinds (ADR 0353 D6). Its check pass `reports` is
 //! sent only the report facts, and reports an entry that names no item (W104, ADR 0388).
 
-use specforge_code_facts::{ItemKind, Scheme, Visibility, COVERAGE};
+use specforge_code_facts::{ApiKind, ItemKind, Scheme, Visibility, API_ITEM, COVERAGE};
 use specforge_extension_sdk::prelude::*;
 
 mod kinds;
@@ -48,7 +50,7 @@ const PACKAGE_KIND: &str = "package";
 const KINDS: [&str; 4] = [TEST_KIND, RUN_KIND, ITEM_KIND, PACKAGE_KIND];
 /// The report kinds, the facts a standard report's reader mints (ADR 0388): the only kinds the `reports` pass is
 /// sent. They stay out of [`KINDS`], which `refs` and `proof` read.
-const REPORT_KINDS: [&str; 1] = [COVERAGE.kind];
+const REPORT_KINDS: [&str; 2] = [COVERAGE.kind, API_ITEM.kind];
 /// The schemes of a `test`'s id.
 const TEST_SCHEMES: [&str; 2] = [Scheme::Js.as_str(), Scheme::Rust.as_str()];
 /// The scheme of a `test_run`'s id.
@@ -75,7 +77,7 @@ pub(crate) struct Reference {
 
 /// Every reference field `@code/core` declares with a target kind: the one table its declarations read for the
 /// target and the edge, and `refs` for what a mistyped reference should have named and whose an unheld one is.
-pub(crate) const REFERENCES: [Reference; 5] = [
+pub(crate) const REFERENCES: [Reference; 6] = [
     Reference {
         kind: ITEM_KIND,
         field: "package",
@@ -112,6 +114,13 @@ pub(crate) const REFERENCES: [Reference; 5] = [
         edge: "covers",
         together: false,
     },
+    Reference {
+        kind: API_ITEM.kind,
+        field: "item",
+        target: ITEM_KIND,
+        edge: "api_of",
+        together: false,
+    },
 ];
 
 /// The row of [`REFERENCES`] for the field `field` of `kind`.
@@ -133,6 +142,8 @@ const STATUS: Vocabulary = Vocabulary::new(&["passed", "failed", "skipped"]);
 const ITEM_KINDS: Vocabulary = Vocabulary::new(&ItemKind::NAMES);
 /// Who may name a definition: the library's `Visibility` names, widest first.
 const VISIBILITY: Vocabulary = Vocabulary::new(&Visibility::NAMES);
+/// What an API snapshot's entry is: the library's `ApiKind` names, the item kinds first.
+const API_KINDS: Vocabulary = Vocabulary::new(&ApiKind::NAMES);
 
 #[specforge_extension_sdk::extension(
     name = "@code/core",
