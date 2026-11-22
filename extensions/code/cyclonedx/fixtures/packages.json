@@ -1,4 +1,6 @@
 [
   {"kind": "package", "id": "pkg:cargo/demo",
-   "fields": {"name": "demo", "version": "0.1.0", "path": ""}}
+   "fields": {"name": "demo", "version": "0.1.0", "path": ""}},
+  {"kind": "package", "id": "pkg:npm/%40demo/board",
+   "fields": {"name": "@demo/board", "version": "1.0.0", "path": "web"}}
 ]

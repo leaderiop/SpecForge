@@ -1,0 +1,86 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "serialNumber": "urn:uuid:2f0f8e5a-6c3b-4f39-a1de-7c4b9e0d1a23",
+  "metadata": {
+    "timestamp": "2026-11-22T12:00:00.000Z",
+    "lifecycles": [{"phase": "build"}],
+    "tools": {
+      "components": [
+        {"type": "application", "name": "cyclonedx-npm", "group": "@cyclonedx", "version": "1.19.3"}
+      ]
+    },
+    "component": {
+      "type": "application",
+      "name": "board",
+      "group": "@demo",
+      "version": "1.0.0",
+      "bom-ref": "@demo/board@1.0.0",
+      "purl": "pkg:npm/%40demo/board@1.0.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "runtime",
+      "group": "@babel",
+      "version": "7.26.0",
+      "bom-ref": "@babel/runtime@7.26.0",
+      "purl": "pkg:npm/%40babel/runtime@7.26.0",
+      "licenses": [{"license": {"id": "MIT"}}]
+    },
+    {
+      "type": "library",
+      "name": "fsevents",
+      "version": "2.3.3",
+      "scope": "optional",
+      "bom-ref": "fsevents@2.3.3",
+      "purl": "pkg:npm/fsevents@2.3.3"
+    },
+    {
+      "type": "library",
+      "name": "react",
+      "version": "18.3.1",
+      "bom-ref": "react@18.3.1",
+      "purl": "pkg:npm/react@18.3.1",
+      "components": [
+        {
+          "type": "library",
+          "name": "loose-envify",
+          "version": "1.4.0",
+          "bom-ref": "react@18.3.1|loose-envify@1.4.0",
+          "purl": "pkg:npm/loose-envify@1.4.0"
+        },
+        {
+          "type": "library",
+          "name": "js-tokens",
+          "version": "4.0.0",
+          "bom-ref": "react@18.3.1|js-tokens@4.0.0",
+          "purl": "pkg:npm/js-tokens@4.0.0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "js-tokens",
+      "version": "4.0.0",
+      "scope": "optional",
+      "bom-ref": "js-tokens@4.0.0",
+      "purl": "pkg:npm/js-tokens@4.0.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "@demo/board@1.0.0",
+      "dependsOn": ["@babel/runtime@7.26.0", "fsevents@2.3.3", "react@18.3.1"]
+    },
+    {"ref": "@babel/runtime@7.26.0"},
+    {"ref": "fsevents@2.3.3"},
+    {"ref": "react@18.3.1", "dependsOn": ["react@18.3.1|loose-envify@1.4.0"]},
+    {"ref": "react@18.3.1|loose-envify@1.4.0", "dependsOn": ["react@18.3.1|js-tokens@4.0.0"]},
+    {"ref": "react@18.3.1|js-tokens@4.0.0"},
+    {"ref": "js-tokens@4.0.0"}
+  ]
+}
