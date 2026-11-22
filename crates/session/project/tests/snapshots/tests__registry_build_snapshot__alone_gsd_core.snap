@@ -14515,6 +14515,10 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "self.phase<research.phase<open_question.research.resolved_by"
               },
               {
+                "name": "settled_decisions",
+                "selector": "self<task.plan.reversibility.settled_by"
+              },
+              {
                 "name": "context",
                 "selector": "self.phase<context|deferred_idea[origin=discussion].phase"
               },
@@ -14595,6 +14599,10 @@ expression: "digest(&load(&runtime, &[name]))"
               {
                 "name": "resolved_decisions",
                 "selector": "self.phase<research.phase<open_question.research.resolved_by"
+              },
+              {
+                "name": "settled_decisions",
+                "selector": "self<task.plan.reversibility.settled_by"
               },
               {
                 "name": "context",
@@ -14679,6 +14687,10 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "self.phase<research.phase<open_question.research.resolved_by"
               },
               {
+                "name": "settled_decisions",
+                "selector": "self<task.plan.reversibility.settled_by"
+              },
+              {
                 "name": "context",
                 "selector": "self.phase<context|deferred_idea[origin=discussion].phase"
               },
@@ -14759,6 +14771,10 @@ expression: "digest(&load(&runtime, &[name]))"
               {
                 "name": "resolved_decisions",
                 "selector": "self.phase<research.phase<open_question.research.resolved_by"
+              },
+              {
+                "name": "settled_decisions",
+                "selector": "self<task.plan.reversibility.settled_by"
               },
               {
                 "name": "context",

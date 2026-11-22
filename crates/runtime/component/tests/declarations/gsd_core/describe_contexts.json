@@ -124,6 +124,11 @@
           "tier": "core"
         },
         {
+          "name": "settled_decisions",
+          "selector": "self<task.plan.reversibility.settled_by",
+          "tier": "core"
+        },
+        {
           "name": "context",
           "selector": "self.phase<context|deferred_idea[origin=discussion].phase",
           "tier": "core"

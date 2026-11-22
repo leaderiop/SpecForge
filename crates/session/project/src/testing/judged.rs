@@ -27,7 +27,7 @@ pub const CODE_CORE: &str = "@code/core";
 
 /// What the plan-check rules read of a plan, as `@gsd/core` declares it (`rules.md`, ADR 0386): the test
 /// `the_twin_declares_the_shipped_plan_check` compares it to the shipped declaration.
-pub const PLAN_CHECK_INPUTS: [(&str, &str); 13] = [
+pub const PLAN_CHECK_INPUTS: [(&str, &str); 14] = [
     ("plan", "self"),
     (
         "body",
@@ -41,6 +41,10 @@ pub const PLAN_CHECK_INPUTS: [(&str, &str); 13] = [
     (
         "resolved_decisions",
         "self.phase<research.phase<open_question.research.resolved_by",
+    ),
+    (
+        "settled_decisions",
+        "self<task.plan.reversibility.settled_by",
     ),
     (
         "context",
@@ -173,7 +177,16 @@ pub fn gsd_judged_wire() -> Value {
             ],
         ),
     ];
-    for belongs_to_plan in ["task", "checkpoint", "prohibition", "user_setup"] {
+    kinds.push(kind(
+        "task",
+        Some("plan"),
+        vec![
+            reference("plan", "plan"),
+            json!({"name": "reversibility", "field_type": "block",
+                "members": [reference("settled_by", "decision")]}),
+        ],
+    ));
+    for belongs_to_plan in ["checkpoint", "prohibition", "user_setup"] {
         kinds.push(kind(
             belongs_to_plan,
             Some("plan"),
