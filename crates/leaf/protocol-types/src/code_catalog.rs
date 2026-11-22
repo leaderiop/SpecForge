@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 /// One diagnostic code an extension reports: its local code (`E101`, never
 /// qualified; the host adds the namespace), a title, what it means and how
-/// to fix it, an optional absolute `http(s)` documentation URL, whether this machine decides it (2.0.0), and the owner
-/// state its findings wait for (2.2.0).
+/// to fix it, an optional absolute `http(s)` documentation URL, whether this machine decides it (2.0.0), the owner
+/// state its findings wait for (2.2.0), and whether a later step of the authoring settles its findings (2.3.0).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CodeDescriptor {
     pub code: String,
@@ -26,4 +26,10 @@ pub struct CodeDescriptor {
     /// (E080). Absent: in either state.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reported_while: Option<String>,
+    /// A finding of this code names a state a later step of the authoring settles (2.3.0, ADR 0385): a typed edit
+    /// whose plan creates the finding's subject, or an entity under it, adds no error by it (E080), so a workflow may
+    /// create the entity before the step that settles it. Its severity does not change: `check`, `--strict` and every
+    /// gate read it. Serialized only when set.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub settled_later: bool,
 }

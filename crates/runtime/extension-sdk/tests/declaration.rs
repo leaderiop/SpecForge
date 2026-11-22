@@ -328,6 +328,23 @@ fn a_code_entry_is_declared_with_its_title_explanation_and_docs() {
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-028")]
+fn a_code_entry_may_be_settled_later() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "0.1.0"));
+    b.code("W204", |d| {
+        d.title("Open question")
+            .explanation("Resolve it with a decision.")
+            .settled_later();
+    });
+    b.code("W205", |d| {
+        d.title("Plain")
+            .explanation("Settled by the write that makes it.");
+    });
+    let declared = b.declaration();
+    assert!(declared.codes[0].settled_later);
+    assert!(!declared.codes[1].settled_later);
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn settings_presets_secrets_and_flags_are_declared() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/gsd", "0.1.0"));
     b.setting("workflow.tdd_mode", |s| {

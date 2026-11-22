@@ -89,6 +89,7 @@ fn catalog_of(rules: &[ValidationRuleDescriptor]) -> Vec<specforge_protocol_type
             docs: None,
             machine: false,
             reported_while: None,
+            settled_later: false,
         })
         .collect()
 }

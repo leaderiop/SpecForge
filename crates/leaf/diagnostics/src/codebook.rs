@@ -22,6 +22,8 @@ pub struct ExtensionCode {
     /// The owner state a finding of it speaks in, `complete` or `pending` (`CodeDescriptor.reported_while`, ADR
     /// 0363), as the registry admitted it; `None` in either state.
     pub reported_while: Option<String>,
+    /// A later step of the authoring settles a finding of it (`CodeDescriptor.settled_later`, ADR 0385).
+    pub settled_later: bool,
 }
 
 /// Two loaded extensions share one code namespace.
@@ -184,6 +186,15 @@ impl Codebook {
             .is_some_and(|entry| entry.machine)
     }
 
+    /// Whether a later step of the authoring settles a finding of `code` that `extension` reports (ADR 0385): its own
+    /// catalog entry declares it. A first-party extension declares no `codes`, and another extension's entry is not
+    /// its own, so neither has one.
+    pub fn settled_later(&self, extension: &str, code: &str) -> bool {
+        self.owned_by(extension)
+            .and_then(|owned| owned.codes.get(&code.to_uppercase()))
+            .is_some_and(|entry| entry.settled_later)
+    }
+
     /// Whether a finding of `code` that `extension` reports speaks on an entity whose owner is `pending` (ADR 0363):
     /// always, unless the extension's own catalog entry names the owner state its findings wait for, then only in
     /// that state. A first-party extension's code waits for none.
@@ -291,6 +302,7 @@ mod tests {
                 docs: None,
                 machine: false,
                 reported_while: None,
+                settled_later: false,
             })
             .collect();
         book.add(extension, entries).unwrap();
@@ -448,6 +460,7 @@ mod tests {
                 docs: None,
                 machine: true,
                 reported_while: None,
+                settled_later: false,
             }],
         )
         .unwrap();
@@ -474,6 +487,7 @@ mod tests {
             docs: None,
             machine: false,
             reported_while: Some(state.into()),
+            settled_later: false,
         };
         book.add(
             "@acme/links",
@@ -491,6 +505,35 @@ mod tests {
         assert!(
             !book.waits("@acme/other", "E901"),
             "another extension's entry"
+        );
+    }
+
+    #[test]
+    fn settled_later_reads_the_owners_own_entry() {
+        let mut book = book("@acme/plans", &["W900"]);
+        book.add(
+            "@acme/plans",
+            vec![ExtensionCode {
+                local: "E901".into(),
+                title: "t".into(),
+                explanation: "e".into(),
+                docs: None,
+                machine: false,
+                reported_while: None,
+                settled_later: true,
+            }],
+        )
+        .unwrap();
+        assert!(book.settled_later("@acme/plans", "e901"), "its own entry");
+        assert!(!book.settled_later("@acme/plans", "W900"), "not declared");
+        assert!(!book.settled_later("@acme/plans", "E902"), "not catalogued");
+        assert!(
+            !book.settled_later("@acme/other", "E901"),
+            "not the owner of the namespace"
+        );
+        assert!(
+            !book.settled_later("@specforge/checks", "I206"),
+            "a first-party extension declares none"
         );
     }
 
