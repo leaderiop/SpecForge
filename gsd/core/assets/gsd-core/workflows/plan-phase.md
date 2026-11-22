@@ -95,7 +95,7 @@ MVP_MODE_CFG="{{setting:workflow.mvp_mode|false}}"   # workflow.mvp_mode (the se
 
 When the tdd capability's `workflow.tdd_mode` is active (resolved via the plan:pre render-hooks), the planner agent is instructed to apply `type: tdd` to eligible tasks using heuristics from `gsd-core/references/tdd.md`. The TDD guidance is injected via the tdd capability's contribution hook at §5.6; no inline config-get is needed.
 
-The planner reads the planner pack (`specforge context gsd/planner`) at the route's budget: the summaries of the plans its phase depends on are among its sections, whatever the context window.
+The planner reads the planner pack (`specforge context gsd/planner`), its core whole and its enrich sections within the route's allowance: the summaries of the plans its phase depends on are among its sections, whatever the context window.
 
 **#2401 — `prior_verify_commands` is NOT part of that pack and is never gated on the context window.** It is a handful of one-line `<automated>` commands harvested from the nearest prior phase that had any; the payload is tiny and its absence at 200k is exactly what made the planner re-invent a verify command and author an unrunnable path. Surface it at every context window.
 

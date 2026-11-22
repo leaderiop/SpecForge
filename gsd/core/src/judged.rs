@@ -11,8 +11,8 @@ use gsd_kit::judged::{Judged, Owed, Target};
 use crate::codes::{CODES, Severity};
 
 /// What the plan checks read of a plan; the `gsd/plan-checker` route serves the same sections. Of the decisions: its
-/// phase's, a quick plan's own, the project's, and those that resolve a question of its phase's research, never every
-/// decision of every phase.
+/// phase's, a quick plan's own, the project's, those that resolve a question of its phase's research, and those a task
+/// of the plan names as settling its one-way door, never every decision of every phase.
 pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     ("plan", "self"),
     (
@@ -27,6 +27,10 @@ pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     (
         "resolved_decisions",
         "self.phase<research.phase<open_question.research.resolved_by",
+    ),
+    (
+        "settled_decisions",
+        "self<task.plan.reversibility.settled_by",
     ),
     (
         "context",

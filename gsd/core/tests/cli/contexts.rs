@@ -1,8 +1,9 @@
 //! The context routes `@gsd/core` declares (ADR 0356, ADR 0386), read with `specforge context` on the parity fixtures
 //! and on a real-size one: each serves a subject of its kind, its core whole and its enrich sections within its
-//! allowance; the checkers' packs digest as the inputs their judged rules read; the plan check reads the project's
-//! decisions and those its phase's research resolves, never an unrelated phase's; the executor's keeps every task of
-//! its plan and no file, and a real-size plan starts; the phase context holds what its discussion settled.
+//! allowance, its cap the floor a refusal names plus the allowance; the checkers' packs digest as the inputs their
+//! judged rules read; the plan check reads the project's decisions, those its phase's research resolves and those its
+//! tasks name as settling a door, never an unrelated phase's; the executor's keeps every task of its plan and no file,
+//! and a real-size plan starts; the phase context holds what its discussion settled.
 
 use crate::cmd_execute::{PLANTED, SUMMARY};
 use crate::commands_support::plant;
@@ -124,13 +125,42 @@ fn declared() -> BTreeMap<String, (u64, Vec<String>)> {
         .collect()
 }
 
-/// A default read of `route` measured: every core section served and none truncated, the cap the pack was fitted to
-/// its core and the route's allowance, the pack within that cap, and the core under the role ceiling. The core's cost.
-fn measured(pack: &Value, route: &str, (allowance, core): &(u64, Vec<String>)) -> u64 {
+/// The floor of `gsd/<route>`'s pack for `subject` as the host measures it, independently of a default read: a cap
+/// of one token is refused (E062), and the refusal names the floor's cost.
+fn floor(p: &Project, route: &str, subject: &str) -> u64 {
+    let run = p.run(&[
+        "context",
+        &format!("gsd/{route}"),
+        subject,
+        "--max-tokens",
+        "1",
+    ]);
+    let all = run.all();
+    assert!(run.code != 0 && all.contains("E062"), "{route}: {all}");
+    let end = all
+        .find(" tokens: the envelope")
+        .unwrap_or_else(|| panic!("{route}: E062 names the floor: {all}"));
+    let start = all[..end].rfind('(').expect("the floor's parenthesis") + 1;
+    all[start..end]
+        .parse()
+        .unwrap_or_else(|e| panic!("{route}: a count ({e}): {all}"))
+}
+
+/// A default read `pack` of `route` for `subject` measured: its cap is the floor E062 names plus the route's
+/// allowance, its cost lies between the two, every core section is served and none truncated, and the core is under
+/// the role ceiling. The core's cost.
+fn measured(
+    p: &Project,
+    subject: &str,
+    pack: &Value,
+    route: &str,
+    (allowance, core): &(u64, Vec<String>),
+) -> u64 {
     let budget = &pack["budget"];
     let cap = budget["budget_tokens"].as_u64().expect("a cap");
     let estimated = budget["estimated_tokens"].as_u64().expect("an estimate");
-    let floor = cap - allowance;
+    let floor = floor(p, route, subject);
+    assert_eq!(cap, floor + allowance, "{route}: {budget}");
     assert!(floor <= estimated && estimated <= cap, "{route}: {budget}");
     assert!(floor <= ROLE_CEILING, "{route}: a core of {floor} tokens");
     let served: Vec<&str> = pack["sections"]
@@ -169,7 +199,7 @@ fn every_route_serves_its_core_whole_within_its_allowance_in_each_fixture() {
             let pack = pack(&p, route, subject);
             assert_eq!(pack["route"], format!("gsd/{route}"));
             assert!(!digests(&pack).is_empty(), "{route}: {pack}");
-            measured(&pack, route, &declared[route]);
+            measured(&p, subject, &pack, route, &declared[route]);
             served += 1;
         }
     }
@@ -180,7 +210,13 @@ fn every_route_serves_its_core_whole_within_its_allowance_in_each_fixture() {
 fn the_plan_checker_serves_a_real_size_plan_whole_where_a_fixed_budget_refused_it() {
     let p = real_size();
     let pack = pack(&p, "plan-checker", REAL_PLAN);
-    let floor = measured(&pack, "plan-checker", &declared()["plan-checker"]);
+    let floor = measured(
+        &p,
+        REAL_PLAN,
+        &pack,
+        "plan-checker",
+        &declared()["plan-checker"],
+    );
     // The old route's fixed budget was 8000 tokens: the project's decisions alone cost more.
     assert!(floor > 8000, "a core of {floor} tokens");
     assert_eq!(members(&pack, "project_decisions").len(), 100);
@@ -222,19 +258,48 @@ fn the_plan_check_reads_the_project_decisions_and_those_its_phase_research_resol
     };
     assert!(!read(&pack).contains(&"v1.0.0/02/D-02".to_string()));
     let before = input_digests(&p, REAL_PLAN, "W311");
+    unrelated_decision_edited(&p);
+    assert_eq!(input_digests(&p, REAL_PLAN, "W311"), before);
+}
+
+/// Phase 02's decision D-02 reworded, its meaning kept.
+fn unrelated_decision_edited(p: &Project) {
     p.edit(
         "spec/discuss.spec",
         "Nodes are sorted by id and edges by source, label and target",
         "Nodes are sorted by id, edges by source, label and target",
     );
-    assert_eq!(input_digests(&p, REAL_PLAN, "W311"), before);
+}
+
+#[test]
+fn the_plan_check_reads_the_decision_a_task_names_as_settling_its_door() {
+    let p = real_size();
+    let settled = |p: &Project| members(&pack(p, "plan-checker", REAL_PLAN), "settled_decisions");
+    assert_eq!(settled(&p), ["v1.0.0/02/D-01"]);
+    // Another phase's decision, answering no question of this phase's research: read once a task names it.
+    p.edit(
+        "spec/plans.spec",
+        "settled_by v1.0.0/02/D-01",
+        "settled_by v1.0.0/02/D-02",
+    );
+    assert_eq!(settled(&p), ["v1.0.0/02/D-02"]);
+    let before = input_digests(&p, REAL_PLAN, "W311");
+    unrelated_decision_edited(&p);
+    let after = input_digests(&p, REAL_PLAN, "W311");
+    let moved: Vec<&str> = before
+        .iter()
+        .zip(&after)
+        .filter(|(was, now)| was != now)
+        .map(|(was, _)| was.0.as_str())
+        .collect();
+    assert_eq!(moved, ["settled_decisions"]);
 }
 
 #[test]
 fn start_plan_records_a_real_size_plans_executor_pack_and_only_a_stated_cap_refuses_it() {
     let p = real_size();
     let read = pack(&p, "executor", REAL_PLAN);
-    let floor = measured(&read, "executor", &declared()["executor"]);
+    let floor = measured(&p, REAL_PLAN, &read, "executor", &declared()["executor"]);
     // The old route's fixed budget was 6000 tokens, below this plan's core: the record was refused.
     assert!(floor > 6000, "a core of {floor} tokens");
     let run = p.run(&["gsd", "start-plan", REAL_PLAN]);
@@ -269,7 +334,7 @@ fn the_real_size_phase_is_served_whole_to_the_roles_that_read_it() {
         "phase-context",
     ] {
         let pack = pack(&p, route, REAL_PHASE);
-        measured(&pack, route, &declared[route]);
+        measured(&p, REAL_PHASE, &pack, route, &declared[route]);
     }
 }
 

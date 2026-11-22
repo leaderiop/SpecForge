@@ -217,6 +217,7 @@ reported (ADR 0377). The mapping is in
     inputs      { plan "sha256:9f1c…" body "sha256:41d7…" phase "sha256:04ab…" requirements "sha256:5e21…"
                   phase_decisions "sha256:5b17…" quick_decisions "sha256:3c09…"
                   project_decisions "sha256:e0b9…" resolved_decisions "sha256:d14e…"
+                  settled_decisions "sha256:6a3e…"
                   context "sha256:7a4f…" research "sha256:19cd…" research_items "sha256:b6a2…"
                   siblings "sha256:2f80…" instructions "sha256:77e0…" cited "sha256:a8f3…" }
     findings    []
