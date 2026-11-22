@@ -566,7 +566,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`extensions/code/`); its builtins are named `@<family>/<pack>`. The family `specforge` is refused (ADR 0328 D3).
 - **Extension library**: a crate in an extension family with no `wasm/` dir: an rlib named `specforge-<family>-<dir>`,
   never embedded, that builtins link (`extensions/code/junit`, `extensions/code/facts`). Editing it re-vendors the
-  builtins that link it.
+  builtins that link it. The report readers `specforge-code-lcov`, `-api`, `-sarif`, `-cyclonedx` and `-osv`
+  (`extensions/code/{lcov,api,sarif,cyclonedx,osv}`) link code-facts and no builtin links them yet, so editing one
+  re-vendors nothing (ADR 0388).
+- **X2**: the share of items carrying a test id whose id a test fact holds, that is, a standard test report saw it,
+  whatever its status. `cargo gate full`'s dogfood check prints it for SpecForge, taskboard and ledger, with no floor
+  (`gate/src/x2.rs`, ADR 0388).
 - **Builtin's name**: the name a builtin this specforge embeds declares. Only that builtin loads under it: a `.wasm` file entry whose component declares it is refused by the load's admit (E028), and add, update, init, publish, extension validate and extension init refuse a candidate declaring it (`extension_conflict`). One predicate, `Builtins::contains` (ADR 0028 D7, ADR 0214).
 - **Load key**: the key the runtime holds an entry's component under while its declaration is read: a builtin's or a locked entry's name, a `.wasm` file entry's `file:<entry>`, a candidate's `__candidate`. Every name the load admits is a package name and no temporary key is one, so a load never replaces another entry's extension (`load_key`, ADR 0223).
 - **Extension inventory**: every extension a project has, one row per name: enabled by a

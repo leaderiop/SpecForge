@@ -67,6 +67,8 @@ an rlib no blob of its own. A library is an input of every builtin that links it
 so editing one re-vendors those builtins: code-facts, and code-junit, which it links, feed `@code/core`,
 `@javascript/node-test`, `@javascript/source`, `@rust/cargo`, `@rust/source` and `@rust/test`; `specforge-rust-manifest`
 feeds `@rust/cargo`; `specforge-javascript-workspace` feeds `@javascript/node-test` and `@javascript/source`.
+The report readers `extensions/code/{lcov,api,sarif,cyclonedx,osv}` are libraries too: each links code-facts and no
+builtin links one yet, so editing one re-vendors nothing (`a_change_to_a_report_reader_feeds_no_builtin`, ADR 0388).
 `every_committed_wasm_is_listed` (xtask) fails for a `.wasm` file git tracks that the list does not name.
 
 ## Only the vocabulary
