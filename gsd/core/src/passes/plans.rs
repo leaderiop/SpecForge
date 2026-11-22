@@ -205,7 +205,7 @@ fn walk<'a, V>(value: &'a V, shape: &impl Fn(&'a V) -> Shape<'a, V>, out: &mut V
 }
 
 /// Every string an entity writes, field by field: the structured value of a list or block (its strings, recursively)
-/// when the host sends one, the field text otherwise. The pass input carries no title, so a title is not here.
+/// when the host sends one, the field text otherwise. An entity's title is no field, so it is not here.
 pub fn texts(entity: &PassEntity) -> Vec<String> {
     let mut out = Vec::new();
     for (name, text) in &entity.fields {

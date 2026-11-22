@@ -205,7 +205,7 @@ fn the_twin_holds_what_its_planning_holds() {
     let mut twin_phases: Vec<String> = p
         .nodes_of("phase")
         .iter()
-        .map(|n| text(n, "name"))
+        .map(|n| n["title"].as_str().expect("a title").to_string())
         .collect();
     twin_phases.sort();
     let mut twin_truths: Vec<(String, String)> = p

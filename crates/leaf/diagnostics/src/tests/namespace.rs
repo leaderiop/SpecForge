@@ -60,6 +60,7 @@ fn code(local: &str) -> ExtensionCode {
         docs: Some("https://gsd.dev/codes#w304".into()),
         machine: false,
         reported_while: None,
+        settled_later: false,
     }
 }
 

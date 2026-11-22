@@ -35,11 +35,11 @@ truth TR1 "A task added to a board has the next integer id" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-19T02:16:57Z"
+    at    "2026-11-22T11:16:33Z"
     cited ["src/tasks.js", "test/tasks.test.js"]
     inputs {
       cited "sha256:158dff8d759f519da0fc2d646aeab3a2ccfa6f4b0c8febd2e4ddde6b98304bce"
-      phase "sha256:c76e530da600fb14ee69f0793892a7a8f0c915f5bb56c4dcdeff3a58da1cb08b"
+      phase "sha256:61a66e19cc7d023d515ee34988807f8da5a1defe0a4037f971f7e467c7294351"
       plan  "sha256:f1d2f5eae220cf0ed8230cbc47826bb8bff020bbe749fd78df89dcb002fce92d"
       tests "none"
       truth "sha256:82e482debddf8b2d7881c81af042596716d39fb4b88eb8d8b6155e74f1495887"
@@ -55,7 +55,7 @@ artifact AR1 "createBoard and addTask" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-19T02:16:55Z"
+    at    "2026-11-22T11:16:28Z"
     inputs {
       artifact "sha256:2c2662f92037f318a2e106bb106ae80b92c215d6bfe23b2aca2ad23daae190fb"
       cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
@@ -73,7 +73,7 @@ key_link KL1 "The tests import addTask" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-19T02:16:56Z"
+    at    "2026-11-22T11:16:31Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       from  "sha256:801e738cc1c232ce0a0cd71c3bc4908b74acbc510ab26c919df97f5010c4a32f"
@@ -122,11 +122,11 @@ truth TR1 "A task is completed by its id" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-19T02:16:59Z"
+    at    "2026-11-22T11:16:40Z"
     cited ["src/tasks.js", "test/tasks.test.js"]
     inputs {
       cited "sha256:158dff8d759f519da0fc2d646aeab3a2ccfa6f4b0c8febd2e4ddde6b98304bce"
-      phase "sha256:c76e530da600fb14ee69f0793892a7a8f0c915f5bb56c4dcdeff3a58da1cb08b"
+      phase "sha256:61a66e19cc7d023d515ee34988807f8da5a1defe0a4037f971f7e467c7294351"
       plan  "sha256:6e995c187f75bcb70a652b755b78f7e192a6a0d4ce527e6de525c85989712591"
       tests "none"
       truth "sha256:763b12751147077b109fe5950ae9ccea81adcecaa06af3f56dd2f730795ef2a6"
@@ -140,11 +140,11 @@ truth TR2 "Completing a missing id fails with a message naming it" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-19T02:17:00Z"
+    at    "2026-11-22T11:16:42Z"
     cited ["src/tasks.js", "test/tasks.test.js"]
     inputs {
       cited "sha256:158dff8d759f519da0fc2d646aeab3a2ccfa6f4b0c8febd2e4ddde6b98304bce"
-      phase "sha256:c76e530da600fb14ee69f0793892a7a8f0c915f5bb56c4dcdeff3a58da1cb08b"
+      phase "sha256:61a66e19cc7d023d515ee34988807f8da5a1defe0a4037f971f7e467c7294351"
       plan  "sha256:6e995c187f75bcb70a652b755b78f7e192a6a0d4ce527e6de525c85989712591"
       tests "none"
       truth "sha256:918969b1bd1300b0825039eecced772755e43bc0b1fd3ed67cda32a3381d9411"
@@ -160,7 +160,7 @@ artifact AR1 "taskboard add and taskboard done" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-19T02:16:57Z"
+    at    "2026-11-22T11:16:36Z"
     inputs {
       artifact "sha256:43db50d0eafcf823c83ca4a8561f1b0739fd042cba54aa5c95e3dc5e9287e932"
       cited    "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
@@ -178,7 +178,7 @@ key_link KL1 "The command line imports the board" {
   verdict gsd/E501 verified {
     judge "gsd-verifier@1.1.0"
     model "test-model"
-    at    "2026-11-19T02:16:58Z"
+    at    "2026-11-22T11:16:38Z"
     inputs {
       cited "sha256:e02204fbbdd3035a64321ee96a30990a9af1f26d9ee1a344a1232a2b0020f2ff"
       from  "sha256:4b5da11f8e1e1d3bd76d7914e1bde0454baf6016f337ab229cd75b96f764836c"

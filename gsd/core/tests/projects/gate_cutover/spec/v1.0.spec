@@ -1,10 +1,8 @@
 milestone v1.0 "Gate cutover 1.0" {
-  name "Gate cutover 1.0"
 }
 
 phase 01 "Decisions" {
   milestone        v1.0
-  name             "Decisions"
   slug             "decisions"
   goal             "Decisions are cited by plans"
   requirements     [REQ-00]
@@ -13,7 +11,6 @@ phase 01 "Decisions" {
 
 phase 02 "Verify" {
   milestone        v1.0
-  name             "Verify"
   slug             "verify"
   goal             "Verify commands run in directories that exist"
   depends_on       [01]
@@ -23,7 +20,6 @@ phase 02 "Verify" {
 
 phase 03 "Clean" {
   milestone        v1.0
-  name             "Clean"
   slug             "clean"
   goal             "A clean verify phase"
   depends_on       [02]
@@ -33,7 +29,6 @@ phase 03 "Clean" {
 
 phase 04 "Gap" {
   milestone        v1.0
-  name             "Gap"
   slug             "gap"
   goal             "Users can sign in and out"
   depends_on       [03]

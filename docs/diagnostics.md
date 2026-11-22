@@ -780,7 +780,7 @@ Level: error
 ## E062
 
 ```
-E062: Token budget too small for the export
+E062: Token budget too small for the export or the context pack
 
 `specforge export --max-tokens` (or the MCP `export` tool's `max_tokens`) keeps
 the most central entities that fit the budget, but some of the export never
@@ -788,7 +788,14 @@ shrinks: the envelope (`format_version`, `schema_version`), the `token_budget`
 block listing the dropped entity IDs, and, with `--with-schema`, the embedded
 schema, which is never cut short, and, in a scoped export (`--scope`), the
 scope's own entity. The budget is below that fixed part, so no export fits.
-Raise the budget, or drop `--with-schema` when the schema alone is over it.
+Raise the budget, or drop `--with-schema` when the schema alone is over it. A
+context pack (`specforge context`, the MCP `specforge.context` tool or the
+`role` of `specforge://context/{+entity_id}`, an edit plan's `record_context`)
+always serves its subject and its route's core sections whole, and a read that
+states no cap fills the route's allowance of enrich sections beyond them, so it
+is never refused for its size. Only a cap the read states (`--max-tokens`,
+`max_tokens`) below that core is E062, naming the route: raise the cap, or state
+none (ADR 0386).
 
 Owner: core
 Level: error
@@ -1119,9 +1126,15 @@ removes the references a delete would leave dangling. A judged rule's finding
 settles it, not the edit (ADR 0297). Nor is an extension's finding whose code
 waits for an owner state (`reported_while`) and that the edit revealed by moving
 its entity into that state: the edit is accepted and the finding is reported
-once it is written (ADR 0363). A writing collector's plan is compared with the
-project as its collect left it, and is refused for host errors only: an
-extension's error refuses no collected fact (ADR 0303).
+once it is written (ADR 0363). Nor is an extension's finding whose code a later
+step of the authoring settles (`settled_later`) on an entity the edit creates,
+or creates something under, when the edit alters nothing the project held there:
+the edit is accepted, lists the finding, and `check` reports it until that step
+is written; an edit that creates neither, one that also sets, unsets, links,
+unlinks, deletes or moves at or under that entity, and a migration still count
+it (ADR 0385). A writing collector's plan is compared with the project as its
+collect left it, and is refused for host errors only: an extension's error
+refuses no collected fact (ADR 0303).
 
 Owner: core
 Level: error
@@ -1717,20 +1730,21 @@ E123: Context route cannot be served
 
 An extension declares a context route (`contexts`, protocol 2.1, ADR 0356) the
 host cannot serve: its name is not kebab case, repeats one of its extension's,
-or its qualified name (`<short>/<name>`) is an earlier extension's; its budget
-is 0; it has no core section; a section's name is not a word, repeats one, or is
-`settings`; a section's selector does not parse, its `file("…")` path leaves
-the project, holds a glob or names a `.spec` source, or it does not type-check
-from the subject kind (a kind or field it names is not loaded or declared, or it
-crosses a field that is not a reference or that is computed or written by a
-verdict: such a reference makes no edge); its subject kind is not loaded; or a
-setting it names is not a setting of its extension (a secret is not one). The
-message names the extension, the route, the section and why. The route is not
-registered: `specforge context` and `specforge.context` refuse it as unknown,
-and its agent gets no Context section. A subject kind of an optional peer the
-project does not load drops the route without a diagnostic, and a section that
-reaches one is skipped and listed in the pack. Fix the route's declaration in
-the extension.
+or its qualified name (`<short>/<name>`) is an earlier extension's; it has an
+enrich section and its budget (the allowance enrich sections fill beyond the
+core, ADR 0386) is 0, or it has none and its budget is not 0; it has no core
+section; a section's name is not a word, repeats one, or is `settings`; a
+section's selector does not parse, its `file("…")` path leaves the project,
+holds a glob or names a `.spec` source, or it does not type-check from the
+subject kind (a kind or field it names is not loaded or declared, or it crosses
+a field that is not a reference or that is computed or written by a verdict:
+such a reference makes no edge); its subject kind is not loaded; or a setting it
+names is not a setting of its extension (a secret is not one). The message names
+the extension, the route, the section and why. The route is not registered:
+`specforge context` and `specforge.context` refuse it as unknown, and its agent
+gets no Context section. A subject kind of an optional peer the project does not
+load drops the route without a diagnostic, and a section that reaches one is
+skipped and listed in the pack. Fix the route's declaration in the extension.
 
 Owner: core
 Level: error

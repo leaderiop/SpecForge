@@ -489,6 +489,14 @@ impl Project {
         graph["nodes"][0]["fields"].clone()
     }
 
+    /// The title of the entity `id`, as `specforge query` prints it: a phase's and a milestone's name (ADR 0387).
+    pub fn title_of(&self, id: &str) -> serde_json::Value {
+        let query = self.run(&["query", id, "--depth", "0", "--format", "json"]);
+        let graph: serde_json::Value = serde_json::from_str(&query.stdout)
+            .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));
+        graph["nodes"][0]["title"].clone()
+    }
+
     /// The nodes of `kind` in the graph, as `specforge export --format graph` writes them.
     pub fn nodes_of(&self, kind: &str) -> Vec<serde_json::Value> {
         let run = self.run(&["export", "--format", "graph"]);

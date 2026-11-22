@@ -137,6 +137,7 @@ mod tests {
                     docs: None,
                     machine: false,
                     reported_while: None,
+                    settled_later: false,
                 })
                 .collect();
             book.add(extension, entries).unwrap();

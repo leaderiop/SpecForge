@@ -1,7 +1,8 @@
 //! `phase` (D-r41-8): the roadmap's phase CRUD behind `/gsd-phase`. The action is chosen by flag, as upstream's
 //! `[--insert X|--remove N|--edit N]`: none adds, `--insert` makes a decimal phase, `--remove` deletes a phase and
-//! renumbers the later ones in one plan, `--edit` sets fields, `--promote` moves a backlog phase (999.x) into the
-//! numbered phases, and `--backlog` adds a phase to the backlog at the first free 999.x number.
+//! renumbers the later ones in one plan, `--edit` sets fields (a new name retitles the phase and rewrites its slug),
+//! `--promote` moves a backlog phase (999.x) into the numbered phases, and `--backlog` adds a phase to the backlog at
+//! the first free 999.x number.
 //!
 //! Also ports gsd-core bin/lib modules: phase-estimation.cjs, phase-id-card.cjs, phase-id-display.cjs, phase-
 //! id.cjs, phase-lifecycle.cjs, phase-locator.cjs, phase-status.cjs.
@@ -16,7 +17,7 @@ use std::cmp::Ordering;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{self, answer, fields, given, required, run, text, texts, title};
+use super::support::{self, answer, fields, given, required, run, text, texts};
 use crate::branch::slug;
 
 const TO_BE_PLANNED: &str = "[To be planned]";
@@ -142,6 +143,33 @@ pub(super) fn target<'a, 'p>(phases: &'p [Phase<'a>], name: &str) -> Result<&'p 
     find(phases, name)
 }
 
+/// What a phase's name sets, for `--add` and `--edit` alike: its title, the name a person calls it by (ADR 0387), and
+/// the slug derived from it, which names the phase's branch (`git.phase_branch_template`'s `{slug}`).
+struct Named {
+    title: String,
+    slug: Value,
+}
+
+/// Refused, on `--add` as on `--edit`: a name of more than one line (a carriage return as a line feed), and one with no
+/// ASCII letter or digit, whose slug, the phase's directory and branch word, would be empty.
+fn named(name: &str) -> Result<Named, String> {
+    let name = name.trim();
+    if name.contains(['\n', '\r']) {
+        return Err("a phase's name is one line: it is the phase's title".into());
+    }
+    let slug = slug(name);
+    if slug.is_empty() {
+        return Err(format!(
+            "a phase's name holds an ASCII letter or digit: '{name}' gives no slug, the word that names the phase's \
+             directory and branch"
+        ));
+    }
+    Ok(Named {
+        title: name.to_string(),
+        slug: json!(slug),
+    })
+}
+
 /// Creates the phase `number` after `previous`, in the milestone's own file.
 fn create(
     call: &CommandCall<'_>,
@@ -154,26 +182,32 @@ fn create(
     let goal = given(call, "goal")?.unwrap_or(goal_default);
     let criteria = texts(call, "criteria")?.unwrap_or_else(|| vec![TO_BE_PLANNED.to_string()]);
     let id = format!("{}/{}", ms.id, number.name());
+    let mut held = fields([
+        ("milestone", json!(ms.id)),
+        ("goal", json!(goal)),
+        ("success_criteria", json!(criteria)),
+        ("depends_on", previous.map_or(Value::Null, |p| json!([p]))),
+    ]);
+    let named = named(name)?;
+    held.insert("slug".to_string(), named.slug);
     let mut plan = call.plan();
     plan.create(
         "phase",
         &number.name(),
-        &title(name),
+        &named.title,
         ms.file.as_deref().unwrap_or_default(),
-        fields([
-            ("milestone", json!(ms.id)),
-            ("name", json!(name)),
-            ("slug", json!(slug(name))),
-            ("goal", json!(goal)),
-            ("success_criteria", json!(criteria)),
-            ("depends_on", previous.map_or(Value::Null, |p| json!([p]))),
-        ]),
+        held,
         Vec::new(),
     );
     Ok(answer(
         call,
         json!({ "wrote": [id], "phase": number.name() }),
-        format!("phase {} \"{name}\" added to {}\n", number.name(), ms.id),
+        format!(
+            "phase {} \"{}\" added to {}\n",
+            number.name(),
+            named.title,
+            ms.id
+        ),
         Some(&plan),
     ))
 }
@@ -252,8 +286,14 @@ fn edit(
     let mut plan = call.plan();
     let mut set = Vec::new();
     if let Some(v) = given(call, "name")? {
-        plan.set(&phase.node.id, "name", v);
-        set.push("name");
+        // as `create` writes them: a new name retitles the phase and rewrites its slug. A branch already cut under the
+        // old slug keeps its name: the phase's computed `branch` names the new slug, so the next execute-phase opens
+        // the branch of the new name and `milestone_branches` lists it, not the old one; `git branch -m` moves the
+        // work.
+        let named = named(v)?;
+        plan.retitle(&phase.node.id, &named.title);
+        plan.set(&phase.node.id, "slug", named.slug);
+        set.extend(["title", "slug"]);
     }
     if let Some(v) = given(call, "goal")? {
         plan.set(&phase.node.id, "goal", v);
@@ -336,7 +376,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.flag().description("add the phase to the backlog at the first free 999.x number");
             })
             .arg("name", |a| {
-                a.description("the phase's name (required to add or insert)");
+                a.description("the phase's name, its title (required to add or insert; editing it retitles the phase)");
             })
             .arg("goal", |a| {
                 a.description("the phase's goal");

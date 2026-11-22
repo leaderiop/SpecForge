@@ -150,6 +150,10 @@ status on the start line. No kernel change is made in this milestone. Two reason
 
 ## D8. The judged inputs and the context packs
 
+Amended by [ADR 0386](0386-a-context-pack-serves-its-core-whole-and-a-routes-budget-is-its-enrich-allowance.md): the
+plan check reads `phase_decisions`, `quick_decisions`, `project_decisions`, `resolved_decisions` and
+`settled_decisions` instead of `all_decisions`, 14 inputs.
+
 The plan check's `decisions` input goes. `phase_decisions` and `all_decisions` stay, so the checker still sees every
 decision, and the plan check reads 11 inputs. The executor's `decisions` context section goes: the phase's context
 decisions are in its `context` section, which is enriching, so a small budget may cut them, and that is accepted. The

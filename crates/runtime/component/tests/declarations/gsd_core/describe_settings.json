@@ -1695,6 +1695,7 @@
           },
           "severities": {
             "W103": "error",
+            "W109": "error",
             "W203": "error",
             "W204": "error",
             "W205": "error",
@@ -1727,6 +1728,7 @@
           },
           "severities": {
             "W103": "error",
+            "W109": "error",
             "W203": "error",
             "W204": "error",
             "W205": "error",

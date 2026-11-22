@@ -18,8 +18,8 @@ fn writes(call: &PromptCall<'_>) -> String {
          `specforge settings set @gsd/ui workflow.ui_phase false`.\n\
          - A search key (`brave_search`, `firecrawl`, `exa_search` and the others) is a secret: it is an environment \
          variable, and `settings set` never writes it. `brave_search true|false` only forces the source on or off.\n\
-         - `commit_docs`, `search_gitignored` and `graphify.*` are not settings here: the spec is source and is \
-         committed like code. Skip their questions.\n",
+         - `commit_docs` and `search_gitignored` are not settings here: the spec is source and is committed like \
+         code.\n",
     );
     if let Some(profile) = call.str("profile") {
         text.push_str(&format!(

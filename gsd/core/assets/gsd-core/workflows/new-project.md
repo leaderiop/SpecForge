@@ -531,10 +531,10 @@ this also finds linked git worktree children, whose `.git` is a file rather than
 directory, unlike a plain directory walk would):
 
 ```bash
-SUB_REPOS=$(specforge git repos . --pick '.repos[]' --fields name) || exit 1   # each child directory that is a repository or a linked worktree, one per line: a failed listing stops here, and a name holding a newline is refused, never split
+CHILD_REPOS=$(specforge git repos . --pick '.repos[]' --fields name) || exit 1   # each child directory that is a repository or a linked worktree, one per line: a failed listing stops here, and a name holding a newline is refused, never split
 ```
 
-Each line of `SUB_REPOS` is a bare directory name relative to the workspace root
+Each line of `CHILD_REPOS` is a bare directory name relative to the workspace root
 (e.g. `backend`); none means no sub-repos.
 
 **If sub-repos found:**
@@ -549,12 +549,12 @@ Use AskUserQuestion:
 
 **If user selects one or more directories:** each is a repository of its own, so it is a SpecForge project of its own:
 
-- Write nothing here: `planning.sub_repos` is not a setting of the port, and this project's commits never reach a sub-repository
+- Write nothing here: no setting lists child repositories, and this project's commits never reach one
 - Suggest running `/gsd:new-project` inside each selected directory, so its own spec tracks its work
 
 The spec stays committed like code: `commit_docs` is not a setting here.
 
-**If no sub-repos found or user selects none:** Continue with no changes to config.
+**If no sub-repos found or user selects none:** Continue.
 
 ## 5.5. Resolve Model Profile
 

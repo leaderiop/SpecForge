@@ -1381,6 +1381,15 @@ expression: ledger
       }
     },
     {
+      "kind": "milestone",
+      "id": "third_cut",
+      "field": "title",
+      "value": "Phase 3",
+      "why": {
+        "dropped": "a number of the old milestones' numbering: GSD labels a phase `Phase <the last segment of its id>: <its title>`, so the title holds the name only"
+      }
+    },
+    {
       "kind": "module",
       "id": "store_module",
       "field": "description",

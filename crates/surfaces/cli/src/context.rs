@@ -19,9 +19,10 @@ pub(crate) struct Args {
     /// The entity to read it for: one of the route's subject kind
     subject: String,
 
-    /// Token budget for the pack (default: the route's own). The subject and the core sections are never cut, and a
-    /// budget below them fails (E062); enrich sections are served whole in declared order, the first that does not fit
-    /// keeps its most connected entities that fit, and the pack lists what was cut under `budget`
+    /// A cap on the whole pack. Without one, the subject and the core sections are served whole whatever they cost,
+    /// and enrich sections fill the route's allowance beyond them; a cap below the core fails (E062). Enrich sections
+    /// are served whole in declared order, the first that does not fit keeps its most connected entities that fit, and
+    /// the pack lists what was cut, and the cap it was fitted to, under `budget`
     #[arg(long)]
     max_tokens: Option<usize>,
 
@@ -34,8 +35,8 @@ pub(crate) struct Args {
     format: Format,
 
     /// Record the pack on ENTITY, a kind the route records whose subject is <SUBJECT>: the host writes the route, the
-    /// pack's digest and its budget, with its ledger line, then prints the pack it recorded (in the context format,
-    /// which a record is fitted in)
+    /// pack's digest and the cap `--max-tokens` states, if any, with its ledger line, then prints the pack it recorded
+    /// (in the context format, which a record is fitted in)
     #[arg(long, value_name = "ENTITY", conflicts_with = "format")]
     record: Option<String>,
 

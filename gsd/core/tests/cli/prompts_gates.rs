@@ -241,7 +241,7 @@ fn e516_a_stale_verdict_refuses_complete_milestone_and_ship_under_strict() {
     let p = ready();
     p.write(
         "spec/next.spec",
-        "milestone v2.0 \"N\" {\n  name \"N\"\n}\n\nphase 01 \"Next\" {\n  milestone v2.0\n  name \"Next\"\n  slug \"next\"\n  goal \"Do more\"\n  success_criteria [\"More is done\"]\n}\n\nplan 01-01 \"Q\" {\n  phase v2.0/01\n  type execute\n  objective \"Do more\"\n}\n",
+        "milestone v2.0 \"N\" {\n}\n\nphase 01 \"Next\" {\n  milestone v2.0\n  slug \"next\"\n  goal \"Do more\"\n  success_criteria [\"More is done\"]\n}\n\nplan 01-01 \"Q\" {\n  phase v2.0/01\n  type execute\n  objective \"Do more\"\n}\n",
     );
     stale_plan_check(&p, "v2.0/01/01-01");
     assert_eq!(
@@ -347,6 +347,103 @@ fn the_convergence_gates_are_the_planning_gates() {
     let expected = ["E201", "W204", "E206", "W406", "E516"];
     for id in PLANNING {
         assert_eq!(gates(id), expected, "{id}");
+    }
+}
+
+/// A half-planned phase is not executed (ADR 0385): its plans written one at a time leave findings a later plan
+/// settles, and `execute_phase` gates on them. On the taskboard's planless phase v1.0/03, with a decision of its
+/// context, plan 03-01 written alone (TASK-03, citing nothing) leaves LIST-01 in no plan (gsd/E301) and the decision
+/// uncited (gsd/E310): the prompt is refused by both. Under gsd-strict the plan's missing must-haves (gsd/W309) refuse
+/// it too. Plan 03-02, holding LIST-01 and citing the decision, clears E301 and E310, and the must-haves clear W309.
+#[test]
+fn e301_e310_w309_a_half_planned_phase_refuses_execute_phase() {
+    let p = twin();
+    let phase = "v1.0/03";
+    let run = |args: &[&str]| {
+        let run = p.run(args);
+        assert_eq!(run.code, 0, "{args:?}: {}", run.all());
+    };
+    run(&[
+        "new",
+        "decision",
+        "D-01",
+        "Lists are sorted by id",
+        "--in",
+        "spec/plans/03-01.spec",
+        "--phase",
+        phase,
+        "--text",
+        "Lists are sorted by id",
+        "--origin",
+        "context",
+    ]);
+    let plan = |id: &str, requirement: &str, objective: &str| {
+        run(&[
+            "new",
+            "plan",
+            id,
+            objective,
+            "--in",
+            &format!("spec/plans/{id}.spec"),
+            "--phase",
+            phase,
+            "--type",
+            "execute",
+            "--files_modified",
+            "src/cli.js",
+            "--requirements",
+            requirement,
+            "--objective",
+            objective,
+        ]);
+    };
+    plan("03-01", "TASK-03", "List open tasks");
+    for code in ["E301", "E310"] {
+        refused_by(&p, "execute_phase", &[phase], code);
+    }
+    not_refused_by(&p, "execute_phase", &[phase], "W309");
+    strict(&p);
+    refused_by(&p, "execute_phase", &[phase], "W309");
+    p.settings(json!({}));
+
+    plan("03-02", "LIST-01", "Filter tasks as D-01 sorts them");
+    for code in ["E301", "E310"] {
+        not_refused_by(&p, "execute_phase", &[phase], code);
+    }
+    strict(&p);
+    refused_by(&p, "execute_phase", &[phase], "W309");
+    for id in ["03-01", "03-02"] {
+        let plan = format!("{phase}/{id}");
+        let file = format!("spec/plans/{id}.spec");
+        run(&[
+            "new",
+            "truth",
+            "TR1",
+            "Tasks list",
+            "--in",
+            &file,
+            "--plan",
+            &plan,
+            "--text",
+            "Tasks list",
+        ]);
+        run(&[
+            "new",
+            "artifact",
+            "AR1",
+            "The command",
+            "--in",
+            &file,
+            "--plan",
+            &plan,
+            "--field",
+            "path=src/cli.js",
+            "--provides",
+            "the command",
+        ]);
+    }
+    for code in ["E301", "E310", "W309"] {
+        not_refused_by(&p, "execute_phase", &[phase], code);
     }
 }
 

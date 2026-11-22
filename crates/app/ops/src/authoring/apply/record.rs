@@ -2,8 +2,10 @@
 //! no origin can forge a record. In order: the route is registered (`unknown_route`); it records the entity's kind
 //! (`not_recorded`); the origin is a command, collector or hook of the route's extension or of one naming it a peer,
 //! or a core surface (`origin`); the record's selector derives exactly one subject (`no_subject`,
-//! `several_subjects`); the pack fits its budget (`budget`). Each is `record_refused` with that `reason`. The write is
-//! a set of the context field, which the ledger records as it records a harness value.
+//! `several_subjects`); a stated cap holds the pack's core (`budget`). Each is `record_refused` with that `reason`. The
+//! write is a set of the context field, which the ledger records as it records a harness value. Its `max_tokens` is
+//! the cap the operation stated, and absent when it stated none (ADR 0386 D6): evaluating the record again reads its
+//! pack under the same budget, so only a stated cap can refuse a core that grew.
 
 use super::{Origin, flags, invalid};
 use crate::authoring::edit::{Edit, Input, Step};
@@ -40,8 +42,8 @@ pub(crate) fn refused(number: usize, reason: &str, message: impl std::fmt::Displ
     .with_data(json!({"op": number, "reason": reason}))
 }
 
-/// A pack read for a record, its error as the record reports it: a budget below the route's core sections (E062) is
-/// `record_refused` for `budget`, about operation `number`; any other error is itself.
+/// A pack read for a record, its error as the record reports it: a stated cap below the route's core sections (E062)
+/// is `record_refused` for `budget`, about operation `number`; any other error is itself.
 pub fn record_read_error(number: usize, error: OpError) -> OpError {
     if error.code == codes::E062.id() {
         refused(number, "budget", error.message)
@@ -151,22 +153,23 @@ pub(crate) fn check(
         ));
     }
     let subject = recorded.subject(view, op.number)?;
-    let budget = op.max_tokens.unwrap_or(route.budget);
     // shortcut: the pack is computed over the project the plan is applied to, before the plan's other operations;
     // a plan that also edits what the pack serves records the pack it read, and the next check reports it stale.
     let request = ContextRequest {
         route: &route.name,
         subject: &subject,
-        max_tokens: Some(budget as usize),
+        max_tokens: op.max_tokens.map(|cap| cap as usize),
         format: Format::Context,
     };
     let pack = context(view, &request)
         .map_err(|refusal| record_read_error(op.number, refusal.into_error()))?;
-    let value = BTreeMap::from([
+    let mut value = BTreeMap::from([
         ("route".to_string(), Input::One(route.name.clone())),
         ("digest".to_string(), Input::One(pack.digest)),
-        ("max_tokens".to_string(), Input::Number(budget.into())),
     ]);
+    if let Some(cap) = op.max_tokens {
+        value.insert("max_tokens".to_string(), Input::Number(cap.into()));
+    }
     Ok(Step::Edit(Edit::Set {
         entity_id: recorded.entity,
         field: recorded.record.field.clone(),

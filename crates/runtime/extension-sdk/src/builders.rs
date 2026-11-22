@@ -204,8 +204,8 @@ impl FieldBuilder {
         self
     }
     /// Only the host's record of a context route's pack sets the field (ADR 0356): a block of `route`, `digest` and
-    /// `max_tokens`, which this declares, recorded in `specforge-harness` and read by no digest. A route of this
-    /// extension names it in its `records`.
+    /// `max_tokens` (the cap the read stated, absent when it stated none, ADR 0386 D6), which this declares, recorded
+    /// in `specforge-harness` and read by no digest. A route of this extension names it in its `records`.
     pub fn context(&mut self) -> &mut Self {
         self.0.writer = Some(FieldWriter::Context.as_str().to_string());
         self.field_type(FieldType::Block)
@@ -430,6 +430,13 @@ impl CodeBuilder {
     /// complete entity, and the write that reopens the owner reveals it rather than adding it (E080).
     pub fn while_open(&mut self) -> &mut Self {
         self.0.reported_while = Some(OwnerState::Pending.as_str().to_string());
+        self
+    }
+    /// A finding of this code names a state a later step of the authoring settles (ADR 0385): a typed edit whose plan
+    /// creates the finding's subject, or an entity under it, and alters nothing held there adds no error by it (E080).
+    /// Its severity does not change.
+    pub fn settled_later(&mut self) -> &mut Self {
+        self.0.settled_later = true;
         self
     }
 }

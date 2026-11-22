@@ -14,6 +14,10 @@ bound is part of a requirement's text). No protocol, SDK or kernel change comes 
 not change, and no builtin is re-vendored: the converter is `xtask/src/absorb/`. D8's root half retired by
 [ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D7 after it last held.
 
+D4 amended by [ADR 0387](0387-a-phase-is-named-by-its-title-alone-and-a-pass-reads-each-entitys-title.md): a
+release's title is its milestone's title, and a listed milestone's title, less a leading `Phase N:`, is its phase's
+title; no `name` is written.
+
 ## Context
 
 **What was left.** ADR 0364 decided that the software kinds are dropped and that a census gives every old kind its

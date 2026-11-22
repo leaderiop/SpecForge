@@ -1,5 +1,6 @@
-//! new-project's sub-repo step, run as the asset holds it under bash with only `specforge` and the shell's tools, and
-//! the project and requirement fences its steps 4 and 7 run, as the templates hold them.
+//! new-project's child-repos step (its "Sub-Repo Detection"), run as the asset holds it under bash with only
+//! `specforge` and the shell's tools, and the project and requirement fences its steps 4 and 7 run, as the templates
+//! hold them.
 
 use super::{Shell, asset, fence_after, typed};
 use crate::harness::taskboard;
@@ -7,7 +8,7 @@ use crate::harness::taskboard;
 /// The fence of new-project's "5.1. Sub-Repo Detection" step, then `show`, run in a project holding a directory repo (`backend`), a
 /// linked worktree (`linked-wt`, whose `.git` is a file) and a plain directory (`docs`), then what `setup` adds:
 /// `(stdout, stderr, exit code)`.
-fn sub_repo_step(
+fn child_repos_step(
     sh: &Shell,
     show: &str,
     setup: impl Fn(&std::path::Path),
@@ -38,19 +39,19 @@ fn sub_repo_step(
 /// The step lists each child directory that is a repository, a directory repo and a linked worktree alike, by its
 /// bare name, and not a plain directory.
 #[test]
-fn new_project_lists_the_sub_repos() {
+fn new_project_lists_the_child_repos() {
     let sh = Shell::without_jq();
-    let (out, err, _) = sub_repo_step(&sh, "printf '%s\\n' \"$SUB_REPOS\"", |_| {});
+    let (out, err, _) = child_repos_step(&sh, "printf '%s\\n' \"$CHILD_REPOS\"", |_| {});
     assert_eq!(out, "backend\nlinked-wt\n", "{err}");
 }
 
 /// A listing that fails (the workspace cannot be read) stops the step: it is not "no sub-repos".
 #[cfg(unix)]
 #[test]
-fn a_failed_sub_repo_listing_stops_the_step() {
+fn a_failed_child_repo_listing_stops_the_step() {
     use std::os::unix::fs::PermissionsExt;
     let sh = Shell::without_jq();
-    let (out, err, code) = sub_repo_step(&sh, "echo listed", |root| {
+    let (out, err, code) = child_repos_step(&sh, "echo listed", |root| {
         std::fs::set_permissions(root, std::fs::Permissions::from_mode(0o300)).expect("a mode");
     });
     assert!(!out.contains("listed") && code != 0, "{out}{err}");
@@ -59,9 +60,9 @@ fn a_failed_sub_repo_listing_stops_the_step() {
 /// A directory name holding a newline is refused whole, and the step stops, never reading it as two names.
 #[cfg(unix)]
 #[test]
-fn a_sub_repo_name_holding_a_newline_stops_the_step() {
+fn a_child_repo_name_holding_a_newline_stops_the_step() {
     let sh = Shell::without_jq();
-    let (out, err, code) = sub_repo_step(&sh, "printf '%s\\n' \"$SUB_REPOS\"", |root| {
+    let (out, err, code) = child_repos_step(&sh, "printf '%s\\n' \"$CHILD_REPOS\"", |root| {
         let odd = root.join("we\nird");
         std::fs::create_dir_all(odd.join(".git")).expect("a dir");
     });

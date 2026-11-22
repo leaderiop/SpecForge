@@ -258,10 +258,10 @@ fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, led
         second.contains("depends_on       [01]"),
         "a dependency within one version milestone, as the writer prints v0.1.0/01 there: {second}"
     );
-    let third = block("phase 01 \"Phase 3: Third Cut\"");
+    let third = block("phase 01 \"Third Cut\"");
     assert!(
         third.contains("milestone        v0.2.0")
-            && third.contains("name             \"Third Cut\"")
+            && !third.contains("\n  name ")
             && !third.contains("depends_on"),
         "{third}"
     );
@@ -319,6 +319,19 @@ fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, led
             "{id} on {on}"
         );
     }
+    let numbered = entry("third_cut", "title");
+    assert_eq!(
+        (numbered.len(), &numbered[0]["value"]),
+        (1, &json!("Phase 3")),
+        "the old title's number, not written, is in the ledger: {numbered:?}"
+    );
+    assert!(
+        numbered[0]["why"]["dropped"]
+            .as_str()
+            .unwrap()
+            .contains("GSD labels a phase"),
+        "{numbered:?}"
+    );
     assert_eq!(
         entry("first_cut", "status")[0]["why"],
         json!({"computed": {"field": "phase.status", "new": "not_started"}}),

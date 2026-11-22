@@ -39,7 +39,8 @@
     "PHASE_NUMBER=\"${PHASE_ID##*/}\"   # the phase number is the last segment of its id",
     "```",
     "",
-    "Parse from the query JSON: the phase's `name` (its number is the last segment of `$PHASE_ID`, kept in `PHASE_NUMBER`).",
+    "Parse from the query JSON: in a phase's label, `{PHASE_NUMBER}` is the phase's number, the last segment of `$PHASE_ID`",
+    "(kept in `PHASE_NUMBER`), and `{PHASE_NAME}` is its `title`; `{PHASE_ID}` is its `id`.",
     "",
     "If phase not found, exit with error: \"Phase {PHASE_ID} not found.\"",
     "</step>",
@@ -58,10 +59,9 @@
     "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results",
     "- the project state (`specforge gsd progress-report --format json`) — with decisions and blockers",
     "",
-    "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
-    "</step>"
+    "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field."
   ],
-  "bytes": 21762,
+  "bytes": 21866,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 487,
+  "lines": 488,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:0d253d5081febbb9bdc2caf6be2fa59095bed5792800749b92bdebc881a8f173",
+    "digest": "sha256:4ffb1f3fb22246996b9b42bb5fef164af0c9c4a21c752051680a316b94bfd1c7",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "0d253d5081febbb9bdc2caf6be2fa59095bed5792800749b92bdebc881a8f173"
+  "sha256": "4ffb1f3fb22246996b9b42bb5fef164af0c9c4a21c752051680a316b94bfd1c7"
 }

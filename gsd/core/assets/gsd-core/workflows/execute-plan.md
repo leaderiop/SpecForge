@@ -315,7 +315,9 @@ If a commit is BLOCKED by a hook:
 <task_commit>
 ## Task Commit Protocol
 
-Canonical per-task commit rules live in **`agents/gsd-executor.md`** (`<task_commit_protocol>`). Follow that section for staging, `{type}({phase}-{plan})` messages, `commit-to-subrepo` when `sub_repos` is set, post-commit checks, and untracked-file handling — do not duplicate or paraphrase the full protocol here (single source of truth).
+Canonical per-task commit rules live in **`agents/gsd-executor.md`** (`<task_commit_protocol>`). Follow that section
+for staging, `{type}({phase}-{plan})` messages, post-commit checks, and untracked-file handling — do not duplicate or
+paraphrase the full protocol here (single source of truth).
 
 **Orchestrator note:** After each task, the spawned executor reports commit hashes; this workflow does not re-specify commit semantics beyond pointing at the executor.
 

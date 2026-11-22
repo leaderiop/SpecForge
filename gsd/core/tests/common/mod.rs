@@ -21,6 +21,7 @@ pub struct RuleRow {
 const NOT_CODE_TABLES: &[&str] = &[
     "Judged rules' inputs",
     "Setting-gated rules",
+    "Settled later",
     "Retired and kernel-provided",
 ];
 

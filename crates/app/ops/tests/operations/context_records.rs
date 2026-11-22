@@ -1,6 +1,6 @@
-//! `record_context` (ADR 0356 D11): a context route's pack recorded on an entity by the host, over the GSD-shaped
-//! executor route that records the plan's `context_pack`: the value and its ledger line, the refusals, and a verdict
-//! the record leaves fresh.
+//! `record_context` (ADR 0356 D11, ADR 0386): a context route's pack recorded on an entity by the host, over the
+//! GSD-shaped executor route that records the plan's `context_pack`: the value (the cap the operation stated, none
+//! when it stated none) and its ledger line, the refusals, and a verdict the record leaves fresh.
 
 use std::sync::Arc;
 
@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use specforge_ops::authoring::apply::{
     HostJudgedRules, JudgedRules, Origin, SystemCalendar, apply_plan_with,
 };
-use specforge_ops::read::context::{ContextRequest, context};
+use specforge_ops::read::context::{ContextRequest, Pack, context};
 use specforge_ops::read::export::Format;
 use specforge_ops::view::ProjectView;
 use specforge_project::testing::{
@@ -27,7 +27,6 @@ fn runtime() -> InProcessRuntime {
         let mut c = gsd_context_builder();
         c.context("requirement-pack", |r| {
             r.subject("requirement")
-                .budget(2000)
                 .core("requirement", "self")
                 .record("plan.context_pack", "self.requirements")
                 .stale(CONTEXT_STALE);
@@ -80,8 +79,8 @@ fn record(entity: &str, route: &str, max_tokens: Option<u32>) -> Value {
     json!([op])
 }
 
-/// The digest the executor's pack of the plan has at `max_tokens`.
-fn digest(project: &TestProject, max_tokens: Option<usize>) -> String {
+/// The executor's pack of the plan under the cap `max_tokens` (`None`: its core and the route's allowance).
+fn read(project: &TestProject, max_tokens: Option<usize>) -> Pack {
     let compiled = compile(project);
     let request = ContextRequest {
         route: "gsd/executor",
@@ -91,7 +90,12 @@ fn digest(project: &TestProject, max_tokens: Option<usize>) -> String {
     };
     context(&ProjectView::of(&compiled), &request)
         .unwrap_or_else(|refusal| panic!("context refused: {:?}", refusal.error))
-        .digest
+}
+
+/// The cap a pack was fitted to, as it renders it.
+fn fitted(pack: &Pack) -> usize {
+    let document: Value = serde_json::from_str(&pack.text).expect("a pack is JSON");
+    document["budget"]["budget_tokens"].as_u64().expect("a cap") as usize
 }
 
 /// The spec file, its runs of spaces one (the formatter aligns a block's values).
@@ -103,7 +107,8 @@ fn spec(project: &TestProject) -> String {
 #[specforge_test(requirement = "FEATURE-012")]
 fn a_command_of_the_routes_extension_records_its_pack() {
     let project = gsd_context_project();
-    let expected = digest(&project, Some(5000));
+    let unrecorded = read(&project, None);
+    let expected = read(&project, Some(5000)).digest;
     assert_eq!(
         apply(
             &project,
@@ -126,10 +131,18 @@ fn a_command_of_the_routes_extension_records_its_pack() {
         "{ledger}"
     );
     // The record moves no digest of the pack it records, and the project holds it without E083.
-    assert_eq!(digest(&project, Some(5000)), expected);
+    assert_eq!(read(&project, Some(5000)).digest, expected);
     let reported = compile(&project).diagnostics().to_vec();
     assert!(!reported.iter().any(|d| d.code == "E083"), "{reported:?}");
-    // With no budget, the route's own; a core surface records too.
+    // With no cap, the core whole and the route's allowance: the cap it was fitted to reads the same pack.
+    let default = read(&project, None);
+    assert!(fitted(&default) > 6000, "{}", fitted(&default));
+    // A pack shows no record of a pack, as no digest reads one: what it costs does not move when it is recorded.
+    assert_eq!(default, unrecorded);
+    assert!(!default.text.contains("context_pack"), "{}", default.text);
+    assert_eq!(read(&project, Some(fitted(&default))), default);
+    // A record that states no cap holds none, so it is read again under the route's allowance; a core surface records
+    // too.
     assert_eq!(
         apply(
             &project,
@@ -138,8 +151,9 @@ fn a_command_of_the_routes_extension_records_its_pack() {
         ),
         "applied"
     );
+    assert!(!spec(&project).contains("max_tokens"), "{}", spec(&project));
     assert!(
-        spec(&project).contains("max_tokens 6000"),
+        spec(&project).contains(&format!("digest \"{}\"", default.digest)),
         "{}",
         spec(&project)
     );

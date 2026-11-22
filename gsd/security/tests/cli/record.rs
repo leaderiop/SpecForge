@@ -242,7 +242,7 @@ fn each_phases_audit_lands_beside_its_own_plans() {
     p.write(
         "spec/v1.0.spec",
         &format!(
-            "{milestone}\nphase 03 \"Later\" {{\n  milestone v1.0\n  name \"Later\"\n  slug \"later\"\n  goal \"Later\"\n}}\n"
+            "{milestone}\nphase 03 \"Later\" {{\n  milestone v1.0\n  slug \"later\"\n  goal \"Later\"\n}}\n"
         ),
     );
     p.write(

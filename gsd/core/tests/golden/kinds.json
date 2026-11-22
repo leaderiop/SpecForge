@@ -1490,16 +1490,6 @@
         "fields": [
           {
             "default_value": null,
-            "description": "MVP",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "name",
-            "required": true,
-            "target_kind": null
-          },
-          {
-            "default_value": null,
             "description": "Delivered",
             "edge": null,
             "field_type": "string",
@@ -1870,16 +1860,6 @@
             "name": "milestone",
             "required": true,
             "target_kind": "milestone"
-          },
-          {
-            "default_value": null,
-            "description": "heading text",
-            "edge": null,
-            "field_type": "string",
-            "inverse_of": null,
-            "name": "name",
-            "required": true,
-            "target_kind": null
           },
           {
             "default_value": null,

@@ -9,10 +9,10 @@
 
 Error:
 ```
-No REVIEWS.md found for Phase {N}. Run reviews first:
+No review recorded for Phase {X}. Run reviews first:
 
-/gsd:review --phase {N}
+/gsd:review --phase {X}
 
-Then re-run /gsd:plan-phase {N} --reviews
+Then re-run /gsd:plan-phase {X} --reviews
 ```
 Exit workflow.

@@ -1,11 +1,13 @@
-//! A context pack fitted to its budget in declared order (ADR 0356): the subject and core sections are the floor, enrich
-//! sections are served whole in order, and inside the first that does not fit its most connected entities are kept.
+//! A context pack fitted to its budget in declared order (ADR 0356, ADR 0386): the subject and core sections are the
+//! floor, served whole; a route's allowance adds enrich sections beyond it, a stated cap bounds the whole pack (a floor
+//! above it is E062); enrich sections are served whole in order, and inside the first that does not fit its most
+//! connected entities are kept.
 
 use serde_json::Value;
 use specforge_common::Sym;
 use specforge_diagnostics::codes;
 use specforge_emitter::pack::{
-    Cut, PackPlan, PackSection, Sealed, SectionBody, Served, fit, render,
+    Budget, Cut, PackPlan, PackSection, Sealed, SectionBody, Served, fit, render,
 };
 use specforge_emitter::{EmitFormat, GraphProtocolSchema};
 use specforge_graph::Graph;
@@ -45,7 +47,7 @@ fn entities(name: &str, tier: ContextTier, ids: &[&str], n: u8) -> PackSection {
 
 /// A route over `s`: core `hub`, then enrich `near`, `rest` (i1, i2, i3) and `late`.
 fn plan<'a>(
-    budget: usize,
+    budget: Budget,
     schema: &'a GraphProtocolSchema,
     registries: &'a RegistryBuild,
 ) -> PackPlan<'a> {
@@ -85,14 +87,19 @@ fn sealed(plan: &PackPlan<'_>, cut: &Cut) -> Sealed {
     }
 }
 
-/// The smallest budget `fit` accepts, searched upward from 1 (a counted search, at most 5,000 steps).
+/// The smallest cap `fit` accepts, searched upward from 1 (a counted search, at most 5,000 steps).
 fn floor(graph: &Graph) -> usize {
     (1..5_000)
         .find(|&budget| fit(graph, &plan_at(budget)).is_ok())
         .expect("a budget holds the core")
 }
 
+/// The plan under the cap `budget`.
 fn plan_at(budget: usize) -> PackPlan<'static> {
+    plan_with(Budget::Cap(budget))
+}
+
+fn plan_with(budget: Budget) -> PackPlan<'static> {
     static SCHEMA: std::sync::LazyLock<GraphProtocolSchema> =
         std::sync::LazyLock::new(GraphProtocolSchema::empty);
     static REGISTRIES: std::sync::LazyLock<RegistryBuild> =
@@ -111,7 +118,7 @@ fn node_ids(pack: &str) -> Vec<String> {
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-012")]
-fn core_sections_are_never_cut_and_a_budget_below_them_is_e062_naming_the_route() {
+fn core_sections_are_never_cut_and_a_cap_below_them_is_e062_naming_the_route() {
     let graph = graph();
     let at = floor(&graph);
     let error = fit(&graph, &plan_at(at - 1)).unwrap_err();
@@ -123,6 +130,40 @@ fn core_sections_are_never_cut_and_a_budget_below_them_is_e062_naming_the_route(
     assert_eq!(cut.served[0], Served::Whole);
     assert_eq!(cut.truncated_sections, ["near", "rest", "late"]);
     assert!(cut.estimated_tokens <= at);
+    assert_eq!(cut.budget_tokens, at);
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
+fn an_allowance_serves_the_floor_whole_whatever_it_costs_and_enrich_up_to_the_allowance_beyond() {
+    let graph = graph();
+    let at = floor(&graph);
+    // An allowance of one token: never E062, the core whole, every enrich section cut.
+    let cut = fit(&graph, &plan_with(Budget::Allowance(1))).unwrap();
+    assert_eq!(cut.served[0], Served::Whole);
+    assert_eq!(cut.truncated_sections, ["near", "rest", "late"]);
+    assert_eq!(cut.budget_tokens, at + 1);
+    assert_eq!(cut.estimated_tokens, at);
+    // The pack states the cap it was fitted to, which a reader passes back as a cap to read the same pack.
+    let plan = plan_with(Budget::Allowance(1));
+    let pack = render(&graph, &plan, &cut, &sealed(&plan, &cut)).unwrap();
+    let document: Value = serde_json::from_str(&pack).unwrap();
+    assert_eq!(document["budget"]["budget_tokens"], at + 1);
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-012")]
+fn an_allowance_serves_what_a_cap_of_the_floor_and_the_allowance_serves() {
+    let graph = graph();
+    let at = floor(&graph);
+    for allowance in 1..2_000 {
+        let allowed = fit(&graph, &plan_with(Budget::Allowance(allowance))).unwrap();
+        let capped = fit(&graph, &plan_at(at + allowance)).unwrap();
+        assert_eq!(allowed, capped, "allowance {allowance}");
+        assert!(allowed.estimated_tokens <= at + allowance, "{allowed:?}");
+        if allowed.served.iter().all(|s| *s == Served::Whole) {
+            return;
+        }
+    }
+    panic!("no allowance served every section");
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-012")]
@@ -217,7 +258,7 @@ fn a_pack_renders_its_budget_sections_and_served_graph() {
     assert_eq!(nodes, ["hub", "i1", "i2", "i3", "late", "near", "s"]);
 }
 
-/// The plan at `budget` over core `hub` and the enrich sections `enrich`, each `(name, members)`.
+/// The plan under the cap `budget` over core `hub` and the enrich sections `enrich`, each `(name, members)`.
 fn plan_over(budget: usize, enrich: &[(&str, &[&str])]) -> PackPlan<'static> {
     let mut plan = plan_at(budget);
     plan.sections.truncate(1);

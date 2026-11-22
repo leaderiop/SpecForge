@@ -16,7 +16,7 @@
     {
       "code": "W103",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
-      "explanation": "A phase has 2–5 success criteria. It is a warning, and an error under gsd-strict.",
+      "explanation": "A phase has 2–5 success criteria. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Phase success criteria out of range"
     },
     {
@@ -64,19 +64,20 @@
     {
       "code": "W203",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
-      "explanation": "A locked requirement has a falsifiable acceptance. It is a warning, and an error under gsd-strict.",
+      "explanation": "A locked requirement has a falsifiable acceptance. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Locked requirement is not falsifiable"
     },
     {
       "code": "W204",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
-      "explanation": "A research open question is resolved by a decision before planning. It is a warning, and an error under gsd-strict.",
+      "explanation": "A research open question is resolved by a decision before planning. It is a warning, and an error under gsd-strict and gsd-plus. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, and alters nothing held there reports the finding and is not refused for it.",
+      "settled_later": true,
       "title": "Open research question unresolved"
     },
     {
       "code": "W205",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
-      "explanation": "A package in research has a legitimacy verdict. It is a warning, and an error under gsd-strict.",
+      "explanation": "A package in research has a legitimacy verdict. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Package without a legitimacy verdict"
     },
     {
@@ -88,7 +89,8 @@
     {
       "code": "E301",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Every requirement of a phase is in at least one of its plans. It is an error.",
+      "explanation": "Every requirement of a phase is in at least one of its plans. It is an error. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, and alters nothing held there reports the finding and is not refused for it.",
+      "settled_later": true,
       "title": "Phase requirement in no plan"
     },
     {
@@ -106,19 +108,19 @@
     {
       "code": "W304",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A plan has at most 3 tasks (4 warns). It is a warning, and an error under gsd-strict.",
+      "explanation": "A plan has at most 3 tasks (4 warns). It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Plan has too many tasks"
     },
     {
       "code": "W305",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Plans of one wave share no path in files_modified ∪ files_deleted; under compat that wave runs sequentially. It is a warning, and an error under gsd-strict.",
+      "explanation": "Plans of one wave share no path in files_modified ∪ files_deleted; under compat that wave runs sequentially. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Same-wave plans overlap on files"
     },
     {
       "code": "W306",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A task's files are among its plan's files_modified. It is a warning, and an error under gsd-strict.",
+      "explanation": "A task's files are among its plan's files_modified. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Task file outside the plan's files"
     },
     {
@@ -130,25 +132,27 @@
     {
       "code": "W308",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A one_way task follows a decision checkpoint of its plan, or names the decision that settles it in reversibility.settled_by. It is a warning, and an error under gsd-strict.",
+      "explanation": "A one_way task follows a decision checkpoint of its plan, or names the decision that settles it in reversibility.settled_by. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "One-way task without a decision or a settled_by"
     },
     {
       "code": "W309",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A plan has a truth and an artifact. It is a warning, and an error under gsd-strict.",
+      "explanation": "A plan has a truth and an artifact. It is a warning, and an error under gsd-strict and gsd-plus. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, and alters nothing held there reports the finding and is not refused for it.",
+      "settled_later": true,
       "title": "Plan lacks a truth or an artifact"
     },
     {
       "code": "E310",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Every trackable decision of a planned phase's context (origin context) is cited by its id in the text of one of its plans. It is an error.",
+      "explanation": "Every trackable decision of a planned phase's context (origin context) is cited by its id in the text of one of its plans. It is an error. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, and alters nothing held there reports the finding and is not refused for it.",
+      "settled_later": true,
       "title": "Context decision cited by no plan"
     },
     {
       "code": "W311",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "The plan achieves its phase goal, keeps to scope and contradicts no settled decision. It is a warning, and an error under gsd-strict.",
+      "explanation": "The plan achieves its phase goal, keeps to scope and contradicts no settled decision. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Plan does not achieve its phase goal"
     },
     {
@@ -160,7 +164,7 @@
     {
       "code": "W313",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Key links are wired between artifacts the plan names. It is a warning, and an error under gsd-strict.",
+      "explanation": "Key links are wired between artifacts the plan names. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Key links not wired"
     },
     {
@@ -172,7 +176,7 @@
     {
       "code": "W315",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Data contracts between plans match (requires / provides). It is a warning, and an error under gsd-strict.",
+      "explanation": "Data contracts between plans match (requires / provides). It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Data contracts between plans mismatch"
     },
     {
@@ -190,7 +194,7 @@
     {
       "code": "W318",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "The plan-check verdict is fresh before execution. It is a warning, and an error under gsd-strict.",
+      "explanation": "The plan-check verdict is fresh before execution. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Plan-check verdict is stale"
     },
     {
@@ -220,7 +224,7 @@
     {
       "code": "W323",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A plan is named <phase>-<NN> in its phase, and by its quick id YYMMDD-xxx without one. It is a warning, and an error under gsd-strict.",
+      "explanation": "A plan is named <phase>-<NN> in its phase, and by its quick id YYMMDD-xxx without one. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Plan not named after its phase"
     },
     {
@@ -256,7 +260,7 @@
     {
       "code": "W404",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "The TDD review checkpoint ran after execution. It is a warning, and an error under gsd-strict.",
+      "explanation": "The TDD review checkpoint ran after execution. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "TDD review checkpoint did not run"
     },
     {
@@ -268,7 +272,7 @@
     {
       "code": "W406",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "A research, spec or validation records the pack of gsd/phase-context (a quick plan's research: gsd/quick-context) it was written against; the host reports it when that pack moves. It is a warning, and an error under gsd-strict.",
+      "explanation": "A research, spec or validation records the pack of gsd/phase-context (a quick plan's research: gsd/quick-context) it was written against; the host reports it when that pack moves. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Context drifted since the plan was written"
     },
     {
@@ -280,13 +284,13 @@
     {
       "code": "W408",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "A deliverable's checks pass, or a person judged it and gave a rationale (a check no report speaks of is not judged). It is a warning, and an error under gsd-strict.",
+      "explanation": "A deliverable's checks pass, or a person judged it and gave a rationale (a check no report speaks of is not judged). It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Deliverable checks neither pass nor are human-judged"
     },
     {
       "code": "W409",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
-      "explanation": "The branch a phase or a milestone computes is a name git takes, with a slug when its template asks one. It is a warning, and an error under gsd-strict.",
+      "explanation": "The branch a phase or a milestone computes is a name git takes, with a slug when its template asks one. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Computed branch name refused"
     },
     {
@@ -334,7 +338,7 @@
     {
       "code": "W510",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
-      "explanation": "A planned phase whose research asks for a validation has one, approved before its verification. It is a warning, and an error under gsd-strict.",
+      "explanation": "A planned phase whose research asks for a validation has one, approved before its verification. It is a warning, and an error under gsd-strict and gsd-plus.",
       "title": "Phase lacks a validation it needs"
     },
     {
@@ -432,6 +436,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
       "explanation": "On a check with a base (check --since a revision, read at its merge-base, or a session's last check), each truth whose verifier verdict is stale says what changed since that base: the spec it reads (the truth, its plan or its phase) or only the files its verdict cites; silent on a plain check. It is information.",
       "title": "What changed under a stale truth since the base"
+    },
+    {
+      "code": "W109",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "A phase's title does not begin with a phase number: its label reads the number from its id. It is a warning, and an error under gsd-strict and gsd-plus.",
+      "title": "Phase title embeds a number"
     }
   ]
 }

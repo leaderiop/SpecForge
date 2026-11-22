@@ -1,11 +1,12 @@
 //! A context route served for one entity (ADR 0356): the one function behind `specforge context`, the MCP
 //! `specforge.context` tool and the `specforge://context/{+entity_id}?role=` resource. Every caller gets the same
-//! pack for the same request: the route's sections read from the subject, fitted to the budget in declared order, and
-//! a digest over exactly what was served.
+//! pack for the same request: the route's sections read from the subject, fitted in declared order (the core whole,
+//! then enrich sections within the route's allowance or under the cap the request states), and a digest over exactly
+//! what was served.
 
 use specforge_common::Sym;
 use specforge_emitter::EmitterError;
-use specforge_emitter::pack;
+use specforge_emitter::pack::{self, Budget};
 use specforge_project::context;
 use specforge_registry::{ContextRoute, PlainDisk};
 
@@ -32,7 +33,8 @@ pub struct ContextRequest<'a> {
     pub route: &'a str,
     /// The entity the route is read for.
     pub subject: &'a str,
-    /// The token budget; `None`: the route's own.
+    /// A cap on the whole pack, refused below its core (E062); `None`: the core whole and the route's allowance of
+    /// enrich sections beyond it.
     pub max_tokens: Option<usize>,
     /// The format of the pack's `graph` member: one of [`PACK_FORMAT`].
     pub format: Format,
@@ -63,7 +65,8 @@ pub struct Pack {
 ///
 /// Refused: a subject the graph lacks (E003, about the subject); a route no loaded extension declares
 /// (`unknown_route`, about the route); a subject of another kind than the route's (`route_of_another_kind`, about the
-/// subject); a budget below the subject and the core sections (E062, about `max_tokens`).
+/// subject); a stated cap below the subject and the core sections (E062, about `max_tokens`). A request that states
+/// no cap is never refused for its size.
 pub fn context(
     view: &ProjectView,
     request: &ContextRequest,
@@ -82,7 +85,10 @@ pub fn context(
         )
         .about(ContextField::Subject));
     }
-    let budget = request.max_tokens.unwrap_or(route.budget as usize);
+    let budget = match request.max_tokens {
+        Some(cap) => Budget::Cap(cap),
+        None => Budget::Allowance(route.budget as usize),
+    };
     seal(view, route, subject.id.raw, budget, request.format).map_err(failure)
 }
 
@@ -108,12 +114,12 @@ fn named_route<'v>(
     })
 }
 
-/// The pack of `route` for `subject` at `budget`, fitted and sealed over the project, and the document rendered.
+/// The pack of `route` for `subject` under `budget`, fitted and sealed over the project, and the document rendered.
 fn seal(
     view: &ProjectView,
     route: &ContextRoute,
     subject: Sym,
-    budget: usize,
+    budget: Budget,
     format: Format,
 ) -> Result<Pack, EmitterError> {
     let schema = view.schema();
@@ -135,7 +141,7 @@ fn seal(
     })
 }
 
-/// The emitter's failure as the operation's: a budget too small is invalid input about `max_tokens` with its code
+/// The emitter's failure as the operation's: a cap below the core is invalid input about `max_tokens` with its code
 /// (E062); a serialization failure is internal.
 fn failure(error: EmitterError) -> Refusal<ContextField> {
     match (&error, error.code()) {

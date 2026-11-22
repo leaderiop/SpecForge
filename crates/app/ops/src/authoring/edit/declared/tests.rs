@@ -198,3 +198,71 @@ fn an_edge_between_two_undeclared_entities_is_beyond() {
 
     assert_eq!(declared.beyond(changed).added_edges.len(), 1);
 }
+
+#[specforge_test(requirement = "FEATURE-131")]
+fn a_created_entity_is_followed_through_a_later_move() {
+    let create = Edit::Create {
+        kind: "plan".into(),
+        id: "P1".into(),
+        title: "P1".into(),
+        file: "f.spec".into(),
+        fields: Default::default(),
+        verify: Vec::new(),
+    };
+    let delete = Edit::Delete {
+        entity_id: "Q1".into(),
+        unlink_references: false,
+    };
+    let mut declared = Declared::default();
+    declared.edit(&create, "PH/P1");
+    declared.edit(&create, "Q1/T1");
+    declared.edit(&create, "R1");
+    // Moved, its new id is the created one; deleted, a created entity and what is under it are created no more.
+    declared.moved("PH", "PX");
+    declared.edit(&delete, "Q1");
+    // A delete creates nothing, and neither does a move.
+    declared.edit(&delete, "S1");
+    declared.moved("U1", "U2");
+    let created: Vec<&String> = declared.created().collect();
+    assert_eq!(created, ["PX/P1", "R1"]);
+}
+
+#[specforge_test(requirement = "FEATURE-131")]
+fn an_entity_held_before_and_changed_is_altered_and_one_created_is_not() {
+    let create = Edit::Create {
+        kind: "plan".into(),
+        id: "P3".into(),
+        title: "P3".into(),
+        file: "f.spec".into(),
+        fields: Default::default(),
+        verify: Vec::new(),
+    };
+    let delete = Edit::Delete {
+        entity_id: "PH/P2".into(),
+        unlink_references: false,
+    };
+    let unset = Edit::Unset {
+        entity_id: "PH/P1".into(),
+        field: "requirements".into(),
+    };
+    let mut declared = Declared::default();
+    declared.edit(&create, "PH/P3");
+    // A field of what the edits create, and a delete of it, alter nothing the project held.
+    declared.edit(&unset, "PH/P3");
+    declared.edit(&delete, "PH/P3");
+    declared.edit(&create, "PH/P4");
+    declared.moved("PH/P4", "PX/P4");
+    assert_eq!(declared.altered().count(), 0);
+    // A held entity's field, a held entity deleted, a held entity moved (both ids), a delete's referrer.
+    declared.edit(&unset, "PH/P1");
+    declared.edit(&delete, "PH/P2");
+    declared.moved("PH/P5", "PY/P5");
+    declared.field("R1", "phase");
+    // A later move of a scope carries what was altered under it.
+    declared.moved("PY", "PZ");
+    let altered: Vec<&String> = declared.altered().collect();
+    assert_eq!(
+        altered,
+        ["PH/P1", "PH/P2", "PH/P5", "PY", "PZ", "PZ/P5", "R1"]
+    );
+}

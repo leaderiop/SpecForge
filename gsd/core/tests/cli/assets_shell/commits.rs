@@ -6,7 +6,7 @@ use crate::harness::Project;
 
 const AT: &str = "2026-10-29T09:00:00Z";
 
-/// The single-repo commit block of `gsd-executor.md`, with its placeholders filled, run under bash with nothing but
+/// The task commit block of `gsd-executor.md`, with its placeholders filled, run under bash with nothing but
 /// `specforge` on `PATH` (ADR 0343); the gsd-git collector then records the commit against `01-01`'s task `T1`.
 #[test]
 fn the_executors_task_commit_links_its_task_by_trailer() {
@@ -17,10 +17,7 @@ fn the_executors_task_commit_links_its_task_by_trailer() {
     let (_, err, code) = sh.run_in(p.root(), "specforge git add src/tasks.js");
     assert_eq!(code, 0, "{err}");
 
-    let block = fence_after(
-        &asset("agents/gsd-executor.md"),
-        "**Otherwise (standard single-repo):**",
-    );
+    let block = fence_after(&asset("agents/gsd-executor.md"), "**The task commit:**");
     let script = [
         ("{type}", "feat"),
         ("{phase}-{plan}", "01-01"),

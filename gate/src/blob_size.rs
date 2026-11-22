@@ -39,7 +39,16 @@ pub const CAP: u64 = cap!();
 /// of runs, 5,717,309 B once a phase's plans were written in one edit, its spec was committed like code with no
 /// setting read for it, and an open question the strict profile refuses was returned to the planner, and 5,719,421 B
 /// once the user answered that question after the planner, chunked mode read a blocked plan as blocked and planned
-/// only the rest, and the keys the committed spec rules out were swept whole.
+/// only the rest, and the keys the committed spec rules out were swept whole, and 5,713,230 B once every key of the
+/// Not applicable table was swept and a phase's label said where its number and name are read, and 5,721,094 B once
+/// every asset that prints a phase label defined its placeholders and a phase's new name rewrote its slug, and
+/// 5,722,710 B once four codes were settled later, the researcher recorded every open question open, a phase's plans
+/// could be written one at a time and `execute_phase` refused a half-planned phase, 5,723,014 B once those codes said
+/// a write that alters what their entity held is refused and an open question was answered at its own id, 5,723,184 B
+/// once its routes stated enrich allowances and the plan check read the decisions its plan answers to, and 5,723,296 B
+/// once a context record held only the cap its read stated and the plan check read the decisions a task names as
+/// settling its door, and 5,727,088 B once a phase was named by its title alone, a numbered title was `gsd/W109`
+/// and a pass entity carried its title, and 5,728,449 B once every line a person reads named a phase by its title.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_800_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].

@@ -23,7 +23,7 @@ Check whether the phase has a spec (from the spec-phase workflow): it locks requ
 **If `has_spec` is true:**
 1. Read the spec and its locked requirements: `specforge query "$SPEC_ID" --depth 1 --format context`.
 2. Count its `locked_req` entities: `specforge query "$SPEC_ID" --depth 1 --pick '.nodes[kind=locked_req].id' --count`.
-3. Display: `{N} requirements are locked by the phase spec; this discussion covers implementation decisions only.`
+3. Display: `{count} requirements are locked by the phase spec; this discussion covers implementation decisions only.`
 4. Set `spec_loaded = true`.
 5. Hold the requirements, boundaries and acceptance criteria as `<locked_requirements>`: the context names the spec, and they are not asked again.
 
@@ -120,6 +120,9 @@ Write a self-contained HTML companion file to:
 ```
 
 The file must be a single self-contained HTML file with inline CSS and JavaScript. No external dependencies.
+
+In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{phase_name}`
+is its `title`.
 
 **Layout:**
 
@@ -237,7 +240,7 @@ Proceed to the **finalize** step.
 
 ---
 
-**"explain Q-{N}"** (or "more info on Q-{N}", "elaborate Q-{N}"):
+**"explain Q-{NN}"** (or "more info on Q-{NN}", "elaborate Q-{NN}"):
 
 1. Find the question by ID in the JSON
 2. Provide a detailed explanation: why this decision matters, how it affects the downstream plan, what additional context from the codebase is relevant

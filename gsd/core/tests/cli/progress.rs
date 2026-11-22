@@ -100,7 +100,7 @@ fn an_inserted_and_a_backlog_phase_are_flagged() {
     append(
         &p,
         "spec/v1.0.spec",
-        "phase 999.1 \"Someday\" {\n  milestone        v1.0\n  name             \"Someday\"\n  slug             \"someday\"\n  goal             \"Later\"\n  success_criteria [\"a\", \"b\"]\n}\n",
+        "phase 999.1 \"Someday\" {\n  milestone        v1.0\n  slug             \"someday\"\n  goal             \"Later\"\n  success_criteria [\"a\", \"b\"]\n}\n",
     );
     let flags = |id: &str| (field(&p, id, "inserted"), field(&p, id, "backlog"));
     assert_eq!(flags("v1.0/02"), (json!(false), json!(false)));
@@ -220,7 +220,7 @@ fn a_workstream_is_complete_when_its_milestones_shipped() {
     append(
         &p,
         "spec/v1.0.spec",
-        "workstream auth \"Auth\" {\n  purpose \"Replace the store\"\n}\n\nmilestone v1.0 \"Auth 1.0\" {\n  name       \"Auth 1.0\"\n  workstream auth\n  completion { at 2026-10-30 }\n}\n",
+        "workstream auth \"Auth\" {\n  purpose \"Replace the store\"\n}\n\nmilestone v1.0 \"Auth 1.0\" {\n  workstream auth\n  completion { at 2026-10-30 }\n}\n",
     );
     p.record_harness("auth/v1.0", "completion", "{\"at\":\"2026-10-30\"}");
     assert_eq!(

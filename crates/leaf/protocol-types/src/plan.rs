@@ -148,8 +148,10 @@ pub enum PlanOp {
         basis: BTreeMap<String, String>,
     },
     /// Record a context route's pack on `entity` (ADR 0356 D11): the host derives the subject by the route's record of
-    /// the entity's kind, computes the pack at `max_tokens` (absent: the route's budget) and writes the route, the
-    /// digest and the budget with its ledger line. It has no file revision: the host computes what it writes.
+    /// the entity's kind, computes the pack under the cap `max_tokens` (absent: the core whole and the route's
+    /// allowance) and writes the route, the digest and the stated cap, when there is one, with its ledger line; the
+    /// record is read again under the same budget (ADR 0386 D6). It has no file revision: the host computes what it
+    /// writes.
     RecordContext {
         entity: String,
         route: String,

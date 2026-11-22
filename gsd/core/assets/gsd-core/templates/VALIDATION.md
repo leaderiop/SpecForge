@@ -1,7 +1,9 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/templates/VALIDATION.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
-# Phase {N} — Validation Strategy
+# Phase {phase_number} — Validation Strategy
 
 > Per-phase validation contract for feedback sampling during execution.
+
+In a phase's label, `{phase_number}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
 
 ## The Validation's Typed Edits
 

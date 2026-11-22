@@ -1,11 +1,15 @@
-//! The context routes `@gsd/core` declares (ADR 0356), read with `specforge context` on the parity fixtures: each
-//! serves a subject of its kind; the checkers' packs digest as the inputs their judged rules read; the executor's keeps
-//! every task of its plan and no file; the phase context holds what its discussion settled.
+//! The context routes `@gsd/core` declares (ADR 0356, ADR 0386), read with `specforge context` on the parity fixtures
+//! and on a real-size one: each serves a subject of its kind, its core whole and its enrich sections within its
+//! allowance, its cap the floor a refusal names plus the allowance; the checkers' packs digest as the inputs their
+//! judged rules read; the plan check reads the project's decisions, those its phase's research resolves and those its
+//! tasks name as settling a door, never an unrelated phase's; the executor's keeps every task of its plan and no file,
+//! and a real-size plan starts; the phase context holds what its discussion settled.
 
 use crate::cmd_execute::{PLANTED, SUMMARY};
 use crate::commands_support::plant;
-use crate::harness::{Project, ledger, taskboard, vault};
+use crate::harness::{Project, ledger, project, taskboard, vault};
 use serde_json::Value;
+use std::collections::BTreeMap;
 
 /// Every route and its subject kind.
 const ROUTES: [(&str, &str); 14] = [
@@ -25,7 +29,8 @@ const ROUTES: [(&str, &str); 14] = [
     ("quick-context", "plan"),
 ];
 
-/// A milestone audit of `v1.0`: no fixture holds one, and the integration checker reads nothing else.
+/// A milestone audit of `v1.0` (of a fixture's first milestone, replaced): no fixture holds one, and the integration
+/// checker reads nothing else.
 const AUDIT: &str = "milestone_audit A1 \"Audit\" {\n  milestone v1.0\n}\n";
 
 /// `specforge context gsd/<route> <subject>`, its pack.
@@ -84,21 +89,253 @@ fn input_digests(p: &Project, entity: &str, code: &str) -> Vec<(String, String)>
         .collect()
 }
 
+/// The real-size fixture: the 100 project decisions of a real repository and one phase planned at the size a live run
+/// met (one plan of 3 tasks, 11 truths, 7 artifacts, 3 key links and 5 prohibitions), beside a research and contexts.
+fn real_size() -> Project {
+    project("real-size")
+}
+
+/// Its plan and phase of that size.
+const REAL_PLAN: &str = "v1.0.0/03/03-01";
+const REAL_PHASE: &str = "v1.0.0/03";
+
+/// The most a route's core may cost in a fixture: a role reads its core whole, so a core past this is a route to trim.
+const ROLE_CEILING: u64 = 100_000;
+
+/// Each route's allowance and its core sections, as `@gsd/core` declares them.
+fn declared() -> BTreeMap<String, (u64, Vec<String>)> {
+    let host = specforge_extension_sdk::testing::MockHost::new(gsd_core::build());
+    let contexts: Value =
+        serde_json::from_str(&host.describe_json("contexts").expect("contexts")).expect("JSON");
+    contexts["items"]
+        .as_array()
+        .expect("items")
+        .iter()
+        .map(|route| {
+            let core = route["sections"]
+                .as_array()
+                .expect("sections")
+                .iter()
+                .filter(|s| s["tier"] != "enrich")
+                .map(|s| s["name"].as_str().expect("a name").to_string())
+                .collect();
+            let name = route["name"].as_str().expect("a name").to_string();
+            (name, (route["budget"].as_u64().expect("a budget"), core))
+        })
+        .collect()
+}
+
+/// The floor of `gsd/<route>`'s pack for `subject` as the host measures it, independently of a default read: a cap
+/// of one token is refused (E062), and the refusal names the floor's cost.
+fn floor(p: &Project, route: &str, subject: &str) -> u64 {
+    let run = p.run(&[
+        "context",
+        &format!("gsd/{route}"),
+        subject,
+        "--max-tokens",
+        "1",
+    ]);
+    let all = run.all();
+    assert!(run.code != 0 && all.contains("E062"), "{route}: {all}");
+    let end = all
+        .find(" tokens: the envelope")
+        .unwrap_or_else(|| panic!("{route}: E062 names the floor: {all}"));
+    let start = all[..end].rfind('(').expect("the floor's parenthesis") + 1;
+    all[start..end]
+        .parse()
+        .unwrap_or_else(|e| panic!("{route}: a count ({e}): {all}"))
+}
+
+/// A default read `pack` of `route` for `subject` measured: its cap is the floor E062 names plus the route's
+/// allowance, its cost lies between the two, every core section is served and none truncated, and the core is under
+/// the role ceiling. The core's cost.
+fn measured(
+    p: &Project,
+    subject: &str,
+    pack: &Value,
+    route: &str,
+    (allowance, core): &(u64, Vec<String>),
+) -> u64 {
+    let budget = &pack["budget"];
+    let cap = budget["budget_tokens"].as_u64().expect("a cap");
+    let estimated = budget["estimated_tokens"].as_u64().expect("an estimate");
+    let floor = floor(p, route, subject);
+    assert_eq!(cap, floor + allowance, "{route}: {budget}");
+    assert!(floor <= estimated && estimated <= cap, "{route}: {budget}");
+    assert!(floor <= ROLE_CEILING, "{route}: a core of {floor} tokens");
+    let served: Vec<&str> = pack["sections"]
+        .as_array()
+        .expect("sections")
+        .iter()
+        .map(|s| s["name"].as_str().expect("a name"))
+        .collect();
+    let truncated = budget["truncated_sections"].as_array().expect("a list");
+    for section in core {
+        assert!(
+            served.contains(&section.as_str()),
+            "{route}: {section} not served"
+        );
+        assert!(
+            !truncated.contains(&Value::from(section.as_str())),
+            "{route}: {section} cut"
+        );
+    }
+    floor
+}
+
 #[test]
-fn every_route_serves_a_subject_of_its_kind_in_each_fixture() {
+fn every_route_serves_its_core_whole_within_its_allowance_in_each_fixture() {
+    let declared = declared();
     let mut served = 0;
-    for p in [taskboard(), vault(), ledger()] {
-        p.write("spec/audit.spec", AUDIT);
+    for p in [taskboard(), vault(), ledger(), real_size()] {
+        let milestone = p.nodes_of("milestone")[0]["id"]
+            .as_str()
+            .expect("an id")
+            .to_string();
+        p.write("spec/audit.spec", &AUDIT.replace("v1.0", &milestone));
         for (route, kind) in ROUTES {
             let nodes = p.nodes_of(kind);
             let subject = nodes[0]["id"].as_str().expect("an id");
             let pack = pack(&p, route, subject);
             assert_eq!(pack["route"], format!("gsd/{route}"));
             assert!(!digests(&pack).is_empty(), "{route}: {pack}");
+            measured(&p, subject, &pack, route, &declared[route]);
             served += 1;
         }
     }
-    assert_eq!(served, 42);
+    assert_eq!(served, 56);
+}
+
+#[test]
+fn the_plan_checker_serves_a_real_size_plan_whole_where_a_fixed_budget_refused_it() {
+    let p = real_size();
+    let pack = pack(&p, "plan-checker", REAL_PLAN);
+    let floor = measured(
+        &p,
+        REAL_PLAN,
+        &pack,
+        "plan-checker",
+        &declared()["plan-checker"],
+    );
+    // The old route's fixed budget was 8000 tokens: the project's decisions alone cost more.
+    assert!(floor > 8000, "a core of {floor} tokens");
+    assert_eq!(members(&pack, "project_decisions").len(), 100);
+    assert_eq!(digests(&pack), input_digests(&p, REAL_PLAN, "W311"));
+    // Only a cap the read states below the core is refused.
+    let capped = p.run(&[
+        "context",
+        "gsd/plan-checker",
+        REAL_PLAN,
+        "--max-tokens",
+        "8000",
+    ]);
+    assert_ne!(capped.code, 0, "{}", capped.all());
+    assert!(capped.all().contains("E062"), "{}", capped.all());
+}
+
+#[test]
+fn the_plan_check_reads_the_project_decisions_and_those_its_phase_research_resolves() {
+    let p = real_size();
+    let pack = pack(&p, "plan-checker", REAL_PLAN);
+    let mut resolved = members(&pack, "resolved_decisions");
+    resolved.sort();
+    assert_eq!(resolved, ["v1.0.0/02/D-01", "v1.0.0/03/D-02"]);
+    let phase: Vec<String> = members(&pack, "phase_decisions");
+    assert_eq!(phase.len(), 4, "{phase:?}");
+    assert!(members(&pack, "quick_decisions").is_empty());
+    // A decision of another phase that answers no question of this one is read by no section, and moving it stales
+    // no plan check of this phase.
+    let read = |pack: &Value| -> Vec<String> {
+        [
+            "phase_decisions",
+            "quick_decisions",
+            "project_decisions",
+            "resolved_decisions",
+        ]
+        .iter()
+        .flat_map(|section| members(pack, section))
+        .collect()
+    };
+    assert!(!read(&pack).contains(&"v1.0.0/02/D-02".to_string()));
+    let before = input_digests(&p, REAL_PLAN, "W311");
+    unrelated_decision_edited(&p);
+    assert_eq!(input_digests(&p, REAL_PLAN, "W311"), before);
+}
+
+/// Phase 02's decision D-02 reworded, its meaning kept.
+fn unrelated_decision_edited(p: &Project) {
+    p.edit(
+        "spec/discuss.spec",
+        "Nodes are sorted by id and edges by source, label and target",
+        "Nodes are sorted by id, edges by source, label and target",
+    );
+}
+
+#[test]
+fn the_plan_check_reads_the_decision_a_task_names_as_settling_its_door() {
+    let p = real_size();
+    let settled = |p: &Project| members(&pack(p, "plan-checker", REAL_PLAN), "settled_decisions");
+    assert_eq!(settled(&p), ["v1.0.0/02/D-01"]);
+    // Another phase's decision, answering no question of this phase's research: read once a task names it.
+    p.edit(
+        "spec/plans.spec",
+        "settled_by v1.0.0/02/D-01",
+        "settled_by v1.0.0/02/D-02",
+    );
+    assert_eq!(settled(&p), ["v1.0.0/02/D-02"]);
+    let before = input_digests(&p, REAL_PLAN, "W311");
+    unrelated_decision_edited(&p);
+    let after = input_digests(&p, REAL_PLAN, "W311");
+    let moved: Vec<&str> = before
+        .iter()
+        .zip(&after)
+        .filter(|(was, now)| was != now)
+        .map(|(was, _)| was.0.as_str())
+        .collect();
+    assert_eq!(moved, ["settled_decisions"]);
+}
+
+#[test]
+fn start_plan_records_a_real_size_plans_executor_pack_and_only_a_stated_cap_refuses_it() {
+    let p = real_size();
+    let read = pack(&p, "executor", REAL_PLAN);
+    let floor = measured(&p, REAL_PLAN, &read, "executor", &declared()["executor"]);
+    // The old route's fixed budget was 6000 tokens, below this plan's core: the record was refused.
+    assert!(floor > 6000, "a core of {floor} tokens");
+    let run = p.run(&["gsd", "start-plan", REAL_PLAN]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let record = &p.fields_of(REAL_PLAN)["context_pack"];
+    assert_eq!(record["digest"], read["digest"], "{record}");
+    // A read that states no cap records none: the record is read again under the route's allowance.
+    assert!(record.get("max_tokens").is_none(), "{record}");
+    assert!(
+        !p.codes().contains(&"gsd/W524".to_string()),
+        "{:?}",
+        p.codes()
+    );
+    let refused = p.run(&["gsd", "start-plan", REAL_PLAN, "--max-tokens", "100"]);
+    assert_ne!(refused.code, 0, "{}", refused.all());
+    assert!(
+        refused.all().contains("record_refused"),
+        "{}",
+        refused.all()
+    );
+}
+
+#[test]
+fn the_real_size_phase_is_served_whole_to_the_roles_that_read_it() {
+    let p = real_size();
+    let declared = declared();
+    for route in [
+        "planner",
+        "verifier",
+        "phase-researcher",
+        "nyquist-auditor",
+        "phase-context",
+    ] {
+        let pack = pack(&p, route, REAL_PHASE);
+        measured(&p, REAL_PHASE, &pack, route, &declared[route]);
+    }
 }
 
 #[test]

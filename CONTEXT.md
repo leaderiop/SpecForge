@@ -129,7 +129,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   for, or whose lines differ from that block's: what a migration lays out (`specforge_migrate`'s `layout::lay_out`,
   ADR 0235). A file with none is skipped as it is.
 - **Added error**: an error the edited compile reports that the checked report has no diagnostic left to pair, by code,
-  severity, file and message with its digits collapsed (ADR 0211), less a judged rule's finding (ADR 0297); the one rule behind E080 and a migration's refusal.
+  severity, file and message with its digits collapsed (ADR 0211), less a judged rule's finding (ADR 0297), a finding
+  the write revealed by moving its entity's owner state (ADR 0363) and a **settled-later** finding on an entity the
+  write creates or creates something under, altering nothing held there (ADR 0385); the one rule behind E080 and a
+  migration's refusal.
+- **Settled later**: a code whose finding names a state a later step of the authoring settles (an open question a
+  later answer resolves, a phase's requirement the rest of its plans hold), declared by the extension that owns it
+  (`CodeDescriptor.settled_later`, SDK `CodeBuilder::settled_later()`, ADR 0385). E080 excuses its finding only on a
+  write whose plan creates the finding's subject or an entity under it and alters nothing the project held there (no
+  set, unset, link, unlink, delete or move at or under the subject); its severity, `check` and every gate are
+  unchanged.
 - **Migration verdict**: whether a planned migration is kept, decided before anything is written: its hooks pass, and
   the edited compile of its planned texts adds no **added error** and has the graph the project has, less the steps' declared changes
   (`specforge_ops::authoring::migrate::{judge, Verdict}`, ADR 0186). A dry run reports it; a refused migration writes
@@ -732,6 +741,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Entity snapshot**: every entity of one built graph as every check after the build reads it, taken
   once per compile and per session check (`specforge_registry::EntitySnapshot`, ADR 0019), taken of a graph build made in its Registry build, and of no other (ADR 0115, ADR 0123).
   Each entity's record holds:
+  - the title its header writes, absent for a fact written without one; a pass is sent it as `title` (ADR 0387);
   - what it writes, as field text, with each value's shape (quoted, bare, a number, a list of
     strings or references, …) and span beside it for the host's own checks
     (`specforge_graph::ValueShape`);
@@ -1903,20 +1913,24 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   scope holds at any depth, and every entity one reference away from one of those, either way; a named route keeps
   those of its start kind (ADR 0355).
 - **Context route**: what an extension declares (the `contexts` category) for a role to read one entity of a subject
-  kind: ordered sections of named selectors, each core or enrich, the settings it carries, a default budget and an
-  optional agent. One the registry can't serve is E123; an agent binding that can't hold is E124 (ADR 0356).
+  kind: ordered sections of named selectors, each core or enrich, the settings it carries, its enrich allowance (its
+  `budget`: the tokens of enrich sections a pack may add beyond its core, 0 for a route of core sections only) and an
+  optional agent. The host does not bound its core: a read that states no cap serves it whatever it costs. One the
+  registry can't serve is E123; an agent binding that can't hold is E124 (ADR 0356, ADR 0386).
 - **Context pack**: one context route served for one entity: its sections as served, the subject and the served
-  entities as an export, the budget and what was cut, and the pack digest; `specforge context`, `specforge.context`
-  and `specforge://context/{+entity_id}?role=` answer the same bytes (ADR 0356).
-- **Core section** / **Enrich section**: a context route's section a budget never cuts (core; below them the read is
-  E062), or one served whole in declared order while it fits, the first that does not fit keeping its most connected
-  entities and every later one dropped (enrich) (ADR 0356).
+  entities as an export, the cap it was fitted to and what was cut, and the pack digest; `specforge context`,
+  `specforge.context` and `specforge://context/{+entity_id}?role=` answer the same bytes (ADR 0356).
+- **Core section** / **Enrich section**: a context route's section always served whole (core; only a cap a read states
+  below them is E062), or one served whole in declared order within the route's allowance or the stated cap, the first
+  that does not fit keeping its most connected entities and every later one dropped (enrich) (ADR 0356, ADR 0386).
 - **Pack digest**: the sha256 of a pack's route, subject and served sections, each section's digest the judged input
   digest of its selector over the members it served; the budget is recorded beside it, not in it (ADR 0356).
 - **Context record**: a `context`-written block `{route, digest, max_tokens}` the host writes when it records a
-  route's pack on an entity (ADR 0356).
-- **Stale record**: a record whose pack, evaluated again at its budget, has another digest or no subject; reported
-  with the route's stale code (ADR 0356).
+  route's pack on an entity, `max_tokens` the cap its read stated, absent when it stated none; no pack shows one
+  (ADR 0356, ADR 0386).
+- **Stale record**: a record whose pack, evaluated again under the budget its read had (its stated cap, else the core
+  whole and the route's allowance), has another digest, no subject or a core above the stated cap; reported with the
+  route's stale code (ADR 0356, ADR 0386).
 - **Field filter**: `kind[field=value|…]` in a selector: only entities whose field holds one of the values (ADR 0356).
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact

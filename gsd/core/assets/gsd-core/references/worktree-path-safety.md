@@ -101,7 +101,7 @@ if [ -z "$PINNED_TL" ]; then
   gsd_pin_fail
 fi
 if [ "$ACTUAL_ROOT" != "$PINNED_TL" ]; then
-  # Registered-submodule allowance: sub_repos plans legitimately commit inside an
+  # Registered-submodule allowance: a task may legitimately commit inside an
   # immediate submodule of the pinned checkout. The superproject working tree is
   # answered by the same reader as PINNED_TL, so the equality is
   # representation-safe on every platform.

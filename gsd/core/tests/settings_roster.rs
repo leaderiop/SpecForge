@@ -466,64 +466,234 @@ fn the_settings_workflow_counts_the_settings_of_its_section_layout() {
     assert_eq!(seen, 2, "the statements of the section count");
 }
 
-/// The keys of the Not applicable table's row that holds `commit_docs`, by their last name: `planning.pr_strict` is
-/// `pr_strict`, `phase_commit_docs.<phase-id>` is `phase_commit_docs`.
-fn committed_spec_keys() -> BTreeSet<String> {
-    let row = table(|t| t.heading == "Not applicable")
-        .rows
+/// One key of the Not applicable table, as a line names it: a key by its last name (not `planning`, not a `<..>`
+/// placeholder) in any case and anywhere in the line, so `sub_repos` also finds `SUB_REPOS` and `handle_sub_repos`; a
+/// family `x.*` by a member written after it (`x.y`), by its object key quoted or bare (`"x":`, `x: {`, `x = {`), or
+/// named as settings (`the x settings`, `x config`). A bare `x` alone is not a key: `graphify` is also the
+/// `/gsd-graphify` command's name, and `capabilities` a word of plain prose.
+struct NotApplicable {
+    token: String,
+    matcher: regex::Regex,
+}
+
+/// A matcher for each key of the Not applicable table, the secrets row left out: the table is the guard's one source.
+fn not_applicable_matchers() -> Vec<NotApplicable> {
+    not_applicable()
         .into_iter()
-        .find(|cells| backticked(&cells[0]).iter().any(|t| t == "commit_docs"))
-        .expect("the row of `commit_docs`");
-    backticked(&row[0])
-        .iter()
-        .filter_map(|token| {
-            token
-                .split('.')
-                .rfind(|segment| *segment != "planning" && !segment.starts_with('<'))
-                .map(str::to_string)
+        .map(|token| {
+            let pattern = match token.strip_suffix(".*") {
+                Some(family) => {
+                    let family = regex::escape(family);
+                    let member = format!(r"\b{family}\.[a-z_]");
+                    let quoted = format!(r#""{family}"\s*:"#);
+                    let named =
+                        r"\s+(?:settings?|config(?:uration)?|section|block|keys?|options?)\b";
+                    let bare = format!(r"(?:^|[^-/\w.]){family}(?:\s*:|\s*=?\s*\{{|{named})");
+                    format!("(?i){member}|{quoted}|{bare}")
+                }
+                None => {
+                    let leaf = token
+                        .split('.')
+                        .rfind(|segment| *segment != "planning" && !segment.starts_with('<'))
+                        .unwrap_or_else(|| panic!("`{token}` has no last name"));
+                    format!("(?i){}", regex::escape(leaf))
+                }
+            };
+            let matcher = regex::Regex::new(&pattern).expect("a key pattern");
+            NotApplicable { token, matcher }
         })
         .collect()
 }
 
-/// `commit_docs`, `search_gitignored` and `pr_strict` are not settings of `@gsd/core` (the spec is source and is
-/// committed like code: nothing of it is gitignored, and a PR branch always leaves it out), so an asset names one only
-/// to say so: every line of every asset that names a key of that row of the Not applicable table, in any case, says
-/// "not a setting here". The row is read from `spec/settings.md`, and the lines that say it (new-project's,
-/// planning-config's and pr-branch's) are seen, so the scan cannot pass on an empty tree.
+/// A family's matcher reads its member, its object key quoted or bare and its settings named, never the command or
+/// the word that shares its name.
 #[test]
-fn the_committed_spec_keys_are_named_only_as_not_a_setting_here() {
-    let keys = committed_spec_keys();
+fn a_family_matcher_reads_a_key_not_a_command() {
+    let matchers = not_applicable_matchers();
+    let graphify = &matchers
+        .iter()
+        .find(|m| m.token == "graphify.*")
+        .expect("the graphify row")
+        .matcher;
     for key in [
-        "commit_docs",
-        "phase_commit_docs",
-        "search_gitignored",
-        "pr_strict",
+        "graphify.enabled",
+        "\"graphify\": {",
+        "graphify: {",
+        "graphify = {",
+        "the graphify settings",
+        "Graphify config",
     ] {
-        assert!(keys.contains(key), "the row lacks {key}: {keys:?}");
+        assert!(graphify.is_match(key), "{key}");
     }
+    for not in ["/gsd-graphify", "run gsd-graphify", "map graphify docs"] {
+        assert!(!graphify.is_match(not), "{not}");
+    }
+}
+
+/// The keys upstream writes: the roster's, and each dynamic pattern's written form (`phase_commit_docs.<phase-id>`).
+fn upstream_keys() -> Vec<String> {
+    let (mut keys, _) = upstream();
+    let manifest: Value = serde_json::from_str(MANIFEST).expect("manifest");
+    keys.extend(
+        manifest["dynamicKeyPatterns"]
+            .as_array()
+            .expect("patterns")
+            .iter()
+            .filter_map(|p| p["description"].as_str()?.split_whitespace().next())
+            .map(str::to_string),
+    );
+    keys
+}
+
+/// What the guard reads, `(path, text)`: every asset, every prompt golden and every install golden.
+fn guarded_texts() -> Vec<(String, String)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let prompts = root.join("tests/golden/prompts");
+    let goldens = files::under(&prompts)
+        .into_iter()
+        .filter(|path| {
+            path.extension().is_some_and(|ext| ext == "json")
+                && path.parent().and_then(Path::parent) == Some(prompts.as_path())
+        })
+        .chain(files::under(&root.join("tests/golden/install")));
+    let mut texts: Vec<(String, String)> = asset_texts()
+        .into_iter()
+        .map(|(path, text)| (format!("assets/{path}"), text))
+        .collect();
+    for path in goldens {
+        let text =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let rel = path.strip_prefix(root).expect("under the crate");
+        texts.push((rel.display().to_string(), text));
+    }
+    texts
+}
+
+/// No key the Not applicable table lists is named by an asset or a golden as if it were a setting: `@gsd/core` does
+/// not declare it, so one agent reads it as unset and another as on. A line names such a key only to say "not a setting
+/// here" (or "not settings here"). The keys are read from `spec/settings.md`, the secrets row left out, and the scan
+/// cannot pass empty: every matcher finds the upstream keys its row lists and a line of the upstream snapshot, and
+/// the lines that say `commit_docs`, `search_gitignored` and `pr_strict` are not settings here are seen.
+#[test]
+fn no_asset_names_a_not_applicable_key() {
+    let matchers = not_applicable_matchers();
+    for token in [
+        "commit_docs",
+        "phase_commit_docs.<phase-id>",
+        "planning.search_gitignored",
+        "planning.pr_strict",
+        "planning.sub_repos",
+        "graphify.*",
+    ] {
+        assert!(
+            matchers.iter().any(|m| m.token == token),
+            "the table lacks `{token}`"
+        );
+    }
+
+    let upstream = upstream_keys();
+    let snapshot: Vec<String> = files::under(Path::new(gsd_kit::snapshot!()))
+        .iter()
+        .filter_map(|path| std::fs::read_to_string(path).ok())
+        .collect();
+    for m in &matchers {
+        let own: Vec<&String> = upstream.iter().filter(|k| names(&m.token, k)).collect();
+        assert!(!own.is_empty(), "`{}` is no upstream key", m.token);
+        for key in own {
+            assert!(m.matcher.is_match(key), "`{}` misses `{key}`", m.token);
+        }
+        assert!(
+            snapshot
+                .iter()
+                .any(|text| text.lines().any(|l| m.matcher.is_match(l))),
+            "`{}` matches no line of the upstream snapshot",
+            m.token
+        );
+    }
+
+    let says = regex::Regex::new(r"(?i)not (a setting|settings) here").expect("the allowance");
     let mut allowed = BTreeSet::new();
     let mut named = Vec::new();
-    for (path, text) in asset_texts() {
+    for (path, text) in guarded_texts() {
         for (n, line) in text.lines().enumerate() {
-            let lower = line.to_lowercase();
-            let hits: Vec<&String> = keys.iter().filter(|k| lower.contains(k.as_str())).collect();
+            let hits: Vec<&str> = matchers
+                .iter()
+                .filter(|m| m.matcher.is_match(line))
+                .map(|m| m.token.as_str())
+                .collect();
             if hits.is_empty() {
                 continue;
             }
-            if lower.contains("not a setting here") {
-                allowed.extend(hits.into_iter().cloned());
+            if says.is_match(line) {
+                allowed.extend(hits);
             } else {
                 named.push(format!("{path}:{}: {line}", n + 1));
             }
         }
     }
     assert!(named.is_empty(), "{}", named.join("\n"));
-    for key in ["commit_docs", "search_gitignored", "pr_strict"] {
+    for token in ["commit_docs", "search_gitignored", "planning.pr_strict"] {
         assert!(
-            allowed.contains(key),
-            "no line says `{key}` is not a setting here"
+            allowed.contains(token),
+            "no line says `{token}` is not a setting here"
         );
     }
+}
+
+/// The advanced settings workflow reads and confirms only settings: every `- `key` (default: …)` line of its
+/// `read_current` step and every row of its confirmation names a key `@gsd/core` declares (a static key or one of a
+/// family's) or one the owner table gives another `@gsd/*` extension, never a key the Not applicable table lists, and
+/// every key it reads has its row. Its questions are asked by header, so this is what holds a question's key.
+#[test]
+fn the_advanced_settings_workflow_reads_and_confirms_only_settings() {
+    let text = asset("gsd-core/workflows/settings-advanced.md");
+    let read_line = regex::Regex::new(r"^- `([^`]+)` \(default:").expect("the read pattern");
+    let read: Vec<String> = settings_step(&text, "read_current")
+        .lines()
+        .filter_map(|line| read_line.captures(line).map(|c| c[1].to_string()))
+        .collect();
+    // the confirmation is a table inside the step's text fence, read as one
+    let confirm = settings_step(&text, "confirm");
+    let fence = confirm
+        .split_once("```text\n")
+        .and_then(|(_, rest)| rest.split_once("\n```"))
+        .expect("the confirmation's fence")
+        .0;
+    let rows: Vec<String> = gsd_kit::markdown::tables(fence)
+        .into_iter()
+        .find(|t| t.header[0] == "Setting")
+        .expect("the confirmation table")
+        .rows
+        .into_iter()
+        .map(|cells| cells[0].clone())
+        .collect();
+    assert!(
+        read.len() >= 20 && rows.len() >= read.len(),
+        "{read:?} {rows:?}"
+    );
+
+    let roster: BTreeSet<&str> = gsd_core::settings::key_names().collect();
+    let settings = declared();
+    let families: Vec<&Declared> = settings.iter().filter(|s| s.name.contains('*')).collect();
+    let owners = other_owners();
+    let na = not_applicable();
+    for key in read.iter().chain(&rows) {
+        let owned = roster.contains(key.as_str())
+            || families.iter().any(|f| family_matches(f, key))
+            || owners
+                .iter()
+                .any(|(_, tokens)| tokens.iter().any(|t| names(t, key)));
+        assert!(owned, "`{key}` is no setting of a `@gsd/*` extension");
+        assert!(
+            !na.iter().any(|t| names(t, key)),
+            "`{key}` is not applicable"
+        );
+    }
+    let unconfirmed: Vec<&String> = read.iter().filter(|k| !rows.contains(k)).collect();
+    assert!(
+        unconfirmed.is_empty(),
+        "read but not confirmed: {unconfirmed:?}"
+    );
 }
 
 /// The spec is committed like code, so no asset makes its commit conditional or treats an ignored spec as a skip: no

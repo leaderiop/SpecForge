@@ -197,7 +197,7 @@ AGENT_SKILLS_ROADMAPPER=""   # the host install carries the skills of gsd-roadma
 needs it sets WS from the ws argument itself, so no file holds it and
 none is removed in Step 10. -->
 
-Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (`name` and `state` are its fields), and its phases are among the other nodes. `workflow.research` is a setting: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model; the project, its roadmap and its requirements are entities, read with `specforge query`, so no path is read.
+Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (its name is its `title` and `state` its field), and its phases are among the other nodes. `workflow.research` is a setting: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model; the project, its roadmap and its requirements are entities, read with `specforge query`, so no path is read.
 
 **If `agents_installed` is false:** Display a warning before proceeding:
 ```
@@ -511,7 +511,8 @@ Write the roadmap first, then return.
 
 **If `## ROADMAP BLOCKED`:** Present blocker, work with user, re-spawn.
 
-**If `## ROADMAP CREATED`:** Read the milestone's phases (`specforge export --kinds milestone,phase --format context`), present inline:
+**If `## ROADMAP CREATED`:** Read the milestone's phases (`specforge export --kinds milestone,phase --format context`). In a phase's label below, `[N]` is the phase's number, the last segment of its `id`, and `[Name]`
+and `[Phase Name]` are its `title`, the name the roadmap gave it. Present inline:
 
 ```
 ## Proposed Roadmap

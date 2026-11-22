@@ -19,16 +19,18 @@ create ops ahead of the milestone (their fields: `templates/project.md`, `templa
 
 ```json
 [
-  {"op": "create", "kind": "milestone", "id": "{the milestone version, e.g. v1.1}", "title": "{the milestone name}", "file": "spec/{the milestone version, e.g. v1.1}.spec", "fields": {"name": "{the milestone name}", "goal": "{the milestone goal}"}},
+  {"op": "create", "kind": "milestone", "id": "{the milestone version, e.g. v1.1}", "title": "{the milestone name}", "file": "spec/{the milestone version, e.g. v1.1}.spec", "fields": {"goal": "{the milestone goal}"}},
   {"op": "create", "kind": "requirement", "id": "{the first phase's requirement, e.g. SYNC-02}", "title": "{the first requirement's text}", "file": "spec/requirements.spec", "fields": {"text": "{the first requirement's text}", "category": "{the requirements' category}", "tier": "v1"}},
   {"op": "create", "kind": "requirement", "id": "{the second phase's requirement, e.g. SYNC-03}", "title": "{the second requirement's text}", "file": "spec/requirements.spec", "fields": {"text": "{the second requirement's text}", "category": "{the requirements' category}", "tier": "v1"}},
-  {"op": "create", "kind": "phase", "id": "{the first phase's number, e.g. 04}", "title": "{the first phase's name}", "file": "spec/{the milestone version, e.g. v1.1}.spec", "fields": {"milestone": "{the milestone version, e.g. v1.1}", "name": "{the first phase's name}", "slug": "{the first phase's slug}", "goal": "{the first phase's goal}", "success_criteria": ["{an observable behavior the first phase makes true}", "{another observable behavior of the first phase}"], "requirements": ["{the first phase's requirement, e.g. SYNC-02}"], "mode": "{standard or mvp}"}},
-  {"op": "create", "kind": "phase", "id": "{the second phase's number, e.g. 05}", "title": "{the second phase's name}", "file": "spec/{the milestone version, e.g. v1.1}.spec", "fields": {"milestone": "{the milestone version, e.g. v1.1}", "name": "{the second phase's name}", "slug": "{the second phase's slug}", "goal": "{the second phase's goal}", "success_criteria": ["{an observable behavior the second phase makes true}", "{another observable behavior of the second phase}"], "depends_on": ["{the first phase's number, e.g. 04}"], "requirements": ["{the second phase's requirement, e.g. SYNC-03}"], "mode": "{standard or mvp}"}}
+  {"op": "create", "kind": "phase", "id": "{the first phase's number, e.g. 04}", "title": "{the first phase's name}", "file": "spec/{the milestone version, e.g. v1.1}.spec", "fields": {"milestone": "{the milestone version, e.g. v1.1}", "slug": "{the first phase's slug}", "goal": "{the first phase's goal}", "success_criteria": ["{an observable behavior the first phase makes true}", "{another observable behavior of the first phase}"], "requirements": ["{the first phase's requirement, e.g. SYNC-02}"], "mode": "{standard or mvp}"}},
+  {"op": "create", "kind": "phase", "id": "{the second phase's number, e.g. 05}", "title": "{the second phase's name}", "file": "spec/{the milestone version, e.g. v1.1}.spec", "fields": {"milestone": "{the milestone version, e.g. v1.1}", "slug": "{the second phase's slug}", "goal": "{the second phase's goal}", "success_criteria": ["{an observable behavior the second phase makes true}", "{another observable behavior of the second phase}"], "depends_on": ["{the first phase's number, e.g. 04}"], "requirements": ["{the second phase's requirement, e.g. SYNC-03}"], "mode": "{standard or mvp}"}}
 ]
 ```
 
 A phase id is its number within the milestone (`04`), and a `depends_on` names the phases it needs by number; the
-milestone scopes them (`v1.1/04`). In a workstream the milestone's id is
+milestone scopes them (`v1.1/04`). A phase's title is its name alone (`Offline sync`, not `Phase 4: Offline sync`):
+its label is `Phase <its number>: <its title>`, so a title that begins with a phase number prints it twice
+(`gsd/W109`). A milestone's title is its name too. In a workstream the milestone's id is
 `<workstream>/<version>` (`api/v1.1`, which `specforge new milestone --workstream` gives it), and each phase's
 `milestone` names that id. `mode` is `mvp` for a vertical-MVP project (`PROJECT_MODE=mvp`) and `standard`
 otherwise. A phase's status, its plans and the milestone's progress are computed: `specforge gsd progress-report`

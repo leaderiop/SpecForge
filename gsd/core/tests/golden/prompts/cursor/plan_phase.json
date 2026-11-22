@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 119107,
+  "bytes": 119623,
   "end": [
     "- `--gaps` — Gap closure mode (reads VERIFICATION.md, skips research)",
     "- `--skip-verify` — Skip verification loop",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 2029,
+  "lines": 2030,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:140906ffeb169e82e73a7cc17393f368e2066ad9852e8947b230ba38e5e2a962",
+    "digest": "sha256:0ba1c62c7b56de1ed41952e5cacced4d70b0aa3ac8a12257327ecd6bc0a6f21c",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -247,5 +247,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "140906ffeb169e82e73a7cc17393f368e2066ad9852e8947b230ba38e5e2a962"
+  "sha256": "0ba1c62c7b56de1ed41952e5cacced4d70b0aa3ac8a12257327ecd6bc0a6f21c"
 }

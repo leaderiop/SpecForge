@@ -24,14 +24,20 @@ pub(crate) fn label(status: &str) -> Option<&'static str> {
 }
 
 /// One phase of the current milestone, as the graph's computed values give it.
-struct Phase {
+pub(crate) struct Phase {
     /// The phase's entity id: `v1.0/02`.
     id: String,
-    number: String,
+    /// The last segment of its id: `02`.
+    pub(crate) number: String,
+    /// Its slug read as words, as GSD reads its directory's name: `progress json`'s `name`, kept for parity. A person
+    /// reads the phase by its title (ADR 0387).
     name: String,
-    plans: u64,
-    summaries: u64,
-    status: &'static str,
+    /// Its title, its one name (ADR 0387): what a line a person reads prints.
+    pub(crate) title: String,
+    pub(crate) plans: u64,
+    pub(crate) summaries: u64,
+    /// Its status label: `Pending`, `In Progress`, `Complete`, …
+    pub(crate) status: &'static str,
 }
 
 impl Phase {
@@ -83,6 +89,7 @@ fn phases(graph: &CommandGraph, milestone: Option<&GraphNode>) -> Result<Vec<Pha
                 id: p.id.clone(),
                 number: p.id.rsplit('/').next().unwrap_or_default().to_string(),
                 name: p.text("slug").unwrap_or_default().replace('-', " "),
+                title: p.title.clone().unwrap_or_default(),
                 summaries: counts.0,
                 plans: counts.1,
                 status,
@@ -100,10 +107,17 @@ fn percent(part: u64, whole: u64) -> u64 {
 }
 
 /// What `progress json` answers: the phases with their plans, summaries and status label, and the plan-based percent.
-/// `milestone_version` and `milestone_name` are the milestone's (upstream reads them from STATE.md, which a project of
-/// this extension has none of).
+/// `milestone_version` and `milestone_name` are the milestone's id and title (upstream reads them from STATE.md, which
+/// a project of this extension has none of).
 pub(crate) fn progress(graph: &CommandGraph) -> Result<Value, String> {
     progress_of(graph, None)
+}
+
+/// The first phase of the current milestone that is not complete, as [`progress`] reports it; none when every phase is
+/// complete or the graph carries no computed values.
+pub(crate) fn open_phase(graph: &CommandGraph) -> Option<Phase> {
+    let (_, found) = reported(graph, None).ok()?;
+    found.into_iter().find(|p| p.status != "Complete")
 }
 
 /// [`progress`] of `phase` alone, from its own milestone (which need not be the current one), when it is given.
@@ -142,7 +156,7 @@ fn progress_json(milestone: Option<&GraphNode>, found: &[Phase]) -> Value {
     let summaries: u64 = found.iter().map(|p| p.summaries).sum();
     json!({
         "milestone_version": milestone.map(|m| m.id.as_str()),
-        "milestone_name": milestone.and_then(|m| m.text("name")),
+        "milestone_name": milestone.and_then(|m| m.title.as_deref()),
         "phases": found.iter().map(|p| json!({
             "number": p.number, "name": p.name, "plans": p.plans, "summaries": p.summaries, "status": p.status,
         })).collect::<Vec<_>>(),
@@ -204,7 +218,7 @@ fn progress_report(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     for p in &found {
         human.push_str(&format!(
             "{:<6} {:<12} {}/{} plans  {}\n",
-            p.number, p.status, p.summaries, p.plans, p.name
+            p.number, p.status, p.summaries, p.plans, p.title
         ));
         human.push_str(&estimate_errors(graph, &p.id));
     }
@@ -373,26 +387,37 @@ mod tests {
     fn a_phase_reads_its_computed_values() {
         let graph = CommandGraph::new(
             vec![
-                node(
-                    "v1.0",
-                    "milestone",
-                    &[("state", "in_progress"), ("name", "One")],
-                ),
-                node(
-                    "v1.0/02.1",
-                    "phase",
-                    &[
-                        ("slug", "a-fix"),
-                        ("status", "planned"),
-                        ("plans_complete", "1/3"),
-                    ],
-                ),
+                GraphNode {
+                    title: Some("One".to_string()),
+                    ..node("v1.0", "milestone", &[("state", "in_progress")])
+                },
+                GraphNode {
+                    title: Some("Saves survive a reload".to_string()),
+                    ..node(
+                        "v1.0/02.1",
+                        "phase",
+                        &[
+                            ("slug", "a-fix"),
+                            ("status", "planned"),
+                            ("plans_complete", "1/3"),
+                        ],
+                    )
+                },
             ],
             Vec::new(),
         );
         let report = progress(&graph).unwrap();
         assert_eq!(report["phases"][0]["number"], "02.1");
-        assert_eq!(report["phases"][0]["name"], "a fix");
+        assert_eq!(
+            report["phases"][0]["name"], "a fix",
+            "`progress json`'s name is the slug read as words, GSD's directory name"
+        );
+        let open = open_phase(&graph).unwrap();
+        assert_eq!(
+            (open.number.as_str(), open.title.as_str()),
+            ("02.1", "Saves survive a reload"),
+            "a line a person reads names the phase by its title"
+        );
         assert_eq!(report["phases"][0]["status"], "Planned");
         assert_eq!(
             (report["total_plans"].clone(), report["percent"].clone()),

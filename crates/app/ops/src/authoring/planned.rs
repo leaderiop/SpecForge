@@ -36,6 +36,11 @@ pub struct PlannedChange {
     /// The entities the change creates or deletes, as its plan names them: with [`Self::moved`], what
     /// [`Self::renews`] reads.
     renewed: BTreeSet<String>,
+    /// The entities the change creates, at their ids once its moves are made: what [`Self::opens`] reads.
+    created: BTreeSet<String>,
+    /// The entities the project held that the change alters (a field, an aspect, a delete, a move), at their ids once
+    /// its moves are made: what [`Self::opens`] reads too.
+    altered: BTreeSet<String>,
     /// Files outside the sources the change writes whatever they hold then, by path from the root: a collect's fact
     /// stores (ADR 0327).
     root_files: BTreeMap<String, Vec<u8>>,
@@ -91,6 +96,12 @@ impl std::fmt::Debug for LedgerWrite {
     }
 }
 
+/// Whether `id` is `scope` or an entity under it: `scope` followed by `/` (the scope path of ADR 0284).
+pub(crate) fn at_or_under(id: &str, scope: &str) -> bool {
+    id.strip_prefix(scope)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+}
+
 impl PlannedChange {
     /// `files`: (path relative to the project root, planned-on text, after text); an unchanged one is dropped, and a new
     /// one whose after text is empty is unchanged.
@@ -112,6 +123,8 @@ impl PlannedChange {
             locked: false,
             moved: Vec::new(),
             renewed: BTreeSet::new(),
+            created: BTreeSet::new(),
+            altered: BTreeSet::new(),
             root_files: BTreeMap::new(),
             superseded: Vec::new(),
             rewritten: BTreeMap::new(),
@@ -189,6 +202,26 @@ impl PlannedChange {
             path = at.rsplit_once('/').map(|(scope, _)| scope);
         }
         false
+    }
+
+    /// This change creating `ids`, as its plan names them once its moves are made.
+    pub(crate) fn creating(mut self, ids: impl IntoIterator<Item = String>) -> Self {
+        self.created.extend(ids);
+        self
+    }
+
+    /// This change altering `ids`, entities the project held, at their ids once its moves are made.
+    pub(crate) fn altering(mut self, ids: impl IntoIterator<Item = String>) -> Self {
+        self.altered.extend(ids);
+        self
+    }
+
+    /// Whether the change creates the entity `id` or an entity under it, and alters nothing the project held at `id`
+    /// or under it (ADR 0385): a settled-later finding on `id` is then no error the change adds. A write that also
+    /// deletes, sets, unsets, links, unlinks or moves there may have made the finding itself, so it is counted.
+    pub(crate) fn opens(&self, id: &str) -> bool {
+        self.created.iter().any(|created| at_or_under(created, id))
+            && !self.altered.iter().any(|altered| at_or_under(altered, id))
     }
 
     /// This change keeping the harness ledger true to the project `before` (ADR 0287): the ledger as the host would
@@ -566,6 +599,35 @@ mod tests {
         }
         for id in ["Q", "v1", "v1/c", "PP"] {
             assert!(!change.renews(id), "{id}");
+        }
+    }
+
+    #[test]
+    fn a_change_opens_what_it_creates_and_every_entity_it_is_under() {
+        let change = change(Vec::new())
+            .creating(["v1/01/01-01".to_string(), "Q".to_string()])
+            .renewing(["D".to_string()]);
+        for id in ["v1/01/01-01", "v1/01", "v1", "Q"] {
+            assert!(change.opens(id), "{id}");
+        }
+        // Under what it creates, beside it, a prefix that is no scope, or only deleted: nothing it creates.
+        for id in ["v1/01/01-01/T1", "v1/02", "v1/0", "QQ", "D"] {
+            assert!(!change.opens(id), "{id}");
+        }
+    }
+
+    #[test]
+    fn a_change_that_alters_what_was_held_there_opens_nothing_there() {
+        let change = change(Vec::new())
+            .creating(["v1/01/01-03".to_string(), "Q".to_string()])
+            .altering(["v1/01/01-02".to_string()]);
+        // Created under, but a held plan of the same phase altered: the phase and its milestone are opened no more.
+        for id in ["v1/01", "v1"] {
+            assert!(!change.opens(id), "{id}");
+        }
+        // What it creates is opened still, and so is what it creates beside the alteration.
+        for id in ["v1/01/01-03", "Q"] {
+            assert!(change.opens(id), "{id}");
         }
     }
 

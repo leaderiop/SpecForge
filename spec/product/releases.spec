@@ -1,5 +1,4 @@
 milestone v0.1.0 "SpecForge Alpha" {
-  name      "SpecForge Alpha"
   delivered """
     Initial alpha with core compiler pipeline, CLI binary, and basic
     validation. Includes tree-sitter grammar for .spec files, import
@@ -16,7 +15,6 @@ milestone v0.1.0 "SpecForge Alpha" {
 }
 
 milestone v0.5.0 "SpecForge Beta" {
-  name "SpecForge Beta"
   goal """
     Feature-complete release adding LSP, MCP, incremental compilation,
     formatting, and the zero-entity core architecture. Enables full
@@ -25,7 +23,6 @@ milestone v0.5.0 "SpecForge Beta" {
 }
 
 milestone v1.0.0 "SpecForge 1.0" {
-  name "SpecForge 1.0"
   goal """
     Production release with Wasm extension runtime, first-party
     extensions, and schema versioning. The graph protocol schema

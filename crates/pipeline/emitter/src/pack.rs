@@ -1,11 +1,12 @@
-//! A context pack (ADR 0356): one context route served for one entity, its sections fitted to a token budget in
-//! declared order. The fit and the render are two calls: the caller digests what the fit served between them, so the
-//! kernel has one digest scheme and the emitter hashes nothing.
+//! A context pack (ADR 0356, ADR 0386): one context route served for one entity, its sections fitted to a token
+//! budget in declared order. The fit and the render are two calls: the caller digests what the fit served between them,
+//! so the kernel has one digest scheme and the emitter hashes nothing.
 //!
-//! The declared strategy: the subject and every core section are the floor, never cut (a budget below them is E062
-//! naming the route); enrich sections are served whole in declared order; the first that does not fit keeps its most
-//! connected new entities that fit (a files, tests or settings section keeps nothing), and it and every later section
-//! are listed as truncated.
+//! The declared strategy: the subject and every core section are the floor, always served whole. The budget is either
+//! the route's allowance, the tokens of enrich sections a pack may add beyond the floor, or a cap a caller states on
+//! the whole pack, which is E062 naming the route when the floor is above it. Enrich sections are served whole in
+//! declared order; the first that does not fit keeps its most connected new entities that fit (a files, tests or settings
+//! section keeps nothing), and it and every later section are listed as truncated.
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet};
@@ -16,7 +17,7 @@ use serde_json::value::RawValue;
 use specforge_common::Sym;
 use specforge_graph::{Computed, Graph};
 use specforge_protocol_types::{ContextTier, JudgedFile};
-use specforge_registry::RegistryBuild;
+use specforge_registry::{FieldRegistry, FieldWriter, RegistryBuild};
 
 use crate::budget::fewest;
 use crate::emit::{EmitFormat, Shape};
@@ -64,6 +65,15 @@ pub struct PackSection {
     pub digest: String,
 }
 
+/// What a pack's budget bounds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Budget {
+    /// The route's own: the floor is served whatever it costs, and enrich sections up to this many tokens beyond it.
+    Allowance(usize),
+    /// A cap a caller stated on the whole pack: a floor above it is E062.
+    Cap(usize),
+}
+
 /// What a pack is fitted and rendered from.
 pub struct PackPlan<'a> {
     /// The qualified route.
@@ -72,8 +82,8 @@ pub struct PackPlan<'a> {
     pub agent: Option<String>,
     /// The format of the pack's `graph` member: context, brief or graph (JSON).
     pub format: EmitFormat,
-    /// The token budget.
-    pub budget: usize,
+    /// The token budget: the route's allowance, or a cap the caller stated.
+    pub budget: Budget,
     /// The sections, in declared order, the settings section last.
     pub sections: Vec<PackSection>,
     /// The sections the registry skipped, each with the unloaded kind it reaches.
@@ -104,6 +114,8 @@ pub struct Cut {
     pub truncated_entities: Vec<String>,
     /// The cost of the pack the fit chose, by [`estimate_tokens`].
     pub estimated_tokens: usize,
+    /// The cap the fit used: the stated one, or the floor and the allowance. Read at it as a cap, the pack is the same.
+    pub budget_tokens: usize,
 }
 
 /// The digests of what was served: each served section's (a part re-digested over its served members), in the plan's
@@ -126,8 +138,8 @@ pub fn served_members(section: &PackSection, served: &Served) -> Vec<Sym> {
 
 /// The plan fitted to its budget by the declared strategy.
 ///
-/// Err: E062 when the subject and the core sections, with every enrich section listed as cut, cost more than the
-/// budget.
+/// Err: E062 when the budget is a cap and the subject and the core sections, with every enrich section listed as cut,
+/// cost more than it. An allowance never refuses: the floor is served whatever it costs.
 pub fn fit(graph: &Graph, plan: &PackPlan<'_>) -> Result<Cut, EmitterError> {
     let enrich: Vec<usize> = (0..plan.sections.len())
         .filter(|&at| plan.sections[at].tier == ContextTier::Enrich)
@@ -146,31 +158,39 @@ pub fn fit(graph: &Graph, plan: &PackPlan<'_>) -> Result<Cut, EmitterError> {
             ContextTier::Enrich => Served::Cut,
         })
         .collect();
+    // A number is one token whatever its value, so the floor does not depend on the cap rendered with it.
     let floor = cost(graph, plan, &served, &names(0), &[])?;
-    if floor > plan.budget {
-        return Err(EmitterError::BudgetTooSmall {
-            reason: format!(
-                "the token budget of {} cannot hold route `{}`'s core sections for `{}` ({floor} tokens: the \
-                 envelope, the subject and its core sections); raise the budget",
-                plan.budget, plan.route, plan.subject
-            ),
-        });
-    }
+    let cap = match plan.budget {
+        Budget::Allowance(allowance) => floor + allowance,
+        Budget::Cap(cap) if floor > cap => {
+            return Err(EmitterError::BudgetTooSmall {
+                reason: format!(
+                    "the token cap of {cap} cannot hold route `{}`'s core sections for `{}` ({floor} tokens: the \
+                     envelope, the subject and its core sections); raise the cap, or state none: a read without \
+                     one serves the core whole",
+                    plan.route, plan.subject
+                ),
+            });
+        }
+        Budget::Cap(cap) => cap,
+    };
     let mut cut = Cut {
         served: served.clone(),
         truncated_sections: names(0),
         truncated_entities: Vec::new(),
         estimated_tokens: floor,
+        budget_tokens: cap,
     };
     for (nth, &at) in enrich.iter().enumerate() {
         served[at] = Served::Whole;
         let whole = cost(graph, plan, &served, &names(nth + 1), &[])?;
-        if whole <= plan.budget {
+        if whole <= cap {
             cut = Cut {
                 served: served.clone(),
                 truncated_sections: names(nth + 1),
                 truncated_entities: Vec::new(),
                 estimated_tokens: whole,
+                budget_tokens: cap,
             };
             continue;
         }
@@ -210,10 +230,10 @@ pub fn fit(graph: &Graph, plan: &PackPlan<'_>) -> Result<Cut, EmitterError> {
         };
         // Dropping one more new entity always lowers the cost; when even dropping them all does not fit (their IDs
         // listed cost more than the section's place), the section is cut whole.
-        if costs(fresh.len())? > plan.budget {
+        if costs(fresh.len())? > cap {
             break;
         }
-        let dropped = fewest(0, fresh.len(), |dropped| Ok(costs(dropped)? <= plan.budget))?;
+        let dropped = fewest(0, fresh.len(), |dropped| Ok(costs(dropped)? <= cap))?;
         let (part, truncated_entities) = part(dropped);
         // Nothing kept: the section is cut whole, as when nothing fits.
         if part == Served::Part(Vec::new()) {
@@ -226,6 +246,7 @@ pub fn fit(graph: &Graph, plan: &PackPlan<'_>) -> Result<Cut, EmitterError> {
             truncated_sections: truncated,
             truncated_entities,
             estimated_tokens,
+            budget_tokens: cap,
         };
         break;
     }
@@ -259,6 +280,7 @@ fn cost(
         truncated_sections: truncated_sections.to_vec(),
         truncated_entities: truncated_entities.to_vec(),
         estimated_tokens: 0,
+        budget_tokens: 0,
     };
     let sealed = Sealed {
         sections: plan
@@ -275,8 +297,32 @@ fn cost(
     Ok(estimate_tokens(&render(graph, plan, &cut, &sealed)?))
 }
 
-/// The pack document: the route, the subject, its digest, the budget and what was cut, the sections as served, the
-/// sections skipped, and the export envelope of the subject and every served entity in the plan's format.
+/// The subgraph a pack shows: `nodes` induced, each without the fields a context record gives (ADR 0386 D5). No digest
+/// reads a record (ADR 0356), so a pack shows none either, and what it costs does not move when it is recorded.
+fn shown(graph: &Graph, nodes: BTreeSet<Sym>, fields: &FieldRegistry) -> Graph {
+    let induced = graph.induced(nodes);
+    let mut shown = Graph::new();
+    for node in induced.nodes() {
+        let mut node = node.clone();
+        let kind = node.kind.raw.as_str().to_string();
+        for entry in std::mem::take(&mut node.fields).entries() {
+            let writer = fields
+                .get(&kind, entry.key.as_str())
+                .and_then(|f| f.writer());
+            if writer != Some(FieldWriter::Context) {
+                node.fields.push_entry(entry.clone());
+            }
+        }
+        shown.add_node(node);
+    }
+    for edge in induced.edges() {
+        shown.add_edge(*edge);
+    }
+    shown
+}
+
+/// The pack document: the route, the subject, its digest, the cap it was fitted to and what was cut, the sections as
+/// served, the sections skipped, and the export envelope of the subject and every served entity in the plan's format.
 pub fn render(
     graph: &Graph,
     plan: &PackPlan<'_>,
@@ -295,7 +341,7 @@ pub fn render(
         judgements: None,
         checks: None,
     };
-    let exported = shape.render(&graph.induced(nodes), None)?;
+    let exported = shape.render(&shown(graph, nodes, plan.registries.fields()), None)?;
     let graph_json =
         RawValue::from_string(exported).map_err(|e| EmitterError::Serialization(e.to_string()))?;
     let sections: Vec<SectionJson<'_>> = plan
@@ -313,7 +359,7 @@ pub fn render(
         digest: &sealed.pack,
         budget: BudgetJson {
             strategy: "declared",
-            budget_tokens: plan.budget,
+            budget_tokens: cut.budget_tokens,
             estimated_tokens: cut.estimated_tokens,
             truncated_sections: &cut.truncated_sections,
             truncated_entities: &cut.truncated_entities,
@@ -343,7 +389,7 @@ struct PackJson<'a> {
     graph: &'a RawValue,
 }
 
-/// A pack's budget: always written, cut or not, so the budget is recorded beside every digest.
+/// A pack's budget: always written, cut or not, so the cap it was fitted to is recorded beside every digest.
 #[derive(Serialize)]
 struct BudgetJson<'a> {
     strategy: &'static str,

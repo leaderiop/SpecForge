@@ -9,7 +9,7 @@ use super::harness::{Project, project};
 /// a context `NN-CONTEXT`, each depending on the one before.
 pub(super) fn twelve() -> Project {
     let p = project("empty");
-    let mut text = String::from("milestone v1.0 \"M\" {\n  name \"M\"\n}\n\n");
+    let mut text = String::from("milestone v1.0 \"M\" {\n}\n\n");
     let phase = |name: &str, depends: &str| {
         let deps = if depends.is_empty() {
             String::new()
@@ -17,7 +17,7 @@ pub(super) fn twelve() -> Project {
             format!("  depends_on [{depends}]\n")
         };
         format!(
-            "phase {name} \"P{name}\" {{\n  milestone v1.0\n  name \"P{name}\"\n  slug \"p{name}\"\n  goal \"Goal {name}\"\n  success_criteria [\"a\", \"b\"]\n{deps}}}\n\n"
+            "phase {name} \"P{name}\" {{\n  milestone v1.0\n  slug \"p{name}\"\n  goal \"Goal {name}\"\n  success_criteria [\"a\", \"b\"]\n{deps}}}\n\n"
         )
     };
     for n in 1..=12 {
@@ -171,12 +171,40 @@ fn insert_after_02_on_the_twin_makes_02_2() {
     assert!(ids(&p, "phase").contains(&"v1.0/02.1".to_string()));
 }
 
+/// A phase is named by its title alone (ADR 0387): `--edit --name` retitles it, so a title that began with a phase
+/// number (gsd/W109) is fixed by naming the phase again, and no field repeats the title.
+#[test]
+fn edit_name_retitles_the_phase() {
+    let p = twin();
+    let run = p.run(&["set", "v1.0/02", "--title", "Phase 2: Persistence"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        p.codes().contains(&"gsd/W109".to_string()),
+        "{:?}",
+        p.codes()
+    );
+    let run = gsd(&p, "phase", &["--edit", "02", "--name", "Persistence"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.title_of("v1.0/02"), "Persistence");
+    assert!(p.fields_of("v1.0/02").get("name").is_none());
+    assert!(
+        !p.codes().contains(&"gsd/W109".to_string()),
+        "{:?}",
+        p.codes()
+    );
+    let run = gsd(&p, "phase", &["--edit", "02", "--name", "Two\nlines"]);
+    assert_ne!(run.code, 0, "a name is one line: {}", run.all());
+    assert!(run.all().contains("one line"), "{}", run.all());
+}
+
 #[test]
 fn add_appends_with_to_be_planned() {
     let p = twin();
     let run = gsd(&p, "phase", &["--name", "Sharing"]);
     assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.title_of("v1.0/04"), "Sharing");
     let fields = p.fields_of("v1.0/04");
+    assert_eq!(fields["slug"], "sharing");
     assert_eq!(fields["goal"], "[To be planned]");
     assert_eq!(fields["success_criteria"], json!(["[To be planned]"]));
     assert_eq!(fields["depends_on"], json!(["03"]));
@@ -300,6 +328,69 @@ fn edit_sets_goal_and_criteria() {
     assert_eq!(fields["success_criteria"], json!(["saved", "loaded"]));
 }
 
+/// A new name rewrites the title and the slug, as `--add` writes them: the title is the phase's label and the slug
+/// names its branch, so neither keeps the old name. A branch cut under the old slug keeps its name, and is no longer
+/// the phase's branch.
+#[test]
+fn a_new_name_rewrites_the_title_and_the_slug() {
+    const AT: &str = "2026-01-01T00:00:00Z";
+    let p = twin();
+    p.commit();
+    p.settings(json!({"git.branching_strategy": "phase"}));
+    let phase = |p: &Project| {
+        let query = p.run(&["query", "v1.0/02", "--depth", "0", "--format", "json"]);
+        let graph: serde_json::Value = serde_json::from_str(&query.stdout).expect("JSON");
+        let nodes = graph["nodes"].as_array().expect("nodes");
+        let found = nodes.iter().find(|n| n["id"] == "v1.0/02");
+        found
+            .unwrap_or_else(|| panic!("no v1.0/02: {graph}"))
+            .clone()
+    };
+    let branches = |p: &Project| json(&gsd(p, "milestone-branches", &["v1.0", "--format", "json"]));
+    assert_eq!(phase(&p)["fields"]["slug"], "persistence");
+    assert_eq!(phase(&p)["fields"]["branch"], "gsd/phase-02-persistence");
+    p.git(&["branch", "gsd/phase-02-persistence"], AT);
+    assert_eq!(
+        branches(&p)["branches"],
+        json!(["gsd/phase-02-persistence"])
+    );
+    let run = gsd(
+        &p,
+        "phase",
+        &[
+            "--edit",
+            "02",
+            "--name",
+            "Durable tasks",
+            "--format",
+            "json",
+        ],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    let answer = json(&run);
+    assert_eq!(
+        answer["output"]["set"],
+        json!(["title", "slug"]),
+        "{answer}"
+    );
+    let node = phase(&p);
+    assert_eq!(node["title"], "Durable tasks", "{node}");
+    assert!(
+        node["fields"].get("name").is_none(),
+        "no field repeats the title: {node}"
+    );
+    assert_eq!(node["fields"]["slug"], "durable-tasks", "{node}");
+    assert_eq!(
+        node["fields"]["branch"], "gsd/phase-02-durable-tasks",
+        "{node}"
+    );
+    assert_eq!(
+        branches(&p)["branches"],
+        json!([]),
+        "the old branch is not the phase's any more, and the new one is not cut yet"
+    );
+}
+
 #[test]
 fn insert_and_edit_refuse_a_backlog_phase() {
     let p = twelve();
@@ -318,7 +409,7 @@ fn insert_and_edit_refuse_a_backlog_phase() {
 pub(super) fn backlogged() -> Project {
     let p = twelve();
     let mut text = p.read("spec/m.spec");
-    text.push_str("context 999.1-CONTEXT \"Idea\" {\n  phase v1.0/999.1\n  gathered 2026-10-28\n  boundary \"b\"\n  canonical_refs [{ topic \"none\" paths [] }]\n}\n\nphase 999.2 \"P999.2\" {\n  milestone v1.0\n  name \"P999.2\"\n  slug \"p999-2\"\n  goal \"Goal 999.2\"\n  success_criteria [\"a\"]\n}\n");
+    text.push_str("context 999.1-CONTEXT \"Idea\" {\n  phase v1.0/999.1\n  gathered 2026-10-28\n  boundary \"b\"\n  canonical_refs [{ topic \"none\" paths [] }]\n}\n\nphase 999.2 \"P999.2\" {\n  milestone v1.0\n  slug \"p999-2\"\n  goal \"Goal 999.2\"\n  success_criteria [\"a\"]\n}\n");
     p.write("spec/m.spec", &text);
     p
 }
@@ -431,17 +522,46 @@ fn a_criterion_with_a_control_character_or_an_empty_name_is_refused() {
     }
 }
 
+/// A name is one line and gives a slug, on `--add`, `--insert` and `--backlog` as on `--edit`: a carriage return is a
+/// line break, and a name with no ASCII letter or digit gives no slug, the phase's directory and branch word. An added
+/// phase's message prints its name as it is stored, trimmed.
+#[test]
+fn a_name_of_two_lines_or_without_a_slug_is_refused_and_one_is_printed_as_stored() {
+    let p = twin();
+    let before = bytes(&p);
+    for (args, words) in [
+        (vec!["--edit", "02", "--name", "Two\rlines"], "(U+000D)"),
+        (vec!["--edit", "02", "--name", "日本語"], "gives no slug"),
+        (vec!["--name", "—?!"], "gives no slug"),
+        (vec!["--insert", "02", "--name", "…"], "gives no slug"),
+        (vec!["--backlog", "--name", "¿?"], "gives no slug"),
+    ] {
+        let run = gsd(&p, "phase", &args);
+        assert_ne!(run.code, 0, "{args:?}: {}", run.all());
+        assert!(run.all().contains(words), "{args:?}: {}", run.all());
+        unchanged(&p, &before);
+    }
+    let run = gsd(&p, "phase", &["--name", "  Sharing  "]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        run.stdout.contains("phase 04 \"Sharing\" added to v1.0"),
+        "{}",
+        run.all()
+    );
+    assert_eq!(p.title_of("v1.0/04"), "Sharing");
+}
+
 /// `backlogged()` with a second milestone `v1.1` that holds phase `01` (or nothing, when `empty`).
 fn two_milestones(empty: bool) -> Project {
     let p = backlogged();
     let phase = if empty {
         ""
     } else {
-        "\nphase 01 \"P01\" {\n  milestone v1.1\n  name \"P01\"\n  slug \"p01\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n"
+        "\nphase 01 \"P01\" {\n  milestone v1.1\n  slug \"p01\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n"
     };
     p.write(
         "spec/n.spec",
-        &format!("milestone v1.1 \"N\" {{\n  name \"N\"\n}}\n{phase}"),
+        &format!("milestone v1.1 \"N\" {{\n}}\n{phase}"),
     );
     p
 }
@@ -478,7 +598,7 @@ fn promote_into_a_milestone_without_phases_depends_on_nothing() {
 fn promote_names_the_milestone_when_two_backlogs_share_a_number() {
     let p = two_milestones(false);
     let mut text = p.read("spec/n.spec");
-    text.push_str("\nphase 999.1 \"Other\" {\n  milestone v1.1\n  name \"Other\"\n  slug \"other\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n");
+    text.push_str("\nphase 999.1 \"Other\" {\n  milestone v1.1\n  slug \"other\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n");
     p.write("spec/n.spec", &text);
     // v1.1's own 999.1 wins for --milestone v1.1; the other milestone's is named with its id
     let before = bytes(&p);
@@ -527,7 +647,7 @@ fn a_backlog_phase_takes_the_first_free_999_number() {
         let run = gsd(&p, "phase", &["--backlog", "--name", name]);
         assert_eq!(run.code, 0, "{}", run.all());
         assert!(run.stdout.contains(at), "{}", run.all());
-        assert_eq!(p.fields_of(&format!("v1.0/{at}"))["name"], name);
+        assert_eq!(p.title_of(&format!("v1.0/{at}")), name);
     }
     assert_eq!(p.codes(), before);
     let run = gsd(&p, "phase", &["--remove", "999.2"]);
@@ -535,7 +655,7 @@ fn a_backlog_phase_takes_the_first_free_999_number() {
     let run = gsd(&p, "phase", &["--backlog", "--name", "Again"]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert!(run.stdout.contains("999.2"), "{}", run.all());
-    assert_eq!(p.fields_of("v1.0/999.2")["name"], "Again");
+    assert_eq!(p.title_of("v1.0/999.2"), "Again");
     let before = bytes(&p);
     let run = gsd(&p, "phase", &["--backlog", "--insert", "01", "--name", "X"]);
     refused(&run, "invalid_input", &["--backlog", "--insert"]);

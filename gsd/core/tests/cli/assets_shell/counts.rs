@@ -93,7 +93,7 @@ fn the_walking_skeleton_gate_reads_its_own_answers() {
     let p = crate::harness::taskboard();
     p.write(
         "spec/v2.spec",
-        "milestone v2.0 \"Next\" {\n  name \"Next\"\n}\n\nphase 01 \"Start\" {\n  milestone v2.0\n  name \"Start\"\n  slug \"start\"\n  goal \"Start again\"\n  mode mvp\n}\n\nphase 02 \"More\" {\n  milestone v2.0\n  name \"More\"\n  slug \"more\"\n  goal \"More\"\n  mode mvp\n}\n",
+        "milestone v2.0 \"Next\" {\n}\n\nphase 01 \"Start\" {\n  milestone v2.0\n  slug \"start\"\n  goal \"Start again\"\n  mode mvp\n}\n\nphase 02 \"More\" {\n  milestone v2.0\n  slug \"more\"\n  goal \"More\"\n  mode mvp\n}\n",
     );
     let gate = |phase: &str, mvp: &str| {
         let filled = fence.replace("{{arg:mvp|false}}", mvp);

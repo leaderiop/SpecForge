@@ -95,11 +95,11 @@ MVP_MODE_CFG="{{setting:workflow.mvp_mode|false}}"   # workflow.mvp_mode (the se
 
 When the tdd capability's `workflow.tdd_mode` is active (resolved via the plan:pre render-hooks), the planner agent is instructed to apply `type: tdd` to eligible tasks using heuristics from `gsd-core/references/tdd.md`. The TDD guidance is injected via the tdd capability's contribution hook at §5.6; no inline config-get is needed.
 
-The planner reads the planner pack (`specforge context gsd/planner`) at the route's budget: the summaries of the plans its phase depends on are among its sections, whatever the context window.
+The planner reads the planner pack (`specforge context gsd/planner`), its core whole and its enrich sections within the route's allowance: the summaries of the plans its phase depends on are among its sections, whatever the context window.
 
 **#2401 — `prior_verify_commands` is NOT part of that pack and is never gated on the context window.** It is a handful of one-line `<automated>` commands harvested from the nearest prior phase that had any; the payload is tiny and its absence at 200k is exactly what made the planner re-invent a verify command and author an unrunnable path. Surface it at every context window.
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug`, `goal`, `status` and `requirements` are its fields; a phase not in the graph is an E003 error), and the other nodes are what links to it or from it: its milestone, its requirements, its `plan` entities and its `context`, `research`, `verification` and `uat_session` when it has them. `phase_status` (#3569) is the phase's `status`, `phase_req_ids` its `requirements`, `plan_count` the number of its plans, and `has_research`, `has_context` and `has_plans` whether one is there. `workflow.research`, `workflow.plan_check`, `workflow.nyquist_validation`, `workflow.text_mode`, `response_language` and `granularity` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model. `prior_verify_commands` (#2401) are the `verification` of each plan of the nearest earlier phase that has plans, read with a depth-1 query of that phase.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `slug`, `goal`, `status` and `requirements` are its fields and its name its `title`; a phase not in the graph is an E003 error), and the other nodes are what links to it or from it: its milestone, its requirements, its `plan` entities and its `context`, `research`, `verification` and `uat_session` when it has them. `phase_status` (#3569) is the phase's `status`, `phase_req_ids` its `requirements`, `plan_count` the number of its plans, and `has_research`, `has_context` and `has_plans` whether one is there. `workflow.research`, `workflow.plan_check`, `workflow.nyquist_validation`, `workflow.text_mode`, `response_language` and `granularity` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model. `prior_verify_commands` (#2401) are the `verification` of each plan of the nearest earlier phase that has plans, read with a depth-1 query of that phase.
 
 **#2517:** omit the `model=` param from an `Agent()` call when its `researcher`/`planner`/`checker`_model is `"inherit"` or empty — passing `model=""` 404s on non-Claude runtimes; omitting inherits the orchestrator model (mirrors execute-phase).
 
@@ -213,7 +213,10 @@ If `section_manifest` is `null` or `"reviews-prerequisite"` is in its `included`
 PHASE_INFO=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0]')   # the phase node, compact: found when the query does not refuse it, phase_number is the last segment of its id, the rest are its fields
 ```
 
-**If `found` is false:** Error with available phases. **If `found` is true:** Extract `phase_number`, `phase_name`, `goal` from JSON.
+**If `found` is false:** Error with available phases. **If `found` is true:** read the phase from that node:
+`phase_number` is the last segment of its `id` (`v1.0/03` gives `03`), `phase_name` is its `title` and `goal` its
+`.fields.goal`. Below, `{X}` is `phase_number`, and a phase's label reads "Phase {phase_number}: {phase_name}"; in the
+planner's proven verify commands, `{phase}` is the number of the earlier phase that ran each one.
 
 Now that `PHASE` is finalized, resolve MVP mode:
 ```bash
@@ -410,7 +413,7 @@ Agent(
   prompt=filled_research_hook_fragment,
   subagent_type=research_hook.ref.agent,
   model="{researcher_model}",
-  description="Research Phase {phase}"
+  description="Research Phase {X}"
 )
 ```
 
@@ -427,9 +430,9 @@ Agent(
   specforge gsd record-research "$RESEARCH_ID" || exit 1
   ```
 
-  When the return lists `### Open Questions`, display them: each is a question the profile kept out of the graph
-  (gsd/W204: no decision resolves it yet), for the user to answer at step 9d. Keep them for step 8, which hands
-  them to the planner.
+  When the return lists `### Open Questions`, display them: each is an open question the research recorded with no
+  decision that resolves it yet (gsd/W204, an error under gsd-strict), for the user to answer at step 9d. Keep
+  their ids for step 8, which hands them to the planner.
 - **`## RESEARCH BLOCKED`:** Display blocker, offer: 1) Provide context, 2) Skip research, 3) Abort
 
 <!-- gsd:section id="research-only-early-exit" when="flag:--research-phase" -->
@@ -517,7 +520,7 @@ Read the `activeHooks` of every line of `PLAN_PRE_HOOKS_JSON` / `HOOKS_JSON`, on
 
 **AI integration capability:** If the active `ai-integration` step hook is present, `AI_SPEC_PATH` is empty, and the phase goal contains AI keywords (`agent`, `llm`, `rag`, `chatbot`, `embedding`, `langchain`, `llamaindex`, `crewai`, `langgraph`, `openai`, `anthropic`, `vector`, `llm eval`), then:
 - In pipeline / `--auto` mode, invoke the hook's `ref.skill` via `Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto")`.
-- In manual mode, display the existing non-blocking `/gsd:ai-integration-phase {N}` recommendation and let the user continue planning without AI-SPEC or stop to run the capability workflow first.
+- In manual mode, display the existing non-blocking `/gsd:ai-integration-phase {X}` recommendation and let the user continue planning without AI-SPEC or stop to run the capability workflow first.
 
 Run the UI deterministic gate whenever **any** `plan:pre` UI hook is active — including the step-only case (`workflow.ui_safety_gate` off). (`check.query` = `"ui.plan-gate"`, dot-normalized to `ui-plan-gate` per `loop-hook-dispatch.md` § `gate`.)
 
@@ -569,13 +572,13 @@ Continue to step 6.
 Output this markdown directly (not as a code block):
 
 ```
-## ⚠ UI-SPEC.md missing for Phase {N}
+## ⚠ No UI spec for Phase {X}
 ▶ Recommended next step:
-`/gsd:ui-phase {N}` — generate UI design contract before planning
+`/gsd:ui-phase {X}` — generate UI design contract before planning
 
 ---
 Also available:
-- `/gsd:plan-phase {N} --skip-ui` — plan without UI-SPEC (not recommended for frontend phases)
+- `/gsd:plan-phase {X} --skip-ui` — plan without UI-SPEC (not recommended for frontend phases)
 ```
 
 **Exit the plan-phase workflow. Do not continue.**
@@ -754,9 +757,9 @@ Planner prompt:
 **Phase:** {phase_number}
 **Mode:** {standard | gap_closure | reviews}
 **Graph context:** {the `/gsd-graphify` line of "Graph context on this install" at the end of the plan-phase prompt}
-**Open questions the research returned:** {the items of the researcher's `### Open Questions`, or none}.
-Each is the user's to answer, not yours: record no decision that resolves it and do not record it; write the
-plans so they hold whatever the answer, and list it under `### Open Questions` in your return.
+**Open questions the research returned:** {the ids of the researcher's `### Open Questions`, or none}.
+Each is recorded open and is the user's to answer, not yours: record no decision that resolves it and leave it as
+it is; write the plans so they hold whatever the answer, and list it under `### Open Questions` in your return.
 <required_reading>
 - `specforge context gsd/planner {PHASE_ID}` (the planner pack: the phase, its requirements, USER DECISIONS from /gsd:discuss-phase, the research and its items, the plans, the milestone, verification and UAT gaps, the summaries of the plans it depends on, the project and its decisions, `CLAUDE.md` / `AGENTS.md` and the settings; `--pick .budget` lists what the budget cut, read with `specforge query <id> --format context`)
 - `specforge export --kinds lesson --format context` (Lessons, which the pack does not select)
@@ -947,7 +950,7 @@ Agent(
   prompt=filled_prompt,
   subagent_type="gsd-planner",
   model="{planner_model}",
-  description="Plan Phase {phase}",
+  description="Plan Phase {X}",
   run_in_background=true
 )
 ```
@@ -992,32 +995,27 @@ When the planner returns `## ⚠ Source Audit: Unplanned Items Found`, some of t
 
 ## 9d. Record the Answers to the Open Questions
 
-The planner lists the research's open questions it was handed (step 8), unanswered: they are the user's. Ask the
+The planner lists the research's open questions it was handed (step 8), recorded open: they are the user's. Ask the
 user each one (AskUserQuestion, or a numbered list in text mode); under `--auto` ask nothing. For each answer,
-record the answer as a decision, then the question resolved by it, in that order: gsd-strict refuses the question
-while no decision resolves it (`gsd/W204`), and accepts it once the decision exists.
+record the answer as a decision, then set it as the question's `resolved_by`: the research recorded the question,
+and the set settles its `gsd/W204`.
 
 ```bash
 PHASE_ID="{the phase id, e.g. v1.0/02}"
-RESEARCH_ID="{the research id, e.g. v1.0/02/02-RESEARCH}"
+RESEARCH_ID="{the research id the researcher returned, e.g. v1.0/02/02-RESEARCH}"
 DECISION_ID="{the phase's next decision id, e.g. D-03}"
-QUESTION_ID="{the question's id, e.g. 02-Q1}"
+QUESTION_ID="{the question's id as the researcher's return lists it, under the research, e.g. Q1}"
 IFS= read -rd '' ANSWER <<'TEXT' || true; ANSWER=${ANSWER%$'\n'}
 {the user's answer}
 TEXT
-IFS= read -rd '' QUESTION <<'TEXT' || true; QUESTION=${QUESTION%$'\n'}
-{the question, as the research returned it}
-TEXT
-IFS= read -rd '' UNCLEAR <<'TEXT' || true; UNCLEAR=${UNCLEAR%$'\n'}
-{what was unclear, as the research returned it}
-TEXT
 SPEC_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 specforge new decision "$DECISION_ID" "$ANSWER" --in "$SPEC_FILE" --phase "$PHASE_ID" --text "$ANSWER" --origin checkpoint || exit 1
-specforge new open_question "$QUESTION_ID" "$QUESTION" --in "$SPEC_FILE" --research "$RESEARCH_ID" --question "$QUESTION" --unclear "$UNCLEAR" --resolved_by "$DECISION_ID" || exit 1
+specforge set "$RESEARCH_ID/$QUESTION_ID" resolved_by "$DECISION_ID" || exit 1
 ```
 
-A question the user leaves open (every one, under `--auto`) is not recorded, since gsd-strict refuses it: step 14
-shows it again as open.
+A question the user leaves open (every one, under `--auto`) stays open in the graph. Under gsd-strict its
+`gsd/W204` is an error: `check` fails on it, and the entry gate of plan-phase refuses the next run on this phase
+until the two lines above answer it. Step 14 shows it as open.
 
 ## 10. Spawn gsd-plan-checker Agent
 
@@ -1109,7 +1107,7 @@ Agent(
   prompt=checker_prompt,
   subagent_type="gsd-plan-checker",
   model="{checker_model}",
-  description="Verify Phase {phase} plans",
+  description="Verify Phase {X} plans",
   run_in_background=true
 )
 ````
@@ -1205,7 +1203,7 @@ Agent(
   prompt=revision_prompt,
   subagent_type="gsd-planner",
   model="{planner_model}",
-  description="Revise Phase {phase} plans",
+  description="Revise Phase {X} plans",
   run_in_background=true
 )
 ```
@@ -1491,7 +1489,8 @@ If the check command failed (non-zero `CHECK_EXIT`, empty output, or unparseable
 
 ## 14. Present Final Status
 
-List each open question step 9d left unanswered: it is not in the graph. Route to
+List each open question step 9d left unanswered: it is open in the graph, and under gsd-strict `check` fails on it
+and plan-phase's entry gate refuses the next run on this phase until step 9d's two lines answer it. Route to
 `<offer_next>` OR `auto_advance` depending on flags/config.
 
 ## 15. Auto-Advance Check
@@ -1507,7 +1506,7 @@ Output this markdown directly (not as a code block):
 
 ### GSD ► PHASE {X} PLANNED ✓
 
-**Phase {X}: {Name}** — {N} plan(s) in {M} wave(s)
+**Phase {X}: {phase_name}** — {N} plan(s) in {M} wave(s)
 
 | Wave | Plans | What it builds |
 |------|-------|----------------|

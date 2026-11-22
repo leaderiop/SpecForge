@@ -36,7 +36,7 @@ specforge trace <id> --route <name>  # along the named route (`<extension>/<rout
 specforge trace <id> --reach         # the traceability chain, whatever route starts at its kind
 specforge trace --in <id> --route <name>  # every start entity within <id>: its scope and one reference away
 specforge trace --plan plan.json     # check an agent plan (AgentPlan JSON) against the graph
-specforge context <route> <id>       # the pack a context route declares for <id>: sections fitted to its budget
+specforge context <route> <id>       # the pack a context route declares for <id>: its core whole, then its allowance
 specforge context <route> <id> --pick .digest  # the pack's digest, recomputable from what it served
 specforge context <route> <id> --record <entity>  # record the pack on <entity>; a moved pack is its route's stale code
 # MCP: specforge.context { route, subject, max_tokens?, format? }; the resource specforge://context/<id>?role=<route>

@@ -1,10 +1,8 @@
 milestone v1.0 "Ledger 1.0" {
-  name "Ledger 1.0"
 }
 
 phase 01 "Core" {
   milestone        v1.0
-  name             "Core"
   slug             "core"
   goal             "Entries can be added and totalled"
   requirements     [LEDG-01, LEDG-02]
@@ -16,7 +14,6 @@ phase 01 "Core" {
 
 phase 02 "Persistence" {
   milestone        v1.0
-  name             "Persistence"
   slug             "persistence"
   goal             "Entries are saved to disk and read back"
   depends_on       [01]
@@ -29,7 +26,6 @@ phase 02 "Persistence" {
 
 phase 03 "Listing" {
   milestone        v1.0
-  name             "Listing"
   slug             "listing"
   goal             "Entries are listed in the order they were added"
   depends_on       [02]

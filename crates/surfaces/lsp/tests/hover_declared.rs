@@ -18,6 +18,7 @@ fn hover_explains_a_third_party_code() {
                 docs: Some("https://greet.dev/codes#e901".into()),
                 machine: false,
                 reported_while: None,
+                settled_later: false,
             }],
         )
         .unwrap();

@@ -29,6 +29,10 @@ INIT=$(specforge gsd progress-report --format json)
 
 Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints; each phase has `number`, `name`, `plans`, `summaries`, `status`). The rest is derived, there is no init JSON: `phase_count` is the length of `phases`; `completed_count` counts status `Complete`; `in_progress_count` counts `In Progress`; `all_complete` is `completed_count == phase_count`; `recommended_actions` has one entry per phase that is not `Complete`, in order (`Pending` → `/gsd-discuss-phase N`, or `/gsd-plan-phase N` once a `context` entity exists, `specforge query "$MILESTONE/N" --depth 1 --kinds context`; `Planned` or `In Progress` → `/gsd-execute-phase N`); `waiting_signal` is always absent (no background-work signal here); `queued_milestone_version`, `queued_milestone_name` and `queued_phases` are absent (skip the Queued section); `response_language` is `{{setting:response_language|}}`; `manager_flags` are the settings `{{setting:manager.flags.discuss|}}`, `{{setting:manager.flags.plan|}}` and `{{setting:manager.flags.execute|}}`.
 
+In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{phase_name}`
+is its `title`. The number is the `number` `progress-report` prints for it; its `name` is the phase's slug read as
+words, so a label reads the title from the phase node (`specforge query "$MILESTONE" --kinds phase --depth 1`).
+
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated. Subagent dispatches (discuss/plan/execute) stay in English at the prompt level; include `response_language` in their spawn args per the workflow being dispatched.
 
 `manager_flags` are the per-step passthrough flags from the settings:
@@ -88,7 +92,7 @@ Build dashboard from JSON. Symbols: `✓` done, `◆` active, `○` pending, `·
 
 If any `is_active` phases, show: `◆ Background: {action} Phase {N}, ...` above grid.
 
-Use `display_name` (not `name`) for the Phase column — it's pre-truncated to 20 chars with `…` if clipped. Pad all phase names to the same width for alignment.
+The Phase column is the phase's `title`, read as a label's `{phase_name}` is (not the report's `name`), cut to 20 chars with `…` when longer. Pad all phase names to the same width for alignment.
 
 Use `deps_display` from init JSON for the Deps column — shows which phases this phase depends on (e.g. `1,3`) or `—` for none.
 

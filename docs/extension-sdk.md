@@ -288,7 +288,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.setting(name, \|s\| ..)` | a typed setting: `bool()`, `integer()`, `number()`, `string()`, `enum_values(..)`, `string_list()`, `block()`, `block_list()`, `default(..)`, `describe(..)`, `gates(..)`, `gates_when_on(..)`, `keys(..)` for a family | `settings` |
 | `c.preset(source, \|p\| ..)` | what each value of an enum or bool setting presets and raises: `p.when(value, \|e\| e.set(..).raise(..))` | `settings` |
 | `c.secret(name, env, description)` | a secret read from an environment variable | `settings` |
-| `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL) | `codes` |
+| `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL), `machine()`, `once_complete()` or `while_open()` (its owner state), `settled_later()` (a later step of the authoring settles it: a write that creates its subject, or under it, and alters nothing held there adds no error by it, ADR 0385) | `codes` |
 | `c.route(name, \|r\| ..)` | a route `specforge trace` follows from a kind: `start(..)`, `step(name, via, \|s\| ..)`, annotations | `routes` |
 | `c.context(name, \|r\| ..)` | a context route a role reads one entity through: `subject(..)`, `agent(..)`, `budget(..)`, `core(name, selector)`, `enrich(name, selector)`, `settings(..)`, `record(field, subject)`, `record_suggesting(field, subject, help)`, `stale(code)` | `contexts` |
 | `c.peer(name, range)`, `c.optional_peer(name, range)` | a peer requirement | handshake |
@@ -537,7 +537,7 @@ c.command("record", |cmd| {
 A judged rule is declared with `r.judged("judge", |j| { j.outcomes(..).passing(..); j.target("kind", |t| { t.input("name", "selector"); }) })` inside `c.rule(..)`
 and a field a verdict sets with `field.verdict()` (ADR 0290, [guide](guides/judged-rules.md)); a field the host's
 record of a context route's pack sets is declared with `field.context()`, which also declares its block of `route`,
-`digest` and `max_tokens` (ADR 0356); a command's `GraphNode`
+`digest` and `max_tokens`, the cap a read stated (ADR 0356, ADR 0386); a command's `GraphNode`
 lists its `judgements`, and `set_verdict` takes the `basis` the command read through `specforge query --inputs`. The judge is an agent
 of the extension or a declared peer, or `"prompt:<id>"`, a prompt of the extension itself (protocol 1.11.0, ADR 0295);
 the prompt's rendered payload lists the rules it judges under `judged`.
@@ -737,8 +737,10 @@ c.pass("changed", |p| {
 `Some`, its base and no node or edge. A delta input declared twice, naming no kind or a kind no loaded extension
 declares is W021.
 
-A pass receives `PassInput`: `entities` (each with its field texts by name
-([Field text](#field-text)), edge counts, span, `testable`, and `owes_none`: it
+A pass receives `PassInput`: `entities` (each with its `title`, the title its header writes, `None` for a fact written
+without one (protocol 2.3.0,
+[ADR 0387](adr/0387-a-phase-is-named-by-its-title-alone-and-a-pass-reads-each-entitys-title.md)), its field texts by
+name ([Field text](#field-text)), edge counts, span, `testable`, and `owes_none`: it
 owes no obligations of its own, decided by the host's one obligation rule), `edges`, `test_results` (the recorded test report as [`TestResults`]; `TestResults::of(id)` lists an entity's tests) and `proved_claims` (always absent for a
 check pass), and `previous`: when the pass names kinds in
 `.baseline(&[..])`, the project at the git commit `HEAD` names (under `check --since <rev>`, the merge-base, the

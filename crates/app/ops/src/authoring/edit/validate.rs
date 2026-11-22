@@ -5,11 +5,14 @@
 //! block moves every later one. An extension's finding is also keyed by its subject entity, relocated through the
 //! plan's moves, so a finding on another entity is another error (ADR 0302). A judged rule's finding is never such an
 //! error (ADR 0297): its judge settles it, not the edit; only a finding the judged evaluation made is one. Nor is a
-//! finding the write revealed by moving its entity into the owner state its code waits for (ADR 0363).
+//! finding the write revealed by moving its entity into the owner state its code waits for (ADR 0363), nor a finding
+//! a later step settles on an entity the write creates or creates something under, altering nothing the project held
+//! there (ADR 0385).
 
 use super::EditField;
 use super::declared::Declared;
 use super::steps::relocated;
+use crate::authoring::planned::PlannedChange;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
@@ -17,7 +20,7 @@ use specforge_diagnostics::CodeRef;
 use specforge_graph::{GraphDelta, compute_graph_delta_over};
 use specforge_project::CompiledProject;
 use specforge_registry::RegistryBuild;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 type Key = (String, Severity, String, String, String);
 
@@ -60,33 +63,55 @@ pub(crate) fn judged_finding(post: &CompiledProject) -> impl Fn(&Diagnostic) -> 
 }
 
 /// Whether a diagnostic of `post`, the project a write leaves `before` as, is no error the write adds whatever its
-/// key: a judged rule's finding ([`judged_finding`]), or one the write revealed ([`revealed`]). `renewed` names the
-/// entities the write gives a new identity, as its plan says.
-pub(crate) fn not_added<'a, R: Fn(&str) -> bool + 'a>(
+/// key: a judged rule's finding ([`judged_finding`]), one the write revealed ([`revealed`]), or one a later step
+/// settles on what the write creates ([`settled_later`]). `change` is the write's plan; a migration has none, so it
+/// reveals and creates nothing.
+pub(crate) fn not_added<'a>(
     before: &'a CompiledProject,
     post: &'a CompiledProject,
-    renewed: R,
+    change: Option<&'a PlannedChange>,
 ) -> impl Fn(&Diagnostic) -> bool + 'a {
     let judged = judged_finding(post);
-    move |d| judged(d) || revealed(before, post, &renewed, d)
+    move |d| {
+        judged(d)
+            || change.is_some_and(|change| {
+                revealed(before, post, change, d) || settled_later(post, change, d)
+            })
+    }
+}
+
+/// Whether `d` is a finding a later step of the authoring settles on what `change` creates (ADR 0385): its origin's
+/// own catalog entry for its code declares `settled_later` (`Codebook::settled_later`), it names a subject, and the
+/// change creates that subject or an entity under it and alters nothing the project held there
+/// (`PlannedChange::opens`).
+fn settled_later(post: &CompiledProject, change: &PlannedChange, d: &Diagnostic) -> bool {
+    let (Some(extension), Some(subject)) = (d.origin(), d.subject()) else {
+        return false;
+    };
+    change.opens(subject)
+        && post
+            .environment()
+            .registries()
+            .codes()
+            .settled_later(extension, CodeRef::parse(&d.code).local)
 }
 
 /// Whether the write from `before` to `post` revealed `d` (ADR 0363): an extension's finding on an entity, whose code
 /// waits for an owner state (`Codebook::waits`), and the write moved that entity from the other state into it.
 /// `before` could not report it there, so the write did not add it: the owner's state moved. The entity must be the
-/// one `before` held: never one the write's plan creates, deletes or moves, or is under one that it does (`renewed`),
-/// whatever id `before` held; and both states must be known (`CompiledProject::owner_pending`: none after an update
-/// that skipped the checks).
+/// one `before` held: never one the write's plan creates, deletes or moves, or is under one that it does
+/// (`PlannedChange::renews`), whatever id `before` held; and both states must be known
+/// (`CompiledProject::owner_pending`: none after an update that skipped the checks).
 fn revealed(
     before: &CompiledProject,
     post: &CompiledProject,
-    renewed: &dyn Fn(&str) -> bool,
+    change: &PlannedChange,
     d: &Diagnostic,
 ) -> bool {
     let (Some(extension), Some(subject)) = (d.origin(), d.subject()) else {
         return false;
     };
-    if renewed(subject) {
+    if change.renews(subject) {
         return false;
     }
     let codes = post.environment().registries().codes();
@@ -136,20 +161,19 @@ pub(crate) fn added(
     (errors, rest)
 }
 
-/// Refuse (E080) when `after` has an error `before` does not.
+/// Refuse (E080) when `after`, the project `change` leaves `before` as, has an error `before` does not.
 pub(crate) fn refuse_new_errors(
     before: &CompiledProject,
     after: &CompiledProject,
     registries: &RegistryBuild,
-    moved: &Moves,
-    renewed: &dyn Fn(&str) -> bool,
+    change: &PlannedChange,
     host_only: bool,
 ) -> Result<(), Refusal<EditField>> {
     let (errors, _) = added(
         &before.judged_diagnostics(),
         after.diagnostics(),
-        not_added(before, after, renewed),
-        moved,
+        not_added(before, after, Some(change)),
+        change.moved(),
         host_only,
     );
     if errors.is_empty() {
@@ -159,29 +183,28 @@ pub(crate) fn refuse_new_errors(
     }
 }
 
-/// What the project reports once `texts` are written that its checked report does not have now (`renewed`: the
-/// entities the plan creates, deletes or moves, [`not_added`]): the warnings and infos; or E080 naming each new error; or, when the edited graph changes what `declared` does not name,
+/// What the project reports once `change` is written that its checked report does not have now (the change's
+/// moves, creations and deletions read by [`not_added`]): the warnings and infos, and the errors [`not_added`]
+/// excuses; or E080 naming each new error; or, when the edited graph changes what `declared` does not name,
 /// `undeclared_change` (ADR 0198) naming the remainder.
 pub fn check(
     view: &ProjectView<'_>,
-    texts: &BTreeMap<String, String>,
+    change: &PlannedChange,
     declared: &Declared,
-    ledger: Option<&[u8]>,
-    moved: &Moves,
-    renewed: &dyn Fn(&str) -> bool,
     host_only: bool,
 ) -> Result<Vec<Diagnostic>, Refusal<EditField>> {
     let before = view.project().judged_diagnostics();
+    let texts = change.after();
     // The project the write would leave, judged: the guard passes read it and the project before it (ADR 0289).
     let post = view
         .project()
-        .edited_with(texts, ledger)
+        .edited_with(&texts, change.ledger_after())
         .judged_against(view.project());
     let (errors, rest) = added(
         &before,
         post.diagnostics(),
-        not_added(view.project(), &post, renewed),
-        moved,
+        not_added(view.project(), &post, Some(change)),
+        change.moved(),
         host_only,
     );
     if !errors.is_empty() {

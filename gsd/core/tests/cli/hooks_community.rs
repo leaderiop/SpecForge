@@ -232,7 +232,7 @@ fn session_start_injects_the_progress_line() {
             "{host}: {text}"
         );
         assert!(
-            text.contains("phase 02 persistence: 1 plan(s), 0 summary(ies)"),
+            text.contains("phase 02 Persistence: 1 plan(s), 0 summary(ies)"),
             "{host}: {text}"
         );
         assert!(text.contains("Active workstream: ui"), "{host}: {text}");

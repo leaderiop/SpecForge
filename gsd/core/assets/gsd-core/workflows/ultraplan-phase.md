@@ -72,8 +72,11 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields; a phase not in the graph is an E003 error),
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `slug` is its field and its name its `title`; a phase not in the graph is an E003 error),
 and its milestone, its requirements and its `research` are among the other nodes; the project is an entity, so no path is read.
+
+In a phase's label, `{phase_number}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and
+`{phase_name}` is its `title`.
 
 **If `planning_exists` is false:** Error and exit:
 
@@ -88,7 +91,7 @@ No spec found. Initialize the project first:
 Display detected phase:
 
 ```text
-Phase {N}: {phase name}
+Phase {phase_number}: {phase_name}
 ```
 
 </step>
@@ -175,7 +178,7 @@ When ◆ ultraplan ready appears in your terminal:
 /gsd:import will run conflict detection, convert to GSD format,
 validate via plan-checker, record the phase's plans, and commit.
 
-### Launching ultraplan for Phase {N}: {phase_name}...
+### Launching ultraplan for Phase {phase_number}: {phase_name}...
 ```
 
 </step>

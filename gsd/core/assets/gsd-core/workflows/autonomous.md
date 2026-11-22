@@ -170,7 +170,8 @@ Exit cleanly.
 
 Exit cleanly.
 
-**Display phase plan:**
+**Display phase plan** (the Phase column is each phase's `title`, from the details fetched below, never the report's
+`name`, which is the phase's slug read as words):
 
 ```
 ## Phase Plan
@@ -191,7 +192,9 @@ Exit cleanly.
 DETAIL=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 0 --format json)
 ```
 
-Extract `phase_name`, `goal`, `success_criteria` from each. Store for use in execute_phase and transition messages.
+From each node: `PHASE_NAME` (`phase_name`) is its `title`, `goal` and `success_criteria` are its fields of those
+names, and `PHASE_NUM` is the last segment of its `id`, so a phase's label reads "Phase ${PHASE_NUM}: ${PHASE_NAME}".
+Store them for use in execute_phase and transition messages.
 
 </step>
 
@@ -202,10 +205,10 @@ Extract `phase_name`, `goal`, `success_criteria` from each. Store for use in exe
 For the current phase, display the progress banner:
 
 ```
-### GSD ► AUTONOMOUS ▸ Phase {N}/{T}: {Name} [████░░░░] {P}%
+### GSD ► AUTONOMOUS ▸ Phase ${PHASE_NUM}/{T}: ${PHASE_NAME} [████░░░░] {P}%
 ```
 
-Where N is the ROADMAP phase number, T is the milestone `phase_count`, and P = completed milestone phases / T × 100. Use `phase_count`, not remaining phases: phase 63 in a 7-phase milestone is `Phase 63/7`, not `Phase 63/3`. If N > T, render "Phase {N} ({position}/{T})". Use an 8-character bar with █ and ░.
+Where `${PHASE_NUM}` is the phase number, T is the milestone `phase_count`, and P = completed milestone phases / T × 100. Use `phase_count`, not remaining phases: phase 63 in a 7-phase milestone is `Phase 63/7`, not `Phase 63/3`. If `${PHASE_NUM}` > T, render "Phase ${PHASE_NUM} ({position}/{T})", where `{position}` is its place among the milestone's phases. Use an 8-character bar with █ and ░.
 
 **3a. Smart Discuss**
 
@@ -244,7 +247,7 @@ Record a minimal phase context so downstream plan-phase has valid input. Get pha
 DETAIL=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 0 --format json)
 ```
 
-Read `gsd-core/workflows/autonomous/templates/minimal-context.md` and write it as the phase's `context` entity (`specforge new context ${padded_phase}-CONTEXT "{Phase Name}" --in spec/context.spec --phase "$MILESTONE/${PHASE_NUM}" --gathered {date} --boundary "{goal}" --canonical_refs '[{"topic":"No external specs: the roadmap phase goal and success criteria","paths":[]}]'`; the entity is refused without `canonical_refs`), filling its placeholders (`{PHASE_NUM}`, `{Phase Name}`, `{date}`, the goal) from the roadmap phase.
+Read `gsd-core/workflows/autonomous/templates/minimal-context.md` and write it as the phase's `context` entity (`specforge new context ${padded_phase}-CONTEXT "{Phase Name}" --in spec/context.spec --phase "$MILESTONE/${PHASE_NUM}" --gathered {date} --boundary "{goal}" --canonical_refs '[{"topic":"No external specs: the roadmap phase goal and success criteria","paths":[]}]'`; the entity is refused without `canonical_refs`), filling its placeholders (`{PHASE_NUM}`, `{Phase Name}`, `{date}`, the goal) from the roadmap phase: `{Phase Name}` is its `title`, `PHASE_NAME`.
 
 Commit the minimal context:
 
@@ -706,16 +709,16 @@ Display final completion banner:
 
 When any phase operation fails or a blocker is detected, present 3 options via AskUserQuestion:
 
-**Prompt:** "Phase {N} ({Name}) encountered an issue: {description}"
+**Prompt:** "Phase ${PHASE_NUM} (${PHASE_NAME}) encountered an issue: {description}"
 
 **Options:**
 1. **"Fix and retry"** — Re-run the failed step (discuss, plan, or execute) for this phase
 2. **"Skip this phase"** — Mark phase as skipped, continue to the next incomplete phase
 3. **"Stop autonomous mode"** — Display summary of progress so far and exit cleanly
 
-**On "Fix and retry":** Loop back to the failed step within execute_phase. Track the retry count per phase + step (`RETRY_COUNT`, kept in memory for the run). If the same step fails again after retry, re-present these options. **Retry ceiling (#3210):** once the same phase step has failed 3 "Fix and retry" attempts, do NOT re-present the options — escalate to a terminal `needs_human` halt: display "Phase {N} ⛔ {Name} — needs_human", list the unmet items (the blocker description from each attempt), raise it as a blocker (`specforge gsd raise-blocker "needs_human: resolve blocker, then /gsd:autonomous --from ${PHASE_NUM}" --phase "$MILESTONE/${PHASE_NUM}" || exit 1`), and stop autonomous mode with the standard stopped-summary banner. A blocker that survives 3 fix attempts is an operator gate, not an executable gap.
+**On "Fix and retry":** Loop back to the failed step within execute_phase. Track the retry count per phase + step (`RETRY_COUNT`, kept in memory for the run). If the same step fails again after retry, re-present these options. **Retry ceiling (#3210):** once the same phase step has failed 3 "Fix and retry" attempts, do NOT re-present the options — escalate to a terminal `needs_human` halt: display "Phase ${PHASE_NUM} ⛔ ${PHASE_NAME} — needs_human", list the unmet items (the blocker description from each attempt), raise it as a blocker (`specforge gsd raise-blocker "needs_human: resolve blocker, then /gsd:autonomous --from ${PHASE_NUM}" --phase "$MILESTONE/${PHASE_NUM}" || exit 1`), and stop autonomous mode with the standard stopped-summary banner. A blocker that survives 3 fix attempts is an operator gate, not an executable gap.
 
-**On "Skip this phase":** Log "Phase {N} ⏭ {Name} — Skipped by user" and proceed to iterate.
+**On "Skip this phase":** Log "Phase ${PHASE_NUM} ⏭ ${PHASE_NAME} — Skipped by user" and proceed to iterate.
 
 **On "Stop autonomous mode":** Display progress summary:
 

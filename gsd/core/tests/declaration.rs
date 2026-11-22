@@ -162,7 +162,7 @@ fn the_code_book_matches_rules_md() {
         from_book, from_md,
         "the code book and rules.md list different codes"
     );
-    assert_eq!(book.len(), 72);
+    assert_eq!(book.len(), 73);
     for row in &rows {
         let code = book
             .iter()
@@ -196,6 +196,44 @@ fn the_code_book_matches_rules_md() {
             *code.severity.letter().to_string(),
             "{}: a code's letter is its severity",
             row.code
+        );
+    }
+}
+
+/// ADR 0385: the codes the book declares settled later are the rows of rules.md's Settled later table, and each says so
+/// in its explanation.
+#[test]
+fn the_settled_later_codes_are_the_rows_of_rules_md() {
+    let table = gsd_kit::markdown::tables(include_str!("../spec/rules.md"))
+        .into_iter()
+        .find(|t| t.heading == "Settled later")
+        .expect("rules.md has a Settled later table");
+    let from_md: Vec<&str> = table
+        .rows
+        .iter()
+        .filter_map(|cells| cells.first()?.strip_prefix("gsd/"))
+        .collect();
+    let from_book: Vec<&str> = gsd_core::codes::CODES
+        .iter()
+        .filter(|c| c.settled_later)
+        .map(|c| c.id)
+        .collect();
+    assert_eq!(from_book, ["W204", "E301", "W309", "E310"]);
+    assert_eq!(from_md, ["W204", "E301", "E310", "W309"]);
+    let codes = describe("codes");
+    for item in codes["items"].as_array().expect("the code items") {
+        let id = item["code"].as_str().expect("a code");
+        let settled = from_book.contains(&id);
+        assert_eq!(
+            item["settled_later"].as_bool().unwrap_or(false),
+            settled,
+            "{id}: {item}"
+        );
+        let explanation = item["explanation"].as_str().expect("an explanation");
+        assert_eq!(
+            explanation.contains("A later step of the authoring settles it"),
+            settled,
+            "{id}: {explanation}"
         );
     }
 }

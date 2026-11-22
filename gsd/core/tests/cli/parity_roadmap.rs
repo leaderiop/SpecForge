@@ -141,7 +141,7 @@ fn taskboard_roadmap_matches_gsd_tools() {
                     .expect("an id")
                     .trim_start_matches("v1.0/")
                     .to_string(),
-                &n["fields"],
+                n,
             )
         })
         .collect();
@@ -160,9 +160,10 @@ fn taskboard_roadmap_matches_gsd_tools() {
     }
     for gsd in gsd_phases {
         let number = padded(gsd["number"].as_str().expect("a number"));
-        let Some(fields) = twin.get(&number) else {
+        let Some(node) = twin.get(&number) else {
             continue;
         };
+        let fields = &node["fields"];
         let mut compare = |what: &str, gsd_value: String, twin_value: String| {
             if gsd_value != twin_value {
                 mismatches.push(format!(
@@ -170,10 +171,11 @@ fn taskboard_roadmap_matches_gsd_tools() {
                 ));
             }
         };
+        // GSD's heading name is the phase's title (ADR 0387).
         compare(
             "name",
             gsd["name"].as_str().unwrap_or_default().into(),
-            fields["name"].as_str().unwrap_or_default().into(),
+            node["title"].as_str().unwrap_or_default().into(),
         );
         compare(
             "goal",

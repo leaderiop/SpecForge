@@ -52,16 +52,16 @@
     "",
     "Read from the answer (what `progress-report` prints): `milestone_version`, `milestone_name`, `phases` (each `number`, `name`, `plans`, `summaries`, `status`), `total_plans`, `total_summaries`, `percent` and `phase_scope`. `phase_count` is the length of `phases` and `completed_count` counts those with status `Complete`; the current phase is the first that is not, and the next phase the one after it; `roadmap_exists` is `phases` non-empty and `state_exists` is `milestone_version` non-null (the project state is computed, so no path is read); a pause is a `pause` entity, and a phase's mode its `mode` field.",
     "",
+    "In a phase's label, `{phase}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{Name}`",
+    "is its `title`. The number is the `number` `progress-report` prints for it; its `name` is the phase's slug read as",
+    "words, so a label reads the title from the phase node (`specforge query \"$MILESTONE\" --kinds phase --depth 1`). `{Z}` is",
+    "the number of the phase just completed, and `{Z+1}` the next one's.",
+    "",
     "```bash",
     "DISCUSS_MODE=\"discuss\"   # workflow.discuss_mode (the settings)",
-    "```",
-    "",
-    "**If `init_incomplete` is true (#4040 — interrupted bootstrap):**",
-    "",
-    "the spec exists but the core initialization entities are missing (one or more of the requirement, milestone and phase entities were never created — a bootstrap that stopped partway, e.g. after the `project` entity). This is NOT a new project, NOT a missing project state, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:",
-    ""
+    "```"
   ],
-  "bytes": 69971,
+  "bytes": 70732,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 1656,
+  "lines": 1666,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:d903a24dc52e6657bf7442d198d61b5e76d92a4ed73af89ccd047ed8a3799c4b",
+    "digest": "sha256:689ea98969eb13af9f99cbdcade8356f300f68d992c531ef4d277bfdbff1a665",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "d903a24dc52e6657bf7442d198d61b5e76d92a4ed73af89ccd047ed8a3799c4b"
+  "sha256": "689ea98969eb13af9f99cbdcade8356f300f68d992c531ef4d277bfdbff1a665"
 }

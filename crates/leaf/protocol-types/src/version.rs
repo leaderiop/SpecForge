@@ -79,6 +79,11 @@
 ///   its content digests before and after, an added node its digest after, a removed node only its kind and id. The
 ///   edges added and removed are those with an end of a named kind. The full content stays in `entities`; a pass
 ///   that declares no `delta` input is sent no `delta`.
+/// - a `codes` entry may declare `settled_later` (ADR 0385): a typed edit whose plan creates a finding's subject, or
+///   an entity under it, and alters nothing held there adds no error by a finding of that code (E080); its severity
+///   does not change.
+/// - a pass entity carries `title` ([`PassEntity::title`](crate::PassEntity::title), ADR 0387), the title its header
+///   writes, as a command's graph node does; absent for a fact written without one.
 ///
 /// A 2.2.0 guest still loads; a 2.3.0 guest is refused by a 2.2 host (E088, newer).
 ///

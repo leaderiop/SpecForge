@@ -3,6 +3,8 @@
 
 > Per-phase security contract: threat register, accepted risks, and audit trail.
 
+In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
+
 A phase's security audit is entities: its `security_audit` (`<phase>/NN-SECURITY`), the `trust_boundary` and `threat`
 entities of its plans, one `accepted_risk` per accepted risk and one `audit_run` per audit that changed the counts.
 `specforge schema --kind security_audit` (likewise `trust_boundary`, `threat`, `accepted_risk` and `audit_run`) lists

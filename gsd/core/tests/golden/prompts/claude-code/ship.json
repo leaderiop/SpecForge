@@ -51,17 +51,17 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
     "",
-    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error).",
+    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; its name is its `title`; a phase not in the graph is an E003 error).",
+    "",
+    "In a phase's label, `{phase_number}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and",
+    "`{phase_name}` is its `title`.",
     "",
     "Also load config for branching strategy:",
     "```bash",
     "CONFIG=$(specforge settings)",
-    "```",
-    "",
-    "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
-    ""
+    "```"
   ],
-  "bytes": 45977,
+  "bytes": 46164,
   "end": [
     "Branch: {branch} → ${BASE_BRANCH}",
     "Commits: {count}",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 813,
+  "lines": 816,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b4accc599f5cc0d10e924c7c49d8bbcc4de9fd53c7feb56b82d661ad619de806",
+    "digest": "sha256:5e858ad3d0134ae77b83de21ae661a1fbc97d595a3534ae9402a05164ef8dbab",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "b4accc599f5cc0d10e924c7c49d8bbcc4de9fd53c7feb56b82d661ad619de806"
+  "sha256": "5e858ad3d0134ae77b83de21ae661a1fbc97d595a3534ae9402a05164ef8dbab"
 }

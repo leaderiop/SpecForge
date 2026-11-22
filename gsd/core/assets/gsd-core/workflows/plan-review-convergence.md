@@ -125,7 +125,10 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error), and its `plan` entities are among the other nodes (`plan_count` is their number; `has_plans` is whether there is one). `workflow.text_mode` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; its name is its `title`; a phase not in the graph is an E003 error), and its `plan` entities are among the other nodes (`plan_count` is their number; `has_plans` is whether there is one). `workflow.text_mode` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`.
+
+In a phase's label, `{phase_number}` and `{PHASE}` are the phase's number, the last segment of its `id` (`v1.0/03` gives
+`03`).
 
 **If `response_language` is set:** All user-facing output — narration between tool calls, status updates, progress notes, findings, questions, and report prose — should be in `{response_language}`.
 

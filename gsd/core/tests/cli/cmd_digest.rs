@@ -1,5 +1,6 @@
 //! `record_research`, `record_spec` and `record_validation`: the host records, in the entity's `context_pack`, the pack
-//! of `gsd/phase-context` (a quick research: `gsd/quick-context`) with its digest and budget (ADR 0356).
+//! of `gsd/phase-context` (a quick research: `gsd/quick-context`) with its digest, and the cap its read stated when it
+//! stated one (ADR 0356, ADR 0386).
 
 use super::commands_support::*;
 use super::harness::{Project, project};
@@ -81,12 +82,48 @@ fn the_recorded_digest_is_what_specforge_context_prints() {
         let record = &p.fields_of(entity)["context_pack"];
         assert_eq!(record["route"], "gsd/phase-context", "{kind}: {record}");
         assert_eq!(record["digest"], printed["digest"], "{kind}: {record}");
-        assert_eq!(record["max_tokens"], 50000, "{kind}: {record}");
+        // A read that states no cap records none: the route is all core, read again whole (ADR 0386).
+        assert!(record.get("max_tokens").is_none(), "{kind}: {record}");
     }
     assert!(
         !p.codes().contains(&"gsd/W406".to_string()),
         "{:?}",
         p.codes()
+    );
+}
+
+/// Two plans of phase 02 in a strict wave: the phase gains computed fields (its critical path) that its pack shows
+/// and no digest reads.
+const PLANS: &str = "plan 02-01 \"Store file\" {\n  phase v1.0/02\n  type execute\n  objective \"Save the board\"\n}\n\n\
+                     plan 02-02 \"Load on start\" {\n  phase v1.0/02\n  type execute\n  depends_on [02-01]\n  \
+                     objective \"Load the board\"\n}\n";
+
+#[test]
+fn a_record_read_with_no_cap_stays_fresh_while_its_phase_grows_what_no_digest_reads() {
+    let p = project("discuss");
+    let before = pack(&p, "gsd/phase-context", "v1.0/02");
+    for (command, entity) in [
+        ("record-research", RESEARCH),
+        ("record-spec", "v1.0/02/02-SPEC"),
+    ] {
+        let run = gsd(&p, command, &[entity]);
+        assert_eq!(run.code, 0, "{command}: {}", run.all());
+    }
+    plant(&p, "spec/plans.spec", PLANS);
+    let after = pack(&p, "gsd/phase-context", "v1.0/02");
+    // The phase's pack costs more and no digest it covers moved: nothing the records read has changed.
+    assert_eq!(after["digest"], before["digest"]);
+    let cost = |pack: &serde_json::Value| pack["budget"]["estimated_tokens"].as_u64();
+    assert!(
+        cost(&after) > cost(&before),
+        "before {}, after {}",
+        before["budget"],
+        after["budget"]
+    );
+    assert!(
+        !p.codes().contains(&"gsd/W406".to_string()),
+        "{:?}",
+        p.report()
     );
 }
 

@@ -61,7 +61,7 @@
     "specforge settings --format json --extension @gsd/core",
     "```"
   ],
-  "bytes": 103648,
+  "bytes": 102382,
   "end": [
     "- [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)",
     "- [ ] Config merge preserves all keys outside the three sections this workflow owns",
@@ -98,7 +98,7 @@
     "",
     "- A key another extension declares (`workflow.ui_*`, `workflow.code_review*`, `security_*`) is refused while that extension is not installed. Once it is, set it with its name: `specforge settings set @gsd/ui workflow.ui_phase false`.",
     "- A search key (`brave_search`, `firecrawl`, `exa_search` and the others) is a secret: it is an environment variable, and `settings set` never writes it. `brave_search true|false` only forces the source on or off.",
-    "- `commit_docs`, `search_gitignored` and `graphify.*` are not settings here: the spec is source and is committed like code. Skip their questions.",
+    "- `commit_docs` and `search_gitignored` are not settings here: the spec is source and is committed like code.",
     "",
     "## The profile",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 2097,
+  "lines": 2069,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:cc1249587410223bfcd9dced7887ed571a85769f035948d6d84a66f229cda7c1",
+    "digest": "sha256:c48d92a253fc8bbf20a79101010affc4a331f15b83b7d7dd97ba105989e70e44",
     "prompt": "@gsd/core@VERSION:config"
   },
-  "sha256": "cc1249587410223bfcd9dced7887ed571a85769f035948d6d84a66f229cda7c1"
+  "sha256": "c48d92a253fc8bbf20a79101010affc4a331f15b83b7d7dd97ba105989e70e44"
 }

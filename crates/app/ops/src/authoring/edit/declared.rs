@@ -3,6 +3,7 @@
 //! changes (ADR 0186).
 
 use super::Edit;
+use crate::authoring::planned::at_or_under;
 use specforge_graph::{GraphDelta, NodeAspect};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -15,6 +16,13 @@ pub(crate) struct Declared {
     /// The files a rename of the plan rewrites: it changes the graph by a substitution only (ADR 0198), so every
     /// entity of these files may read differently afterwards.
     renamed: BTreeSet<String>,
+    /// The entities a create names, each at the id it has once the later moves are made, less those a later delete
+    /// removes: what the edits create (ADR 0385).
+    created: BTreeSet<String>,
+    /// The entities the project held that the edits change: a field or an aspect set, a delete, either id of a move,
+    /// each at the id it has once the later moves are made. An edit of an entity the edits create is not one. A
+    /// settled-later finding at or above one may be the write's own doing, so it is counted (ADR 0385).
+    altered: BTreeSet<String>,
 }
 
 #[derive(Debug, Default)]
@@ -39,16 +47,62 @@ impl Declared {
             Edit::AddVerify { .. } | Edit::RemoveVerify { .. } => {
                 self.aspect(path, NodeAspect::Obligations);
             }
-            Edit::Create { .. } | Edit::Delete { .. } => {
+            Edit::Create { .. } => {
                 self.whole.insert(path.to_string());
+                self.created.insert(path.to_string());
+            }
+            Edit::Delete { .. } => {
+                self.whole.insert(path.to_string());
+                self.alter(path);
+                let under = format!("{path}/");
+                self.created
+                    .retain(|id| id != path && !id.starts_with(&under));
             }
         }
     }
 
-    /// The entity at `old` is now at `new` (a move, ADR 0284): both ids are declared whole.
+    /// The entity at `old` is now at `new` (a move, ADR 0284): both ids are declared whole, and an entity the edits
+    /// created at or under `old` is created at its new id.
     pub(crate) fn moved(&mut self, old: &str, new: &str) {
         self.whole.insert(old.to_string());
         self.whole.insert(new.to_string());
+        let held = !self.creates(old);
+        let moves = [(old.to_string(), new.to_string())];
+        let relocate = |ids: &mut BTreeSet<String>| {
+            *ids = std::mem::take(ids)
+                .into_iter()
+                .map(|id| super::steps::relocated(&id, &moves))
+                .collect();
+        };
+        relocate(&mut self.created);
+        relocate(&mut self.altered);
+        // A held entity moved changes what both its old scope and its new one hold.
+        if held {
+            self.altered.insert(old.to_string());
+            self.altered.insert(new.to_string());
+        }
+    }
+
+    /// Whether the edits create `id` or an entity it is under.
+    fn creates(&self, id: &str) -> bool {
+        self.created.iter().any(|created| at_or_under(id, created))
+    }
+
+    /// The edits change the entity at `id`: one the project held, unless the edits create it.
+    fn alter(&mut self, id: &str) {
+        if !self.creates(id) {
+            self.altered.insert(id.to_string());
+        }
+    }
+
+    /// The entities the edits create, at their ids once every move is made (ADR 0385).
+    pub(crate) fn created(&self) -> impl Iterator<Item = &String> {
+        self.created.iter()
+    }
+
+    /// The entities the project held that the edits change, at their ids once every move is made (ADR 0385).
+    pub(crate) fn altered(&self) -> impl Iterator<Item = &String> {
+        self.altered.iter()
     }
 
     /// The entities a create, a delete or a move names, at either id of a move.
@@ -63,6 +117,7 @@ impl Declared {
 
     /// `field` of `id` may change (also a delete's referrer, ADR 0163).
     pub(crate) fn field(&mut self, id: &str, field: &str) {
+        self.alter(id);
         self.changes
             .entry(id.to_string())
             .or_default()
@@ -71,6 +126,7 @@ impl Declared {
     }
 
     pub(crate) fn aspect(&mut self, id: &str, aspect: NodeAspect) {
+        self.alter(id);
         self.changes
             .entry(id.to_string())
             .or_default()

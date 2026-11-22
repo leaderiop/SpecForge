@@ -46,7 +46,10 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
     "",
-    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields).",
+    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `slug` is its field and its name its `title`).",
+    "",
+    "In a phase's label, `{N}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{name}` is",
+    "its `title`.",
     "",
     "```bash",
     "AUDITOR_MODEL=\"\"   # resolve-model is not part of @gsd/core: the host picks the model",
@@ -56,12 +59,9 @@
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"validate-phase\"`.",
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via /gsd-settings.\"",
-    "",
-    "Display banner: `GSD > VALIDATE PHASE {N}: {name}`",
-    "",
-    "## 1. Detect Input State"
+    ""
   ],
-  "bytes": 20438,
+  "bytes": 20601,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 429,
+  "lines": 432,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:375c1b9d5223bc3b21fb73dcd4d668233873adfc2845d6be1e091e406b12fd21",
+    "digest": "sha256:ae817d253d55f4403a52d1e98be2118a1344dc507fd66e908cca7ee450a6b30e",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "375c1b9d5223bc3b21fb73dcd4d668233873adfc2845d6be1e091e406b12fd21"
+  "sha256": "ae817d253d55f4403a52d1e98be2118a1344dc507fd66e908cca7ee450a6b30e"
 }

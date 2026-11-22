@@ -331,6 +331,29 @@ fn a_pass_entity_carries_pending_and_its_unheld_spans_and_omits_them_when_absent
     );
 }
 
+/// A pass entity carries the title its header writes (protocol 2.3.0, ADR 0387); a fact written without one, as a
+/// collector may send it, has no `title` key on the wire, never a `null`, and decodes as `None`.
+#[test]
+fn a_pass_entity_carries_its_title_and_a_fact_without_one_none() {
+    use specforge_protocol_types::PassEntity;
+
+    let titled = json!({
+        "id": "v1.0/03", "kind": "phase", "title": "Graph protocol", "fields": {}, "incoming_edge_count": 0,
+        "outgoing_edge_count": 0, "testable": false, "owes_none": false, "verify_kinds": [], "verify_texts": []
+    });
+    let entity: PassEntity = round_trips(&titled);
+    assert_eq!(entity.title.as_deref(), Some("Graph protocol"));
+
+    let fact = json!({
+        "id": "rust:core::lib", "kind": "item", "fields": {"name": "lib"}, "incoming_edge_count": 1,
+        "outgoing_edge_count": 0, "testable": false, "owes_none": true, "verify_kinds": [], "verify_texts": []
+    });
+    let entity: PassEntity = round_trips(&fact);
+    assert_eq!(entity.title, None);
+    let wire = serde_json::to_value(&entity).unwrap();
+    assert!(wire.get("title").is_none(), "{wire}");
+}
+
 /// A fact store's kinds by scheme and an unheld reference's collected kinds (ADR 0347 D9), each omitted when empty.
 #[test]
 fn a_fact_store_carries_its_held_kinds_and_an_unheld_reference_its_kinds() {

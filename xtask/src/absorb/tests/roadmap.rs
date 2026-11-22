@@ -2,14 +2,13 @@
 //! references written through the id map; a requirement no written phase lists is `v2` (ADR 0372 D3, D4, D7).
 
 use serde_json::{Value, json};
-use specforge_ops::authoring::edit::Input;
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::super::ledger::Why;
-use super::super::plan::Planned;
+use super::super::plan::{self, Planned};
 use super::super::read::OldEntity;
 use super::super::table;
-use super::{create, field, field_of, ledgered, many, old, one, paths, planned, stops};
+use super::{create, field, field_of, ledgered, many, old, one, path_of, paths, planned, stops};
 
 /// `e` written at `line` of `file`.
 fn at(mut e: OldEntity, file: &str, line: usize) -> OldEntity {
@@ -41,6 +40,20 @@ fn why_of(planned: &Planned, id: &str, field: &str) -> Vec<Why> {
         .filter(|(f, _)| f == field)
         .map(|(_, why)| why)
         .collect()
+}
+
+/// The title the create of `path` writes: a milestone's and a phase's one name (ADR 0387).
+fn title_of<'a>(planned: &'a Planned, path: &str) -> &'a str {
+    planned
+        .creates
+        .iter()
+        .find_map(|edit| match edit {
+            specforge_ops::authoring::edit::Edit::Create { title, .. } if path_of(edit) == path => {
+                Some(title.as_str())
+            }
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("no create of {path}"))
 }
 
 /// The dropped entries of `id`'s `field`: (value, reason), a text value as itself.
@@ -82,10 +95,14 @@ fn a_release_becomes_a_version_milestone_named_by_its_version() {
     assert_eq!(
         fields,
         &BTreeMap::from([
-            ("name".to_string(), one("The first")),
             ("goal".to_string(), one("Usable every day.")),
             ("delivered".to_string(), one("Entries are saved.")),
         ])
+    );
+    assert_eq!(
+        title_of(&planned, "v0.1.0"),
+        "The first",
+        "no field repeats the title"
     );
     let check = planned.checks.iter().find(|c| c.id == "first").unwrap();
     assert_eq!(
@@ -148,12 +165,35 @@ fn a_listed_milestone_becomes_a_phase_numbered_in_source_order_under_its_release
         ids.contains(&("milestone", "third", "v0.2.0/01")),
         "{ids:?}"
     );
-    let specforge_ops::authoring::edit::Edit::Create { id, .. } = &planned.creates[4] else {
-        panic!("a create")
+    let Some(specforge_ops::authoring::edit::Edit::Create { id, title, .. }) = planned
+        .creates
+        .iter()
+        .find(|edit| path_of(edit) == "v0.2.0/01")
+    else {
+        panic!("no create of v0.2.0/01")
     };
     assert_eq!(
         id, "01",
         "a name holds no `/`: the milestone field places it"
+    );
+    assert_eq!(
+        title, "Third Cut",
+        "a phase is titled by its name: GSD prints its number from its id"
+    );
+    assert_eq!(
+        ledgered(&planned, "third")
+            .into_iter()
+            .filter(|(f, _)| f == "title")
+            .collect::<Vec<_>>(),
+        [(
+            "title".to_string(),
+            Why::Dropped(plan::NUMBERED.to_string())
+        )],
+        "the old title's `Phase 3:` is not written: GSD's label prints the number from the id"
+    );
+    assert!(
+        why_of(&planned, "first", "title").is_empty(),
+        "a title with no `Phase N:` is written as itself"
     );
     let (kind, fields) = create(&planned, "v0.2.0/01");
     assert_eq!(kind, "phase");
@@ -161,7 +201,6 @@ fn a_listed_milestone_becomes_a_phase_numbered_in_source_order_under_its_release
         fields,
         &BTreeMap::from([
             ("milestone".to_string(), one("v0.2.0")),
-            ("name".to_string(), one("Third Cut")),
             ("slug".to_string(), one("third-cut")),
             ("goal".to_string(), one("The third cut")),
             ("success_criteria".to_string(), many(&["One", "Two"])),
@@ -175,9 +214,14 @@ fn a_listed_milestone_becomes_a_phase_numbered_in_source_order_under_its_release
         }]
     );
     assert_eq!(
+        title_of(&planned, "v0.1.0/01"),
+        "The first",
+        "a title with no `Phase N:` is written as itself"
+    );
+    assert_eq!(
         field(&planned, "v0.1.0/01", "name"),
-        Some(&one("The first")),
-        "a title with no `Phase N:` keeps its name"
+        None,
+        "no field repeats the title"
     );
 }
 
@@ -307,9 +351,104 @@ fn a_name_with_no_ascii_letter_fills_no_slug() {
     first.title = Some("第一段".to_string());
     let planned = planned(&[release("one", "0.1.0", &["first"]), first]);
     let fields = create(&planned, "v0.1.0/01").1;
-    assert_eq!(fields.get("name"), Some(&one("第一段")));
+    assert_eq!(title_of(&planned, "v0.1.0/01"), "第一段");
     assert!(!fields.contains_key("slug"), "{fields:?}");
     assert_eq!(why_of(&planned, "first", "slug"), []);
+}
+
+/// A phase's title drops every leading number `gsd/W109` flags (ADR 0387 D3), each ledgered `dropped`, so a converted
+/// project is never W109; a title that held only a number is filled with the old id, as a missing one is; a number
+/// inside a title, or one outside the label grammar, is kept.
+#[test]
+fn a_phase_title_drops_every_number_w109_flags() {
+    let cases = [
+        ("a", "Phase 2.1: Hotfix", "Hotfix", Some("Phase 2.1")),
+        ("b", "Phase 3 - Listing", "Listing", Some("Phase 3")),
+        ("c", "phase 4: Sharing", "Sharing", Some("phase 4")),
+        ("d", "PHASE 12A: Split", "Split", Some("PHASE 12A")),
+        ("e", "03: Core", "Core", Some("03")),
+        ("f", "3. Core", "Core", Some("3")),
+        ("g", "2) Search", "Search", Some("2")),
+        ("h", "04 - Export", "Export", Some("04")),
+        ("i", "Phase 5", "i", Some("Phase 5")),
+        ("j", "HTTP 2 support", "HTTP 2 support", None),
+        ("k", "3-way merge", "3-way merge", None),
+    ];
+    let mut old: Vec<OldEntity> = cases
+        .iter()
+        .enumerate()
+        .map(|(n, (id, title, _, _))| {
+            let mut e = milestone(id, 10 * (n + 1), json!({}));
+            e.title = Some((*title).to_string());
+            e
+        })
+        .collect();
+    let ids: Vec<&str> = cases.iter().map(|(id, ..)| *id).collect();
+    old.insert(0, release("one", "0.1.0", &ids));
+    let planned = planned(&old);
+    for (n, (id, written, title, number)) in cases.iter().enumerate() {
+        let path = format!("v0.1.0/{:02}", n + 1);
+        assert_eq!(title_of(&planned, &path), *title, "{written}");
+        let numbers: Vec<String> = dropped(&planned, id, "title")
+            .into_iter()
+            .map(|(value, reason)| {
+                assert_eq!(reason, plan::NUMBERED, "{written}");
+                value
+            })
+            .collect();
+        assert_eq!(
+            numbers,
+            number.map(String::from).into_iter().collect::<Vec<_>>(),
+            "{written}"
+        );
+    }
+    assert_eq!(
+        why_of(&planned, "i", "title"),
+        [
+            Why::Dropped(plan::NUMBERED.to_string()),
+            Why::Filled {
+                field: "phase.title".to_string(),
+                value: json!("i")
+            }
+        ],
+        "a title that held only a number is filled with the old id"
+    );
+}
+
+/// `how::numbered` and `how::slug` are copies of `@gsd/core`'s, which no crate outside `gsd/` may depend on: each
+/// function's text is the original's, so the converter drops exactly what `gsd/W109` flags and names a directory as
+/// `phase` does.
+#[test]
+fn the_copied_grammar_is_the_gsd_original() {
+    let read = |path: &str| {
+        std::fs::read_to_string(format!("{}/../{path}", env!("CARGO_MANIFEST_DIR")))
+            .unwrap_or_else(|e| panic!("{path}: {e}"))
+    };
+    // the text of `fn name` up to its closing brace at the start of a line, its visibility dropped
+    let body = |text: &str, name: &str| -> String {
+        let start = text
+            .find(&format!("fn {name}("))
+            .unwrap_or_else(|| panic!("no fn {name}"));
+        let end = start + text[start..].find("\n}\n").expect("a closing brace");
+        text[start..end].to_string()
+    };
+    let how = read("xtask/src/absorb/how.rs");
+    for (path, names) in [
+        (
+            "gsd/core/src/passes/roadmap/titles.rs",
+            &["numbered", "worded", "bare", "grammar"][..],
+        ),
+        ("gsd/core/src/branch.rs", &["slug"][..]),
+    ] {
+        let original = read(path);
+        for name in names {
+            assert_eq!(
+                body(&how, name),
+                body(&original, name),
+                "{name} drifted from {path}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -562,10 +701,7 @@ fn a_milestone_two_releases_list_stops_the_run_naming_both() {
 fn a_release_version_is_the_milestone_id_as_written() {
     let planned = planned(&[old("release", "odd", json!({"version": "1.0 beta"}))]);
     assert_eq!(paths(&planned), ["v1.0 beta"]);
-    assert!(matches!(
-        field(&planned, "v1.0 beta", "name"),
-        Some(Input::One(_))
-    ));
+    assert_eq!(title_of(&planned, "v1.0 beta"), "The odd");
 }
 
 /// A scheme reference in a written list cannot be written (bare, it names a `ref`, which a typed edit cannot create):

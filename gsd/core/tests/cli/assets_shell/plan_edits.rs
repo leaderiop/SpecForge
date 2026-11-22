@@ -220,34 +220,18 @@ fn a_review_is_recorded_with_its_concerns() {
     assert_eq!(subject.trim(), "docs(review): record the review of v1.0/02");
 }
 
-/// The researcher records the phase's research and its items as typed edits, and plan-phase records the pack the
-/// research read when the researcher returns.
+/// The researcher records the phase's research and its items as typed edits, its open question open, and plan-phase
+/// records the pack the research read when the researcher returns.
 #[test]
 fn the_research_fence_records_the_phase_research() {
     let sh = Shell::only(&[]);
     let p = taskboard();
-    let text = asset("agents/gsd-phase-researcher.md");
-    let fence = typed::filled(
-        &typed::typed_fence(&text, "1. **Create the entity first**"),
-        &[
-            ("PHASE_ID", "v1.0/03"),
-            ("RESEARCH", "03-RESEARCH"),
-            ("TITLE", "Listing research"),
-            ("CONFIDENCE", "high"),
-            ("SUMMARY", "Filter in memory; the board is small"),
-            ("FINDING", "The board fits in memory"),
-            ("PITFALL", "Case-sensitive filters"),
-            ("GOES_WRONG", "A filter misses a title in another case"),
-            ("WHY", "String includes is case-sensitive"),
-            ("AVOID", "Lower-case both sides"),
-            ("PATTERN", "Filter then sort"),
-            ("WHAT", "Filter the open tasks, then sort them by id"),
-        ],
-    );
+    let fence = super::researchers::research_fence("v1.0/03");
     let run = typed::apply(&sh, &p, &fence);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
-    assert!(run.added.is_empty(), "{:?}", run.added);
-    for id in ["", "/F1", "/PF1", "/P1"] {
+    // The open question is recorded open: gsd/W204 until the user's answer resolves it.
+    assert_eq!(run.added, ["gsd/W204"]);
+    for id in ["", "/F1", "/PF1", "/P1", "/Q1"] {
         let id = format!("v1.0/03/03-RESEARCH{id}");
         assert!(p.fields_of(&id).is_object(), "{id} is missing");
     }

@@ -61,7 +61,7 @@
     "  test -f \"{MANIFEST_PATH}\" || echo \"MANIFEST_NOT_FOUND\"",
     "fi"
   ],
-  "bytes": 44141,
+  "bytes": 44380,
   "end": [
     "1. **Its own check list per bucket** — which conditions are BLOCKER vs WARNING vs INFO. These are domain-specific (plan ingestion checks are not doc ingestion checks).",
     "2. **The loaded context** — what it reads (ROADMAP.md, PROJECT.md, REQUIREMENTS.md, CONTEXT.md, intel files) before running checks.",
@@ -186,7 +186,7 @@
     "  \"features.global_learnings\": false,",
     "  \"features.thinking_partner\": false,"
   ],
-  "lines": 1003,
+  "lines": 1007,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:81626dfc3553e95ab510216ca692bf4ad61749d0244fe9258f6d3a8c534bbd1c",
+    "digest": "sha256:415ad9e66e2526f3a1164f73ead9f14dc15d3f447c71050be6309fd064170e62",
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "81626dfc3553e95ab510216ca692bf4ad61749d0244fe9258f6d3a8c534bbd1c"
+  "sha256": "415ad9e66e2526f3a1164f73ead9f14dc15d3f447c71050be6309fd064170e62"
 }

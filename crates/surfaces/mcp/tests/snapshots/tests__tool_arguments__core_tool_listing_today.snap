@@ -2046,7 +2046,7 @@ expression: listing
   },
   {
     "name": "specforge.context",
-    "description": "Read the context a route declares for one entity: its sections in declared order under a token budget, with a digest",
+    "description": "Read the context a route declares for one entity: its core sections whole, then its enrich sections in declared order within the route's allowance, with a digest",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -2062,7 +2062,7 @@ expression: listing
           "type": "string"
         },
         "max_tokens": {
-          "description": "The token budget (default: the route's own); the subject and the core sections are never cut",
+          "description": "A cap on the whole pack, refused below the subject and the core sections; without one they are served whole and enrich sections fill the route's allowance",
           "minimum": 0,
           "type": "integer"
         },

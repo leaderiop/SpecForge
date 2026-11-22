@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 42889,
+  "bytes": 42844,
   "end": [
     "SUMMARY_COUNT=$(specforge gsd progress-report --phase \"$PHASE_ID\" --pick '.phases[0].summaries')",
     "```",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 703,
+  "lines": 705,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f4e5bf0400cd359db24f86d33154a7c881bc3fc4b14feca935f1c52b32a58e19",
+    "digest": "sha256:5e5688a78f3d1deab68fd06c3438c895bb12432afc56aa15ccafeb6a6a31e1f0",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "f4e5bf0400cd359db24f86d33154a7c881bc3fc4b14feca935f1c52b32a58e19"
+  "sha256": "5e5688a78f3d1deab68fd06c3438c895bb12432afc56aa15ccafeb6a6a31e1f0"
 }

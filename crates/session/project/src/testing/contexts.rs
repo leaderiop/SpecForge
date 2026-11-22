@@ -308,8 +308,7 @@ pub fn declare_gsd_contexts(c: &mut ContributionsBuilder) {
     c.context("plan-checker", |r| {
         r.subject("plan")
             .description("What the plan checker reads of a plan")
-            .agent("gsd-plan-checker")
-            .budget(8000);
+            .agent("gsd-plan-checker");
         for (name, selector) in PLAN_CHECK_INPUTS {
             r.core(name, selector);
         }
@@ -329,8 +328,9 @@ pub fn gsd_context_runtime() -> InProcessRuntime {
 }
 
 /// `project` (a [`gsd_context_project`] or one made from it) whose plan [`CONTEXT_PLAN`] holds the context record
-/// `record` (the block as written, `{ route "gsd/executor" digest "sha256:…" max_tokens 6000 }`), with its ledger line,
-/// as the host's record of the route leaves it. The ledger line is digested over the value `runtime` compiles.
+/// `record` (the block as written, `{ route "gsd/executor" digest "sha256:…" max_tokens 6000 }`, the cap optional),
+/// with its ledger line, as the host's record of the route leaves it. The ledger line is digested over the value
+/// `runtime` compiles.
 pub fn recording(project: TestProject, record: &str, runtime: crate::SharedRuntime) -> TestProject {
     let plan = "plan 02-01 \"Save and load tasks.json\" {\n";
     project.write(

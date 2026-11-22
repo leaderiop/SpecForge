@@ -405,7 +405,7 @@ fn an_ambiguous_subject_names_each_entity() {
     let p = project("discuss");
     p.write(
         "spec/n.spec",
-        "milestone v1.1 \"N\" {\n  name \"N\"\n}\n\nphase 02 \"P02\" {\n  milestone v1.1\n  name \"P02\"\n  slug \"p02\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n\nphase_spec 02-SPEC \"Other spec\" {\n  phase   v1.1/02\n  created 2026-10-28\n  goal    \"g\"\n}\n",
+        "milestone v1.1 \"N\" {\n}\n\nphase 02 \"P02\" {\n  milestone v1.1\n  slug \"p02\"\n  goal \"g\"\n  success_criteria [\"a\"]\n}\n\nphase_spec 02-SPEC \"Other spec\" {\n  phase   v1.1/02\n  created 2026-10-28\n  goal    \"g\"\n}\n",
     );
     for (subject, needle) in [
         (

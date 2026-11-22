@@ -32,6 +32,10 @@ INIT=$(specforge gsd progress-report --format json)
 
 Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints). The routing facts below are not in it, they come from the graph: `state_exists` is `milestone_version` non-null (the project state is computed); `roadmap_exists` is `phases` non-empty; `project_exists` and `planning_exists` are `[ -n "$(specforge export --kinds project --pick '.nodes[].id')" ]`; `requirements_exists` is the same with `--kinds requirement`; `init_incomplete` is a project without a roadmap or without requirements; `has_interrupted_agent` is false (this extension keeps no agent registry).
 
+In a phase's label, `[X]` and `[N]` are the phase's number, the last segment of its `id`, and `[Name]` and `[Phase name]`
+are its `title`, read from its node (`specforge query "$MILESTONE/${N}" --depth 0 --pick '.nodes[0].title'`, `N` its
+number): a phase's `name` in `phases` is its slug read as words, never a label's name.
+
 **If `init_incomplete` is true (#4040 — interrupted bootstrap):** the spec exists but initialization never finished — the `requirement` entities, the `milestone` and `phase` entities or the project were never created. This is NOT a state-reconstruction case (the project state is computed). Route to initialization recovery: resume `/gsd:new-project`, which continues from the first missing entity and keeps the existing `project` entity and any already-created ones. Do not proceed to load_state.
 
 **If `state_exists` is true:** Proceed to load_state

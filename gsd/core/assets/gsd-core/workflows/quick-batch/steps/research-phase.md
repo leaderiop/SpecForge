@@ -91,9 +91,9 @@ researcher does not produce research `${quick_id}-RESEARCH`, warn but
 continue — mirrors `/gsd:quick`'s own tolerant fallback (research is
 advisory input to planning, never a hard gate).
 When an item's researcher returns `### Open Questions` (questions the
-profile refused to record, gsd/W204: no decision resolves them yet), report
-them and pass them to that item's planner prompt (its **Open questions the
-research returned:**). The user answers them after the planner returns.
+research recorded open, gsd/W204: no decision resolves them yet), report
+them and pass their ids to that item's planner prompt (its **Open questions
+the research returned:**). The user answers them after the planner returns.
 
 Continue to Step 4 once every item has either a RESEARCH.md or a logged
 warning.

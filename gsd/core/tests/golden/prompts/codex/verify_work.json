@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 71489,
+  "bytes": 71625,
   "end": [
     "</section_rules>",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 1267,
+  "lines": 1270,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c9010ccc8e61e01ac854a1e301d6c36d2d0df186c25986a2ea16051aa3901e18",
+    "digest": "sha256:be08d1606600cacac4ac171e40f491c19fb78d801c5ffd0087cd6c0d9edf2c10",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "c9010ccc8e61e01ac854a1e301d6c36d2d0df186c25986a2ea16051aa3901e18"
+  "sha256": "be08d1606600cacac4ac171e40f491c19fb78d801c5ffd0087cd6c0d9edf2c10"
 }

@@ -52,12 +52,14 @@ impl ContextBuilder {
         self.0.agent = Some(agent.to_string());
         self
     }
-    /// The token budget a read takes when it names none.
+    /// The enrich allowance: the tokens of enrich sections a read that states no cap serves beyond the core sections,
+    /// which are served whole whatever they cost. Positive for a route with an enrich section; a route of core
+    /// sections only declares none (E123 otherwise, ADR 0386 D4).
     pub fn budget(&mut self, tokens: u32) -> &mut Self {
         self.0.budget = tokens;
         self
     }
-    /// A section a budget never cuts: the entities, files or tests `selector` picks from the subject.
+    /// A section always served whole: the entities, files or tests `selector` picks from the subject.
     pub fn core(&mut self, name: &str, selector: &str) -> &mut Self {
         self.section(name, selector, ContextTier::Core)
     }

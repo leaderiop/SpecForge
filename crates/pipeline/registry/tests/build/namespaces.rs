@@ -93,3 +93,24 @@ fn a_malformed_code_entry_is_e030() {
         "Twice"
     );
 }
+
+/// A code a later step of the authoring settles (ADR 0385 D1): a bool, so no word of it is E030, and the code book
+/// keeps it on the owner's entry.
+#[spec(requirement = "FEATURE-028")]
+fn a_settled_later_code_reaches_the_code_book_and_no_e030() {
+    let plans = declare("@acme/plans", |c| {
+        c.code("E301", |d| {
+            d.title("Requirement in no plan")
+                .explanation("Plan it.")
+                .settled_later();
+        });
+        c.code("E302", |d| {
+            d.title("Plan without a task").explanation("Add one.");
+        });
+    });
+    let build = build([plans]);
+    assert!(coded(&build, "E030").is_empty(), "{:?}", codes(&build));
+    let book = build.codes();
+    assert!(book.settled_later("@acme/plans", "E301"));
+    assert!(!book.settled_later("@acme/plans", "E302"));
+}

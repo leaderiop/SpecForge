@@ -9,7 +9,9 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 use specforge_common::Sym;
-use specforge_emitter::pack::{self, Cut, PackPlan, PackSection, Sealed, SectionBody, Served};
+use specforge_emitter::pack::{
+    self, Budget, Cut, PackPlan, PackSection, Sealed, SectionBody, Served,
+};
 use specforge_emitter::{EmitFormat, EmitterError, GraphProtocolSchema};
 use specforge_graph::{Computed, Graph};
 use specforge_protocol_types::{CONTEXT_SETTINGS, ContextTier, JudgedFile};
@@ -193,15 +195,16 @@ pub struct Packed<'a> {
     pub digest: String,
 }
 
-/// The pack of `route` for `subject` (by path) at `budget`, its `graph` member in `format` (the fit counts what it
-/// renders) and the schema `schema` gives: its sections read, fitted, each served section digested (a part over the
-/// members it kept), and the pack digested over the subject and them. Files are read through `disk`.
+/// The pack of `route` for `subject` (by path) under `budget` (the route's allowance or a stated cap), its `graph`
+/// member in `format` (the fit counts what it renders) and the schema `schema` gives: its sections read, fitted, each
+/// served section digested (a part over the members it kept), and the pack digested over the subject and them. Files
+/// are read through `disk`.
 pub fn pack<'a>(
     project: &'a CompiledProject,
     disk: &'a dyn Disk,
     route: &'a ContextRoute,
     subject: &str,
-    budget: usize,
+    budget: Budget,
     format: EmitFormat,
     schema: &'a GraphProtocolSchema,
 ) -> Result<Packed<'a>, EmitterError> {
@@ -220,7 +223,7 @@ pub(crate) fn pack_over<'a>(
     over: &Over<'a>,
     route: &'a ContextRoute,
     subject: &str,
-    budget: usize,
+    budget: Budget,
     format: EmitFormat,
     schema: &'a GraphProtocolSchema,
 ) -> Result<Packed<'a>, EmitterError> {

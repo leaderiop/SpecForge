@@ -5381,22 +5381,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "source_extension": "@gsd/core",
       "target_kind": null
     },
-    "milestone.name": {
-      "derived_from": null,
-      "description": "MVP",
-      "edge": null,
-      "exempts_obligations": false,
-      "field_name": "name",
-      "field_type": "String",
-      "headline": false,
-      "inverse_of": null,
-      "kind_name": "milestone",
-      "normative": false,
-      "proof_role": null,
-      "required": true,
-      "source_extension": "@gsd/core",
-      "target_kind": null
-    },
     "milestone.progress": {
       "derived_from": null,
       "description": "state json's `progress`: its phases and plans, and the smaller of the two fractions as a percent",
@@ -6242,22 +6226,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "normative": false,
       "proof_role": null,
       "required": false,
-      "source_extension": "@gsd/core",
-      "target_kind": null
-    },
-    "phase.name": {
-      "derived_from": null,
-      "description": "heading text",
-      "edge": null,
-      "exempts_obligations": false,
-      "field_name": "name",
-      "field_type": "String",
-      "headline": false,
-      "inverse_of": null,
-      "kind_name": "phase",
-      "normative": false,
-      "proof_role": null,
-      "required": true,
       "source_extension": "@gsd/core",
       "target_kind": null
     },
@@ -10920,7 +10888,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "milestone.first_commit": "string",
       "milestone.git_range": "string",
       "milestone.goal": "string",
-      "milestone.name": "string",
       "milestone.progress": "block",
       "milestone.shipped": "date",
       "milestone.state": "enum (planned, in_progress, shipped, abandoned)",
@@ -10974,7 +10941,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "phase.inserted": "bool",
       "phase.milestone": "reference",
       "phase.mode": "enum (standard, mvp)",
-      "phase.name": "string",
       "phase.plans_complete": "string",
       "phase.requirements": "reference_list",
       "phase.slug": "string",
@@ -12570,7 +12536,7 @@ expression: "digest(&load(&runtime, &[name]))"
               {
                 "arg_type": "integer",
                 "default_value": null,
-                "description": "the budget of the executor pack it records (default: the route's own)",
+                "description": "a cap on the executor pack it records, refused below its core (default: none, the core whole and the route's allowance)",
                 "name": "max_tokens",
                 "required": false
               }
@@ -13199,7 +13165,7 @@ expression: "digest(&load(&runtime, &[name]))"
               {
                 "arg_type": "string",
                 "default_value": null,
-                "description": "the phase's name (required to add or insert)",
+                "description": "the phase's name, its title (required to add or insert; editing it retitles the phase)",
                 "name": "name",
                 "required": false
               },
@@ -14503,8 +14469,20 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "self.phase<decision.phase"
               },
               {
-                "name": "all_decisions",
-                "selector": "decision"
+                "name": "quick_decisions",
+                "selector": "self<decision.plan"
+              },
+              {
+                "name": "project_decisions",
+                "selector": "decision[origin=project]"
+              },
+              {
+                "name": "resolved_decisions",
+                "selector": "self.phase<research.phase<open_question.research.resolved_by"
+              },
+              {
+                "name": "settled_decisions",
+                "selector": "self<task.plan.reversibility.settled_by"
               },
               {
                 "name": "context",
@@ -14577,8 +14555,20 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "self.phase<decision.phase"
               },
               {
-                "name": "all_decisions",
-                "selector": "decision"
+                "name": "quick_decisions",
+                "selector": "self<decision.plan"
+              },
+              {
+                "name": "project_decisions",
+                "selector": "decision[origin=project]"
+              },
+              {
+                "name": "resolved_decisions",
+                "selector": "self.phase<research.phase<open_question.research.resolved_by"
+              },
+              {
+                "name": "settled_decisions",
+                "selector": "self<task.plan.reversibility.settled_by"
               },
               {
                 "name": "context",
@@ -14651,8 +14641,20 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "self.phase<decision.phase"
               },
               {
-                "name": "all_decisions",
-                "selector": "decision"
+                "name": "quick_decisions",
+                "selector": "self<decision.plan"
+              },
+              {
+                "name": "project_decisions",
+                "selector": "decision[origin=project]"
+              },
+              {
+                "name": "resolved_decisions",
+                "selector": "self.phase<research.phase<open_question.research.resolved_by"
+              },
+              {
+                "name": "settled_decisions",
+                "selector": "self<task.plan.reversibility.settled_by"
               },
               {
                 "name": "context",
@@ -14725,8 +14727,20 @@ expression: "digest(&load(&runtime, &[name]))"
                 "selector": "self.phase<decision.phase"
               },
               {
-                "name": "all_decisions",
-                "selector": "decision"
+                "name": "quick_decisions",
+                "selector": "self<decision.plan"
+              },
+              {
+                "name": "project_decisions",
+                "selector": "decision[origin=project]"
+              },
+              {
+                "name": "resolved_decisions",
+                "selector": "self.phase<research.phase<open_question.research.resolved_by"
+              },
+              {
+                "name": "settled_decisions",
+                "selector": "self<task.plan.reversibility.settled_by"
               },
               {
                 "name": "context",
@@ -15775,18 +15789,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "code": "E006",
       "constraint": null,
       "edge_type": null,
-      "field": "name",
-      "message_template": "milestone '{id}' is missing required field 'name'",
-      "owner": "",
-      "severity": "Error",
-      "target_kind": "milestone",
-      "wasm_function": null
-    },
-    {
-      "check": "missing_required_field",
-      "code": "E006",
-      "constraint": null,
-      "edge_type": null,
       "field": "debt_accepted.at",
       "message_template": "milestone_audit '{id}' is missing required member 'debt_accepted.at'",
       "owner": "",
@@ -16005,18 +16007,6 @@ expression: "digest(&load(&runtime, &[name]))"
       "edge_type": null,
       "field": "milestone",
       "message_template": "phase '{id}' is missing required field 'milestone'",
-      "owner": "",
-      "severity": "Error",
-      "target_kind": "phase",
-      "wasm_function": null
-    },
-    {
-      "check": "missing_required_field",
-      "code": "E006",
-      "constraint": null,
-      "edge_type": null,
-      "field": "name",
-      "message_template": "phase '{id}' is missing required field 'name'",
       "owner": "",
       "severity": "Error",
       "target_kind": "phase",

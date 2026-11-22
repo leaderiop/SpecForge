@@ -31,11 +31,16 @@ fn checked(template: &str, key: (&str, &str), slug: &str) -> Result<String, Stri
     }
 }
 
-/// The phase strategy's name of `phase`: its local name and its slug, else the slug of its name.
+/// An entity's title, the name a person calls it by (ADR 0387); empty when it has none.
+fn title(entity: &PassEntity) -> &str {
+    entity.title.as_deref().unwrap_or_default()
+}
+
+/// The phase strategy's name of `phase`: its local name and its slug, else the slug of its title.
 fn phase_branch(naming: &Naming<'_>, phase: &PassEntity) -> Result<String, String> {
     let slugged = text(phase, "slug")
         .map(str::to_string)
-        .unwrap_or_else(|| slug(text(phase, "name").unwrap_or_default()));
+        .unwrap_or_else(|| slug(title(phase)));
     checked(naming.phase, ("phase", name_of(&phase.id)), &slugged)
 }
 
@@ -43,7 +48,7 @@ fn milestone_branch(naming: &Naming<'_>, milestone: &PassEntity) -> Result<Strin
     checked(
         naming.milestone,
         ("milestone", name_of(&milestone.id)),
-        &slug(text(milestone, "name").unwrap_or_default()),
+        &slug(title(milestone)),
     )
 }
 
@@ -95,7 +100,7 @@ fn refusals(input: &PassInput, naming: &Naming<'_>) -> Vec<PassDiagnostic> {
                     format!("'{id}' has no branch: {why}"),
                 )
                 .with_suggestion(
-                    "change its name or slug, or git.phase_branch_template or git.milestone_branch_template",
+                    "change its title or slug, or git.phase_branch_template or git.milestone_branch_template",
                 )
                 .with_entity(&id),
             )
@@ -137,10 +142,11 @@ mod tests {
         milestone: "gsd/{milestone}-{slug}",
     };
 
-    fn entity(id: &str, kind: &str, fields: &[(&str, &str)]) -> PassEntity {
+    fn entity(id: &str, kind: &str, title: &str, fields: &[(&str, &str)]) -> PassEntity {
         PassEntity {
             id: id.into(),
             kind: kind.into(),
+            title: Some(title.into()),
             fields: fields
                 .iter()
                 .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -152,14 +158,10 @@ mod tests {
     fn input() -> PassInput {
         PassInput {
             entities: vec![
-                entity("v1.0", "milestone", &[("name", "Task Board!")]),
-                entity(
-                    "v1.0/01",
-                    "phase",
-                    &[("name", "Core"), ("slug", "core-tasks")],
-                ),
-                entity("v1.0/02", "phase", &[("name", "User Auth & Login")]),
-                entity("v1.0/999.1", "phase", &[("name", "Later")]),
+                entity("v1.0", "milestone", "Task Board!", &[]),
+                entity("v1.0/01", "phase", "Core", &[("slug", "core-tasks")]),
+                entity("v1.0/02", "phase", "User Auth & Login", &[]),
+                entity("v1.0/999.1", "phase", "Later", &[]),
             ],
             edges: ["v1.0/01", "v1.0/02", "v1.0/999.1"]
                 .iter()
@@ -218,7 +220,7 @@ mod tests {
     #[test]
     fn an_empty_slug_names_no_branch() {
         let empty = PassInput {
-            entities: vec![entity("v1.0/01", "phase", &[("name", "!!!")])],
+            entities: vec![entity("v1.0/01", "phase", "!!!", &[])],
             ..Default::default()
         };
         assert!(named(&empty, &NAMING).is_empty());
@@ -237,7 +239,7 @@ mod tests {
     fn a_long_title_shortens() {
         let title = "word ".repeat(80);
         let long = PassInput {
-            entities: vec![entity("v1.0/01", "phase", &[("name", title.as_str())])],
+            entities: vec![entity("v1.0/01", "phase", &title, &[])],
             ..Default::default()
         };
         let named = pairs(named(&long, &NAMING));
@@ -254,7 +256,7 @@ mod tests {
             assert!(named(&input(), &naming).is_empty(), "{strategy:?}");
         }
         let backlog = PassInput {
-            entities: vec![entity("v1.0/999.1", "phase", &[("name", "Later")])],
+            entities: vec![entity("v1.0/999.1", "phase", "Later", &[])],
             ..Default::default()
         };
         assert!(named(&backlog, &NAMING).is_empty());

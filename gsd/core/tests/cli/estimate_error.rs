@@ -101,10 +101,10 @@ fn report_json(p: &Project) -> Value {
 
 /// The progress report of the unedited twin, byte for byte as it printed before a plan was measured.
 const UNMEASURED: &str = "\
-01     Complete     2/2 plans  core
-02     Planned      0/1 plans  persistence
-02.1   Pending      0/0 plans  hotfix titles survive a reload
-03     Pending      0/0 plans  listing
+01     Complete     2/2 plans  Core
+02     Planned      0/1 plans  Persistence
+02.1   Pending      0/0 plans  Hotfix: titles survive a reload
+03     Pending      0/0 plans  Listing
 67% of plans have a summary
 ";
 

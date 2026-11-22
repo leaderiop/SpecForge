@@ -54,6 +54,8 @@ pub struct ContextRoute {
     pub subject: String,
     /// The extension's own agent it is bound to; `None` when it names none or its binding was refused (E124).
     pub agent: Option<String>,
+    /// The enrich allowance: the tokens of enrich sections a read that states no cap serves beyond the core (ADR 0386);
+    /// 0 only for a route of core sections only.
     pub budget: u32,
     /// The registered sections, in declared order.
     pub sections: Vec<ContextSection>,
@@ -230,11 +232,22 @@ impl Check<'_> {
         if !is_valid_short(&d.name) {
             return Err("a context route's name is kebab case".into());
         }
-        if d.budget == 0 {
-            return Err("a context route's budget is a positive number of tokens".into());
+        // The allowance is what enrich sections fill beyond the core: a route of core sections only has none to give.
+        let enriched = d.sections.iter().any(|s| s.tier == ContextTier::Enrich);
+        if enriched && d.budget == 0 {
+            return Err(
+                "a context route with an enrich section allows it a positive number of tokens"
+                    .into(),
+            );
         }
         if !d.sections.iter().any(|s| s.tier == ContextTier::Core) {
             return Err("a context route has at least one core section".into());
+        }
+        if !enriched && d.budget > 0 {
+            return Err(format!(
+                "a context route of core sections only allows nothing beyond them: its budget of {} is 0",
+                d.budget
+            ));
         }
         if !self.registries.kinds.contains(&d.subject) {
             return match self.unloaded.declare(&d.subject) {

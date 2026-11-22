@@ -24,6 +24,7 @@ expression: compute
         "start_line": 1
       },
       "testable": false,
+      "title": "One",
       "values": {
         "meta": {
           "owner": "ann"
@@ -55,6 +56,7 @@ expression: compute
         "start_line": 7
       },
       "testable": false,
+      "title": "Two",
       "verify_kinds": [],
       "verify_texts": []
     }

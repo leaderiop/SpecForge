@@ -19,6 +19,7 @@ fn findings(
             docs: None,
             machine: false,
             reported_while: None,
+            settled_later: false,
         }],
     )
     .unwrap();

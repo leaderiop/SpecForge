@@ -27,7 +27,7 @@ INIT=$(specforge query "$MILESTONE" --depth 1 --format json)
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-integration-checker
 ```
 
-Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (its version is that id; `name` and `progress` are its fields, and `phase_count` and `completed_phases` are its `progress`'s `phases` and `phases_complete`), and its phases are among the other nodes.
+Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (its version is that id; its name is its `title`, `progress` is its field, and `phase_count` and `completed_phases` are its `progress`'s `phases` and `phases_complete`), and its phases are among the other nodes.
 
 Resolve integration checker model:
 ```bash
@@ -279,6 +279,9 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Score:** {N}/{M} requirements satisfied
 **Report:** the spec
+
+In a phase's label, `{X}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{name}` is
+its `title`.
 
 ### Unsatisfied Requirements
 

@@ -628,8 +628,8 @@ fn a_phases_counts_are_read_by_its_own_id() {
     let p = taskboard();
     p.write(
         "spec/v2.0.spec",
-        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\n\
-         phase 01 \"Sync\" {\n  milestone v2.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync\"\n}\n\n\
+        "milestone v2.0 \"Taskboard 2.0\" {\n}\n\n\
+         phase 01 \"Sync\" {\n  milestone v2.0\n  slug \"sync\"\n  goal \"Tasks sync\"\n}\n\n\
          plan 01-01 \"Sync model\" {\n  phase v2.0/01\n  type execute\n  objective \"Sync\"\n}\n\n\
          plan 01-02 \"Sync command\" {\n  phase v2.0/01\n  type execute\n  objective \"Sync\"\n}\n",
     );

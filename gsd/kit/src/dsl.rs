@@ -213,7 +213,8 @@ pub const fn rfs_any(name: &'static str, kinds: &'static [&'static str]) -> Fiel
 pub const fn block(name: &'static str, members: &'static [Field]) -> Field {
     Field::new(name, Ty::Block(members))
 }
-/// The members a context record holds: the route that recorded it, its pack's digest and its budget.
+/// The members a context record holds: the route that recorded it, its pack's digest and the cap its read stated, when
+/// it stated one.
 const CONTEXT_RECORD: &[Field] = &[str("route"), str("digest"), int("max_tokens")];
 
 /// A context route's record of its pack (ADR 0356): `route`, `digest` and `max_tokens`, written by the host.

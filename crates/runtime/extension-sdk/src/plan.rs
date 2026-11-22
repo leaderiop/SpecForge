@@ -246,8 +246,9 @@ impl PlanBuilder {
         })
     }
 
-    /// Record `route`'s pack on `entity` (ADR 0356): the host derives the subject, computes the pack at `max_tokens`
-    /// (`None`: the route's budget) and writes it. The route must record the entity's kind.
+    /// Record `route`'s pack on `entity` (ADR 0356): the host derives the subject, computes the pack under the cap
+    /// `max_tokens` (`None`: the core whole and the route's allowance) and writes it. The route must record the
+    /// entity's kind.
     pub fn record_context(
         &mut self,
         entity: &str,

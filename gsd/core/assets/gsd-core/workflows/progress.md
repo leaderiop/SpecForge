@@ -24,6 +24,11 @@ INIT=$(specforge gsd progress-report --format json)
 
 Read from the answer (what `progress-report` prints): `milestone_version`, `milestone_name`, `phases` (each `number`, `name`, `plans`, `summaries`, `status`), `total_plans`, `total_summaries`, `percent` and `phase_scope`. `phase_count` is the length of `phases` and `completed_count` counts those with status `Complete`; the current phase is the first that is not, and the next phase the one after it; `roadmap_exists` is `phases` non-empty and `state_exists` is `milestone_version` non-null (the project state is computed, so no path is read); a pause is a `pause` entity, and a phase's mode its `mode` field.
 
+In a phase's label, `{phase}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and `{Name}`
+is its `title`. The number is the `number` `progress-report` prints for it; its `name` is the phase's slug read as
+words, so a label reads the title from the phase node (`specforge query "$MILESTONE" --kinds phase --depth 1`). `{Z}` is
+the number of the phase just completed, and `{Z+1}` the next one's.
+
 ```bash
 DISCUSS_MODE="{{setting:workflow.discuss_mode|}}"   # workflow.discuss_mode (the settings)
 ```
@@ -365,7 +370,7 @@ Read its `<objective>` section.
 
 **Route B: Phase needs planning**
 
-Check if `{phase_num}-CONTEXT.md` exists in phase directory.
+Check whether the phase has a `context` entity (`has_context`).
 
 Check if current phase has UI indicators:
 
@@ -381,7 +386,7 @@ PHASE_HAS_UI=${PHASE_HAS_UI:-false}   # @gsd/ui computes frontend: false when it
 
 ## ▶ Next Up — [${PROJECT_CODE}] ${PROJECT_TITLE}
 
-**Phase {N}: {Name}** — {Goal from ROADMAP.md}
+**Phase {phase}: {Name}** — {Goal from ROADMAP.md}
 <sub>✓ Context gathered, ready to plan</sub>
 
 `/clear` then:
@@ -398,7 +403,7 @@ PHASE_HAS_UI=${PHASE_HAS_UI:-false}   # @gsd/ui computes frontend: false when it
 
 ## ▶ Next Up — [${PROJECT_CODE}] ${PROJECT_TITLE}
 
-**Phase {N}: {Name}** — {Goal from ROADMAP.md}
+**Phase {phase}: {Name}** — {Goal from ROADMAP.md}
 
 `/clear` then:
 
@@ -421,7 +426,7 @@ PHASE_HAS_UI=${PHASE_HAS_UI:-false}   # @gsd/ui computes frontend: false when it
 
 ## ▶ Next Up — [${PROJECT_CODE}] ${PROJECT_TITLE}
 
-**Phase {N}: {Name}** — {Goal from ROADMAP.md}
+**Phase {phase}: {Name}** — {Goal from ROADMAP.md}
 
 `/clear` then:
 
@@ -447,7 +452,7 @@ UAT.md exists with gaps (diagnosed issues). User needs to plan fixes.
 
 ## ⚠ UAT Gaps Found
 
-**{phase_num}-UAT.md** has {N} gaps requiring fixes.
+**{phase}-UAT.md** has {N} gaps requiring fixes.
 
 `/clear` then:
 
@@ -473,7 +478,7 @@ UAT.md exists with `status: partial` — testing session ended before all items 
 
 ## Incomplete UAT Testing
 
-**{phase_num}-UAT.md** has {N} unresolved tests (pending, blocked, or skipped).
+**{phase}-UAT.md** has {N} unresolved tests (pending, blocked, or skipped).
 
 `/clear` then:
 
@@ -519,7 +524,7 @@ The phase's verification reports `gaps_found`: it identified gaps that need fix 
 
 ## ⚠ Verification Gaps Found
 
-**Phase {phase_num}'s verification** reports `gaps_found`. Plan the gap fixes, then execute them.
+**Phase {phase}'s verification** reports `gaps_found`. Plan the gap fixes, then execute them.
 
 `/clear` then:
 
@@ -539,7 +544,7 @@ The phase's verification reports `human_needed`: automated checks passed but man
 
 ## Human Verification Required
 
-**Phase {phase_num}'s verification** reports `human_needed`. Resolve the remaining manual checks.
+**Phase {phase}'s verification** reports `human_needed`. Resolve the remaining manual checks.
 
 `/clear` then:
 

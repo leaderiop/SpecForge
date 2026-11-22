@@ -89,7 +89,10 @@ fn statusline_answers_on_claude_code() {
     let progress = golden("state-json")["progress"].clone();
     assert!(out.starts_with("Opus 4 │ "), "{out}");
     assert!(out.contains("v1.0"), "{out}");
-    assert!(out.contains("persistence"), "{out}");
+    assert!(
+        out.contains("· Persistence ("),
+        "the phase is named by its title: {out}"
+    );
     let counts = format!(
         "{}/{}",
         progress["completed_phases"], progress["total_phases"]

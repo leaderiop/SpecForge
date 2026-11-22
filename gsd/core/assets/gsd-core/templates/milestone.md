@@ -24,7 +24,7 @@ TEXT
 IFS= read -rd '' PHASE_CRITERIA <<'TEXT' || true; PHASE_CRITERIA=${PHASE_CRITERIA%$'\n'}
 {a JSON list of 2 to 5 observable behaviours that show the phase is done, e.g. ["A board has a share link", "The link opens the board read-only"]}
 TEXT
-specforge new milestone "$VERSION" "$NAME" --in "spec/$VERSION.spec" --name "$NAME" --goal "$GOAL" || exit 1
+specforge new milestone "$VERSION" "$NAME" --in "spec/$VERSION.spec" --goal "$GOAL" || exit 1
 specforge gsd phase --milestone "$VERSION" --name "$PHASE_NAME" --goal "$PHASE_GOAL" --criteria "$PHASE_CRITERIA" || exit 1
 ```
 

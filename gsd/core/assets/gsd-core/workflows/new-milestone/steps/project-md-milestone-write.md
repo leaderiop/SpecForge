@@ -13,7 +13,7 @@ TEXT
 IFS= read -rd '' FEATURE <<'TEXT' || true; FEATURE=${FEATURE%$'\n'}
 {a target feature: one --target_features per feature}
 TEXT
-specforge new milestone "$VERSION" "$NAME" --in "spec/$VERSION.spec" --name "$NAME" --goal "$GOAL" --target_features "$FEATURE" ${WS:+--workstream "$WS"} || exit 1
+specforge new milestone "$VERSION" "$NAME" --in "spec/$VERSION.spec" --goal "$GOAL" --target_features "$FEATURE" ${WS:+--workstream "$WS"} || exit 1
 ```
 
 The project's active requirements are computed: there is no section or footer to update.

@@ -28,7 +28,6 @@ Configuration options for spec behavior.
 | `git.base_branch` | `null` (auto-detect) | Target branch for PRs and merges (e.g. `"master"`, `"develop"`). When `null`, auto-detects from `git symbolic-ref refs/remotes/origin/HEAD`, falling back to `"main"`. |
 | `git.protected_branches` | (none) | Optional array of non-empty strings naming additional shared branches that should trigger protected-branch warnings |
 | `git.create_tag` | `true` | Create git tags on milestone completion |
-| `git.repo_tagging` | `"single"` | Milestone tagging mode: `"single"` (existing behavior) or `"per_repo"` (record one release per configured repository; each tag is pushed only after a per-repository confirmation); not applicable in @gsd/core: no sub-repositories |
 | `git.phase_branch_template` | `"gsd/phase-{phase}-{slug}"` | Branch template for phase strategy |
 | `git.milestone_branch_template` | `"gsd/{milestone}-{slug}"` | Branch template for milestone strategy |
 | `git.quick_branch_template` | `null` | Optional branch template for quick-task runs |
@@ -67,6 +66,10 @@ still apply.
 
 `commit_docs`, `search_gitignored` and `pr_strict` (also under `planning.`) are not a setting here: the spec is
 source and is committed like code, never gitignored, so a search finds it and `/gsd:pr-branch` always leaves it out.
+
+`planning.sub_repos`, `git.repo_tagging`, `workflow.auto_prune_state` and `graphify.*` are not settings here:
+a sub-repository is another SpecForge project with its own milestone tags, the project state is computed and holds
+nothing to prune, and SpecForge is the graph.
 
 <branching_strategy_behavior>
 
@@ -190,7 +193,6 @@ Set via `workflow.*` namespace in config.json (e.g., `"workflow": { "research": 
 | `workflow.plan_check` | boolean | `true` | `true`, `false` | Run plan-checker agent to validate plans. _Alias:_ `plan_checker` is the flat-key form used in `CONFIG_DEFAULTS`; `workflow.plan_check` is the canonical namespaced form. |
 | `workflow.verifier` | boolean | `true` | `true`, `false` | Run verifier agent after execution |
 | `workflow.nyquist_validation` | boolean | `true` | `true`, `false` | Enable Nyquist-inspired validation gates |
-| `workflow.auto_prune_state` | boolean | `false` | `true`, `false` | Automatically prune old STATE.md entries on phase completion (keeps 3 most recent phases) |
 | `workflow.auto_advance` | boolean | `false` | `true`, `false` | Auto-advance to next phase after completion |
 | `workflow.node_repair` | boolean | `true` | `true`, `false` | Attempt automatic repair of failed plan nodes |
 | `workflow.node_repair_budget` | number | `2` | Any positive integer | Max repair retries per failed node |
@@ -250,7 +252,6 @@ Set via `git.*` namespace (e.g., `"git": { "branching_strategy": "phase" }`).
 | `git.base_branch` | string\|null | `null` (auto-detect) | Any branch name | Target branch for PRs and merges; auto-detects from `origin/HEAD` when `null` |
 | `git.protected_branches` | array of non-empty strings | (none) | Non-empty branch names | Optional protected names added to the resolved base branch for execute-phase and ship warnings |
 | `git.create_tag` | boolean | `true` | `true`, `false` | Create git tags on milestone completion |
-| `git.repo_tagging` | string | `"single"` | `"single"`, `"per_repo"` | Milestone tagging mode; `"per_repo"` opts a multi-repo project into per-repository release records (not applicable in @gsd/core: no sub-repositories) |
 | `git.phase_branch_template` | string | `"gsd/phase-{phase}-{slug}"` | Template with `{phase}`, `{slug}` | Branch naming template for `phase` strategy |
 | `git.milestone_branch_template` | string | `"gsd/{milestone}-{slug}"` | Template with `{milestone}`, `{slug}` | Branch naming template for `milestone` strategy |
 | `git.quick_branch_template` | string\|null | `null` | Template with `{slug}` | Optional branch template for quick-task runs |
@@ -317,7 +318,6 @@ Set via `manager.*` namespace (e.g., `"manager": { "flags": { "discuss": "--auto
 | `parallelization` | boolean\|object | `true` | `true`, `false`, `{ "enabled": true }` | Enable parallel wave execution; object form allows additional sub-keys |
 | `model_overrides` | object\|null | `null` | `{ "<agent-type>": "<model-id>" }` | Override model selection per agent type |
 | `agent_skills` | object | `{}` | `{ "<agent-type>": "<skill-set>" }` or `{ "<agent-type>": ["<skill-set>", "<skill-set>", ...] }` | Assign skill sets to specific agent types. Each value is a single skill-set path (string) or an array of skill-set paths — the array form assigns multiple skill sets to one agent type. Paths cannot be comma-joined into one string; each path must be its own array element |
-| `sub_repos` | array | `[]` | Array of relative path strings | Child directories with independent `.git` repos (auto-detected) |
 
 ### Planning Fields
 
@@ -343,9 +343,7 @@ Several config fields affect each other or trigger special behavior:
 
 5. **`depth` to `granularity` migration** -- The deprecated `depth` key (`quick`/`standard`/`comprehensive`) is automatically migrated to `granularity` (`coarse`/`standard`/`fine`) on config load and persisted back to disk.
 
-6. **`sub_repos` auto-sync** -- On every config load, GSD scans for child directories with `.git` and updates the `sub_repos` array if the filesystem has changed. Legacy `multiRepo: true` is automatically migrated to a detected `sub_repos` array.
-
-7. **`workflow.use_worktrees` and branch divergence** -- When `use_worktrees` is `true` (default) and `worktree.baseRef` is unset, executor worktrees are forked from `origin/HEAD` -- by the host's own harness on `dispatch.isolation: harness-worktree` runtimes (Claude Code, Cursor), or by GSD itself on `orchestrator-worktree` runtimes (Codex, OpenCode, Kimi, Kimi Code). The divergence behavior below is identical either way, because the fork base is a property of the repository rather than of whoever creates the worktree. If your current branch has commits that `origin/HEAD` does not (for example an unmerged milestone or feature branch), GSD automatically degrades to sequential execution for that run and prints a one-line `⚠ Worktree base mismatch` warning. To restore parallel execution permanently, set `worktree.baseRef:"head"` in `.claude/settings.local.json` (set it in that file by hand). GSD-created worktrees then fork from the live HEAD instead of `origin/HEAD` by construction, and the Claude Code harness does the same as measured from every settings layer (#4588; Cursor has not been measured — its exit-42 spawn-time guard is the backstop). A configured Claude Code `WorktreeCreate` hook is the exception: it creates the worktree without applying the setting, so GSD keeps comparing against `origin/HEAD` on such a host (#4588). A prior harness worktree at the current HEAD does not lift that comparison — it records no creator, so one left there before the hook was configured would read as evidence for the hook; pass `--observed-fork-base` for a trusted verdict (#4881). Both fresh installs and upgrades of GSD Core set this automatically (no-clobber) when `use_worktrees` is enabled; you can also run the command manually at any time. Setting `workflow.use_worktrees: false` is the alternative if worktrees are not needed at all. On a runtime whose declared `dispatch.isolation` is `none`, an explicit `true` is a config the execution workflows fail closed on; `/gsd:health` reports it as warning `W025` and `/gsd:settings` offers to repair it (#2486).
+6. **`workflow.use_worktrees` and branch divergence** -- When `use_worktrees` is `true` (default) and `worktree.baseRef` is unset, executor worktrees are forked from `origin/HEAD` -- by the host's own harness on `dispatch.isolation: harness-worktree` runtimes (Claude Code, Cursor), or by GSD itself on `orchestrator-worktree` runtimes (Codex, OpenCode, Kimi, Kimi Code). The divergence behavior below is identical either way, because the fork base is a property of the repository rather than of whoever creates the worktree. If your current branch has commits that `origin/HEAD` does not (for example an unmerged milestone or feature branch), GSD automatically degrades to sequential execution for that run and prints a one-line `⚠ Worktree base mismatch` warning. To restore parallel execution permanently, set `worktree.baseRef:"head"` in `.claude/settings.local.json` (set it in that file by hand). GSD-created worktrees then fork from the live HEAD instead of `origin/HEAD` by construction, and the Claude Code harness does the same as measured from every settings layer (#4588; Cursor has not been measured — its exit-42 spawn-time guard is the backstop). A configured Claude Code `WorktreeCreate` hook is the exception: it creates the worktree without applying the setting, so GSD keeps comparing against `origin/HEAD` on such a host (#4588). A prior harness worktree at the current HEAD does not lift that comparison — it records no creator, so one left there before the hook was configured would read as evidence for the hook; pass `--observed-fork-base` for a trusted verdict (#4881). Both fresh installs and upgrades of GSD Core set this automatically (no-clobber) when `use_worktrees` is enabled; you can also run the command manually at any time. Setting `workflow.use_worktrees: false` is the alternative if worktrees are not needed at all. On a runtime whose declared `dispatch.isolation` is `none`, an explicit `true` is a config the execution workflows fail closed on; `/gsd:health` reports it as warning `W025` and `/gsd:settings` offers to repair it (#2486).
 
 ---
 

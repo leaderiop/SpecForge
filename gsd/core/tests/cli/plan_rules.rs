@@ -438,7 +438,7 @@ fn an_unplanned_phase_is_not_w317() {
     let p = project("plan");
     p.write(
         "spec/third.spec",
-        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  category \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n",
+        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  category \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n",
     );
     assert_eq!(p.codes(), CLEAN);
 }
@@ -466,7 +466,7 @@ fn an_unplanned_phase_is_not_e301() {
     let p = project("plan");
     p.write(
         "spec/third.spec",
-        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  category \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  name \"Sync\"\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n\ncontext 03-CONTEXT \"Sync context\" {\n  phase v1.0/03\n  gathered 2026-10-28\n  boundary \"Sync\"\n  canonical_refs [{ topic \"No external specs: none\" paths [] }]\n}\n\ndecision D-01 \"Sync by file\" {\n  phase v1.0/03\n  text \"Tasks sync through one shared file\"\n  origin context\n}\n",
+        "requirement SYNC-01 \"Sync\" {\n  text \"Tasks sync\"\n  category \"Sync\"\n  tier v1\n}\n\nphase 03 \"Sync\" {\n  milestone v1.0\n  slug \"sync\"\n  goal \"Tasks sync between machines\"\n  depends_on [02]\n  requirements [SYNC-01]\n  success_criteria [\"a\", \"b\"]\n}\n\ncontext 03-CONTEXT \"Sync context\" {\n  phase v1.0/03\n  gathered 2026-10-28\n  boundary \"Sync\"\n  canonical_refs [{ topic \"No external specs: none\" paths [] }]\n}\n\ndecision D-01 \"Sync by file\" {\n  phase v1.0/03\n  text \"Tasks sync through one shared file\"\n  origin context\n}\n",
     );
     assert_eq!(p.codes(), CLEAN, "an unplanned phase has nothing to cover");
 }

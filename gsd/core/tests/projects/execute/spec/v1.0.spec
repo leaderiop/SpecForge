@@ -1,10 +1,8 @@
 milestone v1.0 "Taskboard 1.0" {
-  name "Taskboard 1.0"
 }
 
 phase 01 "Core" {
   milestone        v1.0
-  name             "Core"
   slug             "core"
   goal             "Tasks can be added and completed"
   requirements     [TASK-01, TASK-02]
@@ -13,7 +11,6 @@ phase 01 "Core" {
 
 phase 02 "Persistence" {
   milestone        v1.0
-  name             "Persistence"
   slug             "persistence"
   goal             "Tasks are saved to disk and loaded on start"
   depends_on       [01]

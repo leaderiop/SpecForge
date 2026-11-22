@@ -327,6 +327,8 @@ When `workflow.tdd_mode` is enabled, the execute-phase orchestrator inserts a co
 
 ### Review Checkpoint Format
 
+In a phase's label, `{X}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
+
 ```
 ### TDD REVIEW — Phase {X}
 

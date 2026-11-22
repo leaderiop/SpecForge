@@ -91,6 +91,7 @@ pub(super) fn record(
         id: id.to_string(),
         name: node.name().to_string(),
         kind: node.kind.raw.to_string(),
+        title: node.title.clone(),
         span: node.source_span.clone(),
         fields: entries
             .iter()

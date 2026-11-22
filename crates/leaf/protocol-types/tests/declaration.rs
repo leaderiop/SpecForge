@@ -114,6 +114,7 @@ fn full() -> ExtensionDeclaration {
                 docs: Some("https://acme.dev/codes#r001".to_string()),
                 machine: true,
                 reported_while: Some("complete".to_string()),
+                settled_later: true,
             },
             CodeDescriptor {
                 code: "R002".to_string(),
@@ -499,6 +500,8 @@ fn codes_round_trip_on_the_wire() {
     assert_eq!(items[0]["code"], "R001");
     assert_eq!(items[0]["docs"], "https://acme.dev/codes#r001");
     assert!(items[1].get("docs").is_none(), "{}", items[1]);
+    assert_eq!(items[0]["settled_later"], true);
+    assert!(items[1].get("settled_later").is_none(), "{}", items[1]);
     assert!(declared.declares(DeclaredCategory::Codes));
     let loaded = ExtensionDeclaration::from_wire(
         declared.handshake.clone(),

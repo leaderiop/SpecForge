@@ -126,6 +126,7 @@ mod selection;
 mod served_slashes;
 mod settings;
 mod settings_set;
+mod settled_later;
 mod setup;
 mod spec_guard;
 mod spec_guard_patch;

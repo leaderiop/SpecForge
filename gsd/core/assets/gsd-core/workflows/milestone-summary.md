@@ -140,7 +140,7 @@ Present as a bulleted list of decisions with brief rationale:
 
 | Phase | Name | Status | One-Liner |
 |-------|------|--------|-----------|
-{For each phase: number, name, status (complete/in-progress/planned), one_liner from SUMMARY.md}
+{For each phase: number, name (its node's `title`, not the report's slug read as words), status (complete/in-progress/planned), one_liner from SUMMARY.md}
 
 ## 4. Requirements Coverage
 

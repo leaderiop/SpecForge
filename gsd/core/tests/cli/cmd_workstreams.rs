@@ -186,8 +186,8 @@ fn cleanup_lists_a_shipped_milestone_and_writes_nothing() {
     let p = project("workstreams");
     p.edit(
         "spec/streams.spec",
-        "  name       \"Auth 1.0\"\n  workstream auth\n",
-        "  name       \"Auth 1.0\"\n  workstream auth\n  completion { at 2026-10-29 }\n",
+        "  workstream auth\n",
+        "  workstream auth\n  completion { at 2026-10-29 }\n",
     );
     p.record_harness("auth/v1.0", "completion", "{\"at\":\"2026-10-29\"}");
     let before = bytes(&p);

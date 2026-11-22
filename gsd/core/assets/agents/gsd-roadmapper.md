@@ -313,7 +313,7 @@ Traceability is the phases' `requirements` and each requirement's computed `stat
 
 ## The Roadmap's Entities
 
-The roadmap is a `milestone` and its `phase` entities (`specforge schema --kind phase`, `specforge schema --kind milestone`), written in one `specforge.edit` call: the roadmap edit of ~/.claude/gsd-core/templates/roadmap.md. A phase carries `milestone`, `name`, `slug`, `goal`, `success_criteria`, `depends_on` (by number), `requirements` and, for a vertical-MVP project, `mode mvp`; its id is its number within the milestone, in the form of `phase_id_convention`. The milestone carries `name` and `goal`. There is no title, checklist, detail section or progress table to write: the progress report renders them from the entities, and STATE is computed.
+The roadmap is a `milestone` and its `phase` entities (`specforge schema --kind phase`, `specforge schema --kind milestone`), written in one `specforge.edit` call: the roadmap edit of ~/.claude/gsd-core/templates/roadmap.md. A phase carries its title (its name alone, no number: `gsd/W109`), `milestone`, `slug`, `goal`, `success_criteria`, `depends_on` (by number), `requirements` and, for a vertical-MVP project, `mode mvp`; its id is its number within the milestone, in the form of `phase_id_convention`. The milestone carries its title (its name) and `goal`. There is no document title, checklist, detail section or progress table to write: the progress report renders them from the entities, and STATE is computed.
 
 ### UI Phase Detection
 

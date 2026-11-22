@@ -261,6 +261,8 @@ fn conclude(
         .rewriting_sources(rewritten)
         .moving(raw_moves.clone())
         .renewing(declared.whole().cloned())
+        .creating(declared.created().cloned())
+        .altering(declared.altered().cloned())
         .keeping_ledger(
             project,
             LedgerChange {
@@ -273,15 +275,7 @@ fn conclude(
     let added = if change.is_empty() {
         Vec::new()
     } else {
-        validate::check(
-            view,
-            &change.after(),
-            &declared,
-            change.ledger_after(),
-            change.moved(),
-            &|id| change.renews(id),
-            host_only,
-        )?
+        validate::check(view, &change, &declared, host_only)?
     };
     let report = EditReport {
         entities: change.entities(),

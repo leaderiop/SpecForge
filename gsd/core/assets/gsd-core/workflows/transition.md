@@ -74,6 +74,10 @@ specforge query "$PROJECT" --depth 0 --format context 2>/dev/null || true
 Parse current position to verify we're transitioning the right phase.
 Note accumulated context that may need updating after transition.
 
+In a phase's label, `{X}` and `[X]` are the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and
+`[X+1]` is the next phase's. `{Phase Name}` is the phase's `title`, as the context above prints it: `progress-report`'s
+phase `name` is its slug read as words, never a label's name.
+
 </step>
 
 <step name="verify_completion">
@@ -193,7 +197,10 @@ There is nothing to write: the phase's status is computed (complete once its ver
 specforge gsd progress-report --format json
 ```
 
-Extract from result: `phases[].number`, `phases[].name`, `phases[].status`.
+Extract from result: `phases[].number` and `phases[].status`.
+
+A phase's `name` in that answer is its slug read as words, so a label reads the phase's name, its `title`, from the
+phase node (`offer_next_phase`).
 
 The next phase is the first phase after this one whose `status` is not `Complete`. When there is none, this was the last phase of the milestone.
 
@@ -351,7 +358,7 @@ Review the accumulated context: the open blockers and this phase's decisions, `s
 - a phase after this one whose `status` is not `Complete` → More phases remain → Go to **Route A**
 - none → Last phase done → **Check for workstream collisions first**
 
-The next phase's `number` and `name` give you the next phase details.
+The next phase's `number` gives its id, `$MILESTONE/<number>`; its name is that node's `title` (Route A reads it).
 
 If you need additional context, use:
 ```bash
@@ -380,12 +387,14 @@ If `section_manifest` (from `INIT_TRANSITION`) is `null` or `"workstream-collisi
 
 **Route A: More phases remain in milestone**
 
-The next phase's name is in the phases read above; its goal is the phase entity's `goal`.
+The next phase's name is its `title`, read from its node (`NEXT_NAME` below); its goal is the phase entity's `goal`.
+In the labels below, `[Name]` is the next phase's `title`, `NEXT_NAME`.
 
 **Check if next phase has CONTEXT.md:**
 
 ```bash
 NEXT_PHASE="{next_phase}"   # the next phase's number as its id writes it (02, 02.1), from the phases read above
+NEXT_NAME=$(specforge query "$MILESTONE/$NEXT_PHASE" --depth 0 --pick '.nodes[0].title')   # its name: the phase's title
 NEXT_CONTEXT=$(specforge query "$MILESTONE/$NEXT_PHASE" --depth 1 --kinds context --pick '.nodes[kind=context].id' --first 1)   # its context entity; empty when it has none
 ```
 

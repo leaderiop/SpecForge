@@ -18,7 +18,7 @@ fn a_decision_becomes_one_create_keeping_its_title_and_file() {
     let entities = old.entities();
     plan::prechecks(&entities).expect("the fixture converts");
     let planned = plan::plan(&entities);
-    let headers: Vec<(&str, String, &str, &str)> = planned
+    let headers: Vec<(&str, String, String, &str)> = planned
         .creates
         .iter()
         .map(|edit| match edit {
@@ -27,27 +27,34 @@ fn a_decision_becomes_one_create_keeping_its_title_and_file() {
             } => (
                 kind.as_str(),
                 super::path_of(edit),
-                title.as_str(),
+                title.clone(),
                 file.as_str(),
             ),
             other => panic!("only creates: {other:?}"),
         })
         .collect();
-    let expected: Vec<(&str, String, &str, &str)> = entities
+    let expected: Vec<(&str, String, String, &str)> = entities
         .iter()
         .filter_map(|e| {
             let new = planned.ids.get(&e.kind, &e.id)?;
-            Some((
-                new.kind,
-                new.path(),
-                e.title.as_deref().unwrap(),
-                e.file.as_str(),
-            ))
+            let title = match e.id.as_str() {
+                // the fixture's one numbered title: the phase is titled by its name
+                "third_cut" => {
+                    assert_eq!(e.title.as_deref(), Some("Phase 3: Third Cut"));
+                    "Third Cut".to_string()
+                }
+                _ => e.title.clone().unwrap(),
+            };
+            Some((new.kind, new.path(), title, e.file.as_str()))
         })
         .collect();
     assert_eq!(
         headers, expected,
-        "every converted entity, once, in the old order, by its new path"
+        "every converted entity, once, in the old order, by its new path, a phase titled by its name"
+    );
+    assert!(
+        headers.iter().any(|h| h.0 == "phase" && h.2 == "Third Cut"),
+        "the numbered title converts: {headers:?}"
     );
     let decisions: Vec<_> = headers.iter().filter(|h| h.0 == "decision").collect();
     assert_eq!(

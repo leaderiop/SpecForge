@@ -22,8 +22,10 @@ Before running checks 8a-8d, verify VALIDATION.md exists:
 specforge query "$PHASE_ID" --depth 1 --kinds validation --format brief
 ```
 
-**If missing:** **BLOCKING FAIL** — "VALIDATION.md not found for phase {N}. Re-run
-`/gsd:plan-phase {N} --research` to regenerate."
+In a phase's label, `{phase_number}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`).
+
+**If missing:** **BLOCKING FAIL** — "No validation entity for phase {phase_number}. Re-run
+`/gsd:plan-phase {phase_number} --research` to regenerate."
 Skip checks 8a-8d entirely. Report Dimension 8 as FAIL with this single issue.
 
 **If exists:** Proceed to checks 8a-8d.

@@ -116,8 +116,8 @@ enum Commands {
     Query(query::Args),
     /// Show an entity's thread along its kind's route, its traceability chain, or every entity's
     Trace(trace::Args),
-    /// Read the context a route of an extension declares for one entity: its sections fitted to a token budget in
-    /// declared order, with a digest
+    /// Read the context a route of an extension declares for one entity: its core sections whole, then its enrich
+    /// sections in declared order within the route's allowance, with a digest
     Context(context::Args),
     /// Format .spec files
     Format(format::Args),

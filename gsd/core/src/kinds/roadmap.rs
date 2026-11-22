@@ -21,12 +21,12 @@ const PROGRESS: &[Field] = &[
 ];
 const MILESTONE_STATE: &[&str] = &["planned", "in_progress", "shipped", "abandoned"];
 
-/// A milestone section of `ROADMAP.md`, named `v1.0` and scoped by its workstream when it has one.
+/// A milestone section of `ROADMAP.md`, named `v1.0` and scoped by its workstream when it has one. Its title is its
+/// name (`MVP`): it declares no field for it (ADR 0387).
 pub const MILESTONE: Kind = Kind::new(
     "milestone",
     "A milestone: a shippable version of the project (GSD ROADMAP.md, MILESTONES.md)",
     &[
-        str("name").r().doc("MVP"),
         str("delivered").doc("Delivered"),
         strs("accomplishments").doc("Key accomplishments"),
         str("whats_next").doc("What's next"),
@@ -76,7 +76,8 @@ const PHASE_STATUS: &[&str] = &[
     "deferred",
 ];
 
-/// `### Phase N: Name`, named `03`, `03.1` (inserted) or `999.1` (backlog), scoped by its milestone.
+/// `### Phase N: Name`, named `03`, `03.1` (inserted) or `999.1` (backlog), scoped by its milestone. `Name` is its
+/// title and `N` its name: its label is `Phase {name}: {title}`, so it declares no field for either (ADR 0387).
 pub const PHASE: Kind = Kind::new(
     "phase",
     "A phase of a milestone, named 03, 03.1 (inserted) or 999.1 (backlog) (GSD ROADMAP.md)",
@@ -85,7 +86,6 @@ pub const PHASE: Kind = Kind::new(
             .r()
             .i()
             .doc("the section it sits in"),
-        str("name").r().doc("heading text"),
         str("slug").r().doc("directory NN-slug"),
         str("goal").r().doc("Goal"),
         rfs("depends_on", "phase").doc("Depends on"),

@@ -9,6 +9,10 @@ the catalogue row `context`). Amends [ADR 0050](0050-the-guest-wire-carries-only
 categories from 2.1) and [ADR 0024](0024-one-mcp-request-pipeline.md) D4 (`context/{+entity_id}` with `role` is the
 role's pack). Reopens [ADR 0190](0190-a-read-selection-decides-what-the-read-covers.md) through its clause: a pack's
 budget ranks by declared section order; R4 holds. An item of extension protocol 2.1.0, which ADR 0334 takes.
+D2, D4, D5, D11, D12 and the Consequences line on a route's budget amended by
+[ADR 0386](0386-a-context-pack-serves-its-core-whole-and-a-routes-budget-is-its-enrich-allowance.md): a read
+that states no cap serves the core whole, a route's budget is its enrich allowance, and E062 is a stated cap below
+the core.
 
 ## Context
 

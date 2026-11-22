@@ -43,7 +43,6 @@ one row per authored field, no row for another field, every upstream line holdin
 | requirement | defined | gsd-core/templates/requirements.md:10 | **Defined:** [date] |
 | requirement | shapes | gsd-core/references/specless-probe-fallback.md:88 | REQUIREMENTS.md: {"id","text","shapes"?} |
 | requirement | text_en | src/edge-probe.cts:63 | text_en?: string; |
-| milestone | name | gsd-core/templates/milestone.md:6 | ## v[X.Y] [Name] (Shipped: YYYY-MM-DD) |
 | milestone | delivered | gsd-core/templates/milestone.md:8 | **Delivered:** [One sentence describing what shipped] |
 | milestone | accomplishments | gsd-core/templates/milestone.md:12 | **Key accomplishments:** |
 | milestone | whats_next | gsd-core/templates/milestone.md:26 | **What's next:** |
@@ -52,7 +51,6 @@ one row per authored field, no row for another field, every upstream line holdin
 | milestone | abandoned | computed:milestone.state |  |
 | milestone | workstream | gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md:1 | .planning/workstreams/<name>/STATE.md |
 | phase | milestone | gsd-core/templates/roadmap.md:167 | ### 🚧 v1.1 [Name] (In Progress) |
-| phase | name | gsd-core/templates/roadmap.md:29 | ### Phase 1: [Name] |
 | phase | slug | gsd-core/templates/spec.md:3 | .planning/phases/XX-name/ |
 | phase | goal | gsd-core/templates/roadmap.md:30 | **Goal**: [What this phase delivers] |
 | phase | depends_on | gsd-core/templates/roadmap.md:31 | **Depends on**: Nothing (first phase) |

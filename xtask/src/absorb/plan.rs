@@ -65,6 +65,10 @@ pub const NOT_IN_FORCE: &str = "a decision not in force (its status is not accep
                                 longer holds: it converts to nothing, and its ADR under docs/adr/ is its record \
                                 (ADR 0372 D5)";
 
+/// Why a phase's title loses its leading `Phase N:`: the label GSD prints computes the number from the id.
+pub const NUMBERED: &str = "a number of the old milestones' numbering: GSD labels a phase `Phase <the last segment \
+                            of its id>: <its title>`, so the title holds the name only";
+
 /// The ledger's field for one `method` member of an entity dropped whole.
 const METHOD: &str = "method";
 /// The ledger's field for an entity's field annotations, dropped whole: one entry, each field to its annotations.
@@ -367,38 +371,39 @@ impl Planner {
         }
     }
 
-    /// The entity `e` converts to, empty but for its header, its name and its scope field, keyed by its new path.
+    /// The entity `e` converts to, empty but for its header and its scope field, keyed by its new path. Its title is
+    /// a milestone's and a phase's one name (ADR 0387): GSD labels a phase `Phase <its id's last segment>: <title>`,
+    /// so an old title's leading phase number (`Phase 12:`, `03:`, `3.`, the forms `gsd/W109` flags) would print a
+    /// second number, of another numbering: it is ledgered `dropped`, and a title that held only a number is filled
+    /// with the old id, as a missing one is.
     fn draft(&mut self, e: &OldEntity) {
         let Some(new) = self.ids.get(&e.kind, &e.id).cloned() else {
             return;
         };
         let kind = new.kind;
-        let title = match &e.title {
-            Some(title) if !title.trim().is_empty() => title.clone(),
-            _ => {
-                self.ledger.record(
-                    &e.kind,
-                    &e.id,
-                    "title",
-                    Value::Null,
-                    Why::Filled {
-                        field: format!("{kind}.title"),
-                        value: json!(e.id),
-                    },
-                );
-                e.id.clone()
-            }
-        };
-        let mut fields = BTreeMap::new();
-        match kind {
-            "milestone" => {
-                fields.insert("name".to_string(), Input::One(title.clone()));
-            }
-            "phase" => {
-                fields.insert("name".to_string(), Input::One(how::phase_name(&title)));
-            }
-            _ => {}
+        let mut title = e.title.clone().unwrap_or_default();
+        if kind == "phase"
+            && let Some((number, name)) = how::numbered(&title)
+        {
+            let (number, name) = (json!(number), name.to_string());
+            let why = Why::Dropped(NUMBERED.to_string());
+            self.ledger.record(&e.kind, &e.id, "title", number, why);
+            title = name;
         }
+        if title.trim().is_empty() {
+            self.ledger.record(
+                &e.kind,
+                &e.id,
+                "title",
+                Value::Null,
+                Why::Filled {
+                    field: format!("{kind}.title"),
+                    value: json!(e.id),
+                },
+            );
+            title = e.id.clone();
+        }
+        let mut fields = BTreeMap::new();
         if let Some((field, scope)) = &new.scope {
             fields.insert((*field).to_string(), Input::One(scope.clone()));
         }

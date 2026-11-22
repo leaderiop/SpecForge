@@ -36,7 +36,10 @@ PHASE_NUMBER="${PHASE_ID##*/}"   # the phase number is the last segment of its i
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error).
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; its name is its `title`; a phase not in the graph is an E003 error).
+
+In a phase's label, `{phase_number}` is the phase's number, the last segment of its `id` (`v1.0/03` gives `03`), and
+`{phase_name}` is its `title`.
 
 Also load config for branching strategy:
 ```bash
@@ -220,7 +223,7 @@ Read ROADMAP.md for phase goal. Read VERIFICATION.md for verification status.
 ```markdown
 ## Summary
 
-**Phase {N}: {Name}**
+**Phase {phase_number}: {phase_name}**
 **Goal:** {goal from ROADMAP.md}
 **Status:** Verified ✓
 
@@ -575,7 +578,7 @@ Each dispatch is best-effort: if it errors, record a warning and continue — ne
 ```
 ---
 
-## ✓ Phase {X}: {Name} — Shipped
+## ✓ Phase {phase_number}: {phase_name} — Shipped
 
 PR: #{number} ({url})
 Branch: {branch} → ${BASE_BRANCH}

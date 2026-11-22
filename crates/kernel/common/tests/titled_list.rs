@@ -15,6 +15,7 @@ fn a_list_and_a_document_title_a_code_from_the_code_book_they_were_built_with() 
                 docs: None,
                 machine: false,
                 reported_while: None,
+                settled_later: false,
             }],
         )
         .unwrap();

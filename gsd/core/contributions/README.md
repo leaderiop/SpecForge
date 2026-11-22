@@ -141,7 +141,7 @@ templates a prompt does not inline (`specforge gsd reference gsd-core/references
 | `plan_phase` | E201, W204, E206, W406, E516 | phase researcher, pattern mapper, planner, plan checker; `record_research`, `thread_plan` (the step `thread` between the planner and the plan checker, its answer checked by `specforge trace --plan`), `record_verdict`, `record_conflict`, `resolve_conflict`; `execute_phase` |
 | `plan_review_convergence` | E201, W204, E206, W406, E516 | `plan_phase`; plan checker |
 | `ultraplan_phase` | E201, W204, E206, W406, E516 | plan checker; `record_verdict` |
-| `execute_phase` | W311, W313, W315, W318, E516 | `execute_plan`; `re_verify`; verifier; `record_verdict`, `record_window`, `raise_blocker` (a tripped TDD gate); `verify_work` |
+| `execute_phase` | E301, W309, E310, W311, W313, W315, W318, E516 | `execute_plan`; `re_verify`; verifier; `record_verdict`, `record_window`, `raise_blocker` (a tripped TDD gate); `verify_work` |
 | `execute_plan` (no slash command) | W318, E516 | `start_plan`, `answer_checkpoint`, `confirm_setup`, `raise_blocker`, `complete_plan`; executor |
 | `verify_work` | E516 | `set_uat_result` (`--follow-up` keeps a deferred follow-up), `record_automated_uat`; planner, plan checker |
 | `validate_phase` | E516 | nyquist auditor; `record_validation`, `approve_validation` |
