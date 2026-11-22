@@ -1151,8 +1151,9 @@ SDK: `c.checker("url", |k| { .. })`, `f.check("url")`.
 ### Category: contexts
 
 Returns the context routes a role reads (protocol 2.1.0, ADR 0356). A context route serves one entity of its `subject`
-kind as a pack: its sections in declared order, cut to a token budget, with a digest (`specforge context <route>
-<entity>`, the MCP tool `specforge.context`, `specforge://context/{+entity_id}?role=<route>`).
+kind as a pack: its core sections whole, its enrich sections in declared order within a token allowance, with a
+digest (`specforge context <route> <entity>`, the MCP tool `specforge.context`,
+`specforge://context/{+entity_id}?role=<route>`).
 
 ```json
 {
@@ -1180,7 +1181,9 @@ kind as a pack: its sections in declared order, cut to a token budget, with a di
 
 - `name` is kebab case, unique among the extension's context routes; the host qualifies it by the extension's short
   name (`gsd/executor`). Context routes and trace routes are separate namespaces.
-- `budget` is the token budget a read takes when it names none, positive. `agent` is an agent of the extension's own:
+- `budget` is the route's enrich allowance (ADR 0386): the tokens of enrich sections a pack may add beyond its core
+  when the read states no cap; positive for a route with an enrich section, 0 for one of core sections only. `agent`
+  is an agent of the extension's own:
   the host appends a `## Context` section to its body on every host.
 - A section's `name` is a word, unique in the route and never `settings`. `selector` is the judged rules' grammar with
   its head: an entity chain (`self<task.plan`, `decision`), `file(..)` or `test(..)`. `tier` is `core` (absent: core)
@@ -1192,20 +1195,22 @@ kind as a pack: its sections in declared order, cut to a token budget, with a di
   `stale` is a code the extension catalogues, which a record whose pack has moved raises. A route declares both or
   neither.
 
-A pack keeps the subject and every core section whatever the budget (below them the read is E062 naming the route),
-serves enrich sections whole in declared order, keeps the most connected entities of the first that does not fit, and
-lists what it cut. Its digest covers the sections served, each digested as a judged input of the same selector.
+A pack keeps the subject and every core section whole. A read that states no cap fits the enrich sections to the core
+and the allowance; a read that states one (`max_tokens`) caps the whole pack, and a core above it is E062 naming the
+route. The pack serves enrich sections whole in declared order, keeps the most connected entities of the first that
+does not fit, lists what it cut, and renders the cap it was fitted to as `budget.budget_tokens`; it shows no
+context-written field. Its digest covers the sections served, each digested as a judged input of the same selector.
 
 The host checks each route once, when the extension loads. One that cannot be served (a name not kebab case or taken,
 no core section, a section name not a word, repeated or `settings`, a selector that does not parse, leaves the
 project or does not type-check from the subject kind, a subject kind not loaded, a setting the extension does not
-declare, a budget of 0, a record or stale code that cannot hold) is E123 and is not registered. A context-written
-field needs no check for its owner gate (`checks_while`): its staleness is its check.
+declare, a budget of 0 with an enrich section, a record or stale code that cannot hold) is E123 and is not
+registered. A context-written field needs no check for its owner gate (`checks_while`): its staleness is its check.
 
 A record is written by the host (`record_context`, below; `specforge context <route> <subject> --record <entity>`).
 On each check, every record of a route that names `stale`, when its field's owner gate admits the owner's state, is
-evaluated again at its recorded budget, in the context format: a pack whose digest moved, a record that reaches no
-subject or several, or a core above the budget is one finding of the route's stale code at the field, its severity by
+evaluated again under its recorded cap, in the context format: a pack whose digest moved, a record that reaches no
+subject or several, or a core above the cap is one finding of the route's stale code at the field, its severity by
 its letter, with the record's `suggestion` (`{entity}`, `{subject}` and `{route}` filled in). The extension's settings
 raise and gate it as any of its codes. A project that holds no record evaluates no pack. A subject kind of an optional peer the project does not load
 drops the route without a diagnostic; a section that reaches one is skipped and listed in the pack's `skipped`. An
@@ -1305,7 +1310,7 @@ sources, and every `graph` node carries its `file`. A writing collector is sent 
 | `delete` | `entity`, `unlink_references`? |
 | `rename` | `entity`, `to` (the move record is written with the ledger) |
 | `set_verdict` | `entity`, `rule`, `outcome`, `judge`, `model`, `findings`?, `cited`? (`{"entity"}`, `{"file"}` or `{"test"}`), `values`?, `basis`? |
-| `record_context` | `entity`, `route`, `max_tokens`? (2.1.0, ADR 0356 D11): the host derives the route's subject from the entity by its record, computes the pack at the budget (absent: the route's) over the project the plan is applied to, and writes the route, the digest and the budget in the record's field with its ledger line. A command, collector or hook of the route's extension (or of one naming it a peer) may ask |
+| `record_context` | `entity`, `route`, `max_tokens`? (2.1.0, ADR 0356 D11): the host derives the route's subject from the entity by its record, computes the pack under `max_tokens` as a cap (absent: its core and the route's allowance, ADR 0386) over the project the plan is applied to, and writes the route, the digest and the cap the pack was fitted to in the record's field with its ledger line. A command, collector or hook of the route's extension (or of one naming it a peer) may ask |
 
 Ops apply in order, each over the texts the ones before it left. An op's `revision` is the revision of the file it
 writes, as the call received it (`absent` for a file that is not there yet); an op with none is `invalid_plan`. If the
