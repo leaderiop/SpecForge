@@ -1,0 +1,26 @@
+pub mod example_api
+#[non_exhaustive] pub struct example_api::Struct
+pub example_api::Struct::v1_field: usize
+impl example_api::Struct
+pub fn example_api::Struct::new(v1_field: usize) -> Self
+impl core::fmt::Debug for example_api::Struct
+pub fn example_api::Struct::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for example_api::Struct
+pub fn example_api::Struct::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Send for example_api::Struct
+pub extern crate example_api::serde
+pub use example_api::StructV2
+pub mod example_api::enums
+pub enum example_api::enums::DiverseVariants
+pub example_api::enums::DiverseVariants::Tuple(usize, bool)
+pub example_api::enums::DiverseVariants::Unit
+pub enum example_api::enums::EnumWithExplicitDiscriminants
+pub example_api::enums::EnumWithExplicitDiscriminants::First = 1
+pub mod example_api::constants
+pub const example_api::constants::CONST_BOOL: bool
+pub mod example_api::attributes
+#[repr(C)] pub struct example_api::attributes::C
+pub example_api::attributes::C::b: bool
+pub const fn example_api::function(x: u32) -> u32
+pub fn example_api::from_macro()
+pub(crate) fn example_api::restricted()

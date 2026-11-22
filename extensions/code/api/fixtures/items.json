@@ -1,0 +1,18 @@
+[
+  {"kind": "item", "id": "rust:example-api::Struct"},
+  {"kind": "item", "id": "rust:example-api::Struct::v1_field"},
+  {"kind": "item", "id": "rust:example-api::Struct::new"},
+  {"kind": "item", "id": "rust:example-api::<Struct as Debug>::fmt"},
+  {"kind": "item", "id": "rust:example-api::<Struct as Display>::fmt"},
+  {"kind": "item", "id": "rust:example-api::enums"},
+  {"kind": "item", "id": "rust:example-api::enums::DiverseVariants"},
+  {"kind": "item", "id": "rust:example-api::enums::EnumWithExplicitDiscriminants"},
+  {"kind": "item", "id": "rust:example-api::constants"},
+  {"kind": "item", "id": "rust:example-api::constants::CONST_BOOL"},
+  {"kind": "item", "id": "rust:example-api::attributes"},
+  {"kind": "item", "id": "rust:example-api::attributes::C"},
+  {"kind": "item", "id": "rust:example-api::attributes::C::b"},
+  {"kind": "item", "id": "rust:example-api::function"},
+  {"kind": "item", "id": "rust:example-api::restricted"},
+  {"kind": "item", "id": "rust:example-api/bin/tool::function"}
+]

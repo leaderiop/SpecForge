@@ -1,0 +1,241 @@
+---
+source: src/tests.rs
+expression: "api_facts(&entries, &served())"
+---
+[
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api",
+    "fields": {
+      "kind": "module",
+      "path": "example_api",
+      "signature": "pub mod example_api",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::<Struct as Debug>::fmt",
+    "fields": {
+      "item": "rust:example-api::<Struct as Debug>::fmt",
+      "kind": "method",
+      "path": "example_api::Struct::fmt",
+      "signature": "pub fn example_api::Struct::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::<Struct as Display>::fmt",
+    "fields": {
+      "item": "rust:example-api::<Struct as Display>::fmt",
+      "kind": "method",
+      "path": "example_api::Struct::fmt",
+      "signature": "pub fn example_api::Struct::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::Struct",
+    "fields": {
+      "item": "rust:example-api::Struct",
+      "kind": "struct",
+      "path": "example_api::Struct",
+      "signature": "#[non_exhaustive] pub struct example_api::Struct",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::Struct::new",
+    "fields": {
+      "item": "rust:example-api::Struct::new",
+      "kind": "method",
+      "path": "example_api::Struct::new",
+      "signature": "pub fn example_api::Struct::new(v1_field: usize) -> Self",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::Struct::v1_field",
+    "fields": {
+      "item": "rust:example-api::Struct::v1_field",
+      "kind": "field",
+      "path": "example_api::Struct::v1_field",
+      "signature": "pub example_api::Struct::v1_field: usize",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::StructV2",
+    "fields": {
+      "kind": "reexport",
+      "path": "example_api::StructV2",
+      "signature": "pub use example_api::StructV2",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::attributes",
+    "fields": {
+      "item": "rust:example-api::attributes",
+      "kind": "module",
+      "path": "example_api::attributes",
+      "signature": "pub mod example_api::attributes",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::attributes::C",
+    "fields": {
+      "item": "rust:example-api::attributes::C",
+      "kind": "struct",
+      "path": "example_api::attributes::C",
+      "signature": "#[repr(C)] pub struct example_api::attributes::C",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::attributes::C::b",
+    "fields": {
+      "item": "rust:example-api::attributes::C::b",
+      "kind": "field",
+      "path": "example_api::attributes::C::b",
+      "signature": "pub example_api::attributes::C::b: bool",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::constants",
+    "fields": {
+      "item": "rust:example-api::constants",
+      "kind": "module",
+      "path": "example_api::constants",
+      "signature": "pub mod example_api::constants",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::constants::CONST_BOOL",
+    "fields": {
+      "item": "rust:example-api::constants::CONST_BOOL",
+      "kind": "const",
+      "path": "example_api::constants::CONST_BOOL",
+      "signature": "pub const example_api::constants::CONST_BOOL: bool",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::enums",
+    "fields": {
+      "item": "rust:example-api::enums",
+      "kind": "module",
+      "path": "example_api::enums",
+      "signature": "pub mod example_api::enums",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::enums::DiverseVariants",
+    "fields": {
+      "item": "rust:example-api::enums::DiverseVariants",
+      "kind": "enum",
+      "path": "example_api::enums::DiverseVariants",
+      "signature": "pub enum example_api::enums::DiverseVariants",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::enums::DiverseVariants::Tuple",
+    "fields": {
+      "kind": "variant",
+      "path": "example_api::enums::DiverseVariants::Tuple",
+      "signature": "pub example_api::enums::DiverseVariants::Tuple(usize, bool)",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::enums::DiverseVariants::Unit",
+    "fields": {
+      "kind": "variant",
+      "path": "example_api::enums::DiverseVariants::Unit",
+      "signature": "pub example_api::enums::DiverseVariants::Unit",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::enums::EnumWithExplicitDiscriminants",
+    "fields": {
+      "item": "rust:example-api::enums::EnumWithExplicitDiscriminants",
+      "kind": "enum",
+      "path": "example_api::enums::EnumWithExplicitDiscriminants",
+      "signature": "pub enum example_api::enums::EnumWithExplicitDiscriminants",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::enums::EnumWithExplicitDiscriminants::First",
+    "fields": {
+      "kind": "variant",
+      "path": "example_api::enums::EnumWithExplicitDiscriminants::First",
+      "signature": "pub example_api::enums::EnumWithExplicitDiscriminants::First = 1",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::from_macro",
+    "fields": {
+      "kind": "function",
+      "path": "example_api::from_macro",
+      "signature": "pub fn example_api::from_macro()",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::function",
+    "fields": {
+      "item": "rust:example-api::function",
+      "kind": "function",
+      "path": "example_api::function",
+      "signature": "pub const fn example_api::function(x: u32) -> u32",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::restricted",
+    "fields": {
+      "item": "rust:example-api::restricted",
+      "kind": "function",
+      "path": "example_api::restricted",
+      "signature": "pub(crate) fn example_api::restricted()",
+      "visibility": "crate"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:rust:example_api::serde",
+    "fields": {
+      "kind": "extern_crate",
+      "path": "example_api::serde",
+      "signature": "pub extern crate example_api::serde",
+      "visibility": "public"
+    }
+  }
+]

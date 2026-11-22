@@ -26,10 +26,13 @@
 //!   makes report text safe in an id and [`Repeats`] suffixes an id answered twice `~2`, `~3`, ….
 //! - [`coverage_facts`] mints a `coverage` per item a coverage report's [`CoverageFile`]s reach, and one per file for
 //!   what no item holds.
+//! - [`api_facts`] mints an `api_item` per public entry an API snapshot's reader read ([`ApiEntry`], [`ApiKind`]),
+//!   citing the one served item its path names.
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
 
+mod api;
 mod coverage;
 mod ids;
 mod mint;
@@ -40,6 +43,7 @@ mod syntax;
 #[cfg(test)]
 mod tests;
 
+pub use api::{api_facts, ApiEntry, ApiKind};
 pub use coverage::{coverage_facts, Branch, CoverageFile, Function};
 pub use ids::{
     crate_segment, js_segment, Edition, IdError, ItemId, Owner, PackageId, Scheme, TargetKind,

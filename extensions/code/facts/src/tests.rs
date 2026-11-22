@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use super::*;
 use specforge_test::prelude::*;
 
+mod api;
 mod coverage;
 mod mint;
 mod paths;

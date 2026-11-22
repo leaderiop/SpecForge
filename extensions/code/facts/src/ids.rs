@@ -256,6 +256,16 @@ impl ItemId {
         format!("{}:{}::", self.scheme.as_str(), self.container)
     }
 
+    /// The crate segment (`rust`) or `<package>/<file>` (`js`), as the id writes it.
+    pub(crate) fn container_text(&self) -> &str {
+        &self.container
+    }
+
+    /// The segments after the container: modules, owner and name (`rust`), the name path (`js`), unescaped.
+    pub(crate) fn segments(&self) -> &[String] {
+        &self.path
+    }
+
     /// The item's own unqualified name: its last segment (`add` for `…::Board::add`, `fmt` for
     /// `…::<Foo as Display>::fmt`, `add` for `js:…::Board.add`).
     pub fn name(&self) -> &str {
