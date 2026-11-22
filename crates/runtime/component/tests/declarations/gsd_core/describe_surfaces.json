@@ -1334,7 +1334,7 @@
             },
             {
               "arg_type": "string",
-              "description": "the phase's name (required to add or insert)",
+              "description": "the phase's name, its title (required to add or insert; editing it retitles the phase)",
               "name": "name",
               "required": false
             },

@@ -1,6 +1,5 @@
 phase 01 "Structural Parsing" {
   milestone        v0.1.0
-  name             "Structural Parsing"
   slug             "structural-parsing"
   requirements     [FEATURE-123, FEATURE-023, FEATURE-019]
   success_criteria [
@@ -16,7 +15,6 @@ phase 01 "Structural Parsing" {
 
 phase 02 "Resolution & Graph Construction" {
   milestone        v0.1.0
-  name             "Resolution & Graph Construction"
   slug             "resolution-graph-construction"
   depends_on       [01]
   requirements     [FEATURE-109, FEATURE-047]
@@ -34,7 +32,6 @@ phase 02 "Resolution & Graph Construction" {
 
 phase 03 "Validation & Error Reporting" {
   milestone        v0.1.0
-  name             "Validation & Error Reporting"
   slug             "validation-error-reporting"
   depends_on       [02]
   requirements     [FEATURE-124, FEATURE-017, FEATURE-006, FEATURE-105]
@@ -52,7 +49,6 @@ phase 03 "Validation & Error Reporting" {
 
 phase 04 "Output & Agent Export" {
   milestone        v0.1.0
-  name             "Output & Agent Export"
   slug             "output-agent-export"
   depends_on       [03]
   requirements     [FEATURE-057, FEATURE-130, FEATURE-001, FEATURE-101]
@@ -70,7 +66,6 @@ phase 04 "Output & Agent Export" {
 
 phase 05 "Project Initialization" {
   milestone        v0.1.0
-  name             "Project Initialization"
   slug             "project-initialization"
   depends_on       [04]
   requirements     [FEATURE-106]
@@ -88,7 +83,6 @@ phase 05 "Project Initialization" {
 
 phase 01 "Incremental Compilation" {
   milestone        v0.5.0
-  name             "Incremental Compilation"
   slug             "incremental-compilation"
   requirements     [FEATURE-050, FEATURE-051, FEATURE-142]
   success_criteria [
@@ -105,7 +99,6 @@ phase 01 "Incremental Compilation" {
 
 phase 02 "LSP Server" {
   milestone        v0.5.0
-  name             "LSP Server"
   slug             "lsp-server"
   depends_on       [01]
   requirements     [
@@ -132,7 +125,6 @@ phase 02 "LSP Server" {
 
 phase 03 "Code Formatting" {
   milestone        v0.5.0
-  name             "Code Formatting"
   slug             "code-formatting"
   requirements     [FEATURE-009, FEATURE-061]
   success_criteria [
@@ -149,7 +141,6 @@ phase 03 "Code Formatting" {
 
 phase 04 "Zero-Entity Core Architecture" {
   milestone        v0.5.0
-  name             "Zero-Entity Core Architecture"
   slug             "zero-entity-core-architecture"
   depends_on       [03]
   requirements     [
@@ -179,7 +170,6 @@ phase 04 "Zero-Entity Core Architecture" {
 
 phase 01 "Wasm Extension Runtime" {
   milestone        v1.0.0
-  name             "Wasm Extension Runtime"
   slug             "wasm-extension-runtime"
   requirements     [
     FEATURE-136,
@@ -207,7 +197,6 @@ phase 01 "Wasm Extension Runtime" {
 
 phase 02 "Extension Ecosystem" {
   milestone        v1.0.0
-  name             "Extension Ecosystem"
   slug             "extension-ecosystem"
   depends_on       [01]
   requirements     [
@@ -236,7 +225,6 @@ phase 02 "Extension Ecosystem" {
 
 phase 03 "Graph Protocol Schema Versioning" {
   milestone        v1.0.0
-  name             "Graph Protocol Schema Versioning"
   slug             "graph-protocol-schema-versioning"
   requirements     [FEATURE-120, FEATURE-048]
   success_criteria [
@@ -253,7 +241,6 @@ phase 03 "Graph Protocol Schema Versioning" {
 
 phase 05 "MCP Server" {
   milestone        v0.5.0
-  name             "MCP Server"
   slug             "mcp-server"
   requirements     [
     FEATURE-067,

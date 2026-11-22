@@ -47,7 +47,8 @@ pub const CAP: u64 = cap!();
 /// a write that alters what their entity held is refused and an open question was answered at its own id, 5,723,184 B
 /// once its routes stated enrich allowances and the plan check read the decisions its plan answers to, and 5,723,296 B
 /// once a context record held only the cap its read stated and the plan check read the decisions a task names as
-/// settling its door.
+/// settling its door, and 5,727,088 B once a phase was named by its title alone, a numbered title was `gsd/W109`
+/// and a pass entity carried its title.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_800_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].

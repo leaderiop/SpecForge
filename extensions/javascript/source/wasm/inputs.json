@@ -5,7 +5,7 @@
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
     "crates/leaf/protocol-types/Cargo.toml": "e8afa3ac4c33d7a09f8c9879d9d87ca2cc0e8d23961abdf867051496f874c176",
-    "crates/leaf/protocol-types/src/calls.rs": "291591d4f2af05bccc28aaf9eb0ca85d8713a4ded15c7e083931d9e7432dd93c",
+    "crates/leaf/protocol-types/src/calls.rs": "39f197fe1698bbb655c58b2db4fc2dcf87308087a225273cbb4d4ba355a930ab",
     "crates/leaf/protocol-types/src/calls/collect.rs": "0c3c76ea80dd4c6a05396627fc20a209022ae8dbe34640be3790fd4f06269b50",
     "crates/leaf/protocol-types/src/calls/evidence.rs": "f10687676e8c14a0cf4046bf35e57366087df4b698104329efd164e707a4d983",
     "crates/leaf/protocol-types/src/calls/facts.rs": "9aa11df0902f2393c0f758d2ddb0e8747cc4d4afda5a0faff8b20e31ec6d710e",
@@ -38,7 +38,7 @@
     "crates/leaf/protocol-types/src/tokens.rs": "712d002d00fec879b8f594f775bb25513ead53ee61d11978478c36d83bfbe9b1",
     "crates/leaf/protocol-types/src/tool_input.rs": "0e7e9603b820339efea2266baafcd42ba39323b287b0f682a2bb509227590b17",
     "crates/leaf/protocol-types/src/trigger.rs": "4e76e4d280ed72934f33b823c9c2bb2a80648b1fb227c594ba9385ee2c60d422",
-    "crates/leaf/protocol-types/src/version.rs": "dac77e5acf988f277e00035cd6137dfac74b07a1a9b16f9aa2f946f6ea9485d3",
+    "crates/leaf/protocol-types/src/version.rs": "83c7e996a370da5fe1ad1966521d6a67803a5d8e0a62b3dee6ce4ccf00e3fe1e",
     "crates/leaf/protocol-types/src/vocabulary.rs": "c3bea56db4bb5cfc84ce400db7750b2eb33c58dcbf11e5b3f2761683341675b5",
     "crates/runtime/extension-sdk-macros/Cargo.toml": "2845656f0847efeddb37aecc91031adc3396747949aa0e090cdad31644824544",
     "crates/runtime/extension-sdk-macros/src/lib.rs": "05b9dfd092444a55acc0993f35172ee3d0e4db9b6b1bed77682ce912ba54f67a",
