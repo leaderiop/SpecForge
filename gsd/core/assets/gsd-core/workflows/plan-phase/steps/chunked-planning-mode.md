@@ -152,8 +152,8 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
      **Chunked mode: single-plan.**
      Write exactly ONE plan: the plan entity `{phase_id}/{plan_id}`, with the plan edit of `<plan_format>`
      holding this plan alone.
-     A plan written alone is refused `gsd/E301` while another requirement of the phase is in no plan:
-     then return ## PLAN BLOCKED with the codes.
+     While a later plan of the outline is not written, the call reports `gsd/E301` or `gsd/E310` and is
+     written, not refused. Return ## PLAN BLOCKED with the codes only when the call is refused.
      Plan to write: {plan_id} — {objective}
      Wave: {wave} | Depends on: {depends_on}
      Phase requirement IDs to cover in this plan: {plan_requirements}
@@ -205,13 +205,19 @@ specforge git commit --add spec -m "docs(${PADDED_PHASE}): plan ${plan_id} (chun
 8. **Recovery:** an entry that is `stalled` in step 5, or whose plan is missing in step 6, offers
    1) Retry, 2) Stop — scoped to that one plan. Sibling entries in the same batch that already
    verified and committed keep their commits either way; only the failed/stalled plan is retried
-   or the run stopped. A `blocked` entry (its `## PLAN BLOCKED` names `gsd/E301`: a requirement of
-   the phase is in no plan yet, so this plan cannot be written alone, and a retry is refused the
-   same way) offers instead 1) Plan the rest of the phase in one run, 2) Stop. Option 1 is step 8's
-   single planner spawn with `CHUNKED_MODE` false, whose prompt names the plans the graph already
-   holds (`specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id'`): its plan edit
+   or the run stopped. A `blocked` entry (its `## PLAN BLOCKED` names the codes of a refused call,
+   which wrote nothing; `gsd/E301` and `gsd/E310` never block, since a later plan settles them)
+   offers instead 1) Retry, with the codes in the planner's prompt,
+   2) Plan the rest of the phase in one run, 3) Stop. Option 2 is step 8's single planner spawn with
+   `CHUNKED_MODE` false, whose prompt names the plans the graph already holds
+   (`specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id'`): its plan edit
    creates every plan the outline still lists and none of those, since an id that exists is refused
    as a conflict. The plans already committed stay.
+
+   A run stopped before the outline's last plan leaves the phase half-planned: the `gsd/E301` and
+   `gsd/E310` its plans reported stay in the repository, `check` fails on them, and the gate of
+   `/gsd-execute-phase` refuses the phase until the rest is planned (this mode again, whose resume
+   skips the plans that exist, or option 2).
 
 Move to the next Wave only once every entry in the current Wave is committed or the run was
 stopped. After every Wave's plans are written and committed, treat this as `## PLANNING COMPLETE`

@@ -472,9 +472,11 @@ fn a_plan_written_alone_is_written_and_reports_what_a_later_write_settles() {
     }
 }
 
-/// The planner's `<plan_format>` is the plan edit: one `json` fence sent as **one** `specforge.edit` call, no typed
-/// creation, the computed fields left out; the write step says to fix the list and send the whole call again, and the
-/// critical rule names `specforge.edit`.
+/// The planner's `<plan_format>` is the plan edit: one `json` fence sent as **one** `specforge.edit` call, the atomic
+/// route, no typed creation, the computed fields left out. It says a call that leaves a finding a later plan settles
+/// (gsd/E301, gsd/E310, gsd/W309) is written, not refused, and no longer that a plan written alone is refused; the
+/// write step says to fix a refused list and send the whole call again, and to complete a phase a written call left
+/// incomplete; the critical rule names `specforge.edit`.
 #[test]
 fn the_plan_format_is_one_edit_of_the_whole_phase() {
     let format = plan_format();
@@ -494,11 +496,25 @@ fn the_plan_format_is_one_edit_of_the_whole_phase() {
         .collect();
     assert!(typed.is_empty(), "{typed:?}");
     assert!(format.contains("computed"), "{format}");
+    let flat = format.split_whitespace().collect::<Vec<_>>().join(" ");
+    for words in [
+        "It is the atomic route",
+        "`gsd/E310`",
+        "a call that leaves one is written, not refused",
+        "`check` fails on it until the rest of the phase is written",
+    ] {
+        assert!(
+            flat.contains(words),
+            "the plan format lacks {words}:\n{flat}"
+        );
+    }
+    assert!(!flat.contains("a plan written alone is refused"), "{flat}");
     let body = planner();
     let write = block(&body, "<step name=\"write_phase_prompt\">", "</step>");
     assert!(
         write.contains("`specforge.edit`")
             && write.contains("send the whole call again")
+            && write.contains("left the phase incomplete")
             && !write.contains("run the line again"),
         "{write}"
     );
@@ -508,10 +524,11 @@ fn the_plan_format_is_one_edit_of_the_whole_phase() {
 
 /// Every other writer of a phase's plans names the plan edit and none points at the planner's typed edits: chunked
 /// single-plan mode (its reference and its spawn prompt, which names no typed plan creation), gap closure and the
-/// quick-batch planner wave. Chunked mode says a plan written alone is refused `gsd/E301` while another requirement of
-/// the phase is in no plan; its wait reads a `## PLAN BLOCKED` return as `blocked`, in both of its paths, never as a
-/// stall; and its recovery of a blocked entry plans the rest of the phase in one run, naming the plans the graph holds
-/// with a query line, since the planner's plan edit creates only the others.
+/// quick-batch planner wave. Chunked mode says a plan written alone reports `gsd/E301` or `gsd/E310` and is written,
+/// and that `## PLAN BLOCKED` is a refused call only; its wait reads a `## PLAN BLOCKED` return as `blocked`, in both
+/// of its paths, never as a stall; its recovery of a blocked entry retries the plan or plans the rest of the phase in
+/// one run, naming the plans the graph holds with a query line, since the planner's plan edit creates only the others;
+/// and it says a run stopped midway leaves the phase half-planned, failing `check` and refused by execute-phase.
 #[test]
 fn every_writer_of_a_phases_plans_names_the_plan_edit() {
     let chunked = asset("gsd-core/references/planner-chunked.md");
@@ -552,10 +569,17 @@ fn every_writer_of_a_phases_plans_names_the_plan_edit() {
     }
     assert!(!spawn.contains("`specforge new plan`"), "{spawn}");
     for (name, text) in [("single-plan", &single), ("the chunked spawn", &spawn)] {
-        assert!(
-            text.contains("gsd/E301") && text.contains("## PLAN BLOCKED"),
-            "{name}: {text}"
-        );
+        let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        for words in [
+            "gsd/E301",
+            "gsd/E310",
+            "## PLAN BLOCKED",
+            "written",
+            "refused",
+        ] {
+            assert!(flat.contains(words), "{name} lacks {words}: {flat}");
+        }
+        assert!(!flat.contains("is refused `gsd/E301`"), "{name}: {flat}");
     }
     assert!(
         spawn.contains("holding this plan alone.\n"),
@@ -571,6 +595,8 @@ fn every_writer_of_a_phases_plans_names_the_plan_edit() {
     for words in [
         "## PLAN BLOCKED",
         "gsd/E301",
+        "never block",
+        "1) Retry",
         "Plan the rest of the phase in one run",
         "specforge query \"$PHASE_ID\" --kinds plan",
         "conflict",
@@ -581,8 +607,17 @@ fn every_writer_of_a_phases_plans_names_the_plan_edit() {
         );
     }
     assert!(
-        single.contains("plan the rest of the\nphase in one run"),
+        single
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .contains("to retry this plan, to plan the rest of the phase in one run, or to stop"),
         "{single}"
+    );
+    let stopped = block(&mode, "A run stopped before", "Move to the next Wave");
+    assert!(
+        stopped.contains("half-planned") && stopped.contains("`/gsd-execute-phase`"),
+        "{stopped}"
     );
     assert!(
         plan_format().contains("the edit creates only the others"),

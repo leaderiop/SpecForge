@@ -296,10 +296,13 @@ Full rules: @~/.claude/gsd-core/references/context-budget.md (Phase Sizing). Rea
 ## The Plan Edit
 
 A phase's plans are entities in the spec, written with **one** MCP `specforge.edit` call whose `edits` list is the
-JSON below: all of it is written, or none of it. A phase's coverage (`gsd/E301`: each requirement of the phase is in a
-plan of it) binds from its first plan and, under gsd-strict, a plan's must-haves (`gsd/W309`: a truth or an artifact)
-from its first write, so the plans are never written one by one: a plan written alone is refused, and the whole call
-writes nothing. Every plan of the phase, with its tasks, truths, artifacts and key links, goes in the one call.
+JSON below: all of it is written, or none of it. It is the atomic route: every plan of the phase, with its tasks,
+truths, artifacts and key links, goes in the one call, and the phase is never left half-planned. A phase's coverage
+(`gsd/E301`: each requirement of the phase is in a plan of it; `gsd/E310`: each decision of its context is cited by
+one) binds from its first plan and, under gsd-strict, a plan's must-haves (`gsd/W309`: a truth or an artifact) from
+its first write. A later plan settles them, so a call that leaves one is written, not refused: it reports the finding,
+and `check` fails on it until the rest of the phase is written. Chunked mode writes a phase that way, one plan per
+call; write the whole phase here.
 
 Each plan has its own file, `plans/<plan id>.spec` beside the phase's file
 (`specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file'` prints the phase's file), so the executors of one
@@ -766,7 +769,9 @@ message is a brief confirmation (see `<structured_returns>`), never the plan's c
 
 The call is checked before it writes: a refusal names its codes (E080 carries the errors), and
 `specforge explain <code>` says what each code means and how to fix it. Fix the list and send the whole call again; a
-refused call writes nothing, so nothing is left half-written. Never hand-edit a spec file instead.
+refused call writes nothing, so nothing is left half-written. A written call that reports `gsd/E301`, `gsd/E310` or
+`gsd/W309` left the phase incomplete: add what it names (a plan, a citation, a truth or an artifact) before you
+return. Never hand-edit a spec file instead.
 
 An open question the research recorded (the prompt's **Open questions the research returned:**: no decision
 resolves it yet, `gsd/W204`) is the user's to answer, not yours. Record no decision that resolves it and leave the
