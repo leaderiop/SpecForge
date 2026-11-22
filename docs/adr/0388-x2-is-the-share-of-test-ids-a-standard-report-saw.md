@@ -61,7 +61,8 @@ Over one project's collected facts:
 
 - `m` is the number of `item` facts that carry a `test_id`;
 - `n` is the number of those whose `test_id` is the id of a `test` fact;
-- X2 is `n/m`, with the percent to one decimal: `X2 <project>: n/m (p%)`. When `m = 0` it prints
+- X2 is `n/m`, with the percent rounded down to one decimal, so `100.0%` is printed only when no item is missing:
+  `X2 <project>: n/m (p%)`. When `m = 0` it prints
   `X2 <project>: 0/0 (no item has a test_id)` and no percent.
 - A test of any status counts, a skipped one too: whether it passed is W401's to say, not X2's.
 - The items it misses are the item ids with a `test_id` and no `test` fact, sorted, each on its own line under the
@@ -76,7 +77,8 @@ from the collected facts, not from a test list of its own, keeps it the same num
 input like `judge::requirement_verdict`. The `dogfood` check calls it and writes its lines to
 `<target>/gate/dogfood.log`. It is print only: no floor fails the check until Phase 14 asserts 100% with a negative
 control. A failed collect or export of an X2 project is an error of the check, since then no number was computed; the
-number itself never is. `doctor` may call the same function later (Phase 11 owns `doctor`).
+number itself never is. So is an export of another shape (no `nodes` array, a node with no `id` or `kind`), which would
+otherwise read as `0/0`; and when the requirement verdict already fails the check, an X2 error is still logged. `doctor` may call the same function later (Phase 11 owns `doctor`).
 
 The reason: guests are not under nextest yet, so any floor now would be either meaningless or red; the gate already
 collects the root for `dogfood`, so X2 costs no second collect of it.

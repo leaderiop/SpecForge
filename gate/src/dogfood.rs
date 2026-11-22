@@ -93,11 +93,26 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             .iter()
             .try_for_each(|fixture| fixture_x2(ctx, specforge, fixture, &tracked))
     });
+    let (logged, result) = outcome(failed, &lines, x2);
+    if let Some(line) = logged {
+        ctx.log(&line);
+    }
+    result
+}
+
+/// The check's result and what to log first: the requirement verdict's first problem when it `failed` (its first line
+/// is the counts, the problems follow), with X2's error logged, which the red run would otherwise drop unseen; else
+/// X2's own result.
+fn outcome(
+    failed: bool,
+    lines: &[String],
+    x2: Result<(), String>,
+) -> (Option<String>, Result<(), String>) {
     if failed {
-        // The first line is the counts; the problems follow it.
-        Err(lines.get(1).or(lines.first()).cloned().unwrap_or_default())
+        let problem = lines.get(1).or(lines.first()).cloned().unwrap_or_default();
+        (x2.err(), Err(problem))
     } else {
-        x2
+        (None, x2)
     }
 }
 
@@ -208,7 +223,7 @@ fn log_x2(ctx: &Ctx, specforge: &Path, name: &str, path: &str) -> Result<(), Str
         ],
     )
     .map_err(|e| format!("X2 {name}: exporting its items and tests: {e}"))?;
-    let (items, tests) = x2::read(&export);
+    let (items, tests) = x2::read(&export).map_err(|e| format!("X2 {name}: {e}"))?;
     for line in x2::lines(name, &x2::ratio(&items, &tests)) {
         ctx.log(&line);
     }

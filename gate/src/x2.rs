@@ -31,39 +31,54 @@ pub(crate) fn ratio(items: &[(String, String)], tests: &BTreeSet<String>) -> X2 
     }
 }
 
+/// What [`read`] reads of an export: each item id with its `test_id`, and the ids of the `test` facts.
+pub(crate) type Read = (Vec<(String, String)>, BTreeSet<String>);
+
 /// The `item` nodes of `export` (`specforge export --format graph --kinds item,test`) that carry a `test_id`, each
-/// with it, and the ids of its `test` nodes, whatever their status.
-pub(crate) fn read(export: &Value) -> (Vec<(String, String)>, BTreeSet<String>) {
-    let nodes = export["nodes"].as_array().into_iter().flatten();
+/// with it, and the ids of its `test` nodes, whatever their status. An error when the export is of another shape (no
+/// `nodes` array, a node with no string `id` or `kind`): it would read as `0/0`, the line of a project whose items
+/// carry no test id, and hide the change.
+pub(crate) fn read(export: &Value) -> Result<Read, String> {
+    let nodes = export["nodes"]
+        .as_array()
+        .ok_or("the export has no `nodes` array: its shape changed")?;
     let mut items = Vec::new();
     let mut tests = BTreeSet::new();
-    for node in nodes {
-        let Some(id) = node["id"].as_str() else {
-            continue;
+    for (n, node) in nodes.iter().enumerate() {
+        let (Some(id), Some(kind)) = (node["id"].as_str(), node["kind"].as_str()) else {
+            return Err(format!(
+                "the export's nodes[{n}] has no string `id` and `kind`: its shape changed"
+            ));
         };
-        match node["kind"].as_str() {
-            Some("item") => {
+        match kind {
+            "item" => {
                 if let Some(test) = node["fields"]["test_id"].as_str() {
                     items.push((id.to_string(), test.to_string()));
                 }
             }
-            Some("test") => {
+            "test" => {
                 tests.insert(id.to_string());
             }
             _ => {}
         }
     }
-    (items, tests)
+    Ok((items, tests))
 }
 
-/// `X2 <project>: n/m (p%)`, or `X2 <project>: 0/0 (no item has a test_id)` when no item has one, then each missing
-/// item id on its own line, indented two spaces.
+/// `X2 <project>: n/m (p%)`, the percent rounded down to one decimal so that `100.0%` means no item is missing, or
+/// `X2 <project>: 0/0 (no item has a test_id)` when no item has one, then each missing item id on its own line,
+/// indented two spaces.
 pub(crate) fn lines(project: &str, x2: &X2) -> Vec<String> {
-    let head = if x2.total == 0 {
-        format!("X2 {project}: 0/0 (no item has a test_id)")
-    } else {
-        let percent = 100.0 * x2.present as f64 / x2.total as f64;
-        format!("X2 {project}: {}/{} ({percent:.1}%)", x2.present, x2.total)
+    // Integer tenths of a percent: a float's 100 * 29 / 100 is 28.999…, which would floor to 28.9.
+    let head = match x2.present.saturating_mul(1000).checked_div(x2.total) {
+        None => format!("X2 {project}: 0/0 (no item has a test_id)"),
+        Some(tenths) => format!(
+            "X2 {project}: {}/{} ({}.{}%)",
+            x2.present,
+            x2.total,
+            tenths / 10,
+            tenths % 10
+        ),
     };
     std::iter::once(head)
         .chain(x2.missing.iter().map(|id| format!("  {id}")))

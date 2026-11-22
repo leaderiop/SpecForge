@@ -92,3 +92,25 @@ fn the_anchored_entities_are_the_guest_named_set() {
     );
     assert!(anchored(&serde_json::json!({"entities": []})).is_empty());
 }
+
+#[test]
+fn a_failed_requirement_verdict_still_logs_the_x2_error() {
+    let lines = ["2 of 3 proved".to_string(), "R-01 has no test".to_string()];
+    let x2_error = || Err("X2 ledger: collecting with rust-test: boom".to_string());
+    let (logged, result) = outcome(true, &lines, x2_error());
+    assert_eq!(
+        logged.as_deref(),
+        Some("X2 ledger: collecting with rust-test: boom")
+    );
+    assert_eq!(result, Err("R-01 has no test".to_string()));
+    let (logged, result) = outcome(true, &lines, Ok(()));
+    assert_eq!(
+        (logged, result),
+        (None, Err("R-01 has no test".to_string()))
+    );
+    // Requirements pass: X2's own outcome is the check's, nothing extra logged.
+    let (logged, result) = outcome(false, &lines, x2_error());
+    assert_eq!(logged, None);
+    assert_eq!(result, x2_error());
+    assert_eq!(outcome(false, &lines, Ok(())), (None, Ok(())));
+}

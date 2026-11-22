@@ -54,7 +54,7 @@ fn x2_counts_a_test_of_any_status_and_not_an_item_without_a_test_id() {
         {"kind": "test", "id": "rust:p::failed", "fields": {"status": "failed"}},
         {"kind": "requirement", "id": "R-01", "fields": {"test_id": "rust:p::helper"}},
     ]});
-    let (items, tests) = read(&export);
+    let (items, tests) = read(&export).unwrap();
     assert_eq!(
         items,
         pairs(&[
@@ -81,14 +81,54 @@ fn x2_lists_the_missing_items_sorted_once_each() {
 }
 
 #[test]
-fn x2_rounds_the_percent_to_one_decimal() {
+fn x2_rounds_the_percent_down_to_one_decimal() {
     let items = pairs(&[("a", "a"), ("b", "b"), ("c", "c")]);
-    let x2 = ratio(&items, &ids(&["a"]));
-    assert_eq!(lines("p", &x2)[0], "X2 p: 1/3 (33.3%)");
+    assert_eq!(
+        lines("p", &ratio(&items, &ids(&["a"])))[0],
+        "X2 p: 1/3 (33.3%)"
+    );
+    assert_eq!(
+        lines("p", &ratio(&items, &ids(&["a", "b"])))[0],
+        "X2 p: 2/3 (66.6%)"
+    );
+}
+
+/// `present` of `total` items with a test fact, the others missing.
+fn of(present: usize, total: usize) -> X2 {
+    X2 {
+        present,
+        total,
+        missing: vec!["m".to_string(); total - present],
+    }
 }
 
 #[test]
-fn x2_reads_no_item_from_an_export_without_nodes() {
-    let (items, tests) = read(&json!({}));
-    assert!(items.is_empty() && tests.is_empty());
+fn x2_never_prints_100_percent_while_an_item_is_missing() {
+    assert_eq!(
+        lines("p", &of(9_999, 10_000))[0],
+        "X2 p: 9999/10000 (99.9%)"
+    );
+    assert_eq!(lines("p", &of(1_999, 2_000))[0], "X2 p: 1999/2000 (99.9%)");
+    assert_eq!(lines("p", &of(29, 100))[0], "X2 p: 29/100 (29.0%)");
+    assert_eq!(lines("p", &of(7, 7)), ["X2 p: 7/7 (100.0%)"]);
+}
+
+#[test]
+fn x2_refuses_an_export_of_another_shape_rather_than_reading_0_of_0() {
+    for (export, named) in [
+        (json!({}), "nodes"),
+        (json!({"nodes": {}}), "nodes"),
+        (json!({"entities": []}), "nodes"),
+        (json!({"nodes": [{"kind": "item"}]}), "nodes[0]"),
+        (json!({"nodes": [{"id": "x", "type": "item"}]}), "nodes[0]"),
+        (json!({"nodes": [{"id": 1, "kind": "item"}]}), "nodes[0]"),
+    ] {
+        let error = read(&export).expect_err(named);
+        assert!(error.contains(named), "{export}: {error}");
+    }
+    let (items, tests) = read(&json!({"nodes": []})).unwrap();
+    assert!(
+        items.is_empty() && tests.is_empty(),
+        "an empty graph is 0/0"
+    );
 }

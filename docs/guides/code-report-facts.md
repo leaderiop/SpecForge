@@ -101,4 +101,5 @@ X2 taskboard: 0/0 (no item has a test_id)
 X2 ledger: 6/6 (100.0%)
 ```
 
-It is printed, not enforced: ADR 0388 sets no floor.
+It is printed, not enforced: ADR 0388 sets no floor. The percent rounds down, so `100.0%` means no item is missing. An
+export of another shape is the check's error, never a `0/0` line.
