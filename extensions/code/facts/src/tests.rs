@@ -12,6 +12,7 @@ mod paths;
 mod places;
 mod report;
 mod syntax;
+mod vulnerability;
 
 fn strings(items: &[&str]) -> Vec<String> {
     items.iter().map(|s| s.to_string()).collect()

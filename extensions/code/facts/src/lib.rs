@@ -32,6 +32,9 @@
 //!   the innermost served item holding its location, else the package holding its file.
 //! - [`dependency_facts`] mints a `dependency` per component of the CycloneDX [`Bom`]s a reader read ([`Component`],
 //!   [`Scope`]), citing the one served package each BOM describes.
+//! - [`vulnerability_facts`] mints a `vulnerability` per OSV record and project package of an osv-scanner
+//!   [`OsvReport`] a reader read ([`OsvSource`], [`OsvPackage`], [`OsvRecord`], [`OsvScore`]), citing the packages the
+//!   scanned lockfile belongs to, with a [`Severity`].
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
@@ -48,6 +51,7 @@ mod report;
 mod syntax;
 #[cfg(test)]
 mod tests;
+mod vulnerability;
 
 pub use api::{api_facts, ApiEntry, ApiKind};
 pub use coverage::{coverage_facts, Branch, CoverageFile, Function};
@@ -68,3 +72,6 @@ pub use report::{
     VULNERABILITY,
 };
 pub use syntax::parse_all;
+pub use vulnerability::{
+    vulnerability_facts, OsvPackage, OsvRecord, OsvReport, OsvScore, OsvSource, Severity,
+};

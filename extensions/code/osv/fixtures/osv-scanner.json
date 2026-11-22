@@ -1,0 +1,91 @@
+{
+  "results": [
+    {
+      "source": {
+        "path": "/project/Cargo.lock",
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "smallvec",
+            "version": "1.6.0",
+            "ecosystem": "crates.io"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2024-03-01T12:00:00Z",
+              "published": "2021-08-25T20:50:00Z",
+              "schema_version": "1.6.0",
+              "id": "GHSA-7v4m-2x9q-3h8c",
+              "aliases": ["RUSTSEC-2099-0001", "CVE-2099-0001"],
+              "summary": "Buffer overflow in SmallVec::insert_many",
+              "details": "An invented advisory for this fixture: insert_many can write past the end of the buffer.",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "smallvec-derive",
+                    "purl": "pkg:cargo/smallvec-derive"
+                  },
+                  "ranges": [{"type": "SEMVER", "events": [{"introduced": "0"}, {"fixed": "0.2.0"}]}]
+                },
+                {
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "smallvec",
+                    "purl": "pkg:cargo/smallvec"
+                  },
+                  "ranges": [{"type": "SEMVER", "events": [{"introduced": "1.0.0"}, {"fixed": "1.6.1"}]}]
+                }
+              ],
+              "references": [
+                {"type": "ADVISORY", "url": "https://example.invalid/advisories/GHSA-7v4m-2x9q-3h8c"}
+              ],
+              "database_specific": {
+                "cwe_ids": ["CWE-787"],
+                "severity": "MODERATE",
+                "github_reviewed": true
+              }
+            }
+          ],
+          "groups": [
+            {"ids": ["GHSA-7v4m-2x9q-3h8c", "RUSTSEC-2099-0001"]}
+          ]
+        },
+        {
+          "package": {
+            "name": "time",
+            "version": "0.1.45",
+            "ecosystem": "crates.io"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2024-02-10T08:00:00Z",
+              "published": "2020-11-18T12:00:00Z",
+              "schema_version": "1.6.0",
+              "id": "RUSTSEC-2099-0002",
+              "summary": "Potential segfault in the time crate",
+              "details": "An invented advisory for this fixture, with no severity label and no severity entry.",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "time"
+                  },
+                  "ranges": [{"type": "SEMVER", "events": [{"introduced": "0"}, {"fixed": "0.2.23"}]}]
+                }
+              ],
+              "database_specific": {
+                "license": "CC0-1.0"
+              }
+            }
+          ],
+          "groups": [
+            {"ids": ["RUSTSEC-2099-0002"]}
+          ]
+        }
+      ]
+    }
+  ]
+}
