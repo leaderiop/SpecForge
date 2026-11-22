@@ -218,8 +218,8 @@ fn an_open_question_is_recorded_open_and_its_answer_resolves_it_later() {
 /// The user's answer to [`QUESTION`].
 const ANSWER: &str = "Sort by due date — then by title";
 
-/// `fence`, a record-the-answer fence of a workflow, filled for `question` of `research`, answered by `decision`, in
-/// the scope `(variable, id)` the fence names.
+/// `fence`, a record-the-answer fence of a workflow, filled for the recorded question `question` of `research`,
+/// answered by `decision`, in the scope `(variable, id)` the fence names.
 fn answered(
     fence: &str,
     scope: (&str, &str),
@@ -235,40 +235,139 @@ fn answered(
             ("DECISION_ID", decision),
             ("QUESTION_ID", question),
             ("ANSWER", ANSWER),
-            ("QUESTION", QUESTION),
-            ("UNCLEAR", "which order users expect"),
         ],
     )
 }
 
-/// Runs `fence` under gsd-strict on `p`: it records the user's answer as decision `decision` and the question
-/// `question` resolved by it, adding no code.
-fn records_the_answer_then_the_question(
+/// Runs `fence` under gsd-strict on `p`, where the research recorded `question` open (gsd/W204, an error): without its
+/// decision line the set names no decision and is refused, leaving the question open; whole, it records the user's
+/// answer as decision `decision`, sets it as the question's `resolved_by`, settles its gsd/W204 and adds no code.
+fn the_answer_resolves_the_recorded_question(
     sh: &Shell,
     p: &Project,
     fence: &str,
     decision: &str,
     question: &str,
 ) {
+    let open = |p: &Project| {
+        checked(p, "gsd/W204")
+            .1
+            .iter()
+            .any(|(severity, entity)| severity == "Error" && entity == question)
+    };
+    assert!(open(p), "{question} is not recorded open");
+    let alone: String = fence
+        .lines()
+        .filter(|l| !l.starts_with("specforge new decision "))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert_ne!(alone, fence, "the fence records a decision");
+    let refused = typed::apply(sh, p, &alone);
+    assert_ne!(refused.code, 0, "{}{}", refused.out, refused.err);
+    assert!(p.fields_of(question)["resolved_by"].is_null());
+
     let applied = typed::apply(sh, p, fence);
     assert_eq!(applied.code, 0, "{}{}", applied.out, applied.err);
     assert!(applied.added.is_empty(), "{:?}", applied.added);
     assert_eq!(p.fields_of(decision)["text"], ANSWER);
-    let fields = p.fields_of(question);
-    assert_eq!(fields["question"], QUESTION);
-    let resolved = fields["resolved_by"].to_string();
+    let resolved = p.fields_of(question)["resolved_by"].to_string();
     assert!(
         resolved.contains(decision.rsplit('/').next().expect("a name")),
         "{question} is resolved by {resolved}"
     );
+    assert!(!open(p), "{question} is still open");
 }
 
-/// The open question gsd-strict refuses at research is the user's to answer, on plan-phase's path: the planner is
-/// told to record no decision for it and to list it in its return, and plan-phase's step 9d asks the user and records
-/// the answer, then the question; that fence, run as written under gsd-strict, is refused without its decision line
-/// and records both with it.
+/// The phase researcher's record fence (its rule 1), filled for the research `03-RESEARCH` of phase `phase` (one
+/// numbered 03) and its open question `Q1`, recorded open.
+pub(super) fn research_fence(phase: &str) -> String {
+    typed::filled(
+        &typed::typed_fence(
+            &asset("agents/gsd-phase-researcher.md"),
+            "1. **Create the entity first**",
+        ),
+        &[
+            ("PHASE_ID", phase),
+            ("RESEARCH", "03-RESEARCH"),
+            ("TITLE", "Listing research"),
+            ("CONFIDENCE", "high"),
+            ("SUMMARY", "Filter in memory; the board is small"),
+            ("FINDING", "The board fits in memory"),
+            ("PITFALL", "Case-sensitive filters"),
+            ("GOES_WRONG", "A filter misses a title in another case"),
+            ("WHY", "String includes is case-sensitive"),
+            ("AVOID", "Lower-case both sides"),
+            ("PATTERN", "Filter then sort"),
+            ("WHAT", "Filter the open tasks, then sort them by id"),
+            ("QUESTION", QUESTION),
+            ("KNOWN", "users sort by hand today"),
+            ("UNCLEAR", "which order users expect"),
+            ("RECOMMENDATION", "ask the user"),
+        ],
+    )
+}
+
+/// The phase researcher records every open question open: its rule names no exception and no return in place of the
+/// record, and its fence records `Q1` with no `resolved_by`. Under gsd-strict the fence is accepted and adds gsd/W204
+/// only; plan-phase displays the returned ids and the quick steps pass them on as questions the research recorded.
 #[test]
-fn plan_phase_records_the_users_answer_then_the_question() {
+fn the_researcher_records_every_open_question_open() {
+    let researcher = asset("agents/gsd-phase-researcher.md");
+    let rule = block(
+        &researcher,
+        "4. **One item per call.**",
+        "5. **If a call is still refused",
+    )
+    .split_whitespace()
+    .collect::<Vec<_>>()
+    .join(" ");
+    for words in [
+        "record every `open_question` open",
+        "no `--resolved_by`",
+        "`gsd/W204`",
+        "is not refused for it",
+        "never return one in place of recording it",
+        "by id, under `### Open Questions`",
+    ] {
+        assert!(rule.contains(words), "rule 4 lacks {words}:\n{rule}");
+    }
+    assert!(!rule.contains("send it again without"), "{rule}");
+    let template = block(&researcher, "### Open Questions", "### Ready for Planning");
+    assert!(template.contains("you recorded, by id"), "{template}");
+    let handle = block(
+        &asset("gsd-core/workflows/plan-phase.md"),
+        "### Handle Researcher Return",
+        "<!-- gsd:section id=\"research-only-early-exit\"",
+    );
+    assert!(handle.contains("the research recorded"), "{handle}");
+    for step in [
+        "gsd-core/workflows/quick/steps/research-phase.md",
+        "gsd-core/workflows/quick-batch/steps/research-phase.md",
+    ] {
+        let text = asset(step).split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(
+            text.contains("questions the research recorded open"),
+            "{step}"
+        );
+    }
+
+    let sh = Shell::only(&[]);
+    let p = taskboard();
+    strict(&p);
+    let run = typed::apply(&sh, &p, &research_fence("v1.0/03"));
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    assert_eq!(run.added, ["gsd/W204"]);
+    let question = "v1.0/03/03-RESEARCH/Q1";
+    assert_eq!(p.fields_of(question)["question"], QUESTION);
+    assert!(p.fields_of(question)["resolved_by"].is_null());
+}
+
+/// A recorded open question is the user's to answer, on plan-phase's path: the planner is told to record no decision
+/// for it and to list it in its return, and plan-phase's step 9d asks the user, records the answer as a decision and
+/// sets it as the question's `resolved_by`. Under gsd-strict the researcher's fence records the question open, the
+/// plan-phase entry gate then refuses the phase, step 9d's fence settles it, and the gate lets the phase through.
+#[test]
+fn plan_phase_resolves_the_recorded_question_with_the_users_answer() {
     let sh = Shell::only(&[]);
     let plan_phase = asset("gsd-core/workflows/plan-phase.md");
     let context = block(&plan_phase, "<planning_context>", "</planning_context>");
@@ -289,7 +388,15 @@ fn plan_phase_records_the_users_answer_then_the_question() {
     let complete = line(&plan_phase, "- **`## PLANNING COMPLETE`:**");
     assert!(complete.contains("step 9d"), "{complete}");
     let status = block(&plan_phase, "## 14. Present Final Status", "## 15.");
-    assert!(status.contains("open question"), "{status}");
+    assert!(
+        status.contains("open in the graph") && status.contains("entry gate"),
+        "{status}"
+    );
+    let answers = block(&plan_phase, "## 9d.", "## 10.");
+    assert!(
+        answers.contains("stays open in the graph") && answers.contains("entry gate of plan-phase"),
+        "{answers}"
+    );
     let planner = asset("agents/gsd-planner.md");
     let write = block(&planner, "<step name=\"write_phase_prompt\">", "</step>");
     for words in [
@@ -311,24 +418,30 @@ fn plan_phase_records_the_users_answer_then_the_question() {
 
     let p = taskboard();
     strict(&p);
+    let run = typed::apply(&sh, &p, &research_fence("v1.0/03"));
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+    refused_by(&p, "plan_phase", &["v1.0/03"], "W204");
     let fence = answered(
         &typed::typed_fence(&plan_phase, "## 9d."),
-        ("PHASE_ID", "v1.0/02"),
-        "v1.0/02/02-RESEARCH",
+        ("PHASE_ID", "v1.0/03"),
+        "v1.0/03/03-RESEARCH",
+        // Not D-01: a bare D-01 would resolve to the project's own decision while the phase has none.
         "D-04",
-        "02-Q1",
+        "Q1",
     );
-    records_the_answer_then_the_question(
+    the_answer_resolves_the_recorded_question(
         &sh,
         &p,
         &fence,
-        "v1.0/02/D-04",
-        "v1.0/02/02-RESEARCH/02-Q1",
+        "v1.0/03/D-04",
+        "v1.0/03/03-RESEARCH/Q1",
     );
+    not_refused_by(&p, "plan_phase", &["v1.0/03"], "W204");
 }
 
-/// The quick plan `261121-abc` with its research, minted under gsd-strict as quick's init step and research step write
-/// them (the mint reports `gsd/W309`, settled later by the planner).
+/// The quick plan `261121-abc` with its research and the research's open question, minted under gsd-strict as quick's
+/// init step and research step write them (the mint reports `gsd/W309`, settled later by the planner; the question
+/// `gsd/W204`, settled later by the user's answer).
 fn quick_with_research() -> Project {
     let p = taskboard();
     strict(&p);
@@ -366,6 +479,20 @@ fn quick_with_research() -> Project {
             "--summary",
             "Titles are trimmed",
         ],
+        &[
+            "new",
+            "open_question",
+            "261121-abc-Q1",
+            QUESTION,
+            "--in",
+            "spec/quick.spec",
+            "--research",
+            "261121-abc-RESEARCH",
+            "--question",
+            QUESTION,
+            "--unclear",
+            "which order users expect",
+        ],
     ] {
         let run = p.run(args);
         assert_eq!(run.code, 0, "{}", run.all());
@@ -373,12 +500,12 @@ fn quick_with_research() -> Project {
     p
 }
 
-/// On quick's and quick-batch's paths the research step hands a returned question to the planner's prompt, which
-/// carries it with the same rule, and the step after the planner asks the user and records the answer, then the
-/// question: each workflow's fence, run as written under gsd-strict on a quick plan with research, is refused without
-/// its decision line and records both with it.
+/// On quick's and quick-batch's paths the research step hands a recorded question to the planner's prompt, which
+/// carries it with the same rule, and the step after the planner asks the user, records the answer as a decision and
+/// sets it as the question's `resolved_by`: each workflow's fence, run as written under gsd-strict on a quick plan
+/// whose research recorded the question open, is refused without its decision line and settles the question with it.
 #[test]
-fn quick_and_quick_batch_record_the_users_answer_then_the_question() {
+fn quick_and_quick_batch_resolve_the_recorded_question_with_the_users_answer() {
     let sh = Shell::only(&[]);
     for (research, prompt, after, heading) in [
         (
@@ -432,7 +559,7 @@ fn quick_and_quick_batch_record_the_users_answer_then_the_question() {
             "261121-abc-D-01",
             "261121-abc-Q1",
         );
-        records_the_answer_then_the_question(
+        the_answer_resolves_the_recorded_question(
             &sh,
             &p,
             &fence,

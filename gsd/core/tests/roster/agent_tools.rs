@@ -78,8 +78,9 @@ fn every_specforge_command_an_agent_runs_is_a_tool_its_role_grants() {
     // Counted work: a scan that lost commands would pass vacuously, so the count is pinned to the bodies'. The four
     // judges' recording sections name three each (`query --inputs`, `gsd record-verdict`, `trace`), the three granted
     // `validate` a fourth (`check`), and the verifier's a fifth (`gsd re-verify`); the plan checker's thread section
-    // names four (`trace --plan` and `gsd thread-plan`, twice each).
-    assert_eq!(checked, 223, "commands checked");
+    // names four (`trace --plan` and `gsd thread-plan`, twice each). The phase researcher's record fence names its
+    // open question's `new open_question` line.
+    assert_eq!(checked, 224, "commands checked");
     assert_eq!(
         cli_only.into_iter().collect::<Vec<_>>(),
         ["files", "git", "http", "run", "settings"],

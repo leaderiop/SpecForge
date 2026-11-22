@@ -430,9 +430,9 @@ Agent(
   specforge gsd record-research "$RESEARCH_ID" || exit 1
   ```
 
-  When the return lists `### Open Questions`, display them: each is a question the profile kept out of the graph
-  (gsd/W204: no decision resolves it yet), for the user to answer at step 9d. Keep them for step 8, which hands
-  them to the planner.
+  When the return lists `### Open Questions`, display them: each is an open question the research recorded with no
+  decision that resolves it yet (gsd/W204, an error under gsd-strict), for the user to answer at step 9d. Keep
+  their ids for step 8, which hands them to the planner.
 - **`## RESEARCH BLOCKED`:** Display blocker, offer: 1) Provide context, 2) Skip research, 3) Abort
 
 <!-- gsd:section id="research-only-early-exit" when="flag:--research-phase" -->
@@ -757,9 +757,9 @@ Planner prompt:
 **Phase:** {phase_number}
 **Mode:** {standard | gap_closure | reviews}
 **Graph context:** {the `/gsd-graphify` line of "Graph context on this install" at the end of the plan-phase prompt}
-**Open questions the research returned:** {the items of the researcher's `### Open Questions`, or none}.
-Each is the user's to answer, not yours: record no decision that resolves it and do not record it; write the
-plans so they hold whatever the answer, and list it under `### Open Questions` in your return.
+**Open questions the research returned:** {the ids of the researcher's `### Open Questions`, or none}.
+Each is recorded open and is the user's to answer, not yours: record no decision that resolves it and leave it as
+it is; write the plans so they hold whatever the answer, and list it under `### Open Questions` in your return.
 <required_reading>
 - `specforge context gsd/planner {PHASE_ID}` (the planner pack: the phase, its requirements, USER DECISIONS from /gsd:discuss-phase, the research and its items, the plans, the milestone, verification and UAT gaps, the summaries of the plans it depends on, the project and its decisions, `CLAUDE.md` / `AGENTS.md` and the settings; `--pick .budget` lists what the budget cut, read with `specforge query <id> --format context`)
 - `specforge export --kinds lesson --format context` (Lessons, which the pack does not select)
@@ -995,10 +995,10 @@ When the planner returns `## ⚠ Source Audit: Unplanned Items Found`, some of t
 
 ## 9d. Record the Answers to the Open Questions
 
-The planner lists the research's open questions it was handed (step 8), unanswered: they are the user's. Ask the
+The planner lists the research's open questions it was handed (step 8), recorded open: they are the user's. Ask the
 user each one (AskUserQuestion, or a numbered list in text mode); under `--auto` ask nothing. For each answer,
-record the answer as a decision, then the question resolved by it, in that order: gsd-strict refuses the question
-while no decision resolves it (`gsd/W204`), and accepts it once the decision exists.
+record the answer as a decision, then set it as the question's `resolved_by`: the research recorded the question,
+and the set settles its `gsd/W204`.
 
 ```bash
 PHASE_ID="{the phase id, e.g. v1.0/02}"
@@ -1008,19 +1008,14 @@ QUESTION_ID="{the question's id, e.g. 02-Q1}"
 IFS= read -rd '' ANSWER <<'TEXT' || true; ANSWER=${ANSWER%$'\n'}
 {the user's answer}
 TEXT
-IFS= read -rd '' QUESTION <<'TEXT' || true; QUESTION=${QUESTION%$'\n'}
-{the question, as the research returned it}
-TEXT
-IFS= read -rd '' UNCLEAR <<'TEXT' || true; UNCLEAR=${UNCLEAR%$'\n'}
-{what was unclear, as the research returned it}
-TEXT
 SPEC_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
 specforge new decision "$DECISION_ID" "$ANSWER" --in "$SPEC_FILE" --phase "$PHASE_ID" --text "$ANSWER" --origin checkpoint || exit 1
-specforge new open_question "$QUESTION_ID" "$QUESTION" --in "$SPEC_FILE" --research "$RESEARCH_ID" --question "$QUESTION" --unclear "$UNCLEAR" --resolved_by "$DECISION_ID" || exit 1
+specforge set "$RESEARCH_ID/$QUESTION_ID" resolved_by "$DECISION_ID" || exit 1
 ```
 
-A question the user leaves open (every one, under `--auto`) is not recorded, since gsd-strict refuses it: step 14
-shows it again as open.
+A question the user leaves open (every one, under `--auto`) stays open in the graph. Under gsd-strict its
+`gsd/W204` is an error: `check` fails on it, and the entry gate of plan-phase refuses the next run on this phase
+until the two lines above answer it. Step 14 shows it as open.
 
 ## 10. Spawn gsd-plan-checker Agent
 
@@ -1494,7 +1489,8 @@ If the check command failed (non-zero `CHECK_EXIT`, empty output, or unparseable
 
 ## 14. Present Final Status
 
-List each open question step 9d left unanswered: it is not in the graph. Route to
+List each open question step 9d left unanswered: it is open in the graph, and under gsd-strict `check` fails on it
+and plan-phase's entry gate refuses the next run on this phase until step 9d's two lines answer it. Route to
 `<offer_next>` OR `auto_advance` depending on flags/config.
 
 ## 15. Auto-Advance Check

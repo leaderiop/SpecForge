@@ -160,8 +160,8 @@ Derive plans from actual work. Granularity determines compression tolerance, not
 
 ### Open Questions
 
-{each open question the prompt handed you, as you received it, for the user to answer; leave the section out when
-there is none}
+{each open question the prompt handed you, by id, for the user to answer; leave the section out when there is
+none}
 
 ### Next Steps
 

@@ -758,12 +758,25 @@ The `research` entity `{phase_id}/{phase_num}-RESEARCH` (`$RESEARCH_ID`) is the 
    IFS= read -rd '' WHAT <<'TEXT' || true; WHAT=${WHAT%$'\n'}
    {what the pattern is}
    TEXT
+   IFS= read -rd '' QUESTION <<'TEXT' || true; QUESTION=${QUESTION%$'\n'}
+   {an open question}
+   TEXT
+   IFS= read -rd '' KNOWN <<'TEXT' || true; KNOWN=${KNOWN%$'\n'}
+   {what is known}
+   TEXT
+   IFS= read -rd '' UNCLEAR <<'TEXT' || true; UNCLEAR=${UNCLEAR%$'\n'}
+   {what is unclear}
+   TEXT
+   IFS= read -rd '' RECOMMENDATION <<'TEXT' || true; RECOMMENDATION=${RECOMMENDATION%$'\n'}
+   {your recommendation}
+   TEXT
    PHASE_FILE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].file') || exit 1
    RESEARCH_ID="$PHASE_ID/$RESEARCH"
    specforge new research "$RESEARCH" "$TITLE" --in "$PHASE_FILE" --phase "$PHASE_ID" --confidence "$CONFIDENCE" --summary "$SUMMARY" || exit 1
    specforge new finding F1 "$FINDING" --in "$PHASE_FILE" --research "$RESEARCH_ID" --text "$FINDING" --confidence "$CONFIDENCE" || exit 1
    specforge new pitfall PF1 "$PITFALL" --in "$PHASE_FILE" --research "$RESEARCH_ID" --name "$PITFALL" --goes_wrong "$GOES_WRONG" --why "$WHY" --avoid "$AVOID" || exit 1
    specforge new pattern P1 "$PATTERN" --in "$PHASE_FILE" --research "$RESEARCH_ID" --name "$PATTERN" --what "$WHAT" || exit 1
+   specforge new open_question Q1 "$QUESTION" --in "$PHASE_FILE" --research "$RESEARCH_ID" --question "$QUESTION" --known "$KNOWN" --unclear "$UNCLEAR" --recommendation "$RECOMMENDATION" || exit 1
    ```
 
    The orchestrator records the pack the research read when you return.
@@ -772,12 +785,11 @@ The `research` entity `{phase_id}/{phase_num}-RESEARCH` (`$RESEARCH_ID`) is the 
 4. **One item per call.** Each item of the structure below is its own `specforge new` call, of its kind, with `--research "$RESEARCH_ID"` (`finding`, `stack_choice`, `pattern`, `pitfall`, `dont_hand_roll`, `open_question`, `source`, `package_audit`), as Step D records a finding:
    - no single call carries the whole research, so no tool call is cut mid-payload;
    - a refused call names the field it refused: fix that value and run the call again;
-   - an `open_question` refused with `gsd/W204` is the exception: no decision resolves it yet, and gsd-strict
-     raises that warning to an error, so the write is refused. Do not invent a decision to resolve it and never drop
-     it: record every other item, then return the question under `### Open Questions` with what is known, what is
-     unclear and your recommendation. The user answers it after the planner, and the orchestrator records the
-     answer with the question. A `specforge.edit` that batches items against this rule and is refused writes
-     nothing: send it again without the refused question;
+   - record every `open_question` open, as the `Q1` line above does: no `--resolved_by`, since no decision
+     resolves it yet, and you invent none. The write reports `gsd/W204` (an error under gsd-strict) and is not
+     refused for it: a later step settles it, the user's answer, recorded as a decision and set as the question's
+     `resolved_by`. Never drop a question and never return one in place of recording it; list each you recorded,
+     by id, under `### Open Questions` in your return;
    - an item already recorded is not recorded twice: `specforge query "$RESEARCH_ID" --depth 1` lists them.
 5. **If a call is still refused, surface its error in your return message.** **Do NOT silently fall back to returning content** — that hides the failure from the orchestrator.
 
@@ -850,8 +862,8 @@ the `research` entity `{phase_id}/{phase_num}-RESEARCH`
 | Pitfalls | [level] | [why] |
 
 ### Open Questions
-[Gaps that couldn't be resolved, and each open question the profile refused (gsd/W204): the question, what is known,
-what is unclear, the recommendation]
+[Each open question you recorded, by id (gsd/W204 until the user's answer resolves it): the question, what is known,
+what is unclear, the recommendation; and the gaps that couldn't be resolved]
 
 ### Ready for Planning
 Research complete. The planner can now write plan entities.

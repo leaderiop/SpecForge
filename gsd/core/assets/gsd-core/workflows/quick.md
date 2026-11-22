@@ -318,9 +318,9 @@ ${DISCUSS_MODE ? '- `specforge query ' + quick_id + '-CONTEXT --depth 2 --kinds 
 ${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings — use to inform implementation choices)' : ''}
 </required_reading>
 
-**Open questions the research returned:** {the items of the researcher's `### Open Questions`, or none}.
-Each is the user's to answer, not yours: record no decision that resolves it and do not record it; write the
-plans so they hold whatever the answer, and list it under `### Open Questions` in your return.
+**Open questions the research returned:** {the ids of the researcher's `### Open Questions`, or none}.
+Each is recorded open and is the user's to answer, not yours: record no decision that resolves it and leave it as
+it is; write the plans so they hold whatever the answer, and list it under `### Open Questions` in your return.
 
 ${AGENT_SKILLS_PLANNER}
 
@@ -359,9 +359,8 @@ After planner returns:
 2. Extract plan count (typically 1 for quick tasks)
 3. Report: "Plan created: plan ${quick_id}"
 4. When the return lists `### Open Questions`, ask the user each one (under `--auto`, ask nothing and report
-   them as open). For each answer, record the answer as a decision, then the question resolved by it, in
-   that order: gsd-strict refuses the question while no decision resolves it (`gsd/W204`), and accepts it
-   once the decision exists.
+   them as open). For each answer, record the answer as a decision, then set it as the question's
+   `resolved_by`: the research recorded the question, and the set settles its `gsd/W204`.
 
 ```bash
 QUICK_ID="{the quick plan's id, e.g. 261121-abc}"
@@ -371,18 +370,13 @@ QUESTION_ID="{the question's id, e.g. 261121-abc-Q1}"
 IFS= read -rd '' ANSWER <<'TEXT' || true; ANSWER=${ANSWER%$'\n'}
 {the user's answer}
 TEXT
-IFS= read -rd '' QUESTION <<'TEXT' || true; QUESTION=${QUESTION%$'\n'}
-{the question, as the research returned it}
-TEXT
-IFS= read -rd '' UNCLEAR <<'TEXT' || true; UNCLEAR=${UNCLEAR%$'\n'}
-{what was unclear, as the research returned it}
-TEXT
 SPEC_FILE=spec/quick.spec
 specforge new decision "$DECISION_ID" "$ANSWER" --in "$SPEC_FILE" --plan "$QUICK_ID" --text "$ANSWER" --origin checkpoint || exit 1
-specforge new open_question "$QUESTION_ID" "$QUESTION" --in "$SPEC_FILE" --research "$RESEARCH_ID" --question "$QUESTION" --unclear "$UNCLEAR" --resolved_by "$DECISION_ID" || exit 1
+specforge set "$RESEARCH_ID/$QUESTION_ID" resolved_by "$DECISION_ID" || exit 1
 ```
 
-   A question the user leaves open is not recorded, since gsd-strict refuses it.
+   A question the user leaves open stays open in the graph: under gsd-strict its `gsd/W204` is an error, and
+   `check` fails on it until the two lines above answer it.
 
 If the plan holds no task, error: "Planner failed to create plan ${quick_id}"
 

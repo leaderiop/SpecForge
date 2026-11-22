@@ -768,11 +768,11 @@ The call is checked before it writes: a refusal names its codes (E080 carries th
 `specforge explain <code>` says what each code means and how to fix it. Fix the list and send the whole call again; a
 refused call writes nothing, so nothing is left half-written. Never hand-edit a spec file instead.
 
-An open question the research could not record (the prompt's **Open questions the research returned:**:
-gsd-strict refuses one that no decision resolves, `gsd/W204`) is the user's to answer, not yours. Record no decision
-that resolves it and do not record the question. Write the plans so they hold whatever the answer; a task that
-cannot follows a `decision` checkpoint that asks it. List each question, as you received it, under
-`### Open Questions` in your return: the orchestrator asks the user and records the answer with the question.
+An open question the research recorded (the prompt's **Open questions the research returned:**: no decision
+resolves it yet, `gsd/W204`) is the user's to answer, not yours. Record no decision that resolves it and leave the
+question as it is. Write the plans so they hold whatever the answer; a task that cannot follows a `decision`
+checkpoint that asks it. List each question, by id, under `### Open Questions` in your return: the orchestrator asks
+the user, records the answer as a decision and sets it as the question's `resolved_by`.
 </step>
 
 <step name="validate_plan">
