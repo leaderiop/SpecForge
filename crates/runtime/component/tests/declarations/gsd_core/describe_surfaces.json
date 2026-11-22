@@ -2995,6 +2995,9 @@
           "description": "SDD phase execution — execute all plans in a phase with dependency-aware wave parallelization",
           "export": "prompt__execute_phase",
           "gates": [
+            "E301",
+            "W309",
+            "E310",
             "W311",
             "W313",
             "W315",

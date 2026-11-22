@@ -41,7 +41,9 @@ pub const CAP: u64 = cap!();
 /// once the user answered that question after the planner, chunked mode read a blocked plan as blocked and planned
 /// only the rest, and the keys the committed spec rules out were swept whole, and 5,713,230 B once every key of the
 /// Not applicable table was swept and a phase's label said where its number and name are read, and 5,721,094 B once
-/// every asset that prints a phase label defined its placeholders and a phase's new name rewrote its slug.
+/// every asset that prints a phase label defined its placeholders and a phase's new name rewrote its slug, and
+/// 5,722,710 B once four codes were settled later, the researcher recorded every open question open, a phase's plans
+/// could be written one at a time and `execute_phase` refused a half-planned phase.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_800_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].
