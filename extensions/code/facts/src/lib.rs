@@ -17,6 +17,11 @@
 //!   resolves a path a manifest or a source file writes against the project-relative directory it is written in.
 //! - [`parse_all`] asks the host's source reader until it has answered every file a source pack keeps, the files an
 //!   answer's cap left unparsed asked again.
+//! - [`Places`] finds where a report's location lies among the served facts: the innermost `item` holding a file's
+//!   line, the `package` holding a file or a directory (ADR 0388).
+//! - [`ReportKind`]s name the five kinds a standard report mints and their schemes ([`COVERAGE`], [`API_ITEM`],
+//!   [`STATIC_FINDING`], [`DEPENDENCY`], [`VULNERABILITY`]), [`UNKNOWN`] what a report leaves unstated; [`id_part`]
+//!   makes report text safe in an id and [`Repeats`] suffixes an id answered twice `~2`, `~3`, ….
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
@@ -24,6 +29,8 @@
 mod ids;
 mod mint;
 mod paths;
+mod places;
+mod report;
 mod syntax;
 #[cfg(test)]
 mod tests;
@@ -37,4 +44,9 @@ pub use mint::{
     Signature, Target, TestCase, Visibility,
 };
 pub use paths::joined;
+pub use places::Places;
+pub use report::{
+    id_part, Repeats, ReportKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN,
+    VULNERABILITY,
+};
 pub use syntax::parse_all;

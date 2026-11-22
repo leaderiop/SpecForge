@@ -4,6 +4,8 @@ use super::*;
 use specforge_test::prelude::*;
 
 mod mint;
+mod places;
+mod report;
 mod syntax;
 
 fn strings(items: &[&str]) -> Vec<String> {
