@@ -19,12 +19,8 @@ pub enum Scope {
     Excluded,
 }
 
-/// Each scope and its name: the one table [`Scope::NAMES`], [`Scope::as_str`] and [`Scope::parse`] read.
-const SCOPES: [(Scope, &str); 3] = [
-    (Scope::Required, "required"),
-    (Scope::Optional, "optional"),
-    (Scope::Excluded, "excluded"),
-];
+/// Every scope, widest first: the order [`Scope::NAMES`] and [`Scope::parse`] read.
+const SCOPES: [Scope; 3] = [Scope::Required, Scope::Optional, Scope::Excluded];
 
 impl Scope {
     /// Every scope's name, widest first: `@code/core`'s vocabulary of `dependency.scope`.
@@ -32,25 +28,24 @@ impl Scope {
         let mut names = [""; 3];
         let mut at = 0;
         while at < names.len() {
-            names[at] = SCOPES[at].1;
+            names[at] = SCOPES[at].as_str();
             at += 1;
         }
         names
     };
 
-    pub fn as_str(self) -> &'static str {
-        SCOPES
-            .iter()
-            .find(|(scope, _)| *scope == self)
-            .map_or("required", |(_, name)| name)
+    /// Its name: an exhaustive match, so a new scope names itself or fails to compile.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Scope::Required => "required",
+            Scope::Optional => "optional",
+            Scope::Excluded => "excluded",
+        }
     }
 
     /// One of CycloneDX's three scope values; `None` for any other text.
     pub fn parse(text: &str) -> Option<Scope> {
-        SCOPES
-            .iter()
-            .find(|(_, name)| *name == text)
-            .map(|(scope, _)| *scope)
+        SCOPES.into_iter().find(|scope| scope.as_str() == text)
     }
 }
 

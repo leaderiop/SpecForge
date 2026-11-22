@@ -17,13 +17,13 @@ pub enum Level {
     Unknown,
 }
 
-/// Each level and its name: the one table [`Level::NAMES`], [`Level::as_str`] and [`Level::parse`] read.
-const LEVELS: [(Level, &str); 5] = [
-    (Level::Error, "error"),
-    (Level::Warning, "warning"),
-    (Level::Note, "note"),
-    (Level::None, "none"),
-    (Level::Unknown, UNKNOWN),
+/// Every level, SARIF's four then `unknown`: the order [`Level::NAMES`] and [`Level::parse`] read.
+const LEVELS: [Level; 5] = [
+    Level::Error,
+    Level::Warning,
+    Level::Note,
+    Level::None,
+    Level::Unknown,
 ];
 
 impl Level {
@@ -32,26 +32,29 @@ impl Level {
         let mut names = [""; 5];
         let mut at = 0;
         while at < names.len() {
-            names[at] = LEVELS[at].1;
+            names[at] = LEVELS[at].as_str();
             at += 1;
         }
         names
     };
 
-    pub fn as_str(self) -> &'static str {
-        LEVELS
-            .iter()
-            .find(|(level, _)| *level == self)
-            .map_or(UNKNOWN, |(_, name)| name)
+    /// Its name: an exhaustive match, so a new level names itself or fails to compile.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Level::Error => "error",
+            Level::Warning => "warning",
+            Level::Note => "note",
+            Level::None => "none",
+            Level::Unknown => UNKNOWN,
+        }
     }
 
     /// One of SARIF's four level values (`error`, `warning`, `note`, `none`); `None` for any other text, `unknown`
     /// included, which no report writes.
     pub fn parse(text: &str) -> Option<Level> {
         LEVELS
-            .iter()
-            .find(|(level, name)| *level != Level::Unknown && *name == text)
-            .map(|(level, _)| *level)
+            .into_iter()
+            .find(|level| *level != Level::Unknown && level.as_str() == text)
     }
 }
 

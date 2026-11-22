@@ -162,54 +162,57 @@ pub enum ItemKind {
     Namespace,
 }
 
-/// Each kind and its name, in vocabulary order: the one table [`ItemKind::ALL`], [`ItemKind::NAMES`] and
-/// [`ItemKind::as_str`] read.
-const ITEM_KINDS: [(ItemKind, &str); 16] = [
-    (ItemKind::Module, "module"),
-    (ItemKind::Function, "function"),
-    (ItemKind::Method, "method"),
-    (ItemKind::Field, "field"),
-    (ItemKind::Struct, "struct"),
-    (ItemKind::Enum, "enum"),
-    (ItemKind::Union, "union"),
-    (ItemKind::Trait, "trait"),
-    (ItemKind::Type, "type"),
-    (ItemKind::Const, "const"),
-    (ItemKind::Static, "static"),
-    (ItemKind::Macro, "macro"),
-    (ItemKind::Class, "class"),
-    (ItemKind::Interface, "interface"),
-    (ItemKind::Variable, "variable"),
-    (ItemKind::Namespace, "namespace"),
-];
-
 impl ItemKind {
-    /// Every kind, in vocabulary order.
-    pub const ALL: [ItemKind; 16] = {
-        let mut all = [ItemKind::Module; 16];
-        let mut at = 0;
-        while at < all.len() {
-            all[at] = ITEM_KINDS[at].0;
-            at += 1;
-        }
-        all
-    };
+    /// Every kind, in vocabulary order: the order [`ItemKind::NAMES`] reads.
+    pub const ALL: [ItemKind; 16] = [
+        ItemKind::Module,
+        ItemKind::Function,
+        ItemKind::Method,
+        ItemKind::Field,
+        ItemKind::Struct,
+        ItemKind::Enum,
+        ItemKind::Union,
+        ItemKind::Trait,
+        ItemKind::Type,
+        ItemKind::Const,
+        ItemKind::Static,
+        ItemKind::Macro,
+        ItemKind::Class,
+        ItemKind::Interface,
+        ItemKind::Variable,
+        ItemKind::Namespace,
+    ];
     /// Every kind's name, in vocabulary order: `@code/core`'s vocabulary of `item.kind`.
     pub const NAMES: [&'static str; 16] = {
         let mut names = [""; 16];
         let mut at = 0;
         while at < names.len() {
-            names[at] = ITEM_KINDS[at].1;
+            names[at] = ItemKind::ALL[at].as_str();
             at += 1;
         }
         names
     };
 
-    pub fn as_str(self) -> &'static str {
-        ITEM_KINDS
-            .iter()
-            .find(|(kind, _)| *kind == self)
-            .map_or("", |(_, name)| name)
+    /// Its name: an exhaustive match, so a new kind names itself or fails to compile.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            ItemKind::Module => "module",
+            ItemKind::Function => "function",
+            ItemKind::Method => "method",
+            ItemKind::Field => "field",
+            ItemKind::Struct => "struct",
+            ItemKind::Enum => "enum",
+            ItemKind::Union => "union",
+            ItemKind::Trait => "trait",
+            ItemKind::Type => "type",
+            ItemKind::Const => "const",
+            ItemKind::Static => "static",
+            ItemKind::Macro => "macro",
+            ItemKind::Class => "class",
+            ItemKind::Interface => "interface",
+            ItemKind::Variable => "variable",
+            ItemKind::Namespace => "namespace",
+        }
     }
 }
 
@@ -222,12 +225,12 @@ pub enum Visibility {
     Public,
 }
 
-/// Each visibility and its name, widest first: the one table [`Visibility::NAMES`] and [`Visibility::as_str`] read.
-const VISIBILITIES: [(Visibility, &str); 4] = [
-    (Visibility::Public, "public"),
-    (Visibility::Crate, "crate"),
-    (Visibility::Restricted, "restricted"),
-    (Visibility::Private, "private"),
+/// Every visibility, widest first: the order [`Visibility::NAMES`] reads.
+const VISIBILITIES: [Visibility; 4] = [
+    Visibility::Public,
+    Visibility::Crate,
+    Visibility::Restricted,
+    Visibility::Private,
 ];
 
 impl Visibility {
@@ -236,17 +239,20 @@ impl Visibility {
         let mut names = [""; 4];
         let mut at = 0;
         while at < names.len() {
-            names[at] = VISIBILITIES[at].1;
+            names[at] = VISIBILITIES[at].as_str();
             at += 1;
         }
         names
     };
 
-    pub fn as_str(self) -> &'static str {
-        VISIBILITIES
-            .iter()
-            .find(|(visibility, _)| *visibility == self)
-            .map_or("", |(_, name)| name)
+    /// Its name: an exhaustive match, so a new visibility names itself or fails to compile.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Visibility::Public => "public",
+            Visibility::Crate => "crate",
+            Visibility::Restricted => "restricted",
+            Visibility::Private => "private",
+        }
     }
 
     /// From the `visibility_modifier` text a pack captured (`None`: none written), whitespace ignored (D10): `pub`

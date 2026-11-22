@@ -36,6 +36,129 @@ fn a_repeated_id_gets_a_numbered_suffix() {
     assert_eq!(ids, ["x", "x~2", "y", "x~3"]);
 }
 
+/// Each vocabulary enum's name comes from an exhaustive match, usable in a const: a variant added without a name fails
+/// to compile, never reads as a default name or the empty string.
+const NAMED: [&str; 6] = [
+    Scope::Excluded.as_str(),
+    Severity::Unknown.as_str(),
+    Level::None.as_str(),
+    ApiKind::ExternCrate.as_str(),
+    ApiKind::Item(ItemKind::Namespace).as_str(),
+    Visibility::Restricted.as_str(),
+];
+
+#[test]
+fn every_vocabulary_variant_is_named_and_listed_once() {
+    assert_eq!(
+        NAMED,
+        [
+            "excluded",
+            "unknown",
+            "none",
+            "extern_crate",
+            "namespace",
+            "restricted"
+        ]
+    );
+    // The match lists each variant: a new one fails to compile here until it is checked as listed below.
+    let scope = |s: Scope| match s {
+        Scope::Required | Scope::Optional | Scope::Excluded => s.as_str(),
+    };
+    let severity = |s: Severity| match s {
+        Severity::Critical
+        | Severity::High
+        | Severity::Medium
+        | Severity::Low
+        | Severity::Unknown => s.as_str(),
+    };
+    let level = |l: Level| match l {
+        Level::Error | Level::Warning | Level::Note | Level::None | Level::Unknown => l.as_str(),
+    };
+    let visibility = |v: Visibility| match v {
+        Visibility::Private | Visibility::Restricted | Visibility::Crate | Visibility::Public => {
+            v.as_str()
+        }
+    };
+    for name in [Scope::Required, Scope::Optional, Scope::Excluded].map(scope) {
+        assert!(Scope::NAMES.contains(&name), "{name}");
+    }
+    for name in [
+        Severity::Critical,
+        Severity::High,
+        Severity::Medium,
+        Severity::Low,
+        Severity::Unknown,
+    ]
+    .map(severity)
+    {
+        assert!(Severity::NAMES.contains(&name), "{name}");
+    }
+    for name in [
+        Level::Error,
+        Level::Warning,
+        Level::Note,
+        Level::None,
+        Level::Unknown,
+    ]
+    .map(level)
+    {
+        assert!(Level::NAMES.contains(&name), "{name}");
+    }
+    for name in [
+        Visibility::Private,
+        Visibility::Restricted,
+        Visibility::Crate,
+        Visibility::Public,
+    ]
+    .map(visibility)
+    {
+        assert!(Visibility::NAMES.contains(&name), "{name}");
+    }
+    let item = |k: ItemKind| match k {
+        ItemKind::Module
+        | ItemKind::Function
+        | ItemKind::Method
+        | ItemKind::Field
+        | ItemKind::Struct
+        | ItemKind::Enum
+        | ItemKind::Union
+        | ItemKind::Trait
+        | ItemKind::Type
+        | ItemKind::Const
+        | ItemKind::Static
+        | ItemKind::Macro
+        | ItemKind::Class
+        | ItemKind::Interface
+        | ItemKind::Variable
+        | ItemKind::Namespace => ItemKind::ALL.contains(&k),
+    };
+    assert!(ItemKind::ALL.into_iter().all(item));
+    for kind in ItemKind::ALL {
+        assert!(ApiKind::NAMES.contains(&ApiKind::Item(kind).as_str()));
+    }
+    for kind in [
+        ApiKind::Variant,
+        ApiKind::Reexport,
+        ApiKind::ExternCrate,
+        ApiKind::Other,
+    ] {
+        assert!(ApiKind::NAMES.contains(&kind.as_str()), "{kind:?}");
+    }
+    // No two variants share a name.
+    for names in [
+        &Scope::NAMES[..],
+        &Severity::NAMES[..],
+        &Level::NAMES[..],
+        &Visibility::NAMES[..],
+        &ItemKind::NAMES[..],
+        &ApiKind::NAMES[..],
+    ] {
+        let unique: std::collections::BTreeSet<&str> = names.iter().copied().collect();
+        assert_eq!(unique.len(), names.len(), "{names:?}");
+        assert!(!unique.contains(""), "{names:?}");
+    }
+}
+
 #[test]
 fn the_report_kinds_have_their_schemes() {
     let named: Vec<(&str, &str)> = [

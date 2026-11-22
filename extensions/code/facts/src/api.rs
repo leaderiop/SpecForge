@@ -24,12 +24,12 @@ pub enum ApiKind {
     Other,
 }
 
-/// The kinds beyond [`ItemKind`]'s and their names, in vocabulary order.
-const NON_ITEM_KINDS: [(ApiKind, &str); 4] = [
-    (ApiKind::Variant, "variant"),
-    (ApiKind::Reexport, "reexport"),
-    (ApiKind::ExternCrate, "extern_crate"),
-    (ApiKind::Other, "other"),
+/// The kinds beyond [`ItemKind`]'s, in vocabulary order.
+const NON_ITEM_KINDS: [ApiKind; 4] = [
+    ApiKind::Variant,
+    ApiKind::Reexport,
+    ApiKind::ExternCrate,
+    ApiKind::Other,
 ];
 
 impl ApiKind {
@@ -44,19 +44,20 @@ impl ApiKind {
         }
         let mut more = 0;
         while more < NON_ITEM_KINDS.len() {
-            names[at + more] = NON_ITEM_KINDS[more].1;
+            names[at + more] = NON_ITEM_KINDS[more].as_str();
             more += 1;
         }
         names
     };
 
-    pub fn as_str(self) -> &'static str {
+    /// Its name: an exhaustive match, so a new kind names itself or fails to compile.
+    pub const fn as_str(self) -> &'static str {
         match self {
             ApiKind::Item(kind) => kind.as_str(),
-            other => NON_ITEM_KINDS
-                .iter()
-                .find(|(kind, _)| *kind == other)
-                .map_or("", |(_, name)| name),
+            ApiKind::Variant => "variant",
+            ApiKind::Reexport => "reexport",
+            ApiKind::ExternCrate => "extern_crate",
+            ApiKind::Other => "other",
         }
     }
 
