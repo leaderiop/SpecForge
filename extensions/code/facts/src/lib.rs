@@ -24,10 +24,13 @@
 //! - [`ReportKind`]s name the five kinds a standard report mints and their schemes ([`COVERAGE`], [`API_ITEM`],
 //!   [`STATIC_FINDING`], [`DEPENDENCY`], [`VULNERABILITY`]), [`UNKNOWN`] what a report leaves unstated; [`id_part`]
 //!   makes report text safe in an id and [`Repeats`] suffixes an id answered twice `~2`, `~3`, ….
+//! - [`coverage_facts`] mints a `coverage` per item a coverage report's [`CoverageFile`]s reach, and one per file for
+//!   what no item holds.
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
 
+mod coverage;
 mod ids;
 mod mint;
 mod paths;
@@ -37,6 +40,7 @@ mod syntax;
 #[cfg(test)]
 mod tests;
 
+pub use coverage::{coverage_facts, Branch, CoverageFile, Function};
 pub use ids::{
     crate_segment, js_segment, Edition, IdError, ItemId, Owner, PackageId, Scheme, TargetKind,
     TestId,

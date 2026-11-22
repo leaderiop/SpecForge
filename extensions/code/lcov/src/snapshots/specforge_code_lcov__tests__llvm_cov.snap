@@ -1,0 +1,75 @@
+---
+source: src/tests.rs
+expression: "coverage_facts(&files, &served())"
+---
+[
+  {
+    "kind": "coverage",
+    "id": "cov:@src%2Flib.rs",
+    "fields": {
+      "branches_found": 0,
+      "branches_hit": 0,
+      "file": "src/lib.rs",
+      "functions_found": 0,
+      "functions_hit": 0,
+      "lines_found": 1,
+      "lines_hit": 1
+    }
+  },
+  {
+    "kind": "coverage",
+    "id": "cov:rust:demo::Board::len",
+    "fields": {
+      "branches_found": 0,
+      "branches_hit": 0,
+      "file": "src/lib.rs",
+      "functions_found": 1,
+      "functions_hit": 1,
+      "item": "rust:demo::Board::len",
+      "lines_found": 3,
+      "lines_hit": 3
+    }
+  },
+  {
+    "kind": "coverage",
+    "id": "cov:rust:demo::add",
+    "fields": {
+      "branches_found": 0,
+      "branches_hit": 0,
+      "file": "src/lib.rs",
+      "functions_found": 1,
+      "functions_hit": 1,
+      "item": "rust:demo::add",
+      "lines_found": 3,
+      "lines_hit": 3
+    }
+  },
+  {
+    "kind": "coverage",
+    "id": "cov:rust:demo::helper",
+    "fields": {
+      "branches_found": 2,
+      "branches_hit": 1,
+      "file": "src/lib.rs",
+      "functions_found": 2,
+      "functions_hit": 1,
+      "item": "rust:demo::helper",
+      "lines_found": 6,
+      "lines_hit": 5
+    }
+  },
+  {
+    "kind": "coverage",
+    "id": "cov:rust:demo::tests::adds",
+    "fields": {
+      "branches_found": 0,
+      "branches_hit": 0,
+      "file": "src/lib.rs",
+      "functions_found": 1,
+      "functions_hit": 1,
+      "item": "rust:demo::tests::adds",
+      "lines_found": 3,
+      "lines_hit": 3
+    }
+  }
+]

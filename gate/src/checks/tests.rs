@@ -131,8 +131,8 @@ fn an_unformatted_guest_is_judged_by_the_hook() {
         .flat_map(|pattern| crate::repo::expand(&this_repo().root, pattern))
         .count();
     assert_eq!(
-        manifests, 25,
-        "fourteen guests, the @code, @rust and @javascript extension libraries (two, one, one), four fixtures, \
+        manifests, 26,
+        "fourteen guests, the @code, @rust and @javascript extension libraries (three, one, one), four fixtures, \
          the marketing example's extension, the @gsd workspace and its Rust parity fixture (the ledger)"
     );
 }
