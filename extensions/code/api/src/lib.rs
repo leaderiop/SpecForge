@@ -5,11 +5,14 @@
 //! what it reads ([`specforge_code_facts::api_facts`]). No format is sniffed: a pack calls the reader of its own.
 //!
 //! - [`read_rust_text`] reads a `cargo public-api` text snapshot into one [`ApiEntry`] per public entry.
+//! - [`read_js_model`] reads an api-extractor `.api.json` doc model into one [`ApiEntry`] per member.
 
 #[cfg(test)]
 mod tests;
 
+mod js_model;
 mod rust_text;
 
+pub use js_model::read_js_model;
 pub use rust_text::read_rust_text;
 pub use specforge_code_facts::ApiEntry;

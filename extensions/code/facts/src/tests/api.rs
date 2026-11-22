@@ -176,3 +176,77 @@ fn a_variant_reexport_or_crate_root_cites_no_item() {
         "{facts:?}"
     );
 }
+
+/// A public JavaScript entry of the package `@demo/widget` at the name path `path`, written `signature`.
+fn js(path: &[&str], kind: ApiKind, signature: &str) -> ApiEntry {
+    ApiEntry {
+        scheme: Scheme::Js,
+        container: "@demo/widget".to_string(),
+        path: strings(path),
+        owner: None,
+        kind,
+        visibility: Visibility::Public,
+        signature: signature.to_string(),
+        tag: Some("Public".to_string()),
+    }
+}
+
+#[test]
+fn a_js_entry_cites_the_one_served_item_of_its_package_with_its_name_path() {
+    let entries = [
+        js(&["Widget", "render"], METHOD, "render(): string;"),
+        js(
+            &["VERSION"],
+            ApiKind::Item(ItemKind::Variable),
+            "VERSION: string",
+        ),
+        js(
+            &["util"],
+            ApiKind::Item(ItemKind::Namespace),
+            "namespace util",
+        ),
+    ];
+    let served = [
+        item("js:@demo/widget/src/widget.ts::Widget.render"),
+        item("js:@demo/widget/src/index.ts::VERSION"),
+        item("js:@demo/widget/src/version.ts::VERSION"),
+        item("js:@demo/widget-extra/src/util.ts::util"),
+    ];
+    let facts = api_facts(&entries, &served);
+    let cited: Vec<(&str, Option<&str>)> = facts
+        .iter()
+        .map(|f| (f.id.as_str(), field(f, "item")))
+        .collect();
+    assert_eq!(
+        cited,
+        [
+            ("api:js:%40demo%2Fwidget::VERSION", None),
+            (
+                "api:js:%40demo%2Fwidget::Widget.render",
+                Some("js:@demo/widget/src/widget.ts::Widget.render")
+            ),
+            ("api:js:%40demo%2Fwidget::util", None),
+        ]
+    );
+    assert_eq!(field(&facts[1], "path"), Some("Widget.render"));
+    assert_eq!(field(&facts[1], "tag"), Some("Public"));
+}
+
+#[test]
+fn a_js_overload_takes_a_suffix_and_a_name_cannot_forge_one() {
+    let entries = [
+        js(&["parse"], FUNCTION, "parse(text: string): Widget;"),
+        js(&["parse"], FUNCTION, "parse(bytes: Uint8Array): Widget;"),
+        js(&["parse~2"], FUNCTION, "a name holding a tilde"),
+    ];
+    let facts = api_facts(&entries, &[]);
+    let ids: Vec<&str> = facts.iter().map(|f| f.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        [
+            "api:js:%40demo%2Fwidget::parse",
+            "api:js:%40demo%2Fwidget::parse%7E2",
+            "api:js:%40demo%2Fwidget::parse~2"
+        ]
+    );
+}

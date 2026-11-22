@@ -5,11 +5,130 @@ use super::*;
 
 /// A `cargo public-api` snapshot, hand-written to the tool's own snapshot lines: crate `example_api`.
 const RUST: &str = include_str!("../fixtures/rust.public-api.txt");
+/// An api-extractor `.api.json` doc model, hand-written to the model: package `@demo/widget`.
+const WIDGET: &str = include_str!("../fixtures/widget.api.json");
 /// The served `item` facts an api collector receives, as JSON.
 const ITEMS: &str = include_str!("../fixtures/items.json");
 
 fn served() -> Vec<Fact> {
     serde_json::from_str(ITEMS).expect("the served facts parse")
+}
+
+#[test]
+fn an_api_extractor_model_mints_api_items_citing_their_js_items() {
+    let entries = read_js_model(WIDGET).expect("the model reads");
+    let facts = api_facts(&entries, &served());
+    assert!(facts.iter().any(|f| f.id.ends_with("::parse~2")));
+    assert!(
+        facts
+            .iter()
+            .all(|f| !f.id.contains(".ts") && !f.id.contains(".js")),
+        "{facts:?}"
+    );
+    insta::assert_json_snapshot!("js", facts);
+}
+
+#[test]
+fn each_member_reads_its_kind_path_signature_and_tag() {
+    let entries = read_js_model(WIDGET).expect("the model reads");
+    let read: Vec<(String, &str)> = entries
+        .iter()
+        .map(|e| (e.path.join("."), e.kind.as_str()))
+        .collect();
+    let expected = [
+        ("Widget", "class"),
+        ("Widget.render", "method"),
+        ("Widget.size", "field"),
+        ("Options", "interface"),
+        ("create", "function"),
+        ("parse", "function"),
+        ("parse", "function"),
+        ("Mode", "enum"),
+        ("Mode.Fast", "variant"),
+        ("Id", "type"),
+        ("VERSION", "variable"),
+        ("util", "namespace"),
+    ];
+    let expected: Vec<(String, &str)> = expected
+        .iter()
+        .map(|(path, kind)| (path.to_string(), *kind))
+        .collect();
+    assert_eq!(read, expected);
+    let create = &entries[4];
+    assert_eq!(create.container, "@demo/widget");
+    assert_eq!(
+        create.signature,
+        "export declare function create(options?: Options): Widget;"
+    );
+    assert_eq!(create.tag.as_deref(), Some("Public"));
+    assert_eq!(entries[2].tag.as_deref(), Some("Beta"));
+    assert!(entries
+        .iter()
+        .all(|e| e.visibility == Visibility::Public && e.owner.is_none()));
+}
+
+#[test]
+fn an_unknown_member_kind_reads_other() {
+    let model = r#"{"kind": "Package", "name": "p", "members": [{"kind": "EntryPoint", "name": "",
+        "members": [{"kind": "CallSignature", "name": "(call)"}]}]}"#;
+    let entries = read_js_model(model).expect("the model reads");
+    assert_eq!(entries[0].kind, ApiKind::Other);
+}
+
+#[test]
+fn a_bad_model_is_an_error_naming_its_place() {
+    let member = |fields: &str| {
+        format!(
+            r#"{{"kind": "Package", "name": "p", "members": [{{"kind": "EntryPoint", "name": "", "members": [
+                {{"kind": "Class", "name": "A"}}, {{"kind": "Class", "name": "B"}},
+                {{"kind": "Class", "name": "C"}}, {{{fields}}}]}}]}}"#
+        )
+    };
+    let deep = format!(
+        r#"{{"kind": "Package", "name": "p", "members": {}{}}}"#,
+        "[".repeat(200),
+        "]".repeat(200)
+    );
+    let cases = [
+        ("not json", "no JSON".to_string()),
+        (r#"{"kind": "Class", "name": "p"}"#, "Package".to_string()),
+        (r#"{"kind": "Package"}"#, "name".to_string()),
+        (
+            &member(r#""name": "D""#),
+            "members[0].members[3]".to_string(),
+        ),
+        (
+            &member(r#""kind": "Class""#),
+            "members[0].members[3]".to_string(),
+        ),
+        (&deep, "no JSON".to_string()),
+    ];
+    for (model, named) in cases {
+        let error = read_js_model(model).expect_err(model);
+        assert!(error.contains(&named), "{model}: {error}");
+    }
+    let kindless = read_js_model(&member(r#""name": "D""#)).unwrap_err();
+    assert!(kindless.contains("kind"), "{kindless}");
+    let nameless = read_js_model(&member(r#""kind": "Class""#)).unwrap_err();
+    assert!(nameless.contains("name"), "{nameless}");
+}
+
+#[test]
+fn a_bad_rust_line_is_an_error_naming_it_and_an_unknown_keyword_reads_other() {
+    let error = read_rust_text("pub mod demo\ngarbage\n").unwrap_err();
+    assert!(error.contains("line 2"), "{error}");
+    for bad in [
+        "pub",
+        "pub fn",
+        "pub demo: u8",
+        "#[unclosed pub fn demo::f",
+        "impl",
+    ] {
+        assert!(read_rust_text(bad).is_err(), "{bad}");
+    }
+    let entries = read_rust_text("pub frobnicate a::b").expect("reads");
+    assert_eq!(entries[0].kind, ApiKind::Other);
+    assert_eq!(entries[0].path, ["a", "b"]);
 }
 
 #[test]
