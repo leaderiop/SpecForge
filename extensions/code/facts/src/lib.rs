@@ -37,7 +37,7 @@
 //! - [`vulnerability_facts`] mints a `vulnerability` per OSV record and project package of an osv-scanner
 //!   [`OsvReport`] a reader read ([`OsvSource`], [`OsvPackage`], [`OsvRecord`], [`OsvScore`]), citing the packages the
 //!   scanned lockfile belongs to, with a [`Severity`]: the record's label, else the [`rating`] of its highest CVSS v3
-//!   [`base_score`].
+//!   [`base_score`]; a package it cannot place is named in [`Vulnerabilities::skipped`], never the whole report lost.
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
@@ -79,4 +79,5 @@ pub use report::{
 pub use syntax::parse_all;
 pub use vulnerability::{
     vulnerability_facts, OsvPackage, OsvRecord, OsvReport, OsvScore, OsvSource, Severity,
+    Vulnerabilities,
 };

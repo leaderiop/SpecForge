@@ -47,6 +47,9 @@ no purl is `dep:<package id>/@<[group/]name[@version]>`.
 **OSV.** `read` takes an osv-scanner report whose sources are `lockfile` or `sbom`. Each scanned lockfile cites the
 project package of its ecosystem at its directory, else each one under it. One `vulnerability` per package and OSV id,
 `vuln:<package id>/<OSV id>`, cites that package (edge `affects`); purls, versions and aliases of one id are united.
+A package of an ecosystem other than `crates.io` and `npm`, or one whose lockfile no collected package of its type
+holds, mints nothing and is named in `Vulnerabilities::skipped` (name, version, lockfile, record count and reason), so
+a `requirements.txt` beside a `Cargo.lock` never hides the cargo findings.
 
 A report id's parts are percent-encoded (`%`, `/`, `#`, `:`, `~`, `@`, `?`, whitespace and control characters), so an
 id parses back to its parts and no report text forges a delimiter or a `~2` suffix. A Rust API path segment keeps a
@@ -59,8 +62,7 @@ A reader returns an error, and the collect mints nothing from that report, when:
 - a path lies outside the project (a SARIF `file:` URI or an LCOV `SF` path the project does not hold);
 - the version is one it does not read (SARIF other than `2.1.0`, CycloneDX other than `1.4` to `1.6`);
 - the document is malformed or lacks a required key: the error names the line, the JSON path or the value;
-- a BOM's `metadata.component` or a scanned lockfile belongs to no collected package, or an OSV package's ecosystem is
-  neither `crates.io` nor `npm`.
+- a BOM's `metadata.component` belongs to no collected package.
 
 ## What stays unmapped
 

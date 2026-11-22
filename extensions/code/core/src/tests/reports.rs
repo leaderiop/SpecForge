@@ -656,7 +656,7 @@ fn every_field_a_vulnerability_fact_is_minted_with_is_declared() {
         }],
     };
     let served = [Fact::new("package", "pkg:cargo/demo").field("path", "")];
-    let minted = vulnerability_facts(&report, &served).expect("the lockfile is served");
+    let minted = vulnerability_facts(&report, &served).facts;
     assert_eq!(minted.len(), 1);
     let declared = declaration();
     let fields: Vec<&str> = kind(&declared, "vulnerability")

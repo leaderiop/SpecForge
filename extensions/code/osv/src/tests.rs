@@ -21,7 +21,9 @@ fn text<'f>(fact: &'f Fact, name: &str) -> Option<&'f str> {
 #[test]
 fn a_scan_mints_vulnerabilities_citing_the_lockfiles_package() {
     let report = read(SCAN, "/project").expect("the scan reads");
-    let facts = vulnerability_facts(&report, &served()).expect("the lockfile is a package's");
+    let minted = vulnerability_facts(&report, &served());
+    assert!(minted.skipped.is_empty(), "{:?}", minted.skipped);
+    let facts = minted.facts;
     let read_out: Vec<(&str, Option<&str>, Option<&str>)> = facts
         .iter()
         .map(|f| {
@@ -72,7 +74,9 @@ fn a_workspace_lockfile_reaches_every_member_and_a_nested_one_its_own_package() 
         .into_iter()
         .filter(|f| f.id != "pkg:cargo/demo")
         .collect();
-    let facts = vulnerability_facts(&report, &served).expect("each lockfile is a package's");
+    let minted = vulnerability_facts(&report, &served);
+    assert!(minted.skipped.is_empty(), "{:?}", minted.skipped);
+    let facts = minted.facts;
     let read_out: Vec<(&str, &str, &str)> = facts
         .iter()
         .map(|f| {
@@ -121,6 +125,41 @@ fn an_error_shows_the_reports_text_bounded_and_escaped() {
     }
 }
 
+#[test]
+fn a_polyglot_scan_keeps_its_cargo_findings_and_names_what_it_skips() {
+    let text = serde_json::json!({"results": [
+        {"source": {"path": "/project/Cargo.lock", "type": "lockfile"}, "packages": [
+            {"package": {"name": "smallvec", "version": "1.6.0", "ecosystem": "crates.io"},
+             "vulnerabilities": [{"id": "RUSTSEC-2099-0001"}]}]},
+        {"source": {"path": "/project/requirements.txt", "type": "lockfile"}, "packages": [
+            {"package": {"name": "django", "version": "4.0", "ecosystem": "PyPI"},
+             "vulnerabilities": [{"id": "PYSEC-2099-1"}]}]},
+        {"source": {"path": "/project/api/package-lock.json", "type": "lockfile"}, "packages": [
+            {"package": {"name": "lodash", "version": "4.17.20", "ecosystem": "npm"},
+             "vulnerabilities": [{"id": "GHSA-0000-0000-0000"}]}]}
+    ]})
+    .to_string();
+    // Only the cargo package at the root: no npm package lies at or under `api`.
+    let served: Vec<Fact> = served()
+        .into_iter()
+        .filter(|f| f.id == "pkg:cargo/demo")
+        .collect();
+    let minted = vulnerability_facts(&read(&text, "/project").expect("the scan reads"), &served);
+    let ids: Vec<&str> = minted.facts.iter().map(|f| f.id.as_str()).collect();
+    assert_eq!(ids, ["vuln:pkg:cargo/demo/RUSTSEC-2099-0001"]);
+    assert_eq!(minted.skipped.len(), 2, "{:?}", minted.skipped);
+    assert!(
+        minted.skipped[0].contains("PyPI") && minted.skipped[0].contains("requirements.txt"),
+        "{}",
+        minted.skipped[0]
+    );
+    assert!(
+        minted.skipped[1].contains("api/package-lock.json"),
+        "{}",
+        minted.skipped[1]
+    );
+}
+
 /// A minimal scan of one `source` holding one `package` of `ecosystem`, its record `vulnerability`.
 fn scan(source: Value, package: Value, vulnerability: Value) -> String {
     serde_json::json!({
@@ -138,7 +177,7 @@ fn a_bad_scan_is_an_error_naming_its_value_or_key_and_mints_nothing() {
     let smallvec =
         || serde_json::json!({"name": "smallvec", "version": "1.6.0", "ecosystem": "crates.io"});
     let record = || serde_json::json!({"id": "RUSTSEC-2099-0001"});
-    let rows: [(&str, String, &[&str]); 10] = [
+    let rows: [(&str, String, &[&str]); 8] = [
         ("no results", "{}".to_string(), &["results"]),
         (
             "results no array",
@@ -173,15 +212,6 @@ fn a_bad_scan_is_an_error_naming_its_value_or_key_and_mints_nothing() {
             &["results[0].source.path"],
         ),
         (
-            "ecosystem PyPI",
-            scan(
-                lockfile(),
-                serde_json::json!({"name": "django", "version": "4.0", "ecosystem": "PyPI"}),
-                record(),
-            ),
-            &["PyPI", "Cargo.lock"],
-        ),
-        (
             "a package with no version",
             scan(
                 lockfile(),
@@ -195,26 +225,10 @@ fn a_bad_scan_is_an_error_naming_its_value_or_key_and_mints_nothing() {
             scan(lockfile(), smallvec(), serde_json::json!({"summary": "x"})),
             &["results[0].packages[0].vulnerabilities[0].id"],
         ),
-        (
-            "a lockfile no package holds",
-            scan(
-                serde_json::json!({"path": "/project/api/package-lock.json", "type": "lockfile"}),
-                serde_json::json!({"name": "lodash", "version": "4.17.20", "ecosystem": "npm"}),
-                record(),
-            ),
-            &["api/package-lock.json"],
-        ),
         ("no JSON", "{\"results\":".to_string(), &["no JSON"]),
     ];
-    // Only the cargo package at the root: no npm package lies at or under `api`.
-    let served: Vec<Fact> = served()
-        .into_iter()
-        .filter(|f| f.id == "pkg:cargo/demo")
-        .collect();
     for (case, text, named) in rows {
-        let minted =
-            read(&text, "/project").and_then(|report| vulnerability_facts(&report, &served));
-        let error = minted.expect_err(case);
+        let error = read(&text, "/project").expect_err(case);
         for name in named {
             assert!(error.contains(name), "{case}: {error}");
         }
