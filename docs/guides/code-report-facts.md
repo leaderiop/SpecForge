@@ -67,6 +67,12 @@ A reader returns an error, and the collect mints nothing from that report, when:
 - the document is malformed or lacks a required key: the error names the line, the JSON path or the value;
 - a BOM's `metadata.component` belongs to no collected package.
 
+## Reserved entity names
+
+The five kinds are declared by `@code/core`, so a project that loads it cannot name an entity `coverage`, `api_item`,
+`static_finding`, `dependency` or `vulnerability`: the compiler reports E013. Rename the entity (for example
+`test_coverage`); the reader facts are not entities and are not affected. ADR 0388 records the choice.
+
 ## What stays unmapped
 
 An entry the reader cannot place is kept, never dropped, and the `reports` pass of `@code/core` raises one warning per

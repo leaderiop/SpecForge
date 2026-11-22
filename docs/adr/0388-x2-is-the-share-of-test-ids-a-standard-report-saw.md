@@ -116,3 +116,7 @@ is added to show the computation on real test ids; a further fixture is one more
 - Phase 11's packs mint the five kinds with the ids above, and run the tools whose reports the readers take.
 - Plans 10-03 to 10-07 declare `code/W104` to `code/W107` in `@code/core`, each with the kind it judges.
 - Taskboard reads `0/0` until JavaScript items carry a test id or the definition changes.
+- Once `@code/core` 1.2.0 is loaded, `coverage`, `api_item`, `static_finding`, `dependency` and `vulnerability` are
+  kind names, and a project entity with one of them is error E013. The frozen `fixtures/old-spec` has `term coverage`,
+  so the migrate test that loads it expects exactly that one E013 (ADR 0374 D8 forbids editing the corpus). The owner
+  accepted the names on 2026-11-22; renaming them would re-vendor every blob that links `code-facts`.
