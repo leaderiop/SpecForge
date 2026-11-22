@@ -34,13 +34,15 @@
 //!   [`Scope`]), citing the one served package each BOM describes.
 //! - [`vulnerability_facts`] mints a `vulnerability` per OSV record and project package of an osv-scanner
 //!   [`OsvReport`] a reader read ([`OsvSource`], [`OsvPackage`], [`OsvRecord`], [`OsvScore`]), citing the packages the
-//!   scanned lockfile belongs to, with a [`Severity`].
+//!   scanned lockfile belongs to, with a [`Severity`]: the record's label, else the [`rating`] of its highest CVSS v3
+//!   [`base_score`].
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
 
 mod api;
 mod coverage;
+mod cvss;
 mod dependency;
 mod finding;
 mod ids;
@@ -55,6 +57,7 @@ mod vulnerability;
 
 pub use api::{api_facts, ApiEntry, ApiKind};
 pub use coverage::{coverage_facts, Branch, CoverageFile, Function};
+pub use cvss::{base_score, rating};
 pub use dependency::{dependency_facts, Bom, Component, Scope};
 pub use finding::{finding_facts, Level, SarifResult};
 pub use ids::{

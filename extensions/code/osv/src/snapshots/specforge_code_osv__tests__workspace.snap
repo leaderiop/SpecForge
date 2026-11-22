@@ -1,0 +1,97 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:cargo/ledger/RUSTSEC-2099-0003",
+    "fields": {
+      "aliases": [
+        "CVE-2099-0003"
+      ],
+      "osv_id": "RUSTSEC-2099-0003",
+      "package": "pkg:cargo/ledger",
+      "purl": [
+        "pkg:cargo/smallvec@1.6.0"
+      ],
+      "severity": "high",
+      "summary": "Out-of-bounds read in SmallVec::drain",
+      "version": [
+        "1.6.0"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:cargo/ledger/RUSTSEC-2099-0004",
+    "fields": {
+      "aliases": [],
+      "osv_id": "RUSTSEC-2099-0004",
+      "package": "pkg:cargo/ledger",
+      "purl": [
+        "pkg:cargo/time@0.1.45"
+      ],
+      "severity": "unknown",
+      "summary": "Unsound localtime in the time crate",
+      "version": [
+        "0.1.45"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:cargo/vault/RUSTSEC-2099-0003",
+    "fields": {
+      "aliases": [
+        "CVE-2099-0003"
+      ],
+      "osv_id": "RUSTSEC-2099-0003",
+      "package": "pkg:cargo/vault",
+      "purl": [
+        "pkg:cargo/smallvec@1.6.0"
+      ],
+      "severity": "high",
+      "summary": "Out-of-bounds read in SmallVec::drain",
+      "version": [
+        "1.6.0"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:cargo/vault/RUSTSEC-2099-0004",
+    "fields": {
+      "aliases": [],
+      "osv_id": "RUSTSEC-2099-0004",
+      "package": "pkg:cargo/vault",
+      "purl": [
+        "pkg:cargo/time@0.1.45"
+      ],
+      "severity": "unknown",
+      "summary": "Unsound localtime in the time crate",
+      "version": [
+        "0.1.45"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:npm/%40demo/web/GHSA-m3p6-8x4q-2c7v",
+    "fields": {
+      "aliases": [
+        "CVE-2099-0005"
+      ],
+      "osv_id": "GHSA-m3p6-8x4q-2c7v",
+      "package": "pkg:npm/%40demo/web",
+      "purl": [
+        "pkg:npm/%40babel/traverse@7.22.0"
+      ],
+      "severity": "critical",
+      "summary": "Arbitrary code execution when compiling crafted code",
+      "version": [
+        "7.22.0"
+      ]
+    }
+  }
+]

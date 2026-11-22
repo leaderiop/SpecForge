@@ -1,4 +1,12 @@
 [
   {"kind": "package", "id": "pkg:cargo/demo",
-   "fields": {"name": "demo", "version": "0.1.0", "path": ""}}
+   "fields": {"name": "demo", "version": "0.1.0", "path": ""}},
+  {"kind": "package", "id": "pkg:cargo/ledger",
+   "fields": {"name": "ledger", "version": "0.1.0", "path": "crates/ledger"}},
+  {"kind": "package", "id": "pkg:cargo/vault",
+   "fields": {"name": "vault", "version": "0.1.0", "path": "crates/vault"}},
+  {"kind": "package", "id": "pkg:npm/site",
+   "fields": {"name": "site", "version": "1.0.0", "path": ""}},
+  {"kind": "package", "id": "pkg:npm/%40demo/web",
+   "fields": {"name": "@demo/web", "version": "1.0.0", "path": "web"}}
 ]
