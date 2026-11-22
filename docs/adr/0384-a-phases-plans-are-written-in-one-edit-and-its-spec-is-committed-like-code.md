@@ -7,7 +7,9 @@ a judged rule's finding is not one),
 [ADR 0363](0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md) D3 (an
 entity a write creates reveals nothing) and the Not applicable table of
 [`gsd/core/spec/settings.md`](../../gsd/core/spec/settings.md#not-applicable). No protocol change, no kernel change, no
-new code and no new setting.
+new code and no new setting. D4 amended and the Limits answered in the kernel by
+[ADR 0385](0385-a-code-may-be-settled-later-and-a-write-that-creates-its-subject-adds-no-error-of-it.md): a code may be settled later; `@gsd/core`'s side is recorded
+with the change that declares its codes so.
 
 ## Context
 
