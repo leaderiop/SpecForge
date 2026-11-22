@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_checks.wasm",
-  "artifact_sha256": "8a5ca53dda6d8dba09dd7519e622202db68f765d22deedbe399721bcfef7482e",
+  "artifact_sha256": "8e44c905e72941148b19f1e1cb7db4f6b699422138816b090f1410f44d7a9489",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -97,7 +97,7 @@
     "crates/runtime/extension-sdk/src/surface/call.rs": "47937f382d26ac3de60d0ab6a9b39babb78edb564d70ec78de10a4676e9a1282",
     "crates/runtime/extension-sdk/src/vocabulary.rs": "93f85b5300e870259d78823b33cc19639aac0c30d966e934d9125e693fc94281",
     "crates/runtime/extension-sdk/wit/host.wit": "fc297976ff03eab250e76d7c4a01f5bc89124406fc7c8bc08802eb2417895472",
-    "extensions/checks/Cargo.lock": "6f966a0d3688d74e061f888e6d89485c6486163125573ae26b97b38dcc55e25c",
+    "extensions/checks/Cargo.lock": "c13f026d3a3ee57fbb93feef9b7a7d842a371fd33b4cb3dc7ea3d758e2c4e9a8",
     "extensions/checks/Cargo.toml": "ad8a8321c379f9eaca30f9b450828be6f4609c83d639b42faa5ffaac8f14c7b6",
     "extensions/checks/src/codes.rs": "c9fa441405a90c41a58d58830a1d6bddfefaa77ce2b4d6878b776422c4edd3b6",
     "extensions/checks/src/facts.rs": "6871aeb2c801f48bccf5eac66783bb6d9ae976ddd088a0cc317e74b5865433c4",

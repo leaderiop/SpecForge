@@ -70,7 +70,7 @@
     "crates/runtime/extension-sdk/src/surface/call.rs": "47937f382d26ac3de60d0ab6a9b39babb78edb564d70ec78de10a4676e9a1282",
     "crates/runtime/extension-sdk/src/vocabulary.rs": "93f85b5300e870259d78823b33cc19639aac0c30d966e934d9125e693fc94281",
     "crates/runtime/extension-sdk/wit/host.wit": "fc297976ff03eab250e76d7c4a01f5bc89124406fc7c8bc08802eb2417895472",
-    "extensions/product/Cargo.lock": "d88b11bd05a64b0dd94e45b1e104ad5792a23a3315834c42f1d98b958cc6f70c",
+    "extensions/product/Cargo.lock": "3ee32e65af5301bd3fc176b76da7858caa057cf79afa3a5a9f595bd993327346",
     "extensions/product/Cargo.toml": "d80e8940361fa79d82feb8c58176ba79bd6bfe0fb0f0835d67b9fa1c489816ea",
     "extensions/product/src/commands.rs": "9be9858864a2e1331df3c10c4e87b10d3a33af373a46d1bc2d460f24aee7a883",
     "extensions/product/src/commands/coverage_matrices.rs": "9f21a80c97cfb4624a08c26bd7f0db8be834ce320ba441626612b53d081e7426",

@@ -1,6 +1,6 @@
 ---
 source: crates/session/project/tests/registry_build_snapshot.rs
-expression: "digest(&load(&runtime, &all))"
+expression: "digest(&load(&runtime, &old))"
 ---
 {
   "check_passes": [
@@ -19,6 +19,10 @@ expression: "digest(&load(&runtime, &all))"
     {
       "extension": "@code/core",
       "name": "proof"
+    },
+    {
+      "extension": "@code/core",
+      "name": "reports"
     }
   ],
   "commands": [
@@ -1275,6 +1279,120 @@ expression: "digest(&load(&runtime, &all))"
         "@specforge/software type.extends -> type"
       ]
     },
+    "affects": {
+      "description": "The project package a vulnerability affects",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "affects",
+      "source_extension": "@code/core",
+      "source_kind": "vulnerability",
+      "sources": [
+        "vulnerability"
+      ],
+      "target_kind": "package",
+      "targets": [
+        "package"
+      ],
+      "writers": [
+        "@code/core vulnerability.package -> package"
+      ]
+    },
+    "api_of": {
+      "description": "The item an API snapshot's entry is the API of",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "api_of",
+      "source_extension": "@code/core",
+      "source_kind": "api_item",
+      "sources": [
+        "api_item"
+      ],
+      "target_kind": "item",
+      "targets": [
+        "item"
+      ],
+      "writers": [
+        "@code/core api_item.item -> item"
+      ]
+    },
+    "covers": {
+      "description": "The item a coverage fact reports on",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "covers",
+      "source_extension": "@code/core",
+      "source_kind": "coverage",
+      "sources": [
+        "coverage"
+      ],
+      "target_kind": "item",
+      "targets": [
+        "item"
+      ],
+      "writers": [
+        "@code/core coverage.item -> item"
+      ]
+    },
+    "dependency_of": {
+      "description": "The project package a dependency is a component of the BOM of",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "dependency_of",
+      "source_extension": "@code/core",
+      "source_kind": "dependency",
+      "sources": [
+        "dependency"
+      ],
+      "target_kind": "package",
+      "targets": [
+        "package"
+      ],
+      "writers": [
+        "@code/core dependency.package -> package"
+      ]
+    },
+    "found_in": {
+      "description": "The item a static finding lies in",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "found_in",
+      "source_extension": "@code/core",
+      "source_kind": "static_finding",
+      "sources": [
+        "static_finding"
+      ],
+      "target_kind": "item",
+      "targets": [
+        "item"
+      ],
+      "writers": [
+        "@code/core static_finding.item -> item"
+      ]
+    },
+    "found_in_package": {
+      "description": "The package a static finding lies in, when no item holds it",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "found_in_package",
+      "source_extension": "@code/core",
+      "source_kind": "static_finding",
+      "sources": [
+        "static_finding"
+      ],
+      "target_kind": "package",
+      "targets": [
+        "package"
+      ],
+      "writers": [
+        "@code/core static_finding.package -> package"
+      ]
+    },
     "in_package": {
       "description": "The package an item is defined in",
       "edge_arrowhead": null,
@@ -1418,7 +1536,7 @@ expression: "digest(&load(&runtime, &all))"
     ],
     [
       "@code/core",
-      "1.1.0"
+      "1.2.0"
     ],
     [
       "@javascript/node-test",
@@ -1446,6 +1564,102 @@ expression: "digest(&load(&runtime, &all))"
     ]
   ],
   "fields": {
+    "api_item.item": {
+      "derived_from": null,
+      "description": "The item the entry is the API of; absent when no collected item has its path (W104 for a kind an item can have)",
+      "edge": "api_of",
+      "exempts_obligations": false,
+      "field_name": "item",
+      "field_type": "Reference",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "api_item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "item"
+    },
+    "api_item.kind": {
+      "derived_from": null,
+      "description": "What the entry is: an item kind, or variant, reexport, extern_crate, other, which no item is",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "kind",
+      "field_type": "Enum([\"module\", \"function\", \"method\", \"field\", \"struct\", \"enum\", \"union\", \"trait\", \"type\", \"const\", \"static\", \"macro\", \"class\", \"interface\", \"variable\", \"namespace\", \"variant\", \"reexport\", \"extern_crate\", \"other\"])",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "api_item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "api_item.path": {
+      "derived_from": null,
+      "description": "The entry's qualified path as the snapshot wrote it",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "path",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "api_item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "api_item.signature": {
+      "derived_from": null,
+      "description": "The entry exactly as the snapshot wrote it, attributes included",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "signature",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "api_item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "api_item.tag": {
+      "derived_from": null,
+      "description": "The api-extractor release tag (Public, Beta, Alpha, Internal)",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "tag",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "api_item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "api_item.visibility": {
+      "derived_from": null,
+      "description": "Who may name it, as the snapshot wrote it",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "visibility",
+      "field_type": "Enum([\"public\", \"crate\", \"restricted\", \"private\"])",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "api_item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
     "axiom.assumes": {
       "derived_from": null,
       "description": "Invariants this axiom assumes as foundational truths",
@@ -2262,6 +2476,134 @@ expression: "digest(&load(&runtime, &all))"
       "source_extension": "@specforge/governance",
       "target_kind": null
     },
+    "coverage.branches_found": {
+      "derived_from": null,
+      "description": "The branches the report measured in it",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "branches_found",
+      "field_type": "Integer",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "coverage",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "coverage.branches_hit": {
+      "derived_from": null,
+      "description": "Those of its branches that were taken",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "branches_hit",
+      "field_type": "Integer",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "coverage",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "coverage.file": {
+      "derived_from": null,
+      "description": "The report's file, project-relative, with / separators",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "file",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "coverage",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "coverage.functions_found": {
+      "derived_from": null,
+      "description": "The functions the report lists in it",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "functions_found",
+      "field_type": "Integer",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "coverage",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "coverage.functions_hit": {
+      "derived_from": null,
+      "description": "Those of its functions that ran",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "functions_hit",
+      "field_type": "Integer",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "coverage",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "coverage.item": {
+      "derived_from": null,
+      "description": "The item holding the lines; absent when no collected item does",
+      "edge": "covers",
+      "exempts_obligations": false,
+      "field_name": "item",
+      "field_type": "Reference",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "coverage",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "item"
+    },
+    "coverage.lines_found": {
+      "derived_from": null,
+      "description": "The lines the report measured in it",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "lines_found",
+      "field_type": "Integer",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "coverage",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "coverage.lines_hit": {
+      "derived_from": null,
+      "description": "Those of its lines that ran",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "lines_hit",
+      "field_type": "Integer",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "coverage",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
     "decision.affects_features": {
       "derived_from": null,
       "description": "Product features affected by this decision (requires @specforge/product)",
@@ -2708,6 +3050,102 @@ expression: "digest(&load(&runtime, &all))"
       "proof_role": null,
       "required": false,
       "source_extension": "@specforge/product",
+      "target_kind": null
+    },
+    "dependency.direct": {
+      "derived_from": null,
+      "description": "Whether the project package depends on it directly; present only when the BOM states a dependency graph for its root, never false for a graph it does not state",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "direct",
+      "field_type": "Bool",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "dependency",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "dependency.name": {
+      "derived_from": null,
+      "description": "The component's name, group/name when it states a group",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "name",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "dependency",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "dependency.package": {
+      "derived_from": null,
+      "description": "The project package the BOM describes (its metadata.component)",
+      "edge": "dependency_of",
+      "exempts_obligations": false,
+      "field_name": "package",
+      "field_type": "Reference",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "dependency",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "package"
+    },
+    "dependency.purl": {
+      "derived_from": null,
+      "description": "The component's package URL as written; absent when it has none (W106)",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "purl",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "dependency",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "dependency.scope": {
+      "derived_from": null,
+      "description": "The component's scope, required when the BOM states none (the spec's default); the widest of a purl listed twice",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "scope",
+      "field_type": "Enum([\"required\", \"optional\", \"excluded\"])",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "dependency",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "dependency.version": {
+      "derived_from": null,
+      "description": "The component's version, when it states one",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "version",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "dependency",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
       "target_kind": null
     },
     "event.category": {
@@ -5078,6 +5516,134 @@ expression: "digest(&load(&runtime, &all))"
       "source_extension": "@specforge/product",
       "target_kind": null
     },
+    "static_finding.file": {
+      "derived_from": null,
+      "description": "The file of its first location, project-relative, with / separators",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "file",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "static_finding",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "static_finding.item": {
+      "derived_from": null,
+      "description": "The innermost item holding its line; absent when no collected item does",
+      "edge": "found_in",
+      "exempts_obligations": false,
+      "field_name": "item",
+      "field_type": "Reference",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "static_finding",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "item"
+    },
+    "static_finding.level": {
+      "derived_from": null,
+      "description": "The level the result or its rule's defaultConfiguration states; unknown when neither does (W105), never SARIF's own warning default",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "level",
+      "field_type": "Enum([\"error\", \"warning\", \"note\", \"none\", \"unknown\"])",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "static_finding",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "static_finding.line": {
+      "derived_from": null,
+      "description": "The 1-based start line of its first location",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "line",
+      "field_type": "Integer",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "static_finding",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "static_finding.message": {
+      "derived_from": null,
+      "description": "The result's message.text",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "message",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "static_finding",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "static_finding.package": {
+      "derived_from": null,
+      "description": "The package holding its file, when no item holds its line; absent with neither (W104)",
+      "edge": "found_in_package",
+      "exempts_obligations": false,
+      "field_name": "package",
+      "field_type": "Reference",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "static_finding",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "package"
+    },
+    "static_finding.rule": {
+      "derived_from": null,
+      "description": "The rule id the result states; unknown when it states none (W105)",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "rule",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "static_finding",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "static_finding.tool": {
+      "derived_from": null,
+      "description": "The run's tool (tool.driver.name)",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "tool",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "static_finding",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
     "term.aliases": {
       "derived_from": null,
       "description": "Alternative names or abbreviations for this term",
@@ -5397,6 +5963,118 @@ expression: "digest(&load(&runtime, &all))"
       "required": false,
       "source_extension": "@specforge/software",
       "target_kind": null
+    },
+    "vulnerability.aliases": {
+      "derived_from": null,
+      "description": "The record's aliases (CVE ids and the like), sorted",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "aliases",
+      "field_type": "StringList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "vulnerability",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "vulnerability.osv_id": {
+      "derived_from": null,
+      "description": "The OSV record's id (GHSA-…, RUSTSEC-…)",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "osv_id",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "vulnerability",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "vulnerability.package": {
+      "derived_from": null,
+      "description": "The project package the scanned lockfile belongs to: the one at its directory, else each one under it",
+      "edge": "affects",
+      "exempts_obligations": false,
+      "field_name": "package",
+      "field_type": "Reference",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "vulnerability",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "package"
+    },
+    "vulnerability.purl": {
+      "derived_from": null,
+      "description": "The affected dependency's package URL at each affected version",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "purl",
+      "field_type": "StringList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "vulnerability",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "vulnerability.severity": {
+      "derived_from": null,
+      "description": "The record's own severity label (MODERATE reads medium), else the rating of its highest CVSS v3 base score, else unknown (W107); the highest of the records merged",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "severity",
+      "field_type": "Enum([\"critical\", \"high\", \"medium\", \"low\", \"unknown\"])",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "vulnerability",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "vulnerability.summary": {
+      "derived_from": null,
+      "description": "The record's one-line summary; absent when it states none",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "summary",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "vulnerability",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "vulnerability.version": {
+      "derived_from": null,
+      "description": "The affected dependency's versions the lockfile pins",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "version",
+      "field_type": "StringList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "vulnerability",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
     }
   },
   "graph_inputs": {
@@ -5416,6 +6094,12 @@ expression: "digest(&load(&runtime, &all))"
       }
     ],
     "field_forms": {
+      "api_item.item": "reference",
+      "api_item.kind": "enum (module, function, method, field, struct, enum, union, trait, type, const, static, macro, class, interface, variable, namespace, variant, reexport, extern_crate, other)",
+      "api_item.path": "string",
+      "api_item.signature": "string",
+      "api_item.tag": "string",
+      "api_item.visibility": "enum (public, crate, restricted, private)",
       "axiom.assumes": "reference_list",
       "axiom.description": "string",
       "axiom.expression": "string",
@@ -5467,6 +6151,14 @@ expression: "digest(&load(&runtime, &all))"
       "constraint.refs": "string_list",
       "constraint.scope": "string",
       "constraint.threshold": "string",
+      "coverage.branches_found": "integer",
+      "coverage.branches_hit": "integer",
+      "coverage.file": "string",
+      "coverage.functions_found": "integer",
+      "coverage.functions_hit": "integer",
+      "coverage.item": "reference",
+      "coverage.lines_found": "integer",
+      "coverage.lines_hit": "integer",
       "decision.affects_features": "reference_list",
       "decision.alternatives": "string_list",
       "decision.authors": "string_list",
@@ -5495,6 +6187,12 @@ expression: "digest(&load(&runtime, &all))"
       "deliverable.status": "enum (draft, in_progress, shipped, deprecated)",
       "deliverable.tags": "string_list",
       "deliverable.version": "string",
+      "dependency.direct": "bool",
+      "dependency.name": "string",
+      "dependency.package": "reference",
+      "dependency.purl": "string",
+      "dependency.scope": "enum (required, optional, excluded)",
+      "dependency.version": "string",
       "event.category": "identifier",
       "event.channel": "string",
       "event.channel_type": "identifier",
@@ -5643,6 +6341,14 @@ expression: "digest(&load(&runtime, &all))"
       "release.tags": "string_list",
       "release.target_date": "date",
       "release.version": "string",
+      "static_finding.file": "string",
+      "static_finding.item": "reference",
+      "static_finding.level": "enum (error, warning, note, none, unknown)",
+      "static_finding.line": "integer",
+      "static_finding.message": "string",
+      "static_finding.package": "reference",
+      "static_finding.rule": "string",
+      "static_finding.tool": "string",
       "term.aliases": "string_list",
       "term.context": "string",
       "term.definition": "string",
@@ -5662,7 +6368,14 @@ expression: "digest(&load(&runtime, &all))"
       "type.composed_types": "reference_list",
       "type.description": "string",
       "type.extends": "reference",
-      "type.refs": "string_list"
+      "type.refs": "string_list",
+      "vulnerability.aliases": "string_list",
+      "vulnerability.osv_id": "string",
+      "vulnerability.package": "reference",
+      "vulnerability.purl": "string_list",
+      "vulnerability.severity": "enum (critical, high, medium, low, unknown)",
+      "vulnerability.summary": "string",
+      "vulnerability.version": "string_list"
     },
     "member_kinds": [
       "port",
@@ -5670,6 +6383,24 @@ expression: "digest(&load(&runtime, &all))"
     ]
   },
   "kinds": {
+    "api_item": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "One public entry of an API snapshot, written by an api pack's collector (ADR 0388): api:rust:<crate>::<path> (cargo public-api, a trait-impl member ...::<Type as Trait>::m), api:js:<package>::<name path> (api-extractor), the id holding no line, order nor source file",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "api_item",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@code/core",
+      "supports_verify": false,
+      "testable": false
+    },
     "axiom": {
       "allowed_verify_kinds": [],
       "contract_target": false,
@@ -5772,6 +6503,24 @@ expression: "digest(&load(&runtime, &all))"
       "supports_verify": true,
       "testable": true
     },
+    "coverage": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "What a coverage report (LCOV) says of one item, written by a coverage pack's collector (ADR 0388): cov:<item id> for the innermost item holding the report's lines, cov:@<file> for what no item of a file holds (W104)",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "coverage",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@code/core",
+      "supports_verify": false,
+      "testable": false
+    },
     "decision": {
       "allowed_verify_kinds": [],
       "contract_target": false,
@@ -5805,6 +6554,24 @@ expression: "digest(&load(&runtime, &all))"
       "semantic_token": "struct",
       "singleton": false,
       "source_extension": "@specforge/product",
+      "supports_verify": false,
+      "testable": false
+    },
+    "dependency": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "One component of a CycloneDX bill of materials, written by an SBOM pack's collector (ADR 0388): dep:<package id>/<purl without qualifiers and subpath>, or dep:<package id>/@<[group/]name[@version]> for a component with no purl (W106); one fact per id, a purl listed twice merged",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "dependency",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@code/core",
       "supports_verify": false,
       "testable": false
     },
@@ -6114,6 +6881,24 @@ expression: "digest(&load(&runtime, &all))"
       "supports_verify": false,
       "testable": false
     },
+    "static_finding": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "One result of a SARIF run (a lint or static analysis finding), written by a lint pack's collector (ADR 0388): sarif:<tool>/<rule>#<file>:<line>, #<file> with no line, neither with no location, ~2 on a repeat in document order",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "static_finding",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@code/core",
+      "supports_verify": false,
+      "testable": false
+    },
     "term": {
       "allowed_verify_kinds": [],
       "contract_target": false,
@@ -6188,6 +6973,24 @@ expression: "digest(&load(&runtime, &all))"
       "source_extension": "@specforge/software",
       "supports_verify": true,
       "testable": true
+    },
+    "vulnerability": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "One OSV record of an osv-scanner report, written by a vulnerability pack's collector (ADR 0388): vuln:<package id>/<OSV id>, one fact per project package the scanned lockfile belongs to and OSV id, the versions of one dependency merged; severity critical, high, medium, low, else unknown (W107)",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "vulnerability",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@code/core",
+      "supports_verify": false,
+      "testable": false
     }
   },
   "manifest_surfaces": [

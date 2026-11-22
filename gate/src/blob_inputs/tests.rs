@@ -58,6 +58,15 @@ fn a_change_to_the_code_facts_library_feeds_the_builtins_that_link_it() {
     assert_eq!(fed(&["extensions/code/facts/src/ids.rs"]), CODE_LINKERS);
 }
 
+/// A report reader links code-facts; no builtin links a reader until the packs (ADR 0388, F2).
+#[test]
+fn a_change_to_a_report_reader_feeds_no_builtin() {
+    for reader in ["lcov", "api", "sarif", "cyclonedx", "osv"] {
+        let lib = format!("extensions/code/{reader}/src/lib.rs");
+        assert!(fed(&[lib.as_str()]).is_empty(), "{lib}");
+    }
+}
+
 #[test]
 fn a_change_to_the_manifest_library_feeds_only_rust_cargo() {
     assert_eq!(
