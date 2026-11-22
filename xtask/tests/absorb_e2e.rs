@@ -322,7 +322,7 @@ fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, led
     let numbered = entry("third_cut", "title");
     assert_eq!(
         (numbered.len(), &numbered[0]["value"]),
-        (1, &json!("Phase 3:")),
+        (1, &json!("Phase 3")),
         "the old title's number, not written, is in the ledger: {numbered:?}"
     );
     assert!(

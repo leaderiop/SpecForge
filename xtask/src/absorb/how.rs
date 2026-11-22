@@ -97,24 +97,71 @@ pub fn slug(text: &str) -> String {
     slug.trim_end_matches('-').to_string()
 }
 
-/// A phase's title, its one name (ADR 0387), from its old milestone's title: the title less a leading `Phase `, its
-/// digits, an optional letter, `:` and the spaces after it (GSD renders the number from the phase's id), else the title
-/// as written.
-pub fn phase_name(title: &str) -> String {
-    numbered(title).unwrap_or(title).to_string()
+/// The phase number `title` begins with and what follows it, separators dropped, when it begins with one: `Phase`
+/// (any case) and a number in GSD's grammar (`\d+[A-Z]?(\.\d+)*`), then no letter or digit; or a bare number of
+/// digits and dots, then `:` or `.` before a space or the end, `)`, or a dash between spaces (`03: Core`, `3. Core`,
+/// `2) Core`, `04 - Core`). A number inside the title (`HTTP 2 support`, `2FA login`, `v2.0 migration`) is none.
+///
+/// Copied from `gsd/core/src/passes/roadmap/titles.rs` `numbered`, as [`slug`] is, since no crate outside `gsd/`
+/// depends on the gsd crates: a converted phase's title is its name alone (ADR 0387), so the converter drops exactly
+/// the number `gsd/W109` would flag.
+pub fn numbered(title: &str) -> Option<(&str, &str)> {
+    let text = title.trim_start();
+    let end = match text.get(..5) {
+        Some(word) if word.eq_ignore_ascii_case("phase") => worded(&text[5..]).map(|n| 5 + n)?,
+        _ => bare(text)?,
+    };
+    let rest = text[end..].trim_start_matches(|c: char| {
+        c.is_whitespace() || matches!(c, ':' | '.' | ')' | '-' | '–' | '—')
+    });
+    Some((text[..end].trim_end(), rest.trim_end()))
 }
 
-/// What follows a leading `Phase <digits><letter?>: ` in `title`, when it does and something follows.
-fn numbered(title: &str) -> Option<&str> {
-    let rest = title.strip_prefix("Phase ")?;
-    let after = rest.trim_start_matches(|c: char| c.is_ascii_digit());
-    if after.len() == rest.len() {
+/// The length of `rest` up to the end of the number after `Phase`: spaces, then a number in GSD's grammar, not
+/// followed by a letter or a digit.
+fn worded(rest: &str) -> Option<usize> {
+    let spaces = rest.len() - rest.trim_start().len();
+    let number = grammar(&rest[spaces..], true)?;
+    let end = spaces + number;
+    match rest[end..].chars().next() {
+        Some(c) if c.is_alphanumeric() => None,
+        _ => Some(end),
+    }
+}
+
+/// The length of a bare number at the start of `text` when a label's separator follows it.
+fn bare(text: &str) -> Option<usize> {
+    let end = grammar(text, false)?;
+    let after = &text[end..];
+    let spaced = |tail: &str| tail.is_empty() || tail.starts_with(char::is_whitespace);
+    let separated = match after.chars().next()? {
+        ':' | '.' => spaced(&after[1..]),
+        ')' => true,
+        c if c.is_whitespace() => {
+            let dash = after.trim_start();
+            dash.starts_with(['-', '–', '—']) && spaced(&dash[dash.chars().next()?.len_utf8()..])
+        }
+        _ => false,
+    };
+    separated.then_some(end)
+}
+
+/// The length of the number at the start of `text`: digits, an optional capital letter when `lettered`, then any
+/// `.digits`.
+fn grammar(text: &str, lettered: bool) -> Option<usize> {
+    let digits = |s: &str| s.len() - s.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+    let mut end = digits(text);
+    if end == 0 {
         return None;
     }
-    let after = after
-        .strip_prefix(|c: char| c.is_ascii_alphabetic())
-        .filter(|tail| tail.starts_with(':'))
-        .unwrap_or(after);
-    let name = after.strip_prefix(':')?.trim_start();
-    (!name.is_empty()).then_some(name)
+    if lettered && text[end..].starts_with(|c: char| c.is_ascii_uppercase()) {
+        end += 1;
+    }
+    while let Some(tail) = text[end..].strip_prefix('.') {
+        match digits(tail) {
+            0 => break,
+            n => end += 1 + n,
+        }
+    }
+    Some(end)
 }
