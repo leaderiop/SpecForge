@@ -373,12 +373,12 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "dogfood",
-        proves: "the tests' nextest reports, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5)",
+        proves: "the tests' nextest reports, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5); it also prints X2 for SpecForge, taskboard and ledger (ADR 0388)",
         reach: Reach::Full,
         trigger: Trigger::Always,
         compiles: false,
         after: &["tests"],
-        fix: "<target>/gate/dogfood.log names each failed requirement: specforge anchors <id> --path <target>/gate/dogfood lists the tests that name it; run them (cargo nextest run --workspace --profile gate -E 'test(<name>)') and fix the one that fails; none proven: the tests did not run or named none. Then cargo gate full --only tests,dogfood",
+        fix: "<target>/gate/dogfood.log names each failed requirement: specforge anchors <id> --path <target>/gate/dogfood lists the tests that name it; run them (cargo nextest run --workspace --profile gate -E 'test(<name>)') and fix the one that fails; none proven: the tests did not run or named none. The log also holds the X2 lines; a failed X2 collect or export names its project and step (its scratch copy is <target>/gate/x2/<project>). Then cargo gate full --only tests,dogfood",
         run: dogfood::run,
     },
     Check {

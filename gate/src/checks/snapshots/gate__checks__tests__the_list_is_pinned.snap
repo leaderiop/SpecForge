@@ -48,6 +48,6 @@ published-schemas quick      **/*.spec, **/specforge.json, extensions/**, crates
 specs             quick      **/*.spec, **/specforge.json, gate/baseline.json, extensions/**, crates/**/src/**, crates/**/Cargo.toml
                              every project, as tracked (collected by @rust/cargo and @rust/source first when it loads them), checks with no error and no warning above the baseline
 dogfood           full       always (after tests)
-                             the tests' nextest reports, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5)
+                             the tests' nextest reports, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5); it also prints X2 for SpecForge, taskboard and ledger (ADR 0388)
 builtins-verify   bootstrap  always
                              a cold clone rebuilds every committed blob to the vendored bytes

@@ -87,9 +87,12 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         ctx.log(line);
     }
     // X2 is print only (ADR 0388 D2): a failed collect or export is the error, never the ratio.
-    let x2 = FIXTURES
-        .iter()
-        .try_for_each(|fixture| fixture_x2(ctx, specforge, fixture, &tracked));
+    // SpecForge's missing list is every guest test (thousands): it goes to the log only.
+    let x2 = log_x2(ctx, specforge, "SpecForge", &tree).and_then(|()| {
+        FIXTURES
+            .iter()
+            .try_for_each(|fixture| fixture_x2(ctx, specforge, fixture, &tracked))
+    });
     if failed {
         // The first line is the counts; the problems follow it.
         Err(lines.get(1).or(lines.first()).cloned().unwrap_or_default())
@@ -113,23 +116,41 @@ struct Fixture {
     collects: &'static [(&'static str, Option<&'static str>)],
 }
 
-const FIXTURES: &[Fixture] = &[Fixture {
-    name: "ledger",
-    dir: "gsd/parity/fixtures/ledger",
-    extensions: &[
-        "@gsd/core",
-        "@specforge/checks",
-        "@code/core",
-        "@rust/cargo",
-        "@rust/source",
-        "@rust/test",
-    ],
-    collects: &[
-        ("rust-cargo", None),
-        ("rust-source", None),
-        ("rust-test", Some("gsd/parity/goldens/ledger/rust-test.xml")),
-    ],
-}];
+/// Printed after SpecForge, in this order. Taskboard's JavaScript items carry no `test_id`, so it reads `0/0`.
+const FIXTURES: &[Fixture] = &[
+    Fixture {
+        name: "taskboard",
+        dir: "gsd/parity/fixtures/taskboard",
+        extensions: &[
+            "@gsd/core",
+            "@specforge/checks",
+            "@code/core",
+            "@javascript/node-test",
+            "@javascript/source",
+        ],
+        collects: &[
+            ("javascript-source", None),
+            ("node-test", Some("gsd/parity/goldens/taskboard/junit.xml")),
+        ],
+    },
+    Fixture {
+        name: "ledger",
+        dir: "gsd/parity/fixtures/ledger",
+        extensions: &[
+            "@gsd/core",
+            "@specforge/checks",
+            "@code/core",
+            "@rust/cargo",
+            "@rust/source",
+            "@rust/test",
+        ],
+        collects: &[
+            ("rust-cargo", None),
+            ("rust-source", None),
+            ("rust-test", Some("gsd/parity/goldens/ledger/rust-test.xml")),
+        ],
+    },
+];
 
 /// Collect `fixture` in its scratch copy and log its X2 lines; an error names the fixture and the step that failed.
 fn fixture_x2(
@@ -167,13 +188,19 @@ fn fixture_x2(
         json(ctx, specforge, &args)
             .map_err(|e| format!("X2 {name}: collecting with {runner}: {e}"))?;
     }
+    log_x2(ctx, specforge, name, &copy)
+}
+
+/// Log the X2 lines of the collected project at `path`, read from `specforge export --format graph --kinds
+/// item,test`; an error names the project.
+fn log_x2(ctx: &Ctx, specforge: &Path, name: &str, path: &str) -> Result<(), String> {
     let export = json(
         ctx,
         specforge,
         &[
             "export",
             "--path",
-            &copy,
+            path,
             "--format",
             "graph",
             "--kinds",
