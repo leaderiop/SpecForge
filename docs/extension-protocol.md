@@ -249,7 +249,7 @@ which passes when one branch yields no error. A bare name is the extension's own
 `@acme/x:<name>`, and that extension must be a declared peer (W019). A check of an optional peer that is not loaded is
 inert: the schema and the hover say so. The value stays plain in its field type's form: nothing about a check is written
 in a `.spec` file. A `.spec` path may name its root, `"<root>/rest"` (`spec`, `project` or a root `specforge.json` names).
-A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored. A field of 2.1.0 may declare `writer: "context"` (ADR 0356 D9): only the host's record of a context route's pack writes it, a block of exactly `route` (string), `digest` (string) and `max_tokens` (integer) (any other shape, or one on a member, is W021 and the writer dropped); a typed edit of it from any origin is refused `context_field`, the ledger records it as a harness value (E083 without its line), and no entity, judged input or pack section digest reads it. A field, a block member or a kind of 1.9.0 may declare `writer: "human"` (ADR 0289): only a person writes it, and an extension's plan, the MCP tools and a non-interactive CLI are refused `human_only`; a `required` field of a kind that is not human-only is W021, since an agent could then create no entity. A set, unset or link of an existing human-only entity is refused the same way, and so is an agent's delete of an entity holding a value a person wrote (a human-only field, or a block member declared human); computed and harness values are not checked on delete (ADR 0298).
+A field of 1.8.0 may also declare who writes it (ADR 0287): `writer`, `"computed"` (a compute pass gives the value; a value written by hand is E082) or `"harness"` (a command's plan sets it and the host records it in `specforge-harness`; a value with no line there is E083); `immutable` (a value that differs from its git baseline is E084; unset at the baseline, it may be set once); and `append_only` (a list that rewrites its baseline's items is E085). A kind may declare `append_only` too: an entity of it that the baseline holds and the project does not is E085. A field nested under `members` declares the same. A `computed` or `harness` field is never completed or offered by an editor, and a computed value is shown marked `computed`. `lifecycle_field` on a kind is read and ignored. A field of 2.1.0 may declare `writer: "context"` (ADR 0356 D9): only the host's record of a context route's pack writes it, a block of exactly `route` (string), `digest` (string) and `max_tokens` (integer; the cap the read stated, absent when it stated none) (any other shape, or one on a member, is W021 and the writer dropped); a typed edit of it from any origin is refused `context_field`, the ledger records it as a harness value (E083 without its line), and no entity, judged input or pack section digest reads it. A field, a block member or a kind of 1.9.0 may declare `writer: "human"` (ADR 0289): only a person writes it, and an extension's plan, the MCP tools and a non-interactive CLI are refused `human_only`; a `required` field of a kind that is not human-only is W021, since an agent could then create no entity. A set, unset or link of an existing human-only entity is refused the same way, and so is an agent's delete of an entity holding a value a person wrote (a human-only field, or a block member declared human); computed and harness values are not checked on delete (ADR 0298).
 
 A field of 2.0.0 that declares `checks` may also declare `checks_while` (ADR 0350): `"complete"`, its checks wait
 until its holder's owner is complete (`complete_when`, its kind's or its nearest scope ancestor's; a **planned** value,
@@ -1182,9 +1182,10 @@ digest (`specforge context <route> <entity>`, the MCP tool `specforge.context`,
 - `name` is kebab case, unique among the extension's context routes; the host qualifies it by the extension's short
   name (`gsd/executor`). Context routes and trace routes are separate namespaces.
 - `budget` is the route's enrich allowance (ADR 0386): the tokens of enrich sections a pack may add beyond its core
-  when the read states no cap; positive for a route with an enrich section, 0 for one of core sections only. `agent`
-  is an agent of the extension's own:
-  the host appends a `## Context` section to its body on every host.
+  when the read states no cap; positive for a route with an enrich section, 0 for one of core sections only. The host
+  does not bound a core: a read that states no cap serves it whatever it costs, so a route keeps its core selectors
+  as narrow as its role needs, and a pack reports what it cost as `budget.estimated_tokens`. `agent` is an agent of
+  the extension's own: the host appends a `## Context` section to its body on every host.
 - A section's `name` is a word, unique in the route and never `settings`. `selector` is the judged rules' grammar with
   its head: an entity chain (`self<task.plan`, `decision`), `file(..)` or `test(..)`. `tier` is `core` (absent: core)
   or `enrich`. At least one section is core.
@@ -1204,14 +1205,16 @@ context-written field. Its digest covers the sections served, each digested as a
 The host checks each route once, when the extension loads. One that cannot be served (a name not kebab case or taken,
 no core section, a section name not a word, repeated or `settings`, a selector that does not parse, leaves the
 project or does not type-check from the subject kind, a subject kind not loaded, a setting the extension does not
-declare, a budget of 0 with an enrich section, a record or stale code that cannot hold) is E123 and is not
-registered. A context-written field needs no check for its owner gate (`checks_while`): its staleness is its check.
+declare, a budget of 0 with an enrich section or a positive one without, a record or stale code that cannot hold) is
+E123 and is not registered. A context-written field needs no check for its owner gate (`checks_while`): its staleness
+is its check.
 
 A record is written by the host (`record_context`, below; `specforge context <route> <subject> --record <entity>`).
 On each check, every record of a route that names `stale`, when its field's owner gate admits the owner's state, is
-evaluated again under its recorded cap, in the context format: a pack whose digest moved, a record that reaches no
-subject or several, or a core above the cap is one finding of the route's stale code at the field, its severity by
-its letter, with the record's `suggestion` (`{entity}`, `{subject}` and `{route}` filled in). The extension's settings
+evaluated again in the context format under the budget its read had: the cap the record holds (`max_tokens`, written
+only when the read stated one), or else the core whole and the route's allowance. A pack whose digest moved, a record
+that reaches no subject or several, or a core above a stated cap is one finding of the route's stale code at the
+field, its severity by its letter (a record that states no cap is never stale for its size, ADR 0386 D6), with the record's `suggestion` (`{entity}`, `{subject}` and `{route}` filled in). The extension's settings
 raise and gate it as any of its codes. A project that holds no record evaluates no pack. A subject kind of an optional peer the project does not load
 drops the route without a diagnostic; a section that reaches one is skipped and listed in the pack's `skipped`. An
 `agent` the extension does not declare, or one an earlier route binds, is E124: the binding is dropped, the route kept.
@@ -1310,7 +1313,7 @@ sources, and every `graph` node carries its `file`. A writing collector is sent 
 | `delete` | `entity`, `unlink_references`? |
 | `rename` | `entity`, `to` (the move record is written with the ledger) |
 | `set_verdict` | `entity`, `rule`, `outcome`, `judge`, `model`, `findings`?, `cited`? (`{"entity"}`, `{"file"}` or `{"test"}`), `values`?, `basis`? |
-| `record_context` | `entity`, `route`, `max_tokens`? (2.1.0, ADR 0356 D11): the host derives the route's subject from the entity by its record, computes the pack under `max_tokens` as a cap (absent: its core and the route's allowance, ADR 0386) over the project the plan is applied to, and writes the route, the digest and the cap the pack was fitted to in the record's field with its ledger line. A command, collector or hook of the route's extension (or of one naming it a peer) may ask |
+| `record_context` | `entity`, `route`, `max_tokens`? (2.1.0, ADR 0356 D11): the host derives the route's subject from the entity by its record, computes the pack under `max_tokens` as a cap (absent: its core and the route's allowance, ADR 0386) over the project the plan is applied to, and writes the route, the digest and the stated `max_tokens`, when there is one, in the record's field with its ledger line. A command, collector or hook of the route's extension (or of one naming it a peer) may ask |
 
 Ops apply in order, each over the texts the ones before it left. An op's `revision` is the revision of the file it
 writes, as the call received it (`absent` for a file that is not there yet); an op with none is `invalid_plan`. If the

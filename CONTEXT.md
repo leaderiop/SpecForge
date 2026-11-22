@@ -1914,7 +1914,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Context route**: what an extension declares (the `contexts` category) for a role to read one entity of a subject
   kind: ordered sections of named selectors, each core or enrich, the settings it carries, its enrich allowance (its
   `budget`: the tokens of enrich sections a pack may add beyond its core, 0 for a route of core sections only) and an
-  optional agent. One the registry can't serve is E123; an agent binding that can't hold is E124 (ADR 0356, ADR 0386).
+  optional agent. The host does not bound its core: a read that states no cap serves it whatever it costs. One the
+  registry can't serve is E123; an agent binding that can't hold is E124 (ADR 0356, ADR 0386).
 - **Context pack**: one context route served for one entity: its sections as served, the subject and the served
   entities as an export, the cap it was fitted to and what was cut, and the pack digest; `specforge context`,
   `specforge.context` and `specforge://context/{+entity_id}?role=` answer the same bytes (ADR 0356).
@@ -1924,9 +1925,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Pack digest**: the sha256 of a pack's route, subject and served sections, each section's digest the judged input
   digest of its selector over the members it served; the budget is recorded beside it, not in it (ADR 0356).
 - **Context record**: a `context`-written block `{route, digest, max_tokens}` the host writes when it records a
-  route's pack on an entity, `max_tokens` the cap the pack was fitted to; no pack shows one (ADR 0356, ADR 0386).
-- **Stale record**: a record whose pack, evaluated again under its recorded cap, has another digest, no subject or a
-  core above the cap; reported with the route's stale code (ADR 0356, ADR 0386).
+  route's pack on an entity, `max_tokens` the cap its read stated, absent when it stated none; no pack shows one
+  (ADR 0356, ADR 0386).
+- **Stale record**: a record whose pack, evaluated again under the budget its read had (its stated cap, else the core
+  whole and the route's allowance), has another digest, no subject or a core above the stated cap; reported with the
+  route's stale code (ADR 0356, ADR 0386).
 - **Field filter**: `kind[field=value|…]` in a selector: only entities whose field holds one of the values (ADR 0356).
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
