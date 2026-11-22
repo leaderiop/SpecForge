@@ -111,6 +111,27 @@ fn a_uri_of_another_scheme_is_none() {
 }
 
 #[test]
+fn only_two_hex_digits_decode_and_a_run_that_is_no_utf8_stays_as_written() {
+    for (uri, path) in [
+        // `u8::from_str_radix` takes a sign: `%+f` is no escape.
+        ("src/a%+fb.rs", "src/a%+fb.rs"),
+        ("src/a%-1.rs", "src/a%-1.rs"),
+        ("src/a%2", "src/a%2"),
+        ("src/%%2e", "src/%."),
+        // One run that is no UTF-8 keeps its spelling; every other escape still decodes.
+        ("%ff/%2e%2e/a%20b", "%ff/../a b"),
+        ("%C3%A9%C3/x", "é%C3/x"),
+        ("%E2%82%AC%e2%82", "€%e2%82"),
+    ] {
+        assert_eq!(file_uri_path(uri).as_deref(), Some(path), "{uri}");
+    }
+    assert_eq!(
+        relative(&file_uri_path("%FF/%2e%2e/%2e%2e/x").unwrap(), "/project"),
+        None
+    );
+}
+
+#[test]
 fn a_decoded_dot_dot_is_judged_by_relative() {
     let path = file_uri_path("%2E%2E/etc/passwd").expect("a relative reference");
     assert_eq!(path, "../etc/passwd");

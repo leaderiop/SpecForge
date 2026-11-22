@@ -61,6 +61,49 @@ pub fn id_part(text: &str) -> String {
     out
 }
 
+/// `text` with each `%XX` (`%` and two ASCII hex digits) decoded: an id this crate wrote, or a report's URI. A `%`
+/// that starts no such escape is kept, and so is a run of escapes whose bytes are no UTF-8, spelled as written, while
+/// every other escape of `text` still decodes.
+pub(crate) fn unescape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find('%') {
+        out.push_str(&rest[..at]);
+        let run = &rest[at..];
+        let mut bytes = Vec::new();
+        while let Some(byte) = escaped_byte(&run[3 * bytes.len()..]) {
+            bytes.push(byte);
+        }
+        if bytes.is_empty() {
+            out.push('%');
+            rest = &run[1..];
+            continue;
+        }
+        // Each byte of the run is the three characters `%XX` of `run`, so an invalid one is kept as written.
+        let mut done = 0;
+        for chunk in bytes.utf8_chunks() {
+            out.push_str(chunk.valid());
+            done += chunk.valid().len();
+            let invalid = chunk.invalid().len();
+            out.push_str(&run[3 * done..3 * (done + invalid)]);
+            done += invalid;
+        }
+        rest = &run[3 * bytes.len()..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// The byte `text`'s leading `%XX` encodes, if it starts with `%` and two ASCII hex digits (no sign, as
+/// `u8::from_str_radix` would take).
+fn escaped_byte(text: &str) -> Option<u8> {
+    let pair = text.strip_prefix('%')?.get(..2)?;
+    if !pair.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    u8::from_str_radix(pair, 16).ok()
+}
+
 /// The ids a reader has answered so far, so one answered twice gets a suffix: the host refuses a collect that answers
 /// one id twice (F4).
 #[derive(Debug, Default)]

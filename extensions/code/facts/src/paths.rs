@@ -1,6 +1,6 @@
 //! Project-relative paths as the packs compute them from what a manifest, a source file or a report writes.
 
-use crate::ids::unescape;
+use crate::report::unescape;
 
 /// `path` (relative, `/` or `\` separated) under the project-relative directory `dir`, its `.` and `..` resolved;
 /// `None` when it leaves the project, or is absolute (`/…`, `\…`, a drive or a scheme: any `:`).

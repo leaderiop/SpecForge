@@ -4,6 +4,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 
+use crate::report::unescape;
+
 /// What a run id starts with, before its test's id.
 const RUN: &str = "run:";
 /// What a `js` id's `<file>` percent-encodes: `#` ends the container of a test id, `:` starts an item's names.
@@ -660,30 +662,6 @@ fn escape(text: &str, escapes: &[char]) -> String {
         }
     }
     out
-}
-
-/// `text` with each `%XX` decoded; a `%` that starts no valid sequence is kept.
-pub(crate) fn unescape(text: &str) -> String {
-    let bytes = text.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut at = 0;
-    while at < bytes.len() {
-        let hex = bytes
-            .get(at + 1..at + 3)
-            .and_then(|pair| std::str::from_utf8(pair).ok())
-            .and_then(|pair| u8::from_str_radix(pair, 16).ok());
-        match (bytes[at], hex) {
-            (b'%', Some(byte)) => {
-                out.push(byte);
-                at += 3;
-            }
-            (byte, _) => {
-                out.push(byte);
-                at += 1;
-            }
-        }
-    }
-    String::from_utf8(out).unwrap_or_else(|_| text.to_string())
 }
 
 /// A Rust identifier without its `r#`.
