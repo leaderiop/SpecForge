@@ -122,6 +122,49 @@ fn an_entry_repeated_merges_and_another_signature_takes_a_suffix() {
 }
 
 #[test]
+fn a_rust_path_is_encoded_in_the_id_and_cannot_forge_a_suffix() {
+    let entries = [
+        rust(&["c", "a~2"], None, FUNCTION, "pub fn c::a~2()"),
+        rust(&["c", "a"], None, FUNCTION, "pub fn c::a(x: u8)"),
+        rust(&["c", "a"], None, FUNCTION, "pub fn c::a(y: u16)"),
+        rust(&["c", "e\u{1b}#?@/%"], None, FUNCTION, "pub fn c::e()"),
+        rust(
+            &["c:x"],
+            None,
+            ApiKind::Item(ItemKind::Module),
+            "pub mod c:x",
+        ),
+    ];
+    let facts = api_facts(&entries, &[item("rust:c::a")]);
+    let ids: Vec<&str> = facts.iter().map(|f| f.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        [
+            "api:rust:c%3Ax",
+            "api:rust:c::a",
+            "api:rust:c::a%7E2",
+            "api:rust:c::a~2",
+            "api:rust:c::e%1B%23%3F%40%2F%25",
+        ]
+    );
+    // The item is still looked up by the unencoded path; only the fact's own id is encoded.
+    assert_eq!(field(&facts[1], "item"), Some("rust:c::a"));
+    assert_eq!(field(&facts[2], "path"), Some("c::a~2"));
+}
+
+#[test]
+fn an_owner_keeps_its_spaces_and_encodes_its_other_text() {
+    let entries = [rust(
+        &["demo", "f"],
+        owner("&'a demo::S", Some("demo::Tr")),
+        METHOD,
+        "pub fn demo::f()",
+    )];
+    let facts = api_facts(&entries, &[]);
+    assert_eq!(facts[0].id, "api:rust:demo::<&'a demo%3A%3AS as Tr>::f");
+}
+
+#[test]
 fn a_reexported_path_or_an_ambiguous_crate_cites_nothing() {
     // `demo::S` is defined in `demo::inner`: its public path names no served item.
     let reexported = rust(
@@ -247,6 +290,23 @@ fn a_js_overload_takes_a_suffix_and_a_name_cannot_forge_one() {
             "api:js:%40demo%2Fwidget::parse",
             "api:js:%40demo%2Fwidget::parse%7E2",
             "api:js:%40demo%2Fwidget::parse~2"
+        ]
+    );
+}
+
+#[test]
+fn a_dotted_js_name_and_a_member_path_are_two_ids() {
+    let entries = [
+        js(&["a.b"], FUNCTION, "\"a.b\": () => void"),
+        js(&["a", "b"], METHOD, "b(): void;"),
+    ];
+    let facts = api_facts(&entries, &[]);
+    let ids: Vec<&str> = facts.iter().map(|f| f.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        [
+            "api:js:%40demo%2Fwidget::a%2Eb",
+            "api:js:%40demo%2Fwidget::a.b"
         ]
     );
 }

@@ -8,7 +8,7 @@ use specforge_extension_sdk::prelude::Fact;
 
 use crate::ids::{ItemId, Owner, Scheme};
 use crate::mint::{ItemKind, Visibility};
-use crate::report::{id_part, Repeats, API_ITEM};
+use crate::report::{id_part, rust_id_part, Repeats, API_ITEM};
 
 /// What a public entry is: an item's kind, or one no `item` fact can have.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -88,10 +88,14 @@ pub struct ApiEntry {
 /// The `api_item` facts of `entries`, each citing the one `served` `item` its path names, sorted by id:
 ///
 /// - Rust: `api:rust:<crate>::<module>::…::<name>`, a member `…::<Type>::m` or `…::<Type as Trait>::m` as
-///   [`ItemId::rust`] writes it, the crate root `api:rust:<crate>`. Its item is the served id of a library crate
-///   whose name, `-` read as `_`, is the snapshot's crate, built the same way: exactly one held, else none.
-/// - JavaScript: `api:js:<package>::<name>[.<member>…]`, no source file. Its item is the one served `js` item of the
-///   package with that name path; none or several cite nothing.
+///   [`ItemId::rust`] writes it, the crate root `api:rust:<crate>`, each part through [`id_part`] (a segment keeping a
+///   plain space, as an owner's type has one). Its item is the served id of a library crate whose name, `-` read as
+///   `_`, is the snapshot's crate, built from the parts as written: exactly one held, else none.
+/// - JavaScript: `api:js:<package>::<name>[.<member>…]`, no source file, each part through [`id_part`] and a name's
+///   own `.` written `%2E`. Its item is the one served `js` item of the package with that name path; none or several
+///   cite nothing.
+///
+/// Encoded parts hold no `~`, so no entry can forge another's repeat suffix.
 ///
 /// Only an entry whose kind an item can have cites one. Entries of one id with one signature merge; another
 /// signature takes the next [`Repeats`] suffix, in document order (`~2`). Fields: `path` (as written), `kind`,
@@ -129,7 +133,12 @@ pub fn api_facts(entries: &[ApiEntry], served: &[Fact]) -> Vec<Fact> {
         if let Some(tag) = &entry.tag {
             fact = fact.field("tag", tag.clone());
         }
-        facts.insert(id, fact);
+        let replaced = facts.insert(id, fact);
+        // A base never holds `~` (each part is encoded), so a repeat suffix is never met twice.
+        debug_assert!(
+            replaced.is_none(),
+            "an api_item id minted twice: {replaced:?}"
+        );
     }
     facts.into_values().collect()
 }
@@ -145,7 +154,7 @@ fn rust(
     let Some((name, parents)) = names.split_last() else {
         // The crate root, which no item is.
         return (
-            format!("{}:rust:{}", API_ITEM.scheme, entry.container),
+            format!("{}:rust:{}", API_ITEM.scheme, id_part(&entry.container)),
             None,
             written,
         );
@@ -157,11 +166,13 @@ fn rust(
         .collect();
     let name = bare(name);
     let owner = entry.owner.as_ref();
-    let base = format!(
-        "{}:{}",
-        API_ITEM.scheme,
-        ItemId::rust(&entry.container, &module, owner, &name)
-    );
+    // The id is the item id's shape, each part encoded; the item is looked up by the parts as written.
+    let path = ItemId::rust(&entry.container, &module, owner, &name);
+    let base = std::iter::once(id_part(&entry.container))
+        .chain(path.segments().iter().map(|s| rust_id_part(s)))
+        .collect::<Vec<_>>()
+        .join("::");
+    let base = format!("{}:rust:{base}", API_ITEM.scheme);
     let krate = entry.container.replace('-', "_");
     let libs: BTreeSet<&str> = parsed
         .iter()
@@ -179,7 +190,12 @@ fn rust(
 
 /// A JavaScript entry's id, its item and its path as written.
 fn js(entry: &ApiEntry, parsed: &[ItemId]) -> (String, Option<String>, String) {
-    let names: Vec<String> = entry.path.iter().map(|name| id_part(name)).collect();
+    // `.` joins the names, so a name holding one (a quoted member `"a.b"`) has it encoded.
+    let names: Vec<String> = entry
+        .path
+        .iter()
+        .map(|name| id_part(name).replace('.', "%2E"))
+        .collect();
     let base = format!(
         "{}:js:{}::{}",
         API_ITEM.scheme,

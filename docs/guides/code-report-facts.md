@@ -47,8 +47,9 @@ no purl is `dep:<package id>/@<[group/]name[@version]>`.
 project package of its ecosystem at its directory, else each one under it. One `vulnerability` per package and OSV id,
 `vuln:<package id>/<OSV id>`, cites that package (edge `affects`); purls, versions and aliases of one id are united.
 
-A report id's parts are percent-encoded (`%`, `/`, `#`, `:`, `~`, `@`, `?`, whitespace), so an id parses back to its
-parts.
+A report id's parts are percent-encoded (`%`, `/`, `#`, `:`, `~`, `@`, `?`, whitespace and control characters), so an
+id parses back to its parts and no report text forges a delimiter or a `~2` suffix. A Rust API path segment keeps a
+plain space (`<Type as Trait>`), and a JavaScript API name encodes its own `.` (`%2E`), which joins a member path.
 
 ## What a reader refuses
 

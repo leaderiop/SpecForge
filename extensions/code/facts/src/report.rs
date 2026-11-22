@@ -47,9 +47,20 @@ const ID_ESCAPES: &[char] = &['%', '/', '#', ':', '~', '@', '?'];
 /// percent-encoded as `%XX` (uppercase hex of each UTF-8 byte), every other character kept. Report text can then forge
 /// no scheme, separator or repeat suffix, nor carry a terminal escape into a diagnostic naming the id.
 pub fn id_part(text: &str) -> String {
+    encoded(text, char::is_whitespace)
+}
+
+/// [`id_part`] with a plain space kept: a Rust path segment of an `api_item` id, whose owner a Rust type writes with
+/// spaces (`<S as Tr>`, `dyn Tr`) as the item id it names does.
+pub(crate) fn rust_id_part(text: &str) -> String {
+    encoded(text, |c| c.is_whitespace() && c != ' ')
+}
+
+/// `text` with every id delimiter, control character and character `space` encodes percent-encoded.
+fn encoded(text: &str, space: impl Fn(char) -> bool) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
-        if ID_ESCAPES.contains(&c) || c.is_whitespace() || c.is_control() {
+        if ID_ESCAPES.contains(&c) || space(c) || c.is_control() {
             let mut bytes = [0; 4];
             for byte in c.encode_utf8(&mut bytes).bytes() {
                 out.push_str(&format!("%{byte:02X}"));

@@ -234,6 +234,25 @@ pub macro demo::shout!
 }
 
 #[test]
+fn a_snapshot_path_cannot_forge_a_repeat_suffix_nor_carry_an_escape_into_an_id() {
+    let text =
+        "pub fn c::a~2()\npub fn c::a(x: u8)\npub fn c::a(y: u16)\npub fn c::b\u{1b}[31m()\n";
+    let entries = read_rust_text(text).expect("the snapshot reads");
+    let facts = api_facts(&entries, &[]);
+    let ids: Vec<&str> = facts.iter().map(|f| f.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        [
+            "api:rust:c::a",
+            "api:rust:c::a%7E2",
+            "api:rust:c::a~2",
+            "api:rust:c::b%1B[31m"
+        ],
+        "four entries, four facts: none overwrites another"
+    );
+}
+
+#[test]
 fn crlf_and_blank_lines_read_like_lf() {
     let lf = read_rust_text("pub mod demo\n\npub fn demo::f()\n").expect("reads");
     let crlf = read_rust_text("pub mod demo\r\n\r\npub fn demo::f()\r\n").expect("reads");
