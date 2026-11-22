@@ -44,6 +44,13 @@ fn document(pack: &Pack) -> Value {
     serde_json::from_str(&pack.text).expect("a pack is JSON")
 }
 
+/// The cap a pack was fitted to, as it renders it.
+fn fitted(pack: &Pack) -> usize {
+    document(pack)["budget"]["budget_tokens"]
+        .as_u64()
+        .expect("a cap") as usize
+}
+
 fn strings(value: &Value) -> Vec<String> {
     value
         .as_array()
@@ -84,8 +91,7 @@ fn a_route_serves_its_sections_for_a_subject_of_its_kind() {
     assert_eq!(document["agent"], "gsd-executor");
     assert_eq!(document["digest"], served.digest.as_str());
     // Within the route's allowance of 6000, the pack states the cap it was fitted to: its core and the allowance.
-    assert!(served.max_tokens > 6000, "{}", served.max_tokens);
-    assert_eq!(document["budget"]["budget_tokens"], served.max_tokens);
+    assert!(fitted(&served) > 6000, "{}", fitted(&served));
     assert_eq!(
         document["budget"]["truncated_sections"],
         serde_json::json!([])
@@ -174,8 +180,8 @@ fn a_budgeted_pack_keeps_its_core_and_cuts_in_declared_order() {
     }
 }
 
-/// `@gsd/core` with the context routes and `tight`, whose allowance of one token is far below its core: the plan and its
-/// body, then its sibling plans to enrich.
+/// `@gsd/core` with the context routes and `tight`, whose allowance of one token is far below its core: the plan and
+/// its body, then its sibling plans to enrich.
 fn tight() -> SharedRuntime {
     Arc::new(gsd_routed_serving(|| {
         let mut c = gsd_context_builder();
@@ -201,16 +207,12 @@ fn a_read_that_states_no_cap_serves_the_core_whole_however_far_past_the_allowanc
     let budget = &document["budget"];
     let core = budget["estimated_tokens"].as_u64().expect("a count") as usize;
     assert!(core > 100, "the core is far past the allowance: {budget}");
-    assert_eq!(served.max_tokens, core + 1, "{budget}");
-    assert_eq!(budget["budget_tokens"], served.max_tokens);
+    assert_eq!(fitted(&served), core + 1, "{budget}");
     assert_eq!(strings(&budget["truncated_sections"]), ["siblings"]);
     let body = strings(&section(&document, "body").expect("the core is served")["members"]);
     assert!(body.contains(&format!("{CONTEXT_PLAN}/T1")), "{body:?}");
     // Read again under the cap it states, it is the same pack; a cap one token below its core is refused.
-    assert_eq!(
-        pack(&compiled, "gsd/tight", Some(served.max_tokens)),
-        served
-    );
+    assert_eq!(pack(&compiled, "gsd/tight", Some(fitted(&served))), served);
     let view = ProjectView::of(&compiled);
     let refused = context(&view, &request("gsd/tight", CONTEXT_PLAN, Some(core - 1))).unwrap_err();
     assert_eq!(refused.error.code, "E062");
@@ -324,8 +326,16 @@ fn an_agent_a_route_names_gets_a_context_section_and_others_none() {
         .expect("a Judged rules section");
     assert!(context < judged, "{checker}");
     assert!(checker.contains("gsd/plan-checker"), "{checker}");
-    // Every section of the checker's route is core: no allowance to name, nothing to read again.
-    assert!(checker.contains(", every one served whole."), "{checker}");
+    // Every section of the checker's route is core: no allowance to name, nothing to read again; a pack too large is
+    // read brief, as for every route.
+    assert!(
+        checker
+            .contains(", every one served whole whatever it costs, so no `max_tokens` shrinks it."),
+        "{checker}"
+    );
     assert!(!checker.contains("truncated_sections"), "{checker}");
+    for body in [&checker, &executor] {
+        assert!(body.contains("<id> --format brief`"), "{body}");
+    }
     assert!(!body("gsd-verifier").contains("## Context"));
 }

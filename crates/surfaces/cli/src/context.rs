@@ -35,8 +35,8 @@ pub(crate) struct Args {
     format: Format,
 
     /// Record the pack on ENTITY, a kind the route records whose subject is <SUBJECT>: the host writes the route, the
-    /// pack's digest and the cap it was fitted to, with its ledger line, then prints the pack it recorded (in the context format,
-    /// which a record is fitted in)
+    /// pack's digest and the cap `--max-tokens` states, if any, with its ledger line, then prints the pack it recorded
+    /// (in the context format, which a record is fitted in)
     #[arg(long, value_name = "ENTITY", conflicts_with = "format")]
     record: Option<String>,
 

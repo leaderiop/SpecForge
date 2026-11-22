@@ -20,8 +20,9 @@ pub struct ContextDescriptor {
     /// The extension's own agent that reads it: the host appends a Context section to its body.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent: Option<String>,
-    /// The enrich allowance, positive: the tokens of enrich sections a read that states no cap serves beyond its floor
-    /// (the subject and the core sections, served whole whatever they cost).
+    /// The enrich allowance: the tokens of enrich sections a read that states no cap serves beyond its floor (the
+    /// subject and the core sections, served whole whatever they cost). Positive for a route with an enrich section,
+    /// 0 for a route of core sections only.
     pub budget: u32,
     /// The sections, in the order they are served.
     pub sections: Vec<ContextSectionDescriptor>,

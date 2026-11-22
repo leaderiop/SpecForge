@@ -282,7 +282,7 @@ fn a_stale_verdict_names_the_inputs_that_changed() {
     );
     let (state, changed) = judgement(&compile(&project), PLAN, W311);
     assert_eq!(state, "stale");
-    assert_eq!(changed, ["decisions"]);
+    assert_eq!(changed, ["phase_decisions"]);
 }
 
 #[specforge_test(requirement = "FEATURE-058")]

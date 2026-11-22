@@ -149,8 +149,9 @@ pub enum PlanOp {
     },
     /// Record a context route's pack on `entity` (ADR 0356 D11): the host derives the subject by the route's record of
     /// the entity's kind, computes the pack under the cap `max_tokens` (absent: the core whole and the route's
-    /// allowance) and writes the route, the digest and the cap the pack was fitted to with its ledger line. It has no
-    /// file revision: the host computes what it writes.
+    /// allowance) and writes the route, the digest and the stated cap, when there is one, with its ledger line; the
+    /// record is read again under the same budget (ADR 0386 D6). It has no file revision: the host computes what it
+    /// writes.
     RecordContext {
         entity: String,
         route: String,

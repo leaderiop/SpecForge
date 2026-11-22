@@ -204,8 +204,8 @@ impl FieldBuilder {
         self
     }
     /// Only the host's record of a context route's pack sets the field (ADR 0356): a block of `route`, `digest` and
-    /// `max_tokens`, which this declares, recorded in `specforge-harness` and read by no digest. A route of this
-    /// extension names it in its `records`.
+    /// `max_tokens` (the cap the read stated, absent when it stated none, ADR 0386 D6), which this declares, recorded
+    /// in `specforge-harness` and read by no digest. A route of this extension names it in its `records`.
     pub fn context(&mut self) -> &mut Self {
         self.0.writer = Some(FieldWriter::Context.as_str().to_string());
         self.field_type(FieldType::Block)

@@ -3,9 +3,9 @@
 //! so the kernel has one digest scheme and the emitter hashes nothing.
 //!
 //! The declared strategy: the subject and every core section are the floor, always served whole. The budget is either
-//! the route's allowance, the tokens of enrich sections a pack may add beyond the floor, or a cap a caller states on the
-//! whole pack, which is E062 naming the route when the floor is above it. Enrich sections are served whole in declared
-//! order; the first that does not fit keeps its most connected new entities that fit (a files, tests or settings
+//! the route's allowance, the tokens of enrich sections a pack may add beyond the floor, or a cap a caller states on
+//! the whole pack, which is E062 naming the route when the floor is above it. Enrich sections are served whole in
+//! declared order; the first that does not fit keeps its most connected new entities that fit (a files, tests or settings
 //! section keeps nothing), and it and every later section are listed as truncated.
 
 use std::cmp::Reverse;

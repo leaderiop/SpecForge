@@ -1,6 +1,6 @@
-//! The GSD-shaped kinds and judged rules the K7 tests share (ADR 0290), served in process and written as the wire
-//! carries them, so an attribute the host does not read yet is dropped by the descriptor and the test that needs it
-//! fails, not the fixture.
+//! The GSD-shaped kinds and judged rules the judged-rule tests share (ADR 0290), served in process and written as the
+//! wire carries them, so an attribute the host does not read yet is dropped by the descriptor and the test that needs
+//! it fails, not the fixture.
 //!
 //! `@gsd/core` (its codes print `gsd/..`) declares the plan kinds (`plan` and the kinds that belong to one), the
 //! decisions, contexts and research of a phase, the spec kinds (`phase_spec`, `locked_req`, `interview`), `package_audit`
@@ -25,8 +25,9 @@ pub const GSD_JUDGED: &str = "@gsd/core";
 /// process with [`code_core_tests`], the shape of the builtin's `test`.
 pub const CODE_CORE: &str = "@code/core";
 
-/// What the plan-check rules read of a plan (`rules.md`, K7 D8).
-pub const PLAN_CHECK_INPUTS: [(&str, &str); 11] = [
+/// What the plan-check rules read of a plan, as `@gsd/core` declares it (`rules.md`, ADR 0386): the test
+/// `the_twin_declares_the_shipped_plan_check` compares it to the shipped declaration.
+pub const PLAN_CHECK_INPUTS: [(&str, &str); 13] = [
     ("plan", "self"),
     (
         "body",
@@ -34,9 +35,17 @@ pub const PLAN_CHECK_INPUTS: [(&str, &str); 11] = [
     ),
     ("phase", "self.phase"),
     ("requirements", "self.requirements"),
-    ("decisions", "self.phase<decision.phase"),
-    ("project_decisions", "decision"),
-    ("context", "self.phase<context|deferred_idea.phase"),
+    ("phase_decisions", "self.phase<decision.phase"),
+    ("quick_decisions", "self<decision.plan"),
+    ("project_decisions", "decision[origin=project]"),
+    (
+        "resolved_decisions",
+        "self.phase<research.phase<open_question.research.resolved_by",
+    ),
+    (
+        "context",
+        "self.phase<context|deferred_idea[origin=discussion].phase",
+    ),
     ("research", "self.phase<research.phase"),
     (
         "research_items",
@@ -80,6 +89,7 @@ pub fn gsd_judged_wire() -> Value {
             Some("phase"),
             vec![
                 reference("phase", "phase"),
+                reference("plan", "plan"),
                 json!({"name": "text", "field_type": "string"}),
                 json!({"name": "origin", "field_type": "enum",
                 "enum_values": ["context", "project", "summary", "checkpoint"]}),
@@ -89,7 +99,10 @@ pub fn gsd_judged_wire() -> Value {
         kind(
             "deferred_idea",
             Some("phase"),
-            vec![reference("phase", "phase")],
+            vec![
+                reference("phase", "phase"),
+                json!({"name": "origin", "field_type": "enum", "enum_values": ["discussion", "execution"]}),
+            ],
         ),
         kind("research", Some("phase"), vec![reference("phase", "phase")]),
         kind(
@@ -173,7 +186,6 @@ pub fn gsd_judged_wire() -> Value {
         "pattern",
         "pitfall",
         "dont_hand_roll",
-        "open_question",
     ] {
         kinds.push(kind(
             of_research,
@@ -181,6 +193,14 @@ pub fn gsd_judged_wire() -> Value {
             vec![reference("research", "research")],
         ));
     }
+    kinds.push(kind(
+        "open_question",
+        Some("research"),
+        vec![
+            reference("research", "research"),
+            reference("resolved_by", "decision"),
+        ],
+    ));
     Value::Array(kinds)
 }
 
@@ -277,7 +297,7 @@ pub fn declare_gsd_judged(c: &mut ContributionsBuilder) {
             a.description("Judges what a rule asks of it");
         });
     }
-    // `workflow.plan_check`: while it is false the plan-check rules are gated and never evaluated (K6, K7 U10).
+    // `workflow.plan_check`: while it is false the plan-check rules are gated and never evaluated.
     c.setting("plan_check", |s| {
         s.bool()
             .default(true)

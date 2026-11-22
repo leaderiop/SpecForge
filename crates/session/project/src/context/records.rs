@@ -1,8 +1,9 @@
-//! The records a context route keeps of its pack (ADR 0356 D12, ADR 0386): on each check, every record of a route with
-//! a stale code, when its field's owner gate admits it, is evaluated again under its recorded cap, the cap its pack was
-//! fitted to. A pack whose digest moved, a record with no subject or several, or a core above its cap is one finding
-//! of the route's stale code at the field, with the record's suggestion. A project that holds no record evaluates no
-//! pack.
+//! The records a context route keeps of its pack (ADR 0356 D12, ADR 0386 D6): on each check, every record of a route
+//! with a stale code, when its field's owner gate admits it, is evaluated again under the budget its pack was read
+//! with: the cap the read stated, which the record holds, or, when it holds none, the core whole and the route's
+//! allowance. A pack whose digest moved, a record with no subject or several, or a core above a stated cap is one
+//! finding of the route's stale code at the field, with the record's suggestion; a record that states no cap is never
+//! stale for its size. A project that holds no record evaluates no pack.
 
 use specforge_common::{Diagnostic, DiagnosticData, Severity};
 use specforge_diagnostics::{CodeRef, Level, letter_level};
@@ -14,23 +15,38 @@ use specforge_registry::{ContextRecord, ContextRoute, EntityRecord, FieldRecord}
 use super::{Over, pack_over};
 use crate::select::Selection;
 
-/// A held record: the field written, the route it names, the digest and the cap it recorded.
+/// A held record: the field written, the route it names, the digest and the cap its read stated, if any.
 struct Held<'a> {
     field: &'a FieldRecord,
     route: &'a str,
     digest: &'a str,
-    budget: usize,
+    cap: Option<usize>,
 }
 
-/// The record `field` of `entity` holds, when it holds the three members.
+impl Held<'_> {
+    /// The budget the record's pack was read with: its stated cap, or `route`'s allowance beyond the core.
+    fn budget(&self, route: &ContextRoute) -> Budget {
+        match self.cap {
+            Some(cap) => Budget::Cap(cap),
+            None => Budget::Allowance(route.budget as usize),
+        }
+    }
+}
+
+/// The record `field` of `entity` holds, when it holds a route and a digest, and a cap that is a count when it holds
+/// one.
 fn held<'a>(entity: &'a EntityRecord, field: &str) -> Option<Held<'a>> {
     let field = entity.fields.iter().find(|f| f.key == field)?;
     let value = field.written.as_ref()?;
+    let cap = match value.get("max_tokens") {
+        None => None,
+        Some(cap) => Some(usize::try_from(cap.as_u64()?).ok()?),
+    };
     Some(Held {
         field,
         route: value.get("route")?.as_str()?,
         digest: value.get("digest")?.as_str()?,
-        budget: usize::try_from(value.get("max_tokens")?.as_u64()?).ok()?,
+        cap,
     })
 }
 
@@ -39,7 +55,7 @@ enum Stale {
     Moved { subject: String, now: String },
     NoSubject,
     Several(Vec<String>),
-    OverBudget { subject: String, why: String },
+    OverCap { subject: String, why: String },
 }
 
 /// The findings of every stale record `over` holds.
@@ -92,7 +108,7 @@ pub(crate) fn stale(over: &Over<'_>) -> Vec<Diagnostic> {
                         over,
                         route,
                         &subject,
-                        Budget::Cap(held.budget),
+                        held.budget(route),
                         EmitFormat::Context,
                         schema,
                     ) {
@@ -101,12 +117,10 @@ pub(crate) fn stale(over: &Over<'_>) -> Vec<Diagnostic> {
                             subject,
                             now: packed.digest,
                         }),
-                        Err(error @ EmitterError::BudgetTooSmall { .. }) => {
-                            Some(Stale::OverBudget {
-                                subject,
-                                why: error.to_string(),
-                            })
-                        }
+                        Err(error @ EmitterError::BudgetTooSmall { .. }) => Some(Stale::OverCap {
+                            subject,
+                            why: error.to_string(),
+                        }),
                         // A pack that cannot be rendered is a host failure, never the record's.
                         Err(_) => None,
                     }
@@ -162,10 +176,10 @@ fn finding(
             ),
             route.subject.clone(),
         ),
-        Stale::OverBudget { subject, why } => (
+        // Only a stated cap refuses a core.
+        Stale::OverCap { subject, why } => (
             format!(
-                "{at} for '{subject}' at {} tokens, which no longer holds its core: {why}",
-                held.budget
+                "{at} for '{subject}' under its stated cap, which no longer holds its core: {why}"
             ),
             subject,
         ),

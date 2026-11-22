@@ -50,8 +50,8 @@ pub(crate) fn judged_section(view: &ProjectView<'_>, agent: &str) -> String {
 
 /// The section a host adds after the body of an agent a context route names (ADR 0356, ADR 0386): the route, its
 /// subject kind, its sections in order (core marked), that the core is served whole and, when it has enrich sections,
-/// the allowance they fill and how to read what did not fit, and the CLI line, the MCP tool and the resource that read
-/// the pack; nothing for an agent no route names.
+/// the allowance they fill and how to read what did not fit, how to read a pack too large for the agent, and the CLI
+/// line, the MCP tool and the resource that read the pack; nothing for an agent no route names.
 pub(crate) fn context_section(view: &ProjectView<'_>, agent: &str) -> String {
     let Some(route) = view.registries().contexts().of_agent(agent) else {
         return String::new();
@@ -65,6 +65,13 @@ pub(crate) fn context_section(view: &ProjectView<'_>, agent: &str) -> String {
         })
         .collect();
     let order = order.join(", ");
+    // The core is served whole whatever it costs (ADR 0386 D1): a brief read is how an agent shrinks one too large.
+    let brief = format!(
+        "`budget.estimated_tokens` is what the pack costs: when that is more than you can read, read it brief \
+         (`specforge context {} <id> --format brief`; MCP: `format` `brief`), each entity's id, kind and title, then \
+         query the entities you need.",
+        route.name
+    );
     let fit = if route
         .sections
         .iter()
@@ -74,12 +81,13 @@ pub(crate) fn context_section(view: &ProjectView<'_>, agent: &str) -> String {
             "Sections, in order: {order}. The core sections are served whole; the others fill up to {} tokens beyond \
              them, in order.\n\n\
              Cite the file digests it lists; `budget.truncated_sections` names what did not fit: read it again with a \
-             `max_tokens` above its `budget.budget_tokens` when you need it.\n",
+             `max_tokens` above its `budget.budget_tokens` when you need it. {brief}\n",
             route.budget
         )
     } else {
         format!(
-            "Sections, in order: {order}, every one served whole.\n\nCite the file digests it lists.\n"
+            "Sections, in order: {order}, every one served whole whatever it costs, so no `max_tokens` shrinks it.\n\n\
+             Cite the file digests it lists. {brief}\n"
         )
     };
     format!(

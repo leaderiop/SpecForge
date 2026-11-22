@@ -1,7 +1,7 @@
 //! The records a context route keeps of its pack (ADR 0356 D12): the GSD-shaped executor route records the plan's
 //! `context_pack` and raises `gsd/W910` when the pack it recorded has moved, when it reaches no subject or several, or
-//! when its core outgrew the recorded cap; the plan's owner gate decides when it is checked, and a check evaluates
-//! one pack per record and none without one.
+//! when its core outgrew the cap it states; a record that states no cap is read again under the route's allowance; the
+//! plan's owner gate decides when it is checked, and a check evaluates one pack per record and none without one.
 
 use std::sync::Arc;
 
@@ -36,7 +36,6 @@ fn runtime(complete: &[&str]) -> SharedRuntime {
             let mut c = gsd_context_builder();
             c.context("requirement-pack", |r| {
                 r.subject("requirement")
-                    .budget(2000)
                     .core("requirement", "self")
                     .record("plan.context_pack", "self.requirements")
                     .stale(CONTEXT_STALE);
@@ -58,6 +57,11 @@ fn runtime(complete: &[&str]) -> SharedRuntime {
 
 /// The digest the executor's pack of the plan has under the cap `budget` in `project`.
 fn digest_at(project: &TestProject, budget: usize) -> String {
+    digest_under(project, Budget::Cap(budget))
+}
+
+/// The digest the executor's pack of the plan has under `budget` in `project`.
+fn digest_under(project: &TestProject, budget: Budget) -> String {
     let compiled = project.compile_in(runtime(&[]));
     let route = compiled
         .environment()
@@ -71,7 +75,7 @@ fn digest_at(project: &TestProject, budget: usize) -> String {
         &PlainDisk,
         route,
         CONTEXT_PLAN,
-        Budget::Cap(budget),
+        budget,
         EmitFormat::Context,
         &schema,
     )
@@ -167,8 +171,8 @@ fn a_pending_gate_checks_a_record_only_while_its_owner_is_open() {
 }
 
 #[specforge_test(requirement = "FEATURE-012")]
-fn a_record_whose_subject_is_gone_or_whose_core_outgrew_its_budget_is_stale() {
-    // Over its budget: the core of the executor's pack is far above ten tokens.
+fn a_record_whose_subject_is_gone_or_whose_core_outgrew_its_stated_cap_is_stale() {
+    // Over its stated cap: the core of the executor's pack is far above ten tokens.
     let project = recording(
         gsd_context_project(),
         &record("gsd/executor", "sha256:0", 10),
@@ -207,6 +211,29 @@ fn a_record_whose_subject_is_gone_or_whose_core_outgrew_its_budget_is_stale() {
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(
         found[0].message.contains("reaches no 'requirement'"),
+        "{}",
+        found[0].message
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-012")]
+fn a_record_that_states_no_cap_is_read_under_the_routes_allowance_and_stale_only_when_moved() {
+    // The executor route's allowance is 6000 tokens: a record of the default read holds no cap.
+    let digest = digest_under(&gsd_context_project(), Budget::Allowance(6000));
+    let project = recording(
+        gsd_context_project(),
+        &format!("{{ route \"gsd/executor\" digest \"{digest}\" }}"),
+        runtime(&[]),
+    );
+    let before = packs_evaluated();
+    let fresh = project.compile_in(runtime(&[]));
+    assert_eq!(packs_evaluated() - before, 1, "the record is read");
+    assert!(stale(&fresh).is_empty(), "{:?}", stale(&fresh));
+    moved(&project);
+    let found = stale(&project.compile_in(runtime(&[])));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].message.contains("has moved"),
         "{}",
         found[0].message
     );

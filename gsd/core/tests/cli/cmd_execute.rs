@@ -82,7 +82,7 @@ fn executor_pack(p: &crate::harness::Project, budget: Option<&str>) -> serde_jso
 }
 
 /// Every call records the plan's executor pack, by default the core whole and the route's allowance (its record holds
-/// the cap that pack was fitted to), or under the cap `--max-tokens` states; a re-run leaves `plan_start` as the first
+/// no cap), or under the cap `--max-tokens` states, which its record holds; a re-run leaves `plan_start` as the first
 /// call wrote it.
 #[test]
 fn start_plan_records_the_executor_pack_on_every_call() {
@@ -97,11 +97,7 @@ fn start_plan_records_the_executor_pack_on_every_call() {
         executor_pack(&p, None)["digest"],
         "{record}"
     );
-    assert_eq!(
-        record["max_tokens"],
-        executor_pack(&p, None)["budget"]["budget_tokens"],
-        "{record}"
-    );
+    assert!(record.get("max_tokens").is_none(), "{record}");
     let start = p.fields_of(&format!("{PLAN}/START"));
     let run = gsd(&p, "start-plan", &[PLAN, "--max-tokens", "4000"]);
     assert_eq!(run.code, 0, "{}", run.all());

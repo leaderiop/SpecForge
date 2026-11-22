@@ -77,7 +77,7 @@
     ]
   },
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "8d848e8ec2d0e13e6dbdb5cfa0d70d02174ac1e3", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "7c9813189960a847c4c7d5731a90af0df1a68152", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
       "baseline": [
         "I213 -:0", "gsd/W311 spec/plans.spec:192", "gsd/W313 spec/plans.spec:192", "gsd/W315 spec/plans.spec:192",
         "gsd/W316 spec/plans.spec:192", "gsd/W407 spec/plans.spec:101", "gsd/W407 spec/plans.spec:110", "gsd/W407 spec/plans.spec:14",

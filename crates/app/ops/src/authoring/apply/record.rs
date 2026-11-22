@@ -3,8 +3,9 @@
 //! (`not_recorded`); the origin is a command, collector or hook of the route's extension or of one naming it a peer,
 //! or a core surface (`origin`); the record's selector derives exactly one subject (`no_subject`,
 //! `several_subjects`); a stated cap holds the pack's core (`budget`). Each is `record_refused` with that `reason`. The
-//! write is a set of the context field, which the ledger records as it records a harness value; its `max_tokens` is
-//! the cap the pack was fitted to (ADR 0386), so evaluating the record again reads the same pack.
+//! write is a set of the context field, which the ledger records as it records a harness value. Its `max_tokens` is
+//! the cap the operation stated, and absent when it stated none (ADR 0386 D6): evaluating the record again reads its
+//! pack under the same budget, so only a stated cap can refuse a core that grew.
 
 use super::{Origin, flags, invalid};
 use crate::authoring::edit::{Edit, Input, Step};
@@ -162,14 +163,13 @@ pub(crate) fn check(
     };
     let pack = context(view, &request)
         .map_err(|refusal| record_read_error(op.number, refusal.into_error()))?;
-    let value = BTreeMap::from([
+    let mut value = BTreeMap::from([
         ("route".to_string(), Input::One(route.name.clone())),
         ("digest".to_string(), Input::One(pack.digest)),
-        (
-            "max_tokens".to_string(),
-            Input::Number(pack.max_tokens.into()),
-        ),
     ]);
+    if let Some(cap) = op.max_tokens {
+        value.insert("max_tokens".to_string(), Input::Number(cap.into()));
+    }
     Ok(Step::Edit(Edit::Set {
         entity_id: recorded.entity,
         field: recorded.record.field.clone(),

@@ -233,7 +233,8 @@ impl Check<'_> {
             return Err("a context route's name is kebab case".into());
         }
         // The allowance is what enrich sections fill beyond the core: a route of core sections only has none to give.
-        if d.budget == 0 && d.sections.iter().any(|s| s.tier == ContextTier::Enrich) {
+        let enriched = d.sections.iter().any(|s| s.tier == ContextTier::Enrich);
+        if enriched && d.budget == 0 {
             return Err(
                 "a context route with an enrich section allows it a positive number of tokens"
                     .into(),
@@ -241,6 +242,12 @@ impl Check<'_> {
         }
         if !d.sections.iter().any(|s| s.tier == ContextTier::Core) {
             return Err("a context route has at least one core section".into());
+        }
+        if !enriched && d.budget > 0 {
+            return Err(format!(
+                "a context route of core sections only allows nothing beyond them: its budget of {} is 0",
+                d.budget
+            ));
         }
         if !self.registries.kinds.contains(&d.subject) {
             return match self.unloaded.declare(&d.subject) {

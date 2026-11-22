@@ -1,6 +1,6 @@
 //! `record_context` (ADR 0356 D11, ADR 0386): a context route's pack recorded on an entity by the host, over the
-//! GSD-shaped executor route that records the plan's `context_pack`: the value (the cap the pack was fitted to) and its
-//! ledger line, the refusals, and a verdict the record leaves fresh.
+//! GSD-shaped executor route that records the plan's `context_pack`: the value (the cap the operation stated, none
+//! when it stated none) and its ledger line, the refusals, and a verdict the record leaves fresh.
 
 use std::sync::Arc;
 
@@ -27,7 +27,6 @@ fn runtime() -> InProcessRuntime {
         let mut c = gsd_context_builder();
         c.context("requirement-pack", |r| {
             r.subject("requirement")
-                .budget(2000)
                 .core("requirement", "self")
                 .record("plan.context_pack", "self.requirements")
                 .stale(CONTEXT_STALE);
@@ -93,6 +92,12 @@ fn read(project: &TestProject, max_tokens: Option<usize>) -> Pack {
         .unwrap_or_else(|refusal| panic!("context refused: {:?}", refusal.error))
 }
 
+/// The cap a pack was fitted to, as it renders it.
+fn fitted(pack: &Pack) -> usize {
+    let document: Value = serde_json::from_str(&pack.text).expect("a pack is JSON");
+    document["budget"]["budget_tokens"].as_u64().expect("a cap") as usize
+}
+
 /// The spec file, its runs of spaces one (the formatter aligns a block's values).
 fn spec(project: &TestProject) -> String {
     let text = std::fs::read_to_string(project.root().join("a.spec")).unwrap();
@@ -129,14 +134,15 @@ fn a_command_of_the_routes_extension_records_its_pack() {
     assert_eq!(read(&project, Some(5000)).digest, expected);
     let reported = compile(&project).diagnostics().to_vec();
     assert!(!reported.iter().any(|d| d.code == "E083"), "{reported:?}");
-    // With no cap, the core whole and the route's allowance, and the record holds the cap that pack was fitted to, so
-    // it reads the same pack again; a core surface records too.
+    // With no cap, the core whole and the route's allowance: the cap it was fitted to reads the same pack.
     let default = read(&project, None);
-    assert!(default.max_tokens > 6000, "{}", default.max_tokens);
+    assert!(fitted(&default) > 6000, "{}", fitted(&default));
     // A pack shows no record of a pack, as no digest reads one: what it costs does not move when it is recorded.
     assert_eq!(default, unrecorded);
     assert!(!default.text.contains("context_pack"), "{}", default.text);
-    assert_eq!(read(&project, Some(default.max_tokens)), default);
+    assert_eq!(read(&project, Some(fitted(&default))), default);
+    // A record that states no cap holds none, so it is read again under the route's allowance; a core surface records
+    // too.
     assert_eq!(
         apply(
             &project,
@@ -145,11 +151,7 @@ fn a_command_of_the_routes_extension_records_its_pack() {
         ),
         "applied"
     );
-    assert!(
-        spec(&project).contains(&format!("max_tokens {}", default.max_tokens)),
-        "{}",
-        spec(&project)
-    );
+    assert!(!spec(&project).contains("max_tokens"), "{}", spec(&project));
     assert!(
         spec(&project).contains(&format!("digest \"{}\"", default.digest)),
         "{}",

@@ -196,8 +196,9 @@ pub struct Packed<'a> {
 }
 
 /// The pack of `route` for `subject` (by path) under `budget` (the route's allowance or a stated cap), its `graph`
-/// member in `format` (the fit counts what it renders) and the schema `schema` gives: its sections read, fitted, each served section digested (a part over the
-/// members it kept), and the pack digested over the subject and them. Files are read through `disk`.
+/// member in `format` (the fit counts what it renders) and the schema `schema` gives: its sections read, fitted, each
+/// served section digested (a part over the members it kept), and the pack digested over the subject and them. Files
+/// are read through `disk`.
 pub fn pack<'a>(
     project: &'a CompiledProject,
     disk: &'a dyn Disk,

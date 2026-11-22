@@ -201,7 +201,7 @@ fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
     let cases: &[(&str, &str, Declare)] = &[
         ("Run_Plan", "a context route's name is kebab case", |c| {
             c.context("Run_Plan", |r| {
-                r.subject("plan").budget(10).core("plan", "self");
+                r.subject("plan").core("plan", "self");
             });
         }),
         (
@@ -212,6 +212,15 @@ fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
                     r.subject("plan")
                         .core("plan", "self")
                         .enrich("more", "self");
+                });
+            },
+        ),
+        (
+            "r",
+            "a context route of core sections only allows nothing beyond them: its budget of 10 is 0",
+            |c| {
+                c.context("r", |r| {
+                    r.subject("plan").budget(10).core("plan", "self");
                 });
             },
         ),
@@ -227,12 +236,12 @@ fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
         }),
         ("r", "subject kind 'ghost' is not loaded", |c| {
             c.context("r", |r| {
-                r.subject("ghost").budget(10).core("plan", "self");
+                r.subject("ghost").core("plan", "self");
             });
         }),
         ("r", "section 'the plan': a section's name is a word", |c| {
             c.context("r", |r| {
-                r.subject("plan").budget(10).core("the plan", "self");
+                r.subject("plan").core("the plan", "self");
             });
         }),
         (
@@ -249,29 +258,27 @@ fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
         ),
         ("r", "not 'settings'", |c| {
             c.context("r", |r| {
-                r.subject("plan").budget(10).core("settings", "self");
+                r.subject("plan").core("settings", "self");
             });
         }),
         ("r", "section 'x': selector 'self..need'", |c| {
             c.context("r", |r| {
-                r.subject("plan").budget(10).core("x", "self..need");
+                r.subject("plan").core("x", "self..need");
             });
         }),
         ("r", "path '../out.txt' leaves the project root", |c| {
             c.context("r", |r| {
-                r.subject("plan")
-                    .budget(10)
-                    .core("x", "file(\"../out.txt\")");
+                r.subject("plan").core("x", "file(\"../out.txt\")");
             });
         }),
         ("r", "kind 'plan' declares no field 'nope'", |c| {
             c.context("r", |r| {
-                r.subject("plan").budget(10).core("x", "self.nope");
+                r.subject("plan").core("x", "self.nope");
             });
         }),
         ("r", "kind 'ghost' is not loaded", |c| {
             c.context("r", |r| {
-                r.subject("plan").budget(10).core("x", "self<ghost.plan");
+                r.subject("plan").core("x", "self<ghost.plan");
             });
         }),
         (
@@ -279,24 +286,18 @@ fn a_context_route_that_cannot_be_served_is_e123_and_not_registered() {
             "it makes no edge, so a context section cannot follow it",
             |c| {
                 c.context("r", |r| {
-                    r.subject("task").budget(10).core("x", "self<claim.derived");
+                    r.subject("task").core("x", "self<claim.derived");
                 });
             },
         ),
         ("r", "'nope' names no setting of @acme/work", |c| {
             c.context("r", |r| {
-                r.subject("plan")
-                    .budget(10)
-                    .core("plan", "self")
-                    .settings(&["nope"]);
+                r.subject("plan").core("plan", "self").settings(&["nope"]);
             });
         }),
         ("r", "'token' names no setting of @acme/work", |c| {
             c.context("r", |r| {
-                r.subject("plan")
-                    .budget(10)
-                    .core("plan", "self")
-                    .settings(&["token"]);
+                r.subject("plan").core("plan", "self").settings(&["token"]);
             });
         }),
     ];
@@ -352,7 +353,7 @@ fn a_file_section_follows_its_referrers_on_to_their_file_field() {
     let section = |selector: &'static str| {
         move |c: &mut ContributionsBuilder| {
             c.context("r", |r| {
-                r.subject("need").budget(10).core("x", selector);
+                r.subject("need").core("x", selector);
             });
         }
     };
@@ -387,7 +388,7 @@ fn a_section_of_an_unloaded_optional_peer_is_skipped_and_recorded() {
     let declare_routes = |c: &mut ContributionsBuilder| {
         runner(c);
         c.context("checker", |r| {
-            r.subject("check").budget(10).core("check", "self");
+            r.subject("check").core("check", "self");
         });
     };
     // `@acme/proof`, which declares `check`, is a candidate the host could enable.
@@ -461,16 +462,10 @@ fn an_agent_its_extension_does_not_declare_or_another_route_binds_is_e124() {
         work(|c| {
             runner(c);
             c.context("again", |r| {
-                r.subject("plan")
-                    .agent("acme-runner")
-                    .budget(10)
-                    .core("plan", "self");
+                r.subject("plan").agent("acme-runner").core("plan", "self");
             });
             c.context("stranger", |r| {
-                r.subject("need")
-                    .agent("someone-else")
-                    .budget(10)
-                    .core("need", "self");
+                r.subject("need").agent("someone-else").core("need", "self");
             });
         }),
     ]);
@@ -508,7 +503,7 @@ type Records<'a> = &'a [(&'a str, &'a str)];
 /// A route over `plan` recording `records` (field, subject), its stale code `stale`.
 fn recording(c: &mut ContributionsBuilder, records: &[(&str, &str)], stale: Option<&str>) {
     c.context("r", |r| {
-        r.subject("plan").budget(10).core("plan", "self");
+        r.subject("plan").core("plan", "self");
         for (field, subject) in records {
             r.record(field, subject);
         }
@@ -525,7 +520,6 @@ fn a_route_records_its_extensions_context_fields_and_names_a_catalogued_code() {
         work(|c| {
             c.context("r", |r| {
                 r.subject("plan")
-                    .budget(10)
                     .core("plan", "self")
                     .record("plan.pack", "self")
                     .record_suggesting("note.pack", "self.task.plan", "redo {entity}")

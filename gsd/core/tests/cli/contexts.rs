@@ -241,10 +241,8 @@ fn start_plan_records_a_real_size_plans_executor_pack_and_only_a_stated_cap_refu
     assert_eq!(run.code, 0, "{}", run.all());
     let record = &p.fields_of(REAL_PLAN)["context_pack"];
     assert_eq!(record["digest"], read["digest"], "{record}");
-    assert_eq!(
-        record["max_tokens"], read["budget"]["budget_tokens"],
-        "{record}"
-    );
+    // A read that states no cap records none: the record is read again under the route's allowance.
+    assert!(record.get("max_tokens").is_none(), "{record}");
     assert!(
         !p.codes().contains(&"gsd/W524".to_string()),
         "{:?}",

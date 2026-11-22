@@ -57,9 +57,6 @@ pub struct Pack {
     pub subject: String,
     /// The pack's digest.
     pub digest: String,
-    /// The cap the pack was fitted to: the stated one, or its core and the route's allowance. Read under it, the pack
-    /// is the same.
-    pub max_tokens: usize,
     /// The pack document, compact JSON.
     pub text: String,
 }
@@ -140,7 +137,6 @@ fn seal(
         route: route.name.clone(),
         subject: subject.as_str().to_string(),
         digest: packed.digest,
-        max_tokens: packed.cut.budget_tokens,
         text,
     })
 }

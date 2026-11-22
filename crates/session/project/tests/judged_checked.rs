@@ -31,7 +31,7 @@ fn decision(project: &TestProject) -> String {
     let decisions = now
         .reports
         .iter()
-        .find(|r| r.name == "decisions")
+        .find(|r| r.name == "phase_decisions")
         .expect("an input");
     decisions.members[0].clone()
 }
@@ -68,13 +68,13 @@ fn an_entity_without_checked_values_digests_as_before() {
     let decisions = now
         .reports
         .iter()
-        .find(|r| r.name == "decisions")
+        .find(|r| r.name == "phase_decisions")
         .expect("an input");
     assert_eq!(decisions.digest, PINNED_DECISIONS);
     assert!(now.unchecked.is_empty());
 }
 
-/// The `decisions` digest of the fixture plan, taken from this code, which builds the same bytes as before checked
+/// The `phase_decisions` digest of the fixture plan, taken from this code, which builds the same bytes as before checked
 /// values existed (an entity with none digests as `[digest, id]`). That those bytes did not move is held by the
 /// committed verdicts of `gsd/parity/fixtures/taskboard/spec/plans.spec`, which
 /// `gsd/core/tests/cli/parity_verify.rs` (`the_twin_holds_its_verifier_verdicts`) still judges fresh.
@@ -94,7 +94,7 @@ fn a_checked_value_turning_404_stales_the_verdict() {
     let (state, changed) = judgement(&stale, PLAN, W311);
     assert_eq!(
         (state.as_str(), changed.as_slice()),
-        ("stale", ["decisions".to_string()].as_slice())
+        ("stale", ["phase_decisions".to_string()].as_slice())
     );
 }
 
@@ -134,8 +134,8 @@ fn an_unknown_outcome_is_skipped_like_a_missing_report_and_i207() {
     let now =
         specforge_project::judged::inputs(&offline, &PlainDisk, PLAN, rule, &Cited::default())
             .expect("W311 judges the plan");
-    assert_eq!(now.unchecked, ["decisions"]);
-    assert!(now.unjudged.contains(&"decisions".to_string()));
+    assert_eq!(now.unchecked, ["phase_decisions"]);
+    assert!(now.unjudged.contains(&"phase_decisions".to_string()));
 }
 
 #[specforge_test(requirement = "FEATURE-058")]
@@ -399,7 +399,7 @@ fn a_cached_baseline_judges_a_probe_the_journal_answers_later() {
     assert!(!Arc::ptr_eq(&unjudged, &judged), "compiled again");
     assert_eq!(
         state(&judged),
-        ("stale".to_string(), vec!["decisions".to_string()])
+        ("stale".to_string(), vec!["phase_decisions".to_string()])
     );
     assert!(Arc::ptr_eq(&judged, &at_commit()), "and cached again");
 }
