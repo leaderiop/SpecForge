@@ -5,6 +5,7 @@ use specforge_test::prelude::*;
 
 mod api;
 mod coverage;
+mod finding;
 mod mint;
 mod paths;
 mod places;

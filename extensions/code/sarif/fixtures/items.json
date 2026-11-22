@@ -1,0 +1,18 @@
+[
+  {"kind": "item", "id": "rust:demo::Board",
+   "fields": {"kind": ["struct"], "package": "pkg:cargo/demo", "file": "src/lib.rs", "visibility": "public"},
+   "at": [{"file": "src/lib.rs", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2}]},
+  {"kind": "item", "id": "rust:demo::Board::len",
+   "fields": {"kind": ["fn"], "package": "pkg:cargo/demo", "file": "src/lib.rs", "visibility": "public"},
+   "at": [{"file": "src/lib.rs", "start_line": 6, "start_col": 5, "end_line": 8, "end_col": 6}]},
+  {"kind": "item", "id": "rust:demo::tests",
+   "fields": {"kind": ["mod"], "package": "pkg:cargo/demo", "file": "src/lib.rs", "visibility": "private",
+              "attrs": ["cfg(test)"]},
+   "at": [{"file": "src/lib.rs", "start_line": 11, "start_col": 1, "end_line": 20, "end_col": 2}]},
+  {"kind": "item", "id": "rust:demo::tests::reads",
+   "fields": {"kind": ["fn"], "package": "pkg:cargo/demo", "file": "src/lib.rs", "visibility": "private",
+              "attrs": ["test"], "test_id": "rust:demo#tests::reads"},
+   "at": [{"file": "src/lib.rs", "start_line": 14, "start_col": 5, "end_line": 18, "end_col": 6}]},
+  {"kind": "package", "id": "pkg:cargo/demo",
+   "fields": {"name": "demo", "version": "0.1.0", "path": ""}}
+]

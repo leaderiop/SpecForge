@@ -1,0 +1,72 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "static_finding",
+    "id": "sarif:clippy/clippy%3A%3Aneedless_return#src%2Flib.rs:7",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::Board::len",
+      "level": "warning",
+      "line": 7,
+      "message": "unneeded `return` statement",
+      "rule": "clippy::needless_return",
+      "tool": "clippy"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 7,
+        "start_col": 1,
+        "end_line": 8,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:clippy/clippy%3A%3Aunwrap_used#src%2Flib.rs:16",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::tests::reads",
+      "level": "warning",
+      "line": 16,
+      "message": "used `unwrap()` on a `Result` value",
+      "rule": "clippy::unwrap_used",
+      "tool": "clippy"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 16,
+        "start_col": 1,
+        "end_line": 18,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:clippy/clippy%3A%3Aunwrap_used#src%2Flib.rs:24",
+    "fields": {
+      "file": "src/lib.rs",
+      "level": "warning",
+      "line": 24,
+      "message": "used `unwrap()` on an `Option` value",
+      "package": "pkg:cargo/demo",
+      "rule": "clippy::unwrap_used",
+      "tool": "clippy"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 24,
+        "start_col": 1,
+        "end_line": 25,
+        "end_col": 1
+      }
+    ]
+  }
+]
