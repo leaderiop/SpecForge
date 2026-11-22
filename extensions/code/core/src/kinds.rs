@@ -1,9 +1,9 @@
 //! The kinds of the facts a standard report's reader mints (ADR 0388), and their edges.
 
-use specforge_code_facts::{API_ITEM, COVERAGE, STATIC_FINDING};
+use specforge_code_facts::{API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING};
 use specforge_extension_sdk::prelude::*;
 
-use crate::{referencing, API_KINDS, ITEM_KIND, LEVELS, PACKAGE_KIND, VISIBILITY};
+use crate::{referencing, API_KINDS, ITEM_KIND, LEVELS, PACKAGE_KIND, SCOPES, VISIBILITY};
 
 /// Declares the report kinds and the edges their references draw.
 pub(crate) fn report_kinds(c: &mut ContributionsBuilder) {
@@ -138,6 +138,48 @@ pub(crate) fn report_kinds(c: &mut ContributionsBuilder) {
     c.edge("found_in_package", |e| {
         e.description("The package a static finding lies in, when no item holds it")
             .source_kind(STATIC_FINDING.kind)
+            .target_kind(PACKAGE_KIND);
+    });
+    c.kind(DEPENDENCY.kind, |k| {
+        k.description(
+            "One component of a CycloneDX bill of materials, written by an SBOM pack's collector (ADR 0388): \
+             dep:<package id>/<purl without qualifiers and subpath>, or dep:<package id>/@<[group/]name[@version]> \
+             for a component with no purl (W106); one fact per id, a purl listed twice merged",
+        )
+        .collected(&[DEPENDENCY.scheme])
+        .field("package", |f| {
+            referencing(f, DEPENDENCY.kind, "package")
+                .field_type(FieldType::Reference)
+                .description("The project package the BOM describes (its metadata.component)");
+        })
+        .field("purl", |f| {
+            f.field_type(FieldType::String)
+                .description("The component's package URL as written; absent when it has none (W106)");
+        })
+        .field("name", |f| {
+            f.field_type(FieldType::String)
+                .description("The component's name, group/name when it states a group");
+        })
+        .field("version", |f| {
+            f.field_type(FieldType::String)
+                .description("The component's version, when it states one");
+        })
+        .field("scope", |f| {
+            f.vocabulary(&SCOPES).description(
+                "The component's scope, required when the BOM states none (the spec's default); the widest of a \
+                 purl listed twice",
+            );
+        })
+        .field("direct", |f| {
+            f.field_type(FieldType::Bool).description(
+                "Whether the project package depends on it directly; present only when the BOM states a \
+                 dependency graph for its root, never false for a graph it does not state",
+            );
+        });
+    });
+    c.edge("dependency_of", |e| {
+        e.description("The project package a dependency is a component of the BOM of")
+            .source_kind(DEPENDENCY.kind)
             .target_kind(PACKAGE_KIND);
     });
 }

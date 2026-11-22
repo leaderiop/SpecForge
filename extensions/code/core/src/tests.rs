@@ -104,7 +104,8 @@ fn item_and_package_reference_their_facts() {
             "covers",
             "api_of",
             "found_in",
-            "found_in_package"
+            "found_in_package",
+            "dependency_of"
         ]
     );
 }
@@ -180,7 +181,10 @@ fn the_w102_explanation_names_every_pack_of_the_table() {
 #[test]
 fn it_catalogues_the_codes_it_reports() {
     let codes: Vec<String> = declaration().codes.into_iter().map(|c| c.code).collect();
-    assert_eq!(codes, ["E101", "W102", "W401", "I402", "W104", "W105"]);
+    assert_eq!(
+        codes,
+        ["E101", "W102", "W401", "I402", "W104", "W105", "W106"]
+    );
 }
 
 /// A pass input holding `entities`, with a store of `served` schemes when there is one: `js` holding tests, `run` runs.

@@ -1,8 +1,9 @@
 //! The report facts' kinds, and the `reports` pass: a report entry that names no item (W104).
 
 use specforge_code_facts::{
-    api_facts, coverage_facts, finding_facts, ApiEntry, ApiKind, Branch, CoverageFile, Function,
-    ItemKind, Level, Owner, SarifResult, Scheme, Visibility,
+    api_facts, coverage_facts, dependency_facts, finding_facts, ApiEntry, ApiKind, Bom, Branch,
+    Component, CoverageFile, Function, ItemKind, Level, Owner, SarifResult, Scheme, Scope,
+    Visibility,
 };
 
 use super::*;
@@ -405,6 +406,116 @@ fn every_field_a_static_finding_fact_is_minted_with_is_declared() {
         .collect();
     for fact in &minted {
         assert_eq!(fact.kind, "static_finding");
+        for name in fact.fields.keys() {
+            assert!(fields.contains(&name.as_str()), "{name} of {}", fact.id);
+        }
+    }
+}
+
+/// A `dependency` fact of `name` in `pkg:cargo/demo`, with `purl` when given.
+fn dependency(name: &str, purl: Option<&str>) -> PassEntity {
+    let mut fact = entity(&format!("dep:pkg:cargo/demo/@{name}"), "dependency");
+    let stated = [
+        ("package", Some("pkg:cargo/demo")),
+        ("name", Some(name)),
+        ("scope", Some("required")),
+        ("purl", purl),
+    ];
+    for (field, value) in stated {
+        if let Some(value) = value {
+            fact.fields.insert(field.to_string(), value.to_string());
+        }
+    }
+    fact
+}
+
+#[test]
+fn a_dependency_with_no_purl_is_one_w106_naming_it() {
+    let found = reported(vec![dependency("left-pad", None)]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    let w106 = &found[0];
+    assert_eq!(
+        (w106.code.as_str(), w106.severity, w106.entity.as_deref()),
+        (
+            "W106",
+            PassSeverity::Warning,
+            Some("dep:pkg:cargo/demo/@left-pad")
+        )
+    );
+    assert!(
+        w106.message.contains("dep:pkg:cargo/demo/@left-pad"),
+        "{}",
+        w106.message
+    );
+    assert!(w106.message.contains("`left-pad`"), "{}", w106.message);
+    let with_purl = reported(vec![dependency("serde", Some("pkg:cargo/serde@1.0.0"))]);
+    assert!(with_purl.is_empty(), "{with_purl:?}");
+}
+
+#[test]
+fn dependency_is_collected_and_a_dependency_of_a_package() {
+    let declared = declaration();
+    let dependency = kind(&declared, "dependency");
+    assert_eq!(
+        (dependency.writer.as_deref(), &dependency.schemes[..]),
+        (Some("collector"), &strings(&["dep"])[..])
+    );
+    let field = |name: &str| dependency.fields.iter().find(|f| f.name == name).unwrap();
+    let package = field("package");
+    assert_eq!(
+        (
+            package.field_type.as_str(),
+            package.target_kind.as_deref(),
+            package.edge.as_deref()
+        ),
+        ("reference", Some("package"), Some("dependency_of"))
+    );
+    assert_eq!(field("scope").enum_values, strings(&Scope::NAMES));
+    assert_eq!(field("direct").field_type, "bool");
+    for text in ["purl", "name", "version"] {
+        assert_eq!(field(text).field_type, "string", "{text}");
+    }
+    let drawn = declared
+        .edges
+        .iter()
+        .find(|e| e.label == "dependency_of")
+        .unwrap();
+    assert_eq!(
+        (drawn.source_kind.as_deref(), drawn.target_kind.as_deref()),
+        (Some("dependency"), Some("package"))
+    );
+}
+
+#[test]
+fn every_field_a_dependency_fact_is_minted_with_is_declared() {
+    let component = |bom_ref: &str, purl: Option<&str>| Component {
+        bom_ref: Some(bom_ref.to_string()),
+        purl: purl.map(str::to_string),
+        group: None,
+        name: bom_ref.to_string(),
+        version: Some("1.0.0".to_string()),
+        scope: Scope::Optional,
+    };
+    let bom = Bom {
+        root: component("demo", Some("pkg:cargo/demo@0.1.0")),
+        components: vec![
+            component("serde", Some("pkg:cargo/serde@1.0.0")),
+            component("tool", None),
+        ],
+        direct: Some(vec!["serde".to_string()]),
+    };
+    let served = [Fact::new("package", "pkg:cargo/demo").field("path", "")];
+    let minted = dependency_facts(&[bom], &served).expect("the root is served");
+    assert_eq!(minted.len(), 2);
+    let declared = declaration();
+    let fields: Vec<&str> = kind(&declared, "dependency")
+        .fields
+        .iter()
+        .map(|f| f.name.as_str())
+        .collect();
+    for fact in &minted {
+        assert_eq!(fact.kind, "dependency");
+        assert!(fact.fields.contains_key("direct"), "{fact:?}");
         for name in fact.fields.keys() {
             assert!(fields.contains(&name.as_str()), "{name} of {}", fact.id);
         }

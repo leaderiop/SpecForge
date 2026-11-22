@@ -1,20 +1,26 @@
 //! The check pass `reports` (ADR 0388): what the facts a standard report's reader minted leave unmapped, one code per
 //! class, and the catalogue of those codes.
 
-use specforge_code_facts::{ItemKind, API_ITEM, COVERAGE, STATIC_FINDING, UNKNOWN};
+use specforge_code_facts::{ItemKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN};
 use specforge_extension_sdk::prelude::*;
 
 use crate::REPORT_KINDS;
 
 /// For each report fact that is not pending: W104 when it names no `item` (a `coverage`; an `api_item` of a kind an
 /// item can have, not a variant, re-export, extern crate nor `other`, and not a crate root, which no item is; a
-/// `static_finding` naming no `package` either), then W105 for a `static_finding` whose rule or level is `unknown`.
+/// `static_finding` naming no `package` either), then W105 for a `static_finding` whose rule or level is `unknown`,
+/// then W106 for a `dependency` with no `purl`.
 pub(crate) fn reports(input: &PassInput) -> Vec<PassDiagnostic> {
     input
         .entities
         .iter()
         .filter(|e| !e.pending && REPORT_KINDS.contains(&e.kind.as_str()))
-        .flat_map(|fact| unmapped(fact).into_iter().chain(unknown(fact)))
+        .flat_map(|fact| {
+            unmapped(fact)
+                .into_iter()
+                .chain(unknown(fact))
+                .chain(purl_less(fact))
+        })
         .collect()
 }
 
@@ -70,6 +76,19 @@ fn unknown(fact: &PassEntity) -> Option<PassDiagnostic> {
     Some(PassDiagnostic::warning("W105", message).with_entity(&fact.id))
 }
 
+/// W106 when `fact` is a `dependency` with no `purl`, naming it by its name.
+fn purl_less(fact: &PassEntity) -> Option<PassDiagnostic> {
+    if fact.kind != DEPENDENCY.kind || fact.fields.contains_key("purl") {
+        return None;
+    }
+    let message = format!(
+        "the dependency '{}' has no purl: its BOM component `{}` is named by name and version only",
+        fact.id,
+        fact.fields.get("name").map_or("", String::as_str)
+    );
+    Some(PassDiagnostic::warning("W106", message).with_entity(&fact.id))
+}
+
 /// Whether `id` is a Rust crate root's `api:rust:<crate>`: a crate is no item.
 fn is_crate_root(id: &str) -> bool {
     id.strip_prefix("api:rust:")
@@ -98,6 +117,15 @@ pub(crate) fn catalogue(c: &mut ContributionsBuilder) {
              default level is `warning`; it is not applied, so a level the tool never wrote cannot pass for one \
              it did. Make the tool write its rule ids and levels in its SARIF output, or the rule metadata \
              (`tool.driver.rules` with a `defaultConfiguration.level`), then collect the report again.",
+        );
+    });
+    c.code("W106", |d| {
+        d.title("A dependency has no purl").explanation(
+            "A component of a CycloneDX bill of materials carries no package URL (`purl`), so its dependency is \
+             named by name and version only (`dep:<package>/@<name@version>`). The dependency is kept, never \
+             dropped, but no other report can be matched to it: an OSV scan or another BOM names a package by its \
+             purl. Generate the BOM with an SBOM tool that writes a purl for every component (cargo-cyclonedx, \
+             cyclonedx-npm), then collect it again.",
         );
     });
 }
