@@ -74,7 +74,7 @@ impl Planner {
         }
     }
 
-    /// A phase's required values its old milestone lacks: its slug, from its name (none when the name holds no ASCII
+    /// A phase's required values its old milestone lacks: its slug, from its title (none when the title holds no ASCII
     /// letter or digit, so the missing-value stop names the phase); its one success criterion, its description, when it
     /// has no exit criteria (none when it has no description either).
     pub(super) fn phase_fills(&mut self, e: &OldEntity) -> Vec<(&'static str, Input)> {
@@ -82,11 +82,9 @@ impl Planner {
             return Vec::new();
         };
         let mut fills = Vec::new();
-        if let Some(Input::One(name)) = draft.fields.get("name") {
-            let slug = how::slug(name);
-            if !slug.is_empty() {
-                fills.push(("slug", Input::One(slug)));
-            }
+        let slug = how::slug(&draft.title);
+        if !slug.is_empty() {
+            fills.push(("slug", Input::One(slug)));
         }
         let description = e.fields.get("description").and_then(Value::as_str);
         if !draft.fields.contains_key("success_criteria")

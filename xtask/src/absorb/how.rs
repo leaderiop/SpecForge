@@ -97,9 +97,9 @@ pub fn slug(text: &str) -> String {
     slug.trim_end_matches('-').to_string()
 }
 
-/// A phase's name and title from its old milestone's title: the title less a leading `Phase `, its digits, an
-/// optional letter, `:` and the spaces after it (GSD renders the number from the phase's id), else the title as
-/// written.
+/// A phase's title, its one name (ADR 0387), from its old milestone's title: the title less a leading `Phase `, its
+/// digits, an optional letter, `:` and the spaces after it (GSD renders the number from the phase's id), else the title
+/// as written.
 pub fn phase_name(title: &str) -> String {
     numbered(title).unwrap_or(title).to_string()
 }

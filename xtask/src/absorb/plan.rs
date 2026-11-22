@@ -371,9 +371,10 @@ impl Planner {
         }
     }
 
-    /// The entity `e` converts to, empty but for its header, its name and its scope field, keyed by its new path. A
-    /// phase is titled by its name: GSD labels it `Phase <its id's last segment>: <title>`, so an old title's
-    /// `Phase N:` would print its number twice, and a number of another numbering: that prefix is ledgered `dropped`.
+    /// The entity `e` converts to, empty but for its header and its scope field, keyed by its new path. Its title is
+    /// a milestone's and a phase's one name (ADR 0387): GSD labels a phase `Phase <its id's last segment>: <title>`,
+    /// so an old title's `Phase N:` would print its number twice, and a number of another numbering: that prefix is
+    /// ledgered `dropped`.
     fn draft(&mut self, e: &OldEntity) {
         let Some(new) = self.ids.get(&e.kind, &e.id).cloned() else {
             return;
@@ -409,9 +410,6 @@ impl Planner {
             _ => title,
         };
         let mut fields = BTreeMap::new();
-        if matches!(kind, "milestone" | "phase") {
-            fields.insert("name".to_string(), Input::One(title.clone()));
-        }
         if let Some((field, scope)) = &new.scope {
             fields.insert((*field).to_string(), Input::One(scope.clone()));
         }

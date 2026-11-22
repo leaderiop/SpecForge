@@ -2,7 +2,6 @@
 //! references written through the id map; a requirement no written phase lists is `v2` (ADR 0372 D3, D4, D7).
 
 use serde_json::{Value, json};
-use specforge_ops::authoring::edit::Input;
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::super::ledger::Why;
@@ -41,6 +40,20 @@ fn why_of(planned: &Planned, id: &str, field: &str) -> Vec<Why> {
         .filter(|(f, _)| f == field)
         .map(|(_, why)| why)
         .collect()
+}
+
+/// The title the create of `path` writes: a milestone's and a phase's one name (ADR 0387).
+fn title_of<'a>(planned: &'a Planned, path: &str) -> &'a str {
+    planned
+        .creates
+        .iter()
+        .find_map(|edit| match edit {
+            specforge_ops::authoring::edit::Edit::Create { title, .. } if path_of(edit) == path => {
+                Some(title.as_str())
+            }
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("no create of {path}"))
 }
 
 /// The dropped entries of `id`'s `field`: (value, reason), a text value as itself.
@@ -82,10 +95,14 @@ fn a_release_becomes_a_version_milestone_named_by_its_version() {
     assert_eq!(
         fields,
         &BTreeMap::from([
-            ("name".to_string(), one("The first")),
             ("goal".to_string(), one("Usable every day.")),
             ("delivered".to_string(), one("Entries are saved.")),
         ])
+    );
+    assert_eq!(
+        title_of(&planned, "v0.1.0"),
+        "The first",
+        "no field repeats the title"
     );
     let check = planned.checks.iter().find(|c| c.id == "first").unwrap();
     assert_eq!(
@@ -184,7 +201,6 @@ fn a_listed_milestone_becomes_a_phase_numbered_in_source_order_under_its_release
         fields,
         &BTreeMap::from([
             ("milestone".to_string(), one("v0.2.0")),
-            ("name".to_string(), one("Third Cut")),
             ("slug".to_string(), one("third-cut")),
             ("goal".to_string(), one("The third cut")),
             ("success_criteria".to_string(), many(&["One", "Two"])),
@@ -198,9 +214,14 @@ fn a_listed_milestone_becomes_a_phase_numbered_in_source_order_under_its_release
         }]
     );
     assert_eq!(
+        title_of(&planned, "v0.1.0/01"),
+        "The first",
+        "a title with no `Phase N:` is written as itself"
+    );
+    assert_eq!(
         field(&planned, "v0.1.0/01", "name"),
-        Some(&one("The first")),
-        "a title with no `Phase N:` keeps its name"
+        None,
+        "no field repeats the title"
     );
 }
 
@@ -330,7 +351,7 @@ fn a_name_with_no_ascii_letter_fills_no_slug() {
     first.title = Some("第一段".to_string());
     let planned = planned(&[release("one", "0.1.0", &["first"]), first]);
     let fields = create(&planned, "v0.1.0/01").1;
-    assert_eq!(fields.get("name"), Some(&one("第一段")));
+    assert_eq!(title_of(&planned, "v0.1.0/01"), "第一段");
     assert!(!fields.contains_key("slug"), "{fields:?}");
     assert_eq!(why_of(&planned, "first", "slug"), []);
 }
@@ -585,10 +606,7 @@ fn a_milestone_two_releases_list_stops_the_run_naming_both() {
 fn a_release_version_is_the_milestone_id_as_written() {
     let planned = planned(&[old("release", "odd", json!({"version": "1.0 beta"}))]);
     assert_eq!(paths(&planned), ["v1.0 beta"]);
-    assert!(matches!(
-        field(&planned, "v1.0 beta", "name"),
-        Some(Input::One(_))
-    ));
+    assert_eq!(title_of(&planned, "v1.0 beta"), "The odd");
 }
 
 /// A scheme reference in a written list cannot be written (bare, it names a `ref`, which a typed edit cannot create):

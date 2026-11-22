@@ -261,7 +261,7 @@ fn releases_become_version_milestones_and_their_milestones_phases(to: &Path, led
     let third = block("phase 01 \"Third Cut\"");
     assert!(
         third.contains("milestone        v0.2.0")
-            && third.contains("name             \"Third Cut\"")
+            && !third.contains("\n  name ")
             && !third.contains("depends_on"),
         "{third}"
     );
