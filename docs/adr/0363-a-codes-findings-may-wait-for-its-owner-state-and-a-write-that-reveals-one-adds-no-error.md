@@ -7,7 +7,7 @@ Extends [ADR 0362](0362-a-judged-target-may-wait-for-its-owner-state.md) from a 
 state of [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D4. Protocol 2.2.0, unreleased: the addition goes
 into the 2.2.0 row, no bump. The wire and the SDK change, so the builtins are re-vendored. D3 amended by
 [ADR 0385](0385-a-code-may-be-settled-later-and-a-write-that-creates-its-subject-adds-no-error-of-it.md): a settled-later finding on an entity the write creates, or creates
-something under, is no added error either.
+something under, altering nothing held there, is no added error either.
 
 ## Context
 

@@ -1,6 +1,7 @@
 //! A code a later step of the authoring settles (ADR 0385): a typed edit whose plan creates the finding's subject, or
-//! an entity under it, adds no error by that finding (E080), and the finding is still reported. A write that creates
-//! neither (an edit, a delete, a creation elsewhere), a code that does not declare it, another extension's code, a
+//! an entity under it, and alters nothing the project held there adds no error by that finding (E080), and the
+//! finding is still reported. A write that creates neither (an edit, a delete, a creation elsewhere), one that also
+//! deletes, sets, unsets or moves what the subject held, a code that does not declare it, another extension's code, a
 //! host error and a migration are counted as before.
 
 use std::sync::Arc;
@@ -25,12 +26,12 @@ const OTHER: &str = "@test/other";
 const OPEN: &str = "test.later/E901";
 /// A flagged question: settled by the write that makes it.
 const FLAGGED: &str = "test.later/E902";
-/// A phase with fewer plans than it needs, from its first: settled later.
+/// A requirement of a phase in none of its plans, from its first: settled later.
 const SHORT: &str = "test.later/E903";
 /// A note not done: the other extension's own E901, which it does not declare settled later.
 const UNDONE: &str = "test.other/E901";
 
-/// `@test/later`: questions resolved by decisions, phases that need a number of plans, plans scoped by a phase.
+/// `@test/later`: questions resolved by decisions; requirements of a phase, which its plans, scoped by it, hold.
 fn later() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
     c.code("E901", |d| {
@@ -42,7 +43,7 @@ fn later() -> ContributionsBuilder {
         d.title("Flagged question").explanation("Unflag it.");
     });
     c.code("E903", |d| {
-        d.title("Phase short of plans")
+        d.title("Requirement in no plan")
             .explanation("Plan the rest of the phase.")
             .settled_later();
     });
@@ -59,14 +60,22 @@ fn later() -> ContributionsBuilder {
             });
     });
     c.kind("phase", |k| {
-        k.keyword("phase").field("needs", |f| {
-            f.field_type(FieldType::Integer);
+        k.keyword("phase");
+    });
+    c.kind("requirement", |k| {
+        k.keyword("requirement").field("phase", |f| {
+            f.field_type(FieldType::Reference).target_kind("phase");
         });
     });
     c.kind("plan", |k| {
-        k.keyword("plan").scoped_by("phase").field("phase", |f| {
-            f.field_type(FieldType::Reference).target_kind("phase");
-        });
+        k.keyword("plan")
+            .scoped_by("phase")
+            .field("phase", |f| {
+                f.field_type(FieldType::Reference).target_kind("phase");
+            })
+            .field("requirements", |f| {
+                f.field_type(FieldType::StringList);
+            });
     });
     c.pass("later", |p| {
         p.phase("check").run(findings);
@@ -93,21 +102,31 @@ fn findings(input: &PassInput) -> Vec<PassDiagnostic> {
         }
     }
     for phase in of("phase") {
-        let needs: usize = field(phase, "needs")
-            .and_then(|n| n.parse().ok())
-            .unwrap_or(0);
-        let plans = of("plan")
+        let plans: Vec<&PassEntity> = of("plan")
             .filter(|plan| {
                 plan.id
                     .rsplit_once('/')
                     .is_some_and(|(scope, _)| scope == phase.id)
             })
-            .count();
-        if plans > 0 && plans < needs {
-            out.push(
-                PassDiagnostic::new("E903", PassSeverity::Error, "the phase is short of plans")
-                    .with_entity(&phase.id),
-            );
+            .collect();
+        if plans.is_empty() {
+            continue;
+        }
+        let held: Vec<String> = plans
+            .iter()
+            .filter_map(|plan| field(plan, "requirements"))
+            .flat_map(|list| list.split(", ").map(String::from).collect::<Vec<_>>())
+            .collect();
+        for requirement in of("requirement") {
+            if field(requirement, "phase").as_deref() == Some(phase.id.as_str())
+                && !held.contains(&requirement.id)
+            {
+                let message = format!("requirement {} is in no plan", requirement.id);
+                out.push(
+                    PassDiagnostic::new("E903", PassSeverity::Error, message)
+                        .with_entity(&phase.id),
+                );
+            }
         }
     }
     out
@@ -204,6 +223,22 @@ fn create(kind: &str, id: &str, fields: &[(&str, &str)]) -> Step {
     })
 }
 
+/// A plan of the phase `PH` holding `requirements`.
+fn plan(id: &str, requirements: &[&str]) -> Step {
+    Step::Edit(Edit::Create {
+        kind: "plan".into(),
+        id: id.into(),
+        title: id.into(),
+        file: "a.spec".into(),
+        fields: [
+            ("phase".to_string(), Input::One("PH".into())),
+            ("requirements".to_string(), crate::edit::many(requirements)),
+        ]
+        .into(),
+        verify: Vec::new(),
+    })
+}
+
 fn delete(id: &str) -> Step {
     Step::Edit(Edit::Delete {
         entity_id: id.into(),
@@ -212,8 +247,14 @@ fn delete(id: &str) -> Step {
 }
 
 const DECISION: &str = "decision D1 \"D1\" {}\n";
-/// A phase that needs two plans and holds both.
-const PLANNED: &str = "phase PH \"PH\" {\n  needs 2\n}\n\nplan P1 \"P1\" {\n  phase PH\n}\n\nplan P2 \"P2\" {\n  phase PH\n}\n";
+/// A phase and its two requirements, no plan yet.
+const PHASE: &str = "phase PH \"PH\" {}\n\nrequirement R1 \"R1\" {\n  phase PH\n}\n\nrequirement R2 \"R2\" {\n  phase PH\n}\n";
+/// The phase planned: each requirement in one plan.
+const PLANS: &str = "plan P1 \"P1\" {\n  phase PH\n  requirements [\"R1\"]\n}\n\nplan P2 \"P2\" {\n  phase PH\n  requirements [\"R2\"]\n}\n";
+
+fn planned_phase() -> String {
+    format!("{PHASE}\n{PLANS}")
+}
 
 #[specforge_test(requirement = "FEATURE-131")]
 fn a_finding_on_an_entity_the_write_creates_adds_no_error() {
@@ -264,10 +305,19 @@ fn a_finding_on_an_entity_the_write_creates_adds_no_error() {
 
 #[specforge_test(requirement = "FEATURE-131")]
 fn a_finding_on_an_entity_the_write_creates_something_under_adds_no_error() {
-    let phase = "phase PH \"PH\" {\n  needs 2\n}\n";
     // The phase's first plan: the finding is on the phase, the plan the write creates is under it.
     assert_eq!(
-        planned(phase, &[create("plan", "P1", &[("phase", "PH")])]),
+        planned(PHASE, &[plan("P1", &["R1"])]),
+        Ok(vec![SHORT.to_string()])
+    );
+    // A later edit of the plan the write creates alters nothing the project held.
+    let retarget = Step::Edit(crate::edit::set(
+        "PH/P1",
+        "requirements",
+        crate::edit::many(&["R2"]),
+    ));
+    assert_eq!(
+        planned(PHASE, &[plan("P1", &["R1"]), retarget]),
         Ok(vec![SHORT.to_string()])
     );
 }
@@ -281,16 +331,48 @@ fn a_write_that_creates_nothing_there_still_adds_the_finding() {
         field: "resolved_by".into(),
     });
     assert_eq!(planned(&resolved, &[unset]), Err(vec![OPEN.to_string()]));
-    // Deleting one of the plans a phase needs.
+    // Deleting the one plan that holds a requirement.
     assert_eq!(
-        planned(PLANNED, &[delete("PH/P2")]),
+        planned(&planned_phase(), &[delete("PH/P2")]),
         Err(vec![SHORT.to_string()])
     );
     // Creating elsewhere in the same write: the question's own finding is excused, the phase's is not.
     assert_eq!(
-        planned(PLANNED, &[delete("PH/P2"), create("question", "Q9", &[])]),
+        planned(
+            &planned_phase(),
+            &[delete("PH/P2"), create("question", "Q9", &[])]
+        ),
         Err(vec![SHORT.to_string()])
     );
+}
+
+#[specforge_test(requirement = "FEATURE-131")]
+fn a_write_that_also_alters_what_the_subject_held_still_adds_the_finding() {
+    let refused = || Err(vec![SHORT.to_string()]);
+    // Deleting the plan that holds R2 and creating another under the phase: the creation does not excuse the delete.
+    assert_eq!(
+        planned(&planned_phase(), &[delete("PH/P2"), plan("P3", &["R1"])]),
+        refused()
+    );
+    // Setting a held plan's requirements away from R1, or unsetting them, beside a plan created under the phase.
+    let away = Step::Edit(crate::edit::set(
+        "PH/P1",
+        "requirements",
+        crate::edit::many(&["R9"]),
+    ));
+    assert_eq!(
+        planned(&planned_phase(), &[away, plan("P3", &["R2"])]),
+        refused()
+    );
+    let unset = Step::Edit(crate::edit::unset("PH/P1", "requirements"));
+    assert_eq!(
+        planned(&planned_phase(), &[unset, plan("P3", &["R2"])]),
+        refused()
+    );
+    // Moving the plan that holds R2 to another phase (its scope field), beside a plan created under this one.
+    let other = format!("{}\nphase PO \"PO\" {{}}\n", planned_phase());
+    let away = Step::Edit(crate::edit::set("PH/P2", "phase", Input::One("PO".into())));
+    assert_eq!(planned(&other, &[away, plan("P3", &["R1"])]), refused());
 }
 
 #[specforge_test(requirement = "FEATURE-131")]
@@ -324,17 +406,18 @@ fn only_the_owners_settled_later_code_is_exempt() {
     );
 }
 
-#[specforge_test(requirement = "FEATURE-131")]
-fn the_re_judge_under_the_lock_exempts_it_too() {
-    let p = project(DECISION);
+/// `ops` planned over `spec`'s project at its revision, another writer landing `z.spec` (`landed`) after the compile:
+/// the plan is judged again over the disk, under the lock. The project's diagnostics once written, or the refusal.
+fn applied_after(spec: &str, ops: serde_json::Value, landed: &str) -> Result<Vec<String>, String> {
+    let p = project(spec);
     let compiled = p.compile_in(runtime());
-    let plan: EditPlan = serde_json::from_value(
-        json!({"ops": [{"op": "create", "kind": "question", "id": "Q1",
-        "title": "Q1", "file": "a.spec", "revision": revision(&p, "a.spec")}]}),
-    )
-    .unwrap();
-    // Another writer lands a file after the compile: the plan is judged again over the disk, under the lock.
-    p.write("z.spec", "decision DZ \"DZ\" {}\n");
+    let at = revision(&p, "a.spec");
+    let mut ops = ops;
+    for op in ops.as_array_mut().unwrap() {
+        op["revision"] = at.clone().into();
+    }
+    let plan: EditPlan = serde_json::from_value(json!({ "ops": ops })).unwrap();
+    p.write("z.spec", landed);
     let edited = apply_plan(
         &ProjectView::of(&compiled),
         &plan,
@@ -342,9 +425,44 @@ fn the_re_judge_under_the_lock_exempts_it_too() {
         false,
         specforge_ops::testing::caller(),
     )
-    .unwrap_or_else(|refusal| panic!("{}", refusal.error.message));
+    .map_err(|refusal| {
+        assert_eq!(refusal.error.code.to_string(), "E080");
+        refusal.error.message
+    })?;
     assert!(!edited.wrote.previewed());
-    assert_eq!(reported(&p.compile_in(runtime())), [OPEN]);
+    Ok(reported(&p.compile_in(runtime())))
+}
+
+#[specforge_test(requirement = "FEATURE-131")]
+fn the_re_judge_under_the_lock_exempts_it_too() {
+    let question =
+        json!([{"op": "create", "kind": "question", "id": "Q1", "title": "Q1", "file": "a.spec"}]);
+    assert_eq!(
+        applied_after(DECISION, question, "decision DZ \"DZ\" {}\n"),
+        Ok(vec![OPEN.to_string()])
+    );
+}
+
+/// The write deletes a plan that holds only what another plan holds too, and creates a third: nothing it is judged
+/// over when planned reports a finding. The other writer's requirement R3, which only the deleted plan held, lands
+/// before the lock: only the re-judge sees R3 in no plan, and it counts it, since the write deleted a plan of the phase.
+#[specforge_test(requirement = "FEATURE-131")]
+fn the_re_judge_under_the_lock_counts_it_when_the_write_altered_the_subject() {
+    let spec = "phase PH \"PH\" {}\n\nrequirement R1 \"R1\" {\n  phase PH\n}\n\nplan P1 \"P1\" {\n  phase PH\n  \
+                requirements [\"R1\"]\n}\n\nplan P2 \"P2\" {\n  phase PH\n  requirements [\"R1\", \"R3\"]\n}\n";
+    let ops = json!([
+        {"op": "delete", "entity": "PH/P2"},
+        {"op": "create", "kind": "plan", "id": "P3", "title": "P3", "file": "a.spec",
+         "fields": {"phase": "PH", "requirements": ["R1"]}},
+    ]);
+    // Planned over the disk as compiled, the write is clean: it is refused under the lock alone.
+    assert_eq!(
+        planned(spec, &[delete("PH/P2"), plan("P3", &["R1"])]),
+        Ok(Vec::new())
+    );
+    let refused = applied_after(spec, ops, "requirement R3 \"R3\" {\n  phase PH\n}\n")
+        .expect_err("refused under the lock");
+    assert!(refused.contains(&format!("error[{SHORT}]")), "{refused}");
 }
 
 #[specforge_test(requirement = "FEATURE-122")]

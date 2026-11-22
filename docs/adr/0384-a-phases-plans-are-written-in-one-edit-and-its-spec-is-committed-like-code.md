@@ -116,8 +116,8 @@ its finding reported until the later step settles it:
   (`cmd_quick::a_quick_plan_minted_without_must_haves_is_accepted_and_its_finding_reported_under_strict`).
 
 The fix they shared was a kernel one: E080 counts no settled-later finding on an entity the write creates or creates
-something under (ADR 0385 D2). A phase left half-planned is refused by `execute_phase`
-(`prompts_gates::e301_e310_w309_a_half_planned_phase_refuses_execute_phase`).
+something under, when it alters nothing held there (ADR 0385 D2). A phase left half-planned is refused by
+`execute_phase` (`prompts_gates::e301_e310_w309_a_half_planned_phase_refuses_execute_phase`).
 
 ## What each decision becomes
 

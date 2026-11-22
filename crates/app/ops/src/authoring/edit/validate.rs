@@ -6,7 +6,8 @@
 //! plan's moves, so a finding on another entity is another error (ADR 0302). A judged rule's finding is never such an
 //! error (ADR 0297): its judge settles it, not the edit; only a finding the judged evaluation made is one. Nor is a
 //! finding the write revealed by moving its entity into the owner state its code waits for (ADR 0363), nor a finding
-//! a later step settles on an entity the write creates or creates something under (ADR 0385).
+//! a later step settles on an entity the write creates or creates something under, altering nothing the project held
+//! there (ADR 0385).
 
 use super::EditField;
 use super::declared::Declared;
@@ -81,7 +82,8 @@ pub(crate) fn not_added<'a>(
 
 /// Whether `d` is a finding a later step of the authoring settles on what `change` creates (ADR 0385): its origin's
 /// own catalog entry for its code declares `settled_later` (`Codebook::settled_later`), it names a subject, and the
-/// change creates that subject or an entity under it (`PlannedChange::opens`).
+/// change creates that subject or an entity under it and alters nothing the project held there
+/// (`PlannedChange::opens`).
 fn settled_later(post: &CompiledProject, change: &PlannedChange, d: &Diagnostic) -> bool {
     let (Some(extension), Some(subject)) = (d.origin(), d.subject()) else {
         return false;

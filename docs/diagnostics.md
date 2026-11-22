@@ -1121,11 +1121,13 @@ waits for an owner state (`reported_while`) and that the edit revealed by moving
 its entity into that state: the edit is accepted and the finding is reported
 once it is written (ADR 0363). Nor is an extension's finding whose code a later
 step of the authoring settles (`settled_later`) on an entity the edit creates,
-or creates something under: the edit is accepted, lists the finding, and `check`
-reports it until that step is written; an edit that creates neither, and a
-migration, still count it (ADR 0385). A writing collector's plan is compared
-with the project as its collect left it, and is refused for host errors only: an
-extension's error refuses no collected fact (ADR 0303).
+or creates something under, when the edit alters nothing the project held there:
+the edit is accepted, lists the finding, and `check` reports it until that step
+is written; an edit that creates neither, one that also sets, unsets, links,
+unlinks, deletes or moves at or under that entity, and a migration still count
+it (ADR 0385). A writing collector's plan is compared with the project as its
+collect left it, and is refused for host errors only: an extension's error
+refuses no collected fact (ADR 0303).
 
 Owner: core
 Level: error

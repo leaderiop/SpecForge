@@ -48,15 +48,23 @@ A typed edit's judge and the re-judge under the write lock count an unmatched fi
   extension's, a host diagnostic and a code that does not declare it are counted);
 - it names a subject entity;
 - the write's plan creates that subject, or an entity under it: an id that is the subject's followed by `/`, the
-  scope path of ADR 0284.
+  scope path of ADR 0284;
+- the plan alters nothing the project held at the subject or under it: it sets, unsets, links, unlinks, appends,
+  removes, retitles or verifies no field or aspect of such an entity, deletes none and moves none in or out (either id
+  of a move). A delete's referrer it unlinks is altered too. An edit of an entity the plan creates alters nothing held.
 
 The plan creates what its `create` edits name, a typed one or an extension plan's, each at the id it has once the plan's
-later moves are made. A move, a rename and a delete create nothing; a delete and a create of one id in one write
-create it. A migration, the rule's other caller, has no plan and creates nothing: it counts every such finding.
+later moves are made, and alters what its other edits name, at their ids once the later moves are made
+(`PlannedChange::opens` reads both). A move, a rename and a delete create nothing; a delete and a create of one id in
+one write create it, and the delete alters what the project held there. A migration, the rule's other caller, has no
+plan and creates nothing: it counts every such finding.
 
-The finding of an edit that only changes or removes is counted as before: unsetting the decision that resolves an
-existing question, or deleting the one plan that holds a requirement, is refused. So is a write that creates an
-entity elsewhere: the creation must be the subject or under it.
+The exemption goes by cause as far as the kernel can tell it without the kinds: a finding is excused when the only
+thing the write did at or under its subject is create. The finding of an edit that only changes or removes is counted
+as before: unsetting the decision that resolves an existing question, or deleting the one plan that holds a
+requirement, is refused. So is that delete with a plan created under the same phase in the same write, and a held
+plan's requirements set or unset beside a new plan: the creation does not excuse what the alteration made. So is a
+write that creates an entity elsewhere: the creation must be the subject or under it.
 
 ## D3. Nothing else changes
 
@@ -115,11 +123,22 @@ The workflows follow:
   created entity out on purpose.
 - **Keying the exemption by the entity kind** (only a plan under a phase, say): it needs a kind in the declaration
   for a precision no case needs yet (Would reopen it).
+- **Excusing by position alone** (any creation at or under the subject, whatever else the write does there): a write
+  that deletes the plan holding a requirement and creates any entity under the phase would be accepted, the delete's
+  finding excused by the creation beside it.
+- **Excusing beside removals only** (counting the finding when the write deletes, unsets, unlinks or moves there,
+  not when it sets or appends): a set that replaces a plan's requirements drops one as surely as an unset, and a set
+  or an append that adds a requirement to the phase makes the same finding no creation settles.
 
 ## Limits
 
-"Under it" is wide: a write that creates a plan under a phase also excuses a new settled-later finding of another
-rule on that phase in the same write. `check` and every gate still report it.
+The exemption goes by what the write does at the subject, not by which rule the finding is of: a write that only
+creates under a phase (a plan, a task, a research) also excuses a new settled-later finding of another rule on that
+phase. `check` and every gate still report it.
+
+The other way, a write that alters anything the subject held is counted whole, even where the alteration could not
+have made the finding: retitling a phase in the write that creates its first plan is refused when that plan leaves a
+requirement in no plan. The two are written as two edits.
 
 ## Consequences
 
@@ -159,7 +178,7 @@ Each test fails when the decision it holds stops being true.
 | Decision | Tests |
 |---|---|
 | D1 | `specforge-protocol-types` `declaration::codes_round_trip_on_the_wire`, `specforge-extension-sdk` `declaration::a_code_entry_may_be_settled_later`, `specforge-diagnostics` `codebook::tests::settled_later_reads_the_owners_own_entry`, `specforge-registry` `build::namespaces::a_settled_later_code_reaches_the_code_book_and_no_e030` |
-| D2 | `specforge-ops` `authoring::planned::tests::a_change_opens_what_it_creates_and_every_entity_it_is_under`, `authoring::edit::declared::tests::a_created_entity_is_followed_through_a_later_move`; in `operations::settled_later`: `a_finding_on_an_entity_the_write_creates_adds_no_error`, `a_finding_on_an_entity_the_write_creates_something_under_adds_no_error`, `a_write_that_creates_nothing_there_still_adds_the_finding`, `only_the_owners_settled_later_code_is_exempt`, `the_re_judge_under_the_lock_exempts_it_too`, `a_migration_counts_it` |
+| D2 | `specforge-ops` `authoring::planned::tests::a_change_opens_what_it_creates_and_every_entity_it_is_under`, `authoring::planned::tests::a_change_that_alters_what_was_held_there_opens_nothing_there`, `authoring::edit::declared::tests::a_created_entity_is_followed_through_a_later_move`, `authoring::edit::declared::tests::an_entity_held_before_and_changed_is_altered_and_one_created_is_not`; in `operations::settled_later`: `a_finding_on_an_entity_the_write_creates_adds_no_error`, `a_finding_on_an_entity_the_write_creates_something_under_adds_no_error`, `a_write_that_creates_nothing_there_still_adds_the_finding`, `a_write_that_also_alters_what_the_subject_held_still_adds_the_finding`, `only_the_owners_settled_later_code_is_exempt`, `the_re_judge_under_the_lock_exempts_it_too`, `the_re_judge_under_the_lock_counts_it_when_the_write_altered_the_subject`, `a_migration_counts_it` |
 | D3 | `operations::settled_later::a_finding_on_an_entity_the_write_creates_adds_no_error` (the write lists the finding, and `check` reports it once written) |
 | `@gsd/core`'s side | in `gsd/core`: `declaration::the_settled_later_codes_are_the_rows_of_rules_md` (the four codes and `spec/rules.md`), `passes::cross_plan::tests::an_uncited_context_decision_is_e310_on_the_phase`; in `tests/cli`: `assets_shell::researchers::an_open_question_is_recorded_open_and_its_answer_resolves_it_later` (and the unset that is refused), `assets_shell::researchers::the_researcher_records_every_open_question_open`, `assets_shell::researchers::plan_phase_resolves_the_recorded_question_with_the_users_answer`, `assets_shell::researchers::quick_and_quick_batch_resolve_the_recorded_question_with_the_users_answer`, `assets_shell::planner_edit::the_planner_writes_a_phase_in_one_edit`, `assets_shell::planner_edit::a_plan_written_alone_is_written_and_reports_what_a_later_write_settles`, `assets_shell::planner_edit::a_phases_plans_written_one_at_a_time_are_each_accepted_and_the_last_settles_coverage` (and the delete that is refused), `cmd_quick::a_quick_plan_minted_without_must_haves_is_accepted_and_its_finding_reported_under_strict`, `prompts_gates::e301_e310_w309_a_half_planned_phase_refuses_execute_phase` |
 
@@ -167,3 +186,4 @@ Each test fails when the decision it holds stops being true.
 
 - A settled-later finding that must be excused only for some kinds of what a write creates.
 - A finding a later step settles on an entity the write neither creates nor holds anything new under.
+- A workflow that must alter what a subject holds and create under it in one write, and cannot split the two.

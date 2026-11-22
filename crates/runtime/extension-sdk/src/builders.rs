@@ -433,7 +433,8 @@ impl CodeBuilder {
         self
     }
     /// A finding of this code names a state a later step of the authoring settles (ADR 0385): a typed edit whose plan
-    /// creates the finding's subject, or an entity under it, adds no error by it (E080). Its severity does not change.
+    /// creates the finding's subject, or an entity under it, and alters nothing held there adds no error by it (E080).
+    /// Its severity does not change.
     pub fn settled_later(&mut self) -> &mut Self {
         self.0.settled_later = true;
         self

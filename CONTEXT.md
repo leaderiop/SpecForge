@@ -131,11 +131,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Added error**: an error the edited compile reports that the checked report has no diagnostic left to pair, by code,
   severity, file and message with its digits collapsed (ADR 0211), less a judged rule's finding (ADR 0297), a finding
   the write revealed by moving its entity's owner state (ADR 0363) and a **settled-later** finding on an entity the
-  write creates or creates something under (ADR 0385); the one rule behind E080 and a migration's refusal.
+  write creates or creates something under, altering nothing held there (ADR 0385); the one rule behind E080 and a
+  migration's refusal.
 - **Settled later**: a code whose finding names a state a later step of the authoring settles (an open question a
   later answer resolves, a phase's requirement the rest of its plans hold), declared by the extension that owns it
   (`CodeDescriptor.settled_later`, SDK `CodeBuilder::settled_later()`, ADR 0385). E080 excuses its finding only on a
-  write whose plan creates the finding's subject or an entity under it; its severity, `check` and every gate are
+  write whose plan creates the finding's subject or an entity under it and alters nothing the project held there (no
+  set, unset, link, unlink, delete or move at or under the subject); its severity, `check` and every gate are
   unchanged.
 - **Migration verdict**: whether a planned migration is kept, decided before anything is written: its hooks pass, and
   the edited compile of its planned texts adds no **added error** and has the graph the project has, less the steps' declared changes

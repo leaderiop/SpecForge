@@ -27,9 +27,9 @@ pub struct CodeDescriptor {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reported_while: Option<String>,
     /// A finding of this code names a state a later step of the authoring settles (2.3.0, ADR 0385): a typed edit
-    /// whose plan creates the finding's subject, or an entity under it, adds no error by it (E080), so a workflow may
-    /// create the entity before the step that settles it. Its severity does not change: `check`, `--strict` and every
-    /// gate read it. Serialized only when set.
+    /// whose plan creates the finding's subject, or an entity under it, and alters nothing held there adds no error by
+    /// it (E080), so a workflow may create the entity before the step that settles it. Its severity does not change:
+    /// `check`, `--strict` and every gate read it. Serialized only when set.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub settled_later: bool,
 }

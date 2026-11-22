@@ -187,7 +187,8 @@ impl Codebook {
     }
 
     /// Whether a later step of the authoring settles a finding of `code` that `extension` reports (ADR 0385): its own
-    /// catalog entry declares it. A first-party extension declares no `codes`, and another extension's entry is not
+    /// catalog entry declares it. E080 then excuses the finding on a write that creates its subject, or under it, and
+    /// alters nothing held there. A first-party extension declares no `codes`, and another extension's entry is not
     /// its own, so neither has one.
     pub fn settled_later(&self, extension: &str, code: &str) -> bool {
         self.owned_by(extension)

@@ -5,7 +5,7 @@ and [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md
 [ADR 0151](0151-a-spec-file-is-changed-by-a-typed-edit.md) (D3), [ADR 0167](0167-a-typed-edit-is-compared-with-the-checked-report.md)
 and [ADR 0211](0211-a-migration-is-judged-by-the-errors-it-adds-whatever-its-graph.md). No protocol change. Amended by [ADR 0302](0302-a-judged-finding-is-the-judged-evaluations-own-and-an-extensions-finding-is-paired-by-its-subject.md) (a judged finding is the evaluation's own) and [ADR 0303](0303-a-collectors-plan-is-judged-for-host-errors-only.md) (a collector's plan is judged for host errors only). D1 amended by [ADR 0363](0363-a-codes-findings-may-wait-for-its-owner-state-and-a-write-that-reveals-one-adds-no-error.md): a finding a write revealed, by moving its entity into the owner state its code waits for, is no error it adds either. D1 amended by
 [ADR 0385](0385-a-code-may-be-settled-later-and-a-write-that-creates-its-subject-adds-no-error-of-it.md): nor is a settled-later finding on an entity the write creates,
-or creates something under.
+or creates something under, when it alters nothing held there.
 
 ## Context
 

@@ -262,6 +262,7 @@ fn conclude(
         .moving(raw_moves.clone())
         .renewing(declared.whole().cloned())
         .creating(declared.created().cloned())
+        .altering(declared.altered().cloned())
         .keeping_ledger(
             project,
             LedgerChange {
