@@ -1,7 +1,9 @@
 //! The check pass `reports` (ADR 0388): what the facts a standard report's reader minted leave unmapped, one code per
 //! class, and the catalogue of those codes.
 
-use specforge_code_facts::{ItemKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN};
+use specforge_code_facts::{
+    ItemKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN, VULNERABILITY,
+};
 use specforge_extension_sdk::prelude::*;
 
 use crate::REPORT_KINDS;
@@ -9,7 +11,7 @@ use crate::REPORT_KINDS;
 /// For each report fact that is not pending: W104 when it names no `item` (a `coverage`; an `api_item` of a kind an
 /// item can have, not a variant, re-export, extern crate nor `other`, and not a crate root, which no item is; a
 /// `static_finding` naming no `package` either), then W105 for a `static_finding` whose rule or level is `unknown`,
-/// then W106 for a `dependency` with no `purl`.
+/// then W106 for a `dependency` with no `purl`, then W107 for a `vulnerability` whose severity is `unknown`.
 pub(crate) fn reports(input: &PassInput) -> Vec<PassDiagnostic> {
     input
         .entities
@@ -20,6 +22,7 @@ pub(crate) fn reports(input: &PassInput) -> Vec<PassDiagnostic> {
                 .into_iter()
                 .chain(unknown(fact))
                 .chain(purl_less(fact))
+                .chain(unrated(fact))
         })
         .collect()
 }
@@ -89,6 +92,22 @@ fn purl_less(fact: &PassEntity) -> Option<PassDiagnostic> {
     Some(PassDiagnostic::warning("W106", message).with_entity(&fact.id))
 }
 
+/// W107 when `fact` is a `vulnerability` whose severity reads `unknown`, naming its OSV id.
+fn unrated(fact: &PassEntity) -> Option<PassDiagnostic> {
+    if fact.kind != VULNERABILITY.kind
+        || fact.fields.get("severity").map(String::as_str) != Some(UNKNOWN)
+    {
+        return None;
+    }
+    let message = format!(
+        "the vulnerability '{}' has an unknown severity: its OSV record `{}` states no label and no CVSS v3 vector \
+         this reader rates",
+        fact.id,
+        fact.fields.get("osv_id").map_or("", String::as_str)
+    );
+    Some(PassDiagnostic::warning("W107", message).with_entity(&fact.id))
+}
+
 /// Whether `id` is a Rust crate root's `api:rust:<crate>`: a crate is no item.
 fn is_crate_root(id: &str) -> bool {
     id.strip_prefix("api:rust:")
@@ -126,6 +145,15 @@ pub(crate) fn catalogue(c: &mut ContributionsBuilder) {
              dropped, but no other report can be matched to it: an OSV scan or another BOM names a package by its \
              purl. Generate the BOM with an SBOM tool that writes a purl for every component (cargo-cyclonedx, \
              cyclonedx-npm), then collect it again.",
+        );
+    });
+    c.code("W107", |d| {
+        d.title("A vulnerability's severity is unknown").explanation(
+            "An OSV record of a vulnerability scan has no severity label (`database_specific.severity`) and no \
+             CVSS v3 vector this reader rates: its only severity entries are CVSS v4 or v2 vectors, or its v3 \
+             vector is malformed. The vulnerability is kept with severity `unknown`, never dropped and never given \
+             a guessed rating, so a gate on severity cannot pass it by mistake. Read the advisory by its OSV id \
+             (osv.dev, or the database its id names) and judge its severity there.",
         );
     });
 }

@@ -21,7 +21,9 @@
 //!   rule, level, message, file and line, and the `item` it is `found_in`, else the `package` (`found_in_package`);
 //!   `dependency` (scheme `dep`), one component of a CycloneDX BOM, `dep:<package id>/<purl>` or
 //!   `dep:<package id>/@<name@version>` with no purl, with its purl, name, version, scope and whether the project uses
-//!   it directly, and the project `package` the BOM describes (`dependency_of`).
+//!   it directly, and the project `package` the BOM describes (`dependency_of`); `vulnerability` (scheme `vuln`), one
+//!   OSV record of an osv-scanner report, `vuln:<package id>/<OSV id>`, with its OSV id, aliases, summary, affected
+//!   purls and versions and severity, and the project `package` it `affects`.
 //!
 //! Every kind is collector-written and none is scoped: a scheme reference names the fact whole. `@code/core` declares
 //! no collector: a pack collects, minting the facts with the linked `specforge-code-facts` library, so every pack
@@ -34,11 +36,12 @@
 //! (ADR 0329 D6, ADR 0347 D11) and a fact's own reference that answers nothing (E101, ADR 0346 D4). `refs` is sent
 //! the `test` and `test_run` facts, `proof` the facts of its four kinds (ADR 0353 D6). Its check pass `reports` is
 //! sent only the report facts, and reports an entry that names no item (W104), a finding whose rule or level its
-//! report states nowhere (W105) and a dependency with no purl (W106) (ADR 0388).
+//! report states nowhere (W105), a dependency with no purl (W106) and a vulnerability whose severity is unknown (W107)
+//! (ADR 0388).
 
 use specforge_code_facts::{
-    ApiKind, ItemKind, Level, Scheme, Scope, Visibility, API_ITEM, COVERAGE, DEPENDENCY,
-    STATIC_FINDING,
+    ApiKind, ItemKind, Level, Scheme, Scope, Severity, Visibility, API_ITEM, COVERAGE, DEPENDENCY,
+    STATIC_FINDING, VULNERABILITY,
 };
 use specforge_extension_sdk::prelude::*;
 
@@ -59,11 +62,12 @@ const PACKAGE_KIND: &str = "package";
 const KINDS: [&str; 4] = [TEST_KIND, RUN_KIND, ITEM_KIND, PACKAGE_KIND];
 /// The report kinds, the facts a standard report's reader mints (ADR 0388): the only kinds the `reports` pass is
 /// sent. They stay out of [`KINDS`], which `refs` and `proof` read.
-const REPORT_KINDS: [&str; 4] = [
+const REPORT_KINDS: [&str; 5] = [
     COVERAGE.kind,
     API_ITEM.kind,
     STATIC_FINDING.kind,
     DEPENDENCY.kind,
+    VULNERABILITY.kind,
 ];
 /// The schemes of a `test`'s id.
 const TEST_SCHEMES: [&str; 2] = [Scheme::Js.as_str(), Scheme::Rust.as_str()];
@@ -91,7 +95,7 @@ pub(crate) struct Reference {
 
 /// Every reference field `@code/core` declares with a target kind: the one table its declarations read for the
 /// target and the edge, and `refs` for what a mistyped reference should have named and whose an unheld one is.
-pub(crate) const REFERENCES: [Reference; 9] = [
+pub(crate) const REFERENCES: [Reference; 10] = [
     Reference {
         kind: ITEM_KIND,
         field: "package",
@@ -157,6 +161,13 @@ pub(crate) const REFERENCES: [Reference; 9] = [
         edge: "dependency_of",
         together: false,
     },
+    Reference {
+        kind: VULNERABILITY.kind,
+        field: "package",
+        target: PACKAGE_KIND,
+        edge: "affects",
+        together: false,
+    },
 ];
 
 /// The row of [`REFERENCES`] for the field `field` of `kind`.
@@ -184,11 +195,13 @@ const API_KINDS: Vocabulary = Vocabulary::new(&ApiKind::NAMES);
 const LEVELS: Vocabulary = Vocabulary::new(&Level::NAMES);
 /// A BOM component's scope: the library's `Scope` names, widest first.
 const SCOPES: Vocabulary = Vocabulary::new(&Scope::NAMES);
+/// A vulnerability's severity: the library's `Severity` names, highest first, `unknown` last.
+const SEVERITIES: Vocabulary = Vocabulary::new(&Severity::NAMES);
 
 #[specforge_extension_sdk::extension(
     name = "@code/core",
     version = "1.2.0",
-    description = "The neutral base of code facts: the test, test_run, item and package kinds the code packs collect, the report facts (coverage, api_item, static_finding, dependency) a standard report's reader mints, and the checks of the references a spec writes to them and of what a report leaves unmapped"
+    description = "The neutral base of code facts: the test, test_run, item and package kinds the code packs collect, the report facts (coverage, api_item, static_finding, dependency, vulnerability) a standard report's reader mints, and the checks of the references a spec writes to them and of what a report leaves unmapped"
 )]
 struct CodeCore;
 

@@ -105,7 +105,8 @@ fn item_and_package_reference_their_facts() {
             "api_of",
             "found_in",
             "found_in_package",
-            "dependency_of"
+            "dependency_of",
+            "affects"
         ]
     );
 }
@@ -183,7 +184,7 @@ fn it_catalogues_the_codes_it_reports() {
     let codes: Vec<String> = declaration().codes.into_iter().map(|c| c.code).collect();
     assert_eq!(
         codes,
-        ["E101", "W102", "W401", "I402", "W104", "W105", "W106"]
+        ["E101", "W102", "W401", "I402", "W104", "W105", "W106", "W107"]
     );
 }
 
@@ -656,6 +657,16 @@ fn its_passes_declare_the_facts_they_read() {
     };
     assert_eq!(facts("refs"), ["test", "test_run"]);
     assert_eq!(facts("proof"), ["item", "package", "test", "test_run"]);
+    assert_eq!(
+        facts("reports"),
+        [
+            "api_item",
+            "coverage",
+            "dependency",
+            "static_finding",
+            "vulnerability"
+        ]
+    );
 }
 
 #[test]

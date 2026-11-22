@@ -1,9 +1,11 @@
 //! The kinds of the facts a standard report's reader mints (ADR 0388), and their edges.
 
-use specforge_code_facts::{API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING};
+use specforge_code_facts::{API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, VULNERABILITY};
 use specforge_extension_sdk::prelude::*;
 
-use crate::{referencing, API_KINDS, ITEM_KIND, LEVELS, PACKAGE_KIND, SCOPES, VISIBILITY};
+use crate::{
+    referencing, API_KINDS, ITEM_KIND, LEVELS, PACKAGE_KIND, SCOPES, SEVERITIES, VISIBILITY,
+};
 
 /// Declares the report kinds and the edges their references draw.
 pub(crate) fn report_kinds(c: &mut ContributionsBuilder) {
@@ -180,6 +182,53 @@ pub(crate) fn report_kinds(c: &mut ContributionsBuilder) {
     c.edge("dependency_of", |e| {
         e.description("The project package a dependency is a component of the BOM of")
             .source_kind(DEPENDENCY.kind)
+            .target_kind(PACKAGE_KIND);
+    });
+    c.kind(VULNERABILITY.kind, |k| {
+        k.description(
+            "One OSV record of an osv-scanner report, written by a vulnerability pack's collector (ADR 0388): \
+             vuln:<package id>/<OSV id>, one fact per project package the scanned lockfile belongs to and OSV id, \
+             the versions of one dependency merged; severity critical, high, medium, low, else unknown (W107)",
+        )
+        .collected(&[VULNERABILITY.scheme])
+        .field("package", |f| {
+            referencing(f, VULNERABILITY.kind, "package")
+                .field_type(FieldType::Reference)
+                .description(
+                    "The project package the scanned lockfile belongs to: the one at its directory, else each \
+                     one under it",
+                );
+        })
+        .field("osv_id", |f| {
+            f.field_type(FieldType::String)
+                .description("The OSV record's id (GHSA-…, RUSTSEC-…)");
+        })
+        .field("aliases", |f| {
+            f.field_type(FieldType::StringList)
+                .description("The record's aliases (CVE ids and the like), sorted");
+        })
+        .field("summary", |f| {
+            f.field_type(FieldType::String)
+                .description("The record's one-line summary; absent when it states none");
+        })
+        .field("purl", |f| {
+            f.field_type(FieldType::StringList)
+                .description("The affected dependency's package URL at each affected version");
+        })
+        .field("version", |f| {
+            f.field_type(FieldType::StringList)
+                .description("The affected dependency's versions the lockfile pins");
+        })
+        .field("severity", |f| {
+            f.vocabulary(&SEVERITIES).description(
+                "The record's own severity label (MODERATE reads medium), else the rating of its highest CVSS v3 \
+                 base score, else unknown (W107); the highest of the records merged",
+            );
+        });
+    });
+    c.edge("affects", |e| {
+        e.description("The project package a vulnerability affects")
+            .source_kind(VULNERABILITY.kind)
             .target_kind(PACKAGE_KIND);
     });
 }

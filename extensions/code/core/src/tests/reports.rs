@@ -1,9 +1,9 @@
 //! The report facts' kinds, and the `reports` pass: a report entry that names no item (W104).
 
 use specforge_code_facts::{
-    api_facts, coverage_facts, dependency_facts, finding_facts, ApiEntry, ApiKind, Bom, Branch,
-    Component, CoverageFile, Function, ItemKind, Level, Owner, SarifResult, Scheme, Scope,
-    Visibility,
+    api_facts, coverage_facts, dependency_facts, finding_facts, vulnerability_facts, ApiEntry,
+    ApiKind, Bom, Branch, Component, CoverageFile, Function, ItemKind, Level, OsvPackage,
+    OsvRecord, OsvReport, OsvSource, Owner, SarifResult, Scheme, Scope, Severity, Visibility,
 };
 
 use super::*;
@@ -516,6 +516,130 @@ fn every_field_a_dependency_fact_is_minted_with_is_declared() {
     for fact in &minted {
         assert_eq!(fact.kind, "dependency");
         assert!(fact.fields.contains_key("direct"), "{fact:?}");
+        for name in fact.fields.keys() {
+            assert!(fields.contains(&name.as_str()), "{name} of {}", fact.id);
+        }
+    }
+}
+
+/// A `vulnerability` fact of `osv_id` in `pkg:cargo/demo`, of `severity`.
+fn vulnerability(osv_id: &str, severity: &str) -> PassEntity {
+    let mut fact = entity(&format!("vuln:pkg:cargo/demo/{osv_id}"), "vulnerability");
+    for (field, value) in [
+        ("package", "pkg:cargo/demo"),
+        ("osv_id", osv_id),
+        ("severity", severity),
+    ] {
+        fact.fields.insert(field.to_string(), value.to_string());
+    }
+    fact
+}
+
+#[test]
+fn a_vulnerability_of_unknown_severity_is_one_w107_naming_it() {
+    let found = reported(vec![vulnerability("RUSTSEC-2099-0002", "unknown")]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    let w107 = &found[0];
+    assert_eq!(
+        (w107.code.as_str(), w107.severity, w107.entity.as_deref()),
+        (
+            "W107",
+            PassSeverity::Warning,
+            Some("vuln:pkg:cargo/demo/RUSTSEC-2099-0002")
+        )
+    );
+    assert!(
+        w107.message
+            .contains("vuln:pkg:cargo/demo/RUSTSEC-2099-0002"),
+        "{}",
+        w107.message
+    );
+    assert!(
+        w107.message.contains("`RUSTSEC-2099-0002`"),
+        "{}",
+        w107.message
+    );
+    for severity in Severity::NAMES.iter().filter(|name| **name != "unknown") {
+        let rated = reported(vec![vulnerability("GHSA-x", severity)]);
+        assert!(rated.is_empty(), "{severity}: {rated:?}");
+    }
+}
+
+#[test]
+fn vulnerability_is_collected_and_affects_a_package() {
+    let declared = declaration();
+    let vulnerability = kind(&declared, "vulnerability");
+    assert_eq!(
+        (vulnerability.writer.as_deref(), &vulnerability.schemes[..]),
+        (Some("collector"), &strings(&["vuln"])[..])
+    );
+    let field = |name: &str| {
+        vulnerability
+            .fields
+            .iter()
+            .find(|f| f.name == name)
+            .unwrap()
+    };
+    let package = field("package");
+    assert_eq!(
+        (
+            package.field_type.as_str(),
+            package.target_kind.as_deref(),
+            package.edge.as_deref()
+        ),
+        ("reference", Some("package"), Some("affects"))
+    );
+    assert_eq!(field("severity").enum_values, strings(&Severity::NAMES));
+    for list in ["aliases", "purl", "version"] {
+        assert_eq!(field(list).field_type, "string_list", "{list}");
+    }
+    for text in ["osv_id", "summary"] {
+        assert_eq!(field(text).field_type, "string", "{text}");
+    }
+    let drawn = declared
+        .edges
+        .iter()
+        .find(|e| e.label == "affects")
+        .unwrap();
+    assert_eq!(
+        (drawn.source_kind.as_deref(), drawn.target_kind.as_deref()),
+        (Some("vulnerability"), Some("package"))
+    );
+}
+
+#[test]
+fn every_field_a_vulnerability_fact_is_minted_with_is_declared() {
+    let record = OsvRecord {
+        id: "GHSA-x".to_string(),
+        aliases: vec!["CVE-1".to_string()],
+        summary: Some("a flaw".to_string()),
+        label: Some("HIGH".to_string()),
+        scores: Vec::new(),
+        purl: Some("pkg:cargo/x".to_string()),
+    };
+    let report = OsvReport {
+        sources: vec![OsvSource {
+            lockfile: "Cargo.lock".to_string(),
+            packages: vec![OsvPackage {
+                name: "x".to_string(),
+                version: "1.0.0".to_string(),
+                ecosystem: "crates.io".to_string(),
+                records: vec![record],
+            }],
+        }],
+    };
+    let served = [Fact::new("package", "pkg:cargo/demo").field("path", "")];
+    let minted = vulnerability_facts(&report, &served).expect("the lockfile is served");
+    assert_eq!(minted.len(), 1);
+    let declared = declaration();
+    let fields: Vec<&str> = kind(&declared, "vulnerability")
+        .fields
+        .iter()
+        .map(|f| f.name.as_str())
+        .collect();
+    for fact in &minted {
+        assert_eq!(fact.kind, "vulnerability");
+        assert!(fact.fields.contains_key("summary"), "{fact:?}");
         for name in fact.fields.keys() {
             assert!(fields.contains(&name.as_str()), "{name} of {}", fact.id);
         }
