@@ -1,9 +1,9 @@
 //! The kinds of the facts a standard report's reader mints (ADR 0388), and their edges.
 
-use specforge_code_facts::{API_ITEM, COVERAGE};
+use specforge_code_facts::{API_ITEM, COVERAGE, STATIC_FINDING};
 use specforge_extension_sdk::prelude::*;
 
-use crate::{referencing, API_KINDS, ITEM_KIND, VISIBILITY};
+use crate::{referencing, API_KINDS, ITEM_KIND, LEVELS, PACKAGE_KIND, VISIBILITY};
 
 /// Declares the report kinds and the edges their references draw.
 pub(crate) fn report_kinds(c: &mut ContributionsBuilder) {
@@ -83,5 +83,61 @@ pub(crate) fn report_kinds(c: &mut ContributionsBuilder) {
         e.description("The item an API snapshot's entry is the API of")
             .source_kind(API_ITEM.kind)
             .target_kind(ITEM_KIND);
+    });
+    c.kind(STATIC_FINDING.kind, |k| {
+        k.description(
+            "One result of a SARIF run (a lint or static analysis finding), written by a lint pack's collector \
+             (ADR 0388): sarif:<tool>/<rule>#<file>:<line>, #<file> with no line, neither with no location, ~2 on \
+             a repeat in document order",
+        )
+        .collected(&[STATIC_FINDING.scheme])
+        .field("tool", |f| {
+            f.field_type(FieldType::String)
+                .description("The run's tool (tool.driver.name)");
+        })
+        .field("rule", |f| {
+            f.field_type(FieldType::String)
+                .description("The rule id the result states; unknown when it states none (W105)");
+        })
+        .field("level", |f| {
+            f.vocabulary(&LEVELS).description(
+                "The level the result or its rule's defaultConfiguration states; unknown when neither does (W105), \
+                 never SARIF's own warning default",
+            );
+        })
+        .field("message", |f| {
+            f.field_type(FieldType::String)
+                .description("The result's message.text");
+        })
+        .field("file", |f| {
+            f.field_type(FieldType::String)
+                .description("The file of its first location, project-relative, with / separators");
+        })
+        .field("line", |f| {
+            f.field_type(FieldType::Integer)
+                .description("The 1-based start line of its first location");
+        })
+        .field("item", |f| {
+            referencing(f, STATIC_FINDING.kind, "item")
+                .field_type(FieldType::Reference)
+                .description("The innermost item holding its line; absent when no collected item does");
+        })
+        .field("package", |f| {
+            referencing(f, STATIC_FINDING.kind, "package")
+                .field_type(FieldType::Reference)
+                .description(
+                    "The package holding its file, when no item holds its line; absent with neither (W104)",
+                );
+        });
+    });
+    c.edge("found_in", |e| {
+        e.description("The item a static finding lies in")
+            .source_kind(STATIC_FINDING.kind)
+            .target_kind(ITEM_KIND);
+    });
+    c.edge("found_in_package", |e| {
+        e.description("The package a static finding lies in, when no item holds it")
+            .source_kind(STATIC_FINDING.kind)
+            .target_kind(PACKAGE_KIND);
     });
 }

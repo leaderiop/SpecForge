@@ -1,8 +1,8 @@
 //! The report facts' kinds, and the `reports` pass: a report entry that names no item (W104).
 
 use specforge_code_facts::{
-    api_facts, coverage_facts, ApiEntry, ApiKind, Branch, CoverageFile, Function, ItemKind, Owner,
-    Scheme, Visibility,
+    api_facts, coverage_facts, finding_facts, ApiEntry, ApiKind, Branch, CoverageFile, Function,
+    ItemKind, Level, Owner, SarifResult, Scheme, Visibility,
 };
 
 use super::*;
@@ -265,6 +265,146 @@ fn every_field_an_api_item_fact_is_minted_with_is_declared() {
     for fact in &minted {
         assert_eq!(fact.kind, "api_item");
         assert!(fact.fields.contains_key("item"), "{fact:?}");
+        for name in fact.fields.keys() {
+            assert!(fields.contains(&name.as_str()), "{name} of {}", fact.id);
+        }
+    }
+}
+
+/// A `static_finding` fact stating `rule` and `level`, citing `item` or `package` when given.
+fn finding(rule: &str, level: &str, item: Option<&str>, package: Option<&str>) -> PassEntity {
+    let mut fact = entity(
+        &format!("sarif:clippy/{rule}#src%2Flib.rs:3"),
+        "static_finding",
+    );
+    let stated = [
+        ("tool", Some("clippy")),
+        ("rule", Some(rule)),
+        ("level", Some(level)),
+        ("item", item),
+        ("package", package),
+    ];
+    for (name, value) in stated {
+        if let Some(value) = value {
+            fact.fields.insert(name.to_string(), value.to_string());
+        }
+    }
+    fact
+}
+
+#[test]
+fn a_finding_with_an_unknown_rule_or_level_is_one_w105_saying_which() {
+    let package = Some("pkg:cargo/demo");
+    for (rule, level, told) in [
+        ("unknown", "warning", "rule"),
+        ("r", "unknown", "level"),
+        ("unknown", "unknown", "rule and level"),
+    ] {
+        let found = reported(vec![finding(rule, level, None, package)]);
+        assert_eq!(found.len(), 1, "{found:?}");
+        let w105 = &found[0];
+        assert_eq!(
+            (w105.code.as_str(), w105.severity, w105.entity.is_some()),
+            ("W105", PassSeverity::Warning, true)
+        );
+        assert!(
+            w105.message.contains(&format!("states no {told}:")),
+            "{}",
+            w105.message
+        );
+    }
+    let known = reported(vec![finding("r", "none", None, package)]);
+    assert!(known.is_empty(), "{known:?}");
+}
+
+#[test]
+fn a_finding_citing_neither_item_nor_package_is_w104() {
+    let found = reported(vec![finding("r", "warning", None, None)]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].code, "W104");
+    assert!(
+        found[0].message.contains("sarif:clippy/r"),
+        "{}",
+        found[0].message
+    );
+    let cited = reported(vec![
+        finding("r", "warning", None, Some("pkg:cargo/demo")),
+        finding("r", "warning", Some("rust:demo::add"), None),
+    ]);
+    assert!(cited.is_empty(), "{cited:?}");
+    let both = reported(vec![finding("unknown", "warning", None, None)]);
+    let codes: Vec<&str> = both.iter().map(|d| d.code.as_str()).collect();
+    assert_eq!(codes, ["W104", "W105"]);
+}
+
+#[test]
+fn static_finding_is_collected_and_found_in_an_item_or_a_package() {
+    let declared = declaration();
+    assert!(declared.entities.iter().all(|k| k.name != "finding"));
+    let finding = kind(&declared, "static_finding");
+    assert_eq!(
+        (finding.writer.as_deref(), &finding.schemes[..]),
+        (Some("collector"), &strings(&["sarif"])[..])
+    );
+    let field = |name: &str| finding.fields.iter().find(|f| f.name == name).unwrap();
+    for (name, target, edge) in [
+        ("item", "item", "found_in"),
+        ("package", "package", "found_in_package"),
+    ] {
+        let reference = field(name);
+        assert_eq!(
+            (
+                reference.field_type.as_str(),
+                reference.target_kind.as_deref(),
+                reference.edge.as_deref()
+            ),
+            ("reference", Some(target), Some(edge))
+        );
+        let drawn = declared.edges.iter().find(|e| e.label == edge).unwrap();
+        assert_eq!(
+            (drawn.source_kind.as_deref(), drawn.target_kind.as_deref()),
+            (Some("static_finding"), Some(target))
+        );
+    }
+    assert_eq!(field("level").enum_values, strings(&Level::NAMES));
+    assert_eq!(field("line").field_type, "integer");
+    for text in ["tool", "rule", "message", "file"] {
+        assert_eq!(field(text).field_type, "string", "{text}");
+    }
+}
+
+#[test]
+fn every_field_a_static_finding_fact_is_minted_with_is_declared() {
+    let served = [
+        Fact::new("item", "rust:demo::add").at(FactLocation {
+            file: "src/lib.rs".to_string(),
+            start_line: 1,
+            start_col: 1,
+            end_line: 5,
+            end_col: 2,
+        }),
+        Fact::new("package", "pkg:cargo/demo").field("path", ""),
+    ];
+    let result = |line| SarifResult {
+        tool: "clippy".to_string(),
+        rule: "clippy::unwrap_used".to_string(),
+        level: Level::Warning,
+        message: "used `unwrap()`".to_string(),
+        file: Some("src/lib.rs".to_string()),
+        line: Some(line),
+        end_line: None,
+    };
+    let minted = finding_facts(&[result(2), result(9)], &served);
+    assert!(minted[0].fields.contains_key("item"), "{minted:?}");
+    assert!(minted[1].fields.contains_key("package"), "{minted:?}");
+    let declared = declaration();
+    let fields: Vec<&str> = kind(&declared, "static_finding")
+        .fields
+        .iter()
+        .map(|f| f.name.as_str())
+        .collect();
+    for fact in &minted {
+        assert_eq!(fact.kind, "static_finding");
         for name in fact.fields.keys() {
             assert!(fields.contains(&name.as_str()), "{name} of {}", fact.id);
         }
