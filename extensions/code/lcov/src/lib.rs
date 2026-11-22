@@ -15,7 +15,8 @@ use std::collections::HashMap;
 use specforge_code_facts::{relative, Branch, CoverageFile, Function};
 
 /// The file sections of the LCOV tracefile `text`, in document order, each `SF:` path made project-relative against
-/// the project root `cwd`. Read: `SF`, `FN`, `FNDA`, `DA`, `BRDA` and `end_of_record`; ignored: `TN`, `VER`, the file
+/// the project root `cwd`. Read: `SF`, `FN`, `FNDA`, the LCOV 2.2 group form `FNL`/`FNA`, `DA`, `BRDA` and
+/// `end_of_record`; ignored: `TN`, `VER`, the file
 /// totals (`FNF`, `FNH`, `LF`, `LH`, `BRF`, `BRH`), `MCDC`/`MCF`/`MCH`, `#` comments, blank lines and any other
 /// all-capitals `KEY:`. An error names the 1-based line: a line that is no `KEY:value`, a record outside a file
 /// section, a malformed number, an `SF` outside the project, and a text ending inside a file section, which must not
@@ -56,7 +57,7 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
             open = Some(Section::new(file, at));
             continue;
         }
-        if !matches!(key, "FN" | "FNDA" | "DA" | "BRDA") {
+        if !matches!(key, "FN" | "FNDA" | "FNL" | "FNA" | "DA" | "BRDA") {
             continue;
         }
         let section = open.as_mut().ok_or_else(|| {
@@ -75,12 +76,15 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
     }
 }
 
-/// An open file section: what it has read so far, the line its `SF` was on, and its functions by name.
+/// An open file section: what it has read so far, the line its `SF` was on, its functions by name and the start lines
+/// of its function groups.
 struct Section {
     file: CoverageFile,
     opened: usize,
     /// Name → the index in `file.functions` of the first function of that name.
     named: HashMap<String, usize>,
+    /// `FNL` index → the group's start line.
+    groups: HashMap<String, usize>,
 }
 
 impl Section {
@@ -92,6 +96,7 @@ impl Section {
             },
             opened,
             named: HashMap::new(),
+            groups: HashMap::new(),
         }
     }
 
@@ -123,6 +128,34 @@ impl Section {
                 if let Some(function) = self.file.functions.get_mut(index) {
                     function.hits = function.hits.saturating_add(hits);
                 }
+                Ok(())
+            }
+            // FNL:<index>,<start line>[,<end line>]: a function group (LCOV 2.2), its aliases named by FNA.
+            "FNL" => {
+                let (index, lines) = value.split_once(',').ok_or("has no start line")?;
+                let (start, end) = match lines.split_once(',') {
+                    Some((start, end)) => (start, Some(end)),
+                    None => (lines, None),
+                };
+                let start = number(start)?;
+                end.map(number).transpose()?;
+                self.groups.insert(index.trim().to_string(), start);
+                Ok(())
+            }
+            // FNA:<index>,<hits>,<name>: one alias of a group, a function at its start line (0 with no FNL).
+            "FNA" => {
+                let mut fields = value.splitn(3, ',');
+                let index = fields.next().unwrap_or_default().trim();
+                let hits = count(fields.next().ok_or("has no hit count")?)?;
+                let name = fields
+                    .next()
+                    .filter(|name| !name.is_empty())
+                    .ok_or("has no name")?;
+                self.file.functions.push(Function {
+                    line: self.groups.get(index).copied().unwrap_or(0),
+                    name: name.to_string(),
+                    hits,
+                });
                 Ok(())
             }
             // DA:<line>,<hits>[,<checksum>]

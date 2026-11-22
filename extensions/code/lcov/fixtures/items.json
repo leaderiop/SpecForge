@@ -20,5 +20,21 @@
    "fields": {"kind": ["fn"], "package": "pkg:cargo/demo", "file": "src/lib.rs", "visibility": "public"},
    "at": [{"file": "src/lib.rs", "start_line": 27, "start_col": 1, "end_line": 34, "end_col": 2}]},
   {"kind": "package", "id": "pkg:cargo/demo",
-   "fields": {"name": "demo", "version": "0.1.0", "path": ""}}
+   "fields": {"name": "demo", "version": "0.1.0", "path": ""}},
+  {"kind": "item", "id": "js:board/src/board.js::createBoard",
+   "fields": {"kind": ["function"], "package": "pkg:npm/board", "file": "src/board.js", "visibility": "public",
+              "attrs": ["export"]},
+   "at": [{"file": "src/board.js", "start_line": 2, "start_col": 8, "end_line": 8, "end_col": 2}]},
+  {"kind": "item", "id": "js:board/src/board.js::Board",
+   "fields": {"kind": ["class"], "package": "pkg:npm/board", "file": "src/board.js", "visibility": "public",
+              "attrs": ["export"]},
+   "at": [{"file": "src/board.js", "start_line": 10, "start_col": 8, "end_line": 18, "end_col": 2}]},
+  {"kind": "item", "id": "js:board/src/board.js::Board.constructor",
+   "fields": {"kind": ["method"], "package": "pkg:npm/board", "file": "src/board.js", "visibility": "public"},
+   "at": [{"file": "src/board.js", "start_line": 11, "start_col": 3, "end_line": 13, "end_col": 4}]},
+  {"kind": "item", "id": "js:board/src/board.js::Board.add",
+   "fields": {"kind": ["method"], "package": "pkg:npm/board", "file": "src/board.js", "visibility": "public"},
+   "at": [{"file": "src/board.js", "start_line": 14, "start_col": 3, "end_line": 17, "end_col": 4}]},
+  {"kind": "package", "id": "pkg:npm/board",
+   "fields": {"name": "board", "version": "1.0.0", "path": ""}}
 ]

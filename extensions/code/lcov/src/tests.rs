@@ -5,6 +5,10 @@ use super::*;
 
 /// `cargo llvm-cov --lcov` form, hand-written to llvm-cov's `CoverageExporterLcov`: crate `demo` at `/project`.
 const LLVM_COV: &str = include_str!("../fixtures/llvm-cov.info");
+/// c8 (istanbul lcovonly) form, hand-written: relative `SF`, package `board` at `/project`.
+const C8: &str = include_str!("../fixtures/c8.info");
+/// geninfo(1) LCOV 2.2 form, hand-written: `llvm-cov.info`'s counts with `FNL`/`FNA` groups, `TN`, `VER`, `#`.
+const LCOV2: &str = include_str!("../fixtures/lcov2.info");
 /// The served `item` and `package` facts a coverage collector receives, as JSON.
 const ITEMS: &str = include_str!("../fixtures/items.json");
 
@@ -51,6 +55,116 @@ fn an_llvm_cov_report_reads_every_record() {
             },
         ]
     );
+}
+
+#[test]
+fn a_c8_report_mints_coverage_citing_its_js_items() {
+    let files = read(C8, "/project").expect("the report reads");
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].file, "src/board.js");
+    let facts = coverage_facts(&files, &served());
+    assert!(facts
+        .iter()
+        .any(|f| f.id == "cov:js:board/src/board.js::createBoard"));
+    insta::assert_json_snapshot!("c8", facts);
+}
+
+#[test]
+fn an_lcov2_report_reads_the_counts_of_its_fn_twin() {
+    let files = read(LCOV2, "/project").expect("the report reads");
+    let groups: Vec<(usize, &str, u64)> = files[0]
+        .functions
+        .iter()
+        .map(|f| (f.line, f.name.as_str(), f.hits))
+        .collect();
+    assert_eq!(
+        groups,
+        [
+            (3, "demo::add", 4),
+            (12, "<demo::Board>::len", 2),
+            (22, "demo::tests::adds", 1),
+            (27, "demo::helper::<u8>", 3),
+            (27, "demo::helper::<(u8, u16)>", 0),
+        ]
+    );
+    let facts = coverage_facts(&files, &served());
+    let twin = coverage_facts(
+        &read(LLVM_COV, "/project").expect("the twin reads"),
+        &served(),
+    );
+    assert_eq!(facts, twin);
+    insta::assert_json_snapshot!("lcov2", facts);
+}
+
+#[test]
+fn an_fna_with_no_fnl_and_an_fnda_with_no_fn_are_kept_at_line_0() {
+    let text = "SF:src/a.rs\nFNA:7,1,lost\nFNDA:2,orphan\nFN:4,late\nFNDA:1,late\nend_of_record\n";
+    let files = read(text, "/project").expect("the report reads");
+    let functions: Vec<(usize, &str, u64)> = files[0]
+        .functions
+        .iter()
+        .map(|f| (f.line, f.name.as_str(), f.hits))
+        .collect();
+    assert_eq!(
+        functions,
+        [(0, "lost", 1), (0, "orphan", 2), (4, "late", 1)]
+    );
+}
+
+#[test]
+fn a_bad_or_outside_report_is_an_error_naming_its_line_or_path() {
+    // (report, what the error names)
+    let bad: [(&str, &str); 14] = [
+        ("garbage", "line 1:"),
+        ("TN:\nDA:1,1\n", "line 2:"),
+        ("SF:src/a.rs\nDA:x,1\nend_of_record\n", "line 2:"),
+        ("SF:src/a.rs\nBRDA:3,0,0\nend_of_record\n", "line 2:"),
+        ("SF:src/a.rs\nDA:1,1\n", "line 1:"),
+        ("SF:/elsewhere/a.rs\nend_of_record\n", "/elsewhere/a.rs"),
+        ("SF:../../etc/passwd\nend_of_record\n", "../../etc/passwd"),
+        ("SF:src/a.rs\nSF:src/b.rs\nend_of_record\n", "line 2:"),
+        ("end_of_record\n", "line 1:"),
+        ("SF:src/a.rs\nFN:x,add\nend_of_record\n", "line 2:"),
+        ("SF:src/a.rs\nFNDA:1\nend_of_record\n", "line 2:"),
+        ("SF:src/a.rs\n\nFNA:0,1\nend_of_record\n", "line 3:"),
+        ("SF:src/a.rs\nDA:1,-1\nend_of_record\n", "line 2:"),
+        (
+            "SF:src/a.rs\nDA:1,18446744073709551616\nend_of_record\n",
+            "line 2:",
+        ),
+    ];
+    for (text, named) in bad {
+        match read(text, "/project") {
+            Err(error) => assert!(error.contains(named), "{text:?}: {error}"),
+            Ok(files) => panic!("{text:?} read as {files:?}"),
+        }
+    }
+    assert!(read("lower:case", "/project").is_err());
+}
+
+#[test]
+fn crlf_line_endings_read_like_lf() {
+    let crlf = LLVM_COV.replace('\n', "\r\n");
+    assert_eq!(read(&crlf, "/project"), read(LLVM_COV, "/project"));
+}
+
+#[test]
+fn a_huge_report_reads_in_linear_time_and_keeps_every_count_exactly() {
+    let mut text = String::from("SF:src/a.rs\n");
+    for n in 1..=50_000 {
+        text.push_str(&format!("FN:{n},f{n}\n"));
+    }
+    for n in 1..=50_000 {
+        text.push_str(&format!("FNDA:{n},f{n}\n"));
+    }
+    text.push_str("DA:1,18446744073709551615\nend_of_record\n");
+    let started = std::time::Instant::now();
+    let files = read(&text, "/project").expect("the report reads");
+    // Linear pairing reads it in milliseconds; an FNDA scan over the FN list takes minutes.
+    assert!(started.elapsed().as_secs() < 5, "{:?}", started.elapsed());
+    assert_eq!(files[0].functions.len(), 50_000);
+    assert_eq!(files[0].functions[49_999].hits, 50_000);
+    assert_eq!(files[0].lines, [(1, u64::MAX)]);
 }
 
 #[test]

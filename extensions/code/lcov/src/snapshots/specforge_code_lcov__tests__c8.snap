@@ -1,0 +1,61 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "coverage",
+    "id": "cov:@src%2Fboard.js",
+    "fields": {
+      "branches_found": 0,
+      "branches_hit": 0,
+      "file": "src/board.js",
+      "functions_found": 0,
+      "functions_hit": 0,
+      "lines_found": 1,
+      "lines_hit": 1
+    }
+  },
+  {
+    "kind": "coverage",
+    "id": "cov:js:board/src/board.js::Board.add",
+    "fields": {
+      "branches_found": 0,
+      "branches_hit": 0,
+      "file": "src/board.js",
+      "functions_found": 1,
+      "functions_hit": 0,
+      "item": "js:board/src/board.js::Board.add",
+      "lines_found": 2,
+      "lines_hit": 0
+    }
+  },
+  {
+    "kind": "coverage",
+    "id": "cov:js:board/src/board.js::Board.constructor",
+    "fields": {
+      "branches_found": 0,
+      "branches_hit": 0,
+      "file": "src/board.js",
+      "functions_found": 1,
+      "functions_hit": 1,
+      "item": "js:board/src/board.js::Board.constructor",
+      "lines_found": 1,
+      "lines_hit": 1
+    }
+  },
+  {
+    "kind": "coverage",
+    "id": "cov:js:board/src/board.js::createBoard",
+    "fields": {
+      "branches_found": 2,
+      "branches_hit": 2,
+      "file": "src/board.js",
+      "functions_found": 1,
+      "functions_hit": 1,
+      "item": "js:board/src/board.js::createBoard",
+      "lines_found": 4,
+      "lines_hit": 4
+    }
+  }
+]
