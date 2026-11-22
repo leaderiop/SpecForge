@@ -19,12 +19,18 @@ fn graph(done: usize, plans: &[(&str, &str)]) -> CommandGraph {
         .into(),
         ..GraphNode::default()
     }];
-    let names = ["scaffold", "persistence", "views", "polish"];
-    for (i, name) in names.iter().enumerate() {
+    let names = [
+        ("scaffold", "Scaffold"),
+        ("persistence", "Saved tasks"),
+        ("views", "Board views"),
+        ("polish", "Polish"),
+    ];
+    for (i, (name, title)) in names.iter().enumerate() {
         let (status, counts) = plans.get(i).copied().unwrap_or(("not_started", "0/0"));
         nodes.push(GraphNode {
             id: format!("v1.0/0{}", i + 1),
             kind: "phase".into(),
+            title: Some((*title).into()),
             fields: [
                 ("slug".to_string(), json!(name)),
                 (
@@ -56,11 +62,11 @@ fn the_state_segment_reads_the_graph() {
             s.phase_num.as_str(),
             s.phase_total.as_str()
         ),
-        ("v1.0", "persistence", "executing", Some(25.0), "1", "4")
+        ("v1.0", "Saved tasks", "executing", Some(25.0), "1", "4")
     );
     assert_eq!(
         format_full(&s),
-        "v1.0 Taskboard [██░░░░░░░░] 25% · executing · persistence (1/4)"
+        "v1.0 Taskboard [██░░░░░░░░] 25% · executing · Saved tasks (1/4)"
     );
     assert_eq!(format_compact(&s), "v1.0 · P1/4 · executing");
     // every phase complete: the milestone is done and no phase is named
@@ -90,7 +96,7 @@ fn the_line_names_the_workstream_and_the_last_command() {
     let mut o = opts("end", false, false);
     let out = plain(&statusline(&f, &o).statusline.expect("a line"));
     assert!(
-        out.contains("persistence (1/4) · ws billing") && !out.contains("last:"),
+        out.contains("Saved tasks (1/4) · ws billing") && !out.contains("last:"),
         "{out}"
     );
     o.last_command = true;

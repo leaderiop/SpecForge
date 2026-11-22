@@ -150,14 +150,23 @@ struct Named {
     slug: Value,
 }
 
+/// Refused, on `--add` as on `--edit`: a name of more than one line (a carriage return as a line feed), and one with no
+/// ASCII letter or digit, whose slug, the phase's directory and branch word, would be empty.
 fn named(name: &str) -> Result<Named, String> {
     let name = name.trim();
-    if name.contains('\n') {
+    if name.contains(['\n', '\r']) {
         return Err("a phase's name is one line: it is the phase's title".into());
+    }
+    let slug = slug(name);
+    if slug.is_empty() {
+        return Err(format!(
+            "a phase's name holds an ASCII letter or digit: '{name}' gives no slug, the word that names the phase's \
+             directory and branch"
+        ));
     }
     Ok(Named {
         title: name.to_string(),
-        slug: json!(slug(name)),
+        slug: json!(slug),
     })
 }
 
@@ -193,7 +202,12 @@ fn create(
     Ok(answer(
         call,
         json!({ "wrote": [id], "phase": number.name() }),
-        format!("phase {} \"{name}\" added to {}\n", number.name(), ms.id),
+        format!(
+            "phase {} \"{}\" added to {}\n",
+            number.name(),
+            named.title,
+            ms.id
+        ),
         Some(&plan),
     ))
 }

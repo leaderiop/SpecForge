@@ -49,19 +49,19 @@
     "",
     "Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints). The routing facts below are not in it, they come from the graph: `state_exists` is `milestone_version` non-null (the project state is computed); `roadmap_exists` is `phases` non-empty; `project_exists` and `planning_exists` are `[ -n \"$(specforge export --kinds project --pick '.nodes[].id')\" ]`; `requirements_exists` is the same with `--kinds requirement`; `init_incomplete` is a project without a roadmap or without requirements; `has_interrupted_agent` is false (this extension keeps no agent registry).",
     "",
+    "In a phase's label, `[X]` and `[N]` are the phase's number, the last segment of its `id`, and `[Name]` and `[Phase name]`",
+    "are its `title`, read from its node (`specforge query \"$MILESTONE/${N}\" --depth 0 --pick '.nodes[0].title'`, `N` its",
+    "number): a phase's `name` in `phases` is its slug read as words, never a label's name.",
+    "",
     "**If `init_incomplete` is true (#4040 — interrupted bootstrap):** the spec exists but initialization never finished — the `requirement` entities, the `milestone` and `phase` entities or the project were never created. This is NOT a state-reconstruction case (the project state is computed). Route to initialization recovery: resume `$gsd-new-project`, which continues from the first missing entity and keeps the existing `project` entity and any already-created ones. Do not proceed to load_state.",
     "",
     "**If `state_exists` is true:** Proceed to load_state",
     "**If `state_exists` is false but `roadmap_exists` or `project_exists` is true (and `init_incomplete` is false):** Offer to reconstruct STATE.md",
     "**If `planning_exists` is false:** This is a new project - route to $gsd-new-project",
     "</step>",
-    "",
-    "<step name=\"load_state\">",
-    "",
-    "Read and parse STATE.md, then PROJECT.md:",
     ""
   ],
-  "bytes": 29040,
+  "bytes": 29367,
   "end": [
     "",
     "</process>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 642,
+  "lines": 646,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b7fa6fdd043c222e5601d4331f18e136383b02248a4cdab8ccd593058d9f0695",
+    "digest": "sha256:39819be3e42d389457cb22c45111164e4fea3817a380de08ceb2918575063424",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "b7fa6fdd043c222e5601d4331f18e136383b02248a4cdab8ccd593058d9f0695"
+  "sha256": "39819be3e42d389457cb22c45111164e4fea3817a380de08ceb2918575063424"
 }

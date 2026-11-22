@@ -1,6 +1,6 @@
 //! The roadmap pass: `gsd/E101`, `gsd/E102`, `gsd/W103`, `gsd/W104`, `gsd/E108`, `gsd/W109` and `gsd/E206` over the
 //! project, requirements, phases and their references. Pure functions over the pass input; the plan half of E102 is
-//! `plans` and E106 is a gate guard (r39).
+//! `plans` and E106 is a gate guard.
 //!
 //! Also ports gsd-core bin/lib modules: gap-checker.cjs, roadmap-parser.cjs, roadmap-upgrade.cjs.
 //!

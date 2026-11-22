@@ -522,6 +522,35 @@ fn a_criterion_with_a_control_character_or_an_empty_name_is_refused() {
     }
 }
 
+/// A name is one line and gives a slug, on `--add`, `--insert` and `--backlog` as on `--edit`: a carriage return is a
+/// line break, and a name with no ASCII letter or digit gives no slug, the phase's directory and branch word. An added
+/// phase's message prints its name as it is stored, trimmed.
+#[test]
+fn a_name_of_two_lines_or_without_a_slug_is_refused_and_one_is_printed_as_stored() {
+    let p = twin();
+    let before = bytes(&p);
+    for (args, words) in [
+        (vec!["--edit", "02", "--name", "Two\rlines"], "(U+000D)"),
+        (vec!["--edit", "02", "--name", "日本語"], "gives no slug"),
+        (vec!["--name", "—?!"], "gives no slug"),
+        (vec!["--insert", "02", "--name", "…"], "gives no slug"),
+        (vec!["--backlog", "--name", "¿?"], "gives no slug"),
+    ] {
+        let run = gsd(&p, "phase", &args);
+        assert_ne!(run.code, 0, "{args:?}: {}", run.all());
+        assert!(run.all().contains(words), "{args:?}: {}", run.all());
+        unchanged(&p, &before);
+    }
+    let run = gsd(&p, "phase", &["--name", "  Sharing  "]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(
+        run.stdout.contains("phase 04 \"Sharing\" added to v1.0"),
+        "{}",
+        run.all()
+    );
+    assert_eq!(p.title_of("v1.0/04"), "Sharing");
+}
+
 /// `backlogged()` with a second milestone `v1.1` that holds phase `01` (or nothing, when `empty`).
 fn two_milestones(empty: bool) -> Project {
     let p = backlogged();

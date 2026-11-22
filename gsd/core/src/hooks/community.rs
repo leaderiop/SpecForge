@@ -201,17 +201,10 @@ fn progress_line(graph: &CommandGraph) -> Option<String> {
     if let Some(p) = seg.percent {
         line.push_str(&format!(" ({p}%)"));
     }
-    if let Ok(report) = reports::progress(graph)
-        && let Some(open) = report["phases"]
-            .as_array()
-            .and_then(|ps| ps.iter().find(|p| p["status"] != "Complete"))
-    {
+    if let Some(open) = reports::open_phase(graph) {
         line.push_str(&format!(
             "; phase {} {}: {} plan(s), {} summary(ies)",
-            open["number"].as_str().unwrap_or_default(),
-            open["name"].as_str().unwrap_or_default(),
-            open["plans"],
-            open["summaries"]
+            open.number, open.title, open.plans, open.summaries
         ));
     }
     Some(line)

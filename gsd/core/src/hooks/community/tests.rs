@@ -381,15 +381,18 @@ fn project_graph(extra: Vec<GraphNode>) -> CommandGraph {
                 ("plans_complete", json!("1/1")),
             ],
         ),
-        node(
-            "v1.0/02",
-            "phase",
-            &[
-                ("slug", json!("persistence")),
-                ("status", json!("planned")),
-                ("plans_complete", json!("0/1")),
-            ],
-        ),
+        GraphNode {
+            title: Some("Saved tasks".into()),
+            ..node(
+                "v1.0/02",
+                "phase",
+                &[
+                    ("slug", json!("persistence")),
+                    ("status", json!("planned")),
+                    ("plans_complete", json!("0/1")),
+                ],
+            )
+        },
     ];
     nodes.extend(extra);
     CommandGraph::new(nodes, Vec::new())
@@ -416,7 +419,10 @@ fn a_session_starts_with_the_progress_line() {
         ctx.starts_with("## Project State Reminder\n\nv1.0 Taskboard: 1/4 phases complete (25%)"),
         "{ctx}"
     );
-    assert!(ctx.contains("phase 02 persistence"), "{ctx}");
+    assert!(
+        ctx.contains("phase 02 Saved tasks: 1 plan(s), 0 summary(ies)"),
+        "the phase is named by its title, not its slug: {ctx}"
+    );
     assert!(ctx.contains("Active workstream: ui"), "{ctx}");
     assert!(ctx.ends_with("Config: \"mode\": \"yolo\""), "{ctx}");
     assert!(

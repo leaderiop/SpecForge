@@ -632,6 +632,10 @@ fn a_title_that_begins_with_a_phase_number_is_w109() {
         ("2) Core", "2", "Core"),
         ("04 - Core", "04", "Core"),
         ("04 — Core", "04", "Core"),
+        ("Phase 2.1: Hotfix", "Phase 2.1", "Hotfix"),
+        ("Phase 3 - Listing", "Phase 3", "Listing"),
+        ("Phase 3:Core", "Phase 3", "Core"),
+        ("Phase 07", "Phase 07", ""),
     ] {
         assert_eq!(titles::numbered(title), Some((number, rest)), "{title}");
     }
@@ -678,4 +682,25 @@ fn a_number_inside_a_title_is_not_w109() {
     }
     let found = check(&input(vec![titled("v1.0/01", "HTTP 2 support")], vec![]));
     assert!(found.is_empty(), "{found:?}");
+}
+
+/// The rule reads GSD's label grammar and no wider (ADR 0387 D3): a number joined to a word by a dash or a colon with
+/// no space, a number before a bare word, and another word than `Phase` before a number are titles, not labels.
+#[test]
+fn a_form_outside_the_label_grammar_is_not_w109() {
+    for title in [
+        "03-Core",
+        "3-way merge",
+        "Phase-3 cleanup",
+        "03:Core",
+        "3.Core",
+        "3 Core",
+        "#3 Core",
+        "(3) Core",
+        "Step 3: Core",
+        "Milestone 2: Core",
+        "1.5.2 release notes",
+    ] {
+        assert_eq!(titles::numbered(title), None, "{title}");
+    }
 }

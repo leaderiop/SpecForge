@@ -21,9 +21,23 @@ use prompt_combos::prompts;
 const LABEL: &str =
     r"(?im)(?:^|[^\w$-])phase \{(\w+)(?:\+1)?\}(?:/\{\w+\})?(?:\s*(?::|—|–|\(|⏭)\s*\{(\w+)\})?";
 
+/// A phase label that prints a name, in braces or brackets: `Phase {X}: {Name}`, `Phase [X+1] — [Name]`, `Phase {X}:
+/// {Phase Name}`, `Phase {N} — "{name}"`. The name placeholder may hold spaces.
+const NAMED_LABEL: &str = concat!(
+    r"(?im)(?:^|[^\w$-])phase [\[{]\w+(?:\+1)?[\]}](?:(?:/| of )[\[{]\w+[\]}])?",
+    r#"\s*(?::|—|–|-|\(|⏭)\s*"?[\[{]([\w ]+)[\]}]"#
+);
+
 /// A definition: backticked names joined by `, ` or ` and `, then `is` or `are`, wrapped or not (`` `{X}` is ``,
 /// `` `{X}`, `{N}` and `PHASE` are ``).
 const DEFINITION: &str = r"(?:`[^`\n]+`(?:,\s+|\s+and\s+))*`[^`\n]+`\s+(?:is|are)\b";
+
+/// A definition that says a name is the phase's title: `` `{Name}` is its `title` ``, `` `[Name]` is the next phase's
+/// `title` ``.
+const TITLED: &str = concat!(
+    r"(?:`[^`\n]+`(?:,\s+|\s+and\s+))*`[^`\n]+`",
+    r"\s+(?:is|are)\s+(?:its|the(?:\s+\w+)?\s+phase's)\s+`title`"
+);
 
 /// The placeholders each label of `text` holds, as `(line, name)`.
 fn labels(text: &str) -> Vec<(usize, String)> {
@@ -41,16 +55,41 @@ fn labels(text: &str) -> Vec<(usize, String)> {
         .collect()
 }
 
+/// The name each label of `text` that prints one holds, as `(line, name)`.
+fn named_labels(text: &str) -> Vec<(usize, String)> {
+    let label = Regex::new(NAMED_LABEL).expect("the named label pattern");
+    text.lines()
+        .enumerate()
+        .flat_map(|(n, line)| {
+            label
+                .captures_iter(line)
+                .map(|c| (n + 1, c[1].to_string()))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
 /// The names `text` defines: each backticked name of a definition, its braces and `$` dropped.
 fn defined(text: &str) -> BTreeSet<String> {
-    let definition = Regex::new(DEFINITION).expect("the definition pattern");
+    names_of(DEFINITION, text)
+}
+
+/// The names `text` defines as the phase's `title`, their braces or brackets dropped.
+fn titled(text: &str) -> BTreeSet<String> {
+    names_of(TITLED, text)
+}
+
+/// Each backticked name of a match of `pattern` in `text` but `title`, its braces, brackets and `$` dropped.
+fn names_of(pattern: &str, text: &str) -> BTreeSet<String> {
+    let definition = Regex::new(pattern).expect("a definition pattern");
     let name = Regex::new(r"`([^`\n]+)`").expect("a name pattern");
     definition
         .find_iter(text)
         .flat_map(|d| name.captures_iter(d.as_str()).map(|c| c[1].to_string()))
+        .filter(|n| n != "title")
         .map(|n| {
             n.trim_start_matches('$')
-                .trim_matches(['{', '}'])
+                .trim_matches(['{', '}', '[', ']'])
                 .to_string()
         })
         .collect()
@@ -104,6 +143,70 @@ fn a_label_and_a_definition_read_as_written() {
         "a wrapped one"
     );
     assert!(defined("the `{X}` placeholder").is_empty());
+    let named =
+        |text: &str| -> Vec<String> { named_labels(text).into_iter().map(|(_, n)| n).collect() };
+    assert_eq!(named("**Phase [X+1]: [Name]** — [Goal]"), ["Name"]);
+    assert_eq!(named("Next: Phase [X+1] — [Name]"), ["Name"]);
+    assert_eq!(
+        named("## ✓ Phase {X}: {Phase Name} Complete"),
+        ["Phase Name"]
+    );
+    assert_eq!(
+        named("Phase {N} — \"{name}\" has unresolved items"),
+        ["name"]
+    );
+    assert!(named("Phase [X] marked complete").is_empty());
+    assert_eq!(
+        titled("`{Name}`\nis its `title`, and `[Name]` is the next phase's `title`"),
+        BTreeSet::from(["Name".to_string()])
+    );
+    assert!(titled("`{name}` is the phase's slug read as words").is_empty());
+}
+
+/// `progress-report`'s phase `name` is the phase's slug read as words (ADR 0387 D2): it is GSD's directory name, kept
+/// for the parity of `progress json`. An asset that reads the report and prints a phase label with a name says the
+/// name is the phase's `title`, read from its node, and never cites `phases[].name`; a step or template under a
+/// workflow's folder also reads its workflow's.
+#[test]
+fn a_label_reads_its_name_from_the_phase_title_not_the_report() {
+    let all = assets();
+    let text_of = |tree: &str, path: &str| {
+        all.iter()
+            .find(|(t, p, _)| t == tree && p == path)
+            .map(|(_, _, text)| text.as_str())
+    };
+    let (mut reading, mut wrong) = (0, Vec::new());
+    for (tree, path, text) in &all {
+        let parts: Vec<&str> = path.split('/').collect();
+        let parent = (parts.len() > 3 && parts[..2] == ["gsd-core", "workflows"])
+            .then(|| text_of(tree, &format!("gsd-core/workflows/{}.md", parts[2])))
+            .flatten()
+            .unwrap_or_default();
+        if !text.contains("progress-report") && !parent.contains("progress-report") {
+            continue;
+        }
+        reading += 1;
+        if text.contains("phases[].name") {
+            wrong.push(format!(
+                "{path}: cites `phases[].name`, the slug read as words"
+            ));
+        }
+        let mut known = titled(text);
+        known.extend(titled(parent));
+        for (line, name) in named_labels(text) {
+            if !known.contains(&name) {
+                wrong.push(format!(
+                    "{path}:{line}: {name} is not said to be the phase's `title`"
+                ));
+            }
+        }
+    }
+    assert!(reading >= 20, "{reading} assets read progress-report");
+    assert!(
+        wrong.is_empty(),
+        "a label's name read from the report:\n{}",
+        wrong.join("\n")
+    );
 }
 
 /// Every placeholder a phase label holds is defined in the asset that prints it, by a sentence that says what it is

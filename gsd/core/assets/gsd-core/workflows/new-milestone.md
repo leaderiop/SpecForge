@@ -511,7 +511,8 @@ Write the roadmap first, then return.
 
 **If `## ROADMAP BLOCKED`:** Present blocker, work with user, re-spawn.
 
-**If `## ROADMAP CREATED`:** Read the milestone's phases (`specforge export --kinds milestone,phase --format context`), present inline:
+**If `## ROADMAP CREATED`:** Read the milestone's phases (`specforge export --kinds milestone,phase --format context`). In a phase's label below, `[N]` is the phase's number, the last segment of its `id`, and `[Name]`
+and `[Phase Name]` are its `title`, the name the roadmap gave it. Present inline:
 
 ```
 ## Proposed Roadmap

@@ -92,7 +92,7 @@ Build dashboard from JSON. Symbols: `✓` done, `◆` active, `○` pending, `·
 
 If any `is_active` phases, show: `◆ Background: {action} Phase {N}, ...` above grid.
 
-Use `display_name` (not `name`) for the Phase column — it's pre-truncated to 20 chars with `…` if clipped. Pad all phase names to the same width for alignment.
+The Phase column is the phase's `title`, read as a label's `{phase_name}` is (not the report's `name`), cut to 20 chars with `…` when longer. Pad all phase names to the same width for alignment.
 
 Use `deps_display` from init JSON for the Deps column — shows which phases this phase depends on (e.g. `1,3`) or `—` for none.
 

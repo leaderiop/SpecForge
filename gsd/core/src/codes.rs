@@ -53,7 +53,7 @@ impl Code {
         let raised = if self.strict == self.severity {
             String::new()
         } else {
-            format!(", and {} under gsd-strict", self.strict.noun())
+            format!(", and {} under gsd-strict and gsd-plus", self.strict.noun())
         };
         let settled = if self.settled_later {
             " A later step of the authoring settles it: an edit that creates the entity it names, or one under that \

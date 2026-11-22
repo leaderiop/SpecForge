@@ -208,16 +208,44 @@ fn a_title_with_a_number_inside_is_not_w109() {
 }
 
 #[test]
-fn w109_is_an_error_under_gsd_strict() {
+fn w109_is_an_error_under_gsd_strict_and_gsd_plus() {
+    for profile in ["gsd-strict", "gsd-plus"] {
+        let p = project("roadmap");
+        p.write(
+            "spec/more.spec",
+            &titled_phase("02", "Phase 2: Persistence"),
+        );
+        p.settings(serde_json::json!({ "profile": profile }));
+        let check = p.run(&["check"]);
+        assert_eq!(check.code, 1, "{profile}: {}", check.all());
+        assert!(check.all().contains("W109"), "{profile}: {}", check.all());
+    }
+}
+
+/// `phase` and `milestone` declare no `name` (ADR 0387): a project written for the old declaration is told, by the
+/// kernel's W020 on each line, that the field is not its kind's.
+#[test]
+fn a_name_line_on_a_phase_or_a_milestone_is_w020() {
     let p = project("roadmap");
     p.write(
         "spec/more.spec",
-        &titled_phase("02", "Phase 2: Persistence"),
+        "milestone v2.0 \"Taskboard 2.0\" {\n  name \"Taskboard 2.0\"\n}\n\nphase 02 \"Listing\" {\n  milestone v1.0\n  \
+         name \"Listing\"\n  slug \"listing\"\n  goal \"g\"\n  success_criteria [\"a\", \"b\"]\n}\n",
     );
-    p.settings(serde_json::json!({ "profile": "gsd-strict" }));
-    let check = p.run(&["check"]);
-    assert_eq!(check.code, 1, "check: {}", check.all());
-    assert!(check.all().contains("W109"), "check: {}", check.all());
+    let w020: Vec<String> = p
+        .checked()
+        .into_iter()
+        .filter(|(code, _)| code.ends_with("W020"))
+        .map(|(_, message)| message)
+        .collect();
+    assert_eq!(w020.len(), 2, "{w020:#?}");
+    for (entity, kind) in [("v2.0", "milestone"), ("v1.0/02", "phase")] {
+        assert!(
+            w020.iter()
+                .any(|m| m.contains("name") && m.contains(entity)),
+            "no W020 on {kind} {entity}'s name: {w020:#?}"
+        );
+    }
 }
 
 #[test]

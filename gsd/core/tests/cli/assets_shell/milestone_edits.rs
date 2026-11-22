@@ -37,7 +37,8 @@ fn extracted(text: &str) -> Vec<String> {
 }
 
 /// The transition's roadmap step reads the milestone's phases from `progress-report`: on a taskboard its fence prints
-/// JSON whose every `phases` item carries each key the step's "Extract from result" line names.
+/// JSON whose every `phases` item carries each key the step's "Extract from result" line names. The next phase's name
+/// is its title, which Route A reads from its node (ADR 0387): the report's `name` is its slug read as words.
 #[test]
 fn the_transition_reads_the_next_phase_from_progress() {
     let sh = Shell::only(&[]);
@@ -51,7 +52,7 @@ fn the_transition_reads_the_next_phase_from_progress() {
     let phases = answer["phases"].as_array().expect("the phases");
     assert!(phases.len() > 1, "{answer}");
     let keys = extracted(&step);
-    assert_eq!(keys.len(), 3, "{keys:?}");
+    assert_eq!(keys, ["phases[].number", "phases[].status"]);
     for key in &keys {
         let key = key.strip_prefix("phases[].").expect("a phases key");
         for phase in phases {
@@ -66,7 +67,14 @@ fn the_transition_reads_the_next_phase_from_progress() {
         .find(|phase| phase["status"] != "Complete")
         .expect("a phase after 01");
     assert_eq!(next["number"], "02", "{answer}");
-    assert_eq!(next["name"], "persistence", "{answer}");
+    assert_eq!(
+        next["name"], "persistence",
+        "the slug read as words: {answer}"
+    );
+    let read = super::line(&text, "NEXT_NAME=$(");
+    let route = format!("MILESTONE=v1.0\nNEXT_PHASE=02\n{read}\nprintf '%s' \"$NEXT_NAME\"");
+    let (out, err, status) = sh.run_in(p.root(), &route);
+    assert_eq!((status, out.as_str()), (0, "Persistence"), "{err}");
 }
 
 /// The transition's `evolve_project` fences, filled, on a taskboard: an invalidated requirement moves out of scope

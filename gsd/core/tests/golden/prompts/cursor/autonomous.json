@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 56401,
+  "bytes": 56589,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -186,7 +186,7 @@
     "<name> <value>`.",
     ""
   ],
-  "lines": 1244,
+  "lines": 1245,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c59ec577f2bf8944b2c38def195c254aad8bec946d1360d36d24a7ff777ffed8",
+    "digest": "sha256:c9f3d22bd6f7b7430d74e33eea66d148d26d3a891c7770646ccaa882dda84835",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "c59ec577f2bf8944b2c38def195c254aad8bec946d1360d36d24a7ff777ffed8"
+  "sha256": "c9f3d22bd6f7b7430d74e33eea66d148d26d3a891c7770646ccaa882dda84835"
 }

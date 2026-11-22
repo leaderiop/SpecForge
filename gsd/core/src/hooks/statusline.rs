@@ -65,13 +65,9 @@ pub(super) fn state_of(graph: &CommandGraph) -> StateSeg {
             seg.phase_total = seg.total_phases.map(|n| n.to_string()).unwrap_or_default();
         }
     }
-    if let Ok(report) = reports::progress(graph)
-        && let Some(open) = report["phases"]
-            .as_array()
-            .and_then(|ps| ps.iter().find(|p| p["status"] != "Complete"))
-    {
-        seg.phase_name = open["name"].as_str().unwrap_or_default().to_string();
-        seg.status = status_word(open["status"].as_str().unwrap_or_default()).into();
+    if let Some(open) = reports::open_phase(graph) {
+        seg.phase_name = open.title;
+        seg.status = status_word(open.status).into();
     }
     if seg.milestone.is_empty() {
         seg.phase_num.clear();
