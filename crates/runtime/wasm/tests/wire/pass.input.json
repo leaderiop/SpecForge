@@ -25,6 +25,7 @@
         "start_line": 1
       },
       "testable": true,
+      "title": "A",
       "verify_kinds": [
         "unit"
       ],
@@ -49,6 +50,7 @@
         "start_line": 7
       },
       "testable": true,
+      "title": "B",
       "verify_kinds": [],
       "verify_texts": []
     },
@@ -69,6 +71,7 @@
         "start_line": 11
       },
       "testable": true,
+      "title": "C",
       "verify_kinds": [],
       "verify_texts": []
     }

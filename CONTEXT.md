@@ -741,6 +741,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Entity snapshot**: every entity of one built graph as every check after the build reads it, taken
   once per compile and per session check (`specforge_registry::EntitySnapshot`, ADR 0019), taken of a graph build made in its Registry build, and of no other (ADR 0115, ADR 0123).
   Each entity's record holds:
+  - the title its header writes, absent for a fact written without one; a pass is sent it as `title` (ADR 0387);
   - what it writes, as field text, with each value's shape (quoted, bare, a number, a list of
     strings or references, …) and span beside it for the host's own checks
     (`specforge_graph::ValueShape`);

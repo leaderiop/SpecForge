@@ -5,6 +5,7 @@ mod history;
 mod list_values;
 mod standing;
 mod text;
+mod title;
 mod validator;
 
 use std::collections::HashSet;

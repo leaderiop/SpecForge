@@ -19,6 +19,8 @@ pub struct EntityRecord {
     /// judges. Host-internal: never on the wire.
     pub name: String,
     pub kind: String,
+    /// The title its header writes; `None` for a fact written without one (ADR 0387).
+    pub title: Option<String>,
     pub span: SourceSpan,
     /// Every field the entity writes, once each, in source order, each with
     /// its field text.
@@ -228,6 +230,7 @@ impl EntityRecord {
             id: id.to_string(),
             name: id.to_string(),
             kind: kind.to_string(),
+            title: None,
             span: span.clone(),
             fields: Vec::new(),
             obligations: Vec::new(),

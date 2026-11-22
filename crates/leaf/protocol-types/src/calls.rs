@@ -379,12 +379,16 @@ pub struct PassInput {
     pub delta: Option<crate::DeltaPayload>,
 }
 
-/// One entity in the snapshot handed to a compiler pass: its id, kind,
+/// One entity in the snapshot handed to a compiler pass: its id, kind, title,
 /// field texts, edge counts and span, and how the coverage rule sees it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PassEntity {
     pub id: String,
     pub kind: String,
+    /// The title its header writes, as a command's `GraphNode::title` holds it (protocol 2.3.0, ADR 0387); absent for
+    /// a fact written without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     /// Every field the entity writes, by name, as its field text (ADR 0019,
     /// protocol 1.1.0): scalars as written; lists of strings or references
     /// and mixed lists joined by `", "`; variant lists and type unions by
