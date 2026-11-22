@@ -12,7 +12,9 @@
 //!   `js:<package>/<file>::<name>`, with its `package` (edge `in_package`), file, kinds, visibility, signature digest,
 //!   doc, attrs, `names` and the `test_id` it runs as (edge `runs_as`);
 //! - `package` (scheme `pkg`): a cargo or npm package, a purl without version, with its manifest's values and the
-//!   project packages it `depends_on` (edge `uses_package`).
+//!   project packages it `depends_on` (edge `uses_package`);
+//! - the report facts a standard report's reader mints (ADR 0388): `coverage` (scheme `cov`), what a coverage report
+//!   says of the `item` it `covers` (`cov:<item id>`), or of a file's lines no item holds (`cov:@<file>`).
 //!
 //! Every kind is collector-written and none is scoped: a scheme reference names the fact whole. `@code/core` declares
 //! no collector: a pack collects, minting the facts with the linked `specforge-code-facts` library, so every pack
@@ -23,13 +25,16 @@
 //! holds one, W102 naming the pack otherwise), unless the citing entity is pending (ADR 0329 D4, ADR 0347 D9); its
 //! check pass `proof` reports a complete entity linking a failed test (W401), a test or item naming no entity (I402)
 //! (ADR 0329 D6, ADR 0347 D11) and a fact's own reference that answers nothing (E101, ADR 0346 D4). `refs` is sent
-//! the `test` and `test_run` facts, `proof` the facts of every kind (ADR 0353 D6).
+//! the `test` and `test_run` facts, `proof` the facts of its four kinds (ADR 0353 D6). Its check pass `reports` is
+//! sent only the report facts, and reports an entry that names no item (W104, ADR 0388).
 
-use specforge_code_facts::{ItemKind, Scheme, Visibility};
+use specforge_code_facts::{ItemKind, Scheme, Visibility, COVERAGE};
 use specforge_extension_sdk::prelude::*;
 
+mod kinds;
 mod proof;
 mod refs;
+mod reports;
 
 /// The kind of a test fact.
 const TEST_KIND: &str = "test";
@@ -39,8 +44,11 @@ const RUN_KIND: &str = "test_run";
 const ITEM_KIND: &str = "item";
 /// The kind of a package a manifest pack read.
 const PACKAGE_KIND: &str = "package";
-/// Every kind `@code/core` declares.
+/// The kinds of the test, item and package facts, which `refs` and `proof` read.
 const KINDS: [&str; 4] = [TEST_KIND, RUN_KIND, ITEM_KIND, PACKAGE_KIND];
+/// The report kinds, the facts a standard report's reader mints (ADR 0388): the only kinds the `reports` pass is
+/// sent. They stay out of [`KINDS`], which `refs` and `proof` read.
+const REPORT_KINDS: [&str; 1] = [COVERAGE.kind];
 /// The schemes of a `test`'s id.
 const TEST_SCHEMES: [&str; 2] = [Scheme::Js.as_str(), Scheme::Rust.as_str()];
 /// The scheme of a `test_run`'s id.
@@ -67,7 +75,7 @@ pub(crate) struct Reference {
 
 /// Every reference field `@code/core` declares with a target kind: the one table its declarations read for the
 /// target and the edge, and `refs` for what a mistyped reference should have named and whose an unheld one is.
-pub(crate) const REFERENCES: [Reference; 4] = [
+pub(crate) const REFERENCES: [Reference; 5] = [
     Reference {
         kind: ITEM_KIND,
         field: "package",
@@ -96,6 +104,14 @@ pub(crate) const REFERENCES: [Reference; 4] = [
         edge: "run_of",
         together: true,
     },
+    // Another collector answers items, so an unheld one is no disagreement.
+    Reference {
+        kind: COVERAGE.kind,
+        field: "item",
+        target: ITEM_KIND,
+        edge: "covers",
+        together: false,
+    },
 ];
 
 /// The row of [`REFERENCES`] for the field `field` of `kind`.
@@ -120,8 +136,8 @@ const VISIBILITY: Vocabulary = Vocabulary::new(&Visibility::NAMES);
 
 #[specforge_extension_sdk::extension(
     name = "@code/core",
-    version = "1.1.0",
-    description = "The neutral base of code facts: the test, test_run, item and package kinds the code packs collect, and the checks of the references a spec writes to them"
+    version = "1.2.0",
+    description = "The neutral base of code facts: the test, test_run, item and package kinds the code packs collect, the report facts (coverage) a standard report's reader mints, and the checks of the references a spec writes to them and of what a report leaves unmapped"
 )]
 struct CodeCore;
 
@@ -299,6 +315,7 @@ impl Contributions for CodeCore {
                 .source_kind(ITEM_KIND)
                 .target_kind(TEST_KIND);
         });
+        kinds::report_kinds(c);
 
         // A pass is sent the facts of the kinds it declares (ADR 0353): `refs` names the closest held test or run,
         // and `proof` judges what the facts of every kind say, so item facts cross into one guest.
@@ -311,6 +328,12 @@ impl Contributions for CodeCore {
             p.phase("check")
                 .input(Input::facts(&KINDS))
                 .run(proof::proof);
+        });
+        // `reports` is sent only the report kinds (ADR 0353, ADR 0388): nothing is decoded when no report was collected.
+        c.pass("reports", |p| {
+            p.phase("check")
+                .input(Input::facts(&REPORT_KINDS))
+                .run(reports::reports);
         });
 
         c.code("E101", |d| {
@@ -352,6 +375,7 @@ impl Contributions for CodeCore {
                  renamed or deleted, or the name is misspelled. Fix the name in the source, then collect again.",
             );
         });
+        reports::catalogue(c);
     }
 }
 

@@ -95,7 +95,14 @@ fn item_and_package_reference_their_facts() {
     let labels: Vec<&str> = declared.edges.iter().map(|e| e.label.as_str()).collect();
     assert_eq!(
         labels,
-        ["run_of", "names", "in_package", "uses_package", "runs_as"]
+        [
+            "run_of",
+            "names",
+            "in_package",
+            "uses_package",
+            "runs_as",
+            "covers"
+        ]
     );
 }
 
@@ -170,7 +177,7 @@ fn the_w102_explanation_names_every_pack_of_the_table() {
 #[test]
 fn it_catalogues_the_codes_it_reports() {
     let codes: Vec<String> = declaration().codes.into_iter().map(|c| c.code).collect();
-    assert_eq!(codes, ["E101", "W102", "W401", "I402"]);
+    assert_eq!(codes, ["E101", "W102", "W401", "I402", "W104"]);
 }
 
 /// A pass input holding `entities`, with a store of `served` schemes when there is one: `js` holding tests, `run` runs.
@@ -662,3 +669,4 @@ fn the_edit_distance_counts_insertions_deletions_and_substitutions() {
 }
 
 mod proof_findings;
+mod reports;
