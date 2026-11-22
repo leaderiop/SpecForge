@@ -14,7 +14,9 @@
 //! - [`item_facts`] mints one `item` per item id from a source pack's [`Definition`]s, every place and kind listed;
 //!   [`signature_spelling`] is the one spelling a pack gives a signature in.
 //! - [`Package::fact`] mints a `package`; [`location`] turns the reader's points into a fact's place; [`joined`]
-//!   resolves a path a manifest or a source file writes against the project-relative directory it is written in.
+//!   resolves a path a manifest or a source file writes against the project-relative directory it is written in;
+//!   [`relative`] makes a report's file path project-relative, whatever spelling the host's root has, refusing one
+//!   outside the project, and [`file_uri_path`] decodes a report's `file:` URI to a path for it to judge.
 //! - [`parse_all`] asks the host's source reader until it has answered every file a source pack keeps, the files an
 //!   answer's cap left unparsed asked again.
 //! - [`Places`] finds where a report's location lies among the served facts: the innermost `item` holding a file's
@@ -43,7 +45,7 @@ pub use mint::{
     item_facts, location, signature_spelling, test_facts, Definition, ItemKind, Names, Package,
     Signature, Target, TestCase, Visibility,
 };
-pub use paths::joined;
+pub use paths::{file_uri_path, joined, relative};
 pub use places::Places;
 pub use report::{
     id_part, Repeats, ReportKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN,

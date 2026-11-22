@@ -2,7 +2,7 @@
 
 use super::{owner, strings};
 use crate::*;
-use specforge_code_junit::{cases, relative};
+use specforge_code_junit::cases;
 use specforge_extension_sdk::host::SyntaxPoint;
 use specforge_extension_sdk::prelude::{Fact, FactLocation, TestStatus};
 use specforge_test::prelude::*;

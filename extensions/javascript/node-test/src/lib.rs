@@ -13,8 +13,8 @@
 //! runner pack names a test alike: an entity cites a test by its id, and `@code/core` checks the reference. A test
 //! fact's `file` is the project-relative path (ADR 0347 D8).
 
-use specforge_code_facts::{test_facts, TestCase, TestId};
-use specforge_code_junit::{cases, relative, Case};
+use specforge_code_facts::{relative, test_facts, TestCase, TestId};
+use specforge_code_junit::{cases, Case};
 use specforge_extension_sdk::prelude::*;
 use specforge_javascript_workspace::{packages_input, Workspace};
 

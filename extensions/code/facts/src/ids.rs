@@ -653,7 +653,7 @@ fn escape(text: &str, escapes: &[char]) -> String {
 }
 
 /// `text` with each `%XX` decoded; a `%` that starts no valid sequence is kept.
-fn unescape(text: &str) -> String {
+pub(crate) fn unescape(text: &str) -> String {
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut at = 0;

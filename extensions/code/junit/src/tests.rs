@@ -85,86 +85,13 @@ fn nested_suites_make_the_path() {
             ("todo one".to_string(), TestStatus::Skipped),
         ]
     );
-    assert_eq!(
-        relative(found[2].file.as_deref().unwrap(), "/project").as_deref(),
-        Some("test/a.test.js")
-    );
+    assert_eq!(found[2].file.as_deref(), Some("/project/test/a.test.js"));
 }
 
 #[test]
 fn todo_is_skipped() {
     let report = r#"<testsuites><testcase name="later"><skipped type="todo" message="true"/></testcase></testsuites>"#;
     assert_eq!(cases(report).unwrap()[0].status, TestStatus::Skipped);
-}
-
-#[test]
-fn a_windows_file_under_a_verbatim_cwd_is_relative() {
-    let file = r"C:\work\app\test\a.test.js";
-    assert_eq!(
-        relative(file, r"\\?\C:\work\app").as_deref(),
-        Some("test/a.test.js")
-    );
-    assert_eq!(
-        relative(file, r"\\?\c:\work\app\").as_deref(),
-        Some("test/a.test.js")
-    );
-    assert_eq!(
-        relative(r"\\server\share\app\t.js", r"\\?\UNC\server\share\app").as_deref(),
-        Some("t.js")
-    );
-    assert_eq!(relative(file, r"\\?\D:\work\app"), None);
-}
-
-#[test]
-fn a_private_var_alias_is_relative() {
-    let file = "/var/folders/x/T/p/test/a.test.js";
-    assert_eq!(
-        relative(file, "/private/var/folders/x/T/p").as_deref(),
-        Some("test/a.test.js")
-    );
-    assert_eq!(
-        relative("/private/tmp/p/test/a.test.js", "/tmp/p").as_deref(),
-        Some("test/a.test.js")
-    );
-    assert_eq!(relative("/variable/p/a.js", "/private/variable/p"), None);
-}
-
-#[test]
-fn a_file_outside_cwd_is_none() {
-    assert_eq!(relative("/elsewhere/test/a.test.js", "/project"), None);
-    assert_eq!(relative("/project-two/a.test.js", "/project"), None);
-    assert_eq!(relative("/project", "/project"), None);
-    assert_eq!(
-        relative("./test/a.test.js", "/project").as_deref(),
-        Some("test/a.test.js")
-    );
-    assert_eq!(
-        relative("/project/a.js", "/").as_deref(),
-        Some("project/a.js")
-    );
-}
-
-#[test]
-fn a_file_that_climbs_out_through_dot_dot_is_outside() {
-    for escaping in [
-        "../x.test.js",
-        "./test/../../x.test.js",
-        r"..\x.test.js",
-        "/project/../x.test.js",
-        "/project/test/../../elsewhere/x.test.js",
-    ] {
-        assert_eq!(relative(escaping, "/project"), None, "{escaping}");
-    }
-    for (inside, expected) in [
-        ("test/../src/a.test.js", "src/a.test.js"),
-        ("/project/test/./unit/../a.test.js", "test/a.test.js"),
-    ] {
-        assert_eq!(
-            relative(inside, "/project").as_deref(),
-            Some(expected),
-            "{inside}"
-        );
-    }
 }
 
 #[test]

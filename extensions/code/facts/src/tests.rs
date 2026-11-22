@@ -4,6 +4,7 @@ use super::*;
 use specforge_test::prelude::*;
 
 mod mint;
+mod paths;
 mod places;
 mod report;
 mod syntax;
