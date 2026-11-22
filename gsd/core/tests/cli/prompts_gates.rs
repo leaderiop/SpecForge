@@ -350,11 +350,11 @@ fn the_convergence_gates_are_the_planning_gates() {
     }
 }
 
-/// A half-planned phase is not executed (ADR 0385): its plans written one at a time leave findings a later plan settles,
-/// and `execute_phase` gates on them. On the taskboard's planless phase v1.0/03, with a decision of its context, plan
-/// 03-01 written alone (TASK-03, citing nothing) leaves LIST-01 in no plan (gsd/E301) and the decision uncited
-/// (gsd/E310): the prompt is refused by both. Under gsd-strict the plan's missing must-haves (gsd/W309) refuse it too.
-/// Plan 03-02, holding LIST-01 and citing the decision, clears E301 and E310, and the must-haves clear W309.
+/// A half-planned phase is not executed (ADR 0385): its plans written one at a time leave findings a later plan
+/// settles, and `execute_phase` gates on them. On the taskboard's planless phase v1.0/03, with a decision of its
+/// context, plan 03-01 written alone (TASK-03, citing nothing) leaves LIST-01 in no plan (gsd/E301) and the decision
+/// uncited (gsd/E310): the prompt is refused by both. Under gsd-strict the plan's missing must-haves (gsd/W309) refuse
+/// it too. Plan 03-02, holding LIST-01 and citing the decision, clears E301 and E310, and the must-haves clear W309.
 #[test]
 fn e301_e310_w309_a_half_planned_phase_refuses_execute_phase() {
     let p = twin();

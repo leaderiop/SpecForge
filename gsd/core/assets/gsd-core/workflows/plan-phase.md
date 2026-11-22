@@ -1002,9 +1002,9 @@ and the set settles its `gsd/W204`.
 
 ```bash
 PHASE_ID="{the phase id, e.g. v1.0/02}"
-RESEARCH_ID="{the research id, e.g. v1.0/02/02-RESEARCH}"
+RESEARCH_ID="{the research id the researcher returned, e.g. v1.0/02/02-RESEARCH}"
 DECISION_ID="{the phase's next decision id, e.g. D-03}"
-QUESTION_ID="{the question's id, e.g. 02-Q1}"
+QUESTION_ID="{the question's id as the researcher's return lists it, under the research, e.g. Q1}"
 IFS= read -rd '' ANSWER <<'TEXT' || true; ANSWER=${ANSWER%$'\n'}
 {the user's answer}
 TEXT

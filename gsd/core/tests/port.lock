@@ -439,7 +439,7 @@ agents/gsd-phase-researcher.md	own	702+1	1	ae4c5c7cbc69	7803549aaebb	agent
 agents/gsd-phase-researcher.md	kept	703+28	bb605c9eae2d
 agents/gsd-phase-researcher.md	own	731+1	1	db8dc47bc34e	cf9fe9f6ee8e	ported-name
 agents/gsd-phase-researcher.md	kept	732+22	1d85c5ece93f
-agents/gsd-phase-researcher.md	own	754+16	77	ff2a71303f6c	227f1dbb3e7b	typed-edit
+agents/gsd-phase-researcher.md	own	754+16	78	ff2a71303f6c	cc9f61442063	typed-edit
 agents/gsd-phase-researcher.md	kept	770+32	18913e4d0779
 agents/gsd-phase-researcher.md	own	802+3	3	1a822f25e883	9fff29926ea0	typed-edit
 agents/gsd-phase-researcher.md	kept	805+4	c3b5e58593ad
@@ -447,7 +447,7 @@ agents/gsd-phase-researcher.md	own	809+1	1	08975eddfc55	d4f349dc8ddd	ported-name
 agents/gsd-phase-researcher.md	kept	810+20	efc04d348bbf
 agents/gsd-phase-researcher.md	own	830+1	1	df98dbe9acd1	0ca9e038b82b	agent
 agents/gsd-phase-researcher.md	kept	831+9	e8e15eef40d9
-agents/gsd-phase-researcher.md	own	840+1	2	caa27c963aa2	76608c5a4e18	review
+agents/gsd-phase-researcher.md	own	840+1	2	caa27c963aa2	98deca9bf09b	review
 agents/gsd-phase-researcher.md	kept	841+2	8bbcfa884edf
 agents/gsd-phase-researcher.md	own	843+1	1	32265ebaf12d	e76472b4387c	agent
 agents/gsd-phase-researcher.md	kept	844+44	54b4e197a445
@@ -4099,7 +4099,7 @@ gsd-core/workflows/plan-phase.md	own	1000+1	1	e508f4643c24	49f04f2ca22a	ported-n
 gsd-core/workflows/plan-phase.md	kept	1001+6	e3a6708f8849
 gsd-core/workflows/plan-phase.md	own	1007+1	1	8ef552f335a5	9e2817cd4d06	prose
 gsd-core/workflows/plan-phase.md	kept	1008+3	c91c34d65e63
-gsd-core/workflows/plan-phase.md	own	1011+1	25	1b621c8a591e	b897efe073fc	review
+gsd-core/workflows/plan-phase.md	own	1011+1	25	1b621c8a591e	8671ad1de4f0	review
 gsd-core/workflows/plan-phase.md	kept	1012+19	784e50e89aaa
 gsd-core/workflows/plan-phase.md	own	1031+2	2	3f6ee30c7042	188ac03bf321	ported-name
 gsd-core/workflows/plan-phase.md	kept	1033+9	9d66beb2ef7e
@@ -4723,7 +4723,7 @@ gsd-core/workflows/quick-batch/steps/planner-wave.md	own	115+2	4	ded99c8aad4d	2c
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	117+12	5a2f18e76edb
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	129+1	1	b9f79ea5d2df	ac9d7b058861	quick
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	130+4	616edf193d8b
-gsd-core/workflows/quick-batch/steps/planner-wave.md	own	134+0	20	e3b0c44298fc	76ed4e0e313b	review
+gsd-core/workflows/quick-batch/steps/planner-wave.md	own	134+0	20	e3b0c44298fc	1bd02b050ed3	review
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	134+6	96b6957962f9
 gsd-core/workflows/quick-batch/steps/planner-wave.md	own	140+1	1	7181fff36197	65d12f3b5a29	prose
 gsd-core/workflows/quick-batch/steps/planner-wave.md	kept	141+1	dd7bc996c6b8
@@ -4867,7 +4867,7 @@ gsd-core/workflows/quick.md	own	350+2	2	100c177685f0	7775adf6e787	prose
 gsd-core/workflows/quick.md	kept	352+11	21ededfb0f07
 gsd-core/workflows/quick.md	own	363+1	1	b9272f04e1d9	09ce38c6c7b1	quick
 gsd-core/workflows/quick.md	kept	364+1	a82649ff3482
-gsd-core/workflows/quick.md	own	365+3	22	51280188b940	d68c0acc0e64	typed-edit
+gsd-core/workflows/quick.md	own	365+3	22	51280188b940	41ddd515a6c8	typed-edit
 gsd-core/workflows/quick.md	kept	368+27	c662c0b0ac5b
 gsd-core/workflows/quick.md	own	395+1	1	ff4ed2575e77	526d1ab54425	ported-name
 gsd-core/workflows/quick.md	kept	396+1	53988bed5da9

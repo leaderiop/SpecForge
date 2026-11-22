@@ -57,7 +57,7 @@ impl Code {
         };
         let settled = if self.settled_later {
             " A later step of the authoring settles it: an edit that creates the entity it names, or one under that \
-             entity, reports the finding and is not refused for it."
+             entity, and alters nothing held there reports the finding and is not refused for it."
         } else {
             ""
         };

@@ -146,7 +146,7 @@ PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
 QUICK_ID="{the item's quick id, e.g. 261121-abc}"
 RESEARCH_ID="{the research id, e.g. 261121-abc-RESEARCH}"
 DECISION_ID="{the quick plan's next decision id, e.g. 261121-abc-D-01}"
-QUESTION_ID="{the question's id, e.g. 261121-abc-Q1}"
+QUESTION_ID="{the question's id as the research's return lists it, under the research, e.g. Q1}"
 IFS= read -rd '' ANSWER <<'TEXT' || true; ANSWER=${ANSWER%$'\n'}
 {the user's answer}
 TEXT

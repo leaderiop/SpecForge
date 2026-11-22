@@ -327,13 +327,16 @@ fn the_researcher_records_every_open_question_open() {
         "`gsd/W204`",
         "is not refused for it",
         "never return one in place of recording it",
-        "by id, under `### Open Questions`",
+        "by its own id (`Q1`, the last segment of its path `$RESEARCH_ID/Q1`), under `### Open Questions`",
     ] {
         assert!(rule.contains(words), "rule 4 lacks {words}:\n{rule}");
     }
     assert!(!rule.contains("send it again without"), "{rule}");
     let template = block(&researcher, "### Open Questions", "### Ready for Planning");
-    assert!(template.contains("you recorded, by id"), "{template}");
+    assert!(
+        template.contains("you recorded, by its own id under the research, e.g. `Q1`"),
+        "{template}"
+    );
     let handle = block(
         &asset("gsd-core/workflows/plan-phase.md"),
         "### Handle Researcher Return",
@@ -482,7 +485,7 @@ fn quick_with_research() -> Project {
         &[
             "new",
             "open_question",
-            "261121-abc-Q1",
+            "Q1",
             QUESTION,
             "--in",
             "spec/quick.spec",
@@ -557,14 +560,14 @@ fn quick_and_quick_batch_resolve_the_recorded_question_with_the_users_answer() {
             ("QUICK_ID", "261121-abc"),
             "261121-abc-RESEARCH",
             "261121-abc-D-01",
-            "261121-abc-Q1",
+            "Q1",
         );
         the_answer_resolves_the_recorded_question(
             &sh,
             &p,
             &fence,
             "261121-abc-D-01",
-            "261121-abc-RESEARCH/261121-abc-Q1",
+            "261121-abc-RESEARCH/Q1",
         );
     }
 }

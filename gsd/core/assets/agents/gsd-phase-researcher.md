@@ -789,7 +789,8 @@ The `research` entity `{phase_id}/{phase_num}-RESEARCH` (`$RESEARCH_ID`) is the 
      resolves it yet, and you invent none. The write reports `gsd/W204` (an error under gsd-strict) and is not
      refused for it: a later step settles it, the user's answer, recorded as a decision and set as the question's
      `resolved_by`. Never drop a question and never return one in place of recording it; list each you recorded,
-     by id, under `### Open Questions` in your return;
+     by its own id (`Q1`, the last segment of its path `$RESEARCH_ID/Q1`), under `### Open Questions` in your
+     return;
    - an item already recorded is not recorded twice: `specforge query "$RESEARCH_ID" --depth 1` lists them.
 5. **If a call is still refused, surface its error in your return message.** **Do NOT silently fall back to returning content** — that hides the failure from the orchestrator.
 
@@ -862,8 +863,8 @@ the `research` entity `{phase_id}/{phase_num}-RESEARCH`
 | Pitfalls | [level] | [why] |
 
 ### Open Questions
-[Each open question you recorded, by id (gsd/W204 until the user's answer resolves it): the question, what is known,
-what is unclear, the recommendation; and the gaps that couldn't be resolved]
+[Each open question you recorded, by its own id under the research, e.g. `Q1` (gsd/W204 until the user's answer
+resolves it): the question, what is known, what is unclear, the recommendation; and the gaps that couldn't be resolved]
 
 ### Ready for Planning
 Research complete. The planner can now write plan entities.

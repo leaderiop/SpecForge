@@ -250,12 +250,12 @@ const FILES: [&str; 2] = ["spec/plans/03-01.spec", "spec/plans/03-02.spec"];
 /// On the planless phase, under gsd-compat and under gsd-strict, the plan edit with 03-02 naming TASK-03 in place of
 /// LIST-01 is written and reports `gsd/E301` (LIST-01 is in no plan of the phase), which `check` fails on: the finding
 /// is settled later (ADR 0385), by the plan that holds LIST-01. With 03-02 naming no requirement it is refused whole
-/// (`gsd/E302`, which no later step settles) and writes no file. The edit as filled is accepted in one call, writes both plans with
-/// their task, truth, artifact and key link (and 03-02's checkpoint, prohibition and user setup step), reads the task
-/// action back exactly and adds no code outside the judged rules. It leaves each plan owing exactly the plan checker's
-/// four judged findings (`gsd/W311`, `gsd/W313`, `gsd/W315`: errors under gsd-strict, warnings under gsd-compat;
-/// `gsd/W316`: a warning in both), which E080 does not count (ADR 0297). Sent again, it is refused as a conflict and
-/// leaves both files byte for byte.
+/// (`gsd/E302`, which no later step settles) and writes no file. The edit as filled is accepted in one call, writes
+/// both plans with their task, truth, artifact and key link (and 03-02's checkpoint, prohibition and user setup step),
+/// reads the task action back exactly and adds no code outside the judged rules. It leaves each plan owing exactly the
+/// plan checker's four judged findings (`gsd/W311`, `gsd/W313`, `gsd/W315`: errors under gsd-strict, warnings under
+/// gsd-compat; `gsd/W316`: a warning in both), which E080 does not count (ADR 0297). Sent again, it is refused as a
+/// conflict and leaves both files byte for byte.
 #[test]
 fn the_planner_writes_a_phase_in_one_edit() {
     for profile in ["gsd-compat", "gsd-strict"] {
