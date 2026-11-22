@@ -43,7 +43,8 @@ pub const CAP: u64 = cap!();
 /// Not applicable table was swept and a phase's label said where its number and name are read, and 5,721,094 B once
 /// every asset that prints a phase label defined its placeholders and a phase's new name rewrote its slug, and
 /// 5,722,710 B once four codes were settled later, the researcher recorded every open question open, a phase's plans
-/// could be written one at a time and `execute_phase` refused a half-planned phase.
+/// could be written one at a time and `execute_phase` refused a half-planned phase, and 5,723,014 B once those codes
+/// said a write that alters what their entity held is refused and an open question was answered at its own id.
 pub const ALLOWANCES: &[(&str, u64)] = &[("gsd/core/wasm/gsd_core.wasm", 5_800_000)];
 
 /// The most bytes the committed blob at `path` may hold: its allowance, else [`CAP`].

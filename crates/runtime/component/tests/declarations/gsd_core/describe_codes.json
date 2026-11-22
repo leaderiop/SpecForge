@@ -70,7 +70,7 @@
     {
       "code": "W204",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#discuss-spec-research",
-      "explanation": "A research open question is resolved by a decision before planning. It is a warning, and an error under gsd-strict. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, reports the finding and is not refused for it.",
+      "explanation": "A research open question is resolved by a decision before planning. It is a warning, and an error under gsd-strict. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, and alters nothing held there reports the finding and is not refused for it.",
       "settled_later": true,
       "title": "Open research question unresolved"
     },
@@ -89,7 +89,7 @@
     {
       "code": "E301",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Every requirement of a phase is in at least one of its plans. It is an error. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, reports the finding and is not refused for it.",
+      "explanation": "Every requirement of a phase is in at least one of its plans. It is an error. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, and alters nothing held there reports the finding and is not refused for it.",
       "settled_later": true,
       "title": "Phase requirement in no plan"
     },
@@ -138,14 +138,14 @@
     {
       "code": "W309",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "A plan has a truth and an artifact. It is a warning, and an error under gsd-strict. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, reports the finding and is not refused for it.",
+      "explanation": "A plan has a truth and an artifact. It is a warning, and an error under gsd-strict. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, and alters nothing held there reports the finding and is not refused for it.",
       "settled_later": true,
       "title": "Plan lacks a truth or an artifact"
     },
     {
       "code": "E310",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Every trackable decision of a planned phase's context (origin context) is cited by its id in the text of one of its plans. It is an error. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, reports the finding and is not refused for it.",
+      "explanation": "Every trackable decision of a planned phase's context (origin context) is cited by its id in the text of one of its plans. It is an error. A later step of the authoring settles it: an edit that creates the entity it names, or one under that entity, and alters nothing held there reports the finding and is not refused for it.",
       "settled_later": true,
       "title": "Context decision cited by no plan"
     },
