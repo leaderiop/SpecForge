@@ -737,8 +737,10 @@ c.pass("changed", |p| {
 `Some`, its base and no node or edge. A delta input declared twice, naming no kind or a kind no loaded extension
 declares is W021.
 
-A pass receives `PassInput`: `entities` (each with its field texts by name
-([Field text](#field-text)), edge counts, span, `testable`, and `owes_none`: it
+A pass receives `PassInput`: `entities` (each with its `title`, the title its header writes, `None` for a fact written
+without one (protocol 2.3.0,
+[ADR 0387](adr/0387-a-phase-is-named-by-its-title-alone-and-a-pass-reads-each-entitys-title.md)), its field texts by
+name ([Field text](#field-text)), edge counts, span, `testable`, and `owes_none`: it
 owes no obligations of its own, decided by the host's one obligation rule), `edges`, `test_results` (the recorded test report as [`TestResults`]; `TestResults::of(id)` lists an entity's tests) and `proved_claims` (always absent for a
 check pass), and `previous`: when the pass names kinds in
 `.baseline(&[..])`, the project at the git commit `HEAD` names (under `check --since <rev>`, the merge-base, the

@@ -788,14 +788,14 @@ pass that declares the `tests` input (ADR 0293: with no report recorded the host
 cannot be used E045; a pass that does not declare it is sent none, as before);
 each entity is `{"id", "kind", "title"?, "fields", "incoming_edge_count",
 "outgoing_edge_count", "span"?, "testable", "owes_none", "verify_kinds",
-"verify_texts"}`, `title` the title its header writes (2.3.0, ADR 0387; absent for a fact written without one), `owes_none` meaning it owes no obligations of its own, decided
-by the host from the registries; `incoming_edge_count` and `outgoing_edge_count`
-count the edges from and to other entities, an edge from the entity to itself in
-neither). `entities` holds the authored entities and, from 2.0.0 (ADR 0353), the facts of the kinds the pass's `facts`
-input names: a pass that declares none is sent no fact, and `edges` holds the edges whose two ends it is sent; the edge
-counts stay the graph's. An entity's `id`, and an edge's `source` and `target`, are entity paths: a scope's path and a name
-(`v1.0/03/D-01`), or the name alone in the project scope; a name never holds `/`. The host re-keys
-`test_results` by path: a key written as a path, a rooted path or a unique short form reaches its
+"verify_texts"}`, `title` the title its header writes (2.3.0, ADR 0387; absent, never `null`, for a fact written
+without one), `owes_none` meaning it owes no obligations of its own, decided by the host from the registries;
+`incoming_edge_count` and `outgoing_edge_count` count the edges from and to other entities, an edge from the entity to
+itself in neither). `entities` holds the authored entities and, from 2.0.0 (ADR 0353), the facts of the kinds the
+pass's `facts` input names: a pass that declares none is sent no fact, and `edges` holds the edges whose two ends it is
+sent; the edge counts stay the graph's. An entity's `id`, and an edge's `source` and `target`, are entity paths: a
+scope's path and a name (`v1.0/03/D-01`), or the name alone in the project scope; a name never holds `/`.
+The host re-keys `test_results` by path: a key written as a path, a rooted path or a unique short form reaches its
 entity (ADR 0284). A pass answers host diagnostics, bare or as
 `{"diagnostics", "summary"}` (a `PassAnswer`). A diagnostic may carry
 `"entity": "<id>"`; with no `span`, the host attaches that entity's.
