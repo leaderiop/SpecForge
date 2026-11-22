@@ -8,6 +8,9 @@
 //! from `specforge export --format graph --kinds requirement` and judged by [`crate::judge::requirement_verdict`].
 //! The requirements the guests' tests name come from `specforge anchors --file extensions`: guests run under `cargo
 //! test` and write no JUnit, so what only they prove reads `no_test`, and the verdict counts it.
+//!
+//! It also prints X2 (ADR 0388) to its log, [`crate::x2`] over `specforge export --format graph --kinds item,test`
+//! of each project it collects. X2 is print only: a failed collect or export of an X2 project is the check's error.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -16,7 +19,7 @@ use serde_json::Value;
 
 use crate::checks::Selection;
 use crate::run::Ctx;
-use crate::{checked_tree, judge, junit, steps};
+use crate::{checked_tree, judge, junit, steps, x2};
 
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let dir = report_dir(&ctx.repo.root, ctx.mode.nextest_profile());
@@ -38,10 +41,10 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
 
     let specforge = ctx.specforge()?;
     let tree = ctx.repo.target_dir.join("gate/dogfood");
-    checked_tree::copy_tracked(&ctx.repo.root, &steps::tracked_paths(ctx)?, &tree)?;
+    let tracked = steps::tracked_paths(ctx)?;
+    checked_tree::copy_tracked(&ctx.repo.root, &tracked, &tree)?;
     let tree = tree.to_string_lossy().into_owned();
     let merged = merged.to_string_lossy().into_owned();
-    let online = ["--yes", "--effects", "online", "--format", "json"];
     for runner in [
         &["rust-cargo"][..],
         &["rust-source"],
@@ -49,7 +52,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     ] {
         let mut args = vec!["collect", "--path", &tree, "--runner"];
         args.extend(runner);
-        args.extend(online);
+        args.extend(ONLINE);
         json(ctx, specforge, &args)
             .map_err(|e| format!("collecting the root with {}: {e}", runner[0]))?;
     }
@@ -83,12 +86,106 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     for line in &lines {
         ctx.log(line);
     }
+    // X2 is print only (ADR 0388 D2): a failed collect or export is the error, never the ratio.
+    let x2 = FIXTURES
+        .iter()
+        .try_for_each(|fixture| fixture_x2(ctx, specforge, fixture, &tracked));
     if failed {
         // The first line is the counts; the problems follow it.
         Err(lines.get(1).or(lines.first()).cloned().unwrap_or_default())
     } else {
-        Ok(())
+        x2
     }
+}
+
+/// What every collect of the check passes besides its runner.
+const ONLINE: [&str; 5] = ["--yes", "--effects", "online", "--format", "json"];
+
+/// A parity fixture X2 is printed for (ADR 0388 D3), collected in a scratch copy of its tracked files under
+/// `<target>/gate/x2/<name>` with a `specforge.json` loading `extensions`.
+struct Fixture {
+    name: &'static str,
+    /// The fixture's directory, from the repository root.
+    dir: &'static str,
+    extensions: &'static [&'static str],
+    /// Each collect in order: its runner and the recorded report it reads (`--no-run --report`, from the repository
+    /// root), if any.
+    collects: &'static [(&'static str, Option<&'static str>)],
+}
+
+const FIXTURES: &[Fixture] = &[Fixture {
+    name: "ledger",
+    dir: "gsd/parity/fixtures/ledger",
+    extensions: &[
+        "@gsd/core",
+        "@specforge/checks",
+        "@code/core",
+        "@rust/cargo",
+        "@rust/source",
+        "@rust/test",
+    ],
+    collects: &[
+        ("rust-cargo", None),
+        ("rust-source", None),
+        ("rust-test", Some("gsd/parity/goldens/ledger/rust-test.xml")),
+    ],
+}];
+
+/// Collect `fixture` in its scratch copy and log its X2 lines; an error names the fixture and the step that failed.
+fn fixture_x2(
+    ctx: &Ctx,
+    specforge: &Path,
+    fixture: &Fixture,
+    tracked: &[String],
+) -> Result<(), String> {
+    let name = fixture.name;
+    let prefix = format!("{}/", fixture.dir);
+    let files: Vec<String> = tracked
+        .iter()
+        .filter_map(|path| path.strip_prefix(&prefix).map(String::from))
+        .collect();
+    let copy = ctx.repo.target_dir.join("gate/x2").join(name);
+    checked_tree::copy_tracked(&ctx.repo.root.join(fixture.dir), &files, &copy)
+        .map_err(|e| format!("X2 {name}: copying the fixture: {e}"))?;
+    let project = serde_json::json!({
+        "name": name,
+        "version": "0.1.0",
+        "spec_root": "spec",
+        "extensions": fixture.extensions,
+    });
+    let manifest = copy.join("specforge.json");
+    std::fs::write(&manifest, format!("{project:#}\n"))
+        .map_err(|e| format!("X2 {name}: {}: {e}", manifest.display()))?;
+    let copy = copy.to_string_lossy().into_owned();
+    for &(runner, report) in fixture.collects {
+        let report = report.map(|r| ctx.repo.root.join(r).to_string_lossy().into_owned());
+        let mut args = vec!["collect", "--path", copy.as_str(), "--runner", runner];
+        if let Some(report) = &report {
+            args.extend(["--no-run", "--report", report.as_str()]);
+        }
+        args.extend(ONLINE);
+        json(ctx, specforge, &args)
+            .map_err(|e| format!("X2 {name}: collecting with {runner}: {e}"))?;
+    }
+    let export = json(
+        ctx,
+        specforge,
+        &[
+            "export",
+            "--path",
+            &copy,
+            "--format",
+            "graph",
+            "--kinds",
+            "item,test",
+        ],
+    )
+    .map_err(|e| format!("X2 {name}: exporting its items and tests: {e}"))?;
+    let (items, tests) = x2::read(&export);
+    for line in x2::lines(name, &x2::ratio(&items, &tests)) {
+        ctx.log(&line);
+    }
+    Ok(())
 }
 
 /// `<root>/target/nextest/<profile>`: where nextest writes the JUnit report of a run under `profile` (its store is

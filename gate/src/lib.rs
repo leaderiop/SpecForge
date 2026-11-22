@@ -22,6 +22,7 @@ mod root_layout;
 mod run;
 mod size_cap;
 mod steps;
+mod x2;
 
 pub use change_set::{ChangeSet, Pattern};
 pub use checks::{CHECKS, Check, Reach, Selection, Trigger, render_list};
