@@ -733,7 +733,7 @@
             },
             {
               "arg_type": "integer",
-              "description": "the budget of the executor pack it records (default: the route's own)",
+              "description": "a cap on the executor pack it records, refused below its core (default: none, the core whole and the route's allowance)",
               "minimum": 0,
               "name": "max_tokens",
               "required": false

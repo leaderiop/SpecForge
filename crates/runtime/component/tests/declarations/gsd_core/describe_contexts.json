@@ -80,7 +80,7 @@
     },
     {
       "agent": "gsd-plan-checker",
-      "budget": 8000,
+      "budget": 0,
       "name": "plan-checker",
       "sections": [
         {
@@ -109,8 +109,18 @@
           "tier": "core"
         },
         {
-          "name": "all_decisions",
-          "selector": "decision",
+          "name": "quick_decisions",
+          "selector": "self<decision.plan",
+          "tier": "core"
+        },
+        {
+          "name": "project_decisions",
+          "selector": "decision[origin=project]",
+          "tier": "core"
+        },
+        {
+          "name": "resolved_decisions",
+          "selector": "self.phase<research.phase<open_question.research.resolved_by",
           "tier": "core"
         },
         {
@@ -143,7 +153,7 @@
     },
     {
       "agent": "gsd-integration-checker",
-      "budget": 8000,
+      "budget": 0,
       "name": "integration-checker",
       "sections": [
         {
@@ -566,7 +576,7 @@
       "subject": "project"
     },
     {
-      "budget": 50000,
+      "budget": 0,
       "name": "phase-context",
       "records": [
         {
@@ -606,7 +616,7 @@
       "subject": "phase"
     },
     {
-      "budget": 50000,
+      "budget": 0,
       "name": "quick-context",
       "records": [
         {

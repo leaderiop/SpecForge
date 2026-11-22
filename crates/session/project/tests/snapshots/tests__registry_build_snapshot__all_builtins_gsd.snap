@@ -13355,7 +13355,7 @@ expression: "digest(&load(&runtime, &gsd))"
               {
                 "arg_type": "integer",
                 "default_value": null,
-                "description": "the budget of the executor pack it records (default: the route's own)",
+                "description": "a cap on the executor pack it records, refused below its core (default: none, the core whole and the route's allowance)",
                 "name": "max_tokens",
                 "required": false
               }
@@ -15288,8 +15288,16 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "self.phase<decision.phase"
               },
               {
-                "name": "all_decisions",
-                "selector": "decision"
+                "name": "quick_decisions",
+                "selector": "self<decision.plan"
+              },
+              {
+                "name": "project_decisions",
+                "selector": "decision[origin=project]"
+              },
+              {
+                "name": "resolved_decisions",
+                "selector": "self.phase<research.phase<open_question.research.resolved_by"
               },
               {
                 "name": "context",
@@ -15362,8 +15370,16 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "self.phase<decision.phase"
               },
               {
-                "name": "all_decisions",
-                "selector": "decision"
+                "name": "quick_decisions",
+                "selector": "self<decision.plan"
+              },
+              {
+                "name": "project_decisions",
+                "selector": "decision[origin=project]"
+              },
+              {
+                "name": "resolved_decisions",
+                "selector": "self.phase<research.phase<open_question.research.resolved_by"
               },
               {
                 "name": "context",
@@ -15436,8 +15452,16 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "self.phase<decision.phase"
               },
               {
-                "name": "all_decisions",
-                "selector": "decision"
+                "name": "quick_decisions",
+                "selector": "self<decision.plan"
+              },
+              {
+                "name": "project_decisions",
+                "selector": "decision[origin=project]"
+              },
+              {
+                "name": "resolved_decisions",
+                "selector": "self.phase<research.phase<open_question.research.resolved_by"
               },
               {
                 "name": "context",
@@ -15510,8 +15534,16 @@ expression: "digest(&load(&runtime, &gsd))"
                 "selector": "self.phase<decision.phase"
               },
               {
-                "name": "all_decisions",
-                "selector": "decision"
+                "name": "quick_decisions",
+                "selector": "self<decision.plan"
+              },
+              {
+                "name": "project_decisions",
+                "selector": "decision[origin=project]"
+              },
+              {
+                "name": "resolved_decisions",
+                "selector": "self.phase<research.phase<open_question.research.resolved_by"
               },
               {
                 "name": "context",
