@@ -14,5 +14,18 @@
               "attrs": ["test"], "test_id": "rust:demo#tests::reads"},
    "at": [{"file": "src/lib.rs", "start_line": 14, "start_col": 5, "end_line": 18, "end_col": 6}]},
   {"kind": "package", "id": "pkg:cargo/demo",
-   "fields": {"name": "demo", "version": "0.1.0", "path": ""}}
+   "fields": {"name": "demo", "version": "0.1.0", "path": ""}},
+  {"kind": "item", "id": "js:board/src/board%20view.js::render",
+   "fields": {"kind": ["function"], "package": "pkg:npm/board", "file": "src/board view.js", "visibility": "public",
+              "attrs": ["export"]},
+   "at": [{"file": "src/board view.js", "start_line": 1, "start_col": 8, "end_line": 6, "end_col": 2}]},
+  {"kind": "item", "id": "js:board/src/board%20view.js::View",
+   "fields": {"kind": ["class"], "package": "pkg:npm/board", "file": "src/board view.js", "visibility": "public",
+              "attrs": ["export"]},
+   "at": [{"file": "src/board view.js", "start_line": 8, "start_col": 8, "end_line": 20, "end_col": 2}]},
+  {"kind": "item", "id": "js:board/src/board%20view.js::View.draw",
+   "fields": {"kind": ["method"], "package": "pkg:npm/board", "file": "src/board view.js", "visibility": "public"},
+   "at": [{"file": "src/board view.js", "start_line": 10, "start_col": 3, "end_line": 14, "end_col": 4}]},
+  {"kind": "package", "id": "pkg:npm/board",
+   "fields": {"name": "board", "version": "1.0.0", "path": ""}}
 ]

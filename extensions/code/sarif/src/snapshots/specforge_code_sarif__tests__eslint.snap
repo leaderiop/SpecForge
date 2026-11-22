@@ -1,0 +1,94 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "static_finding",
+    "id": "sarif:ESLint/no-unused-vars#src%2Fboard%20view.js:3",
+    "fields": {
+      "file": "src/board view.js",
+      "item": "js:board/src/board%20view.js::render",
+      "level": "error",
+      "line": 3,
+      "message": "'size' is assigned a value but never used.",
+      "rule": "no-unused-vars",
+      "tool": "ESLint"
+    },
+    "at": [
+      {
+        "file": "src/board view.js",
+        "start_line": 3,
+        "start_col": 1,
+        "end_line": 4,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:ESLint/eqeqeq#src%2Fboard%20view.js:12",
+    "fields": {
+      "file": "src/board view.js",
+      "item": "js:board/src/board%20view.js::View.draw",
+      "level": "warning",
+      "line": 12,
+      "message": "Expected '===' and instead saw '=='.",
+      "rule": "eqeqeq",
+      "tool": "ESLint"
+    },
+    "at": [
+      {
+        "file": "src/board view.js",
+        "start_line": 12,
+        "start_col": 1,
+        "end_line": 13,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:ESLint/local%2Fno-raw-dom#src%2Fboard%20view.js:18",
+    "fields": {
+      "file": "src/board view.js",
+      "item": "js:board/src/board%20view.js::View",
+      "level": "warning",
+      "line": 18,
+      "message": "Direct DOM access is not allowed in views.",
+      "rule": "local/no-raw-dom",
+      "tool": "ESLint"
+    },
+    "at": [
+      {
+        "file": "src/board view.js",
+        "start_line": 18,
+        "start_col": 1,
+        "end_line": 19,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:ESLint/no-console#src%2Fboard%20view.js:4",
+    "fields": {
+      "file": "src/board view.js",
+      "item": "js:board/src/board%20view.js::render",
+      "level": "warning",
+      "line": 4,
+      "message": "Unexpected console statement.",
+      "rule": "no-console",
+      "tool": "ESLint"
+    },
+    "at": [
+      {
+        "file": "src/board view.js",
+        "start_line": 4,
+        "start_col": 1,
+        "end_line": 5,
+        "end_col": 1
+      }
+    ]
+  }
+]
