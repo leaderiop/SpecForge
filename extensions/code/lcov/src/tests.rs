@@ -112,6 +112,35 @@ fn an_fna_with_no_fnl_and_an_fnda_with_no_fn_are_kept_at_line_0() {
 }
 
 #[test]
+fn the_nth_fnda_of_a_repeated_name_pairs_with_its_nth_fn() {
+    let functions = |text: &str| -> Vec<(usize, String, u64)> {
+        read(text, "/project").expect("the report reads")[0]
+            .functions
+            .iter()
+            .map(|f| (f.line, f.name.clone(), f.hits))
+            .collect()
+    };
+    let owned = |rows: &[(usize, &str, u64)]| -> Vec<(usize, String, u64)> {
+        rows.iter()
+            .map(|(l, n, h)| (*l, n.to_string(), *h))
+            .collect()
+    };
+    // Two impls' `new`: the second FNDA is the second function's, whatever the first one's count.
+    let text = "SF:src/a.rs\nFN:3,new\nFN:10,new\nFN:20,other\nFNDA:0,new\nFNDA:5,new\nFNDA:1,other\nend_of_record\n";
+    assert_eq!(
+        functions(text),
+        owned(&[(3, "new", 0), (10, "new", 5), (20, "other", 1)])
+    );
+    // FNDA first: each takes the line of the FN of its rank; one FNDA more than FNs stays at line 0.
+    let text =
+        "SF:src/a.rs\nFNDA:2,new\nFNDA:7,new\nFNDA:9,new\nFN:3,new\nFN:10,new\nend_of_record\n";
+    assert_eq!(
+        functions(text),
+        owned(&[(3, "new", 2), (10, "new", 7), (0, "new", 9)])
+    );
+}
+
+#[test]
 fn a_bad_or_outside_report_is_an_error_naming_its_line_or_path() {
     // (report, what the error names)
     let bad: [(&str, &str); 14] = [

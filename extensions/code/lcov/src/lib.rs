@@ -83,10 +83,20 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
 struct Section {
     file: CoverageFile,
     opened: usize,
-    /// Name → the index in `file.functions` of the first function of that name.
-    named: HashMap<String, usize>,
+    /// Name → the functions of that name and the `FN` and `FNDA` records of it read so far.
+    named: HashMap<String, Named>,
     /// `FNL` index → the group's start line.
     groups: HashMap<String, usize>,
+}
+
+/// The functions of one name, in the order their first record met them, and how many `FN` and `FNDA` records of the
+/// name have been read: the n-th `FN` and the n-th `FNDA` of a name are one function's (two impls' `new`, `fmt`).
+#[derive(Default)]
+struct Named {
+    /// Indexes in `file.functions`.
+    functions: Vec<usize>,
+    fns: usize,
+    fndas: usize,
 }
 
 impl Section {
@@ -116,17 +126,14 @@ impl Section {
                 };
                 self.function(line, name)
             }
-            // FNDA:<hits>,<name>: paired with the FN of that name, else kept at line 0, which no item holds.
+            // FNDA:<hits>,<name>: paired with the FN of that name and rank, else kept at line 0, which no item holds.
             "FNDA" => {
                 let (hits, name) = value.split_once(',').ok_or("has no name")?;
                 let hits = count(hits)?;
                 if name.is_empty() {
                     return Err("has no name".to_string());
                 }
-                let index = match self.named.get(name) {
-                    Some(&index) => index,
-                    None => self.push(0, name),
-                };
+                let index = self.pair(name, Record::Fnda);
                 if let Some(function) = self.file.functions.get_mut(index) {
                     function.hits = function.hits.saturating_add(hits);
                 }
@@ -189,35 +196,49 @@ impl Section {
         }
     }
 
-    /// A function starting at `line`: an `FNDA` read before it, kept at line 0, takes its line.
+    /// A function starting at `line`: an `FNDA` of its name and rank read before it, kept at line 0, takes its line.
     fn function(&mut self, line: usize, name: &str) -> Result<(), String> {
         if name.is_empty() {
             return Err("has no name".to_string());
         }
-        match self.named.get(name).copied() {
-            Some(index) if self.file.functions.get(index).is_some_and(|f| f.line == 0) => {
-                if let Some(function) = self.file.functions.get_mut(index) {
-                    function.line = line;
-                }
-            }
-            _ => {
-                self.push(line, name);
-            }
+        let index = self.pair(name, Record::Fn);
+        if let Some(function) = self.file.functions.get_mut(index) {
+            function.line = line;
         }
         Ok(())
     }
 
-    /// Appends a function with no hit yet; the first of a name is the one an `FNDA` of that name pairs with.
-    fn push(&mut self, line: usize, name: &str) -> usize {
-        let index = self.file.functions.len();
-        self.file.functions.push(Function {
-            line,
-            name: name.to_string(),
-            hits: 0,
-        });
-        self.named.entry(name.to_string()).or_insert(index);
-        index
+    /// The index of the function the next `record` of `name` belongs to: the n-th of its kind pairs with the n-th
+    /// function of that name, one no record has met yet appended at line 0 with no hit.
+    fn pair(&mut self, name: &str, record: Record) -> usize {
+        let named = self.named.entry(name.to_string()).or_default();
+        let rank = match record {
+            Record::Fn => &mut named.fns,
+            Record::Fnda => &mut named.fndas,
+        };
+        let at = *rank;
+        *rank += 1;
+        match named.functions.get(at) {
+            Some(&index) => index,
+            None => {
+                let index = self.file.functions.len();
+                self.file.functions.push(Function {
+                    line: 0,
+                    name: name.to_string(),
+                    hits: 0,
+                });
+                named.functions.push(index);
+                index
+            }
+        }
     }
+}
+
+/// The two records that pair by name.
+#[derive(Clone, Copy)]
+enum Record {
+    Fn,
+    Fnda,
 }
 
 /// A 1-based line number.

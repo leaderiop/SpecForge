@@ -20,7 +20,8 @@ reports come next (Phase 11 of the round). A report fact cites the facts the sou
 ## What each reader accepts and mints
 
 **LCOV.** `read` takes a tracefile as geninfo(1), `cargo llvm-cov --lcov` and c8 or istanbul `lcovonly` write it. It
-reads `FN`/`FNDA`, `FNL`/`FNA`, `DA` and `BRDA`, and ignores `TN`, `VER`, the file totals, `MCDC`, comments and unknown
+reads `FN`/`FNDA` (the n-th `FNDA` of a name pairs with the n-th `FN` of it, so two impls' `new` keep their own
+counts), `FNL`/`FNA`, `DA` and `BRDA`, and ignores `TN`, `VER`, the file totals, `MCDC`, comments and unknown
 keys. Sections of one file merge. One `coverage` fact per innermost item holding reported lines, `cov:<item id>`, cites
 that item (edge `covers`); what no item of a file holds is `cov:@<file>`. The counts are `functions_found`/`_hit`,
 `lines_found`/`_hit` and `branches_found`/`_hit`.
