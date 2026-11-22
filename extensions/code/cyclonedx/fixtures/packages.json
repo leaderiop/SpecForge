@@ -1,0 +1,4 @@
+[
+  {"kind": "package", "id": "pkg:cargo/demo",
+   "fields": {"name": "demo", "version": "0.1.0", "path": ""}}
+]

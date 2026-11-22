@@ -30,12 +30,15 @@
 //!   citing the one served item its path names.
 //! - [`finding_facts`] mints a `static_finding` per result a SARIF reader read ([`SarifResult`], [`Level`]), citing
 //!   the innermost served item holding its location, else the package holding its file.
+//! - [`dependency_facts`] mints a `dependency` per component of the CycloneDX [`Bom`]s a reader read ([`Component`],
+//!   [`Scope`]), citing the one served package each BOM describes.
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
 
 mod api;
 mod coverage;
+mod dependency;
 mod finding;
 mod ids;
 mod mint;
@@ -48,6 +51,7 @@ mod tests;
 
 pub use api::{api_facts, ApiEntry, ApiKind};
 pub use coverage::{coverage_facts, Branch, CoverageFile, Function};
+pub use dependency::{dependency_facts, Bom, Component, Scope};
 pub use finding::{finding_facts, Level, SarifResult};
 pub use ids::{
     crate_segment, js_segment, Edition, IdError, ItemId, Owner, PackageId, Scheme, TargetKind,
