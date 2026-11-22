@@ -1,11 +1,11 @@
 {
   ".cursor/agents/gsd-advisor-researcher.md": {
-    "bytes": 7038,
-    "sha256": "c2a65d9e119c2cb166757df09b7439009024a865910ad10d6cd7428e4e8cbe40"
+    "bytes": 7125,
+    "sha256": "ef082ed862dd13438366cfe838e08ae4a8703838b003e8b092eb5a90a7a9b4b7"
   },
   ".cursor/agents/gsd-assumptions-analyzer.md": {
-    "bytes": 7224,
-    "sha256": "79287ce6f6791b0f865b18c3206674750c86ee9f85673f59e0b2046258dd8388"
+    "bytes": 7311,
+    "sha256": "bf329773d134b275a6425b002a0a83cbfd334633c6ded353513619e200a8fa26"
   },
   ".cursor/agents/gsd-doc-classifier.md": {
     "bytes": 13609,
@@ -16,48 +16,48 @@
     "sha256": "e4371d53f9976c5aff66aeb5a92d540ecc4e07e1167b39aead90a900dd18b6ca"
   },
   ".cursor/agents/gsd-executor.md": {
-    "bytes": 48586,
-    "sha256": "670b950a3ad3bc21920f5977f52f0116374cce39d520ef2724bf7442469018a8"
+    "bytes": 48673,
+    "sha256": "fc14455784d0d6896d8316f4f997441932460b161a65234fe40de16a83ceaea5"
   },
   ".cursor/agents/gsd-integration-checker.md": {
-    "bytes": 20826,
-    "sha256": "a486c4a6a45a44271b8c2d970f3af673b6fdf532d18ffef7484adbcb152c8a0f"
+    "bytes": 20707,
+    "sha256": "764c0f48122f9871f6a977bdf1181893d66c3fb06b3e6178539c9a8a5f0f9a1b"
   },
   ".cursor/agents/gsd-nyquist-auditor.md": {
-    "bytes": 9885,
-    "sha256": "ea4a8897b23112d0d2fc9bbd873ba6639b4ff674b047589fc4e64b358227ad99"
+    "bytes": 9972,
+    "sha256": "c19c06c92a2710194e8fff3a9961ce1c7ce9c71086ef25cc4cdc9fc8c5c172f7"
   },
   ".cursor/agents/gsd-pattern-mapper.md": {
     "bytes": 15244,
     "sha256": "e41cb084a53d141fa518bc2e76dce4a0031b705176d2d999d9ae99c332b1bd7e"
   },
   ".cursor/agents/gsd-phase-researcher.md": {
-    "bytes": 50027,
-    "sha256": "caf8b2b15e688b4e66b34f7bfa0112fc3f9d4ef19eff5df07ace870d719e4419"
+    "bytes": 50114,
+    "sha256": "698bb804cde939726d3c55080912072ef854776f151f25590321a83fb43c9c06"
   },
   ".cursor/agents/gsd-plan-checker.md": {
-    "bytes": 53534,
-    "sha256": "a498899ab040672eedc5b22a711d706f1e5fb6250ca0b04ab1030d750a7ed69b"
+    "bytes": 53470,
+    "sha256": "b1b98462dd76894648354cf6efc6afa6eaddc42375cadc3ef7570893d16f62dc"
   },
   ".cursor/agents/gsd-planner.md": {
-    "bytes": 56401,
-    "sha256": "956f34c6e64d57fffae71ce9a698a69a615ec507ce6d89adc46cf529d08a5618"
+    "bytes": 56488,
+    "sha256": "4bc116f3bd84bdec467180149b6fb9b8fdafbdb28e430729fb2fceef45e9205a"
   },
   ".cursor/agents/gsd-project-researcher.md": {
-    "bytes": 16257,
-    "sha256": "d283f254b397fa83a998497bf659af31f5bc4c3b21fdfe36b610bc62787eae9c"
+    "bytes": 16344,
+    "sha256": "effc5f729a11d181b0a1d461a8450fe1a254fdafb3ad6ed2c0aa2a8337d8f934"
   },
   ".cursor/agents/gsd-research-synthesizer.md": {
-    "bytes": 11630,
-    "sha256": "6d545e0c1a955049b9c62ad58387a29d4e7cc7eb6146b2023ad79b32059ce021"
+    "bytes": 11717,
+    "sha256": "5dc95d0393422394815b1d9d0144e0c05d4650abbdaad61bba8f17622ded46e3"
   },
   ".cursor/agents/gsd-roadmapper.md": {
-    "bytes": 24467,
-    "sha256": "108b991418aff5b7e4683bb91290836a9641887ef8e2c32c1f0cc7dc918c0d26"
+    "bytes": 24554,
+    "sha256": "3d96195b8049b05a9256c67e920610845d5c207c018676be81e99dc4e7820012"
   },
   ".cursor/agents/gsd-verifier.md": {
-    "bytes": 58114,
-    "sha256": "73805147bb92e97e56b566515ce57d7ef21fbb127d24ff9762b9b53147e6d5c5"
+    "bytes": 58201,
+    "sha256": "1d82e39ba63b7a3290d63e3c8eb216703b2851467196cd5a9ddf90619829bb30"
   },
   ".cursor/hooks.json": {
     "bytes": 2050,

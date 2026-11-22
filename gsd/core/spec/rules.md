@@ -207,7 +207,7 @@ is neither fresh nor stale.
 
 | Rules | Target | Inputs | Binds |
 |---|---|---|---|
-| gsd/W311, W313, W315, W316 (plan check) | plan | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements · `phase_decisions` self.phase<decision.phase · `all_decisions` decision (a superset: the selector grammar cannot filter on an unset `phase`, so any decision change stales the plan check, the safe side, and the checker sees a contradiction with a decision of another phase or of the project) · `context` self.phase<context\|deferred_idea[origin=discussion].phase · `research` self.phase<research.phase · `research_items` self.phase<research.phase<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research · `siblings` self.phase<plan.phase · `instructions` file("CLAUDE.md", "AGENTS.md"); judged while the plan is open (`judged_while pending`) | — |
+| gsd/W311, W313, W315, W316 (plan check) | plan | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements · `phase_decisions` self.phase<decision.phase · `quick_decisions` self<decision.plan (a quick plan's own) · `project_decisions` decision[origin=project] · `resolved_decisions` self.phase<research.phase<open_question.research.resolved_by (a decision of another phase that answers a question of the phase's research; ADR 0386: every decision of every phase was read before, so a large project's decisions refused the pack and a decision of an unrelated phase staled the check) · `context` self.phase<context\|deferred_idea[origin=discussion].phase · `research` self.phase<research.phase · `research_items` self.phase<research.phase<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research · `siblings` self.phase<plan.phase · `instructions` file("CLAUDE.md", "AGENTS.md"); judged while the plan is open (`judged_while pending`) | — |
 | gsd/E501 | truth | `truth` self · `plan` self.plan · `phase` self.plan.phase · `tests` test(self<test.names); judged once its plan is complete (`judged_while complete`) | — |
 | gsd/E501 | artifact | `artifact` self · `plan` self.plan · `file` file(self.path); judged once its plan is complete (`judged_while complete`) | — |
 | gsd/E501 | key_link | `link` self · `plan` self.plan · `from` file(self.from) · `to` file(self.to); not judged while `pattern` is set (`unless_set pattern`: a pass searches it). A literal pattern the scan finds (`wired`) verifies the link; a regular expression is `unchecked`, which is neither a pass nor a failure, so the phase stays `pending` until the pattern is literal; judged once its plan is complete (`judged_while complete`) | — |
@@ -235,18 +235,20 @@ are not evidence).
 
 ## Context routes
 
-What each role reads of the entity it is spawned for (ADR 0356), as `specforge context gsd/<route> <id>` serves it:
-the core sections are never cut and a budget below them fails; the enrich sections are served whole in order while the
-budget lasts. A route bound to an agent gives the agent's installed body a `## Context` section naming it. The plan
+What each role reads of the entity it is spawned for (ADR 0356, ADR 0386), as `specforge context gsd/<route> <id>`
+serves it: the core sections are always served whole, whatever they cost; the enrich sections are served whole in order
+within the route's allowance, the tokens a read adds beyond the core. Only a cap a read states (`--max-tokens`) below
+the core fails (E062). A route of core sections only allows nothing (`—`). A route bound to an agent gives the agent's
+installed body a `## Context` section naming it. The plan
 checker's and the integration checker's sections are their judged rules' inputs, so a pack digests as the verdict's
 basis. The executor reads no `files_modified`: it edits those files. `phase-context` and `quick-context` are read by
 no agent; they bound the context a research, a spec or a validation is written against.
 
-| Route | Subject | Agent | Core | Enrich | Budget |
+| Route | Subject | Agent | Core | Enrich | Allowance |
 |---|---|---|---|---|---|
 | `gsd/executor` | plan | gsd-executor | `plan` self · `body` self<task\|checkpoint\|truth\|artifact\|key_link\|prohibition\|user_setup.plan · `phase` self.phase · `requirements` self.requirements | `context` self.phase<context\|decision[origin=context]\|deferred_idea[origin=discussion].phase · `quick` self<context\|decision[origin=context]\|research.plan · `prior` self.depends_on<summary.plan · `research` self.phase<research.phase<pitfall\|pattern\|dont_hand_roll.research · `project` project · `instructions` file("CLAUDE.md", "AGENTS.md"); settings `workflow.auto_advance`, `workflow.human_verify_mode`, `workflow.tdd_mode`, `git.allow_default_branch_commits` | 6000 |
-| `gsd/plan-checker` | plan | gsd-plan-checker | the plan check's inputs (above) | — | 8000 |
-| `gsd/integration-checker` | milestone_audit | gsd-integration-checker | gsd/E518's inputs (above) | — | 8000 |
+| `gsd/plan-checker` | plan | gsd-plan-checker | the plan check's inputs (above) | — | — |
+| `gsd/integration-checker` | milestone_audit | gsd-integration-checker | gsd/E518's inputs (above) | — | — |
 | `gsd/planner` | phase | gsd-planner | `phase` self · `requirements` self.requirements · `context` self<context\|deferred_idea[origin=discussion].phase · `decisions` self<decision[origin=context].phase | `research` self<research.phase · `research_items` its findings, choices, patterns, pitfalls and questions · `plans` self<plan.phase · `milestone` self.milestone · `gaps` self<verification.phase<verify_gap.verification · `uat_gaps` self<uat_session.phase<uat_test.session<uat_gap.test · `prior` self.depends_on<plan.phase<summary.plan · `project_decisions` decision[origin=project] · `project` · `instructions`; settings `workflow.tdd_mode`, `workflow.human_verify_mode` | 8000 |
 | `gsd/verifier` | phase | gsd-verifier | `phase` self · `requirements` self.requirements · `must_haves` self<plan.phase<truth\|artifact\|key_link.plan · `plans` self<plan.phase · `summaries` self<plan.phase<summary.plan | `files` file(self<plan.phase.files_modified) · `context` self<context\|decision[origin=context]\|deferred_idea[origin=discussion].phase · `pitfalls` self<research.phase<pitfall.research | 8000 |
 | `gsd/phase-researcher` | phase | gsd-phase-researcher | `phase` self · `requirements` self.requirements · `context` self<context\|deferred_idea[origin=discussion].phase · `decisions` self<decision[origin=context].phase | `milestone` self.milestone · `siblings` self.milestone<phase.milestone · `project` · `instructions` | 6000 |
@@ -255,8 +257,8 @@ no agent; they bound the context a research, a spec or a validation is written a
 | `gsd/project-researcher` | project | gsd-project-researcher | `project` self · `requirements` requirement · `decisions` decision[origin=project] | `milestones` milestone | 8000 |
 | `gsd/research-synthesizer` | project | gsd-research-synthesizer | `project` self · `research` research · `research_items` research<finding\|stack_choice\|pattern\|pitfall\|dont_hand_roll\|open_question.research | `requirements` requirement | 8000 |
 | `gsd/roadmapper` | project | gsd-roadmapper | `project` self · `requirements` requirement · `decisions` decision[origin=project] | `research` research · `research_items` (as the synthesizer's) · `milestones` milestone | 8000 |
-| `gsd/phase-context` | phase | — | `context` self<context.phase · `decisions` self<decision[origin=context].phase · `deferred` self<deferred_idea[origin=discussion].phase | — | 50000 |
-| `gsd/quick-context` | plan | — | `context` self<context.plan · `decisions` self<decision[origin=context].plan | — | 50000 |
+| `gsd/phase-context` | phase | — | `context` self<context.phase · `decisions` self<decision[origin=context].phase · `deferred` self<deferred_idea[origin=discussion].phase | — | — |
+| `gsd/quick-context` | plan | — | `context` self<context.plan · `decisions` self<decision[origin=context].plan | — | — |
 
 ## Derivations, not rules
 

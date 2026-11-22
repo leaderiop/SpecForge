@@ -10,7 +10,9 @@ use gsd_kit::judged::{Judged, Owed, Target};
 
 use crate::codes::{CODES, Severity};
 
-/// What the plan checks read of a plan; the `gsd/plan-checker` route serves the same sections.
+/// What the plan checks read of a plan; the `gsd/plan-checker` route serves the same sections. Of the decisions: its
+/// phase's, a quick plan's own, the project's, and those that resolve a question of its phase's research, never every
+/// decision of every phase.
 pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     ("plan", "self"),
     (
@@ -20,7 +22,12 @@ pub(crate) const PLAN_CHECK_INPUTS: &[(&str, &str)] = &[
     ("phase", "self.phase"),
     ("requirements", "self.requirements"),
     ("phase_decisions", "self.phase<decision.phase"),
-    ("all_decisions", "decision"),
+    ("quick_decisions", "self<decision.plan"),
+    ("project_decisions", "decision[origin=project]"),
+    (
+        "resolved_decisions",
+        "self.phase<research.phase<open_question.research.resolved_by",
+    ),
     (
         "context",
         "self.phase<context|deferred_idea[origin=discussion].phase",

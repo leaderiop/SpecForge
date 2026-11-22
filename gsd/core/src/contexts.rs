@@ -1,5 +1,7 @@
-//! The context routes `@gsd/core` declares (ADR 0356): for each role it spawns, what the role reads of the entity it
-//! is spawned for, in order, core sections first and never cut, enrich sections served whole while the budget lasts.
+//! The context routes `@gsd/core` declares (ADR 0356, ADR 0386): for each role it spawns, what the role reads of the
+//! entity it is spawned for, in order: the core sections, always served whole whatever they cost, then the enrich
+//! sections, served whole in order within the route's allowance, the tokens a read adds beyond the core. A route of
+//! core sections only allows nothing.
 //! Twelve are bound to their agent, whose installed body gains a `## Context` section naming the route; two,
 //! `phase-context` and `quick-context`, are read by no agent: they bound the context a research, a spec or a
 //! validation is written against (`spec/rules.md`, "Context routes"): a research, a spec or a validation records the
@@ -87,19 +89,20 @@ const STALE: &[(&str, &str)] = &[
 /// A route's sections, each `(name, selector, core)`.
 type Sections<'a> = &'a [(&'a str, &'a str, bool)];
 
-/// Declare `name` over `subject`, bound to `agent` when it names one, at `budget`, with `sections` in order, then what
-/// `more` adds (its settings); its [`RECORDS`] and stale code when it records.
+/// Declare `name` over `subject`, bound to `agent` when it names one, allowing `allowance` tokens of enrich sections
+/// beyond its core (0 for a route of core sections only), with `sections` in order, then what `more` adds (its
+/// settings); its [`RECORDS`] and stale code when it records.
 fn route(
     c: &mut ContributionsBuilder,
     name: &str,
     subject: &str,
     agent: Option<&str>,
-    budget: u32,
+    allowance: u32,
     sections: Sections<'_>,
     more: impl FnOnce(&mut ContextBuilder),
 ) {
     c.context(name, |r| {
-        r.subject(subject).budget(budget);
+        r.subject(subject).budget(allowance);
         if let Some(agent) = agent {
             r.agent(agent);
         }
@@ -195,7 +198,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
         "plan-checker",
         "plan",
         Some("gsd-plan-checker"),
-        8000,
+        0,
         &core(PLAN_CHECK_INPUTS),
         |_| {},
     );
@@ -204,7 +207,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
         "integration-checker",
         "milestone_audit",
         Some("gsd-integration-checker"),
-        8000,
+        0,
         &core(INTEGRATION_INPUTS),
         |_| {},
     );
@@ -363,7 +366,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
         "phase-context",
         "phase",
         None,
-        50000,
+        0,
         &[
             ("context", "self<context.phase", true),
             ("decisions", "self<decision[origin=context].phase", true),
@@ -380,7 +383,7 @@ pub(crate) fn declare(c: &mut ContributionsBuilder) {
         "quick-context",
         "plan",
         None,
-        50000,
+        0,
         &[
             ("context", "self<context.plan", true),
             ("decisions", "self<decision[origin=context].plan", true),

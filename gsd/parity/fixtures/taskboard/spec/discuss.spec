@@ -85,7 +85,7 @@ research 02-RESEARCH "Persistence research" {
   context_pack {
     route      "gsd/phase-context"
     digest     "sha256:6b581dc0ec29be698b84ebe813ad16dc1241d5b16d86cce89be01fdddbd469a2"
-    max_tokens 50000
+    max_tokens 893
   }
 }
 

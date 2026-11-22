@@ -37,7 +37,8 @@ fn head_given<'a>(call: &'a CommandCall<'_>) -> Result<Option<&'a str>, String> 
 /// The route whose pack `start-plan` records on its plan, each call.
 const EXECUTOR: &str = "gsd/executor";
 
-/// `start_plan <plan> [--head <sha>] [--max-tokens <n>]`: gated. Records the host's `now` and the commit in the plan's
+/// `start_plan <plan> [--head <sha>] [--max-tokens <n>]`: gated (`--max-tokens` caps the recorded pack, which without it
+/// holds the plan's core whole, however large the plan). Records the host's `now` and the commit in the plan's
 /// `plan_start`, each once: a second call answers the first values and leaves them, so re-running the step never makes
 /// a false duration or a false commit count. A prompt's step opens a plan with no head and the executor names it next,
 /// so a head comes once whichever call brings it. Every call records the plan's executor pack, so the continuation
@@ -237,7 +238,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.description("the commit it opens at, in full (`specforge git head --pick .sha`); empty on an unborn branch, which has none");
             })
             .arg("max_tokens", |a| {
-                a.count().description("the budget of the executor pack it records (default: the route's own)");
+                a.count().description(
+                    "a cap on the executor pack it records, refused below its core (default: none, the core whole and the route's allowance)",
+                );
             })
             .handler(|call| run(call, start));
     });

@@ -81,7 +81,11 @@ fn the_recorded_digest_is_what_specforge_context_prints() {
         let record = &p.fields_of(entity)["context_pack"];
         assert_eq!(record["route"], "gsd/phase-context", "{kind}: {record}");
         assert_eq!(record["digest"], printed["digest"], "{kind}: {record}");
-        assert_eq!(record["max_tokens"], 50000, "{kind}: {record}");
+        // The cap the pack was fitted to: the route is all core, so its core whole (ADR 0386).
+        assert_eq!(
+            record["max_tokens"], printed["budget"]["budget_tokens"],
+            "{kind}: {record}"
+        );
     }
     assert!(
         !p.codes().contains(&"gsd/W406".to_string()),
