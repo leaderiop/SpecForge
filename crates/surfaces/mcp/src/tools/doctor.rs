@@ -33,7 +33,8 @@ impl CoreTool for Tool {
         let mut user = None;
         let consent = project.consent_or_users(&mut user);
         let report = specforge_ops::analysis::doctor::diagnose(&view, project.solver)
-            .with_grants(&view, consent);
+            .with_grants(&view, consent)
+            .with_tools(&view, &*project.ports.process);
         Ok(report.document().into())
     }
 }

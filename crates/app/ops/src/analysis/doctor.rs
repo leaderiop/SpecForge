@@ -205,6 +205,13 @@ pub enum About {
     /// The SMT solver `specforge analyze --prove` asks does not run here: the
     /// W098 it reports.
     Toolchain,
+    /// A program a collector detected here runs that this machine lacks (`tool_missing`, ADR 0389 D3): the
+    /// collectors it stops and the codes no collector can then judge.
+    Tools {
+        program: String,
+        collectors: Vec<String>,
+        codes: Vec<String>,
+    },
     /// What the extensions may make the host do here (ADR 0335 D2): the consent store cannot be used (W186), or
     /// a run here uses effects this machine has not approved (W170).
     Grants,
@@ -234,6 +241,7 @@ pub enum Part {
     Conflict,
     Shadowing,
     Toolchain,
+    Tools,
     Grants,
     Host,
 }
@@ -256,6 +264,7 @@ impl About {
             About::Conflict { .. } => Part::Conflict,
             About::Shadowing { .. } => Part::Shadowing,
             About::Toolchain => Part::Toolchain,
+            About::Tools { .. } => Part::Tools,
             About::Grants => Part::Grants,
             About::Host { .. } => Part::Host,
         }
@@ -362,6 +371,17 @@ impl DoctorReport {
                 .iter()
                 .map(|diagnostic| Finding::of(About::Grants, diagnostic, codes)),
         );
+        self
+    }
+
+    /// This report with one info finding per program a collector detected here runs that `process` does not find
+    /// (ADR 0389 D3): never a failure. A view without a root adds nothing.
+    pub fn with_tools(
+        mut self,
+        view: &ProjectView,
+        process: &dyn specforge_effects::Process,
+    ) -> Self {
+        self.findings.extend(tools::probe(view, process));
         self
     }
 
@@ -637,3 +657,4 @@ fn remediation(diag: &Diagnostic, codes: &Codebook, fallback: impl FnOnce() -> S
 pub mod on_path;
 #[cfg(test)]
 mod tests;
+mod tools;

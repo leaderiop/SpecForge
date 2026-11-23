@@ -29,7 +29,7 @@ pub use crate::machine::{
     CollectorCommand, CollectorMachine, REPORT_ENV, Ran, RunFailure, RunnerOutput,
 };
 use collector::detect;
-pub use collector::{Collector, collectors, uses_here};
+pub use collector::{Collector, collectors, detected_here, uses_here};
 pub use dispatch::dispatch;
 use dispatch::dispatch_over;
 use evidence::{Evidence, Source};

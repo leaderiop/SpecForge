@@ -143,6 +143,16 @@ fn in_a_repository(git: Option<&dyn Git>, root: &Path) -> bool {
     git.is_some_and(|git| !matches!(git.locate(root), Located::NotARepository))
 }
 
+/// The collectors a collect run here would detect, a repository asked of `git`: what doctor probes the programs of.
+pub fn detected_here(
+    declarations: &[ExtensionDeclaration],
+    root: &Path,
+    git: Option<&dyn Git>,
+) -> Vec<Collector> {
+    let all = collectors(declarations);
+    detect(&all, root, git).into_iter().cloned().collect()
+}
+
 /// The scopes a collect run here would use, per extension: each detected collector's process capability (ADR 0335
 /// D2), a repository asked of `git`: what `specforge grants` and doctor call in use.
 pub fn uses_here(
