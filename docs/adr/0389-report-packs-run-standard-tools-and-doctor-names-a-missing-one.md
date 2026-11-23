@@ -117,6 +117,8 @@ The plan that builds each pack fixes its exact argv and names; this table is the
 - Playwright reports paths relative to its `testDir`.
 - `cargo public-api` reads one package per run (the root package; the filter names another) and needs a nightly
   toolchain.
+- api-extractor reads built declarations: the pack's config names `<projectFolder>/dist/index.d.ts` as its entry, so
+  the project builds them there first; the pack runs no build.
 - cargo-cyclonedx and clippy run build scripts; the consent prompt shows the command.
 - osv-scanner exits 1 when it finds vulnerabilities, which the host does not judge: it reads the report whatever the
   exit code.
