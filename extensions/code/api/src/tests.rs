@@ -9,6 +9,9 @@ const RUST: &str = include_str!("../fixtures/rust.public-api.txt");
 const WIDGET: &str = include_str!("../fixtures/widget.api.json");
 /// api-extractor 7.60.1's doc model of `@demo/widget`, recorded (see `fixtures/README.md`).
 const API_EXTRACTOR_7_60_1: &str = include_str!("../fixtures/api-extractor-7.60.1.widget.api.json");
+/// api-extractor 7.60.1's doc model of `@demo/rich`: a constructor, an index signature, an accessor pair, a namespace.
+const API_EXTRACTOR_7_60_1_RICH: &str =
+    include_str!("../fixtures/api-extractor-7.60.1.rich.api.json");
 /// The served `item` facts an api collector receives, as JSON.
 const ITEMS: &str = include_str!("../fixtures/items.json");
 
@@ -58,6 +61,59 @@ fn a_recorded_api_extractor_7_60_1_model_mints_api_items_of_every_member() {
     assert_eq!(read, expected);
     assert!(entries.iter().all(|e| e.container == "@demo/widget"));
     insta::assert_json_snapshot!("api_extractor_7_60_1", api_facts(&entries, &served()));
+}
+
+#[test]
+fn a_recorded_model_with_a_constructor_and_an_index_signature_reads_them_named_by_kind() {
+    let entries = read_js_model(API_EXTRACTOR_7_60_1_RICH).expect("the recording reads");
+    let read: Vec<(String, &str, Option<&str>)> = entries
+        .iter()
+        .map(|e| (e.path.join("."), e.kind.as_str(), e.tag.as_deref()))
+        .collect();
+    let at = |path: &str| {
+        read.iter()
+            .find(|(p, _, _)| p == path)
+            .unwrap_or_else(|| panic!("{path} in {read:?}"))
+    };
+    assert_eq!(at("Base.constructor").1, "method");
+    assert_eq!(at("Runnable.[]").1, "other");
+    assert_eq!(at("Base.tune").2, Some("Beta"));
+    assert_eq!(at("Flags").2, Some("Alpha"));
+    assert_eq!(at("util.LIMIT").1, "variable");
+    assert_eq!(read.iter().filter(|(p, _, _)| p == "parse").count(), 2);
+    assert!(entries.iter().all(|e| e.container == "@demo/rich"));
+    insta::assert_json_snapshot!("api_extractor_7_60_1_rich", api_facts(&entries, &served()));
+}
+
+#[test]
+fn a_nameless_member_of_a_kind_the_reader_does_not_name_is_an_error_naming_its_place() {
+    let model = |member: &str| {
+        format!(
+            r#"{{"kind": "Package", "name": "p", "members": [{{"kind": "EntryPoint", "name": "",
+            "members": [{{"kind": "Interface", "name": "I", "members": [{member}]}}]}}]}}"#
+        )
+    };
+    let named: Vec<String> = [
+        "CallSignature",
+        "ConstructSignature",
+        "IndexSignature",
+        "Constructor",
+    ]
+    .iter()
+    .map(|kind| {
+        let entries = read_js_model(&model(&format!(r#"{{"kind": "{kind}"}}"#)))
+            .unwrap_or_else(|e| panic!("{kind}: {e}"));
+        entries[1].path[1].clone()
+    })
+    .collect();
+    assert_eq!(named, ["()", "new()", "[]", "constructor"]);
+    for member in [r#"{"kind": "Mystery"}"#, "{}"] {
+        let error = read_js_model(&model(member)).expect_err(member);
+        assert!(
+            error.contains("members[0].members[0].members[0]"),
+            "{error}"
+        );
+    }
 }
 
 #[test]

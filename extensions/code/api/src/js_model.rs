@@ -7,9 +7,11 @@ use specforge_code_facts::{ApiEntry, ApiKind, ItemKind, Scheme, Visibility};
 /// `EntryPoint` of the root `Package`, at any depth, its path the member names from the entry point down. The kinds:
 /// Class class, Interface interface, Function function, Method, MethodSignature and Constructor method, Property
 /// and PropertySignature field, Variable variable, TypeAlias type, Enum enum, EnumMember variant, Namespace namespace,
-/// any other `other`. The signature is its `excerptTokens`' texts joined, the tag its `releaseTag`. An error: text
-/// that is no JSON (nesting deeper than serde_json's limit included), a root that is no Package with a name, and a
-/// member with no `kind` or `name`, named by its JSON path (`members[0].members[3]`).
+/// any other (IndexSignature, CallSignature, ConstructSignature included) `other`. A member the tool writes with no
+/// `name` is named by its kind: Constructor `constructor`, IndexSignature `[]`, CallSignature `()`,
+/// ConstructSignature `new()`. The signature is its `excerptTokens`' texts joined, the tag its `releaseTag`. An error:
+/// text that is no JSON (nesting deeper than serde_json's limit included), a root that is no Package with a name, and
+/// a member with no `kind`, or no `name` and none of those four kinds, named by its JSON path (`members[0].members[3]`).
 pub fn read_js_model(text: &str) -> Result<Vec<ApiEntry>, String> {
     let root: Value = serde_json::from_str(text).map_err(|e| format!("no JSON: {e}"))?;
     if root.get("kind").and_then(Value::as_str) != Some("Package") {
@@ -79,15 +81,27 @@ fn members<'v>(parent: &'v Value, at: &str) -> Result<&'v [Value], String> {
     }
 }
 
-/// A member's `kind` and `name`, or an error naming its JSON path `at`.
+/// A member's `kind` and `name`, or an error naming its JSON path `at`. The tool writes no `name` for a constructor or
+/// a signature member, so one is named by its kind: `constructor`, `[]`, `()`, `new()`.
 fn named<'v>(member: &'v Value, at: &str) -> Result<(&'v str, &'v str), String> {
-    let text = |key: &str| {
-        member
-            .get(key)
-            .and_then(Value::as_str)
-            .ok_or_else(|| format!("{at}: a member has no {key}"))
+    let none = |key: &str| format!("{at}: a member has no {key}");
+    let kind = member
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| none("kind"))?;
+    let by_kind = match kind {
+        "Constructor" => Some("constructor"),
+        "IndexSignature" => Some("[]"),
+        "CallSignature" => Some("()"),
+        "ConstructSignature" => Some("new()"),
+        _ => None,
     };
-    Ok((text("kind")?, text("name")?))
+    let name = member
+        .get("name")
+        .and_then(Value::as_str)
+        .or(by_kind)
+        .ok_or_else(|| none("name"))?;
+    Ok((kind, name))
 }
 
 /// The kind of an api-extractor member kind.
