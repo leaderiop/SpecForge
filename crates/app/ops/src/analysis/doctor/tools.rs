@@ -11,7 +11,7 @@ use std::path::Path;
 
 use specforge_common::remedy::printable;
 use specforge_effects::Process;
-use specforge_protocol_types::{is_install_line, is_program_name};
+use specforge_protocol_types::{is_install_line, is_program_name, is_wild};
 
 use super::{About, Finding, FindingStatus};
 use crate::Containment;
@@ -180,7 +180,7 @@ fn bin_dirs(root: &Path, containment: &Containment) -> Vec<String> {
         .and_then(serde_json::Value::as_array)
         .or_else(|| workspaces?.get("packages")?.as_array());
     let inside = |dir: &str| {
-        !dir.contains(['*', '?'])
+        !dir.split('/').any(is_wild)
             && crate::containment::declared(Path::new(dir)).is_some()
             && containment
                 .resolve(&root.join(dir))

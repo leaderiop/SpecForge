@@ -17,7 +17,7 @@ use specforge_effects::contained::{Contained, Resolved};
 use specforge_effects::fs::SKIPPED;
 use specforge_effects::{Root, Roots};
 
-use specforge_protocol_types::{FILE_READ_MAX, FileFact, FileFacts, FileRead};
+use specforge_protocol_types::{FILE_READ_MAX, FileFact, FileFacts, FileRead, is_wild};
 use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_problem};
 
 use crate::judged::file_digest;
@@ -342,8 +342,4 @@ fn fact(
 
 fn slashed(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
-}
-
-fn is_wild(segment: &str) -> bool {
-    segment.contains(['*', '?'])
 }

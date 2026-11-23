@@ -7,7 +7,7 @@ use specforge_effects::Uses;
 use specforge_effects::git::{Git, Located};
 use specforge_protocol_types::{
     CONFIG_PLACEHOLDER, ExtensionDeclaration, FILTER_PLACEHOLDER, Input, Inputs, Operation,
-    PortScope, ProcessConfig, REPORT_PLACEHOLDER, is_report_name,
+    PortScope, ProcessConfig, REPORT_PLACEHOLDER, is_report_name, is_wild,
 };
 use std::path::Path;
 
@@ -216,11 +216,10 @@ pub(super) fn wildcard(pattern: &str, name: &str) -> bool {
 
 /// The collector's report when it is a glob (ADR 0389): one of its `/`-separated segments holds `*` or `?`.
 pub(super) fn report_glob(collector: &Collector) -> Option<&str> {
-    collector.report.as_deref().filter(|report| {
-        report
-            .split('/')
-            .any(|segment| segment.contains(['*', '?']))
-    })
+    collector
+        .report
+        .as_deref()
+        .filter(|report| report.split('/').any(is_wild))
 }
 
 /// The report location, held: the report itself, or for a glob its literal base directory (the segments before the
@@ -280,7 +279,7 @@ pub(super) fn report_path(
     }
     let base: Vec<&str> = report
         .split('/')
-        .take_while(|segment| !segment.contains(['*', '?']))
+        .take_while(|segment| !is_wild(segment))
         .collect();
     let base = match base.join("/") {
         literal if literal.is_empty() => root.to_path_buf(),

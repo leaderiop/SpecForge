@@ -586,11 +586,13 @@ pub fn is_program_name(program: &str) -> bool {
 /// Whether `report` may be a collector's report (ADR 0389 D6): its last `/`-separated segment is a literal file name,
 /// so a glob names the files one tool writes (`**/rust-sbom.cdx.json`) and never every file of a kind (`**/*.pem`).
 pub fn is_report_name(report: &str) -> bool {
-    !report
-        .rsplit('/')
-        .next()
-        .unwrap_or_default()
-        .contains(['*', '?'])
+    !is_wild(report.rsplit('/').next().unwrap_or_default())
+}
+
+/// Whether one `/`-separated segment of a declared glob (a file read's, a report's) is a wildcard: it holds `*` or
+/// `?`. The host's walks and the declaration checks read a glob through this one predicate.
+pub fn is_wild(segment: &str) -> bool {
+    segment.contains(['*', '?'])
 }
 
 /// The most bytes a collector's install line holds.
