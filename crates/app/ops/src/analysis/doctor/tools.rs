@@ -4,6 +4,7 @@
 //! a failure; a program that is found says nothing. Nothing is run.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 use specforge_common::remedy::printable;
 use specforge_effects::Process;
@@ -33,13 +34,10 @@ pub(super) fn probe(view: &ProjectView, process: &dyn Process) -> Vec<Finding> {
     let codes = view.registries().codes();
     let mut missing: BTreeMap<String, Missing> = BTreeMap::new();
     for collector in detected_here(view.registries().declarations(), root, git.as_deref()) {
-        let Some(program) = collector.run.first() else {
+        let Some(program) = self::program(&collector.run, root, process) else {
             continue;
         };
-        if process.which(program).is_some() {
-            continue;
-        }
-        let entry = missing.entry(printable(program).into_owned()).or_default();
+        let entry = missing.entry(printable(&program).into_owned()).or_default();
         entry.collectors.insert(format!(
             "{} ({})",
             printable(&collector.name),
@@ -57,6 +55,52 @@ pub(super) fn probe(view: &ProjectView, process: &dyn Process) -> Vec<Finding> {
         .into_iter()
         .map(|(program, m)| finding(program, m))
         .collect()
+}
+
+/// The program `run` needs that this machine lacks; none when it has it, or `run` is empty (ADR 0389 D3). `npx --
+/// <bin>` needs `<bin>`, in the project's `node_modules/.bin` or on PATH; `node node_modules/<package>/...` needs
+/// `node` and that script under the root, else names the package; anything else needs its first item on PATH. A
+/// file check is `is_file` on a declared relative path joined under `root`: no read, no run.
+fn program(run: &[String], root: &Path, process: &dyn Process) -> Option<String> {
+    let first = run.first()?;
+    let found = |program: &str| process.which(program).is_some();
+    let under_root = |relative: &str| {
+        crate::containment::declared(Path::new(relative)).is_some_and(|p| root.join(p).is_file())
+    };
+    match first.as_str() {
+        "npx" => {
+            if let Some(bin) = run.iter().skip_while(|arg| *arg != "--").nth(1) {
+                let local = |name: String| under_root(&format!("node_modules/.bin/{name}"));
+                let present = local(bin.clone()) || local(format!("{bin}.cmd")) || found(bin);
+                return (!present).then(|| bin.clone());
+            }
+        }
+        "node" => {
+            if !found("node") {
+                return Some("node".into());
+            }
+            let script = run[1..]
+                .iter()
+                .find(|arg| arg.starts_with("node_modules/"))?;
+            if under_root(script) {
+                return None;
+            }
+            if crate::containment::declared(Path::new(script)).is_none() {
+                return Some(script.clone());
+            }
+            // The package directory: `jest`, or a scoped `@acme/tool`.
+            let mut segments = script["node_modules/".len()..].split('/');
+            let package = match segments.next() {
+                Some(scope) if scope.starts_with('@') => {
+                    format!("{scope}/{}", segments.next().unwrap_or_default())
+                }
+                name => name.unwrap_or_default().to_string(),
+            };
+            return Some(package);
+        }
+        _ => {}
+    }
+    (!found(first)).then(|| first.clone())
 }
 
 /// The finding about `program`, missing.
