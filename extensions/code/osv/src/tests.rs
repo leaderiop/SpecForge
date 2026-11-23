@@ -7,6 +7,8 @@ use super::*;
 const SCAN: &str = include_str!("../fixtures/osv-scanner.json");
 /// A scan of a virtual workspace's root `Cargo.lock` and of a nested npm `web/package-lock.json`, hand-written.
 const WORKSPACE: &str = include_str!("../fixtures/workspace.json");
+/// osv-scanner 2.7.1's report of `/project`'s `Cargo.lock` and `web/package-lock.json`, recorded with real records.
+const OSV_SCANNER_2_7_1: &str = include_str!("../fixtures/osv-scanner-2.7.1.json");
 /// The served `package` facts a vulnerability collector receives, as JSON.
 const PACKAGES: &str = include_str!("../fixtures/packages.json");
 
@@ -103,6 +105,27 @@ fn a_workspace_lockfile_reaches_every_member_and_a_nested_one_its_own_package() 
         serde_json::json!(["pkg:npm/%40babel/traverse@7.22.0"])
     );
     insta::assert_json_snapshot!("workspace", facts);
+}
+
+#[test]
+fn a_recorded_osv_scanner_2_7_1_report_mints_real_records_of_both_lockfiles() {
+    let report = read(OSV_SCANNER_2_7_1, "/project").expect("the recording reads");
+    let lockfiles: Vec<&str> = report.sources.iter().map(|s| s.lockfile.as_str()).collect();
+    assert_eq!(lockfiles, ["Cargo.lock", "web/package-lock.json"]);
+    let minted = vulnerability_facts(&report, &served());
+    assert!(minted.skipped.is_empty(), "{:?}", minted.skipped);
+    let packages: std::collections::BTreeSet<&str> = minted
+        .facts
+        .iter()
+        .map(|f| text(f, "package").unwrap_or_default())
+        .collect();
+    assert_eq!(
+        packages,
+        ["pkg:cargo/demo", "pkg:npm/%40demo/web"]
+            .into_iter()
+            .collect()
+    );
+    insta::assert_json_snapshot!("osv_scanner_2_7_1", minted.facts);
 }
 
 #[test]

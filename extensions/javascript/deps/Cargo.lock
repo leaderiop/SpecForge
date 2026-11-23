@@ -323,6 +323,7 @@ dependencies = [
  "specforge-code-facts",
  "specforge-code-osv",
  "specforge-extension-sdk",
+ "specforge-protocol-types",
  "specforge-test",
 ]
 

@@ -16,3 +16,5 @@ specforge-code-facts = { path = "../../code/facts" }
 # Spec links: #[specforge_test(requirement = "…")] (ADR 0002).
 specforge-test = { path = "../../../integrations/rust/specforge-test" }
 serde_json = "1.0"
+# is_install_line: the host's rule for a collector's install line.
+specforge-protocol-types = { path = "../../../crates/leaf/protocol-types" }

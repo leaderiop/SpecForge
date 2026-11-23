@@ -5,6 +5,9 @@ use specforge_test::prelude::*;
 
 /// cyclonedx-npm 7.0.1's BOM of the project `board`, recorded by the Phase 11 research.
 const CYCLONEDX_NPM_7_0_1: &str = include_str!("../fixtures/cyclonedx-npm-7.0.1.cdx.json");
+/// The OSV reader's osv-scanner 2.7.1 recording: `Cargo.lock` (smallvec 1.6.0) and `web/package-lock.json` (lodash
+/// 4.17.15) of `/project`.
+const OSV_SCANNER_2_7_1: &str = include_str!("../../../code/osv/fixtures/osv-scanner-2.7.1.json");
 /// The served `package` facts: `pkg:npm/board` at the root, `pkg:npm/web` at `web`.
 const PACKAGES: &str = include_str!("../fixtures/packages.json");
 
@@ -132,4 +135,94 @@ fn zero_or_two_boms_or_a_bad_one_is_the_sbom_collectors_error() {
     }
     let why = collect_sbom(&input(SBOM_REPORT, &["garbage"])).unwrap_err();
     assert!(why.starts_with(&format!("{SBOM_REPORT}: no JSON")), "{why}");
+}
+
+#[specforge_test(requirement = "FEATURE-147")]
+fn javascript_deps_declares_osv_scanner_over_the_lockfile() {
+    let declaration = crate::specforge_extension_build().declaration();
+    let names: Vec<&str> = declaration
+        .collectors
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect();
+    assert_eq!(names, [SBOM, OSV]);
+    let collector = &declaration.collectors[1];
+    let capability = capability(&declaration, OSV);
+    assert_eq!(collector.input_formats, ["osv-json"]);
+    assert_eq!(
+        collector.auto_detect.as_ref().map(|d| &d.file_patterns[..]),
+        Some(&["package-lock.json".to_string()][..])
+    );
+    assert_eq!(collector.answers, ["vulnerability"]);
+    assert_eq!(collector.inputs, [Input::facts(&["package"])]);
+    assert_eq!(collector.report.as_deref(), Some(OSV_REPORT));
+    let install = collector.install.as_deref().expect("an install line");
+    assert_eq!(
+        install,
+        "go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest (or: brew install osv-scanner)"
+    );
+    assert!(specforge_protocol_types::is_install_line(install));
+    assert_eq!(
+        capability["argv"],
+        json!([
+            "osv-scanner",
+            "scan",
+            "source",
+            "--lockfile",
+            "package-lock.json",
+            "--format",
+            "json",
+            "--output-file",
+            "{report}"
+        ])
+    );
+    assert_eq!(
+        capability["env"],
+        json!([
+            "HTTPS_PROXY",
+            "HTTP_PROXY",
+            "NO_PROXY",
+            "https_proxy",
+            "http_proxy",
+            "no_proxy",
+            "OSV_*"
+        ])
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-147")]
+fn a_recorded_osv_scan_cites_the_npm_package_and_warns_of_each_package_it_skips() {
+    let out = collect_osv(&input(OSV_REPORT, &[OSV_SCANNER_2_7_1])).unwrap();
+    let ids: Vec<&str> = out.facts.iter().map(|f| f.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        [
+            "vuln:pkg:npm/web/GHSA-29mw-wpgm-hmr9",
+            "vuln:pkg:npm/web/GHSA-35jh-r3h4-6jhm",
+            "vuln:pkg:npm/web/GHSA-p6mc-m468-83gw",
+            "vuln:pkg:npm/web/GHSA-r5fr-rjxr-66jc",
+            "vuln:pkg:npm/web/GHSA-xxjr-mmjv-4gpg"
+        ]
+    );
+    // smallvec of the root Cargo.lock: this pack serves no cargo package, so it is named, not dropped.
+    assert_eq!(
+        out.warnings,
+        ["'smallvec' 1.6.0 in 'Cargo.lock' (2 records) is skipped: no collected pkg:cargo package lies at or \
+          under the lockfile's directory"]
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-147")]
+fn zero_or_two_scans_or_a_bad_one_is_the_osv_collectors_error() {
+    for reports in [&[][..], &[OSV_SCANNER_2_7_1, OSV_SCANNER_2_7_1][..]] {
+        let why = collect_osv(&input(OSV_REPORT, reports)).unwrap_err();
+        assert!(why.contains(OSV) && why.contains(OSV_REPORT), "{why}");
+    }
+    let why = collect_osv(&input(OSV_REPORT, &["garbage"])).unwrap_err();
+    assert!(why.starts_with(&format!("{OSV_REPORT}: no JSON")), "{why}");
+    let no_cwd = CollectInput {
+        cwd: None,
+        ..input(OSV_REPORT, &[OSV_SCANNER_2_7_1])
+    };
+    assert!(collect_osv(&no_cwd).unwrap_err().contains("no cwd"));
 }
