@@ -1,0 +1,14 @@
+Kani Rust Verifier 0.68.0 (cargo plugin)
+   Compiling demo v0.1.0 (/project)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.40s
+Checking harness proofs::check_add...
+CBMC 6.8.0 (cbmc-6.8.0)
+
+RESULTS:
+Check 1: proofs::check_add.assertion.1
+	 - Status: SUCCESS
+	 - Description: "assertion failed: add(a, b) >= a"
+	 - Location: src/lib.rs:11:9 in function proofs::check_add
+
+Check 2: proofs::check_add.arithmetic_overflow.1
+	 - Status: FAILURE

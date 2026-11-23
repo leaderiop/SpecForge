@@ -1,0 +1,4 @@
+Kani Rust Verifier 0.68.0 (cargo plugin)
+   Compiling demo v0.1.0 (/project)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.38s
+No proof harnesses (functions with #[kani::proof]) were found to verify.

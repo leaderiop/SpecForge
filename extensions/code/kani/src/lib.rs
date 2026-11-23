@@ -46,15 +46,27 @@ pub enum Verdict {
 /// A harness whose `VERIFICATION:-` line is not read yet.
 struct Open {
     name: String,
+    /// Its `Checking harness` line, 1-based.
+    at: usize,
     failed_checks: Option<usize>,
     checks: Option<usize>,
 }
 
-/// Kani's regular output `text` read into its runs, in output order, in one pass over its lines.
+/// Kani's regular output `text` read into its runs, in output order, in one pass over its lines (a trailing `\r`
+/// dropped, every line not named in the crate doc ignored). Only the `VERIFICATION:-` line sets a verdict: a check's
+/// status (a cover's `SATISFIED`, an unwinding assertion's `FAILURE`) never does, as Kani itself decides what a
+/// harness's checks mean (`#[kani::should_panic]` inverts them). No harness (`No proof harnesses ... were found`, or
+/// empty text) is no run and no error.
+///
+/// An output that stops early is an Err naming its 1-based line, never a shorter list: a harness with no verdict, a
+/// harness started before the last one's verdict, harnesses after the last `Complete` line, a `Complete` line whose
+/// numbers differ from the harnesses read since the one before, or a number that does not parse.
 pub fn read(text: &str) -> Result<Vec<Run>, String> {
     let mut runs = Vec::new();
     let mut done: Vec<Harness> = Vec::new();
     let mut open: Option<Open> = None;
+    // The line opening the first harness since the last `Complete`, while any is read.
+    let mut run_from: Option<usize> = None;
     let mut after_summary = false;
     for (index, raw) in text.lines().enumerate() {
         let at = index + 1;
@@ -72,9 +84,22 @@ pub fn read(text: &str) -> Result<Vec<Run>, String> {
             }
         }
         if let Some(name) = line.strip_prefix("Checking harness ") {
-            let name = name.strip_suffix("...").unwrap_or(name);
+            let name = name.strip_suffix("...").unwrap_or(name).trim();
+            if name.is_empty() {
+                return Err(format!(
+                    "line {at}: a 'Checking harness' line names no harness"
+                ));
+            }
+            if let Some(before) = &open {
+                return Err(format!(
+                    "line {at}: the harness '{name}' starts before the harness '{}' (line {}) has its \
+                     VERIFICATION line",
+                    before.name, before.at
+                ));
+            }
             open = Some(Open {
                 name: name.to_string(),
+                at,
                 failed_checks: None,
                 checks: None,
             });
@@ -86,26 +111,50 @@ pub fn read(text: &str) -> Result<Vec<Run>, String> {
                 "FAILED" => Verdict::Failed,
                 other => return Err(format!("line {at}: '{other}' is no Kani verdict")),
             };
-            if let Some(open) = open.take() {
-                done.push(Harness {
-                    name: open.name,
-                    verdict,
-                    failed_checks: open.failed_checks,
-                    checks: open.checks,
-                    seconds: None,
-                });
-            }
+            let Some(open) = open.take() else {
+                return Err(format!(
+                    "line {at}: a VERIFICATION line with no 'Checking harness' line before it"
+                ));
+            };
+            run_from.get_or_insert(open.at);
+            done.push(Harness {
+                name: open.name,
+                verdict,
+                failed_checks: open.failed_checks,
+                checks: open.checks,
+                seconds: None,
+            });
         } else if let Some(time) = line.strip_prefix("Verification Time: ") {
             let seconds = time
                 .strip_suffix('s')
                 .and_then(|s| s.parse::<f64>().ok())
+                .filter(|s| s.is_finite() && *s >= 0.0)
                 .ok_or_else(|| format!("line {at}: '{time}' is no verification time"))?;
             if let Some(last) = done.last_mut().filter(|h| h.seconds.is_none()) {
                 last.seconds = Some(seconds);
             }
         } else if let Some(totals) = line.strip_prefix("Complete - ") {
+            if let Some(open) = &open {
+                return Err(format!(
+                    "line {at}: Complete comes before the harness '{}' (line {}) has its VERIFICATION line",
+                    open.name, open.at
+                ));
+            }
             let (successes, failures, total) =
                 complete(totals).map_err(|why| format!("line {at}: {why}"))?;
+            let passed = done
+                .iter()
+                .filter(|h| h.verdict == Verdict::Successful)
+                .count();
+            let read = (passed, done.len() - passed, done.len());
+            if (successes, failures, total) != read {
+                return Err(format!(
+                    "line {at}: Complete says {successes} successful, {failures} failed, {total} total; the \
+                     harnesses read since the last Complete are {} successful, {} failed, {} total",
+                    read.0, read.1, read.2
+                ));
+            }
+            run_from = None;
             runs.push(Run {
                 harnesses: std::mem::take(&mut done),
                 successes,
@@ -114,8 +163,24 @@ pub fn read(text: &str) -> Result<Vec<Run>, String> {
             });
         }
     }
+    if let Some(open) = open {
+        return Err(format!(
+            "the harness '{}' (line {}) has no VERIFICATION line: {CUT_OFF}",
+            open.name, open.at
+        ));
+    }
+    if let Some(from) = run_from {
+        return Err(format!(
+            "{} harnesses from line {from} have no Complete line: {CUT_OFF}",
+            done.len()
+        ));
+    }
     Ok(runs)
 }
+
+/// Why an output with an unfinished run is refused rather than read.
+const CUT_OFF: &str =
+    "the output stops before Kani's Complete line: a cut-off run would drop a proof";
 
 /// `<failed> of <checks> failed[ trailing text]`.
 fn summary(counts: &str) -> Result<(usize, usize), String> {

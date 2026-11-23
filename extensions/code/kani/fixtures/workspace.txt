@@ -1,0 +1,56 @@
+Kani Rust Verifier 0.68.0 (cargo plugin)
+   Compiling ledger v0.1.0 (/project/crates/ledger)
+   Compiling vault v0.1.0 (/project/crates/vault)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.07s
+Checking harness proofs::balance_never_negative...
+CBMC 6.8.0 (cbmc-6.8.0)
+
+RESULTS:
+Check 1: ledger::Ledger::debit.assertion.1
+	 - Status: SUCCESS
+	 - Description: "assertion failed: self.balance >= amount"
+	 - Location: crates/ledger/src/lib.rs:14:9 in function ledger::Ledger::debit
+
+
+SUMMARY:
+ ** 0 of 4 failed
+
+VERIFICATION:- SUCCESSFUL
+Verification Time: 0.211s
+
+Checking harness proofs::transfer_conserves...
+CBMC 6.8.0 (cbmc-6.8.0)
+
+RESULTS:
+Check 1: proofs::transfer_conserves.assertion.1
+	 - Status: SUCCESS
+	 - Description: "assertion failed: a.balance + b.balance == total"
+	 - Location: crates/ledger/src/lib.rs:41:9 in function proofs::transfer_conserves
+
+
+SUMMARY:
+ ** 0 of 9 failed
+
+VERIFICATION:- SUCCESSFUL
+Verification Time: 0.5s
+
+Manual Harness Summary:
+Complete - 2 successfully verified harnesses, 0 failures, 2 total.
+Checking harness checks::seal_roundtrip...
+CBMC 6.8.0 (cbmc-6.8.0)
+
+RESULTS:
+Check 1: checks::seal_roundtrip.assertion.1
+	 - Status: SUCCESS
+	 - Description: "assertion failed: open(seal(x)) == x"
+	 - Location: crates/vault/src/lib.rs:22:9 in function checks::seal_roundtrip
+
+
+SUMMARY:
+ ** 0 of 3 failed
+
+VERIFICATION:- SUCCESSFUL
+Verification Time: 1.25s
+
+Manual Harness Summary:
+Complete - 1 successfully verified harnesses, 0 failures, 1 total.
