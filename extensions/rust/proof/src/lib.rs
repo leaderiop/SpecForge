@@ -8,12 +8,20 @@
 //! --report <file>` passes a saved capture as the one report instead. `specforge-code-kani` reads the text.
 //!
 //! Each harness becomes the test `rust:<crate>#<harness path>`, passed when Kani says SUCCESSFUL and failed when it
-//! says FAILED, placed at the item `@rust/source` answered for the harness function.
+//! says FAILED, placed at the item `@rust/source` answered for the harness function. Kani prints a harness's path
+//! without its crate, and one `Complete` line per crate: the crate of a run is the one whose served items hold every
+//! harness of it (`rust:<crate>::<harness path>`), and none or several is the collector's error naming the harnesses
+//! (ADR 0389 D10). A harness is a test fact but not an item's `test_id`: `@rust/source` does not see
+//! `#[kani::proof]` as a test and is unchanged.
+//!
+//! A caller narrows the run with a filter (`specforge collect --runner rust-proof --filter <TEXT>`): the host appends
+//! `--harness <TEXT>`, which Kani matches against harness names. Kani runs on Linux x86_64 and macOS only; it is not
+//! supported on Windows (ADR 0389 D12).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_code_facts::{test_facts, TestCase, TestId};
-use specforge_code_kani::{read, Verdict};
+use specforge_code_kani::{read, Run, Verdict};
 use specforge_extension_sdk::prelude::*;
 
 const COLLECTOR: &str = "rust-proof";
@@ -71,44 +79,127 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         }
     };
     let runs = read(text).map_err(|why| format!("{path}: {why}"))?;
-    let items: BTreeMap<&str, &Fact> = input
-        .facts
-        .iter()
-        .filter(|fact| fact.kind == "item")
-        .map(|fact| (fact.id.as_str(), fact))
-        .collect();
+    let served = Served::of(&input.facts);
     let mut tests = Vec::new();
-    for harness in runs.iter().flat_map(|run| &run.harnesses) {
-        let suffix = format!("::{}", harness.name);
-        let held: Vec<(&str, &Fact)> = items
-            .iter()
-            .filter_map(|(id, fact)| {
-                let krate = id.strip_prefix("rust:")?.strip_suffix(suffix.as_str())?;
-                (!krate.is_empty() && !krate.contains("::")).then_some((krate, *fact))
-            })
-            .collect();
-        let [(krate, item)] = held[..] else {
-            return Err(format!(
-                "{COLLECTOR}: the harness '{}' is held by {} crates' served items; collect @rust/source first",
-                harness.name,
-                held.len()
-            ));
-        };
-        let status = match harness.verdict {
-            Verdict::Successful => TestStatus::Passed,
-            Verdict::Failed => TestStatus::Failed,
-        };
-        let test = TestCase {
-            seconds: harness.seconds,
-            ran: true,
-            ..TestCase::unrun(TestId::rust(krate, &harness.name), status)
-        };
-        tests.push(test.placed(item));
+    for run in runs.iter().filter(|run| !run.harnesses.is_empty()) {
+        let krate = crate_of(run, &served)?;
+        for harness in &run.harnesses {
+            let Some((_, path, item)) = served
+                .holders(&harness.name)
+                .into_iter()
+                .find(|(c, _, _)| *c == krate)
+            else {
+                return Err(format!(
+                    "{COLLECTOR}: no item of the crate {krate} holds the harness '{}'",
+                    harness.name
+                ));
+            };
+            let status = match harness.verdict {
+                Verdict::Successful => TestStatus::Passed,
+                Verdict::Failed => TestStatus::Failed,
+            };
+            let test = TestCase {
+                seconds: harness.seconds,
+                ran: true,
+                ..TestCase::unrun(TestId::rust(&krate, path), status)
+            };
+            tests.push(test.placed(item));
+        }
     }
     Ok(CollectOutput {
         facts: test_facts(tests),
         ..CollectOutput::default()
     })
+}
+
+/// The served `item` facts, looked up by id and by the path after their crate.
+struct Served<'f> {
+    by_id: BTreeMap<&'f str, &'f Fact>,
+    /// `rust:<crate>::<path>` as `<path>` to each `(<crate>, item)`; a crate segment never holds `::`.
+    by_path: BTreeMap<&'f str, Vec<(&'f str, &'f Fact)>>,
+}
+
+impl<'f> Served<'f> {
+    fn of(facts: &'f [Fact]) -> Served<'f> {
+        let mut served = Served {
+            by_id: BTreeMap::new(),
+            by_path: BTreeMap::new(),
+        };
+        for fact in facts.iter().filter(|fact| fact.kind == "item") {
+            served.by_id.insert(fact.id.as_str(), fact);
+            if let Some((krate, path)) = fact
+                .id
+                .strip_prefix("rust:")
+                .and_then(|id| id.split_once("::"))
+            {
+                if !krate.is_empty() {
+                    served.by_path.entry(path).or_default().push((krate, fact));
+                }
+            }
+        }
+        served
+    }
+
+    /// Each `(crate, harness path, item)` the harness `name` can be: the item `rust:<crate>::<name>`, or the item
+    /// `rust:<name>` when the name starts with its crate (then the path is the rest).
+    fn holders<'n>(&self, name: &'n str) -> Vec<(&'f str, &'n str, &'f Fact)> {
+        let mut holders: Vec<(&'f str, &'n str, &'f Fact)> = self
+            .by_path
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|(krate, item)| (*krate, name, *item))
+            .collect();
+        if let Some((_, path)) = name.split_once("::") {
+            if let Some(item) = self.by_id.get(format!("rust:{name}").as_str()) {
+                if let Some((krate, _)) = item
+                    .id
+                    .strip_prefix("rust:")
+                    .and_then(|id| id.split_once("::"))
+                {
+                    holders.push((krate, path, *item));
+                }
+            }
+        }
+        holders
+    }
+}
+
+/// The one crate whose served items hold every harness of `run`: Kani prints a harness's path without its crate and
+/// one `Complete` line per crate, so a run is one crate's (ADR 0389 D10). None or several is the collector's error,
+/// never a guess.
+fn crate_of(run: &Run, served: &Served) -> Result<String, String> {
+    let mut common: Option<BTreeSet<&str>> = None;
+    for harness in &run.harnesses {
+        let crates: BTreeSet<&str> = served
+            .holders(&harness.name)
+            .into_iter()
+            .map(|(krate, _, _)| krate)
+            .collect();
+        common = Some(match common {
+            None => crates,
+            Some(kept) => kept.intersection(&crates).copied().collect(),
+        });
+    }
+    let common: Vec<&str> = common.unwrap_or_default().into_iter().collect();
+    let names = run
+        .harnesses
+        .iter()
+        .map(|h| format!("'{}'", h.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+    match common[..] {
+        [krate] => Ok(krate.to_string()),
+        [] => Err(format!(
+            "{COLLECTOR}: no crate's served items hold every harness of one Kani run ({names}), as an item \
+             rust:<crate>::<harness>; collect @rust/source first"
+        )),
+        _ => Err(format!(
+            "{COLLECTOR}: the crates {} each hold every harness of one Kani run ({names}): the run's crate is \
+             ambiguous",
+            common.join(" and ")
+        )),
+    }
 }
 
 specforge_extension_sdk::component_guest!(build = specforge_extension_build);
