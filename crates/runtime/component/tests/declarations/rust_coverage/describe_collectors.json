@@ -26,7 +26,10 @@
       ],
       "install": "cargo install cargo-llvm-cov cargo-nextest --locked",
       "name": "rust-coverage",
-      "report": ".specforge/reports/rust-coverage.lcov"
+      "report": ".specforge/reports/rust-coverage.lcov",
+      "requires": [
+        "cargo-nextest"
+      ]
     }
   ]
 }
