@@ -539,6 +539,21 @@ fn a_fresh_model_against_the_report_of_its_own_run_is_all_unchanged() {
 }
 
 #[test]
+fn the_rich_model_against_its_own_report_is_all_unchanged() {
+    let fresh = read_js_model(API_EXTRACTOR_7_60_1_RICH).expect("the model reads");
+    let accepted = read_js_report(RICH_REPORT).expect("the report reads");
+    let facts = api_facts_against(&fresh, &accepted, &[]);
+    assert_eq!(facts.len(), fresh.len());
+    for (path, change, signature, _) in judged(&facts) {
+        assert_eq!((change.as_str(), signature), ("unchanged", None), "{path}");
+    }
+    // The accessor pair, `LIMIT = 3` and the multi-line type alias are among them.
+    for path in ["Base.value", "util.LIMIT", "Shape", "parse"] {
+        assert!(judged(&facts).iter().any(|j| j.0 == path), "{path}");
+    }
+}
+
+#[test]
 fn a_recorded_break_reads_changed_narrowed_removed_and_added() {
     let fresh = read_js_model(CHANGED_MODEL).expect("the model reads");
     let accepted = read_js_report(TAGGED_REPORT).expect("the report reads");
