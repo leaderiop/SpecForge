@@ -115,6 +115,7 @@ fn collect_answer() -> CollectOutput {
         }],
         plan: None,
         facts: Vec::new(),
+        warnings: Vec::new(),
     }
 }
 

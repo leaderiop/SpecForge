@@ -4874,6 +4874,22 @@ Owner: core
 Level: warning
 ```
 
+## W203
+
+```
+W203: A collector warned of what it skipped
+
+A collector's export read its report and answered facts, and also returned lines
+about entries it could not use (ADR 0389): a path outside the project, a record
+of no supported shape. Each line is one W203 naming the collector and its
+extension, escaped, at most 100 per collector and then one W203 counting the
+rest. The facts it did answer are kept. Read the lines and fix the report or the
+tool's configuration.
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.

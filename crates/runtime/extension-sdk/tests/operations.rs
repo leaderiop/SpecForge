@@ -53,6 +53,7 @@ fn extension() -> ContributionsBuilder {
                 unlinked: Vec::new(),
                 plan: None,
                 facts: Vec::new(),
+                warnings: Vec::new(),
             })
         });
     });

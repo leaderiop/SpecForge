@@ -19,6 +19,7 @@ mod report_first;
 mod report_paths;
 mod retained;
 mod runs;
+mod warnings;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -223,6 +224,15 @@ impl Runner {
                 duration_ms: None,
             }],
         });
+        self
+    }
+
+    /// Its export also returns the warning `line` (ADR 0389).
+    pub fn warning(mut self, line: &str) -> Self {
+        let Answer::Output(output) = &mut self.answer else {
+            panic!("a trapping runner warns of nothing");
+        };
+        output.warnings.push(line.to_string());
         self
     }
 

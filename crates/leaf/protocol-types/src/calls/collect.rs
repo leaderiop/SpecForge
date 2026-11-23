@@ -80,6 +80,11 @@ pub struct CollectOutput {
     /// The entities the collector observed (protocol 1.15.0, ADR 0327): stored by the host, served read-only.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub facts: Vec<Fact>,
+    /// Lines the collector wants the user to read about what it read but could not use (a file outside the
+    /// project, a record skipped), each reported as W203 (protocol 2.3.0, ADR 0389). Never an error: an error is
+    /// the export's `Err`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 /// A test the report doesn't link to an entity: its name, the name split

@@ -99,6 +99,7 @@ fn collected(entries: &[(&str, &str, TestStatus)]) -> CollectOutput {
         unlinked: Vec::new(),
         plan: None,
         facts: Vec::new(),
+        warnings: Vec::new(),
     }
 }
 

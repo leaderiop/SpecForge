@@ -23,6 +23,7 @@ mod facts;
 mod merge;
 mod order;
 mod process;
+mod warnings;
 
 pub use crate::machine::{
     CollectorCommand, CollectorMachine, REPORT_ENV, Ran, RunFailure, RunnerOutput,
@@ -339,6 +340,7 @@ pub fn collect(
             }
             failed
         })?;
+        diagnostics.extend(warnings::warned(collector, &collected.warnings));
         let mut syntax = None;
         if let Some(lent) = lent {
             diagnostics.extend(lent.take_denials());

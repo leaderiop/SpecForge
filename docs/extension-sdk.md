@@ -223,6 +223,7 @@ impl Contributions for Greet {
                         unlinked: Vec::new(),
                         plan: None,
                         facts: Vec::new(),
+                        warnings: Vec::new(),
                     })
                 });
         });
