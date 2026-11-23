@@ -7,8 +7,10 @@
 //! --env-file={config} node_modules/jest/bin/jest.js --reporters=default --reporters=jest-junit`: node loads the file
 //! into jest's environment. Its six lines are both TOML and dotenv. The host substitutes only `{report}` (escaped for
 //! a quoted string, ADR 0348 D2), so `{filepath}`, `{classname}` and `{title}` reach jest-junit as its own
-//! placeholders. `JEST_*` is not in the environment the run inherits: a variable already set there would override the
-//! file's.
+//! placeholders. The command runs in the caller's environment less credentials (ADR 0360 D13): its `env` list is what
+//! a guest-run tool would be lent, not a filter. node's `--env-file` never overrides a variable already set, so a
+//! `JEST_JUNIT_*` variable the caller set wins over the file's line: it can move the report or change the test ids
+//! without an error (`JEST_JUNIT_ANCESTOR_SEPARATOR`, `JEST_JUNIT_CLASSNAME`). Unset them before `specforge collect`.
 //!
 //! Prerequisites: jest and jest-junit are dev dependencies of the project (a missing jest-junit shows only at run
 //! time); `--env-file` needs node 20.6 or later. The route is unverified on Windows (ADR 0389 D12).

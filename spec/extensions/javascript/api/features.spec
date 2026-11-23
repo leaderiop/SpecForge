@@ -14,5 +14,20 @@ requirement FEATURE-149 "API Snapshot Facts (JavaScript)" {
     or metadata file lands in the project. The pack reads the doc model
     with the API library and answers an api_item fact per member, citing
     the one @javascript/source item of the package with that name path.
+
+    The accepted API is the report the project commits for review,
+    read beside the run (files up to 4 MiB): api-extractor's
+    etc/<package>.api.md (glob **/etc/*.api.md) or rush's
+    common/reviews/api/<package>.api.md. api-extractor's temp/ copy,
+    the fresh run's own, and the alpha, beta and public report variants
+    are never read. Only the package the run read is judged: each
+    api_item then carries its change (added, unchanged, changed,
+    narrowed, removed) against its report; without one the facts carry
+    none. A report that does not parse, or two reports of the package,
+    is the collector's error naming them; a report the host did not
+    serve, or of another package, is one warning naming it (W203).
+    Accepting a break is committing the updated report, written by the
+    project's own api-extractor run --local with the report enabled and
+    the pack's entry.
   """
 }

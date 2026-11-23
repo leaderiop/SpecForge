@@ -16,5 +16,17 @@ requirement FEATURE-150 "API Snapshot Facts (Rust)" {
     its path names. A run that read no entry, as when the nightly
     toolchain is missing and the error went to stderr, gives a warning
     that nothing was recorded (W203) instead of looking like a clean run.
+
+    The accepted API is a committed public-api.txt, read beside the run
+    (glob **/public-api.txt, files up to 4 MiB) and written with the
+    pack's own flags (cargo public-api --color never -ss). Only a crate
+    on both sides is judged: each api_item then carries its change
+    (added, unchanged, changed, narrowed, removed) against the accepted
+    file; without one the facts carry none. A file that does not parse
+    is the collector's error naming it; a file the host did not serve,
+    or naming no crate the run read, is one warning naming it (W203), so
+    an unusable baseline never passes silently. Accepting a break is
+    committing the updated file. A narrowing to pub(crate) reads as
+    removed, as the tool lists public items only.
   """
 }

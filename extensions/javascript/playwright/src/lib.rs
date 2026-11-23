@@ -6,9 +6,11 @@
 //! JUnit to standard output unless told a file, so the host captures it into
 //! `.specforge/reports/javascript-playwright/javascript-playwright.stdout.txt` and passes it as
 //! `CollectInput::stdout`; `specforge collect --report <file>` passes a saved report as the one report instead. The
-//! run inherits `PLAYWRIGHT_BROWSERS_PATH` but no other `PLAYWRIGHT_*` variable: `PLAYWRIGHT_JUNIT_OUTPUT_NAME` and
-//! its kin would move the report off standard output. `npx --no` never downloads anything: `@playwright/test` must be
-//! a dev dependency of the project, its browsers installed.
+//! command runs in the caller's environment less credentials (ADR 0360 D13): its `env` list is what a guest-run tool
+//! would be lent, not a filter, so every `PLAYWRIGHT_*` variable the caller set reaches the run.
+//! `PLAYWRIGHT_JUNIT_OUTPUT_NAME` and its kin move the report off standard output, where the collect reads it; unset
+//! them before `specforge collect`. `npx --no` never downloads anything: `@playwright/test`
+//! must be a dev dependency of the project, its browsers installed.
 //!
 //! Each case's `classname` is its file and its `name` the describe blocks then the test title joined by `" › "`
 //! (U+203A). Each test is named `js:<package>/<file>#<describe > … > test>`, as `@javascript/node-test` names it (ADR
