@@ -11,6 +11,7 @@ fn each() -> Vec<Input> {
             glob: Some("src/**".into()),
             root: Some("project".into()),
             text: true,
+            text_max: Some(200_000),
         }),
         Input::Tests,
         Input::State,

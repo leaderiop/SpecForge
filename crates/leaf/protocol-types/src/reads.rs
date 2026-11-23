@@ -28,9 +28,13 @@ pub struct FileRead {
     /// root's costs the read, not the declaration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
-    /// Send each file's text (UTF-8, at most 64 KiB) as well as its facts.
+    /// Send each file's text (UTF-8, at most 64 KiB, or `text_max`) as well as its facts.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub text: bool,
+    /// The most text of one file this read sends, in bytes, instead of 64 KiB; at most 4 MiB, and only with `text`
+    /// (protocol 2.3.0). The read's text budget is then the larger of 1 MiB and four times it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_max: Option<u32>,
 }
 
 /// The most files one [`FileRead`] names: past it the host reads that many and says [`FileFacts::truncated`].

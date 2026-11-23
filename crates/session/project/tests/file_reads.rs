@@ -209,6 +209,68 @@ fn a_file_over_the_cap_has_facts_and_no_text() {
     assert!(f.get("text").is_none() && f["digest"].is_string(), "{f}");
 }
 
+/// A read that declares `text_max` is sent the text of a file past 64 KiB; a read of the same file without it is
+/// still `too_large`.
+#[test]
+fn a_read_with_text_max_is_served_a_file_past_64_kib() {
+    let project = gsd_facts_project().file("big.txt", "a".repeat(200_000));
+    let (_, _, input) = probed(
+        project,
+        json!([
+            {"name": "wide", "glob": "big.txt", "text": true, "text_max": 300_000},
+            {"name": "plain", "glob": "big.txt", "text": true},
+        ]),
+    );
+
+    let wide = fact(&input, "wide", "big.txt");
+    assert_eq!(wide["text"].as_str().map(str::len), Some(200_000));
+    assert!(wide.get("error").is_none(), "{wide}");
+    let plain = fact(&input, "plain", "big.txt");
+    assert!(plain.get("text").is_none(), "{plain}");
+    assert_eq!(plain["error"], "too_large");
+}
+
+/// A read's text budget is the larger of 1 MiB and four times its `text_max`, spent in path order.
+#[test]
+fn a_text_max_read_spends_four_times_its_cap() {
+    let mut project = gsd_facts_project();
+    for n in 0..5 {
+        project = project.file(&format!("wide/f{n}.txt"), "a".repeat(300_000));
+    }
+    let (_, _, input) = probed(
+        project,
+        json!([{"name": "wide", "glob": "wide/*.txt", "text": true, "text_max": 300_000}]),
+    );
+
+    let found = facts(&input, "wide");
+    let paths: Vec<&str> = found.iter().map(|f| f["path"].as_str().unwrap()).collect();
+    assert_eq!(
+        paths,
+        [
+            "wide/f0.txt",
+            "wide/f1.txt",
+            "wide/f2.txt",
+            "wide/f3.txt",
+            "wide/f4.txt"
+        ]
+    );
+    let served: Vec<(bool, Option<&str>)> = found
+        .iter()
+        .map(|f| (f["text"].is_string(), f["error"].as_str()))
+        .collect();
+    // 4 x 300,000 = 1,200,000 bytes fit the budget; the fifth file does not.
+    assert_eq!(
+        served,
+        [
+            (true, None),
+            (true, None),
+            (true, None),
+            (true, None),
+            (false, Some("budget"))
+        ]
+    );
+}
+
 #[test]
 fn a_non_utf8_file_has_facts_and_not_utf8() {
     let project = project_of(&plan_naming(&["bin.dat"])).file("bin.dat", [0xff_u8, 0xfe, 0x00]);

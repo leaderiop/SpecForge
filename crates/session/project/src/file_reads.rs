@@ -22,10 +22,12 @@ use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_pro
 
 use crate::judged::file_digest;
 
-/// The most text of one file a read sends.
+/// The most text of one file a read sends, unless it declares `text_max`.
 pub const TEXT_CAP: usize = 64 * 1024;
-/// The most text one read sends in all.
+/// The most text one read sends in all, unless four times its per-file cap is more.
 pub const TEXT_BUDGET: usize = 1024 * 1024;
+/// The most a read's `text_max` raises its per-file cap to (so its budget is at most 16 MiB).
+pub const TEXT_MAX_CEILING: usize = 4 * 1024 * 1024;
 /// The most entries (files and directories) one glob visits, matched or not.
 pub const MAX_VISITS: usize = 20_000;
 
@@ -100,7 +102,7 @@ pub fn read(
         if read_problem(read).is_some() || files.contains_key(&read.name) {
             continue;
         }
-        let mut budget = TEXT_BUDGET;
+        let mut budget = text_cap(read).map_or(TEXT_BUDGET, |cap| TEXT_BUDGET.max(4 * cap));
         let facts = match (&read.field, &read.glob) {
             (Some(field), _) => field_facts(read, field, entities, &ctx, &mut budget),
             (_, Some(glob)) => glob_facts(read, glob, &ctx, &mut budget),
@@ -109,6 +111,14 @@ pub fn read(
         files.insert(read.name.clone(), facts);
     }
     files
+}
+
+/// The most text of one file `read` sends: `None` when it asks for no text.
+fn text_cap(read: &FileRead) -> Option<usize> {
+    read.text.then(|| {
+        read.text_max
+            .map_or(TEXT_CAP, |max| (max as usize).min(TEXT_MAX_CEILING))
+    })
 }
 
 fn field_facts(
@@ -144,7 +154,9 @@ fn field_facts(
     let facts = named
         .into_iter()
         .take(FILE_READ_MAX)
-        .map(|((entity, path), at)| fact(ctx, path, Some(entity), at.as_ref(), read.text, budget))
+        .map(|((entity, path), at)| {
+            fact(ctx, path, Some(entity), at.as_ref(), text_cap(read), budget)
+        })
         .collect();
     FileFacts { facts, truncated }
 }
@@ -155,7 +167,7 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
         .into_iter()
         .map(|path| {
             let at = ctx.contained.resolve(&path, Root::Project).ok();
-            fact(ctx, path, None, at.as_ref(), read.text, budget)
+            fact(ctx, path, None, at.as_ref(), text_cap(read), budget)
         })
         .collect();
     FileFacts { facts, truncated }
@@ -279,13 +291,14 @@ fn walk(
     }
 }
 
-/// The facts of the file `at` resolves to (`None`: the path leaves the project and is not read).
+/// The facts of the file `at` resolves to (`None`: the path leaves the project and is not read), and its text when
+/// `cap` is set and the file is within it.
 fn fact(
     ctx: &Ctx<'_>,
     path: String,
     entity: Option<String>,
     at: Option<&Resolved>,
-    text: bool,
+    cap: Option<usize>,
     budget: &mut usize,
 ) -> FileFact {
     let mut fact = FileFact {
@@ -306,7 +319,7 @@ fn fact(
     }
     // A text read never carries a secret-looking file, by its name or the name a link resolves to. Its existence is
     // still a fact and still a check input.
-    if text && resolved.withheld {
+    if cap.is_some() && resolved.withheld {
         fact.error = Some("denied".into());
         return fact;
     }
@@ -317,11 +330,9 @@ fn fact(
             let open_line = !bytes.is_empty() && bytes.last() != Some(&b'\n');
             fact.lines = Some(newlines + u64::from(open_line));
             fact.digest = Some(file_digest(&bytes));
-            if text {
+            if let Some(cap) = cap {
                 match String::from_utf8(bytes) {
-                    _ if fact.bytes > Some(TEXT_CAP as u64) => {
-                        fact.error = Some("too_large".into())
-                    }
+                    _ if fact.bytes > Some(cap as u64) => fact.error = Some("too_large".into()),
                     Ok(body) if body.len() > *budget => fact.error = Some("budget".into()),
                     Ok(body) => {
                         *budget -= body.len();
