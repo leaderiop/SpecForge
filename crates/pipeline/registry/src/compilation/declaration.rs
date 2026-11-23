@@ -9,7 +9,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::is_local_code;
 use specforge_protocol_types::{
-    CompilerPassDescriptor, ExtensionDeclaration, FieldDescriptor, FieldType, is_valid_short,
+    CompilerPassDescriptor, ExtensionDeclaration, FieldDescriptor, FieldType, is_report_name,
+    is_valid_short,
 };
 
 use super::populate::keyword;
@@ -20,7 +21,8 @@ fn e030(message: String) -> Diagnostic {
 
 /// E030: a declaration the host cannot use as declared: an empty name or
 /// version, an `ext_short` that is not lowercase kebab case (it names a CLI
-/// subcommand and an MCP tool prefix), or a malformed `codes` entry.
+/// subcommand and an MCP tool prefix), a malformed `codes` entry, or a
+/// collector report glob that does not end in a literal file name (ADR 0389 D6).
 pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
     let name = declaration.name();
     let mut diagnostics = Vec::new();
@@ -43,6 +45,19 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
         );
     }
     diagnostics.extend(code_entries(declaration));
+    for collector in &declaration.collectors {
+        if let Some(report) = collector
+            .report
+            .as_deref()
+            .filter(|report| !is_report_name(report))
+        {
+            diagnostics.push(e030(format!(
+                "extension '{name}': collector '{}' declares the report '{report}': a report glob must end in a \
+                 literal file name, so it names the files one tool writes",
+                collector.name
+            )));
+        }
+    }
     diagnostics
 }
 

@@ -596,8 +596,11 @@ capped text), read by the host after the run. The guest never runs anything itse
 A report may also be a glob over project files the tool writes itself (`.report("**/rust-sbom.cdx.json")`, ADR
 0389): after each run the host reads every match modified since the run started (with `--no-run`, every match),
 walked as an `Input::files` glob is (build output such as `target/` and `node_modules/` skipped unless the glob names
-it, no link entered, at most 20,000 entries), and removes nothing first. Such a command is told no path: `{report}` in
-its argv or config, or `capture_stdout()`, beside a glob is E058, and `SPECFORGE_REPORT` is not set.
+it, no link entered, at most 20,000 entries), and removes nothing first. The glob's last segment is a literal file
+name: `.report("**/*.json")` panics in the SDK and a raw declaration of one is E030, so a glob never reads every file
+of a kind. A report's files hold at most 64 MiB together (what a captured output may hold), past which the collect is
+E045. Such a command is told no path: `{report}` in its argv or config, or `capture_stdout()`, beside a glob is E058,
+and `SPECFORGE_REPORT` is not set.
 
 A handler may also answer `facts` (protocol 1.15.0, ADR 0327), the entities it observed, each of a kind its
 extension declares `collected(..)`:

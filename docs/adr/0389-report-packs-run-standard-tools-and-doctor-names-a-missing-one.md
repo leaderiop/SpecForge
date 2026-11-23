@@ -74,8 +74,11 @@ is the export's `Err`, and fails the collect as before.
 ## D6. A report may be a glob
 
 cargo-cyclonedx writes `<name>.cdx.json` beside each member manifest and has no output path, so `report(...)` accepts
-a project-relative glob (`**/rust-sbom.cdx.json`). After a run the host reads every match modified since the run
-started; with `--no-run`, every match. The walk is `Input::files`' own (`glob_paths`, ADR 0293 D4): directories in
+a project-relative glob (`**/rust-sbom.cdx.json`). Its last segment is a literal file name, so a glob names the files
+one tool writes and never every file of a kind (`**/*`, `**/*.pem`, `**/.env*`): the SDK's `report` panics on a
+wildcard there, the registry refuses a raw declaration of one (E030), and the host's collect refuses it too (E058).
+After a run the host reads every match modified since the run started; with `--no-run`, every match. A report's files
+hold at most 64 MiB together (`REPORT_BYTES_MAX`, a captured output's cap), past which the collect is E045. The walk is `Input::files`' own (`glob_paths`, ADR 0293 D4): directories in
 `SKIPPED` (`target`, `node_modules`, …) are not entered unless the glob names them, a directory reached through a link
 is not entered, and the walk stops at 20,000 entries, which is E045 naming the cap. Each match is held by containment:
 one whose link lands outside the project is never read. Nothing is removed before the run, and the command is told no

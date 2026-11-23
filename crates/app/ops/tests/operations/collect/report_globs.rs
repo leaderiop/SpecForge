@@ -159,7 +159,7 @@ fn a_report_glob_runs_with_its_base_as_the_report_and_no_report_variable() {
     assert!(!runs[0].report_in_env);
 
     let fx = Fixture::new(vec![
-        Runner::new("acme").run(&["acme"]).report("out/**/*.json"),
+        Runner::new("acme").run(&["acme"]).report("out/**/a.json"),
     ]);
     let machine = Machine::new()
         .approving_everything()
@@ -167,4 +167,44 @@ fn a_report_glob_runs_with_its_base_as_the_report_and_no_report_variable() {
     run(&fx, &machine).unwrap();
     assert_eq!(machine.runs()[0].report, fx.root().join("out"));
     assert_eq!(paths(&fx.dispatched()[0]), ["out/x/a.json"]);
+}
+
+#[specforge_test(requirement = "FEATURE-128")]
+fn a_report_glob_ending_in_a_wildcard_is_e058_and_nothing_runs() {
+    for glob in ["**/*", "**/*.pem", "**/.env*", "keys/?.json"] {
+        let fx = Fixture::new(vec![Runner::new("acme").run(&["acme"]).report(glob)]);
+        fx.write("a/id.pem", "secret");
+        let machine = Machine::new().approving_everything();
+        let refusal = run(&fx, &machine).unwrap_err();
+        assert_eq!(refusal.error.code, "E058", "{glob}: {refusal:?}");
+        assert!(
+            refusal.error.message.contains("literal file name"),
+            "{}",
+            refusal.error.message
+        );
+        assert!(machine.runs().is_empty(), "{:?}", machine.runs());
+        assert!(fx.dispatched().is_empty(), "{glob}");
+    }
+}
+
+#[specforge_test(requirement = "FEATURE-128")]
+fn a_report_over_the_byte_cap_is_e045_naming_it() {
+    let fx = Fixture::new(vec![sbom()]);
+    let half = specforge_ops::analysis::collect::REPORT_BYTES_MAX / 2 + 1;
+    for dir in ["a", "b"] {
+        std::fs::create_dir(fx.root().join(dir)).unwrap();
+        let file = std::fs::File::create(fx.root().join(dir).join("rust-sbom.cdx.json")).unwrap();
+        file.set_len(half).unwrap();
+    }
+    let machine = Machine::new()
+        .approving_everything()
+        .answering(writing(&[]));
+    let refusal = run(&fx, &machine).unwrap_err();
+    assert_eq!(refusal.error.code, "E045", "{refusal:?}");
+    assert!(
+        refusal.error.message.contains("67108864"),
+        "{}",
+        refusal.error.message
+    );
+    assert!(fx.dispatched().is_empty());
 }

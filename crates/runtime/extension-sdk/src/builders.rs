@@ -767,8 +767,13 @@ impl CollectorBuilder {
     /// The report the runner writes, relative to the project root: a file, a directory (read as every `*.json` file
     /// directly inside it), or a glob over project files the tool writes itself (`**/name.json`), every match read
     /// fresh after each run by the walk `Input::files` globs take (ADR 0389). A glob's command is told no path: it
-    /// takes no `{report}` and no `capture_stdout()`.
+    /// takes no `{report}` and no `capture_stdout()`. Its last segment is a literal file name: a wildcard there panics.
     pub fn report(&mut self, path: &str) -> &mut Self {
+        assert!(
+            specforge_protocol_types::is_report_name(path),
+            "collector '{}' declares the report '{path}': a report glob must end in a literal file name",
+            self.descriptor.name
+        );
         self.descriptor.report = Some(path.to_string());
         self
     }

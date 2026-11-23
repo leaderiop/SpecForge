@@ -570,6 +570,16 @@ pub struct CollectorDescriptor {
     pub install: Option<String>,
 }
 
+/// Whether `report` may be a collector's report (ADR 0389 D6): its last `/`-separated segment is a literal file name,
+/// so a glob names the files one tool writes (`**/rust-sbom.cdx.json`) and never every file of a kind (`**/*.pem`).
+pub fn is_report_name(report: &str) -> bool {
+    !report
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .contains(['*', '?'])
+}
+
 /// The most bytes a collector's install line holds.
 pub const INSTALL_LINE_MAX: usize = 200;
 

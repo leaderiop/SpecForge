@@ -4,6 +4,7 @@ use super::collector::Collector;
 use crate::view::ProjectView;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
+use specforge_effects::process::OUTPUT_CAP;
 use specforge_project::file_reads::{FileSource, MAX_VISITS, glob_paths};
 use specforge_protocol_types::Operation;
 use specforge_protocol_types::{
@@ -93,8 +94,14 @@ fn fresh(path: &Path, since: Option<SystemTime>) -> bool {
     })
 }
 
-/// The text of each `held` file as a report, named as a project path of `root`; a read that fails is E045.
+/// The most bytes one collector's report files hold together: what a captured standard output may hold
+/// ([`OUTPUT_CAP`]), so a directory or a glob of many files reads no more than one capture.
+pub const REPORT_BYTES_MAX: u64 = OUTPUT_CAP;
+
+/// The text of each `held` file as a report, named as a project path of `root`; a read that fails, or files past
+/// [`REPORT_BYTES_MAX`] together, is E045.
 fn read_held(held: &[Held], root: &Path) -> Result<Vec<CollectReportFile>, OpError> {
+    let mut total: u64 = 0;
     held.iter()
         .map(|file| {
             let content = file.read_to_string().map_err(|e| {
@@ -104,6 +111,17 @@ fn read_held(held: &[Held], root: &Path) -> Result<Vec<CollectReportFile>, OpErr
                     format!("failed to read report {}: {e}", file.named.display()),
                 )
             })?;
+            total = total.saturating_add(content.len() as u64);
+            if total > REPORT_BYTES_MAX {
+                return Err(OpError::coded(
+                    OpErrorKind::SchemaMismatch,
+                    codes::E045,
+                    format!(
+                        "the report files reach past {REPORT_BYTES_MAX} bytes together at {}; name a narrower report",
+                        file.named.display()
+                    ),
+                ));
+            }
             Ok(CollectReportFile {
                 path: file.shown(root).into_string(),
                 content,

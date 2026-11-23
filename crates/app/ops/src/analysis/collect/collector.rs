@@ -7,7 +7,7 @@ use specforge_effects::Uses;
 use specforge_effects::git::{Git, Located};
 use specforge_protocol_types::{
     CONFIG_PLACEHOLDER, ExtensionDeclaration, FILTER_PLACEHOLDER, Input, Inputs, Operation,
-    PortScope, ProcessConfig, REPORT_PLACEHOLDER,
+    PortScope, ProcessConfig, REPORT_PLACEHOLDER, is_report_name,
 };
 use std::path::Path;
 
@@ -223,8 +223,8 @@ pub(super) fn report_glob(collector: &Collector) -> Option<&str> {
 /// The report location, held: the report itself, or for a glob its literal base directory (the segments before the
 /// first wildcard; the project root when there are none). An extension may only declare a relative name without `..`
 /// ([`crate::containment::declared`], E058); where the name lands is the request's containment (a symlink that leaves
-/// the project is `outside_root`). A glob names files the tool writes itself, so a command told its report
-/// (`{report}`) or a captured output, which need one file, is E058.
+/// the project is `outside_root`). A glob names files the tool writes itself, so one whose last segment is not a
+/// literal file name, or a command told its report (`{report}`) or a captured output, which need one file, is E058.
 pub(super) fn report_path(
     collector: &Collector,
     root: &Path,
@@ -245,6 +245,18 @@ pub(super) fn report_path(
     };
     if report_glob(collector).is_none() {
         return Ok(containment.resolve(&root.join(relative))?);
+    }
+    // The registry refuses this declaration (E030); a collector built from one anyway reads nothing.
+    if !is_report_name(report) {
+        return Err(OpError::coded(
+            OpErrorKind::PreconditionFailed,
+            codes::E058,
+            format!(
+                "collector '{}' of {} declares the report glob '{report}': a report glob must end in a literal file \
+                 name, so it names the files one tool writes",
+                collector.name, collector.extension
+            ),
+        ));
     }
     if collector.told_its_report() || collector.capture.is_some() {
         return Err(OpError::coded(

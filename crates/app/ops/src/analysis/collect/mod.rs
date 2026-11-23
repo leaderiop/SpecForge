@@ -30,8 +30,8 @@ pub use crate::machine::{
 };
 use collector::detect;
 pub use collector::{Collector, collectors, detected_here, uses_here};
-pub use dispatch::dispatch;
 use dispatch::dispatch_over;
+pub use dispatch::{REPORT_BYTES_MAX, dispatch};
 use evidence::{Evidence, Source};
 pub use merge::MergeStats;
 use merge::{KnownEntities, merge};
