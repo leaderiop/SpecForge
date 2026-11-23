@@ -82,6 +82,7 @@ fn collector() -> Collector {
         config: None,
         filter: Vec::new(),
         install: None,
+        requires: Vec::new(),
     }
 }
 

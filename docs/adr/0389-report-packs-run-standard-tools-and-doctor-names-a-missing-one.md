@@ -46,9 +46,15 @@ pack would be a test runner under another name. Owner decision D2.
 
 - The program is the collector argv's first item, probed through the process port's `which`. Existence checks only:
   nothing is run.
+- A collector whose command runs another program declares it in `requires` (`CollectorDescriptor.requires`, protocol
+  2.3.0; the SDK's `.requires(&[..])`): `rust-coverage`'s `cargo-llvm-cov llvm-cov nextest` requires `cargo-nextest`.
+  Doctor looks each up on PATH as it does the first, and a missing one is its own note naming the collector and its
+  install line (which installs all its programs). A name that is no bare program name is W021 and never looked up.
 - For `npx --no -- <bin>` the program is `<bin>`, present when `node_modules/.bin/<bin>` (or `<bin>.cmd`) is under the
-  project root or `which` finds it. For `node … node_modules/<pkg>/…` it is `node` and the script, the note naming
-  `<pkg>`.
+  project root, or under an npm workspace package directory the root `package.json` names (`workspaces`: a literal
+  directory or `dir/*`), or `which` finds it. Every file check is held by the project's containment, so nothing above
+  the root is read: a binary hoisted to a parent directory is not seen, and the note says it is missing. For
+  `node … node_modules/<pkg>/…` it is `node` and the script, the note naming `<pkg>`.
 - Only collectors detected in this project are probed.
 - One Info note per missing program, grouped (two collectors on one program give one note), with the union of their
   codes and the collector's install line (ADR 0348 D4).

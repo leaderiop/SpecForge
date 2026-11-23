@@ -126,6 +126,98 @@ fn an_npx_program_in_node_modules_bin_or_on_path_is_present() {
     assert!(missing(API_EXTRACTOR, &[], &on_path).is_empty());
 }
 
+/// The missing programs of `API_EXTRACTOR` in a project holding `Cargo.toml` and `files` with their contents.
+fn missing_among(files: &[(&str, &str)]) -> Vec<String> {
+    let fixture =
+        Assembled::new().declarations(vec![runner("@x/run", "run", API_EXTRACTOR, &[], None)]);
+    fixture.write("Cargo.toml", "");
+    for (file, contents) in files {
+        fixture.write(file, contents);
+    }
+    let view = fixture.view();
+    let report = diagnose(&view, &ScriptedSolver::ready()).with_tools(&view, &FakeProcess::new());
+    tools(&report)
+        .iter()
+        .map(|f| match &f.about {
+            About::Tools { program, .. } => program.clone(),
+            other => panic!("{other:?}"),
+        })
+        .collect()
+}
+
+#[specforge_test(requirement = "FEATURE-021")]
+fn an_npx_program_in_a_workspace_packages_node_modules_bin_is_present() {
+    let bin = "node_modules/.bin/api-extractor";
+    for (manifest, dir) in [
+        (r#"{"workspaces": ["packages/*"]}"#, "packages/a/"),
+        (r#"{"workspaces": ["./tools/lint/"]}"#, "tools/lint/"),
+        (r#"{"workspaces": {"packages": ["apps/*"]}}"#, "apps/web/"),
+    ] {
+        let at = format!("{dir}{bin}");
+        assert!(
+            missing_among(&[("package.json", manifest), (&at, "")]).is_empty(),
+            "{manifest} {at}"
+        );
+    }
+    // A package the workspaces do not name, a pattern leaving the root, or a deeper glob is not looked in.
+    for (manifest, dir) in [
+        (r#"{"workspaces": ["packages/*"]}"#, "other/a/"),
+        (r#"{"workspaces": ["../beside"]}"#, "beside/"),
+        (r#"{"workspaces": ["packages/**"]}"#, "packages/a/"),
+    ] {
+        let at = format!("{dir}{bin}");
+        assert_eq!(
+            missing_among(&[("package.json", manifest), (&at, "")]),
+            ["api-extractor"],
+            "{manifest} {at}"
+        );
+    }
+}
+
+/// `@x/cov`, running `cargo-llvm-cov llvm-cov nextest` and so requiring `cargo-nextest`, answering coverage.
+fn cov_with_nextest() -> ExtensionDeclaration {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@x/cov", "1.0.0"));
+    c.collector("cov", |k| {
+        k.detect_files(&["Cargo.toml"])
+            .run(&["cargo-llvm-cov", "llvm-cov", "nextest"])
+            .requires(&["cargo-nextest"])
+            .install("cargo install cargo-llvm-cov cargo-nextest --locked")
+            .answers(&["coverage"])
+            .collect(|_| Ok(Default::default()));
+    });
+    c.declaration()
+}
+
+#[specforge_test(requirement = "FEATURE-021")]
+fn a_required_program_missing_is_its_own_finding_with_the_collectors_install_line() {
+    let llvm_cov = FakeProcess::new().on_path("cargo-llvm-cov", "/usr/bin/cargo-llvm-cov");
+
+    let report = diagnosed(
+        vec![cov_with_nextest(), judge()],
+        &["Cargo.toml"],
+        &llvm_cov,
+    );
+
+    let found = tools(&report);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(
+        found[0].about,
+        About::Tools {
+            program: "cargo-nextest".into(),
+            collectors: vec!["cov (@x/cov)".into()],
+            codes: vec!["acme/W104".into()],
+        }
+    );
+    assert_eq!(
+        found[0].remediation,
+        "cargo install cargo-llvm-cov cargo-nextest --locked"
+    );
+
+    let both = llvm_cov.on_path("cargo-nextest", "/usr/bin/cargo-nextest");
+    let report = diagnosed(vec![cov_with_nextest(), judge()], &["Cargo.toml"], &both);
+    assert!(tools(&report).is_empty(), "{:?}", tools(&report));
+}
+
 const JEST: &[&str] = &[
     "node",
     "--env-file={config}",

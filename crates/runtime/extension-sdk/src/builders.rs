@@ -666,6 +666,7 @@ impl CollectorBuilder {
                 inputs: Vec::new(),
                 answers: Vec::new(),
                 install: None,
+                requires: Vec::new(),
             },
             collect: None,
             run: None,
@@ -752,9 +753,14 @@ impl CollectorBuilder {
         self.env = names.iter().map(|n| n.to_string()).collect();
         self
     }
-    /// What to run to install the command's program, said when it is not found on PATH (ADR 0348 D4).
+    /// What to run to install the command's programs, said when one is not found on PATH (ADR 0348 D4).
     pub fn install(&mut self, line: &str) -> &mut Self {
         self.descriptor.install = Some(line.to_string());
+        self
+    }
+    /// The other programs the command runs beside its first, which `specforge doctor` looks up (ADR 0389 D3).
+    pub fn requires(&mut self, programs: &[&str]) -> &mut Self {
+        self.descriptor.requires = programs.iter().map(ToString::to_string).collect();
         self
     }
     /// The `process` capability (one the extension declares with

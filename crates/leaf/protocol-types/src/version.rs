@@ -84,6 +84,8 @@
 ///   does not change.
 /// - a pass entity carries `title` ([`PassEntity::title`](crate::PassEntity::title), ADR 0387), the title its header
 ///   writes, as a command's graph node does; absent for a fact written without one.
+/// - a collector may declare `requires`, the other programs its command runs beside its argv's first, which
+///   `specforge doctor` looks up on PATH (ADR 0389 D3); absent when empty.
 ///
 /// A 2.2.0 guest still loads; a 2.3.0 guest is refused by a 2.2 host (E088, newer).
 ///

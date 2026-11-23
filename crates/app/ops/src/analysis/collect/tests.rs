@@ -25,6 +25,7 @@ fn collector(report: &str) -> Collector {
         config: None,
         filter: Vec::new(),
         install: None,
+        requires: Vec::new(),
     }
 }
 

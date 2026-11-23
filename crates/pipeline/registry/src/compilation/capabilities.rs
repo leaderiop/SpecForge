@@ -3,11 +3,12 @@
 
 use specforge_protocol_types::{
     ExtensionDeclaration, INSTALL_LINE_MAX, Owner, capability_problems, is_install_line,
+    is_program_name,
 };
 
 /// The messages (W021) about the capabilities `declaration` makes, and about its collectors' `capability`: a
-/// collector that keeps a `capture` with no command has no output to keep (ADR 0345 D2), and an install line must be
-/// one printable line (ADR 0348 D4).
+/// collector that keeps a `capture` with no command has no output to keep (ADR 0345 D2), an install line must be
+/// one printable line (ADR 0348 D4), and a `requires` program a bare program name (ADR 0389 D3).
 pub(crate) fn problems(declaration: &ExtensionDeclaration) -> Vec<String> {
     let name = declaration.name();
     let uncaptured = declaration
@@ -43,6 +44,20 @@ pub(crate) fn problems(declaration: &ExtensionDeclaration) -> Vec<String> {
                     collector.name
                 )
             })
+        }))
+        .chain(declaration.collectors.iter().flat_map(move |collector| {
+            collector
+                .requires
+                .iter()
+                .filter(|program| !is_program_name(program))
+                .map(move |program| {
+                    format!(
+                        "extension '{name}': collector '{}': its `requires` program '{}' is no bare program name \
+                         (non-empty, no path separator, whitespace or control character)",
+                        collector.name,
+                        program.escape_debug()
+                    )
+                })
         }))
         .collect()
 }

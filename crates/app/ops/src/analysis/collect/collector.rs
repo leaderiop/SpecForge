@@ -41,8 +41,10 @@ pub struct Collector {
     /// The arguments its process capability appends after `run` when a caller passes a filter (ADR 0360), `{filter}`
     /// in one of them the caller's text: empty when it takes none.
     pub filter: Vec<String>,
-    /// What installs its program, said when the program is not found (ADR 0348 D4).
+    /// What installs its programs, said when one is not found (ADR 0348 D4).
     pub install: Option<String>,
+    /// The other programs its command runs beside `run`'s first, which doctor looks up too (ADR 0389 D3).
+    pub requires: Vec<String>,
 }
 
 impl Collector {
@@ -114,6 +116,7 @@ fn collector(
         config: process.and_then(|p| p.config.clone()),
         filter: process.map(|p| p.filter.clone()).unwrap_or_default(),
         install: c.install.clone(),
+        requires: c.requires.clone(),
     }
 }
 

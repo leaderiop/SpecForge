@@ -66,6 +66,7 @@ fn rust_coverage_declares_llvm_cov_its_install_line_and_its_peers() {
         collector.install.as_deref(),
         Some("cargo install cargo-llvm-cov cargo-nextest --locked")
     );
+    assert_eq!(collector.requires, ["cargo-nextest"]);
     let capabilities = serde_json::to_value(&declaration.capabilities).unwrap();
     assert_eq!(capabilities[0]["name"], COLLECTOR);
     assert_eq!(capabilities[0]["port"], "process");

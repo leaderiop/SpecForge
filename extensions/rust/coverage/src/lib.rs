@@ -4,8 +4,9 @@
 //! The collector `rust-coverage` is selected by a `Cargo.toml` at the project root. The host runs, with consent,
 //! `cargo-llvm-cov llvm-cov nextest --workspace --ignore-run-fail --lcov --output-path {report}`: the program is
 //! `cargo-llvm-cov`, so a missing tool is "not found on PATH" with its install line, and nextest runs the tests, as
-//! `@rust/test` does. `--ignore-run-fail` makes a failing test still write the report. The run builds the workspace a
-//! second time, instrumented, under `target/llvm-cov-target`, and runs the project's own tests (ADR 0389 D9). It runs
+//! `@rust/test` does: the collector `requires` `cargo-nextest`, so `specforge doctor` looks it up too.
+//! `--ignore-run-fail` makes a failing test still write the report. The run builds the workspace a second time,
+//! instrumented, under `target/llvm-cov-target`, and runs the project's own tests (ADR 0389 D9). It runs
 //! in the caller's environment and declares the cargo, rustup and LLVM variables it reads, so the approval names them.
 //!
 //! The LCOV is read by `specforge-code-lcov` and minted by `specforge-code-facts` against `@rust/source`'s items: a
@@ -55,6 +56,8 @@ impl Contributions for RustCoverage {
                     "RUSTDOCFLAGS",
                     "LLVM_*",
                 ])
+                // `nextest` runs cargo-nextest: doctor looks it up beside cargo-llvm-cov.
+                .requires(&["cargo-nextest"])
                 .install("cargo install cargo-llvm-cov cargo-nextest --locked")
                 .report(REPORT)
                 .input(Input::facts(&["item"]))

@@ -564,10 +564,23 @@ pub struct CollectorDescriptor {
     /// input names one, and the only kinds whose facts the host admits from it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<String>,
-    /// What to run to install its program, said when the program is not found on PATH (ADR 0348 D4): one printable
-    /// line of at most [`INSTALL_LINE_MAX`] bytes.
+    /// What to run to install its programs, said when one is not found on PATH (ADR 0348 D4): one printable line of at
+    /// most [`INSTALL_LINE_MAX`] bytes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub install: Option<String>,
+    /// The other programs its command runs, beside its argv's first (`cargo-llvm-cov llvm-cov nextest` runs
+    /// `cargo-nextest`): `specforge doctor` looks each up on PATH as it does the first (protocol 2.3.0, ADR 0389 D3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<String>,
+}
+
+/// Whether `program` may be named in a collector's `requires`: a bare program name, non-empty, with no path separator,
+/// whitespace or control character, so doctor looks it up on PATH and nowhere else.
+pub fn is_program_name(program: &str) -> bool {
+    !program.is_empty()
+        && !program
+            .chars()
+            .any(|c| matches!(c, '/' | '\\') || c.is_whitespace() || c.is_control())
 }
 
 /// Whether `report` may be a collector's report (ADR 0389 D6): its last `/`-separated segment is a literal file name,

@@ -634,6 +634,25 @@ fn capabilities_with_a_config_that_is_not_sound_are_w021() {
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-028")]
+fn a_required_program_that_is_no_bare_name_is_w021() {
+    let found = capability_problems_of(|c| {
+        c.collector("cov", |k| {
+            k.requires(&["cargo-nextest", "", "bin/tool", "two words"])
+                .collect(|_| Ok(CollectOutput::default()));
+        });
+    });
+    assert_eq!(found.len(), 3, "{found:#?}");
+    for named in ["''", "'bin/tool'", "'two words'"] {
+        assert!(
+            found
+                .iter()
+                .any(|m| m.contains(&format!("`requires` program {named}"))),
+            "{named} in {found:#?}"
+        );
+    }
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn a_collector_capture_without_a_command_is_w021() {
     let found = capability_problems_of(|c| {
         c.collector("reader", |k| {
