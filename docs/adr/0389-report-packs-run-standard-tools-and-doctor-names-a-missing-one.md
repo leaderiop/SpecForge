@@ -52,8 +52,10 @@ pack would be a test runner under another name. Owner decision D2.
 - Only collectors detected in this project are probed.
 - One Info note per missing program, grouped (two collectors on one program give one note), with the union of their
   codes and the collector's install line (ADR 0348 D4).
-- The codes are every loaded code whose `facts` (D4) meet the collector's `answers`, derived through
-  `Codebook::judging`, never hand-written per pack.
+- The codes are every loaded code whose `facts` (D4) meet the missing collectors' `answers` and meet no kind a
+  runnable detected collector answers (its program found, or no program at all, like a source reader), derived
+  through `Codebook::switched_off`, never hand-written per pack: a code that judges a kind another collector still
+  answers is still judged, so it is not named.
 - A missing tool never fails doctor: `ok()` does not change.
 
 ## D4. `CodeDescriptor.facts`, declared once by `@code/core`

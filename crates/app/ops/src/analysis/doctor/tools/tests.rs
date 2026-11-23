@@ -184,6 +184,72 @@ fn collectors_sharing_a_missing_program_give_one_finding_with_the_union_of_codes
     );
 }
 
+/// The codes of the one tools finding of `report`.
+fn codes_of(report: &DoctorReport) -> Vec<String> {
+    let found = tools(report);
+    let [finding] = &found[..] else {
+        panic!("one finding: {found:?}");
+    };
+    let About::Tools { codes, .. } = &finding.about else {
+        panic!("{:?}", finding.about);
+    };
+    codes.clone()
+}
+
+#[specforge_test(requirement = "FEATURE-021")]
+fn a_kind_a_present_collector_still_answers_keeps_its_codes_judged() {
+    // c8 still answers coverage, so losing cargo-llvm-cov switches no code off.
+    let c8 = runner(
+        "@acme/jscov",
+        "jscov",
+        &["npx", "--no", "--", "c8"],
+        &["coverage"],
+        None,
+    );
+    let process = FakeProcess::new().on_path("c8", "/usr/bin/c8");
+
+    let report = diagnosed(vec![cov(), c8, judge()], &["Cargo.toml"], &process);
+
+    assert_eq!(codes_of(&report), Vec::<String>::new());
+    let check = &tools(&report)[0].check;
+    assert!(check.contains("`cargo-llvm-cov`"), "{check}");
+    assert!(!check.contains("not judged"), "{check}");
+}
+
+#[specforge_test(requirement = "FEATURE-021")]
+fn a_code_judging_a_kind_still_answered_is_not_named() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/core", "1.0.0"));
+    c.code("W104", |d| {
+        d.title("Coverage on no item")
+            .explanation("Serve the item.")
+            .facts(&["coverage"]);
+    });
+    c.code("E101", |d| {
+        d.title("Fact on no item")
+            .explanation("Serve the item.")
+            .facts(&["coverage", "item"]);
+    });
+    // A source reader that runs no program still answers item.
+    c.collector("items", |k| {
+        k.detect_files(&["Cargo.toml"])
+            .answers(&["item"])
+            .collect(|_| Ok(Default::default()));
+    });
+
+    let report = diagnosed(
+        vec![cov(), c.declaration()],
+        &["Cargo.toml"],
+        &FakeProcess::new(),
+    );
+
+    assert_eq!(codes_of(&report), ["acme/W104"]);
+    assert!(
+        tools(&report)[0].check.contains("acme/W104"),
+        "{}",
+        tools(&report)[0].check
+    );
+}
+
 #[specforge_test(requirement = "FEATURE-021")]
 fn a_missing_program_whose_kinds_no_code_judges_still_gets_a_finding() {
     let deps = runner("@x/deps", "deps", &["osv-scanner"], &["dependency"], None);

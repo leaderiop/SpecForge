@@ -131,6 +131,9 @@ fn a_code_naming_the_kinds_it_judges_reaches_the_code_book() {
     let build = build([reports]);
     assert!(coded(&build, "E030").is_empty(), "{:?}", codes(&build));
     let book = build.codes();
-    assert_eq!(book.judging(&["coverage".into()]), ["acme.reports/W104"]);
-    assert!(book.judging(&["api_item".into()]).is_empty());
+    assert_eq!(
+        book.switched_off(&["coverage".into()], &[]),
+        ["acme.reports/W104"]
+    );
+    assert!(book.switched_off(&["api_item".into()], &[]).is_empty());
 }

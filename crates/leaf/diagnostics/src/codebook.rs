@@ -253,24 +253,28 @@ impl Codebook {
             .collect()
     }
 
-    /// The qualified codes (`code/W104`) of every namespace whose entry judges one of the collected `kinds`
-    /// (`ExtensionCode.facts`, ADR 0389), sorted and unique: the codes no finding can speak for when no collector
-    /// answers those kinds.
-    pub fn judging(&self, kinds: &[String]) -> Vec<String> {
-        let mut judging: Vec<String> = self
+    /// The qualified codes (`code/W104`) of every namespace whose entry judges one of the collected kinds `lost` and
+    /// none of the kinds `answered` (`ExtensionCode.facts`, ADR 0389), sorted and unique: the codes no finding can speak
+    /// for when no collector answers `lost` and a collector still answers each of `answered`. A code that also judges a
+    /// kind still answered keeps judging it, so it is not one of them.
+    pub fn switched_off(&self, lost: &[String], answered: &[String]) -> Vec<String> {
+        let mut off: Vec<String> = self
             .namespaces
             .iter()
             .flat_map(|(namespace, owned)| {
                 owned
                     .codes
                     .iter()
-                    .filter(|(_, entry)| entry.facts.iter().any(|kind| kinds.contains(kind)))
+                    .filter(|(_, entry)| {
+                        entry.facts.iter().any(|kind| lost.contains(kind))
+                            && !entry.facts.iter().any(|kind| answered.contains(kind))
+                    })
                     .map(move |(local, _)| format!("{namespace}/{local}"))
             })
             .collect();
-        judging.sort();
-        judging.dedup();
-        judging
+        off.sort();
+        off.dedup();
+        off
     }
 
     /// The level a diagnostic of `code` (as it prints: `gsd/W304`, `E001`)
@@ -565,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    fn judging_lists_the_qualified_codes_about_a_kind_sorted_and_unique() {
+    fn switched_off_lists_the_qualified_codes_about_a_lost_kind_sorted_and_unique() {
         let judging = |local: &str, facts: &[&str]| ExtensionCode {
             local: local.into(),
             title: "t".into(),
@@ -591,16 +595,28 @@ mod tests {
         let kinds =
             |kinds: &[&str]| -> Vec<String> { kinds.iter().map(|k| k.to_string()).collect() };
         assert_eq!(
-            book.judging(&kinds(&["coverage"])),
+            book.switched_off(&kinds(&["coverage"]), &[]),
             ["acme.cov/W900", "code/W104"]
         );
         assert_eq!(
-            book.judging(&kinds(&["coverage", "api_item"])),
+            book.switched_off(&kinds(&["coverage", "api_item"]), &[]),
             ["acme.cov/W900", "code/W104"],
             "a code judging two of the kinds comes once"
         );
-        assert!(book.judging(&kinds(&["vulnerability"])).is_empty());
-        assert!(book.judging(&[]).is_empty());
+        assert!(
+            book.switched_off(&kinds(&["vulnerability"]), &[])
+                .is_empty()
+        );
+        assert!(book.switched_off(&[], &[]).is_empty());
+        // W104 also judges api_item, which a collector still answers: it is still judged.
+        assert_eq!(
+            book.switched_off(&kinds(&["coverage"]), &kinds(&["api_item"])),
+            ["acme.cov/W900"]
+        );
+        assert!(
+            book.switched_off(&kinds(&["coverage"]), &kinds(&["coverage"]))
+                .is_empty()
+        );
     }
 
     #[test]

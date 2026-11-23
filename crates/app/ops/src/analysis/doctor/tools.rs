@@ -1,7 +1,8 @@
 //! The programs the collectors detected here run (ADR 0389 D3): `specforge doctor` asks the process port's `which`
 //! for each and says, once per program it does not find, which collectors that stops and which codes no collector can
-//! then judge, derived from each collector's `answers` and each code's `facts` in the code book. An info note, never
-//! a failure; a program that is found says nothing. Nothing is run.
+//! then judge, derived from each collector's `answers` and each code's `facts` in the code book: a code that judges a
+//! kind a runnable collector still answers is not named. An info note, never a failure; a program that is found says
+//! nothing. Nothing is run.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -21,11 +22,14 @@ const TOOL_MISSING: &str = "tool_missing";
 #[derive(Default)]
 struct Missing {
     collectors: BTreeSet<String>,
-    codes: BTreeSet<String>,
+    /// The kinds its collectors answer.
+    kinds: Vec<String>,
     installs: Vec<String>,
 }
 
-/// One info finding per program a collector detected in `view`'s project runs that `process` does not find.
+/// One info finding per program a collector detected in `view`'s project runs that `process` does not find. The codes
+/// it names are the ones that judge a kind its collectors answer and no kind a runnable detected collector answers (one
+/// whose program is found, or that runs none): another collector still answering a kind keeps its codes judged.
 pub(super) fn probe(view: &ProjectView, process: &dyn Process) -> Vec<Finding> {
     let Some(root) = view.root() else {
         return Vec::new();
@@ -33,8 +37,10 @@ pub(super) fn probe(view: &ProjectView, process: &dyn Process) -> Vec<Finding> {
     let git = view.env().git();
     let codes = view.registries().codes();
     let mut missing: BTreeMap<String, Missing> = BTreeMap::new();
+    let mut answered: Vec<String> = Vec::new();
     for collector in detected_here(view.registries().declarations(), root, git.as_deref()) {
         let Some(program) = self::program(&collector.run, root, process) else {
+            answered.extend(collector.answers);
             continue;
         };
         let entry = missing.entry(printable(&program).into_owned()).or_default();
@@ -43,7 +49,7 @@ pub(super) fn probe(view: &ProjectView, process: &dyn Process) -> Vec<Finding> {
             printable(&collector.name),
             printable(&collector.extension)
         ));
-        entry.codes.extend(codes.judging(&collector.answers));
+        entry.kinds.extend(collector.answers);
         if let Some(line) = collector.install.as_deref().filter(|l| is_install_line(l)) {
             let line = printable(line).into_owned();
             if !entry.installs.contains(&line) {
@@ -53,7 +59,10 @@ pub(super) fn probe(view: &ProjectView, process: &dyn Process) -> Vec<Finding> {
     }
     missing
         .into_iter()
-        .map(|(program, m)| finding(program, m))
+        .map(|(program, m)| {
+            let off = codes.switched_off(&m.kinds, &answered);
+            finding(program, m, off)
+        })
         .collect()
 }
 
@@ -103,16 +112,18 @@ fn program(run: &[String], root: &Path, process: &dyn Process) -> Option<String>
     (!found(first)).then(|| first.clone())
 }
 
-/// The finding about `program`, missing.
-fn finding(program: String, missing: Missing) -> Finding {
+/// The finding about `program`, missing, which switches off `codes`.
+fn finding(program: String, missing: Missing, codes: Vec<String>) -> Finding {
     let collectors: Vec<String> = missing.collectors.into_iter().collect();
-    let codes: Vec<String> = missing.codes.into_iter().collect();
     let mut check = format!(
         "`{program}` is not found here, so collector {} cannot run",
         collectors.join(", ")
     );
     if !codes.is_empty() {
-        check.push_str(&format!("; {} are not judged here", codes.join(", ")));
+        check.push_str(&format!(
+            "; no collector that runs here answers what {} judge, so they are not judged here",
+            codes.join(", ")
+        ));
     }
     let remediation = if missing.installs.is_empty() {
         format!("install `{program}` and put it on PATH")
