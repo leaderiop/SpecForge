@@ -1,0 +1,17 @@
+[package]
+name = "specforge-ext-rust-coverage"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+specforge-extension-sdk = { path = "../../../crates/runtime/extension-sdk" }
+specforge-code-lcov = { path = "../../code/lcov" }
+specforge-code-facts = { path = "../../code/facts" }
+
+[dev-dependencies]
+# Spec links: #[specforge_test(requirement = "…")] (ADR 0002).
+specforge-test = { path = "../../../integrations/rust/specforge-test" }
+serde_json = "1.0"

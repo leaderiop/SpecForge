@@ -4,25 +4,38 @@
 //! guest-to-guest call, so a coverage pack reads its tracefile here; `specforge-code-facts` mints the `coverage` facts
 //! from what it reads ([`specforge_code_facts::coverage_facts`]).
 //!
-//! - [`read`] reads a tracefile (geninfo(1) LCOV, `cargo llvm-cov --lcov`, c8/istanbul `lcovonly`) into one
-//!   [`CoverageFile`] per file section, its path made project-relative.
+//! - [`read`] reads a tracefile (geninfo(1) LCOV, `cargo llvm-cov --lcov`, c8/istanbul `lcovonly`) into a
+//!   [`Tracefile`]: one [`CoverageFile`] per file section, its path made project-relative, and the paths outside the
+//!   project it skipped and counted (ADR 0389 D7). A path is only text here: the reader never opens a file.
 
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use specforge_code_facts::{relative, shown, Branch, CoverageFile, Function};
 
-/// The file sections of the LCOV tracefile `text`, in document order, each `SF:` path made project-relative against
-/// the project root `cwd`. Read: `SF`, `FN`, `FNDA`, the LCOV 2.2 group form `FNL`/`FNA`, `DA`, `BRDA` and
+/// What a tracefile says: its file sections in the project, and the paths outside it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Tracefile {
+    /// The file sections whose `SF` lies in the project, in document order.
+    pub files: Vec<CoverageFile>,
+    /// Each `SF` path outside the project, once, in document order, as [`shown`] writes it: its sections mint nothing.
+    pub outside: Vec<String>,
+}
+
+/// The LCOV tracefile `text` read against the project root `cwd`: its file sections in document order, each `SF:`
+/// path made project-relative. Read: `SF`, `FN`, `FNDA`, the LCOV 2.2 group form `FNL`/`FNA`, `DA`, `BRDA` and
 /// `end_of_record`; ignored: `TN`, `VER`, the file
 /// totals (`FNF`, `FNH`, `LF`, `LH`, `BRF`, `BRH`), `MCDC`/`MCF`/`MCH`, `#` comments, blank lines and any other
-/// all-capitals `KEY:`. An `SF` path is trimmed. An error names the 1-based line: a line that is no `KEY:value`, a
-/// record outside a file section, a malformed number, an `SF` naming no file or one outside the project, and a text
-/// ending inside a file section, which must not drop its last file. An empty text has no file.
-pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
-    let mut files = Vec::new();
+/// all-capitals `KEY:`. An `SF` path is trimmed. A section whose `SF` lies outside the project (a path dependency
+/// beside the workspace) is skipped: its path is counted in [`Tracefile::outside`] and its records still read for
+/// syntax (ADR 0389 D7). An error names the 1-based line: a line that is no `KEY:value`, a record outside a file
+/// section, a malformed number, an `SF` naming no file, and a text ending inside a file section, which must not drop
+/// its last file. An empty text has no file.
+pub fn read(text: &str, cwd: &str) -> Result<Tracefile, String> {
+    let mut tracefile = Tracefile::default();
+    let mut seen = HashSet::new();
     let mut open: Option<Section> = None;
     for (n, line) in text.lines().enumerate() {
         let at = n + 1;
@@ -34,7 +47,9 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
             let section = open
                 .take()
                 .ok_or_else(|| format!("line {at}: end_of_record outside a file section"))?;
-            files.push(section.file);
+            if !section.outside {
+                tracefile.files.push(section.file);
+            }
             continue;
         }
         let (key, value) = line
@@ -53,13 +68,16 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
             if value.is_empty() {
                 return Err(format!("line {at}: SF names no file"));
             }
-            let file = relative(value, cwd).ok_or_else(|| {
-                format!(
-                    "line {at}: the file `{}` lies outside the project",
-                    shown(value)
-                )
-            })?;
-            open = Some(Section::new(file, at));
+            open = Some(match relative(value, cwd) {
+                Some(file) => Section::new(file, at, false),
+                None => {
+                    let path = shown(value);
+                    if seen.insert(path.clone()) {
+                        tracefile.outside.push(path);
+                    }
+                    Section::new(value.to_string(), at, true)
+                }
+            });
             continue;
         }
         if !matches!(key, "FN" | "FNDA" | "FNL" | "FNA" | "DA" | "BRDA") {
@@ -78,15 +96,16 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<CoverageFile>, String> {
             section.opened,
             shown(&section.file.file)
         )),
-        None => Ok(files),
+        None => Ok(tracefile),
     }
 }
 
-/// An open file section: what it has read so far, the line its `SF` was on, its functions by name and the start lines
-/// of its function groups.
+/// An open file section: what it has read so far, the line its `SF` was on, whether that path lies outside the
+/// project, its functions by name and the start lines of its function groups.
 struct Section {
     file: CoverageFile,
     opened: usize,
+    outside: bool,
     /// Name → the functions of that name and the `FN` and `FNDA` records of it read so far.
     named: HashMap<String, Named>,
     /// `FNL` index → the group's start line.
@@ -104,13 +123,14 @@ struct Named {
 }
 
 impl Section {
-    fn new(file: String, opened: usize) -> Section {
+    fn new(file: String, opened: usize, outside: bool) -> Section {
         Section {
             file: CoverageFile {
                 file,
                 ..CoverageFile::default()
             },
             opened,
+            outside,
             named: HashMap::new(),
             groups: HashMap::new(),
         }

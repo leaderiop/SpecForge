@@ -132,6 +132,29 @@ fn only_two_hex_digits_decode_and_a_run_that_is_no_utf8_stays_as_written() {
 }
 
 #[test]
+fn the_outside_line_counts_the_paths_and_names_five() {
+    let r = ".specforge/reports/x.lcov";
+    assert_eq!(outside_line(r, &[]), None);
+    assert_eq!(
+        outside_line(r, &super::strings(&["/elsewhere/a.rs", "../../etc/passwd"])).as_deref(),
+        Some(
+            ".specforge/reports/x.lcov: skipped 2 file(s) outside the project: /elsewhere/a.rs, \
+             ../../etc/passwd"
+        )
+    );
+    let seven: Vec<String> = (1..=7).map(|n| format!("/o/{n}")).collect();
+    assert_eq!(
+        outside_line(r, &seven).as_deref(),
+        Some(
+            ".specforge/reports/x.lcov: skipped 7 file(s) outside the project: /o/1, /o/2, /o/3, /o/4, \
+             /o/5, and 2 more"
+        )
+    );
+    let five = &seven[..5];
+    assert!(!outside_line(r, five).unwrap().contains("more"));
+}
+
+#[test]
 fn a_decoded_dot_dot_is_judged_by_relative() {
     let path = file_uri_path("%2E%2E/etc/passwd").expect("a relative reference");
     assert_eq!(path, "../etc/passwd");

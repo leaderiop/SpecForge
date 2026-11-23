@@ -16,7 +16,8 @@
 //! - [`Package::fact`] mints a `package`; [`location`] turns the reader's points into a fact's place; [`joined`]
 //!   resolves a path a manifest or a source file writes against the project-relative directory it is written in;
 //!   [`relative`] makes a report's file path project-relative, whatever spelling the host's root has, refusing one
-//!   outside the project, and [`file_uri_path`] decodes a report's `file:` URI to a path for it to judge.
+//!   outside the project, and [`file_uri_path`] decodes a report's `file:` URI to a path for it to judge;
+//!   [`outside_line`] is the one warning a pack returns for the paths a reader skipped as outside it (ADR 0389 D7).
 //! - [`parse_all`] asks the host's source reader until it has answered every file a source pack keeps, the files an
 //!   answer's cap left unparsed asked again.
 //! - [`Places`] finds where a report's location lies among the served facts: the innermost `item` holding a file's
@@ -70,7 +71,7 @@ pub use mint::{
     item_facts, location, signature_spelling, test_facts, Definition, ItemKind, Names, Package,
     Signature, Target, TestCase, Visibility,
 };
-pub use paths::{file_uri_path, joined, relative};
+pub use paths::{file_uri_path, joined, outside_line, relative};
 pub use places::Places;
 pub use report::{
     id_part, shown, shown_json, Repeats, ReportKind, API_ITEM, COVERAGE, DEPENDENCY,

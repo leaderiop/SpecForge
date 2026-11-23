@@ -69,6 +69,25 @@ fn is_scheme(text: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
 }
 
+/// The one warning line a pack returns for the paths a reader of `report` skipped as outside the project (ADR 0389 D7),
+/// each already [`shown`](crate::shown): `None` when there is none, else the count and the first five, then how many
+/// more. The host turns the line into a W203.
+pub fn outside_line(report: &str, outside: &[String]) -> Option<String> {
+    const NAMED: usize = 5;
+    if outside.is_empty() {
+        return None;
+    }
+    let mut line = format!(
+        "{report}: skipped {} file(s) outside the project: {}",
+        outside.len(),
+        outside[..outside.len().min(NAMED)].join(", ")
+    );
+    if outside.len() > NAMED {
+        line.push_str(&format!(", and {} more", outside.len() - NAMED));
+    }
+    Some(line)
+}
+
 /// `path` relative to the project root `cwd`, with `/` separators, or `None` when it lies outside it. Both are read
 /// the same way first: a `\\?\` (or `\\?\UNC\`) verbatim prefix is stripped, `\` is folded to `/`, a drive letter
 /// compares case-insensitively and a trailing `/` is dropped. The host's `cwd` is the canonical root, so the other

@@ -18,15 +18,16 @@ fn served() -> Vec<Fact> {
 
 #[test]
 fn an_llvm_cov_report_mints_coverage_citing_its_items() {
-    let files = read(LLVM_COV, "/project").expect("the report reads");
+    let Tracefile { files, outside } = read(LLVM_COV, "/project").expect("the report reads");
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file, "src/lib.rs");
+    assert_eq!(outside, Vec::<String>::new());
     insta::assert_json_snapshot!("llvm_cov", coverage_facts(&files, &served()));
 }
 
 #[test]
 fn an_llvm_cov_report_reads_every_record() {
-    let files = read(LLVM_COV, "/project").expect("the report reads");
+    let files = read(LLVM_COV, "/project").expect("the report reads").files;
     let file = &files[0];
     assert_eq!(file.functions.len(), 5);
     assert_eq!(
@@ -59,7 +60,7 @@ fn an_llvm_cov_report_reads_every_record() {
 
 #[test]
 fn a_c8_report_mints_coverage_citing_its_js_items() {
-    let files = read(C8, "/project").expect("the report reads");
+    let files = read(C8, "/project").expect("the report reads").files;
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].file, "src/board.js");
     let facts = coverage_facts(&files, &served());
@@ -71,7 +72,7 @@ fn a_c8_report_mints_coverage_citing_its_js_items() {
 
 #[test]
 fn an_lcov2_report_reads_the_counts_of_its_fn_twin() {
-    let files = read(LCOV2, "/project").expect("the report reads");
+    let files = read(LCOV2, "/project").expect("the report reads").files;
     let groups: Vec<(usize, &str, u64)> = files[0]
         .functions
         .iter()
@@ -89,7 +90,7 @@ fn an_lcov2_report_reads_the_counts_of_its_fn_twin() {
     );
     let facts = coverage_facts(&files, &served());
     let twin = coverage_facts(
-        &read(LLVM_COV, "/project").expect("the twin reads"),
+        &read(LLVM_COV, "/project").expect("the twin reads").files,
         &served(),
     );
     assert_eq!(facts, twin);
@@ -99,7 +100,7 @@ fn an_lcov2_report_reads_the_counts_of_its_fn_twin() {
 #[test]
 fn an_fna_with_no_fnl_and_an_fnda_with_no_fn_are_kept_at_line_0() {
     let text = "SF:src/a.rs\nFNA:7,1,lost\nFNDA:2,orphan\nFN:4,late\nFNDA:1,late\nend_of_record\n";
-    let files = read(text, "/project").expect("the report reads");
+    let files = read(text, "/project").expect("the report reads").files;
     let functions: Vec<(usize, &str, u64)> = files[0]
         .functions
         .iter()
@@ -114,7 +115,7 @@ fn an_fna_with_no_fnl_and_an_fnda_with_no_fn_are_kept_at_line_0() {
 #[test]
 fn the_nth_fnda_of_a_repeated_name_pairs_with_its_nth_fn() {
     let functions = |text: &str| -> Vec<(usize, String, u64)> {
-        read(text, "/project").expect("the report reads")[0]
+        read(text, "/project").expect("the report reads").files[0]
             .functions
             .iter()
             .map(|f| (f.line, f.name.clone(), f.hits))
@@ -141,16 +142,15 @@ fn the_nth_fnda_of_a_repeated_name_pairs_with_its_nth_fn() {
 }
 
 #[test]
-fn a_bad_or_outside_report_is_an_error_naming_its_line_or_path() {
+fn a_bad_report_is_an_error_naming_its_line() {
     // (report, what the error names)
-    let bad: [(&str, &str); 14] = [
+    let bad: [(&str, &str); 13] = [
         ("garbage", "line 1:"),
         ("TN:\nDA:1,1\n", "line 2:"),
         ("SF:src/a.rs\nDA:x,1\nend_of_record\n", "line 2:"),
         ("SF:src/a.rs\nBRDA:3,0,0\nend_of_record\n", "line 2:"),
         ("SF:src/a.rs\nDA:1,1\n", "line 1:"),
-        ("SF:/elsewhere/a.rs\nend_of_record\n", "/elsewhere/a.rs"),
-        ("SF:../../etc/passwd\nend_of_record\n", "../../etc/passwd"),
+        ("SF:/elsewhere/a.rs\nDA:x,1\nend_of_record\n", "line 2:"),
         ("SF:src/a.rs\nSF:src/b.rs\nend_of_record\n", "line 2:"),
         ("end_of_record\n", "line 1:"),
         ("SF:src/a.rs\nFN:x,add\nend_of_record\n", "line 2:"),
@@ -193,7 +193,7 @@ fn an_sf_path_is_trimmed_and_an_empty_one_has_its_own_error() {
         "SF:src/a.rs \nend_of_record\n",
         "SF: src/a.rs\r\t\nend_of_record\n",
     ] {
-        let files = read(text, "/project").expect("the report reads");
+        let files = read(text, "/project").expect("the report reads").files;
         assert_eq!(files[0].file, "src/a.rs", "{text:?}");
     }
     for text in ["SF:\nend_of_record\n", "SF: \t\nend_of_record\n"] {
@@ -226,6 +226,7 @@ fn a_huge_report_reads_in_linear_time_and_keeps_every_count_exactly() {
     let files = read(&text, "/project").expect("the report reads");
     // Linear pairing reads it in milliseconds; an FNDA scan over the FN list takes minutes.
     assert!(started.elapsed().as_secs() < 5, "{:?}", started.elapsed());
+    let files = files.files;
     assert_eq!(files[0].functions.len(), 50_000);
     assert_eq!(files[0].functions[49_999].hits, 50_000);
     assert_eq!(files[0].lines, [(1, u64::MAX)]);
@@ -233,6 +234,48 @@ fn a_huge_report_reads_in_linear_time_and_keeps_every_count_exactly() {
 
 #[test]
 fn an_empty_text_has_no_file() {
-    assert_eq!(read("", "/project"), Ok(Vec::new()));
-    assert_eq!(read("\n\n", "/project"), Ok(Vec::new()));
+    assert_eq!(read("", "/project"), Ok(Tracefile::default()));
+    assert_eq!(read("\n\n", "/project"), Ok(Tracefile::default()));
+}
+
+#[test]
+fn an_outside_path_is_skipped_counted_once_and_mints_nothing() {
+    let text = "SF:src/lib.rs\nDA:1,1\nend_of_record\n\
+                SF:/elsewhere/a.rs\nDA:1,4\nend_of_record\n\
+                SF:../../etc/passwd\nFN:1,f\nFNDA:1,f\nend_of_record\n\
+                SF:/elsewhere/a.rs\nDA:2,4\nend_of_record\n";
+    let read = read(text, "/project").expect("the report reads");
+    assert_eq!(
+        read.files,
+        [CoverageFile {
+            file: "src/lib.rs".to_string(),
+            lines: vec![(1, 1)],
+            ..CoverageFile::default()
+        }]
+    );
+    assert_eq!(read.outside, ["/elsewhere/a.rs", "../../etc/passwd"]);
+    let only = read_outside("SF:/elsewhere/a.rs\nend_of_record\n");
+    assert_eq!(
+        (only.files.len(), &only.outside[..]),
+        (0, &["/elsewhere/a.rs".to_string()][..])
+    );
+}
+
+#[test]
+fn an_outside_path_is_counted_escaped_and_bounded() {
+    let path = format!("/elsewhere/\u{1b}]0;{}.rs", "a".repeat(5_000));
+    let read = read_outside(&format!("SF:{path}\nend_of_record\n"));
+    let [shown] = &read.outside[..] else {
+        panic!("one outside path: {:?}", read.outside);
+    };
+    assert!(
+        !shown.contains('\u{1b}') && shown.contains("\\u{1b}"),
+        "{shown}"
+    );
+    assert!(shown.len() < 200, "{} bytes", shown.len());
+}
+
+/// `text` read at `/project`, which must succeed.
+fn read_outside(text: &str) -> Tracefile {
+    read(text, "/project").expect("the report reads")
 }
