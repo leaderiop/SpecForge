@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="4" failures="1" errors="0" time="0.107">
+  <testsuite name="test/board.test.js" errors="0" failures="1" skipped="1" timestamp="2026-11-22T22:47:38" time="0.05" tests="4">
+    <testcase classname="board &gt; inner" name="adds" time="0.001" file="test/board.test.js">
+    </testcase>
+    <testcase classname="board &gt; inner" name="fails" time="0.001" file="test/board.test.js">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: 2
+Received: 1
+    at Object.toBe (/project/test/board.test.js:5:37)
+    at Promise.finally.completed (/project/node_modules/jest-circus/build/jestAdapterInit.js:1834:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/project/node_modules/jest-circus/build/jestAdapterInit.js:1774:10)
+    at _callCircusTest (/project/node_modules/jest-circus/build/jestAdapterInit.js:1167:40)
+    at _runTestInContext (/project/node_modules/jest-circus/build/jestAdapterInit.js:1103:3)
+    at runTestWithContext (/project/node_modules/jest-circus/build/jestAdapterInit.js:996:5)
+    at _runTestsForDescribeBlockOnce (/project/node_modules/jest-circus/build/jestAdapterInit.js:1008:11)
+    at _runTestsForDescribeBlock (/project/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at _runTestsForDescribeBlockOnce (/project/node_modules/jest-circus/build/jestAdapterInit.js:1003:11)
+    at _runTestsForDescribeBlock (/project/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at _runTestsForDescribeBlockOnce (/project/node_modules/jest-circus/build/jestAdapterInit.js:1003:11)
+    at _runTestsForDescribeBlock (/project/node_modules/jest-circus/build/jestAdapterInit.js:824:5)
+    at run (/project/node_modules/jest-circus/build/jestAdapterInit.js:789:3)
+    at runAndTransformResultsToJestFormat (/project/node_modules/jest-circus/build/jestAdapterInit.js:2300:21)
+    at jestAdapter (/project/node_modules/jest-circus/build/runner.js:111:19)
+    at runTestInternal (/project/node_modules/jest-runner/build/index.js:247:16)
+    at runTest (/project/node_modules/jest-runner/build/index.js:315:7)</failure>
+    </testcase>
+    <testcase classname="board" name="skipped" time="0" file="test/board.test.js">
+      <skipped/>
+    </testcase>
+    <testcase classname="" name="top level" time="0" file="test/board.test.js">
+    </testcase>
+  </testsuite>
+</testsuites>
