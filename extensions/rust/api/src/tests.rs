@@ -26,6 +26,27 @@ fn input(stdout: Option<&str>, reports: &[&str]) -> CollectInput {
     }
 }
 
+/// The input of a captured run printing `stdout`, the host serving `read` as the accepted files.
+fn against(stdout: &str, read: Value) -> CollectInput {
+    CollectInput {
+        files: serde_json::from_value(json!({ ACCEPTED: read })).expect("the read parses"),
+        ..input(Some(stdout), &[])
+    }
+}
+
+/// A committed accepted file the host served with its text.
+fn served(path: &str, text: &str) -> Value {
+    json!({"path": path, "exists": true, "text": text})
+}
+
+/// Each fact's `change`, absent as `None`.
+fn changes(out: &CollectOutput) -> Vec<Option<&str>> {
+    out.facts
+        .iter()
+        .map(|f| f.fields.get("change").and_then(Value::as_str))
+        .collect()
+}
+
 /// The JSON body of an insta snapshot, after its `---` header.
 fn snapshot(text: &str) -> Value {
     let body = text.splitn(3, "---\n").nth(2).expect("a snapshot body");
@@ -44,7 +65,7 @@ fn rust_api_declares_cargo_public_api_with_its_stdout_captured_its_filter_and_it
     assert_eq!(
         peers,
         [
-            ("@code/core", "^1.2", false),
+            ("@code/core", "^1.4", false),
             ("@rust/source", "^1.0", false)
         ]
     );
@@ -58,7 +79,16 @@ fn rust_api_declares_cargo_public_api_with_its_stdout_captured_its_filter_and_it
         Some(&["Cargo.toml".to_string()][..])
     );
     assert_eq!(collector.answers, ["api_item"]);
-    assert_eq!(collector.inputs, [Input::facts(&["item", "package"])]);
+    assert_eq!(
+        collector.inputs,
+        [
+            Input::facts(&["item", "package"]),
+            Input::files(
+                ACCEPTED,
+                FileReadSpec::glob("**/public-api.txt").text_up_to(4_194_304)
+            )
+        ]
+    );
     assert_eq!(collector.report.as_deref(), Some(REPORT));
     assert_eq!(collector.capture.as_deref(), Some("stdout"));
     let install = collector.install.as_deref().expect("an install line");
@@ -134,4 +164,104 @@ fn no_api_item_read_is_no_fact_and_one_warning() {
             out.warnings
         );
     }
+}
+
+#[specforge_test(requirement = "FEATURE-150")]
+fn no_accepted_file_served_is_todays_facts() {
+    let out = collect(&against(SNAPSHOT, json!({"facts": []}))).unwrap();
+    assert_eq!(
+        serde_json::to_value(&out.facts).unwrap(),
+        snapshot(SNAPSHOT_FACTS)
+    );
+    assert_eq!(out.warnings, Vec::<String>::new());
+}
+
+#[specforge_test(requirement = "FEATURE-150")]
+fn an_accepted_file_equal_to_the_run_marks_every_item_unchanged() {
+    let read = json!({"facts": [served("tests/public-api.txt", SNAPSHOT)]});
+    let out = collect(&against(SNAPSHOT, read)).unwrap();
+    assert!(!out.facts.is_empty());
+    assert!(
+        changes(&out).iter().all(|c| *c == Some("unchanged")),
+        "{:?}",
+        changes(&out)
+    );
+    assert_eq!(out.warnings, Vec::<String>::new());
+}
+
+#[specforge_test(requirement = "FEATURE-150")]
+fn an_accepted_function_the_run_lacks_is_removed() {
+    let gone = "pub const fn example_api::function(x: u32) -> u32";
+    let stdout: String = SNAPSHOT
+        .lines()
+        .filter(|line| *line != gone)
+        .map(|line| format!("{line}\n"))
+        .collect();
+    let read = json!({"facts": [served("tests/public-api.txt", SNAPSHOT)]});
+    let out = collect(&against(&stdout, read)).unwrap();
+    let removed: Vec<&Fact> = out
+        .facts
+        .iter()
+        .filter(|f| f.fields.get("change") == Some(&json!("removed")))
+        .collect();
+    let [fact] = &removed[..] else {
+        panic!("one removed item: {removed:?}");
+    };
+    assert_eq!(fact.fields["accepted_signature"], json!(gone));
+    assert_eq!(
+        changes(&out)
+            .iter()
+            .filter(|c| **c == Some("unchanged"))
+            .count(),
+        out.facts.len() - 1
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-150")]
+fn an_unreadable_accepted_file_is_the_collectors_error_naming_it() {
+    let read = json!({"facts": [served("tests/public-api.txt", "pub mod demo\ngarbage\n")]});
+    let why = collect(&against(SNAPSHOT, read)).unwrap_err();
+    assert!(
+        why.starts_with("tests/public-api.txt: ") && why.contains("line 2"),
+        "{why}"
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-150")]
+fn an_accepted_file_not_served_or_of_another_crate_is_one_warning_and_no_change() {
+    let unserved = json!({"path": "tests/public-api.txt", "exists": true, "bytes": 5_000_000, "error": "too_large"});
+    let foreign = served(
+        "other/tests/public-api.txt",
+        "pub mod other_api\npub fn other_api::f()\n",
+    );
+    for (file, says) in [
+        (unserved, "the accepted API was not read (too_large)"),
+        (foreign, "names no crate this run read"),
+    ] {
+        let path = file["path"].as_str().unwrap().to_string();
+        let out = collect(&against(SNAPSHOT, json!({ "facts": [file] }))).unwrap();
+        assert_eq!(
+            serde_json::to_value(&out.facts).unwrap(),
+            snapshot(SNAPSHOT_FACTS)
+        );
+        assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+        assert!(
+            out.warnings[0].starts_with(&format!("{path}: ")) && out.warnings[0].contains(says),
+            "{:?}",
+            out.warnings
+        );
+    }
+}
+
+#[specforge_test(requirement = "FEATURE-150")]
+fn a_truncated_accepted_read_is_one_warning() {
+    let read = json!({"facts": [served("tests/public-api.txt", SNAPSHOT)], "truncated": true});
+    let out = collect(&against(SNAPSHOT, read)).unwrap();
+    assert!(changes(&out).iter().all(|c| *c == Some("unchanged")));
+    assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+    assert!(
+        out.warnings[0].contains("more files matched than were read"),
+        "{:?}",
+        out.warnings
+    );
 }
