@@ -40,6 +40,18 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@rust/source` | 0 | 0 | -- | code/core, rust/cargo (required) |
 | `@rust/test` | 0 | 0 | -- | code/core, rust/source (required) |
 | `@javascript/source` | 0 | 0 | -- | code/core (required) |
+| `@rust/coverage` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@rust/lint` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@rust/deps` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@rust/api` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@rust/proof` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@javascript/coverage` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/lint` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/deps` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/api` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/vitest` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/jest` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/playwright` | 0 | 0 | -- | code/core, javascript/source (required) |
 | `@specforge/checks` | 1 (collector-written) | 0 | -- | none |
 
 Extensions load after the peers they declare; extensions with no peer between them keep the order
@@ -305,8 +317,12 @@ ADR 0328 D3), so every pack names a fact the same way. The library reads a JUnit
 a standard report into the five report kinds ([ADR 0388](adr/0388-x2-is-the-share-of-test-ids-a-standard-report-saw.md),
 [guide](guides/code-report-facts.md)): `specforge-code-lcov` (LCOV coverage), `specforge-code-api` (cargo public-api
 and api-extractor snapshots), `specforge-code-sarif` (SARIF 2.1.0), `specforge-code-cyclonedx` (CycloneDX BOMs) and
-`specforge-code-osv` (osv-scanner reports). Each is an rlib that links code-facts; no builtin links one yet, so
-editing one re-vendors nothing.
+`specforge-code-osv` (osv-scanner reports). Each is an rlib that links code-facts, linked by the report packs
+([ADR 0389](adr/0389-report-packs-run-standard-tools-and-doctor-names-a-missing-one.md)): lcov by `@rust/coverage`
+and `@javascript/coverage`, sarif by `@javascript/lint` (`@rust/lint` turns clippy's JSON into findings itself),
+cyclonedx and osv by `@rust/deps` and `@javascript/deps`, api by `@rust/api` and `@javascript/api`. A sixth reader, `specforge-code-kani`
+(`extensions/code/kani`, Kani's regular output), links nothing and is linked by `@rust/proof` only. Editing a reader
+re-vendors the packs that link it.
 
 | Kind | Schemes | Fields |
 |------|---------|--------|

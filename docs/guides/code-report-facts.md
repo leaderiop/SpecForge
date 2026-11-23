@@ -13,9 +13,36 @@ reads. `@code/core` declares the five report kinds and checks them
 | CycloneDX JSON BOM | `specforge-code-cyclonedx` | `dependency` | `dep` |
 | `osv-scanner --format json` report | `specforge-code-osv` | `vulnerability` | `vuln` |
 
-The libraries are rlibs in `extensions/code/`. No builtin links one yet: the packs that run the tools and collect these
-reports come next (Phase 11 of the round). A report fact cites the facts the source and manifest packs collected, the
-`item` holding its location or the `package` it is about, so collect those packs first.
+The libraries are rlibs in `extensions/code/`. The report packs link them: each runs one standard tool, after you
+approve its command once per project, and collects its report
+([ADR 0389](../adr/0389-report-packs-run-standard-tools-and-doctor-names-a-missing-one.md)). Enable one with
+`specforge add @rust/coverage`; it also enables the source pack whose facts it reads, and `specforge collect` runs it
+when its project file is found. A report fact cites the facts the source and manifest packs collected, the `item`
+holding its location or the `package` it is about, so those packs collect first. `specforge doctor` names each tool a
+detected pack runs that is not installed, with its install line and the codes it feeds.
+
+| Pack | Collector | Tool and install line | Reader | Facts |
+|------|-----------|-----------------------|--------|-------|
+| `@rust/coverage` | `rust-coverage` | cargo-llvm-cov over nextest: `cargo install cargo-llvm-cov cargo-nextest --locked` | `specforge-code-lcov` | `coverage` |
+| `@rust/lint` | `rust-lint` | clippy, its JSON captured: `rustup component add clippy` | its own clippy converter | `static_finding` |
+| `@rust/deps` | `rust-sbom` | cargo-cyclonedx: `cargo install cargo-cyclonedx --locked` | `specforge-code-cyclonedx` | `dependency` |
+| `@rust/deps` | `rust-osv` | osv-scanner on `Cargo.lock`: `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest` | `specforge-code-osv` | `vulnerability` |
+| `@rust/api` | `rust-api` | cargo public-api, captured: `cargo install cargo-public-api --locked` (and a nightly toolchain) | `specforge-code-api` | `api_item` |
+| `@rust/proof` | `rust-proof` | Kani, captured: `cargo install --locked kani-verifier && cargo kani setup` | `specforge-code-kani` | `test`, `test_run` |
+| `@javascript/coverage` | `javascript-coverage` | c8 around `npm test`: `npm install --save-dev c8` | `specforge-code-lcov` | `coverage` |
+| `@javascript/lint` | `javascript-lint` | ESLint's SARIF formatter: `npm install --save-dev eslint @microsoft/eslint-formatter-sarif` | `specforge-code-sarif` | `static_finding` |
+| `@javascript/deps` | `javascript-sbom` | cyclonedx-npm: `npm install --save-dev @cyclonedx/cyclonedx-npm` | `specforge-code-cyclonedx` | `dependency` |
+| `@javascript/deps` | `javascript-osv` | osv-scanner on `package-lock.json`, as for Rust | `specforge-code-osv` | `vulnerability` |
+| `@javascript/api` | `javascript-api` | api-extractor, a config the host writes: `npm install --save-dev @microsoft/api-extractor typescript` | `specforge-code-api` | `api_item` |
+| `@javascript/vitest` | `javascript-vitest` | vitest's JUnit reporter: `npm install --save-dev vitest` | `specforge-code-junit` | `test`, `test_run` |
+| `@javascript/jest` | `javascript-jest` | jest with jest-junit: `npm install --save-dev jest jest-junit` | `specforge-code-junit` | `test`, `test_run` |
+| `@javascript/playwright` | `javascript-playwright` | Playwright's JUnit, captured: `npm install --save-dev @playwright/test` | `specforge-code-junit` | `test`, `test_run` |
+
+`@rust/proof` mints a `test` per Kani harness, `rust:<crate>#<harness path>`, placed at its function. Kani runs on
+Linux x86_64 and macOS only, not on Windows. There is no JavaScript proof pack: no JavaScript tool proves a property of
+all inputs with a verdict per harness the way Kani does, property-based testing already reports as tests through the
+runner packs, and TypeScript's checker proves types, not behaviour (ADR 0389 D2). The legacy `@specforge/vitest`
+stays a separate pack beside `@javascript/vitest`; their collectors are `vitest` and `javascript-vitest`.
 
 ## What each reader accepts and mints
 

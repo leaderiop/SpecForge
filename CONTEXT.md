@@ -566,9 +566,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`extensions/code/`); its builtins are named `@<family>/<pack>`. The family `specforge` is refused (ADR 0328 D3).
 - **Extension library**: a crate in an extension family with no `wasm/` dir: an rlib named `specforge-<family>-<dir>`,
   never embedded, that builtins link (`extensions/code/junit`, `extensions/code/facts`). Editing it re-vendors the
-  builtins that link it. The report readers `specforge-code-lcov`, `-api`, `-sarif`, `-cyclonedx` and `-osv`
-  (`extensions/code/{lcov,api,sarif,cyclonedx,osv}`) link code-facts and no builtin links them yet, so editing one
-  re-vendors nothing (ADR 0388).
+  builtins that link it. The six report readers are `specforge-code-lcov`, `-api`, `-sarif`, `-cyclonedx` and `-osv`
+  (`extensions/code/{lcov,api,sarif,cyclonedx,osv}`, linking code-facts, ADR 0388) and `specforge-code-kani`
+  (`extensions/code/kani`, Kani's regular output, linking nothing). The report packs link them (ADR 0389), so editing
+  a reader re-vendors exactly the packs that link it; `specforge-code-kani` feeds `@rust/proof` only.
 - **X2**: the share of items carrying a test id whose id a test fact holds, that is, a standard test report saw it,
   whatever its status. `cargo gate full`'s dogfood check prints it for SpecForge, taskboard and ledger, with no floor
   (`gate/src/x2.rs`, ADR 0388).

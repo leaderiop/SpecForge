@@ -95,8 +95,8 @@ Extensions load in peer order: an extension loads after the peers it declares.
 
 ## The builtins are examples
 
-SpecForge ships fifteen builtin extensions. Fourteen are a starter set, aimed at software and product work, and
-`@gsd/core` is the GSD spec framework; all are written with the same SDK any extension uses:
+SpecForge ships twenty-seven builtin extensions. Twenty-six are a starter set, aimed at software and product work,
+and `@gsd/core` is the GSD spec framework; all are written with the same SDK any extension uses:
 
 | Builtin | Shows how to |
 |---------|--------------|
@@ -111,6 +111,16 @@ SpecForge ships fifteen builtin extensions. Fourteen are a starter set, aimed at
 | `@javascript/node-test` | Declare a collector that reads project files and answers facts, with an extension library (`specforge-code-junit`) |
 | `@rust/cargo`, `@rust/source`, `@rust/test` | Collectors served each other's facts: a manifest library (`cargo_toml`), the host's parser, and a config file the host writes for a command |
 | `@javascript/source` | Read the project's source with the host's reader through a query it ships, and share a library (`specforge-javascript-workspace`) with another pack |
+| `@rust/coverage` | Run cargo-llvm-cov after approval and record its LCOV as `coverage` facts through a reader library (`specforge-code-lcov`); `specforge add` also enables `@rust/source` |
+| `@rust/lint` | Run clippy after approval, capture its JSON on standard output and record `static_finding` facts; `specforge add` also enables `@rust/source` |
+| `@rust/deps` | Hold two collectors: cargo-cyclonedx, whose BOMs a report glob reads fresh, for `dependency` facts, and osv-scanner for `vulnerability` facts; `specforge add` also enables `@rust/source` |
+| `@rust/api` | Run cargo public-api after approval, capture its text and record `api_item` facts; `specforge add` also enables `@rust/source` |
+| `@rust/proof` | Run Kani after approval, capture its output and record each proof harness as a placed `test` fact through a reader library (`specforge-code-kani`); `specforge add` also enables `@rust/source` |
+| `@javascript/coverage` | Run c8 around the project's `npm test` after approval and record `coverage` facts; `specforge add` also enables `@javascript/source` |
+| `@javascript/lint` | Run ESLint with its SARIF formatter after approval and record `static_finding` facts; `specforge add` also enables `@javascript/source` |
+| `@javascript/deps` | Hold two collectors: cyclonedx-npm for `dependency` facts and osv-scanner for `vulnerability` facts, a skipped entry shown as W203; `specforge add` also enables `@javascript/source` |
+| `@javascript/api` | Run api-extractor after approval on a config file the host writes, and record `api_item` facts; `specforge add` also enables `@javascript/source` |
+| `@javascript/vitest`, `@javascript/jest`, `@javascript/playwright` | Run a test runner after approval and record its JUnit as `test`/`test_run` facts (jest through an env file the host writes, Playwright's report captured); `specforge add` also enables `@javascript/source` |
 | `@gsd/core` | Ship a whole spec framework as one extension: scoped kinds, judged rules, settings, and the prompts, agents, skills, slash commands and hooks a coding agent's host installs |
 
 The [extension inventory](extension-inventory.md) lists exactly what each declares; the
