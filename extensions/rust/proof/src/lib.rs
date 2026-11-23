@@ -14,6 +14,10 @@
 //! (ADR 0389 D10). A harness is a test fact but not an item's `test_id`: `@rust/source` does not see
 //! `#[kani::proof]` as a test and is unchanged.
 //!
+//! An output cut off inside a run is the collector's error (the reader's). An output with no harness at all reads the
+//! same whether the crate has none or Kani stopped before verifying (a failed build prints to stderr), so the pack
+//! returns one warning saying nothing was checked, which the host shows as W203, instead of a clean run.
+//!
 //! A caller narrows the run with a filter (`specforge collect --runner rust-proof --filter <TEXT>`): the host appends
 //! `--harness <TEXT>`, which Kani matches against harness names. Kani runs on Linux x86_64 and macOS only; it is not
 //! supported on Windows (ADR 0389 D12).
@@ -106,8 +110,20 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             tests.push(test.placed(item));
         }
     }
+    // Kani's stdout looks the same when the crate has no harness and when Kani never reached one (a failed build).
+    let warnings = tests
+        .is_empty()
+        .then(|| {
+            format!(
+                "{path}: no proof harness was read; if cargo-kani failed to start or to build the crate, nothing \
+                 was checked"
+            )
+        })
+        .into_iter()
+        .collect();
     Ok(CollectOutput {
         facts: test_facts(tests),
+        warnings,
         ..CollectOutput::default()
     })
 }

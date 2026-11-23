@@ -14,6 +14,9 @@ requirement FEATURE-154 "Kani Proof Facts" {
     items, as Kani prints harness paths without it. An output cut off
     before Kani's Complete line, or whose Complete totals disagree with
     the harnesses read, is the collector's error, never a dropped proof.
+    An output with no harness at all reads the same whether the crate has
+    none or Kani stopped at the build, so the pack warns that nothing was
+    checked (W203) instead of looking like a clean run.
 
     Kani verifies Rust only and runs on Linux x86_64 and macOS, not on
     Windows. There is no JavaScript proof pack: no JavaScript tool proves

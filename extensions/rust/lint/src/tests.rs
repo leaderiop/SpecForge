@@ -176,6 +176,13 @@ mod clippy {
         .to_string()
     }
 
+    /// `lines` as one capture, ended by the `build-finished` record cargo writes last.
+    fn finished<S: AsRef<str>>(lines: &[S]) -> String {
+        let mut text: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+        text.push(r#"{"reason":"build-finished","success":true}"#);
+        text.join("\n")
+    }
+
     /// A span of `file` over the lines `start` to `end`.
     fn span(file: &str, start: u64, end: u64, primary: bool) -> serde_json::Value {
         json!({"file_name": file, "line_start": start, "line_end": end, "is_primary": primary})
@@ -195,7 +202,7 @@ mod clippy {
 
     #[test]
     fn a_clippy_message_reads_its_code_level_message_and_primary_span() {
-        let text = [
+        let text = finished(&[
             message(
                 Some("clippy::needless_return"),
                 "warning",
@@ -211,8 +218,7 @@ mod clippy {
                 "unused variable",
                 json!([span("src/lib.rs", 12, 12, true)]),
             ),
-        ]
-        .join("\n");
+        ]);
         let (read, outside) = results(&text, "/project").expect("the lines read");
         assert_eq!(
             read,
@@ -249,7 +255,7 @@ mod clippy {
                 )
             })
             .collect();
-        let (read, _) = results(&text.join("\n"), "/project").expect("the lines read");
+        let (read, _) = results(&finished(&text), "/project").expect("the lines read");
         let read: Vec<(&str, Level)> = read.iter().map(|r| (r.rule.as_str(), r.level)).collect();
         assert_eq!(
             read,
@@ -282,7 +288,30 @@ mod clippy {
             .collect();
         assert_eq!(rules, [("dead_code", None)]);
         assert!(outside.is_empty());
-        assert_eq!(results("", "/project"), Ok((Vec::new(), Vec::new())));
+        assert_eq!(
+            results(&finished::<&str>(&[]), "/project"),
+            Ok((Vec::new(), Vec::new()))
+        );
+    }
+
+    #[test]
+    fn a_clippy_capture_with_no_build_finished_record_is_cut_off() {
+        // A run killed between two lines: every line is whole JSON, but cargo's last record is missing.
+        let whole = message(
+            Some("A"),
+            "warning",
+            "a",
+            json!([span("src/lib.rs", 1, 1, true)]),
+        );
+        for text in [whole.as_str(), ""] {
+            let error = results(text, "/project").expect_err("cut off");
+            assert!(error.starts_with("no `build-finished` record"), "{error}");
+        }
+        let (recorded, _) = CLIPPY_0_1_98
+            .trim_end()
+            .rsplit_once('\n')
+            .expect("more than one line");
+        assert!(results(recorded, "/project").is_err());
     }
 
     #[test]
@@ -305,9 +334,7 @@ mod clippy {
             "a",
             json!([span("src/lib.rs", 3, 3, true)]),
         );
-        let text = [&a, &b, &a, &b, &a_elsewhere]
-            .map(String::as_str)
-            .join("\n");
+        let text = finished(&[&a, &b, &a, &b, &a_elsewhere]);
         let (read, _) = results(&text, "/project").expect("the lines read");
         let read: Vec<(&str, Option<usize>)> =
             read.iter().map(|r| (r.rule.as_str(), r.line)).collect();
@@ -317,7 +344,7 @@ mod clippy {
     #[test]
     fn a_clippy_span_outside_the_project_is_counted_once_not_kept() {
         let registry = "/home/u/.cargo/registry/src/x/lib.rs";
-        let text = [
+        let text = finished(&[
             message(
                 Some("A"),
                 "warning",
@@ -342,8 +369,7 @@ mod clippy {
                 "d",
                 json!([span("/project/src/lib.rs", 5, 5, true)]),
             ),
-        ]
-        .join("\n");
+        ]);
         let (read, outside) = results(&text, "/project").expect("the lines read");
         let kept: Vec<(&str, Option<&str>)> = read
             .iter()

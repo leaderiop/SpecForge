@@ -22,20 +22,28 @@ const TOOL: &str = "clippy";
 /// library twice (lib and lib test) and repeats each of its diagnostics. A primary span outside the project (a
 /// registry crate's macro) is counted, not kept.
 ///
-/// An error naming its 1-based line: a line that is no JSON, so a cut-off capture fails instead of dropping findings.
+/// A capture cut off inside a line or between two is an error, so it fails instead of dropping findings: a line that is
+/// no JSON, named by its 1-based number, or no `build-finished` record, which cargo writes last on every run that ends,
+/// failed builds included (a run killed by a signal stops before it).
 pub(crate) fn results(text: &str, cwd: &str) -> Result<(Vec<SarifResult>, Vec<String>), String> {
     let mut results = Vec::new();
     let mut outside = Vec::new();
     let mut seen = BTreeSet::new();
     let mut seen_outside = BTreeSet::new();
+    let mut finished = false;
     for (at, line) in text.lines().enumerate() {
         if line.trim().is_empty() {
             continue;
         }
         let value: Value =
             serde_json::from_str(line).map_err(|e| format!("line {}: no JSON: {e}", at + 1))?;
-        if value.get("reason").and_then(Value::as_str) != Some("compiler-message") {
-            continue;
+        match value.get("reason").and_then(Value::as_str) {
+            Some("compiler-message") => {}
+            Some("build-finished") => {
+                finished = true;
+                continue;
+            }
+            _ => continue,
         }
         let Some(message) = value.get("message") else {
             continue;
@@ -94,6 +102,13 @@ pub(crate) fn results(text: &str, cwd: &str) -> Result<(Vec<SarifResult>, Vec<St
         if seen.insert(key) {
             results.push(result);
         }
+    }
+    if !finished {
+        return Err(
+            "no `build-finished` record: the capture stops before cargo's last line, so the run was cut off (killed \
+             or crashed) and its findings may be partial"
+                .to_string(),
+        );
     }
     Ok((results, outside))
 }

@@ -120,3 +120,18 @@ fn no_capture_and_no_single_report_or_a_bad_line_is_the_collectors_error() {
         "{why}"
     );
 }
+
+#[specforge_test(requirement = "FEATURE-150")]
+fn no_api_item_read_is_no_fact_and_one_warning() {
+    // A missing nightly toolchain: cargo public-api's error goes to stderr and stdout holds nothing.
+    for given in [input(Some(""), &[]), input(None, &[""])] {
+        let out = collect(&given).unwrap();
+        assert_eq!(out.facts, Vec::<Fact>::new());
+        assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+        assert!(
+            out.warnings[0].contains("no public API item was read"),
+            "{:?}",
+            out.warnings
+        );
+    }
+}

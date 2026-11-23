@@ -56,7 +56,8 @@ struct Open {
 /// dropped, every line not named in the crate doc ignored). Only the `VERIFICATION:-` line sets a verdict: a check's
 /// status (a cover's `SATISFIED`, an unwinding assertion's `FAILURE`) never does, as Kani itself decides what a
 /// harness's checks mean (`#[kani::should_panic]` inverts them). No harness (`No proof harnesses ... were found`, or
-/// empty text) is no run and no error.
+/// empty text) is no run and no error: the text cannot tell "no harness" from "Kani never reached one", so the caller
+/// says which it cannot tell (`@rust/proof` warns).
 ///
 /// An output that stops early is an Err naming its 1-based line, never a shorter list: a harness with no verdict, a
 /// harness started before the last one's verdict, harnesses after the last `Complete` line, a `Complete` line whose

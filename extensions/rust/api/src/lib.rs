@@ -16,7 +16,9 @@
 //! `.specforge/reports/rust-api/rust-api.stdout.txt` and passes as `CollectInput::stdout`; `specforge collect --report
 //! <file>` passes a saved capture as the one report instead. `specforge-code-api` reads the text and
 //! `specforge-code-facts` mints one `api_item` per public entry, citing the one `@rust/source` item of the library
-//! crate its path names.
+//! crate its path names. A failed run (a missing nightly toolchain, a failed build) prints its error to stderr and no
+//! entry to stdout, so a capture with no entry gives one warning saying nothing was recorded, which the host shows as
+//! W203, instead of a clean run.
 
 use specforge_code_api::read_rust_text;
 use specforge_code_facts::api_facts;
@@ -81,8 +83,20 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         }
     };
     let entries = read_rust_text(text).map_err(|why| format!("{path}: {why}"))?;
+    // The tool prints its errors (a missing nightly toolchain, a failed build) to stderr, so stdout holds no entry.
+    let warnings = entries
+        .is_empty()
+        .then(|| {
+            format!(
+                "{path}: no public API item was read; if cargo public-api failed (a missing nightly toolchain, a \
+                 failed build), nothing was recorded"
+            )
+        })
+        .into_iter()
+        .collect();
     Ok(CollectOutput {
         facts: api_facts(&entries, &input.facts),
+        warnings,
         ..CollectOutput::default()
     })
 }

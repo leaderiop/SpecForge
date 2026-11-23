@@ -264,7 +264,7 @@ fn a_failed_harness_is_a_failed_test() {
 }
 
 #[specforge_test(requirement = "FEATURE-154")]
-fn no_capture_is_the_collectors_error_and_no_harness_is_no_fact() {
+fn no_capture_is_the_collectors_error_and_no_harness_is_no_fact_and_one_warning() {
     for reports in [&[][..], &[ONE_CRATE, ONE_CRATE][..]] {
         let why = collect(&input(None, reports)).unwrap_err();
         assert!(
@@ -274,8 +274,17 @@ fn no_capture_is_the_collectors_error_and_no_harness_is_no_fact() {
     }
     let why = collect(&input(Some("Checking harness p...\n"), &[])).unwrap_err();
     assert!(why.starts_with(&format!("{CAPTURE}: ")), "{why}");
-    for text in [NONE, ""] {
+    // No harness read (none in the crate, or Kani stopped at the build) says so instead of looking clean.
+    for text in [NONE, "", "Kani Rust Verifier 0.67.0 (cargo plugin)\n"] {
         let out = collect(&input(Some(text), &[])).unwrap();
         assert_eq!(out.facts, Vec::<Fact>::new(), "{text:?}");
+        assert_eq!(
+            out.warnings,
+            [format!(
+                "{CAPTURE}: no proof harness was read; if cargo-kani failed to start or to build the crate, \
+                 nothing was checked"
+            )],
+            "{text:?}"
+        );
     }
 }

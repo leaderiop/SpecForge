@@ -13,6 +13,8 @@ requirement FEATURE-150 "API Snapshot Facts (Rust)" {
     rustdoc JSON with a nightly toolchain it finds by itself. The pack
     reads the text with the API library and answers an api_item fact per
     public entry, citing the one @rust/source item of the library crate
-    its path names.
+    its path names. A run that read no entry, as when the nightly
+    toolchain is missing and the error went to stderr, gives a warning
+    that nothing was recorded (W203) instead of looking like a clean run.
   """
 }

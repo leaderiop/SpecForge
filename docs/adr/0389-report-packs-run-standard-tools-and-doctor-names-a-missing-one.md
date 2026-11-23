@@ -112,6 +112,12 @@ artifact with a non-`file` URI scheme still fails the report.
 
 The plan that builds each pack fixes its exact argv and names; this table is the design they implement.
 
+A captured output that cannot be told from a clean run is never read as one. clippy's capture without cargo's last
+`build-finished` record is a run cut off (killed between two lines), and is the collector's error. Kani's and
+cargo-public-api's captures with nothing read are a warning (W203) saying nothing was checked or recorded, not an
+error: "no harness" and "no public item" are real outcomes the text cannot tell from a tool that stopped at the build,
+a wholly empty capture is already the host's E045, and an export's error would fail the whole collect.
+
 ## D9. Tool limits, accepted and documented
 
 - vitest's and jest's `-t` filters match test names, not ids.
