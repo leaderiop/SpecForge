@@ -7,6 +7,8 @@ use super::*;
 const RUST: &str = include_str!("../fixtures/rust.public-api.txt");
 /// An api-extractor `.api.json` doc model, hand-written to the model: package `@demo/widget`.
 const WIDGET: &str = include_str!("../fixtures/widget.api.json");
+/// api-extractor 7.60.1's doc model of `@demo/widget`, recorded (see `fixtures/README.md`).
+const API_EXTRACTOR_7_60_1: &str = include_str!("../fixtures/api-extractor-7.60.1.widget.api.json");
 /// The served `item` facts an api collector receives, as JSON.
 const ITEMS: &str = include_str!("../fixtures/items.json");
 
@@ -26,6 +28,36 @@ fn an_api_extractor_model_mints_api_items_citing_their_js_items() {
         "{facts:?}"
     );
     insta::assert_json_snapshot!("js", facts);
+}
+
+#[test]
+fn a_recorded_api_extractor_7_60_1_model_mints_api_items_of_every_member() {
+    let entries = read_js_model(API_EXTRACTOR_7_60_1).expect("the recording reads");
+    let read: Vec<(String, &str)> = entries
+        .iter()
+        .map(|e| (e.path.join("."), e.kind.as_str()))
+        .collect();
+    // api-extractor writes members alphabetically.
+    let expected = [
+        ("create", "function"),
+        ("Id", "type"),
+        ("Mode", "enum"),
+        ("Mode.Fast", "variant"),
+        ("Mode.Slow", "variant"),
+        ("Options", "interface"),
+        ("Options.mode", "field"),
+        ("VERSION", "variable"),
+        ("Widget", "class"),
+        ("Widget.render", "method"),
+        ("Widget.size", "field"),
+    ];
+    let expected: Vec<(String, &str)> = expected
+        .iter()
+        .map(|(path, kind)| (path.to_string(), *kind))
+        .collect();
+    assert_eq!(read, expected);
+    assert!(entries.iter().all(|e| e.container == "@demo/widget"));
+    insta::assert_json_snapshot!("api_extractor_7_60_1", api_facts(&entries, &served()));
 }
 
 #[test]
