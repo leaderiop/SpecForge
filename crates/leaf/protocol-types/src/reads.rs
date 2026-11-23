@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 /// under `name` in the input's `files`.
 ///
 /// Exactly one of `field` and `glob` names the files; a read that names neither or both, a `name` that is no word or
-/// repeats, or a `root` on a glob is W021 and served empty.
+/// repeats, a `root` on a glob, or a `text_max` that is zero, over [`TEXT_MAX_CEILING_BYTES`] or without `text` is W021
+/// and served empty.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileRead {
     /// The key of this read in the input's `files`: a word `[a-z][a-z0-9_]*`, unique among the owner's reads.
@@ -39,6 +40,9 @@ pub struct FileRead {
 
 /// The most files one [`FileRead`] names: past it the host reads that many and says [`FileFacts::truncated`].
 pub const FILE_READ_MAX: usize = 2000;
+
+/// The largest [`FileRead::text_max`] (4 MiB): the registry refuses a larger one (W021) and the host never sends more.
+pub const TEXT_MAX_CEILING_BYTES: u32 = 4 * 1024 * 1024;
 
 /// What the host read for one [`FileRead`].
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

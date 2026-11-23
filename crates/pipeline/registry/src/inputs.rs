@@ -6,7 +6,7 @@ use std::collections::HashSet;
 
 use specforge_common::structural::NODE_KINDS;
 use specforge_protocol_types::{
-    ExtensionDeclaration, FieldWriter, FileRead, Input, InputKind, Root,
+    ExtensionDeclaration, FieldWriter, FileRead, Input, InputKind, Root, TEXT_MAX_CEILING_BYTES,
 };
 
 use crate::compilation::UnloadedPeers;
@@ -43,14 +43,27 @@ pub fn served(kind: CallKind, input: &Input) -> bool {
 
 /// Why `read` cannot be served as declared, or `None` when its shape is sound: a name that is no word, neither or both
 /// of `field` and `glob`, a field that is not `kind.field`, a glob that is absolute, climbs with `..`, has an empty
-/// segment or more than [`MAX_DOUBLE_STAR`] `**` segments, `root` on a glob, or a `root` that is no root's name. A name repeated in an owner's reads is
-/// [`problems`]'.
+/// segment or more than [`MAX_DOUBLE_STAR`] `**` segments, `root` on a glob, a `root` that is no root's name, or a
+/// `text_max` that is zero, over [`TEXT_MAX_CEILING_BYTES`] or set without `text`. A name repeated in an owner's
+/// reads is [`problems`]'.
 pub fn read_problem(read: &FileRead) -> Option<String> {
     if !is_word(&read.name) {
         return Some(format!(
             "its name '{}' is not a word [a-z][a-z0-9_]*",
             read.name
         ));
+    }
+    match read.text_max {
+        Some(0) => return Some("its text_max is zero".to_string()),
+        Some(max) if max > TEXT_MAX_CEILING_BYTES => {
+            return Some(format!(
+                "its text_max {max} is over 4 MiB ({TEXT_MAX_CEILING_BYTES} bytes)"
+            ));
+        }
+        Some(_) if !read.text => {
+            return Some("it sets `text_max` but asks for no text".to_string());
+        }
+        _ => {}
     }
     match (&read.field, &read.glob) {
         (None, None) => Some("it names neither a `field` nor a `glob`".to_string()),
@@ -555,5 +568,32 @@ mod tests {
                  kind of call is not served it",
             ]
         );
+    }
+
+    /// A read's `text_max` is a positive size of at most 4 MiB, and only with `text` (ADR 0390 D3).
+    #[test]
+    fn a_text_max_that_is_zero_too_large_or_without_text_is_a_problem() {
+        let read = |text: bool, text_max: u32| FileRead {
+            name: "report".into(),
+            glob: Some("etc/*.api.md".into()),
+            text,
+            text_max: Some(text_max),
+            ..FileRead::default()
+        };
+        assert_eq!(
+            read_problem(&read(true, 0)).as_deref(),
+            Some("its text_max is zero")
+        );
+        assert_eq!(
+            read_problem(&read(true, 5_000_000)).as_deref(),
+            Some("its text_max 5000000 is over 4 MiB (4194304 bytes)")
+        );
+        assert_eq!(
+            read_problem(&read(false, 200_000)).as_deref(),
+            Some("it sets `text_max` but asks for no text")
+        );
+        for fine in [1, 200_000, TEXT_MAX_CEILING_BYTES] {
+            assert_eq!(read_problem(&read(true, fine)), None, "{fine}");
+        }
     }
 }

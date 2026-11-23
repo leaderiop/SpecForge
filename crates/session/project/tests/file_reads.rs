@@ -376,6 +376,9 @@ fn a_malformed_read_is_reported_and_served_empty() {
         {"name": "absolute", "glob": "/etc/*"},
         {"name": "deep", "glob": "**/**/**/**/**/x"},
         {"name": "ghost", "field": "plan.no_such_field"},
+        {"name": "zero", "glob": "src/*.rs", "text": true, "text_max": 0},
+        {"name": "huge", "glob": "src/*.rs", "text": true, "text_max": 5_000_000},
+        {"name": "textless", "glob": "src/*.rs", "text_max": 200_000},
         {"name": "fine", "glob": "src/*.rs"},
         {"name": "fine", "glob": "src/lib.rs"},
     ])));
@@ -397,7 +400,9 @@ fn a_malformed_read_is_reported_and_served_empty() {
         .filter(|d| d.code == "W021" && d.message.contains("read"))
         .map(|d| d.message.clone())
         .collect();
-    assert_eq!(messages.len(), 7, "{messages:#?}");
+    assert_eq!(messages.len(), 10, "{messages:#?}");
+    let text_max = messages.iter().filter(|m| m.contains("text_max"));
+    assert_eq!(text_max.count(), 3, "{messages:#?}");
     assert!(GSD_FACTS_SPEC.contains("plan"));
 }
 

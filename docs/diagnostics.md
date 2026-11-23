@@ -3359,8 +3359,9 @@ second one of a kind served once (`tests`, `state`, `graph`, `slash_commands`,
 setting, and a `files` input whose name is no word or is repeated, that names
 neither or both of `field` and `glob`, a `field` that is not `kind.field` or
 that no loaded extension declares, a `root` on a glob or that is no root's name,
-and a glob that is empty, absolute, climbs with `..`, or has more than four `**`
-segments.
+a glob that is empty, absolute, climbs with `..`, or has more than four `**`
+segments, and a `text_max` that is zero, over 4 MiB or set without `text` (ADR
+0390).
 
 Owner: core
 Level: warning

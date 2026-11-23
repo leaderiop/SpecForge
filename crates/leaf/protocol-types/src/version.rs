@@ -86,6 +86,9 @@
 ///   writes, as a command's graph node does; absent for a fact written without one.
 /// - a collector may declare `requires`, the other programs its command runs beside its argv's first, which
 ///   `specforge doctor` looks up on PATH (ADR 0389 D3); absent when empty.
+/// - a file read may declare `text_max` with `text` ([`FileRead::text_max`](crate::FileRead::text_max), ADR 0390
+///   D3): the most text of one file it is sent, in bytes, instead of 64 KiB, at most 4 MiB; its text budget is then
+///   the larger of 1 MiB and four times it. Zero, over 4 MiB or without `text` is W021 and served empty.
 ///
 /// A 2.2.0 guest still loads; a 2.3.0 guest is refused by a 2.2 host (E088, newer).
 ///

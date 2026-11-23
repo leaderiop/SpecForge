@@ -17,7 +17,9 @@ use specforge_effects::contained::{Contained, Resolved};
 use specforge_effects::fs::SKIPPED;
 use specforge_effects::{Root, Roots};
 
-use specforge_protocol_types::{FILE_READ_MAX, FileFact, FileFacts, FileRead, is_wild};
+use specforge_protocol_types::{
+    FILE_READ_MAX, FileFact, FileFacts, FileRead, TEXT_MAX_CEILING_BYTES, is_wild,
+};
 use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_problem};
 
 use crate::judged::file_digest;
@@ -26,8 +28,9 @@ use crate::judged::file_digest;
 pub const TEXT_CAP: usize = 64 * 1024;
 /// The most text one read sends in all, unless four times its per-file cap is more.
 pub const TEXT_BUDGET: usize = 1024 * 1024;
-/// The most a read's `text_max` raises its per-file cap to (so its budget is at most 16 MiB).
-pub const TEXT_MAX_CEILING: usize = 4 * 1024 * 1024;
+/// The most a read's `text_max` raises its per-file cap to (so its budget is at most 16 MiB): the registry's ceiling,
+/// so the two cannot drift.
+pub const TEXT_MAX_CEILING: usize = TEXT_MAX_CEILING_BYTES as usize;
 /// The most entries (files and directories) one glob visits, matched or not.
 pub const MAX_VISITS: usize = 20_000;
 
