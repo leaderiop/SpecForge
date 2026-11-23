@@ -271,7 +271,7 @@ fn digest(env: &Environment) -> Value {
 fn registry_build_of_the_builtins_matches_its_snapshot() {
     let runtime = std::sync::Arc::new(runtime());
     // Each set loads together into its own registry (ADR 0369 D3): two declarers of one keyword never
-    // load into one. `all_builtins` pins the old set's fourteen, `all_builtins_gsd` the gsd set's eight.
+    // load into one. `all_builtins` pins the old set's twenty-six, `all_builtins_gsd` the gsd set's twenty.
     let old: Vec<&str> = Family::Old.builtins().map(|builtin| builtin.name).collect();
     insta::assert_json_snapshot!("all_builtins", digest(&load(&runtime, &old)));
     let gsd: Vec<&str> = Family::Gsd.builtins().map(|builtin| builtin.name).collect();

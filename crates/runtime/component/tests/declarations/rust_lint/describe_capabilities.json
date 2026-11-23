@@ -1,0 +1,29 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "cargo-clippy",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--message-format=json"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "CARGO_*",
+        "RUSTUP_*",
+        "RUSTC",
+        "RUSTC_*",
+        "RUSTFLAGS",
+        "RUSTDOCFLAGS",
+        "CLIPPY_*"
+      ],
+      "name": "rust-lint",
+      "port": "process",
+      "why": "run the command whose report the collector 'rust-lint' reads"
+    }
+  ]
+}

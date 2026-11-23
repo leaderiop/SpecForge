@@ -1,0 +1,29 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "npx",
+        "--no",
+        "--",
+        "eslint",
+        "--format",
+        "@microsoft/eslint-formatter-sarif",
+        "--output-file",
+        "{report}",
+        "."
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "NODE_*",
+        "ESLINT_*",
+        "CI"
+      ],
+      "name": "javascript-lint",
+      "port": "process",
+      "why": "run the command whose report the collector 'javascript-lint' reads"
+    }
+  ]
+}

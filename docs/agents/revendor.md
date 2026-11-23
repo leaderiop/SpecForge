@@ -65,10 +65,12 @@ without `wasm/` is an extension library (`extensions/code/junit`, `extensions/co
 `extensions/javascript/workspace`),
 an rlib no blob of its own. A library is an input of every builtin that links it, directly or through another library,
 so editing one re-vendors those builtins: code-facts, and code-junit, which it links, feed `@code/core`,
-`@javascript/node-test`, `@javascript/source`, `@rust/cargo`, `@rust/source` and `@rust/test`; `specforge-rust-manifest`
-feeds `@rust/cargo`; `specforge-javascript-workspace` feeds `@javascript/node-test` and `@javascript/source`.
-The report readers `extensions/code/{lcov,api,sarif,cyclonedx,osv}` are libraries too: each links code-facts and no
-builtin links one yet, so editing one re-vendors nothing (`a_change_to_a_report_reader_feeds_no_builtin`, ADR 0388).
+`@javascript/node-test`, `@javascript/source`, `@rust/cargo`, `@rust/source`, `@rust/test` and the twelve report packs
+(`@rust/{coverage,lint,deps,api,proof}`, `@javascript/{coverage,lint,deps,api,vitest,jest,playwright}`);
+`specforge-rust-manifest` feeds `@rust/cargo`; `specforge-javascript-workspace` feeds `@javascript/node-test`,
+`@javascript/source`, `@javascript/vitest`, `@javascript/jest` and `@javascript/playwright`.
+The report readers `extensions/code/{lcov,api,sarif,cyclonedx,osv}` and `extensions/code/kani` each feed the packs that
+link them (`a_change_to_a_report_reader_feeds_the_packs_that_link_it`, ADR 0389).
 `every_committed_wasm_is_listed` (xtask) fails for a `.wasm` file git tracks that the list does not name.
 
 ## Only the vocabulary

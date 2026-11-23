@@ -54,6 +54,18 @@ fn the_two_sets_are_adr_0369s_and_every_builtin_is_in_one() {
             "@rust/test",
             "@javascript/source",
             "@javascript/node-test",
+            "@rust/coverage",
+            "@rust/lint",
+            "@rust/deps",
+            "@rust/api",
+            "@rust/proof",
+            "@javascript/coverage",
+            "@javascript/lint",
+            "@javascript/deps",
+            "@javascript/api",
+            "@javascript/vitest",
+            "@javascript/jest",
+            "@javascript/playwright",
         ]),
         "both sets"
     );

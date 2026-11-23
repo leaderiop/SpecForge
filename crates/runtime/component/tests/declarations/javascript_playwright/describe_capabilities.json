@@ -1,0 +1,31 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "npx",
+        "--no",
+        "--",
+        "playwright",
+        "test",
+        "--reporter=junit",
+        "--output=.specforge/reports/javascript-playwright-results"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "NODE_*",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "CI"
+      ],
+      "filter": [
+        "--grep",
+        "{filter}"
+      ],
+      "name": "javascript-playwright",
+      "port": "process",
+      "why": "run the command whose report the collector 'javascript-playwright' reads"
+    }
+  ]
+}

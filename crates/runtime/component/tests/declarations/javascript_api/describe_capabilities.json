@@ -1,0 +1,31 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "npx",
+        "--no",
+        "--",
+        "api-extractor",
+        "run",
+        "--local",
+        "--config",
+        "{config}"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "config": {
+        "name": "api-extractor.json",
+        "template": "{\n  \"projectFolder\": \"../..\",\n  \"mainEntryPointFilePath\": \"<projectFolder>/dist/index.d.ts\",\n  \"apiReport\": { \"enabled\": false },\n  \"docModel\": { \"enabled\": true, \"apiJsonFilePath\": \"{report}\" },\n  \"dtsRollup\": { \"enabled\": false },\n  \"tsdocMetadata\": { \"enabled\": false },\n  \"messages\": {\n    \"compilerMessageReporting\": { \"default\": { \"logLevel\": \"none\" } },\n    \"extractorMessageReporting\": { \"default\": { \"logLevel\": \"none\" } },\n    \"tsdocMessageReporting\": { \"default\": { \"logLevel\": \"none\" } }\n  }\n}\n"
+      },
+      "env": [
+        "NODE_*",
+        "CI"
+      ],
+      "name": "javascript-api",
+      "port": "process",
+      "why": "run the command whose report the collector 'javascript-api' reads"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "static_finding"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "eslint.config.*"
+        ]
+      },
+      "capability": "javascript-lint",
+      "export": "collect__javascript_lint",
+      "input_formats": [
+        "sarif"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item",
+            "package"
+          ]
+        }
+      ],
+      "install": "npm install --save-dev eslint @microsoft/eslint-formatter-sarif",
+      "name": "javascript-lint",
+      "report": ".specforge/reports/javascript-lint.sarif"
+    }
+  ]
+}

@@ -1491,9 +1491,21 @@ expression: "digest(&load(&runtime, &old))"
   },
   "ext_short": {
     "@code/core": "core",
+    "@javascript/api": "api",
+    "@javascript/coverage": "coverage",
+    "@javascript/deps": "deps",
+    "@javascript/jest": "jest",
+    "@javascript/lint": "lint",
     "@javascript/node-test": "node-test",
+    "@javascript/playwright": "playwright",
     "@javascript/source": "source",
+    "@javascript/vitest": "vitest",
+    "@rust/api": "api",
     "@rust/cargo": "cargo",
+    "@rust/coverage": "coverage",
+    "@rust/deps": "deps",
+    "@rust/lint": "lint",
+    "@rust/proof": "proof",
     "@rust/source": "source",
     "@rust/test": "test",
     "@specforge/cargo-test": "cargo-test",
@@ -1536,7 +1548,7 @@ expression: "digest(&load(&runtime, &old))"
     ],
     [
       "@code/core",
-      "1.2.0"
+      "1.3.0"
     ],
     [
       "@javascript/node-test",
@@ -1560,6 +1572,54 @@ expression: "digest(&load(&runtime, &old))"
     ],
     [
       "@javascript/source",
+      "1.0.0"
+    ],
+    [
+      "@rust/coverage",
+      "1.0.0"
+    ],
+    [
+      "@rust/lint",
+      "1.0.0"
+    ],
+    [
+      "@rust/deps",
+      "1.0.0"
+    ],
+    [
+      "@rust/api",
+      "1.0.0"
+    ],
+    [
+      "@rust/proof",
+      "1.0.0"
+    ],
+    [
+      "@javascript/coverage",
+      "1.0.0"
+    ],
+    [
+      "@javascript/lint",
+      "1.0.0"
+    ],
+    [
+      "@javascript/deps",
+      "1.0.0"
+    ],
+    [
+      "@javascript/api",
+      "1.0.0"
+    ],
+    [
+      "@javascript/vitest",
+      "1.0.0"
+    ],
+    [
+      "@javascript/jest",
+      "1.0.0"
+    ],
+    [
+      "@javascript/playwright",
       "1.0.0"
     ]
   ],

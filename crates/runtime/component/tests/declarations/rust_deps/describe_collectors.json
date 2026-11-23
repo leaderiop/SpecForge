@@ -1,0 +1,59 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "dependency"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.toml"
+        ]
+      },
+      "capability": "rust-sbom",
+      "export": "collect__rust_sbom",
+      "input_formats": [
+        "cyclonedx-json"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "package"
+          ]
+        }
+      ],
+      "install": "cargo install cargo-cyclonedx --locked",
+      "name": "rust-sbom",
+      "report": "**/rust-sbom.cdx.json"
+    },
+    {
+      "answers": [
+        "vulnerability"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.lock"
+        ]
+      },
+      "capability": "rust-osv",
+      "export": "collect__rust_osv",
+      "input_formats": [
+        "osv-json"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "package"
+          ]
+        }
+      ],
+      "install": "go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest (or: brew install osv-scanner)",
+      "name": "rust-osv",
+      "report": ".specforge/reports/rust-osv.json"
+    }
+  ]
+}

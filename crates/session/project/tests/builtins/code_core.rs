@@ -308,7 +308,7 @@ fn a_rust_test_ref_beside_only_item_facts_is_code_w102() {
             "code/W102".to_string(),
             "T1".to_string(),
             "`proof` names `rust:toy#tests::adds`, but no `rust` `test` facts were collected: run \
-             `specforge collect` with `@rust/test`"
+             `specforge collect` with `@rust/test` or `@rust/proof`"
                 .to_string()
         )],
         "{:?}",

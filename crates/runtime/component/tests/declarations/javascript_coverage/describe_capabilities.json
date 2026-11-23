@@ -1,0 +1,29 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "npx",
+        "--no",
+        "--",
+        "c8",
+        "--reporter=lcovonly",
+        "--reports-dir=.specforge/reports/javascript-coverage",
+        "npm",
+        "test"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "NODE_*",
+        "NPM_CONFIG_*",
+        "npm_config_*",
+        "CI"
+      ],
+      "name": "javascript-coverage",
+      "port": "process",
+      "why": "run the command whose report the collector 'javascript-coverage' reads"
+    }
+  ]
+}

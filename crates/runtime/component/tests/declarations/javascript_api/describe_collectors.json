@@ -1,0 +1,32 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "api_item"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "tsconfig.json"
+        ]
+      },
+      "capability": "javascript-api",
+      "export": "collect__javascript_api",
+      "input_formats": [
+        "api-extractor-json"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item"
+          ]
+        }
+      ],
+      "install": "npm install --save-dev @microsoft/api-extractor typescript",
+      "name": "javascript-api",
+      "report": ".specforge/reports/javascript-api.api.json"
+    }
+  ]
+}

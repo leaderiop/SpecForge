@@ -1,0 +1,19 @@
+{
+  "protocol_version": "2.3.0",
+  "name": "@javascript/api",
+  "version": "1.0.0",
+  "peer_dependencies": [
+    {
+      "name": "@code/core",
+      "version": "^1.2",
+      "optional": false
+    },
+    {
+      "name": "@javascript/source",
+      "version": "^1.0",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null,
+  "description": "Runs api-extractor and records the package's public API as api_item facts (@code/core)"
+}

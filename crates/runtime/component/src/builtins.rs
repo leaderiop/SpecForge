@@ -53,7 +53,19 @@ builtins! {
     "@rust/cargo" in "rust/cargo" as "specforge_ext_rust_cargo.wasm",
     "@rust/source" in "rust/source" as "specforge_ext_rust_source.wasm",
     "@rust/test" in "rust/test" as "specforge_ext_rust_test.wasm",
-    "@javascript/source" in "javascript/source" as "specforge_ext_javascript_source.wasm";
+    "@javascript/source" in "javascript/source" as "specforge_ext_javascript_source.wasm",
+    "@rust/coverage" in "rust/coverage" as "specforge_ext_rust_coverage.wasm",
+    "@rust/lint" in "rust/lint" as "specforge_ext_rust_lint.wasm",
+    "@rust/deps" in "rust/deps" as "specforge_ext_rust_deps.wasm",
+    "@rust/api" in "rust/api" as "specforge_ext_rust_api.wasm",
+    "@rust/proof" in "rust/proof" as "specforge_ext_rust_proof.wasm",
+    "@javascript/coverage" in "javascript/coverage" as "specforge_ext_javascript_coverage.wasm",
+    "@javascript/lint" in "javascript/lint" as "specforge_ext_javascript_lint.wasm",
+    "@javascript/deps" in "javascript/deps" as "specforge_ext_javascript_deps.wasm",
+    "@javascript/api" in "javascript/api" as "specforge_ext_javascript_api.wasm",
+    "@javascript/vitest" in "javascript/vitest" as "specforge_ext_javascript_vitest.wasm",
+    "@javascript/jest" in "javascript/jest" as "specforge_ext_javascript_jest.wasm",
+    "@javascript/playwright" in "javascript/playwright" as "specforge_ext_javascript_playwright.wasm";
     "@gsd/core" at "gsd/core" as "gsd_core.wasm",
 }
 
@@ -114,7 +126,7 @@ pub fn load_builtins(runtime: &dyn WasmRuntime) -> Result<(), LoadError> {
 #[cfg(feature = "testing")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Family {
-    /// The fourteen builtins of the `@specforge/*` starter set and what they load with.
+    /// The twenty-six builtins of the `@specforge/*` starter set and what they load with.
     Old,
     /// `@gsd/core` with its peers and the collectors that need `@code/core`.
     Gsd,
@@ -126,7 +138,8 @@ impl Family {
     pub const ALL: [Family; 2] = [Family::Old, Family::Gsd];
 
     /// The names of the set, as ADR 0369 D3 lists them. The old set is in [`BUILTINS`] order; the gsd
-    /// set names `@gsd/core` first, then the seven builtins it shares with the old set.
+    /// set names `@gsd/core` first, then the nineteen builtins it shares with the old set
+    /// (`@specforge/vitest` stays in the old set only).
     pub const fn names(self) -> &'static [&'static str] {
         match self {
             Family::Old => &[
@@ -144,6 +157,18 @@ impl Family {
                 "@rust/source",
                 "@rust/test",
                 "@javascript/source",
+                "@rust/coverage",
+                "@rust/lint",
+                "@rust/deps",
+                "@rust/api",
+                "@rust/proof",
+                "@javascript/coverage",
+                "@javascript/lint",
+                "@javascript/deps",
+                "@javascript/api",
+                "@javascript/vitest",
+                "@javascript/jest",
+                "@javascript/playwright",
             ],
             Family::Gsd => &[
                 "@gsd/core",
@@ -154,6 +179,18 @@ impl Family {
                 "@rust/source",
                 "@rust/test",
                 "@javascript/source",
+                "@rust/coverage",
+                "@rust/lint",
+                "@rust/deps",
+                "@rust/api",
+                "@rust/proof",
+                "@javascript/coverage",
+                "@javascript/lint",
+                "@javascript/deps",
+                "@javascript/api",
+                "@javascript/vitest",
+                "@javascript/jest",
+                "@javascript/playwright",
             ],
         }
     }

@@ -1,0 +1,19 @@
+{
+  "protocol_version": "2.3.0",
+  "name": "@rust/deps",
+  "version": "1.0.0",
+  "peer_dependencies": [
+    {
+      "name": "@code/core",
+      "version": "^1.2",
+      "optional": false
+    },
+    {
+      "name": "@rust/source",
+      "version": "^1.0",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null,
+  "description": "Runs cargo-cyclonedx and osv-scanner and records dependencies and vulnerabilities as facts (@code/core)"
+}

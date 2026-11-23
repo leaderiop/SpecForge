@@ -1,0 +1,60 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "npx",
+        "--no",
+        "--",
+        "cyclonedx-npm",
+        "--output-format",
+        "JSON",
+        "--spec-version",
+        "1.6",
+        "--package-lock-only",
+        "--output-file",
+        "{report}"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "NODE_*",
+        "NPM_CONFIG_*",
+        "npm_config_*",
+        "CI"
+      ],
+      "name": "javascript-sbom",
+      "port": "process",
+      "why": "run the command whose report the collector 'javascript-sbom' reads"
+    },
+    {
+      "argv": [
+        "osv-scanner",
+        "scan",
+        "source",
+        "--lockfile",
+        "package-lock.json",
+        "--format",
+        "json",
+        "--output-file",
+        "{report}"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "NO_PROXY",
+        "https_proxy",
+        "http_proxy",
+        "no_proxy",
+        "OSV_*"
+      ],
+      "name": "javascript-osv",
+      "port": "process",
+      "why": "run the command whose report the collector 'javascript-osv' reads"
+    }
+  ]
+}

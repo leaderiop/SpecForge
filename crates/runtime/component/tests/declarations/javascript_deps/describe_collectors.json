@@ -1,0 +1,59 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "dependency"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "package-lock.json"
+        ]
+      },
+      "capability": "javascript-sbom",
+      "export": "collect__javascript_sbom",
+      "input_formats": [
+        "cyclonedx-json"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "package"
+          ]
+        }
+      ],
+      "install": "npm install --save-dev @cyclonedx/cyclonedx-npm",
+      "name": "javascript-sbom",
+      "report": ".specforge/reports/javascript-sbom.cdx.json"
+    },
+    {
+      "answers": [
+        "vulnerability"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "package-lock.json"
+        ]
+      },
+      "capability": "javascript-osv",
+      "export": "collect__javascript_osv",
+      "input_formats": [
+        "osv-json"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "package"
+          ]
+        }
+      ],
+      "install": "go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest (or: brew install osv-scanner)",
+      "name": "javascript-osv",
+      "report": ".specforge/reports/javascript-osv.json"
+    }
+  ]
+}

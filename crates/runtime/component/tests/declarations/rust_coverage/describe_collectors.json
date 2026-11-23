@@ -1,0 +1,32 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "coverage"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.toml"
+        ]
+      },
+      "capability": "rust-coverage",
+      "export": "collect__rust_coverage",
+      "input_formats": [
+        "lcov"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item"
+          ]
+        }
+      ],
+      "install": "cargo install cargo-llvm-cov cargo-nextest --locked",
+      "name": "rust-coverage",
+      "report": ".specforge/reports/rust-coverage.lcov"
+    }
+  ]
+}
