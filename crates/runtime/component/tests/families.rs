@@ -126,6 +126,57 @@ fn each_set_builds_one_registry_with_no_e026_and_no_missing_peer() {
     }
 }
 
+/// The legacy `@specforge/vitest` and `@javascript/vitest`, each with the peers it requires
+/// (`@specforge/testing`; `@code/core` and `@javascript/source`), build one registry with no E026 and no
+/// missing peer, and each keeps its own collector (owner decision D4: the old pack stays in the old set,
+/// so a project may load both while it moves).
+#[test]
+fn the_old_vitest_loads_beside_javascript_vitest() {
+    let names = [
+        "@specforge/testing",
+        "@code/core",
+        "@javascript/source",
+        "@specforge/vitest",
+        "@javascript/vitest",
+    ];
+    for name in names {
+        assert!(
+            BUILTINS.iter().any(|builtin| builtin.name == name),
+            "'{name}' is a BUILTINS row"
+        );
+    }
+    let declarations: Vec<_> = pinned_builtin_declarations()
+        .unwrap()
+        .into_iter()
+        .filter(|declaration| names.contains(&declaration.name()))
+        .collect();
+    assert_eq!(declarations.len(), names.len());
+    let collectors: BTreeSet<(String, String)> = declarations
+        .iter()
+        .flat_map(|declaration| {
+            declaration
+                .collectors
+                .iter()
+                .map(|collector| (declaration.name().to_string(), collector.name.clone()))
+        })
+        .collect();
+    for (owner, collector) in [
+        ("@specforge/vitest", "vitest"),
+        ("@javascript/vitest", "javascript-vitest"),
+    ] {
+        assert!(
+            collectors.contains(&(owner.to_string(), collector.to_string())),
+            "{owner} declares the collector '{collector}': {collectors:?}"
+        );
+    }
+
+    let build = build_registries(declarations);
+    for code in ["E026", "E027"] {
+        let found: Vec<_> = build.diagnostics().filter(|d| d.code == code).collect();
+        assert!(found.is_empty(), "{code}: {found:?}");
+    }
+}
+
 /// The kinds `@gsd/core` declares, as a declaration named `@gsd/core` with nothing else in it. They are
 /// read from `gsd/core/tests/golden/kinds.json`, which the gsd suite's own golden test keeps equal to
 /// the extension's declaration, so this follows every later change to those kinds with no edit here.
