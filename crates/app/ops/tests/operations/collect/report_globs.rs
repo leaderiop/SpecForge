@@ -154,6 +154,50 @@ fn a_match_linking_out_of_the_project_is_not_read_and_named_in_a_w203() {
 }
 
 #[specforge_test(requirement = "FEATURE-128")]
+fn a_hard_linked_report_is_refused_in_a_bounded_containment() {
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("bom.json"), "{\"secret\": 1}").unwrap();
+    // The project's only match is a second name of a file outside it: the run writes nothing.
+    let linked = || {
+        let fx = Fixture::new(vec![sbom()]);
+        std::fs::create_dir(fx.root().join("a")).unwrap();
+        std::fs::hard_link(
+            outside.path().join("bom.json"),
+            fx.root().join("a/rust-sbom.cdx.json"),
+        )
+        .unwrap();
+        let machine = Machine::new()
+            .approving_everything()
+            .answering(writing(&[]));
+        (fx, machine)
+    };
+
+    let (fx, machine) = linked();
+    let refusal = fx
+        .collect_with(
+            Some("acme"),
+            Mode::Run(RunnerOutput::Discard),
+            &Containment::within(fx.root()),
+            Asking::Nobody,
+            &machine,
+        )
+        .unwrap_err();
+    assert_eq!(refusal.error.code, "E045", "{refusal:?}");
+    assert!(
+        refusal.error.message.contains("failed to read report")
+            && refusal.error.message.contains("rust-sbom.cdx.json"),
+        "{}",
+        refusal.error.message
+    );
+    assert!(fx.dispatched().is_empty(), "the collector receives nothing");
+
+    // The CLI runs unbounded (ADR 0092 D6): the same link is read.
+    let (fx, machine) = linked();
+    run(&fx, &machine).unwrap();
+    assert_eq!(paths(&fx.dispatched()[0]), ["a/rust-sbom.cdx.json"]);
+}
+
+#[specforge_test(requirement = "FEATURE-128")]
 fn a_report_glob_with_a_report_placeholder_or_a_capture_is_e058() {
     let told = Runner::new("acme").report(GLOB);
     let configured = sbom()

@@ -51,7 +51,7 @@ pub(super) fn read_report(
     } else if report.real.is_file() {
         held.push(report.clone());
     }
-    read_held(&held, root)
+    read_held(&held, root, containment)
 }
 
 /// Read every project file `glob` matches (ADR 0389), listed by the walk `Input::files` globs take
@@ -86,7 +86,7 @@ pub(super) fn read_glob(
             Err(_) => outside.push(path.clone()),
         }
     }
-    Ok((read_held(&held, root)?, outside))
+    Ok((read_held(&held, root, containment)?, outside))
 }
 
 /// Whether the file at `path` was modified at or after `since` (always, with no `since`).
@@ -102,13 +102,18 @@ fn fresh(path: &Path, since: Option<SystemTime>) -> bool {
 /// ([`OUTPUT_CAP`]), so a directory or a glob of many files reads no more than one capture.
 pub const REPORT_BYTES_MAX: u64 = OUTPUT_CAP;
 
-/// The text of each `held` file as a report, named as a project path of `root`; a read that fails, or files past
-/// [`REPORT_BYTES_MAX`] together, is E045.
-fn read_held(held: &[Held], root: &Path) -> Result<Vec<CollectReportFile>, OpError> {
+/// The text of each `held` file as a report, named as a project path of `root`, read through `containment`: a
+/// bounded one refuses a file with several names, which a hard link from outside the project could have made
+/// (ADR 0146). A read that fails, text that is not UTF-8, or files past [`REPORT_BYTES_MAX`] together, is E045.
+fn read_held(
+    held: &[Held],
+    root: &Path,
+    containment: &Containment,
+) -> Result<Vec<CollectReportFile>, OpError> {
     let mut total: u64 = 0;
     held.iter()
         .map(|file| {
-            let content = file.read_to_string().map_err(|e| {
+            let content = containment.read_held(file).and_then(utf8).map_err(|e| {
                 OpError::coded(
                     OpErrorKind::SchemaMismatch,
                     codes::E045,
@@ -132,6 +137,16 @@ fn read_held(held: &[Held], root: &Path) -> Result<Vec<CollectReportFile>, OpErr
             })
         })
         .collect()
+}
+
+/// `bytes` as text: bytes that are not UTF-8 are `InvalidData`, worded as `regular::read_to_string` words them.
+fn utf8(bytes: Vec<u8>) -> std::io::Result<String> {
+    String::from_utf8(bytes).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "stream did not contain valid UTF-8",
+        )
+    })
 }
 
 /// Hand the report files, and the captured standard output if any, to the
