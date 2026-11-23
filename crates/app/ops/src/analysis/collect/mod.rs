@@ -307,6 +307,7 @@ pub fn collect(
             stdout,
             exit_code,
             ran,
+            unread,
         } = match source.gather(
             collector,
             root,
@@ -323,6 +324,7 @@ pub fn collect(
             }
             Err(error) => return Err(error.into()),
         };
+        diagnostics.extend(warnings::unread(collector, &unread));
 
         let lent = crate::extension::lend::port_call(
             view,

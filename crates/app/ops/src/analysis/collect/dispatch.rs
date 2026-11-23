@@ -56,15 +56,16 @@ pub(super) fn read_report(
 
 /// Read every project file `glob` matches (ADR 0389), listed by the walk `Input::files` globs take
 /// ([`glob_paths`]: ADR 0293 D4), only those modified at or after `since` when given. Each match is held by
-/// `containment` before it is opened: one that lands outside (a link out of the project) is skipped, never read. A walk
-/// cut short is E045 naming the cap; a read that fails is E045.
+/// `containment` before it is opened: one that lands outside (a link out of the project) is skipped, never read, and
+/// its project path is returned beside the files, for a W203 to name. A walk cut short is E045 naming the cap; a read
+/// that fails is E045.
 pub(super) fn read_glob(
     glob: &str,
     project: &FileSource<'_>,
     root: &Path,
     since: Option<SystemTime>,
     containment: &Containment,
-) -> Result<Vec<CollectReportFile>, OpError> {
+) -> Result<(Vec<CollectReportFile>, Vec<String>), OpError> {
     let listed = glob_paths(project, glob);
     if listed.truncated {
         return Err(OpError::coded(
@@ -76,13 +77,16 @@ pub(super) fn read_glob(
             ),
         ));
     }
-    let held: Vec<Held> = listed
-        .files
-        .iter()
-        .filter_map(|path| containment.resolve(&root.join(path)).ok())
-        .filter(|file| fresh(&file.real, since))
-        .collect();
-    read_held(&held, root)
+    let mut outside = Vec::new();
+    let mut held: Vec<Held> = Vec::new();
+    for path in &listed.files {
+        match containment.resolve(&root.join(path)) {
+            Ok(file) if fresh(&file.real, since) => held.push(file),
+            Ok(_) => {}
+            Err(_) => outside.push(path.clone()),
+        }
+    }
+    Ok((read_held(&held, root)?, outside))
 }
 
 /// Whether the file at `path` was modified at or after `since` (always, with no `since`).

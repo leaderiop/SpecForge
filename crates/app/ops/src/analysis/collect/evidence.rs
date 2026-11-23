@@ -47,17 +47,20 @@ impl Declared {
     }
 
     /// The report files: every match of the glob, else the file or the directory's `*.json` files; only those modified
-    /// since `since` when given.
+    /// since `since` when given. Beside them, the glob's matches that land outside the project, not read.
     fn read(
         &self,
         root: &Path,
         since: Option<SystemTime>,
         containment: &Containment,
         project: &FileSource<'_>,
-    ) -> Result<Vec<CollectReportFile>, OpError> {
+    ) -> Result<(Vec<CollectReportFile>, Vec<String>), OpError> {
         match &self.glob {
             Some(glob) => read_glob(glob, project, root, since, containment),
-            None => read_report(&self.report, root, since, containment),
+            None => Ok((
+                read_report(&self.report, root, since, containment)?,
+                Vec::new(),
+            )),
         }
     }
 
@@ -102,6 +105,8 @@ pub(super) struct Evidence {
     pub(super) exit_code: Option<i32>,
     /// Whether the collector's command ran.
     pub(super) ran: bool,
+    /// The report glob's matches that land outside the project (a link out of it), not read (ADR 0389 D6).
+    pub(super) unread: Vec<String>,
 }
 
 impl<'m> Source<'m> {
@@ -163,6 +168,7 @@ impl<'m> Source<'m> {
         machine: &dyn CollectorMachine,
         announce: &mut dyn FnMut(&Collector, &[String]),
     ) -> Result<Evidence, OpError> {
+        let mut unread = Vec::new();
         let (files, stdout, exit_code, ran) = match self {
             Source::Run {
                 output,
@@ -183,11 +189,13 @@ impl<'m> Source<'m> {
                     let message = failure.said(collector, argv);
                     fail(OpErrorKind::SchemaMismatch, codes::E045, message)
                 })?;
-                let files = declared.read(root, Some(ran.started), containment, project)?;
+                let files;
+                (files, unread) = declared.read(root, Some(ran.started), containment, project)?;
                 (files, declared.stdout(), ran.exit_code, true)
             }
             Source::Written(declared) => {
-                let files = declared.read(root, None, containment, project)?;
+                let files;
+                (files, unread) = declared.read(root, None, containment, project)?;
                 (files, declared.stdout(), None, false)
             }
             Source::Given(paths) => {
@@ -207,17 +215,18 @@ impl<'m> Source<'m> {
             && files.is_empty()
             && stdout.as_deref().is_none_or(str::is_empty)
         {
-            return Err(fail(
-                OpErrorKind::SchemaMismatch,
-                codes::E045,
-                self.nothing_found(collector),
-            ));
+            let mut message = self.nothing_found(collector);
+            if !unread.is_empty() {
+                message.push_str(&format!("; {}", super::warnings::unread_paths(&unread)));
+            }
+            return Err(fail(OpErrorKind::SchemaMismatch, codes::E045, message));
         }
         Ok(Evidence {
             files,
             stdout,
             exit_code,
             ran,
+            unread,
         })
     }
 

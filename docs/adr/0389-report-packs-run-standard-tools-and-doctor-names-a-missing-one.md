@@ -83,7 +83,8 @@ After a run the host reads every match modified since the run started; with `--n
 hold at most 64 MiB together (`REPORT_BYTES_MAX`, a captured output's cap), past which the collect is E045. The walk is `Input::files`' own (`glob_paths`, ADR 0293 D4): directories in
 `SKIPPED` (`target`, `node_modules`, …) are not entered unless the glob names them, a directory reached through a link
 is not entered, and the walk stops at 20,000 entries, which is E045 naming the cap. Each match is held by containment:
-one whose link lands outside the project is never read. Nothing is removed before the run, and the command is told no
+one whose link lands outside the project is never read, and one W203 per collector names such matches (the E045
+"produced no report" names them too when no other match was read). Nothing is removed before the run, and the command is told no
 path: `{report}` in the argv or config, or `capture_stdout()`, beside a glob is E058, and `SPECFORGE_REPORT` is not
 set. No match is the usual E045 ("produced no report").
 

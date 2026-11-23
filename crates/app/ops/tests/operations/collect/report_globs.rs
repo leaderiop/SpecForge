@@ -94,6 +94,65 @@ fn a_report_glob_skips_build_output_and_enters_no_link() {
     assert_eq!(paths(&fx.dispatched()[0]), ["a/rust-sbom.cdx.json"]);
 }
 
+#[cfg(unix)]
+#[specforge_test(requirement = "FEATURE-128")]
+fn a_match_linking_out_of_the_project_is_not_read_and_named_in_a_w203() {
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("bom.json"), "{\"secret\": 1}").unwrap();
+    let linked = |fx: &Fixture| {
+        std::fs::create_dir(fx.root().join("a")).unwrap();
+        std::os::unix::fs::symlink(
+            outside.path().join("bom.json"),
+            fx.root().join("a/rust-sbom.cdx.json"),
+        )
+        .unwrap();
+    };
+    let collect = |fx: &Fixture, machine: &Machine| {
+        fx.collect_with(
+            Some("acme"),
+            Mode::Run(RunnerOutput::Discard),
+            &Containment::within(fx.root()),
+            Asking::Nobody,
+            machine,
+        )
+    };
+
+    let fx = Fixture::new(vec![sbom()]);
+    linked(&fx);
+    let machine = Machine::new()
+        .approving_everything()
+        .answering(writing(&["b/rust-sbom.cdx.json"]));
+    let outcome = collect(&fx, &machine).unwrap();
+    assert_eq!(paths(&fx.dispatched()[0]), ["b/rust-sbom.cdx.json"]);
+    let warned: Vec<&str> = outcome
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W203")
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(warned.len(), 1, "{warned:?}");
+    assert!(
+        warned[0].contains("'acme'") && warned[0].contains("a/rust-sbom.cdx.json"),
+        "{}",
+        warned[0]
+    );
+
+    // The only match links out: the "no report" refusal names it.
+    let fx = Fixture::new(vec![sbom()]);
+    linked(&fx);
+    let machine = Machine::new()
+        .approving_everything()
+        .answering(writing(&[]));
+    let refusal = collect(&fx, &machine).unwrap_err();
+    assert_eq!(refusal.error.code, "E045", "{refusal:?}");
+    assert!(
+        refusal.error.message.contains("produced no report")
+            && refusal.error.message.contains("a/rust-sbom.cdx.json"),
+        "{}",
+        refusal.error.message
+    );
+}
+
 #[specforge_test(requirement = "FEATURE-128")]
 fn a_report_glob_with_a_report_placeholder_or_a_capture_is_e058() {
     let told = Runner::new("acme").report(GLOB);
