@@ -17,12 +17,37 @@
 //! The doc model is read by `specforge-code-api` and minted by `specforge-code-facts` against `@javascript/source`'s
 //! items: one `api_item` per member, `api:js:<package>::<name>[.<member>…]`, citing the one served item of the package
 //! with that name path.
+//!
+//! The accepted API (ADR 0390 D3) is the API report the project commits for review, read beside the run (files up to
+//! 4 MiB): api-extractor's `etc/<package>.api.md` (the read `accepted`, glob `**/etc/*.api.md`) or rush's
+//! `common/reviews/api/<package>.api.md` (the read `reviews`). Never `**/*.api.md`: api-extractor's `temp/` holds the
+//! fresh run's own copy, which would hide every break; the `.alpha`, `.beta` and `.public` report variants are not read
+//! either. The report's title names its package: only a report of the package the run read is judged, and each
+//! `api_item` then carries `change` (`added`, `unchanged`, `changed`, `narrowed`, `removed`) against it; without one the
+//! facts carry none. A report that does not parse (a merge-conflict marker, a broken fence) is the collector's error
+//! naming it, as are two reports of the package (the accepted side is one file); a report the host did not serve (over
+//! 4 MiB, not UTF-8) or of another package is one warning naming it, which the host shows as W203.
+//!
+//! Accepting a break is committing the updated report: enable `apiReport` in your own `api-extractor.json` (the same
+//! entry, `dist/index.d.ts`), run `api-extractor run --local` (it copies `temp/<package>.api.md` to `etc/`), commit
+//! `etc/<package>.api.md`, then `specforge collect`. Your config and the pack's are two configs: they must agree on the
+//! entry, `includeForgottenExports` and `bundledPackages`, or the report differs from the run in content, which the
+//! comparison does not forgive (it forgives only the report's spelling). The pack's own run never writes a report.
 
-use specforge_code_api::read_js_model;
-use specforge_code_facts::api_facts;
+use std::collections::BTreeSet;
+
+use specforge_code_api::{read_js_model, read_js_report};
+use specforge_code_facts::{api_facts, api_facts_against, ApiEntry};
 use specforge_extension_sdk::prelude::*;
 
 const COLLECTOR: &str = "javascript-api";
+/// The reads of the committed accepted reports, and their globs: api-extractor's report folder, then rush's.
+const ACCEPTED: [(&str, &str); 2] = [
+    ("accepted", "**/etc/*.api.md"),
+    ("reviews", "common/reviews/api/*.api.md"),
+];
+/// The report variants (`reportVariants`), never the accepted side.
+const VARIANTS: [&str; 3] = [".alpha.api.md", ".beta.api.md", ".public.api.md"];
 /// The doc model api-extractor writes, relative to the project root.
 const REPORT: &str = ".specforge/reports/javascript-api.api.json";
 /// The config file the host writes before the run, `{report}` the report's absolute path (ADR 0348 D2).
@@ -51,7 +76,7 @@ struct JavascriptApi;
 
 impl Contributions for JavascriptApi {
     fn contribute(c: &mut ContributionsBuilder) {
-        c.peer("@code/core", "^1.2");
+        c.peer("@code/core", "^1.4");
         // Its items are what an api_item cites; without them an entry cites nothing.
         c.peer("@javascript/source", "^1.0");
         c.collector(COLLECTOR, |k| {
@@ -71,9 +96,14 @@ impl Contributions for JavascriptApi {
                 .env(&["NODE_*", "CI"])
                 .install("npm install --save-dev @microsoft/api-extractor typescript")
                 .report(REPORT)
-                .input(Input::facts(&["item"]))
-                .answers(&["api_item"])
-                .collect(collect);
+                .input(Input::facts(&["item"]));
+            for (name, glob) in ACCEPTED {
+                k.input(Input::files(
+                    name,
+                    FileReadSpec::glob(glob).text_up_to(4_194_304),
+                ));
+            }
+            k.answers(&["api_item"]).collect(collect);
         });
     }
 }
@@ -88,10 +118,68 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     };
     let entries =
         read_js_model(&report.content).map_err(|why| format!("{}: {why}", report.path))?;
+    let mut warnings = Vec::new();
+    let facts = match accepted(input, &entries, &mut warnings)? {
+        Some(accepted) => api_facts_against(&entries, &accepted, &input.facts),
+        None => api_facts(&entries, &input.facts),
+    };
     Ok(CollectOutput {
-        facts: api_facts(&entries, &input.facts),
+        facts,
+        warnings,
         ..CollectOutput::default()
     })
+}
+
+/// The entries of the one served accepted report of the run's package (the doc model's); a warning for each report not
+/// served or of another package, and for a read that matched more files than were served. Two reports of the package
+/// are the collector's error.
+fn accepted(
+    input: &CollectInput,
+    entries: &[ApiEntry],
+    warnings: &mut Vec<String>,
+) -> Result<Option<Vec<ApiEntry>>, String> {
+    let packages: BTreeSet<&str> = entries.iter().map(|e| e.container.as_str()).collect();
+    let mut found: Option<(&str, Vec<ApiEntry>)> = None;
+    for (name, glob) in ACCEPTED {
+        let Some(read) = input.files.get(name) else {
+            continue;
+        };
+        if read.truncated {
+            warnings.push(format!(
+                "the read '{name}' ({glob}): more files matched than were read ({FILE_READ_MAX}); no break was \
+                 judged against a file not read"
+            ));
+        }
+        for file in &read.facts {
+            if VARIANTS.iter().any(|variant| file.path.ends_with(variant)) {
+                continue;
+            }
+            let Some(text) = file.text.as_deref().filter(|_| file.error.is_none()) else {
+                let error = file.error.as_deref().unwrap_or("no text");
+                warnings.push(format!(
+                    "{}: the accepted API was not read ({error}); no break was judged for it",
+                    file.path
+                ));
+                continue;
+            };
+            let mut report = read_js_report(text).map_err(|why| format!("{}: {why}", file.path))?;
+            report.retain(|e| packages.contains(e.container.as_str()));
+            if report.is_empty() {
+                warnings.push(format!(
+                    "{}: names no package this run read; no break was judged for it",
+                    file.path
+                ));
+            } else if let Some((first, _)) = &found {
+                return Err(format!(
+                    "{first} and {}: two accepted API reports of the package; keep the one api-extractor writes",
+                    file.path
+                ));
+            } else {
+                found = Some((&file.path, report));
+            }
+        }
+    }
+    Ok(found.map(|(_, report)| report))
 }
 
 specforge_extension_sdk::component_guest!(build = specforge_extension_build);

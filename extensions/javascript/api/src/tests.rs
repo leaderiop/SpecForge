@@ -7,6 +7,36 @@ const RECORDED: &str =
     include_str!("../../../code/api/fixtures/api-extractor-7.60.1.widget.api.json");
 /// The served items of `@demo/widget`, as JSON (see `fixtures/README.md`).
 const ITEMS: &str = include_str!("../fixtures/items.json");
+/// The doc model of a run that breaks the API `TAGGED` accepted (the API reader's recordings).
+const CHANGED: &str =
+    include_str!("../../../code/api/fixtures/api-extractor-7.60.1.widget-changed.api.json");
+/// The committed API report of `@demo/widget` before the break.
+const TAGGED: &str =
+    include_str!("../../../code/api/fixtures/api-extractor-7.60.1.widget-tagged.api.md");
+
+/// The input of a run writing `model`, the host serving `files` (each read by its name).
+fn against(model: &str, files: Value) -> CollectInput {
+    CollectInput {
+        files: serde_json::from_value(files).expect("the reads parse"),
+        ..input(&[model])
+    }
+}
+
+/// One read serving `text` at `path`.
+fn served(path: &str, text: &str) -> Value {
+    json!({"facts": [{"path": path, "exists": true, "text": text}]})
+}
+
+/// Each fact's name path (its id after `::`) and its `change`.
+fn changes(out: &CollectOutput) -> Vec<(&str, Option<&str>)> {
+    out.facts
+        .iter()
+        .map(|f| {
+            let name = f.id.split_once("::").map_or("", |(_, name)| name);
+            (name, f.fields.get("change").and_then(Value::as_str))
+        })
+        .collect()
+}
 
 /// The input the host sends for these reports, the package's items served.
 fn input(reports: &[&str]) -> CollectInput {
@@ -35,7 +65,7 @@ fn javascript_api_declares_api_extractor_its_config_and_its_peers() {
     assert_eq!(
         peers,
         [
-            ("@code/core", "^1.2", false),
+            ("@code/core", "^1.4", false),
             ("@javascript/source", "^1.0", false)
         ]
     );
@@ -49,7 +79,21 @@ fn javascript_api_declares_api_extractor_its_config_and_its_peers() {
         Some(&["tsconfig.json".to_string()][..])
     );
     assert_eq!(collector.answers, ["api_item"]);
-    assert_eq!(collector.inputs, [Input::facts(&["item"])]);
+    // Never `**/*.api.md`: api-extractor's `temp/` holds the fresh run's own report.
+    assert_eq!(
+        collector.inputs,
+        [
+            Input::facts(&["item"]),
+            Input::files(
+                "accepted",
+                FileReadSpec::glob("**/etc/*.api.md").text_up_to(4_194_304)
+            ),
+            Input::files(
+                "reviews",
+                FileReadSpec::glob("common/reviews/api/*.api.md").text_up_to(4_194_304)
+            )
+        ]
+    );
     assert_eq!(collector.report.as_deref(), Some(REPORT));
     assert_eq!(
         collector.install.as_deref(),
@@ -163,4 +207,86 @@ fn zero_or_two_reports_or_a_bad_one_is_the_collectors_error() {
     }
     let why = collect(&input(&["garbage"])).unwrap_err();
     assert!(why.starts_with(&format!("{REPORT}: no JSON")), "{why}");
+}
+
+#[specforge_test(requirement = "FEATURE-149")]
+fn a_committed_report_in_etc_or_in_rushs_reviews_marks_each_items_change() {
+    let mut seen = Vec::new();
+    for files in [
+        json!({"accepted": served("etc/widget.api.md", TAGGED)}),
+        json!({"reviews": served("common/reviews/api/widget.api.md", TAGGED)}),
+    ] {
+        let out = collect(&against(CHANGED, files)).unwrap();
+        assert_eq!(out.warnings, Vec::<String>::new());
+        let changes = changes(&out);
+        for (name, change) in [
+            ("create", "changed"),
+            ("Widget.render", "narrowed"),
+            ("Widget.size", "narrowed"),
+            ("trial", "removed"),
+            ("added", "added"),
+        ] {
+            assert!(
+                changes.contains(&(name, Some(change))),
+                "{name} {change}: {changes:?}"
+            );
+        }
+        seen.push(serde_json::to_value(&out.facts).unwrap());
+    }
+    assert_eq!(seen[0], seen[1]);
+}
+
+#[specforge_test(requirement = "FEATURE-149")]
+fn a_report_variant_is_not_read() {
+    let today = collect(&input(&[CHANGED])).unwrap();
+    let files = json!({"accepted": served("etc/widget.beta.api.md", TAGGED)});
+    let out = collect(&against(CHANGED, files)).unwrap();
+    assert_eq!(out.facts, today.facts);
+    assert_eq!(out.warnings, Vec::<String>::new());
+}
+
+#[specforge_test(requirement = "FEATURE-149")]
+fn two_reports_of_the_package_or_a_bad_one_is_the_collectors_error_naming_them() {
+    let files = json!({
+        "accepted": served("etc/widget.api.md", TAGGED),
+        "reviews": served("common/reviews/api/widget.api.md", TAGGED),
+    });
+    let why = collect(&against(CHANGED, files)).unwrap_err();
+    assert!(
+        why.contains("etc/widget.api.md") && why.contains("common/reviews/api/widget.api.md"),
+        "{why}"
+    );
+    let conflicted = format!("<<<<<<< HEAD\n{TAGGED}");
+    let files = json!({"accepted": served("etc/widget.api.md", &conflicted)});
+    let why = collect(&against(CHANGED, files)).unwrap_err();
+    assert!(why.starts_with("etc/widget.api.md: "), "{why}");
+}
+
+#[specforge_test(requirement = "FEATURE-149")]
+fn a_report_not_served_or_of_another_package_is_one_warning_and_no_change() {
+    let today = collect(&input(&[CHANGED])).unwrap();
+    let other = TAGGED.replace("\"@demo/widget\"", "\"@demo/other\"");
+    let unserved =
+        json!({"facts": [{"path": "etc/widget.api.md", "exists": true, "error": "too_large"}]});
+    for (read, path, says) in [
+        (
+            served("etc/other.api.md", &other),
+            "etc/other.api.md",
+            "names no package this run read",
+        ),
+        (
+            unserved,
+            "etc/widget.api.md",
+            "the accepted API was not read (too_large)",
+        ),
+    ] {
+        let out = collect(&against(CHANGED, json!({ "accepted": read }))).unwrap();
+        assert_eq!(out.facts, today.facts);
+        assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+        assert!(
+            out.warnings[0].starts_with(&format!("{path}: ")) && out.warnings[0].contains(says),
+            "{:?}",
+            out.warnings
+        );
+    }
 }
