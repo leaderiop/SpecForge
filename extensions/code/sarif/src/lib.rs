@@ -4,15 +4,28 @@
 //! guest-to-guest call, so a lint pack reads its report here; `specforge-code-facts` mints the `static_finding` facts
 //! from what it reads ([`specforge_code_facts::finding_facts`]).
 //!
-//! - [`read`] reads a SARIF 2.1.0 log into one [`SarifResult`] per result of each run, in document order.
+//! - [`read`] reads a SARIF 2.1.0 log into a [`Sarif`]: one [`SarifResult`] per result of each run, in document
+//!   order, and the files outside the project its results named, which it skips and counts (ADR 0389 D7).
 
 #[cfg(test)]
 mod tests;
+
+use std::collections::HashSet;
 
 use serde_json::Value;
 use specforge_code_facts::{file_uri_path, relative, shown, shown_json, Level, UNKNOWN};
 
 pub use specforge_code_facts::SarifResult;
+
+/// What a SARIF log says: its results in the project, and the files outside it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Sarif {
+    /// The results whose file lies in the project, or that name no file, in document order.
+    pub results: Vec<SarifResult>,
+    /// Each `file:` path outside the project, once, in document order, as [`shown`] writes it: its results mint
+    /// nothing.
+    pub outside: Vec<String>,
+}
 
 /// The results of the SARIF 2.1.0 log `text`, every run's in document order, their files relative to the project
 /// root `cwd`.
@@ -26,11 +39,14 @@ pub use specforge_code_facts::SarifResult;
 /// way through [`relative`]. The lines are its `region`'s `startLine` and `endLine`. A result with no physical
 /// location has no file and no line; a suppressed result is read like any other.
 ///
+/// A result whose path lies outside the project (a `file:` URI elsewhere, or a relative one climbing out through
+/// `..`) is skipped: its path is counted once in [`Sarif::outside`], never opened (ADR 0389 D7).
+///
 /// An error, naming the JSON path or the value, and nothing is read: text that is no JSON (nesting deeper than
 /// serde_json's limit included), a `version` other than `"2.1.0"`, no `runs` array, a run with no
 /// `tool.driver.name`, a run with no `results` (absent means the tool did not run, SARIF §3.14.23; an empty array is
-/// a run that found nothing), an index naming no rule or artifact, and a URI naming no file in the project.
-pub fn read(text: &str, cwd: &str) -> Result<Vec<SarifResult>, String> {
+/// a run that found nothing), an index naming no rule or artifact, and a URI of a scheme other than `file:`.
+pub fn read(text: &str, cwd: &str) -> Result<Sarif, String> {
     let log: Value = serde_json::from_str(text).map_err(|e| format!("no JSON: {e}"))?;
     match log.get("version") {
         Some(Value::String(version)) if version == "2.1.0" => {}
@@ -46,7 +62,8 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<SarifResult>, String> {
         .get("runs")
         .and_then(Value::as_array)
         .ok_or("runs: absent or no array")?;
-    let mut read = Vec::new();
+    let mut read = Sarif::default();
+    let mut seen = HashSet::new();
     for (r, run) in runs.iter().enumerate() {
         let at = format!("runs[{r}]");
         let Run {
@@ -66,8 +83,16 @@ pub fn read(text: &str, cwd: &str) -> Result<Vec<SarifResult>, String> {
         for (i, result) in results.iter().enumerate() {
             let here = format!("{at}.results[{i}]");
             let rule = rule_of(result, rules, &here)?;
-            let (file, line, end_line) = place_of(result, artifacts, cwd, &here)?;
-            read.push(SarifResult {
+            let (file, line, end_line) = match place_of(result, artifacts, cwd, &here)? {
+                Located::In(place) => place,
+                Located::Outside(path) => {
+                    if seen.insert(path.clone()) {
+                        read.outside.push(path);
+                    }
+                    continue;
+                }
+            };
+            read.results.push(SarifResult {
                 tool: tool.to_string(),
                 rule: rule.and_then(|(id, _)| id).unwrap_or(UNKNOWN).to_string(),
                 level: level_of(result, rule.and_then(|(_, descriptor)| descriptor)),
@@ -143,11 +168,17 @@ fn level_of(result: &Value, rule: Option<&Value>) -> Level {
 /// The file and the start and end lines of `result`'s first physical location, each when stated.
 type Place = (Option<String>, Option<usize>, Option<usize>);
 
-/// The place of `result` (at the JSON path `at`); a URI naming no file in the project, or an artifact index naming
+/// Where a result lies: its place in the project, or the path outside it, [`shown`].
+enum Located {
+    In(Place),
+    Outside(String),
+}
+
+/// The place of `result` (at the JSON path `at`); a URI of another scheme than `file:`, or an artifact index naming
 /// no artifact, is an error.
-fn place_of(result: &Value, artifacts: &[Value], cwd: &str, at: &str) -> Result<Place, String> {
+fn place_of(result: &Value, artifacts: &[Value], cwd: &str, at: &str) -> Result<Located, String> {
     let Some(physical) = result.pointer("/locations/0/physicalLocation") else {
-        return Ok((None, None, None));
+        return Ok(Located::In((None, None, None)));
     };
     let artifact = physical.get("artifactLocation");
     let uri = match artifact.and_then(|a| text_at(a, "/uri")) {
@@ -171,16 +202,18 @@ fn place_of(result: &Value, artifacts: &[Value], cwd: &str, at: &str) -> Result<
     let file = match uri {
         // shortcut: a `uriBaseId` is taken as the project root, whatever `originalUriBaseIds` maps it to; read the
         // map when a tool writes a base below the root.
-        Some(uri) => Some(
-            file_uri_path(uri)
-                .and_then(|path| relative(&path, cwd))
-                .ok_or_else(|| {
-                    format!(
-                        "{at}: the uri `{}` names no file in the project `{cwd}`",
-                        shown(uri)
-                    )
-                })?,
-        ),
+        Some(uri) => {
+            let path = file_uri_path(uri).ok_or_else(|| {
+                format!(
+                    "{at}: the uri `{}` is no file: uri, so it names no file of the project `{cwd}`",
+                    shown(uri)
+                )
+            })?;
+            match relative(&path, cwd) {
+                Some(file) => Some(file),
+                None => return Ok(Located::Outside(shown(&path))),
+            }
+        }
         None => None,
     };
     let line = |name: &str| {
@@ -190,7 +223,7 @@ fn place_of(result: &Value, artifacts: &[Value], cwd: &str, at: &str) -> Result<
             .and_then(|line| usize::try_from(line).ok())
             .filter(|&line| line >= 1)
     };
-    Ok((file, line("startLine"), line("endLine")))
+    Ok(Located::In((file, line("startLine"), line("endLine"))))
 }
 
 /// The string at the JSON pointer `pointer` of `value`, if it is one.

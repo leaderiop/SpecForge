@@ -1,0 +1,8 @@
+[
+  {"kind": "item", "id": "js:board/src/board%20view.js::view",
+   "fields": {"kind": ["function"], "package": "pkg:npm/board", "file": "src/board view.js", "visibility": "public",
+              "attrs": ["export"]},
+   "at": [{"file": "src/board view.js", "start_line": 1, "start_col": 8, "end_line": 5, "end_col": 2}]},
+  {"kind": "package", "id": "pkg:npm/board",
+   "fields": {"name": "board", "version": "1.0.0", "path": ""}}
+]

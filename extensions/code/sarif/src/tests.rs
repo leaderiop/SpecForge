@@ -18,7 +18,7 @@ fn served() -> Vec<Fact> {
 
 #[test]
 fn a_clippy_report_mints_static_findings_citing_their_items() {
-    let results = read(CLIPPY, "/project").expect("the report reads");
+    let results = read(CLIPPY, "/project").expect("the report reads").results;
     let facts = finding_facts(&results, &served());
     let cited: Vec<(Option<&str>, Option<&str>)> = facts
         .iter()
@@ -40,7 +40,7 @@ fn a_clippy_report_mints_static_findings_citing_their_items() {
 
 #[test]
 fn a_clippy_result_reads_its_rule_level_message_and_lines() {
-    let results = read(CLIPPY, "/project").expect("the report reads");
+    let results = read(CLIPPY, "/project").expect("the report reads").results;
     assert_eq!(
         results[1],
         SarifResult {
@@ -61,7 +61,7 @@ fn field<'f>(fact: &'f Fact, name: &str) -> Option<&'f str> {
 
 #[test]
 fn an_eslint_report_mints_static_findings_citing_their_js_items() {
-    let results = read(ESLINT, "/project").expect("the report reads");
+    let results = read(ESLINT, "/project").expect("the report reads").results;
     assert!(results
         .iter()
         .all(|r| r.file.as_deref() == Some("src/board view.js")));
@@ -91,7 +91,9 @@ fn an_eslint_report_mints_static_findings_citing_their_js_items() {
 
 #[test]
 fn a_result_stating_no_rule_or_level_is_read_as_unknown() {
-    let results = read(RULE_LESS, "/project").expect("the report reads");
+    let results = read(RULE_LESS, "/project")
+        .expect("the report reads")
+        .results;
     let read: Vec<(&str, Level)> = results.iter().map(|r| (r.rule.as_str(), r.level)).collect();
     assert_eq!(
         read,
@@ -132,7 +134,7 @@ fn a_file_uri_loses_its_fragment_and_a_relative_one_reads_from_the_root() {
         "file://localhost/project/src/lib.rs",
         "./src/lib.rs",
     ] {
-        let results = read(&log(uri), "/project").expect(uri);
+        let results = read(&log(uri), "/project").expect(uri).results;
         assert_eq!(results[0].file.as_deref(), Some("src/lib.rs"), "{uri}");
     }
 }
@@ -173,9 +175,6 @@ fn a_bad_report_is_an_error_naming_its_value_or_path_and_reads_nothing() {
             ),
             "artifact index 3",
         ),
-        (at("file:///elsewhere/a.js"), "file:///elsewhere/a.js"),
-        (at("%2E%2E/%2E%2E/etc/passwd"), "%2E%2E/%2E%2E/etc/passwd"),
-        (at("file://server/share/a.js"), "file://server/share/a.js"),
         (at("https://example.com/a.js"), "https://example.com/a.js"),
     ];
     for (text, named) in &rows {
@@ -184,19 +183,59 @@ fn a_bad_report_is_an_error_naming_its_value_or_path_and_reads_nothing() {
     }
 }
 
+/// A log of one run of the tool `t` whose results each lie at one of `uris`, in order.
+fn at_uris(uris: &[&str]) -> String {
+    let results: Vec<String> = uris
+        .iter()
+        .map(|uri| {
+            format!(
+                r#"{{"ruleId": "R", "locations": [{{"physicalLocation": {{"artifactLocation": {{"uri": "{uri}"}}}}}}]}}"#
+            )
+        })
+        .collect();
+    format!(
+        r#"{{"version": "2.1.0", "runs": [{{"tool": {{"driver": {{"name": "t"}}}}, "results": [{}]}}]}}"#,
+        results.join(", ")
+    )
+}
+
 #[test]
-fn an_error_shows_the_reports_text_bounded_and_escaped() {
-    let hostile = format!("file:///elsewhere/\\u001b]0;{}\\u0007", "a".repeat(5_000));
-    let log = format!(
-        r#"{{"version": "2.1.0", "runs": [{{"tool": {{"driver": {{"name": "t"}}}}, "results": [{{
-            "locations": [{{"physicalLocation": {{"artifactLocation": {{"uri": "{hostile}"}}}}}}]}}]}}]}}"#
+fn a_result_outside_the_project_is_skipped_and_its_path_counted_once() {
+    let log = at_uris(&[
+        "file:///elsewhere/a.js",
+        "file:///project/src/lib.rs",
+        "%2E%2E/%2E%2E/etc/passwd",
+        "file://server/share/a.js",
+        "file:///elsewhere/a.js",
+    ]);
+    let read = read(&log, "/project").expect("an outside file is no error");
+    let files: Vec<Option<&str>> = read.results.iter().map(|r| r.file.as_deref()).collect();
+    assert_eq!(files, [Some("src/lib.rs")]);
+    assert_eq!(
+        read.outside,
+        ["/elsewhere/a.js", "../../etc/passwd", "//server/share/a.js"]
     );
-    let error = read(&log, "/project").expect_err("outside the project");
+}
+
+#[test]
+fn an_error_or_an_outside_path_shows_the_reports_text_bounded_and_escaped() {
+    let hostile =
+        |scheme: &str| format!("{scheme}/elsewhere/\\u001b]0;{}\\u0007", "a".repeat(5_000));
+    let error = read(&at_uris(&[&hostile("https://")]), "/project").expect_err("no file: uri");
     assert!(
         !error.contains(['\u{1b}', '\u{7}']) && error.contains("\\u{1b}"),
         "{error}"
     );
     assert!(error.len() < 400, "{} bytes", error.len());
+    let read_outside = read(&at_uris(&[&hostile("file://")]), "/project").expect("outside");
+    let [outside] = &read_outside.outside[..] else {
+        panic!("one outside path: {:?}", read_outside.outside);
+    };
+    assert!(
+        !outside.contains(['\u{1b}', '\u{7}']) && outside.contains("\\u{1b}"),
+        "{outside}"
+    );
+    assert!(outside.len() < 200, "{} bytes", outside.len());
     let version = format!(r#"{{"version": "{}", "runs": []}}"#, "9".repeat(5_000));
     assert!(read(&version, "/project").expect_err("version").len() < 400);
 }
@@ -205,5 +244,36 @@ fn an_error_shows_the_reports_text_bounded_and_escaped() {
 fn an_empty_results_array_is_a_run_that_found_nothing() {
     let log =
         r#"{"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "t"}}, "results": []}]}"#;
-    assert_eq!(read(log, "/project"), Ok(Vec::new()));
+    assert_eq!(read(log, "/project"), Ok(Sarif::default()));
+}
+
+/// ESLint 10.15.0's recording (see `fixtures/README.md`): the package `board` at `/project`.
+const ESLINT_10_15: &str = include_str!("../fixtures/eslint-10.15.0.sarif");
+/// The served facts of that recording's package.
+const ESLINT_10_15_ITEMS: &str = include_str!("../fixtures/eslint-10.15.0.items.json");
+
+#[test]
+fn a_recorded_eslint_10_15_report_mints_static_findings_in_its_function() {
+    let read = read(ESLINT_10_15, "/project").expect("the recording reads");
+    assert_eq!(read.outside, Vec::<String>::new());
+    let placed: Vec<(&str, Option<&str>, Option<usize>)> = read
+        .results
+        .iter()
+        .map(|r| (r.rule.as_str(), r.file.as_deref(), r.line))
+        .collect();
+    assert_eq!(
+        placed,
+        [
+            ("no-unused-vars", Some("src/board view.js"), Some(2)),
+            ("no-undef", Some("src/board view.js"), Some(3)),
+            ("no-console", Some("src/board view.js"), Some(3)),
+            ("eqeqeq", Some("src/board view.js"), Some(4)),
+        ]
+    );
+    let served: Vec<Fact> = serde_json::from_str(ESLINT_10_15_ITEMS).expect("the items parse");
+    let facts = finding_facts(&read.results, &served);
+    assert!(facts
+        .iter()
+        .all(|f| field(f, "item") == Some("js:board/src/board%20view.js::view")));
+    insta::assert_json_snapshot!("eslint_10_15", facts);
 }
