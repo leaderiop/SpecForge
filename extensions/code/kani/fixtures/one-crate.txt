@@ -1,0 +1,33 @@
+Kani Rust Verifier 0.68.0 (cargo plugin)
+   Compiling demo v0.1.0 (/project)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.42s
+Checking harness proofs::check_add...
+CBMC 6.8.0 (cbmc-6.8.0)
+CBMC version 6.8.0 (cbmc-6.8.0) 64-bit arm64 macos
+Reading GOTO program from file /project/target/kani/aarch64-apple-darwin/debug/deps/demo-proofs_check_add.out
+Generating GOTO Program
+Running propositional reduction
+Solving with CaDiCaL 2.0.0
+Runtime Solver: 0.0012s
+Runtime decision procedure: 0.0013s
+
+RESULTS:
+Check 1: demo::add.arithmetic_overflow.1
+	 - Status: SUCCESS
+	 - Description: "attempt to add with overflow"
+	 - Location: src/lib.rs:2:5 in function demo::add
+
+Check 2: proofs::check_add.assertion.1
+	 - Status: SUCCESS
+	 - Description: "assertion failed: add(a, b) >= a"
+	 - Location: src/lib.rs:11:9 in function proofs::check_add
+
+
+SUMMARY:
+ ** 0 of 12 failed
+
+VERIFICATION:- SUCCESSFUL
+Verification Time: 0.3897019s
+
+Manual Harness Summary:
+Complete - 1 successfully verified harnesses, 0 failures, 1 total.

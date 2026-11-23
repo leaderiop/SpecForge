@@ -68,6 +68,40 @@ impl TestCase {
             ran: false,
         }
     }
+
+    /// This test placed at `item`, the source item `@rust/source` answered for it: a runner pack places a reported
+    /// test there. It takes the item's places, its `names` (each at the places the item names it), and the item's
+    /// `file` when the test has none of its own.
+    pub fn placed(self, item: &Fact) -> TestCase {
+        let names: Names = item
+            .fields
+            .get("names")
+            .and_then(|names| names.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|name| name.as_str())
+            .map(|name| {
+                let places = item
+                    .named_at
+                    .get("names")
+                    .and_then(|named| named.get(name))
+                    .cloned()
+                    .unwrap_or_default();
+                (name.to_string(), places)
+            })
+            .collect();
+        TestCase {
+            file: self.file.or_else(|| {
+                item.fields
+                    .get("file")
+                    .and_then(|f| f.as_str())
+                    .map(str::to_string)
+            }),
+            names,
+            at: item.at.clone(),
+            ..self
+        }
+    }
 }
 
 /// The `test` and `test_run` facts of `cases`, by id (ADR 0329 D3, ADR 0347):

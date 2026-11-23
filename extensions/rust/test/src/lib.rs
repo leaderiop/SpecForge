@@ -23,7 +23,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
-use specforge_code_facts::{test_facts, Names, TestCase, TestId};
+use specforge_code_facts::{test_facts, TestCase, TestId};
 use specforge_code_junit::cases;
 use specforge_extension_sdk::prelude::*;
 
@@ -85,43 +85,6 @@ struct Item<'f> {
     ignored: bool,
 }
 
-impl Item<'_> {
-    /// `case` placed at this item: its places, file and names.
-    fn place(&self, case: TestCase) -> TestCase {
-        let names: Names = self
-            .fact
-            .fields
-            .get("names")
-            .and_then(|names| names.as_array())
-            .into_iter()
-            .flatten()
-            .filter_map(|name| name.as_str())
-            .map(|name| {
-                let places = self
-                    .fact
-                    .named_at
-                    .get("names")
-                    .and_then(|named| named.get(name))
-                    .cloned()
-                    .unwrap_or_default();
-                (name.to_string(), places)
-            })
-            .collect();
-        TestCase {
-            file: case.file.or_else(|| {
-                self.fact
-                    .fields
-                    .get("file")
-                    .and_then(|f| f.as_str())
-                    .map(str::to_string)
-            }),
-            names,
-            at: self.fact.at.clone(),
-            ..case
-        }
-    }
-}
-
 /// The served items by the test id they hold.
 fn items(facts: &[Fact]) -> BTreeMap<&str, Item<'_>> {
     facts
@@ -170,7 +133,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         let key = id.to_string();
         let test = TestCase::of(id, case, None);
         tests.push(match items.get(key.as_str()) {
-            Some(item) => item.place(test),
+            Some(item) => test.placed(item.fact),
             None => test,
         });
         reported.insert(key);
@@ -178,7 +141,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     for (test_id, item) in &items {
         if item.ignored && !reported.contains(*test_id) {
             let id = TestId::from_str(test_id).map_err(|e| format!("{}: {e}", item.fact.id))?;
-            tests.push(item.place(TestCase::unrun(id, TestStatus::Skipped)));
+            tests.push(TestCase::unrun(id, TestStatus::Skipped).placed(item.fact));
         }
     }
     Ok(CollectOutput {
