@@ -73,28 +73,55 @@ fn is_scheme(text: &str) -> bool {
 /// each already [`shown`](crate::shown): `None` when there is none, else the count and the first five, then how many
 /// more. The host turns the line into a W203.
 pub fn outside_line(report: &str, outside: &[String]) -> Option<String> {
+    skipped_line(report, "file(s) outside the project", outside)
+}
+
+/// The one warning line a pack returns for the paths a reader of `report` skipped as naming no file ([`Place::NoFile`]),
+/// each already [`shown`](crate::shown), worded as [`outside_line`]'s: `None` when there is none.
+pub fn no_file_line(report: &str, no_file: &[String]) -> Option<String> {
+    skipped_line(report, "path(s) naming no file", no_file)
+}
+
+/// `<report>: skipped <n> <what>: ` and the first five `paths`, then how many more; `None` for no path.
+fn skipped_line(report: &str, what: &str, paths: &[String]) -> Option<String> {
     const NAMED: usize = 5;
-    if outside.is_empty() {
+    if paths.is_empty() {
         return None;
     }
     let mut line = format!(
-        "{report}: skipped {} file(s) outside the project: {}",
-        outside.len(),
-        outside[..outside.len().min(NAMED)].join(", ")
+        "{report}: skipped {} {what}: {}",
+        paths.len(),
+        paths[..paths.len().min(NAMED)].join(", ")
     );
-    if outside.len() > NAMED {
-        line.push_str(&format!(", and {} more", outside.len() - NAMED));
+    if paths.len() > NAMED {
+        line.push_str(&format!(", and {} more", paths.len() - NAMED));
     }
     Some(line)
 }
 
-/// `path` relative to the project root `cwd`, with `/` separators, or `None` when it lies outside it. Both are read
-/// the same way first: a `\\?\` (or `\\?\UNC\`) verbatim prefix is stripped, `\` is folded to `/`, a drive letter
-/// compares case-insensitively and a trailing `/` is dropped. The host's `cwd` is the canonical root, so the other
-/// spelling of macOS's `/private` alias (`/private/var` and `/var`, `/private/tmp` and `/tmp`) is tried too. A
-/// relative `path` is taken as project-relative already. Either way its `.` and `..` segments are resolved, and a
-/// path that climbs out of the project through `..` lies outside it, as an absolute one elsewhere does.
-pub fn relative(path: &str, cwd: &str) -> Option<String> {
+/// What a report's path names against the project root ([`place`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Place {
+    /// A project file, relative to the root, with `/` separators.
+    File(String),
+    /// A path outside the project: absolute elsewhere, or climbing out through `..`.
+    Outside,
+    /// No file: a path that resolves to the project root itself (`.`, `a/..`, the root's own absolute path), or a
+    /// compiler's pseudo file name in angle brackets (rustc's `<std macros>`, `<anon>`).
+    NoFile,
+}
+
+/// What `path` names against the project root `cwd`. Both are read the same way first: a `\\?\` (or `\\?\UNC\`)
+/// verbatim prefix is stripped, `\` is folded to `/`, a drive letter compares case-insensitively and a trailing `/` is
+/// dropped. The host's `cwd` is the canonical root, so the other spelling of macOS's `/private` alias (`/private/var`
+/// and `/var`, `/private/tmp` and `/tmp`) is tried too. A relative `path` is taken as project-relative already. Either
+/// way its `.` and `..` segments are resolved: a path that climbs out of the project through `..` is
+/// [`Place::Outside`], as an absolute one elsewhere is, and one that resolves to nothing is [`Place::NoFile`], as a
+/// name in angle brackets is.
+pub fn place(path: &str, cwd: &str) -> Place {
+    if path.starts_with('<') && path.ends_with('>') {
+        return Place::NoFile;
+    }
     let path = normal(path);
     if !is_absolute(&path) {
         return contained(&path);
@@ -107,23 +134,38 @@ pub fn relative(path: &str, cwd: &str) -> Option<String> {
                 .iter()
                 .find_map(|spelling| under(spelling, root))
         })
-        .and_then(|rest| contained(&rest))
+        .map_or(Place::Outside, |rest| contained(&rest))
 }
 
-/// The project-relative `path` with its `.` and `..` segments resolved, or `None` when a `..` climbs out of the
-/// project or nothing is left.
-fn contained(path: &str) -> Option<String> {
+/// `path` relative to the project root `cwd` when it names a project file ([`place`]); `None` when it lies outside the
+/// project or names no file.
+pub fn relative(path: &str, cwd: &str) -> Option<String> {
+    match place(path, cwd) {
+        Place::File(file) => Some(file),
+        Place::Outside | Place::NoFile => None,
+    }
+}
+
+/// The project-relative `path` with its `.` and `..` segments resolved: [`Place::Outside`] when a `..` climbs out of
+/// the project, [`Place::NoFile`] when nothing is left.
+fn contained(path: &str) -> Place {
     let mut kept: Vec<&str> = Vec::new();
     for segment in path.split('/') {
         match segment {
             "" | "." => {}
             ".." => {
-                kept.pop()?;
+                if kept.pop().is_none() {
+                    return Place::Outside;
+                }
             }
             name => kept.push(name),
         }
     }
-    (!kept.is_empty()).then(|| kept.join("/"))
+    if kept.is_empty() {
+        Place::NoFile
+    } else {
+        Place::File(kept.join("/"))
+    }
 }
 
 /// `path` with no verbatim prefix, `/` separators and no trailing `/`.
@@ -167,7 +209,7 @@ fn aliases(path: &str) -> Vec<String> {
     spellings
 }
 
-/// `path` below `root`, both read by [`normal`]: what follows `root/`, or `None`.
+/// `path` at or below `root`, both read by [`normal`]: what follows `root/`, empty for `root` itself, or `None`.
 fn under(path: &str, root: &str) -> Option<String> {
     let (path, root) = match (drive(path), drive(root)) {
         (Some(a), Some(b)) if a.eq_ignore_ascii_case(&b) => (&path[2..], &root[2..]),
@@ -175,6 +217,8 @@ fn under(path: &str, root: &str) -> Option<String> {
         _ => return None,
     };
     let rest = path.strip_prefix(root.trim_end_matches('/'))?;
-    let rest = rest.strip_prefix('/')?;
-    (!rest.is_empty()).then(|| rest.to_string())
+    match rest.strip_prefix('/') {
+        Some(rest) => Some(rest.to_string()),
+        None => rest.is_empty().then(String::new),
+    }
 }

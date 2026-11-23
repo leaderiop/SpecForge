@@ -13,7 +13,7 @@ mod tests;
 
 use std::collections::{HashMap, HashSet};
 
-use specforge_code_facts::{relative, shown, Branch, CoverageFile, Function};
+use specforge_code_facts::{place, shown, Branch, CoverageFile, Function, Place};
 
 /// What a tracefile says: its file sections in the project, and the paths outside it.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -31,7 +31,8 @@ pub struct Tracefile {
 /// all-capitals `KEY:`. An `SF` path is trimmed. A section whose `SF` lies outside the project (a path dependency
 /// beside the workspace) is skipped: its path is counted in [`Tracefile::outside`] and its records still read for
 /// syntax (ADR 0389 D7). An error names the 1-based line: a line that is no `KEY:value`, a record outside a file
-/// section, a malformed number, an `SF` naming no file, and a text ending inside a file section, which must not drop
+/// section, a malformed number, an `SF` naming no file (empty, resolving to the project root itself, or a pseudo name
+/// like `<anon>`: no section's file, and no path outside), and a text ending inside a file section, which must not drop
 /// its last file. An empty text has no file.
 pub fn read(text: &str, cwd: &str) -> Result<Tracefile, String> {
     let mut tracefile = Tracefile::default();
@@ -68,9 +69,12 @@ pub fn read(text: &str, cwd: &str) -> Result<Tracefile, String> {
             if value.is_empty() {
                 return Err(format!("line {at}: SF names no file"));
             }
-            open = Some(match relative(value, cwd) {
-                Some(file) => Section::new(file, at, false),
-                None => {
+            open = Some(match place(value, cwd) {
+                Place::File(file) => Section::new(file, at, false),
+                Place::NoFile => {
+                    return Err(format!("line {at}: SF `{}` names no file", shown(value)))
+                }
+                Place::Outside => {
                     let path = shown(value);
                     if seen.insert(path.clone()) {
                         tracefile.outside.push(path);

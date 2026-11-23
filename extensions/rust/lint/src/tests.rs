@@ -148,9 +148,28 @@ fn a_span_outside_the_project_is_skipped_with_one_warning_naming_the_capture() {
     );
 }
 
+#[specforge_test(requirement = "FEATURE-146")]
+fn a_span_naming_no_file_is_skipped_with_its_own_warning() {
+    let (first, rest) = RECORDED.split_once('\n').expect("more than one line");
+    let mut first: Value = serde_json::from_str(first).expect("the first line parses");
+    first["message"]["spans"][0]["file_name"] = json!("<std macros>");
+    let out = collect(&input(Some(&format!("{first}\n{rest}")), &[])).unwrap();
+    assert_eq!(
+        out.facts.len(),
+        4,
+        "the lib test copy of the first finding is kept"
+    );
+    assert_eq!(
+        out.warnings,
+        [format!(
+            "{CAPTURE}: skipped 1 path(s) naming no file: <std macros>"
+        )]
+    );
+}
+
 /// The converter's unit tests: cargo JSON lines in, SARIF results out.
 mod clippy {
-    use crate::clippy::results;
+    use crate::clippy::{results, Converted};
     use serde_json::json;
     use specforge_code_facts::{finding_facts, Level, SarifResult};
     use specforge_extension_sdk::prelude::Fact;
@@ -219,7 +238,11 @@ mod clippy {
                 json!([span("src/lib.rs", 12, 12, true)]),
             ),
         ]);
-        let (read, outside) = results(&text, "/project").expect("the lines read");
+        let Converted {
+            results: read,
+            outside,
+            ..
+        } = results(&text, "/project").expect("the lines read");
         assert_eq!(
             read,
             [
@@ -255,7 +278,8 @@ mod clippy {
                 )
             })
             .collect();
-        let (read, _) = results(&finished(&text), "/project").expect("the lines read");
+        let Converted { results: read, .. } =
+            results(&finished(&text), "/project").expect("the lines read");
         let read: Vec<(&str, Level)> = read.iter().map(|r| (r.rule.as_str(), r.level)).collect();
         assert_eq!(
             read,
@@ -281,7 +305,11 @@ mod clippy {
             json!({"reason": "build-finished", "success": true}).to_string(),
         ]
         .join("\n");
-        let (read, outside) = results(&text, "/project").expect("the lines read");
+        let Converted {
+            results: read,
+            outside,
+            ..
+        } = results(&text, "/project").expect("the lines read");
         let rules: Vec<(&str, Option<&str>)> = read
             .iter()
             .map(|r| (r.rule.as_str(), r.file.as_deref()))
@@ -290,8 +318,51 @@ mod clippy {
         assert!(outside.is_empty());
         assert_eq!(
             results(&finished::<&str>(&[]), "/project"),
-            Ok((Vec::new(), Vec::new()))
+            Ok(Converted::default())
         );
+    }
+
+    #[test]
+    fn a_clippy_span_naming_no_file_is_counted_apart_not_kept() {
+        let text = finished(&[
+            message(
+                Some("A"),
+                "warning",
+                "a",
+                json!([span("<std macros>", 4, 4, true)]),
+            ),
+            message(
+                Some("B"),
+                "warning",
+                "b",
+                json!([span("<anon>", 1, 1, true)]),
+            ),
+            message(Some("C"), "warning", "c", json!([span(".", 1, 1, true)])),
+            message(
+                Some("D"),
+                "warning",
+                "d",
+                json!([span("/project", 1, 1, true)]),
+            ),
+            message(
+                Some("E"),
+                "warning",
+                "e",
+                json!([span("src/lib.rs", 5, 5, true)]),
+            ),
+        ]);
+        let converted = results(&text, "/project").expect("the lines read");
+        let kept: Vec<(&str, Option<&str>)> = converted
+            .results
+            .iter()
+            .map(|r| (r.rule.as_str(), r.file.as_deref()))
+            .collect();
+        assert_eq!(kept, [("E", Some("src/lib.rs"))]);
+        assert_eq!(
+            converted.no_file,
+            ["<std macros>", "<anon>", ".", "/project"]
+        );
+        assert!(converted.outside.is_empty(), "{:?}", converted.outside);
     }
 
     #[test]
@@ -335,7 +406,7 @@ mod clippy {
             json!([span("src/lib.rs", 3, 3, true)]),
         );
         let text = finished(&[&a, &b, &a, &b, &a_elsewhere]);
-        let (read, _) = results(&text, "/project").expect("the lines read");
+        let Converted { results: read, .. } = results(&text, "/project").expect("the lines read");
         let read: Vec<(&str, Option<usize>)> =
             read.iter().map(|r| (r.rule.as_str(), r.line)).collect();
         assert_eq!(read, [("A", Some(1)), ("B", Some(2)), ("A", Some(3))]);
@@ -370,7 +441,11 @@ mod clippy {
                 json!([span("/project/src/lib.rs", 5, 5, true)]),
             ),
         ]);
-        let (read, outside) = results(&text, "/project").expect("the lines read");
+        let Converted {
+            results: read,
+            outside,
+            ..
+        } = results(&text, "/project").expect("the lines read");
         let kept: Vec<(&str, Option<&str>)> = read
             .iter()
             .map(|r| (r.rule.as_str(), r.file.as_deref()))
@@ -394,7 +469,11 @@ mod clippy {
 
     #[test]
     fn a_recorded_clippy_0_1_98_run_mints_each_finding_once() {
-        let (read, outside) = results(CLIPPY_0_1_98, "/project").expect("the recording reads");
+        let Converted {
+            results: read,
+            outside,
+            ..
+        } = results(CLIPPY_0_1_98, "/project").expect("the recording reads");
         assert!(outside.is_empty());
         let placed: Vec<(&str, Option<usize>)> =
             read.iter().map(|r| (r.rule.as_str(), r.line)).collect();

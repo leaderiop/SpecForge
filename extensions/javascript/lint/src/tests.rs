@@ -121,6 +121,24 @@ fn a_result_outside_the_project_is_skipped_with_one_warning() {
 }
 
 #[specforge_test(requirement = "FEATURE-145")]
+fn a_result_naming_no_file_is_skipped_with_its_own_warning() {
+    let rooted = ESLINT_10_15.replacen(
+        "file:///project/src/board%20view.js\",\n                  \"index\": 1",
+        "file:///project\",\n                  \"index\": 1",
+        1,
+    );
+    assert_ne!(rooted, ESLINT_10_15, "the recording names its file by uri");
+    let out = collect(&input(&[&rooted])).unwrap();
+    assert_eq!(out.facts.len(), 3, "{:?}", out.facts);
+    assert_eq!(
+        out.warnings,
+        [format!(
+            "{REPORT}: skipped 1 path(s) naming no file: /project"
+        )]
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-145")]
 fn zero_or_two_reports_or_a_bad_one_is_the_collectors_error() {
     for reports in [&[][..], &[ESLINT_10_15, ESLINT_10_15][..]] {
         let why = collect(&input(reports)).unwrap_err();

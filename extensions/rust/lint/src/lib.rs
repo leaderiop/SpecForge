@@ -12,9 +12,10 @@
 //! against `@rust/source`'s items (ADR 0389 D8). Only a diagnostic's primary span is kept. `--all-targets` checks a
 //! library twice, as lib and as lib test, and repeats each of its diagnostics: the converter keeps one. A span in a
 //! file outside the project (a registry crate's macro) is skipped and counted, and the pack returns one warning naming
-//! the capture and the paths, which the host shows as W203 (ADR 0389 D7).
+//! the capture and the paths, which the host shows as W203 (ADR 0389 D7). A span naming no file (rustc's pseudo names
+//! such as `<std macros>`) is skipped and counted the same way, in a warning of its own, never minted.
 
-use specforge_code_facts::{finding_facts, outside_line};
+use specforge_code_facts::{finding_facts, no_file_line, outside_line};
 use specforge_extension_sdk::prelude::*;
 
 mod clippy;
@@ -67,8 +68,8 @@ impl Contributions for RustLint {
     }
 }
 
-/// Map clippy's captured JSON messages (else the one report given) to `static_finding` facts, and the files it skipped
-/// as outside the project to one warning.
+/// Map clippy's captured JSON messages (else the one report given) to `static_finding` facts, and the paths it skipped,
+/// outside the project or naming no file, to a warning each.
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let (path, text) = match (&input.stdout, &input.reports[..]) {
         (Some(stdout), _) => (CAPTURE, stdout.as_str()),
@@ -85,10 +86,13 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         .cwd
         .as_deref()
         .ok_or("the host sent no cwd: a clippy span's file is read against the project root")?;
-    let (results, outside) = clippy::results(text, cwd).map_err(|why| format!("{path}: {why}"))?;
+    let converted = clippy::results(text, cwd).map_err(|why| format!("{path}: {why}"))?;
     Ok(CollectOutput {
-        facts: finding_facts(&results, &input.facts),
-        warnings: outside_line(path, &outside).into_iter().collect(),
+        facts: finding_facts(&converted.results, &input.facts),
+        warnings: outside_line(path, &converted.outside)
+            .into_iter()
+            .chain(no_file_line(path, &converted.no_file))
+            .collect(),
         ..CollectOutput::default()
     })
 }

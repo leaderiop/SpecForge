@@ -91,7 +91,11 @@ set. No match is the usual E045 ("produced no report").
 
 A file record whose path lies outside the project is skipped and counted, and the count is surfaced as a W203 line,
 instead of failing the whole report. The readers still touch no file system, so ADR 0388's threat holds. A SARIF
-artifact with a non-`file` URI scheme still fails the report.
+artifact with a non-`file` URI scheme still fails the report. A path naming no file is not "outside": one that
+resolves to the project root itself (`.`, `a/..`, the root's absolute path) or a compiler's pseudo name in angle
+brackets (rustc's `<std macros>`, `<anon>`) is `Place::NoFile`. SARIF and clippy skip and count such a result in a
+warning line of its own, never minting a finding at a file no one can open; an LCOV `SF` naming no file fails the
+report, as an empty `SF` does.
 
 ## D8. The commands per pack
 

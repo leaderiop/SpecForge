@@ -11,9 +11,10 @@
 //! The SARIF is read by `specforge-code-sarif` and minted by `specforge-code-facts` against `@javascript/source`'s
 //! items: one `static_finding` per result, citing the innermost item holding its line, else the package holding its
 //! file. A result in a file outside the project is skipped and counted, and the pack returns one warning naming the
-//! report and the paths, which the host shows as W203 (ADR 0389 D7).
+//! report and the paths, which the host shows as W203 (ADR 0389 D7); a result whose path names no file (the project
+//! root itself) is skipped and named in a warning of its own.
 
-use specforge_code_facts::{finding_facts, outside_line};
+use specforge_code_facts::{finding_facts, no_file_line, outside_line};
 use specforge_extension_sdk::prelude::*;
 
 const COLLECTOR: &str = "javascript-lint";
@@ -57,7 +58,8 @@ impl Contributions for JavascriptLint {
     }
 }
 
-/// Map ESLint's SARIF to `static_finding` facts, and the files it skipped as outside the project to one warning.
+/// Map ESLint's SARIF to `static_finding` facts, and the paths it skipped, outside the project or naming no file, to a
+/// warning each.
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let [report] = &input.reports[..] else {
         return Err(format!(
@@ -74,6 +76,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         facts: finding_facts(&sarif.results, &input.facts),
         warnings: outside_line(&report.path, &sarif.outside)
             .into_iter()
+            .chain(no_file_line(&report.path, &sarif.no_file))
             .collect(),
         ..CollectOutput::default()
     })

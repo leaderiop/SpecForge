@@ -155,6 +155,38 @@ fn the_outside_line_counts_the_paths_and_names_five() {
 }
 
 #[test]
+fn a_path_resolving_to_the_root_or_a_pseudo_name_names_no_file_not_outside() {
+    for empty in [".", "./", "a/..", "/project", "/project/", "/project/a/.."] {
+        assert_eq!(place(empty, "/project"), Place::NoFile, "{empty}");
+        assert_eq!(relative(empty, "/project"), None, "{empty}");
+    }
+    for pseudo in ["<std macros>", "<anon>", "<proc-macro source code>"] {
+        assert_eq!(place(pseudo, "/project"), Place::NoFile, "{pseudo}");
+    }
+    for outside in ["..", "../x.rs", "/elsewhere/x.rs", "/project-two/x.rs"] {
+        assert_eq!(place(outside, "/project"), Place::Outside, "{outside}");
+    }
+    assert_eq!(
+        place("/project/src/lib.rs", "/project"),
+        Place::File("src/lib.rs".to_string())
+    );
+    assert_eq!(
+        place("<a>/b.rs", "/project"),
+        Place::File("<a>/b.rs".to_string())
+    );
+}
+
+#[test]
+fn the_no_file_line_counts_the_paths_like_the_outside_line() {
+    let r = ".specforge/reports/x.sarif";
+    assert_eq!(no_file_line(r, &[]), None);
+    assert_eq!(
+        no_file_line(r, &super::strings(&["<std macros>", "."])).as_deref(),
+        Some(".specforge/reports/x.sarif: skipped 2 path(s) naming no file: <std macros>, .")
+    );
+}
+
+#[test]
 fn a_decoded_dot_dot_is_judged_by_relative() {
     let path = file_uri_path("%2E%2E/etc/passwd").expect("a relative reference");
     assert_eq!(path, "../etc/passwd");

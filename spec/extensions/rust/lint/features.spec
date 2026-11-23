@@ -17,6 +17,8 @@ requirement FEATURE-146 "Clippy Lint Facts (Rust)" {
     which cargo writes last on every run that ends, is a run cut off.
     A span in a file outside the project is skipped and counted, and the
     pack names the capture and the skipped paths in one warning, W203
-    (ADR 0389 D7).
+    (ADR 0389 D7). A span naming no file, such as rustc's <std macros>,
+    is skipped and counted the same way in a warning of its own, never
+    minted at a file no one can open.
   """
 }

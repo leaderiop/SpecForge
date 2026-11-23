@@ -5,13 +5,23 @@
 use std::collections::BTreeSet;
 
 use serde_json::Value;
-use specforge_code_facts::{relative, shown, Level, SarifResult, UNKNOWN};
+use specforge_code_facts::{place, shown, Level, Place, SarifResult, UNKNOWN};
 
 /// The tool every result names.
 const TOOL: &str = "clippy";
 
-/// The results of cargo's JSON lines `text`, their files relative to the project root `cwd`, and the paths outside the
-/// project their primary spans named, each once and [`shown`].
+/// What a capture converts to: its results, and the paths of the primary spans it skipped, each once and [`shown`].
+#[derive(Debug, Default, PartialEq)]
+pub(crate) struct Converted {
+    pub(crate) results: Vec<SarifResult>,
+    /// Paths outside the project (a registry crate's macro).
+    pub(crate) outside: Vec<String>,
+    /// Paths naming no file: rustc's pseudo names (`<std macros>`, `<anon>`) and a path resolving to the root itself.
+    pub(crate) no_file: Vec<String>,
+}
+
+/// The results of cargo's JSON lines `text`, their files relative to the project root `cwd`, and the paths of the
+/// primary spans it skipped as outside the project or naming no file.
 ///
 /// A line whose `reason` is `compiler-message` and whose message has a code or a primary span is one result: the rule
 /// is `message.code.code` (a rustc lint keeps its bare name, `unused_variables`), else `unknown`; the level is
@@ -20,16 +30,16 @@ const TOOL: &str = "clippy";
 /// only that one. Other reasons, summaries with neither code nor span ("2 warnings emitted") and blank lines are
 /// ignored. Results equal on rule, file, lines and message appear once, in first-seen order: `--all-targets` checks a
 /// library twice (lib and lib test) and repeats each of its diagnostics. A primary span outside the project (a
-/// registry crate's macro) is counted, not kept.
+/// registry crate's macro) is counted, not kept; so is one naming no file (rustc's `<std macros>`), which no finding
+/// can cite.
 ///
 /// A capture cut off inside a line or between two is an error, so it fails instead of dropping findings: a line that is
 /// no JSON, named by its 1-based number, or no `build-finished` record, which cargo writes last on every run that ends,
 /// failed builds included (a run killed by a signal stops before it).
-pub(crate) fn results(text: &str, cwd: &str) -> Result<(Vec<SarifResult>, Vec<String>), String> {
-    let mut results = Vec::new();
-    let mut outside = Vec::new();
+pub(crate) fn results(text: &str, cwd: &str) -> Result<Converted, String> {
+    let mut converted = Converted::default();
     let mut seen = BTreeSet::new();
-    let mut seen_outside = BTreeSet::new();
+    let mut seen_skipped = BTreeSet::new();
     let mut finished = false;
     for (at, line) in text.lines().enumerate() {
         if line.trim().is_empty() {
@@ -65,12 +75,15 @@ pub(crate) fn results(text: &str, cwd: &str) -> Result<(Vec<SarifResult>, Vec<St
             Some(span) => {
                 let file = match span.get("file_name").and_then(Value::as_str) {
                     None => None,
-                    Some(name) => match relative(name, cwd) {
-                        Some(file) => Some(file),
-                        None => {
+                    Some(name) => match place(name, cwd) {
+                        Place::File(file) => Some(file),
+                        unplaced => {
                             let path = shown(name);
-                            if seen_outside.insert(path.clone()) {
-                                outside.push(path);
+                            if seen_skipped.insert(path.clone()) {
+                                match unplaced {
+                                    Place::NoFile => converted.no_file.push(path),
+                                    _ => converted.outside.push(path),
+                                }
                             }
                             continue;
                         }
@@ -100,7 +113,7 @@ pub(crate) fn results(text: &str, cwd: &str) -> Result<(Vec<SarifResult>, Vec<St
             result.message.clone(),
         );
         if seen.insert(key) {
-            results.push(result);
+            converted.results.push(result);
         }
     }
     if !finished {
@@ -110,7 +123,7 @@ pub(crate) fn results(text: &str, cwd: &str) -> Result<(Vec<SarifResult>, Vec<St
                 .to_string(),
         );
     }
-    Ok((results, outside))
+    Ok(converted)
 }
 
 /// cargo's diagnostic level as a SARIF level.

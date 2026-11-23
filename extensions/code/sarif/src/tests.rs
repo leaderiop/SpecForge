@@ -218,6 +218,23 @@ fn a_result_outside_the_project_is_skipped_and_its_path_counted_once() {
 }
 
 #[test]
+fn a_result_naming_no_file_is_skipped_and_counted_apart_from_outside() {
+    let log = at_uris(&[
+        ".",
+        "file:///project",
+        "src/..",
+        "%3Canon%3E",
+        "file:///project/src/lib.rs",
+        ".",
+    ]);
+    let read = read(&log, "/project").expect("a path naming no file is no error");
+    let files: Vec<Option<&str>> = read.results.iter().map(|r| r.file.as_deref()).collect();
+    assert_eq!(files, [Some("src/lib.rs")]);
+    assert_eq!(read.no_file, [".", "/project", "src/..", "<anon>"]);
+    assert_eq!(read.outside, Vec::<String>::new());
+}
+
+#[test]
 fn an_error_or_an_outside_path_shows_the_reports_text_bounded_and_escaped() {
     let hostile =
         |scheme: &str| format!("{scheme}/elsewhere/\\u001b]0;{}\\u0007", "a".repeat(5_000));

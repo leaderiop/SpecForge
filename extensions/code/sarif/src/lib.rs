@@ -5,7 +5,8 @@
 //! from what it reads ([`specforge_code_facts::finding_facts`]).
 //!
 //! - [`read`] reads a SARIF 2.1.0 log into a [`Sarif`]: one [`SarifResult`] per result of each run, in document
-//!   order, and the files outside the project its results named, which it skips and counts (ADR 0389 D7).
+//!   order, and the files outside the project its results named and the paths naming no file, which it skips and
+//!   counts (ADR 0389 D7).
 
 #[cfg(test)]
 mod tests;
@@ -13,11 +14,11 @@ mod tests;
 use std::collections::HashSet;
 
 use serde_json::Value;
-use specforge_code_facts::{file_uri_path, relative, shown, shown_json, Level, UNKNOWN};
+use specforge_code_facts::{file_uri_path, place, shown, shown_json, Level, Place, UNKNOWN};
 
 pub use specforge_code_facts::SarifResult;
 
-/// What a SARIF log says: its results in the project, and the files outside it.
+/// What a SARIF log says: its results in the project, the files outside it, and the paths naming no file.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Sarif {
     /// The results whose file lies in the project, or that name no file, in document order.
@@ -25,6 +26,9 @@ pub struct Sarif {
     /// Each `file:` path outside the project, once, in document order, as [`shown`] writes it: its results mint
     /// nothing.
     pub outside: Vec<String>,
+    /// Each path naming no file (the project root itself, a pseudo name like `<anon>`), once, in document order, as
+    /// [`shown`] writes it: its results mint nothing.
+    pub no_file: Vec<String>,
 }
 
 /// The results of the SARIF 2.1.0 log `text`, every run's in document order, their files relative to the project
@@ -36,11 +40,12 @@ pub struct Sarif {
 /// what the log states, never SARIF's own `warning` default (F5). The message is `message.text`, empty when absent.
 /// The file is the first location's `artifactLocation.uri`, else the `uri` of the run artifact at its `index`: a
 /// `file:` URI decoded to its path, any other (with a `uriBaseId`, or no scheme) taken as project-relative, either
-/// way through [`relative`]. The lines are its `region`'s `startLine` and `endLine`. A result with no physical
+/// way through [`place`]. The lines are its `region`'s `startLine` and `endLine`. A result with no physical
 /// location has no file and no line; a suppressed result is read like any other.
 ///
 /// A result whose path lies outside the project (a `file:` URI elsewhere, or a relative one climbing out through
-/// `..`) is skipped: its path is counted once in [`Sarif::outside`], never opened (ADR 0389 D7).
+/// `..`) is skipped: its path is counted once in [`Sarif::outside`], never opened (ADR 0389 D7). A result whose path
+/// names no file (`.`, the root's own path, `<anon>`) is skipped the same way and counted in [`Sarif::no_file`].
 ///
 /// An error, naming the JSON path or the value, and nothing is read: text that is no JSON (nesting deeper than
 /// serde_json's limit included), a `version` other than `"2.1.0"`, no `runs` array, a run with no
@@ -84,10 +89,16 @@ pub fn read(text: &str, cwd: &str) -> Result<Sarif, String> {
             let here = format!("{at}.results[{i}]");
             let rule = rule_of(result, rules, &here)?;
             let (file, line, end_line) = match place_of(result, artifacts, cwd, &here)? {
-                Located::In(place) => place,
+                Located::In(lines) => lines,
                 Located::Outside(path) => {
                     if seen.insert(path.clone()) {
                         read.outside.push(path);
+                    }
+                    continue;
+                }
+                Located::NoFile(path) => {
+                    if seen.insert(path.clone()) {
+                        read.no_file.push(path);
                     }
                     continue;
                 }
@@ -166,12 +177,13 @@ fn level_of(result: &Value, rule: Option<&Value>) -> Level {
 }
 
 /// The file and the start and end lines of `result`'s first physical location, each when stated.
-type Place = (Option<String>, Option<usize>, Option<usize>);
+type Lines = (Option<String>, Option<usize>, Option<usize>);
 
-/// Where a result lies: its place in the project, or the path outside it, [`shown`].
+/// Where a result lies: its place in the project, or the path outside it or naming no file, [`shown`].
 enum Located {
-    In(Place),
+    In(Lines),
     Outside(String),
+    NoFile(String),
 }
 
 /// The place of `result` (at the JSON path `at`); a URI of another scheme than `file:`, or an artifact index naming
@@ -209,9 +221,10 @@ fn place_of(result: &Value, artifacts: &[Value], cwd: &str, at: &str) -> Result<
                     shown(uri)
                 )
             })?;
-            match relative(&path, cwd) {
-                Some(file) => Some(file),
-                None => return Ok(Located::Outside(shown(&path))),
+            match place(&path, cwd) {
+                Place::File(file) => Some(file),
+                Place::Outside => return Ok(Located::Outside(shown(&path))),
+                Place::NoFile => return Ok(Located::NoFile(shown(&path))),
             }
         }
         None => None,

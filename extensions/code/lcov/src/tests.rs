@@ -220,7 +220,15 @@ fn an_sf_path_is_trimmed_and_an_empty_one_has_its_own_error() {
         let files = read(text, "/project").expect("the report reads").files;
         assert_eq!(files[0].file, "src/a.rs", "{text:?}");
     }
-    for text in ["SF:\nend_of_record\n", "SF: \t\nend_of_record\n"] {
+    // Empty, resolving to the root itself, or a pseudo name: no file, never "outside the project".
+    for text in [
+        "SF:\nend_of_record\n",
+        "SF: \t\nend_of_record\n",
+        "SF:.\nend_of_record\n",
+        "SF:/project\nend_of_record\n",
+        "SF:src/..\nend_of_record\n",
+        "SF:<anon>\nend_of_record\n",
+    ] {
         let error = read(text, "/project").expect_err("no path");
         assert!(
             error.contains("line 1:") && error.contains("names no file"),
