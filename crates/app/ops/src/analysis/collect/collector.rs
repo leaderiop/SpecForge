@@ -201,9 +201,20 @@ pub(super) fn wildcard(pattern: &str, name: &str) -> bool {
     true
 }
 
-/// The report location, held. An extension may only declare a relative name without `..`
-/// ([`crate::containment::declared`], E058); where the name lands is the request's containment
-/// (a symlink that leaves the project is `outside_root`).
+/// The collector's report when it is a glob (ADR 0389): one of its `/`-separated segments holds `*` or `?`.
+pub(super) fn report_glob(collector: &Collector) -> Option<&str> {
+    collector.report.as_deref().filter(|report| {
+        report
+            .split('/')
+            .any(|segment| segment.contains(['*', '?']))
+    })
+}
+
+/// The report location, held: the report itself, or for a glob its literal base directory (the segments before the
+/// first wildcard; the project root when there are none). An extension may only declare a relative name without `..`
+/// ([`crate::containment::declared`], E058); where the name lands is the request's containment (a symlink that leaves
+/// the project is `outside_root`). A glob names files the tool writes itself, so a command told its report
+/// (`{report}`) or a captured output, which need one file, is E058.
 pub(super) fn report_path(
     collector: &Collector,
     root: &Path,
@@ -222,7 +233,35 @@ pub(super) fn report_path(
             ),
         ));
     };
-    Ok(containment.resolve(&root.join(relative))?)
+    if report_glob(collector).is_none() {
+        return Ok(containment.resolve(&root.join(relative))?);
+    }
+    if collector.told_its_report() || collector.capture.is_some() {
+        return Err(OpError::coded(
+            OpErrorKind::PreconditionFailed,
+            codes::E058,
+            format!(
+                "collector '{}' of {} declares the report glob '{report}' and also {}: a report glob names files the \
+                 tool writes itself, so there is no single file to name",
+                collector.name,
+                collector.extension,
+                if collector.capture.is_some() {
+                    "captures its output"
+                } else {
+                    "tells its command `{report}`"
+                }
+            ),
+        ));
+    }
+    let base: Vec<&str> = report
+        .split('/')
+        .take_while(|segment| !segment.contains(['*', '?']))
+        .collect();
+    let base = match base.join("/") {
+        literal if literal.is_empty() => root.to_path_buf(),
+        literal => root.join(literal),
+    };
+    Ok(containment.resolve(&base)?)
 }
 
 /// E058 for a report asked of a collector that reads through its ports.

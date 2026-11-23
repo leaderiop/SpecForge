@@ -764,8 +764,10 @@ impl CollectorBuilder {
         self.descriptor.capability = Some(name.to_string());
         self
     }
-    /// Report file or directory the runner writes, relative to the project
-    /// root. A directory is read as every `*.json` file directly inside it.
+    /// The report the runner writes, relative to the project root: a file, a directory (read as every `*.json` file
+    /// directly inside it), or a glob over project files the tool writes itself (`**/name.json`), every match read
+    /// fresh after each run by the walk `Input::files` globs take (ADR 0389). A glob's command is told no path: it
+    /// takes no `{report}` and no `capture_stdout()`.
     pub fn report(&mut self, path: &str) -> &mut Self {
         self.descriptor.report = Some(path.to_string());
         self

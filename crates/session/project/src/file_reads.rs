@@ -150,7 +150,32 @@ fn field_facts(
 }
 
 fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) -> FileFacts {
-    let source = ctx.source;
+    let GlobPaths { files, truncated } = glob_paths(ctx.source, glob);
+    let facts = files
+        .into_iter()
+        .map(|path| {
+            let at = ctx.contained.resolve(&path, Root::Project).ok();
+            fact(ctx, path, None, at.as_ref(), read.text, budget)
+        })
+        .collect();
+    FileFacts { facts, truncated }
+}
+
+/// The project files a glob matches: project-relative, `/` separated, sorted and unique.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GlobPaths {
+    pub files: Vec<String>,
+    /// The walk stopped early: past [`MAX_VISITS`] entries, or past [`FILE_READ_MAX`] matches.
+    pub truncated: bool,
+}
+
+/// The project files under `source` that `glob` matches, by the one walk every glob read takes (ADR 0293 D4): a
+/// directory in [`SKIPPED`] is entered only when the glob names it, a directory reached through a link is not entered
+/// (nor a literal prefix that links out of the project), and the walk stops after [`MAX_VISITS`] entries. A file
+/// collector's report glob reads through it too (ADR 0389).
+pub fn glob_paths(source: &FileSource<'_>, glob: &str) -> GlobPaths {
+    let lookup = DiskLookup(source.disk);
+    let contained = Contained::new(&source.roots, &lookup);
     let segments: Vec<&str> = glob.split('/').filter(|s| *s != ".").collect();
     let named_here: Vec<&str> = segments.iter().copied().filter(|s| !is_wild(s)).collect();
     // Directories above the first wildcard are walked to directly: only the rest of the pattern decides.
@@ -167,9 +192,9 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
     let mut found = Found::default();
     let first = source.project_root.join(&start);
     // A literal prefix that is itself a link out of the project is not entered.
-    if start.is_empty() || ctx.contained.resolve(&start, Root::Project).is_ok() {
+    if start.is_empty() || contained.resolve(&start, Root::Project).is_ok() {
         let real = source.disk.canonical(&first);
-        walk(ctx, &start, real.as_deref(), &plan, &mut found);
+        walk(source, &start, real.as_deref(), &plan, &mut found);
     }
     let Found {
         mut files,
@@ -178,14 +203,7 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
     } = found;
     files.sort();
     files.dedup();
-    let facts = files
-        .into_iter()
-        .map(|path| {
-            let at = ctx.contained.resolve(&path, Root::Project).ok();
-            fact(ctx, path, None, at.as_ref(), read.text, budget)
-        })
-        .collect();
-    FileFacts { facts, truncated }
+    GlobPaths { files, truncated }
 }
 
 struct Walk<'a> {
@@ -208,8 +226,13 @@ struct Found {
 /// The files under `dir` (project-relative, `/` separated; empty is the root; `real` is `dir` with its links
 /// resolved, when the disk has links) whose path matches the glob, in order. A directory reached through a link is
 /// not entered: a link into an ancestor would loop, and one out of the project would leave it.
-fn walk(ctx: &Ctx<'_>, dir: &str, real: Option<&Path>, plan: &Walk<'_>, found: &mut Found) {
-    let source = ctx.source;
+fn walk(
+    source: &FileSource<'_>,
+    dir: &str,
+    real: Option<&Path>,
+    plan: &Walk<'_>,
+    found: &mut Found,
+) {
     let at = if dir.is_empty() {
         source.project_root.to_path_buf()
     } else {
@@ -244,7 +267,7 @@ fn walk(ctx: &Ctx<'_>, dir: &str, real: Option<&Path>, plan: &Walk<'_>, found: &
                 _ => false,
             };
             if !linked {
-                walk(ctx, &rel, child_real.as_deref(), plan, found);
+                walk(source, &rel, child_real.as_deref(), plan, found);
             }
         } else if specforge_common::path_glob::matches(plan.glob, &rel) {
             if found.files.len() == FILE_READ_MAX {

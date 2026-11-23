@@ -16,6 +16,7 @@ mod ports;
 mod reads;
 mod refusals;
 mod report_first;
+mod report_globs;
 mod report_paths;
 mod retained;
 mod runs;

@@ -566,7 +566,7 @@ c.collector("cargo-test", |k| {
     k.input_format("specforge-test-json")
         .detect_files(&["Cargo.toml"])            // project-root files that select it
         .run(&["cargo", "test", "--workspace"])  // declares its process capability; `{report}` is the report path
-        .report("target/specforge")               // file or directory, inside the project
+        .report("target/specforge")               // file, directory or glob, inside the project
         .capture_stdout()                         // also pass the command's stdout
         .collect(|input: &CollectInput| Ok(collect(input))); // the handler
 });
@@ -592,6 +592,12 @@ reaches the user's terminal, and the host also keeps it (in
 `CollectInput::stdout`. `k.input(Input::files(name, FileReadSpec::glob("package.json").text()))` declares a project
 file the collector reads, as a command's `files` input does: its input's `files[name]` holds the facts (and, with `.text()`, the
 capped text), read by the host after the run. The guest never runs anything itself.
+
+A report may also be a glob over project files the tool writes itself (`.report("**/rust-sbom.cdx.json")`, ADR
+0389): after each run the host reads every match modified since the run started (with `--no-run`, every match),
+walked as an `Input::files` glob is (build output such as `target/` and `node_modules/` skipped unless the glob names
+it, no link entered, at most 20,000 entries), and removes nothing first. Such a command is told no path: `{report}` in
+its argv or config, or `capture_stdout()`, beside a glob is E058, and `SPECFORGE_REPORT` is not set.
 
 A handler may also answer `facts` (protocol 1.15.0, ADR 0327), the entities it observed, each of a kind its
 extension declares `collected(..)`:

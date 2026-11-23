@@ -4,8 +4,11 @@ use super::collector::Collector;
 use crate::view::ProjectView;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
+use specforge_project::file_reads::{FileSource, MAX_VISITS, glob_paths};
 use specforge_protocol_types::Operation;
-use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile, Fact, RawGraph};
+use specforge_protocol_types::{
+    CollectInput, CollectOutput, CollectReportFile, FILE_READ_MAX, Fact, RawGraph,
+};
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, PortCall};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -35,22 +38,63 @@ pub(super) fn read_report(
     since: Option<SystemTime>,
     containment: &Containment,
 ) -> Result<Vec<CollectReportFile>, OpError> {
-    let fresh = |path: &PathBuf| {
-        since.is_none_or(|since| {
-            std::fs::metadata(path)
-                .and_then(|m| m.modified())
-                .is_ok_and(|modified| modified >= since)
-        })
-    };
     let mut held = Vec::new();
     if report.real.is_dir() {
-        for path in json_files(&report.real).into_iter().filter(fresh) {
+        for path in json_files(&report.real)
+            .into_iter()
+            .filter(|path| fresh(path, since))
+        {
             let name = path.file_name().unwrap_or_default();
             held.push(report.entry(containment, Path::new(name))?);
         }
     } else if report.real.is_file() {
         held.push(report.clone());
     }
+    read_held(&held, root)
+}
+
+/// Read every project file `glob` matches (ADR 0389), listed by the walk `Input::files` globs take
+/// ([`glob_paths`]: ADR 0293 D4), only those modified at or after `since` when given. Each match is held by
+/// `containment` before it is opened: one that lands outside (a link out of the project) is skipped, never read. A walk
+/// cut short is E045 naming the cap; a read that fails is E045.
+pub(super) fn read_glob(
+    glob: &str,
+    project: &FileSource<'_>,
+    root: &Path,
+    since: Option<SystemTime>,
+    containment: &Containment,
+) -> Result<Vec<CollectReportFile>, OpError> {
+    let listed = glob_paths(project, glob);
+    if listed.truncated {
+        return Err(OpError::coded(
+            OpErrorKind::SchemaMismatch,
+            codes::E045,
+            format!(
+                "the report glob '{glob}' reaches past the walk's cap of {MAX_VISITS} entries or {FILE_READ_MAX} files; \
+                 name a narrower glob"
+            ),
+        ));
+    }
+    let held: Vec<Held> = listed
+        .files
+        .iter()
+        .filter_map(|path| containment.resolve(&root.join(path)).ok())
+        .filter(|file| fresh(&file.real, since))
+        .collect();
+    read_held(&held, root)
+}
+
+/// Whether the file at `path` was modified at or after `since` (always, with no `since`).
+fn fresh(path: &Path, since: Option<SystemTime>) -> bool {
+    since.is_none_or(|since| {
+        std::fs::metadata(path)
+            .and_then(|m| m.modified())
+            .is_ok_and(|modified| modified >= since)
+    })
+}
+
+/// The text of each `held` file as a report, named as a project path of `root`; a read that fails is E045.
+fn read_held(held: &[Held], root: &Path) -> Result<Vec<CollectReportFile>, OpError> {
     held.iter()
         .map(|file| {
             let content = file.read_to_string().map_err(|e| {

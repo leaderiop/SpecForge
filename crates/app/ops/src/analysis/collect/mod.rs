@@ -299,13 +299,22 @@ pub fn collect(
     let mut served = order::Served::new(root, containment, &available);
     // The syntax cache writes that failed over every collector, and the first one's error: W200 once.
     let (mut unwritten, mut unwritable) = (0, None);
+    // A report glob is listed by the walk `Input::files` globs take (ADR 0389), over the plain disk.
+    let project = view.env().file_source(&specforge_registry::PlainDisk);
     for (collector, source) in planned {
         let Evidence {
             files,
             stdout,
             exit_code,
             ran,
-        } = match source.gather(collector, root, containment, machine, &mut *announce) {
+        } = match source.gather(
+            collector,
+            root,
+            containment,
+            &project,
+            machine,
+            &mut *announce,
+        ) {
             Ok(evidence) => evidence,
             // Detection chose it, so the project did not ask for it: no evidence skips it (ADR 0331).
             Err(error) if chosen == Chosen::Detected && error.code == codes::E045.id() => {

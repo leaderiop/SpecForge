@@ -5,25 +5,31 @@
 
 use super::collector::{
     ConfigFile, capture_path, captures_stdout, command_line, config_file, read_capture,
-    reads_no_report, report_path,
+    reads_no_report, report_glob, report_path,
 };
-use super::dispatch::read_report;
+use super::dispatch::{read_glob, read_report};
 use super::{Collector, Mode, fail};
 use crate::machine::{CollectorCommand, CollectorMachine, Ran, RunFailure, RunnerOutput};
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
+use specforge_project::file_reads::FileSource;
 use specforge_protocol_types::CollectReportFile;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 /// A collector's declared report location and captured output, held.
 pub(super) struct Declared {
+    /// The report, or a glob's literal base directory.
     report: Held,
+    /// The report glob, when the report is one (ADR 0389).
+    glob: Option<String>,
     capture: Option<Held>,
 }
 
 impl Declared {
     /// `collector`'s declared report and capture, held by `containment`: E058 for a report name that is not
-    /// relative-without-`..` or an unknown capture; `outside_root` for one that lands outside.
+    /// relative-without-`..`, an unknown capture, or a glob a single path is asked of; `outside_root` for one that
+    /// lands outside.
     fn of(collector: &Collector, root: &Path, containment: &Containment) -> Result<Self, OpError> {
         let report = report_path(collector, root, containment)?;
         let capturing = captures_stdout(collector)
@@ -33,7 +39,33 @@ impl Declared {
         } else {
             None
         };
-        Ok(Declared { report, capture })
+        Ok(Declared {
+            report,
+            glob: report_glob(collector).map(str::to_string),
+            capture,
+        })
+    }
+
+    /// The report files: every match of the glob, else the file or the directory's `*.json` files; only those modified
+    /// since `since` when given.
+    fn read(
+        &self,
+        root: &Path,
+        since: Option<SystemTime>,
+        containment: &Containment,
+        project: &FileSource<'_>,
+    ) -> Result<Vec<CollectReportFile>, OpError> {
+        match &self.glob {
+            Some(glob) => read_glob(glob, project, root, since, containment),
+            None => read_report(&self.report, root, since, containment),
+        }
+    }
+
+    /// Where the report is, as a message names it: the glob, else the declared location.
+    fn shown(&self) -> String {
+        self.glob
+            .clone()
+            .unwrap_or_else(|| self.report.named.display().to_string())
     }
 
     /// The captured output, if the collector captures one and it is there.
@@ -120,12 +152,14 @@ impl<'m> Source<'m> {
     }
 
     /// Gather the evidence: under `Run`, announce then run (E045 when it cannot start or its capture cannot be
-    /// written), then read. No report file and no captured output is E045, worded for the source.
+    /// written), then read; a report glob is listed over `project`. No report file and no captured output is E045,
+    /// worded for the source.
     pub(super) fn gather(
         &self,
         collector: &Collector,
         root: &Path,
         containment: &Containment,
+        project: &FileSource<'_>,
         machine: &dyn CollectorMachine,
         announce: &mut dyn FnMut(&Collector, &[String]),
     ) -> Result<Evidence, OpError> {
@@ -140,8 +174,7 @@ impl<'m> Source<'m> {
                 let ran = run_command(
                     machine,
                     root,
-                    (&declared.report, !collector.told_its_report()),
-                    declared.capture.as_ref(),
+                    (declared, !collector.told_its_report()),
                     config.as_ref(),
                     argv,
                     *output,
@@ -150,11 +183,11 @@ impl<'m> Source<'m> {
                     let message = failure.said(collector, argv);
                     fail(OpErrorKind::SchemaMismatch, codes::E045, message)
                 })?;
-                let files = read_report(&declared.report, root, Some(ran.started), containment)?;
+                let files = declared.read(root, Some(ran.started), containment, project)?;
                 (files, declared.stdout(), ran.exit_code, true)
             }
             Source::Written(declared) => {
-                let files = read_report(&declared.report, root, None, containment)?;
+                let files = declared.read(root, None, containment, project)?;
                 (files, declared.stdout(), None, false)
             }
             Source::Given(paths) => {
@@ -194,12 +227,12 @@ impl<'m> Source<'m> {
             Source::Run { declared, .. } => format!(
                 "{} produced no report at {} (did the tests build?)",
                 collector.name,
-                declared.report.named.display()
+                declared.shown()
             ),
             Source::Written(declared) => format!(
                 "no {} report at {}; run the tests to write one (`specforge collect` runs them)",
                 collector.name,
-                declared.report.named.display()
+                declared.shown()
             ),
             Source::Given(_) => "the report files given don't exist".to_string(),
             Source::Outcomes => format!("{} read no outcome", collector.name),
@@ -245,18 +278,21 @@ impl From<String> for NotRan {
 /// there) and filtered by modification time when it's read. The config file the command reads is written
 /// fresh before it starts (ADR 0348 D2). A captured standard output still reaches the chosen output as it's
 /// produced, and is also written to `capture`. Every file it removes, creates or writes is a held one, and the
-/// report, the capture and the config are names the run owns: a link at one is replaced, never followed.
+/// report, the capture and the config are names the run owns: a link at one is replaced, never followed. A report
+/// glob's files are the tool's: nothing is removed or created for them, and the command is told its base directory,
+/// never in `SPECFORGE_REPORT` (ADR 0389).
 fn run_command(
     machine: &dyn CollectorMachine,
     root: &Path,
-    (report, report_in_env): (&Held, bool),
-    capture: Option<&Held>,
+    (declared, told_nothing): (&Declared, bool),
     config: Option<&ConfigFile>,
     argv: &[String],
     output: RunnerOutput,
 ) -> Result<Ran, NotRan> {
+    let (report, capture) = (&declared.report, declared.capture.as_ref());
+    let owned = declared.glob.is_none();
     // The report's name is the run's (ADR 0171): a file or a link at it is unlinked, never what a link names.
-    if !report.real.is_dir() {
+    if owned && !report.real.is_dir() {
         match report.remove() {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
                 return Err(format!("{}: {e}", report.named.display()).into());
@@ -264,7 +300,9 @@ fn run_command(
             _ => {}
         }
     }
-    for file in std::iter::once(report)
+    for file in owned
+        .then_some(report)
+        .into_iter()
         .chain(capture)
         .chain(config.map(|config| &config.held))
     {
@@ -287,7 +325,7 @@ fn run_command(
         argv,
         dir: root,
         report: &report.at,
-        report_in_env,
+        report_in_env: owned && told_nothing,
         output,
     };
     machine
