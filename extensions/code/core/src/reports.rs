@@ -126,7 +126,8 @@ pub(crate) fn catalogue(c: &mut ContributionsBuilder) {
              kept with what the report says of it, so nothing is lost. Collect the source pack for those files \
              (`@rust/source`, `@javascript/source`) and the manifest pack for their packages, then collect the \
              report again.",
-        );
+        )
+        .facts(&[API_ITEM.kind, COVERAGE.kind, STATIC_FINDING.kind]);
     });
     c.code("W105", |d| {
         d.title("A finding's rule or level is unknown").explanation(
@@ -136,7 +137,8 @@ pub(crate) fn catalogue(c: &mut ContributionsBuilder) {
              default level is `warning`; it is not applied, so a level the tool never wrote cannot pass for one \
              it did. Make the tool write its rule ids and levels in its SARIF output, or the rule metadata \
              (`tool.driver.rules` with a `defaultConfiguration.level`), then collect the report again.",
-        );
+        )
+        .facts(&[STATIC_FINDING.kind]);
     });
     c.code("W106", |d| {
         d.title("A dependency has no purl").explanation(
@@ -145,7 +147,8 @@ pub(crate) fn catalogue(c: &mut ContributionsBuilder) {
              dropped, but no other report can be matched to it: an OSV scan or another BOM names a package by its \
              purl. Generate the BOM with an SBOM tool that writes a purl for every component (cargo-cyclonedx, \
              cyclonedx-npm), then collect it again.",
-        );
+        )
+        .facts(&[DEPENDENCY.kind]);
     });
     c.code("W107", |d| {
         d.title("A vulnerability's severity is unknown").explanation(
@@ -154,6 +157,7 @@ pub(crate) fn catalogue(c: &mut ContributionsBuilder) {
              vector is malformed. The vulnerability is kept with severity `unknown`, never dropped and never given \
              a guessed rating, so a gate on severity cannot pass it by mistake. Read the advisory by its OSV id \
              (osv.dev, or the database its id names) and judge its severity there.",
-        );
+        )
+        .facts(&[VULNERABILITY.kind]);
     });
 }

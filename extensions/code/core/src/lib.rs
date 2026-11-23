@@ -37,7 +37,8 @@
 //! the `test` and `test_run` facts, `proof` the facts of its four kinds (ADR 0353 D6). Its check pass `reports` is
 //! sent only the report facts, and reports an entry that names no item (W104), a finding whose rule or level its
 //! report states nowhere (W105), a dependency with no purl (W106) and a vulnerability whose severity is unknown (W107)
-//! (ADR 0388).
+//! (ADR 0388). Each code names the collected kinds it judges, which `specforge doctor` reads to say which codes a
+//! missing tool switches off (ADR 0389 D4).
 
 use specforge_code_facts::{
     ApiKind, ItemKind, Level, Scheme, Scope, Severity, Visibility, API_ITEM, COVERAGE, DEPENDENCY,
@@ -200,7 +201,7 @@ const SEVERITIES: Vocabulary = Vocabulary::new(&Severity::NAMES);
 
 #[specforge_extension_sdk::extension(
     name = "@code/core",
-    version = "1.2.0",
+    version = "1.3.0",
     description = "The neutral base of code facts: the test, test_run, item and package kinds the code packs collect, the report facts (coverage, api_item, static_finding, dependency, vulnerability) a standard report's reader mints, and the checks of the references a spec writes to them and of what a report leaves unmapped"
 )]
 struct CodeCore;
@@ -412,7 +413,8 @@ impl Contributions for CodeCore {
                  that names an entity of another kind, is reported at the place its collector read it, addressed \
                  to that collector: its facts disagree, and running `specforge collect` again, or fixing the pack, \
                  is the remedy (ADR 0346).",
-            );
+            )
+            .facts(&[ITEM_KIND, PACKAGE_KIND, TEST_KIND, RUN_KIND]);
         });
         c.code("W102", |d| {
             d.title("No facts of the reference's kinds were collected").explanation(
@@ -420,7 +422,8 @@ impl Contributions for CodeCore {
                  its field admits (narrowed to those its id is shaped as) in its scheme: on a fresh clone, or before \
                  the pack that writes them ran, there is nothing to check it against. It is reported once per cited \
                  reference, and not while the citing entity's owner is pending. Run `specforge collect` with the \
-                 pack the finding names: `@javascript/node-test` for `js` tests, `@rust/test` for `rust` tests, \
+                 pack the finding names: `@javascript/node-test`, `@javascript/vitest`, `@javascript/jest` or \
+                 `@javascript/playwright` for `js` tests, `@rust/test` or `@rust/proof` for `rust` tests, \
                  `@rust/source` for `rust` items, `@javascript/source` for `js` items, `@rust/cargo` for \
                  `pkg:cargo` packages, `@javascript/source` for `pkg:npm` packages.",
             );
@@ -430,14 +433,16 @@ impl Contributions for CodeCore {
                 "An entity whose owner is complete links a test whose last collected status is `failed`: the proof \
                  it cites does not hold. A pending owner's failing test is not reported (TDD). Fix the code or the \
                  test, and run `specforge collect` again.",
-            );
+            )
+            .facts(&[TEST_KIND]);
         });
         c.code("I402", |d| {
             d.title("A test or item names an entity that does not exist").explanation(
                 "A test or item fact's `names` (the entities its source's idiom says it proves or implements) \
                  holds a name that is no entity of the project, or the short name of several: the entity was \
                  renamed or deleted, or the name is misspelled. Fix the name in the source, then collect again.",
-            );
+            )
+            .facts(&[ITEM_KIND, TEST_KIND]);
         });
         reports::catalogue(c);
     }

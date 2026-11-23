@@ -169,12 +169,12 @@ fn a_status_is_a_test_status_name() {
 fn the_w102_explanation_names_every_pack_of_the_table() {
     let declared = declaration();
     let w102 = declared.codes.iter().find(|c| c.code == "W102").unwrap();
-    for (kind, family, pack) in refs::PACKS {
+    for (kind, family, packs) in refs::PACKS {
         let told = match kind {
             "package" => format!("`pkg:{family}` packages"),
             _ => format!("`{family}` {kind}s"),
         };
-        let named = format!("`{pack}` for {told}");
+        let named = format!("{} for {told}", refs::quoted(packs));
         assert!(w102.explanation.contains(&named), "{named}");
     }
 }
@@ -330,7 +330,8 @@ fn a_scheme_no_store_serves_is_w102() {
     assert!(
         diagnostics[0]
             .message
-            .contains("no `js` `test` facts were collected: run `specforge collect` with `@javascript/node-test`"),
+            .contains("no `js` `test` facts were collected: run `specforge collect` with `@javascript/node-test`, \
+                       `@javascript/vitest`, `@javascript/jest` or `@javascript/playwright`"),
         "{}",
         diagnostics[0].message
     );
@@ -346,7 +347,7 @@ fn a_store_of_another_kind_in_the_scheme_is_w102() {
     assert_eq!(
         diagnostics[0].message,
         "`proof` names `js:app/test/a.test.js#adds`, but no `js` `test` facts were collected: run `specforge \
-         collect` with `@javascript/node-test`"
+         collect` with `@javascript/node-test`, `@javascript/vitest`, `@javascript/jest` or `@javascript/playwright`"
     );
 }
 
@@ -360,7 +361,7 @@ fn a_rust_test_ref_beside_rust_items_only_is_w102() {
     assert_eq!(found(&diagnostics), [("W102", "t1", 2, None)]);
     assert!(
         diagnostics[0].message.ends_with(
-            "no `rust` `test` facts were collected: run `specforge collect` with `@rust/test`"
+            "no `rust` `test` facts were collected: run `specforge collect` with `@rust/test` or `@rust/proof`"
         ),
         "{}",
         diagnostics[0].message
@@ -403,7 +404,7 @@ fn a_test_id_in_a_field_of_no_target_beside_only_items_is_w102() {
     assert_eq!(found(&diagnostics), [("W102", "t1", 2, None)]);
     assert!(
         diagnostics[0].message.ends_with(
-            "no `rust` `test` facts were collected: run `specforge collect` with `@rust/test`"
+            "no `rust` `test` facts were collected: run `specforge collect` with `@rust/test` or `@rust/proof`"
         ),
         "{}",
         diagnostics[0].message
@@ -686,5 +687,6 @@ fn the_edit_distance_counts_insertions_deletions_and_substitutions() {
     }
 }
 
+mod facts;
 mod proof_findings;
 mod reports;
