@@ -1,0 +1,11 @@
+[
+  {"kind": "item", "id": "js:@demo/widget/src/index.ts::Widget"},
+  {"kind": "item", "id": "js:@demo/widget/src/index.ts::Widget.render"},
+  {"kind": "item", "id": "js:@demo/widget/src/index.ts::Widget.size"},
+  {"kind": "item", "id": "js:@demo/widget/src/index.ts::Options"},
+  {"kind": "item", "id": "js:@demo/widget/src/index.ts::Options.mode"},
+  {"kind": "item", "id": "js:@demo/widget/src/index.ts::Mode"},
+  {"kind": "item", "id": "js:@demo/widget/src/index.ts::create"},
+  {"kind": "item", "id": "js:@demo/widget/src/index.ts::VERSION"},
+  {"kind": "item", "id": "js:@demo/other/src/index.ts::Id"}
+]
