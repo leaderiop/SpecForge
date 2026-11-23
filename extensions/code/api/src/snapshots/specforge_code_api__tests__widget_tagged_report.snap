@@ -1,0 +1,167 @@
+---
+source: src/tests.rs
+expression: "api_facts(&entries, &served())"
+---
+[
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Id",
+    "fields": {
+      "item": "js:@demo/widget/src/widget.ts::Id",
+      "kind": "type",
+      "path": "Id",
+      "signature": "export type Id = string;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Mode",
+    "fields": {
+      "item": "js:@demo/widget/src/mode.ts::Mode",
+      "kind": "enum",
+      "path": "Mode",
+      "signature": "export enum Mode {",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Mode.Fast",
+    "fields": {
+      "kind": "variant",
+      "path": "Mode.Fast",
+      "signature": "Fast = 0,",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Mode.Slow",
+    "fields": {
+      "kind": "variant",
+      "path": "Mode.Slow",
+      "signature": "Slow = 1",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Options",
+    "fields": {
+      "item": "js:@demo/widget/src/options.ts::Options",
+      "kind": "interface",
+      "path": "Options",
+      "signature": "export interface Options {",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Options.mode",
+    "fields": {
+      "kind": "field",
+      "path": "Options.mode",
+      "signature": "mode: Mode;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::VERSION",
+    "fields": {
+      "kind": "variable",
+      "path": "VERSION",
+      "signature": "export const VERSION = \"1\";",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Widget",
+    "fields": {
+      "item": "js:@demo/widget/src/widget.ts::Widget",
+      "kind": "class",
+      "path": "Widget",
+      "signature": "export class Widget {",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Widget.experimental",
+    "fields": {
+      "kind": "method",
+      "path": "Widget.experimental",
+      "signature": "experimental(): void;",
+      "tag": "Beta",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Widget.render",
+    "fields": {
+      "item": "js:@demo/widget/src/widget.ts::Widget.render",
+      "kind": "method",
+      "path": "Widget.render",
+      "signature": "render(): string;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Widget.size",
+    "fields": {
+      "item": "js:@demo/widget/src/widget.ts::Widget.size",
+      "kind": "field",
+      "path": "Widget.size",
+      "signature": "size: number;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::_hidden",
+    "fields": {
+      "kind": "function",
+      "path": "_hidden",
+      "signature": "export function _hidden(): void;",
+      "tag": "Internal",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::create",
+    "fields": {
+      "item": "js:@demo/widget/src/widget.ts::create",
+      "kind": "function",
+      "path": "create",
+      "signature": "export function create(o: Options): Widget;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::trial",
+    "fields": {
+      "kind": "function",
+      "path": "trial",
+      "signature": "export function trial(): void;",
+      "tag": "Alpha",
+      "visibility": "public"
+    }
+  }
+]

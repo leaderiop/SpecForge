@@ -6,13 +6,17 @@
 //!
 //! - [`read_rust_text`] reads a `cargo public-api` text snapshot into one [`ApiEntry`] per public entry.
 //! - [`read_js_model`] reads an api-extractor `.api.json` doc model into one [`ApiEntry`] per member.
+//! - [`read_js_report`] reads an api-extractor `.api.md` report, the API a package accepted, into one [`ApiEntry`]
+//!   per declaration and member.
 
 #[cfg(test)]
 mod tests;
 
 mod js_model;
+mod js_report;
 mod rust_text;
 
 pub use js_model::read_js_model;
+pub use js_report::read_js_report;
 pub use rust_text::read_rust_text;
 pub use specforge_code_facts::ApiEntry;

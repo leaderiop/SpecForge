@@ -1,0 +1,259 @@
+---
+source: src/tests.rs
+expression: "api_facts(&entries, &served())"
+---
+[
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Base",
+    "fields": {
+      "kind": "class",
+      "path": "Base",
+      "signature": "export abstract class Base<T = string> {",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Base.KIND",
+    "fields": {
+      "kind": "field",
+      "path": "Base.KIND",
+      "signature": "static readonly KIND: \"base\";",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Base.constructor",
+    "fields": {
+      "kind": "method",
+      "path": "Base.constructor",
+      "signature": "protected constructor(v: T);",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Base.run",
+    "fields": {
+      "kind": "method",
+      "path": "Base.run",
+      "signature": "abstract run(): void;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Base.tune",
+    "fields": {
+      "kind": "method",
+      "path": "Base.tune",
+      "signature": "tune(n: number): this;",
+      "tag": "Beta",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Base.value",
+    "fields": {
+      "kind": "field",
+      "path": "Base.value",
+      "signature": "get value(): T; set value(v: T);",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Child",
+    "fields": {
+      "kind": "class",
+      "path": "Child",
+      "signature": "export class Child extends Base<number> implements Runnable {",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Child.run",
+    "fields": {
+      "kind": "method",
+      "path": "Child.run",
+      "signature": "run(): void;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Flags",
+    "fields": {
+      "kind": "enum",
+      "path": "Flags",
+      "signature": "export const enum Flags {",
+      "tag": "Alpha",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Flags.A",
+    "fields": {
+      "kind": "variant",
+      "path": "Flags.A",
+      "signature": "A = 1,",
+      "tag": "Alpha",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Flags.B",
+    "fields": {
+      "kind": "variant",
+      "path": "Flags.B",
+      "signature": "B = 2",
+      "tag": "Alpha",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Other",
+    "fields": {
+      "kind": "class",
+      "path": "Other",
+      "signature": "export class Other {",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Other.id",
+    "fields": {
+      "kind": "field",
+      "path": "Other.id",
+      "signature": "id: number;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Runnable",
+    "fields": {
+      "kind": "interface",
+      "path": "Runnable",
+      "signature": "export interface Runnable {",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Runnable.[]",
+    "fields": {
+      "kind": "other",
+      "path": "Runnable.[]",
+      "signature": "[key: string]: unknown;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Runnable.name",
+    "fields": {
+      "kind": "field",
+      "path": "Runnable.name",
+      "signature": "readonly name?: string;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Runnable.run",
+    "fields": {
+      "kind": "method",
+      "path": "Runnable.run",
+      "signature": "run(): void;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::Shape",
+    "fields": {
+      "kind": "type",
+      "path": "Shape",
+      "signature": "export type Shape = { kind: \"a\"; size: number; } | { kind: \"b\"; };",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::parse",
+    "fields": {
+      "kind": "function",
+      "path": "parse",
+      "signature": "export function parse(input: string): number;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::parse~2",
+    "fields": {
+      "kind": "function",
+      "path": "parse",
+      "signature": "export function parse(input: number): string;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::util",
+    "fields": {
+      "kind": "namespace",
+      "path": "util",
+      "signature": "export namespace util {",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::util.LIMIT",
+    "fields": {
+      "kind": "variable",
+      "path": "util.LIMIT",
+      "signature": "const LIMIT = 3;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Frich::util.helper",
+    "fields": {
+      "kind": "function",
+      "path": "util.helper",
+      "signature": "export function helper(x: number): number;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  }
+]

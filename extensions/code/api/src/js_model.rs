@@ -89,23 +89,27 @@ fn named<'v>(member: &'v Value, at: &str) -> Result<(&'v str, &'v str), String> 
         .get("kind")
         .and_then(Value::as_str)
         .ok_or_else(|| none("kind"))?;
-    let by_kind = match kind {
+    let name = member
+        .get("name")
+        .and_then(Value::as_str)
+        .or(nameless(kind))
+        .ok_or_else(|| none("name"))?;
+    Ok((kind, name))
+}
+
+/// The name of a member of the api-extractor kind `kind`, which the tool writes with none.
+pub(crate) fn nameless(kind: &str) -> Option<&'static str> {
+    match kind {
         "Constructor" => Some("constructor"),
         "IndexSignature" => Some("[]"),
         "CallSignature" => Some("()"),
         "ConstructSignature" => Some("new()"),
         _ => None,
-    };
-    let name = member
-        .get("name")
-        .and_then(Value::as_str)
-        .or(by_kind)
-        .ok_or_else(|| none("name"))?;
-    Ok((kind, name))
+    }
 }
 
 /// The kind of an api-extractor member kind.
-fn api_kind(kind: &str) -> ApiKind {
+pub(crate) fn api_kind(kind: &str) -> ApiKind {
     let item = match kind {
         "Class" => ItemKind::Class,
         "Interface" => ItemKind::Interface,
