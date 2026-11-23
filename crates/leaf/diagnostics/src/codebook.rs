@@ -24,6 +24,8 @@ pub struct ExtensionCode {
     pub reported_while: Option<String>,
     /// A later step of the authoring settles a finding of it (`CodeDescriptor.settled_later`, ADR 0385).
     pub settled_later: bool,
+    /// The collected fact kinds it judges (`CodeDescriptor.facts`, ADR 0389): empty for a code about authored entities.
+    pub facts: Vec<String>,
 }
 
 /// Two loaded extensions share one code namespace.
@@ -251,6 +253,26 @@ impl Codebook {
             .collect()
     }
 
+    /// The qualified codes (`code/W104`) of every namespace whose entry judges one of the collected `kinds`
+    /// (`ExtensionCode.facts`, ADR 0389), sorted and unique: the codes no finding can speak for when no collector
+    /// answers those kinds.
+    pub fn judging(&self, kinds: &[String]) -> Vec<String> {
+        let mut judging: Vec<String> = self
+            .namespaces
+            .iter()
+            .flat_map(|(namespace, owned)| {
+                owned
+                    .codes
+                    .iter()
+                    .filter(|(_, entry)| entry.facts.iter().any(|kind| kinds.contains(kind)))
+                    .map(move |(local, _)| format!("{namespace}/{local}"))
+            })
+            .collect();
+        judging.sort();
+        judging.dedup();
+        judging
+    }
+
     /// The level a diagnostic of `code` (as it prints: `gsd/W304`, `E001`)
     /// is reported at: a static entry's catalogued level (`None` for `A###`,
     /// whose pass sets it), a namespaced code's letter when its namespace's
@@ -304,6 +326,7 @@ mod tests {
                 machine: false,
                 reported_while: None,
                 settled_later: false,
+                facts: Vec::new(),
             })
             .collect();
         book.add(extension, entries).unwrap();
@@ -462,6 +485,7 @@ mod tests {
                 machine: true,
                 reported_while: None,
                 settled_later: false,
+                facts: Vec::new(),
             }],
         )
         .unwrap();
@@ -489,6 +513,7 @@ mod tests {
             machine: false,
             reported_while: Some(state.into()),
             settled_later: false,
+            facts: Vec::new(),
         };
         book.add(
             "@acme/links",
@@ -522,6 +547,7 @@ mod tests {
                 machine: false,
                 reported_while: None,
                 settled_later: true,
+                facts: Vec::new(),
             }],
         )
         .unwrap();
@@ -536,6 +562,45 @@ mod tests {
             !book.settled_later("@specforge/checks", "I206"),
             "a first-party extension declares none"
         );
+    }
+
+    #[test]
+    fn judging_lists_the_qualified_codes_about_a_kind_sorted_and_unique() {
+        let judging = |local: &str, facts: &[&str]| ExtensionCode {
+            local: local.into(),
+            title: "t".into(),
+            explanation: "e".into(),
+            docs: None,
+            machine: false,
+            reported_while: None,
+            settled_later: false,
+            facts: facts.iter().map(|kind| kind.to_string()).collect(),
+        };
+        let mut book = Codebook::default();
+        book.add(
+            "@code/core",
+            vec![
+                judging("W105", &["static_finding"]),
+                judging("W104", &["coverage", "api_item"]),
+                judging("E101", &[]),
+            ],
+        )
+        .unwrap();
+        book.add("@acme/cov", vec![judging("W900", &["coverage"])])
+            .unwrap();
+        let kinds =
+            |kinds: &[&str]| -> Vec<String> { kinds.iter().map(|k| k.to_string()).collect() };
+        assert_eq!(
+            book.judging(&kinds(&["coverage"])),
+            ["acme.cov/W900", "code/W104"]
+        );
+        assert_eq!(
+            book.judging(&kinds(&["coverage", "api_item"])),
+            ["acme.cov/W900", "code/W104"],
+            "a code judging two of the kinds comes once"
+        );
+        assert!(book.judging(&kinds(&["vulnerability"])).is_empty());
+        assert!(book.judging(&[]).is_empty());
     }
 
     #[test]

@@ -19,6 +19,7 @@ fn hover_explains_a_third_party_code() {
                 machine: false,
                 reported_while: None,
                 settled_later: false,
+                facts: Vec::new(),
             }],
         )
         .unwrap();

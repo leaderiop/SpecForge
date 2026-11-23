@@ -216,6 +216,7 @@ fn a_result_meta_titles_a_code_from_the_project_code_book() {
                 machine: false,
                 reported_while: None,
                 settled_later: false,
+                facts: Vec::new(),
             }],
         )
         .unwrap();

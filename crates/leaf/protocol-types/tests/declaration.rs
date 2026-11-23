@@ -115,6 +115,7 @@ fn full() -> ExtensionDeclaration {
                 machine: true,
                 reported_while: Some("complete".to_string()),
                 settled_later: true,
+                facts: vec!["coverage".to_string()],
             },
             CodeDescriptor {
                 code: "R002".to_string(),
@@ -502,6 +503,8 @@ fn codes_round_trip_on_the_wire() {
     assert!(items[1].get("docs").is_none(), "{}", items[1]);
     assert_eq!(items[0]["settled_later"], true);
     assert!(items[1].get("settled_later").is_none(), "{}", items[1]);
+    assert_eq!(items[0]["facts"], serde_json::json!(["coverage"]));
+    assert!(items[1].get("facts").is_none(), "{}", items[1]);
     assert!(declared.declares(DeclaredCategory::Codes));
     let loaded = ExtensionDeclaration::from_wire(
         declared.handshake.clone(),

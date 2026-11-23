@@ -439,6 +439,13 @@ impl CodeBuilder {
         self.0.settled_later = true;
         self
     }
+    /// The collected fact kinds this code judges (the kinds whose facts its passes read to raise it), so a host can
+    /// say which codes cannot be judged when no collector answers them (`specforge doctor`, ADR 0389). Leave it out
+    /// for a code about authored entities.
+    pub fn facts(&mut self, kinds: &[&str]) -> &mut Self {
+        self.0.facts = kinds.iter().map(|kind| kind.to_string()).collect();
+        self
+    }
 }
 
 /// Builder for [`ValidationRuleDescriptor`], with a `custom` rule's

@@ -51,6 +51,7 @@ pub fn catalogue_rule_codes(mut declaration: ExtensionDeclaration) -> ExtensionD
                     machine: false,
                     reported_while: None,
                     settled_later: false,
+                    facts: Vec::new(),
                 });
         }
     }
