@@ -74,6 +74,6 @@ fn w102_names_every_runner_pack_of_a_test_scheme_and_one_pack_otherwise() {
 }
 
 #[test]
-fn the_handshake_is_version_1_3_0() {
-    assert_eq!(declaration().handshake.version, "1.3.0");
+fn the_handshake_is_version_1_4_0() {
+    assert_eq!(declaration().handshake.version, "1.4.0");
 }

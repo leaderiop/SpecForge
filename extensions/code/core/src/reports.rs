@@ -2,14 +2,16 @@
 //! class, and the catalogue of those codes.
 
 use specforge_code_facts::{
-    shown, ItemKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN, VULNERABILITY,
+    shown, ApiChange, ItemKind, API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, UNKNOWN,
+    VULNERABILITY,
 };
 use specforge_extension_sdk::prelude::*;
 
 use crate::REPORT_KINDS;
 
 /// For each report fact that is not pending: W104 when it names no `item` (a `coverage`; an `api_item` of a kind an
-/// item can have, not a variant, re-export, extern crate nor `other`, and not a crate root, which no item is; a
+/// item can have, not a variant, re-export, extern crate nor `other`, not a crate root, which no item is, nor one whose
+/// `change` is `removed`; a
 /// `static_finding` naming no `package` either), then W105 for a `static_finding` whose rule or level is `unknown`,
 /// then W106 for a `dependency` with no `purl`, then W107 for a `vulnerability` whose severity is `unknown`.
 pub(crate) fn reports(input: &PassInput) -> Vec<PassDiagnostic> {
@@ -27,12 +29,13 @@ pub(crate) fn reports(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// W104 when `fact` names no item and is a report entry an item should hold.
+/// W104 when `fact` names no item and is a report entry an item should hold: an `api_item` the run no longer has
+/// (`change` `removed`) is gone, so no item can hold it.
 fn unmapped(fact: &PassEntity) -> Option<PassDiagnostic> {
-    if fact.fields.contains_key("item") {
+    let field = |name: &str| fact.fields.get(name).map_or("", String::as_str);
+    if fact.fields.contains_key("item") || field("change") == ApiChange::Removed.as_str() {
         return None;
     }
-    let field = |name: &str| fact.fields.get(name).map_or("", String::as_str);
     let message = if fact.kind == COVERAGE.kind {
         format!(
             "the coverage fact '{}' names no item: no collected item holds its lines of `{}`",

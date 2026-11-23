@@ -31,7 +31,8 @@
 //! - [`coverage_facts`] mints a `coverage` per item a coverage report's [`CoverageFile`]s reach, and one per file for
 //!   what no item holds.
 //! - [`api_facts`] mints an `api_item` per public entry an API snapshot's reader read ([`ApiEntry`], [`ApiKind`]),
-//!   citing the one served item its path names.
+//!   citing the one served item its path names; [`api_facts_against`] also judges each entry against the committed
+//!   accepted report ([`ApiChange`], paired by [`comparable`] signature, ADR 0390 D3).
 //! - [`finding_facts`] mints a `static_finding` per result a SARIF reader read ([`SarifResult`], [`Level`]), citing
 //!   the innermost served item holding its location, else the package holding its file.
 //! - [`dependency_facts`] mints a `dependency` per component of the CycloneDX [`Bom`]s a reader read ([`Component`],
@@ -44,6 +45,7 @@
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
 
+mod accepted;
 mod api;
 mod coverage;
 mod cvss;
@@ -59,6 +61,7 @@ mod syntax;
 mod tests;
 mod vulnerability;
 
+pub use accepted::{api_facts_against, comparable, ApiChange};
 pub use api::{api_facts, ApiEntry, ApiKind};
 pub use coverage::{coverage_facts, Branch, CoverageFile, Function};
 pub use cvss::{base_score, rating};

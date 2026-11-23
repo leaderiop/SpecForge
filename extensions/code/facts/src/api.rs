@@ -102,46 +102,75 @@ pub struct ApiEntry {
 /// signature takes the next [`Repeats`] suffix, in document order (`~2`). Fields: `path` (as written), `kind`,
 /// `visibility`, `signature`, `item` when cited, `tag` when stated.
 pub fn api_facts(entries: &[ApiEntry], served: &[Fact]) -> Vec<Fact> {
-    let held: BTreeSet<&str> = served
-        .iter()
-        .filter(|fact| fact.kind == "item")
-        .map(|fact| fact.id.as_str())
-        .collect();
-    let parsed: Vec<ItemId> = held
-        .iter()
-        .filter_map(|id| ItemId::from_str(id).ok())
-        .collect();
+    let served = Served::new(served);
     let mut repeats = Repeats::default();
     let mut seen = BTreeSet::new();
     let mut facts = BTreeMap::new();
     for entry in entries {
-        let (base, item, written) = match entry.scheme {
-            Scheme::Rust => rust(entry, &parsed, &held),
-            Scheme::Js => js(entry, &parsed),
-        };
+        let (base, item, written) = served.minted(entry);
         if !seen.insert((base.clone(), entry.signature.as_str())) {
             continue;
         }
         let id = repeats.id(base);
-        let mut fact = Fact::new(API_ITEM.kind, id.clone())
-            .field("path", written)
-            .field("kind", entry.kind.as_str())
-            .field("visibility", entry.visibility.as_str())
-            .field("signature", entry.signature.clone());
-        if let Some(item) = item.filter(|_| entry.kind.is_item()) {
-            fact = fact.field("item", item);
-        }
-        if let Some(tag) = &entry.tag {
-            fact = fact.field("tag", tag.clone());
-        }
-        let replaced = facts.insert(id, fact);
-        // A base never holds `~` (each part is encoded), so a repeat suffix is never met twice.
-        debug_assert!(
-            replaced.is_none(),
-            "an api_item id minted twice: {replaced:?}"
-        );
+        insert(&mut facts, fact(id, entry, item, written));
     }
     facts.into_values().collect()
+}
+
+/// The served `item` facts an entry's path is looked up among.
+pub(crate) struct Served<'s> {
+    held: BTreeSet<&'s str>,
+    parsed: Vec<ItemId>,
+}
+
+impl<'s> Served<'s> {
+    pub(crate) fn new(served: &'s [Fact]) -> Self {
+        let held: BTreeSet<&str> = served
+            .iter()
+            .filter(|fact| fact.kind == "item")
+            .map(|fact| fact.id.as_str())
+            .collect();
+        let parsed = held
+            .iter()
+            .filter_map(|id| ItemId::from_str(id).ok())
+            .collect();
+        Served { held, parsed }
+    }
+
+    /// `entry`'s base id (no repeat suffix), the served item its path names and its path as written.
+    pub(crate) fn minted(&self, entry: &ApiEntry) -> (String, Option<String>, String) {
+        match entry.scheme {
+            Scheme::Rust => rust(entry, &self.parsed, &self.held),
+            Scheme::Js => js(entry, &self.parsed),
+        }
+    }
+}
+
+/// The `api_item` fact `id` of `entry`: its path as `written`, kind, visibility, signature, `item` when its kind can
+/// have one, `tag` when stated.
+pub(crate) fn fact(id: String, entry: &ApiEntry, item: Option<String>, written: String) -> Fact {
+    let mut fact = Fact::new(API_ITEM.kind, id)
+        .field("path", written)
+        .field("kind", entry.kind.as_str())
+        .field("visibility", entry.visibility.as_str())
+        .field("signature", entry.signature.clone());
+    if let Some(item) = item.filter(|_| entry.kind.is_item()) {
+        fact = fact.field("item", item);
+    }
+    if let Some(tag) = &entry.tag {
+        fact = fact.field("tag", tag.clone());
+    }
+    fact
+}
+
+/// `fact` into `facts` by its id.
+pub(crate) fn insert(facts: &mut BTreeMap<String, Fact>, fact: Fact) {
+    let replaced = facts.insert(fact.id.clone(), fact);
+    // A base never holds `~` (each part is encoded), so a repeat suffix is never met twice.
+    debug_assert!(
+        replaced.is_none(),
+        "an api_item id minted twice: {replaced:?}"
+    );
 }
 
 /// A Rust entry's id, its item and its path as written.

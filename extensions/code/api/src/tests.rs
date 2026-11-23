@@ -1,4 +1,6 @@
-use specforge_code_facts::{api_facts, ApiKind, ItemKind, Visibility};
+use specforge_code_facts::{
+    api_facts, api_facts_against, comparable, ApiKind, ItemKind, Visibility,
+};
 use specforge_extension_sdk::prelude::Fact;
 
 use super::*;
@@ -489,6 +491,94 @@ fn an_accessor_pair_joins_a_split_declaration_reads_whole_and_overloads_repeat()
     assert_eq!(all("Flags.B")[0].tag.as_deref(), Some("Alpha"));
     assert!(entries.iter().all(|e| e.container == "@demo/rich"));
     insta::assert_json_snapshot!("rich_report", api_facts(&entries, &served()));
+}
+
+/// Each fact's path, `change`, and the accepted signature and tag it carries.
+type Judged = (String, String, Option<String>, Option<String>);
+
+fn judged(facts: &[Fact]) -> Vec<Judged> {
+    let text = |fact: &Fact, name: &str| {
+        fact.fields
+            .get(name)
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+    };
+    facts
+        .iter()
+        .map(|f| {
+            (
+                text(f, "path").unwrap_or_default(),
+                text(f, "change").unwrap_or_default(),
+                text(f, "accepted_signature"),
+                text(f, "accepted_tag"),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn a_fresh_model_against_the_report_of_its_own_run_is_all_unchanged() {
+    let key = "function create(o: Options): Widget";
+    assert_eq!(
+        comparable("export declare function create(o: Options): Widget;"),
+        key
+    );
+    assert_eq!(
+        comparable("export function create(o: Options): Widget;"),
+        key
+    );
+    let fresh = read_js_model(TAGGED_MODEL).expect("the model reads");
+    let accepted = read_js_report(TAGGED_REPORT).expect("the report reads");
+    let facts = api_facts_against(&fresh, &accepted, &[]);
+    assert_eq!(facts.len(), fresh.len());
+    for (path, change, signature, tag) in judged(&facts) {
+        assert_eq!(change, "unchanged", "{path}");
+        assert_eq!((signature, tag), (None, None), "{path}");
+    }
+    assert!(facts.iter().all(|f| !f.id.contains("_hidden")));
+}
+
+#[test]
+fn a_recorded_break_reads_changed_narrowed_removed_and_added() {
+    let fresh = read_js_model(CHANGED_MODEL).expect("the model reads");
+    let accepted = read_js_report(TAGGED_REPORT).expect("the report reads");
+    let facts = api_facts_against(&fresh, &accepted, &[]);
+    let at = |path: &str| -> Judged {
+        judged(&facts)
+            .into_iter()
+            .find(|j| j.0 == path)
+            .unwrap_or_else(|| panic!("{path}"))
+    };
+    let some = |text: &str| Some(text.to_string());
+    let create = at("create");
+    assert_eq!(
+        (create.1.as_str(), create.2),
+        (
+            "changed",
+            some("export function create(o: Options): Widget;")
+        )
+    );
+    // The class went `@beta`, and its members with no tag of their own with it.
+    for member in ["Widget", "Widget.render", "Widget.size"] {
+        assert_eq!(
+            (at(member).1.as_str(), at(member).3),
+            ("narrowed", some("Public"))
+        );
+    }
+    let trial = at("trial");
+    assert_eq!(
+        (trial.1.as_str(), trial.2, trial.3),
+        (
+            "removed",
+            some("export function trial(): void;"),
+            some("Alpha")
+        )
+    );
+    assert_eq!(at("added").1, "added");
+    let changes: Vec<String> = judged(&facts).into_iter().map(|j| j.1).collect();
+    assert_eq!(changes.iter().filter(|c| *c == "removed").count(), 1);
+    assert!(facts.iter().all(|f| !f.id.contains("_hidden")));
+    insta::assert_json_snapshot!("widget_changed_against_tagged", facts);
 }
 
 #[test]

@@ -4,7 +4,8 @@ use specforge_code_facts::{API_ITEM, COVERAGE, DEPENDENCY, STATIC_FINDING, VULNE
 use specforge_extension_sdk::prelude::*;
 
 use crate::{
-    referencing, API_KINDS, ITEM_KIND, LEVELS, PACKAGE_KIND, SCOPES, SEVERITIES, VISIBILITY,
+    referencing, API_CHANGES, API_KINDS, ITEM_KIND, LEVELS, PACKAGE_KIND, SCOPES, SEVERITIES,
+    VISIBILITY,
 };
 
 /// Declares the report kinds and the edges their references draw.
@@ -79,6 +80,27 @@ pub(crate) fn report_kinds(c: &mut ContributionsBuilder) {
         .field("tag", |f| {
             f.field_type(FieldType::String)
                 .description("The api-extractor release tag (Public, Beta, Alpha, Internal)");
+        })
+        .field("change", |f| {
+            f.vocabulary(&API_CHANGES).description(
+                "The entry against the committed accepted report; absent when no accepted report covers its \
+                 crate or package",
+            );
+        })
+        .field("accepted_signature", |f| {
+            f.field_type(FieldType::String).description(
+                "The accepted report's entry as it wrote it, for a changed, narrowed or removed entry",
+            );
+        })
+        .field("accepted_tag", |f| {
+            f.field_type(FieldType::String).description(
+                "The accepted report's release tag, for a changed, narrowed or removed entry that has one",
+            );
+        })
+        .field("accepted_visibility", |f| {
+            f.vocabulary(&VISIBILITY).description(
+                "The accepted report's visibility, for a changed or narrowed entry whose visibility differs",
+            );
         });
     });
     c.edge("api_of", |e| {

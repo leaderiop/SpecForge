@@ -1,9 +1,10 @@
 //! The report facts' kinds, and the `reports` pass: a report entry that names no item (W104).
 
 use specforge_code_facts::{
-    api_facts, coverage_facts, dependency_facts, finding_facts, vulnerability_facts, ApiEntry,
-    ApiKind, Bom, Branch, Component, CoverageFile, Function, ItemKind, Level, OsvPackage,
-    OsvRecord, OsvReport, OsvSource, Owner, SarifResult, Scheme, Scope, Severity, Visibility,
+    api_facts, api_facts_against, coverage_facts, dependency_facts, finding_facts,
+    vulnerability_facts, ApiChange, ApiEntry, ApiKind, Bom, Branch, Component, CoverageFile,
+    Function, ItemKind, Level, OsvPackage, OsvRecord, OsvReport, OsvSource, Owner, SarifResult,
+    Scheme, Scope, Severity, Visibility,
 };
 
 use super::*;
@@ -216,6 +217,19 @@ fn an_api_item_no_item_can_hold_or_citing_one_is_not_w104() {
 }
 
 #[test]
+fn a_removed_api_item_is_not_w104_and_another_change_still_is() {
+    let marked = |change: &str| {
+        let mut fact = api_item(&format!("api:rust:demo::{change}"), "function", None);
+        fact.fields.insert("change".to_string(), change.to_string());
+        fact
+    };
+    assert!(reported(vec![marked("removed")]).is_empty());
+    let found = reported(vec![marked("changed")]);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].code, "W104");
+}
+
+#[test]
 fn api_item_is_collected_and_is_the_api_of_an_item() {
     let declared = declaration();
     let api = kind(&declared, "api_item");
@@ -235,7 +249,18 @@ fn api_item_is_collected_and_is_the_api_of_an_item() {
     );
     assert_eq!(field("kind").enum_values, strings(&ApiKind::NAMES));
     assert_eq!(field("visibility").enum_values, strings(&Visibility::NAMES));
-    for text in ["path", "signature", "tag"] {
+    assert_eq!(field("change").enum_values, strings(&ApiChange::NAMES));
+    assert_eq!(
+        field("accepted_visibility").enum_values,
+        strings(&Visibility::NAMES)
+    );
+    for text in [
+        "path",
+        "signature",
+        "tag",
+        "accepted_signature",
+        "accepted_tag",
+    ] {
         assert_eq!(field(text).field_type, "string", "{text}");
     }
     let api_of = declared.edges.iter().find(|e| e.label == "api_of").unwrap();
@@ -282,17 +307,55 @@ fn every_field_an_api_item_fact_is_minted_with_is_declared() {
         Fact::new("item", "rust:demo::<S as Debug>::fmt"),
         Fact::new("item", "js:@demo/widget/src/widget.ts::Widget"),
     ];
-    let minted = api_facts(&entries, &served);
+    let mut minted = api_facts(&entries, &served);
     assert_eq!(minted.len(), 2);
+    let function = |name: &str, visibility, signature: &str| ApiEntry {
+        visibility,
+        signature: signature.to_string(),
+        ..entry(
+            Scheme::Rust,
+            "demo",
+            &["demo", name],
+            None,
+            ApiKind::Item(ItemKind::Function),
+            None,
+        )
+    };
+    let mut fresh = entries.to_vec();
+    fresh.push(function("g", Visibility::Crate, "pub(crate) fn demo::g()"));
+    let mut widget = entries[1].clone();
+    widget.signature = "accepted".to_string();
+    let accepted = [
+        function("g", Visibility::Public, "pub fn demo::g()"),
+        function("gone", Visibility::Public, "pub fn demo::gone()"),
+        widget,
+    ];
+    let against = api_facts_against(&fresh, &accepted, &served);
+    let changes: Vec<&str> = against
+        .iter()
+        .filter_map(|f| f.fields.get("change").and_then(|v| v.as_str()))
+        .collect();
+    for change in ["added", "changed", "narrowed", "removed"] {
+        assert!(changes.contains(&change), "{change} in {changes:?}");
+    }
+    for field in ["accepted_signature", "accepted_tag", "accepted_visibility"] {
+        assert!(
+            against.iter().any(|f| f.fields.contains_key(field)),
+            "{field}"
+        );
+    }
+    minted.extend(against);
     let declared = declaration();
     let fields: Vec<&str> = kind(&declared, "api_item")
         .fields
         .iter()
         .map(|f| f.name.as_str())
         .collect();
+    for fact in &minted[..2] {
+        assert!(fact.fields.contains_key("item"), "{fact:?}");
+    }
     for fact in &minted {
         assert_eq!(fact.kind, "api_item");
-        assert!(fact.fields.contains_key("item"), "{fact:?}");
         for name in fact.fields.keys() {
             assert!(fields.contains(&name.as_str()), "{name} of {}", fact.id);
         }

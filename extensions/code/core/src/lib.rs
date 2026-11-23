@@ -16,7 +16,8 @@
 //! - the report facts a standard report's reader mints (ADR 0388): `coverage` (scheme `cov`), what a coverage report
 //!   says of the `item` it `covers` (`cov:<item id>`), or of a file's lines no item holds (`cov:@<file>`); `api_item`
 //!   (scheme `api`), one public entry of an API snapshot, `api:rust:<crate>::<path>` or `api:js:<package>::<name
-//!   path>`, with the `item` it is the API of (`api_of`), its kind, visibility, signature as written and release tag;
+//!   path>`, with the `item` it is the API of (`api_of`), its kind, visibility, signature as written and release tag,
+//!   and its `change` against the committed accepted report with what that report said (ADR 0390 D3);
 //!   `static_finding` (scheme `sarif`), one result of a SARIF run, `sarif:<tool>/<rule>#<file>:<line>`, with its tool,
 //!   rule, level, message, file and line, and the `item` it is `found_in`, else the `package` (`found_in_package`);
 //!   `dependency` (scheme `dep`), one component of a CycloneDX BOM, `dep:<package id>/<purl>` or
@@ -41,8 +42,8 @@
 //! missing tool switches off (ADR 0389 D4).
 
 use specforge_code_facts::{
-    ApiKind, ItemKind, Level, Scheme, Scope, Severity, Visibility, API_ITEM, COVERAGE, DEPENDENCY,
-    STATIC_FINDING, VULNERABILITY,
+    ApiChange, ApiKind, ItemKind, Level, Scheme, Scope, Severity, Visibility, API_ITEM, COVERAGE,
+    DEPENDENCY, STATIC_FINDING, VULNERABILITY,
 };
 use specforge_extension_sdk::prelude::*;
 
@@ -192,6 +193,8 @@ const ITEM_KINDS: Vocabulary = Vocabulary::new(&ItemKind::NAMES);
 const VISIBILITY: Vocabulary = Vocabulary::new(&Visibility::NAMES);
 /// What an API snapshot's entry is: the library's `ApiKind` names, the item kinds first.
 const API_KINDS: Vocabulary = Vocabulary::new(&ApiKind::NAMES);
+/// What an API snapshot's entry is against the committed accepted report: the library's `ApiChange` names.
+const API_CHANGES: Vocabulary = Vocabulary::new(&ApiChange::NAMES);
 /// A SARIF result's level as its report states it: the library's `Level` names, `unknown` last.
 const LEVELS: Vocabulary = Vocabulary::new(&Level::NAMES);
 /// A BOM component's scope: the library's `Scope` names, widest first.
@@ -201,7 +204,7 @@ const SEVERITIES: Vocabulary = Vocabulary::new(&Severity::NAMES);
 
 #[specforge_extension_sdk::extension(
     name = "@code/core",
-    version = "1.3.0",
+    version = "1.4.0",
     description = "The neutral base of code facts: the test, test_run, item and package kinds the code packs collect, the report facts (coverage, api_item, static_finding, dependency, vulnerability) a standard report's reader mints, and the checks of the references a spec writes to them and of what a report leaves unmapped"
 )]
 struct CodeCore;
