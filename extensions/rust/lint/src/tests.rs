@@ -1,3 +1,153 @@
+use super::*;
+use serde_json::{json, Value};
+use specforge_test::prelude::*;
+
+/// clippy 0.1.98's recording (see `fixtures/README.md`): crate `demo` at `/project`.
+const RECORDED: &str = include_str!("../fixtures/clippy-0.1.98.jsonl");
+/// The converter's accepted snapshot of the facts `RECORDED` mints with `fixtures/items.json` served.
+const RECORDED_FACTS: &str =
+    include_str!("snapshots/specforge_ext_rust_lint__tests__clippy__clippy_0_1_98.snap");
+
+/// The input the host sends at `/project`: `stdout` as captured, these report files, the recorded crate's items.
+fn input(stdout: Option<&str>, reports: &[&str]) -> CollectInput {
+    CollectInput {
+        stdout: stdout.map(ToString::to_string),
+        reports: reports
+            .iter()
+            .map(|content| CollectReportFile {
+                path: "saved/clippy.jsonl".to_string(),
+                content: content.to_string(),
+            })
+            .collect(),
+        cwd: Some("/project".to_string()),
+        facts: serde_json::from_str(include_str!("../fixtures/items.json"))
+            .expect("the served facts parse"),
+        ..CollectInput::default()
+    }
+}
+
+/// The JSON body of an insta snapshot, after its `---` header.
+fn snapshot(text: &str) -> Value {
+    let body = text.splitn(3, "---\n").nth(2).expect("a snapshot body");
+    serde_json::from_str(body).expect("the snapshot parses")
+}
+
+#[specforge_test(requirement = "FEATURE-146")]
+fn rust_lint_declares_clippy_with_its_stdout_captured_and_its_peers() {
+    let declaration = crate::specforge_extension_build().declaration();
+    let peers: Vec<(&str, &str, bool)> = declaration
+        .handshake
+        .peer_dependencies
+        .iter()
+        .map(|p| (p.name.as_str(), p.version.as_str(), p.optional))
+        .collect();
+    assert_eq!(
+        peers,
+        [
+            ("@code/core", "^1.2", false),
+            ("@rust/source", "^1.0", false)
+        ]
+    );
+    let [collector] = &declaration.collectors[..] else {
+        panic!("one collector: {:?}", declaration.collectors);
+    };
+    assert_eq!(collector.name, COLLECTOR);
+    assert_eq!(collector.input_formats, ["cargo-json"]);
+    assert_eq!(
+        collector.auto_detect.as_ref().map(|d| &d.file_patterns[..]),
+        Some(&["Cargo.toml".to_string()][..])
+    );
+    assert_eq!(collector.answers, ["static_finding"]);
+    assert_eq!(collector.inputs, [Input::facts(&["item", "package"])]);
+    assert_eq!(collector.report.as_deref(), Some(REPORT));
+    assert_eq!(collector.capture.as_deref(), Some("stdout"));
+    assert_eq!(
+        collector.install.as_deref(),
+        Some("rustup component add clippy")
+    );
+    let capabilities = serde_json::to_value(&declaration.capabilities).unwrap();
+    assert_eq!(capabilities[0]["name"], COLLECTOR);
+    assert_eq!(capabilities[0]["port"], "process");
+    assert_eq!(
+        capabilities[0]["argv"],
+        json!([
+            "cargo-clippy",
+            "clippy",
+            "--workspace",
+            "--all-targets",
+            "--message-format=json"
+        ]),
+        "{capabilities}"
+    );
+    assert_eq!(
+        capabilities[0]["env"],
+        json!([
+            "CARGO_*",
+            "RUSTUP_*",
+            "RUSTC",
+            "RUSTC_*",
+            "RUSTFLAGS",
+            "RUSTDOCFLAGS",
+            "CLIPPY_*"
+        ])
+    );
+    assert!(capabilities[0].get("filter").is_none_or(Value::is_null));
+}
+
+#[specforge_test(requirement = "FEATURE-146")]
+fn a_captured_clippy_run_or_a_saved_one_mints_the_converters_facts() {
+    for given in [input(Some(RECORDED), &[]), input(None, &[RECORDED])] {
+        let out = collect(&given).unwrap();
+        assert_eq!(
+            serde_json::to_value(&out.facts).unwrap(),
+            snapshot(RECORDED_FACTS)
+        );
+        assert_eq!(out.warnings, Vec::<String>::new());
+    }
+}
+
+#[specforge_test(requirement = "FEATURE-146")]
+fn no_capture_and_no_single_report_is_the_collectors_error() {
+    for reports in [&[][..], &[RECORDED, RECORDED][..]] {
+        let why = collect(&input(None, reports)).unwrap_err();
+        assert!(
+            why.contains(COLLECTOR) && why.contains("standard output was not captured"),
+            "{why}"
+        );
+    }
+    let why = collect(&input(Some("{\"reason\""), &[])).unwrap_err();
+    assert!(
+        why.starts_with(&format!("{CAPTURE}: line 1: no JSON")),
+        "{why}"
+    );
+    let no_cwd = CollectInput {
+        cwd: None,
+        ..input(Some(RECORDED), &[])
+    };
+    assert!(collect(&no_cwd).unwrap_err().contains("no cwd"));
+}
+
+#[specforge_test(requirement = "FEATURE-146")]
+fn a_span_outside_the_project_is_skipped_with_one_warning_naming_the_capture() {
+    // The first message's primary span moves into a registry crate.
+    let (first, rest) = RECORDED.split_once('\n').expect("more than one line");
+    let mut first: Value = serde_json::from_str(first).expect("the first line parses");
+    first["message"]["spans"][0]["file_name"] = json!("/home/u/.cargo/registry/src/x/lib.rs");
+    let outside = format!("{first}\n{rest}");
+    let out = collect(&input(Some(&outside), &[])).unwrap();
+    assert_eq!(
+        out.facts.len(),
+        4,
+        "the lib test copy of the first finding is kept"
+    );
+    assert_eq!(
+        out.warnings,
+        [format!(
+            "{CAPTURE}: skipped 1 file(s) outside the project: /home/u/.cargo/registry/src/x/lib.rs"
+        )]
+    );
+}
+
 /// The converter's unit tests: cargo JSON lines in, SARIF results out.
 mod clippy {
     use crate::clippy::results;
