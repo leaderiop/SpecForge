@@ -11,9 +11,33 @@ const C8: &str = include_str!("../fixtures/c8.info");
 const LCOV2: &str = include_str!("../fixtures/lcov2.info");
 /// The served `item` and `package` facts a coverage collector receives, as JSON.
 const ITEMS: &str = include_str!("../fixtures/items.json");
+/// Recorded with c8 12.0.0 (`--reporter=lcovonly`) on a one-file project, unchanged.
+const C8_12: &str = include_str!("../fixtures/c8-12.0.0.info");
+/// The served facts of the recorded project: `src/board.js`'s items where the file writes them.
+const C8_12_ITEMS: &str = include_str!("../fixtures/c8-12.0.0.items.json");
 
 fn served() -> Vec<Fact> {
     serde_json::from_str(ITEMS).expect("the served facts parse")
+}
+
+#[test]
+fn a_recorded_c8_12_report_mints_coverage_counting_each_line_once() {
+    let files = read(C8_12, "/project").expect("the report reads").files;
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].file, "src/board.js");
+    let served: Vec<Fact> = serde_json::from_str(C8_12_ITEMS).expect("the served facts parse");
+    let facts = coverage_facts(&files, &served);
+    let recorded = C8_12.lines().filter(|l| l.starts_with("DA:")).count() as u64;
+    let counted: u64 = facts
+        .iter()
+        .map(|f| f.fields["lines_found"].as_u64().expect("lines_found"))
+        .sum();
+    assert_eq!(counted, recorded);
+    assert!(
+        facts.iter().all(|f| f.fields.contains_key("item")),
+        "{facts:?}"
+    );
+    insta::assert_json_snapshot!("c8_12", facts);
 }
 
 #[test]

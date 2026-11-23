@@ -62,7 +62,10 @@ plain space (`<Type as Trait>`), and a JavaScript API name encodes its own `.` (
 
 A reader returns an error, and the collect mints nothing from that report, when:
 
-- a path lies outside the project (a SARIF `file:` URI or an LCOV `SF` path the project does not hold);
+- a path lies outside the project (a SARIF `file:` URI the project does not hold);
+
+  An LCOV `SF` path outside the project is not refused: its section is skipped and counted, and the coverage pack
+  reports the count and the paths as W203 (ADR 0389 D7).
 - the version is one it does not read (SARIF other than `2.1.0`, CycloneDX other than `1.4` to `1.6`);
 - the document is malformed or lacks a required key: the error names the line, the JSON path or the value;
 - a BOM's `metadata.component` belongs to no collected package.
