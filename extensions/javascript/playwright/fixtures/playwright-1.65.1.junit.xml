@@ -1,0 +1,43 @@
+<testsuites id="" name="" tests="4" failures="1" skipped="1" errors="0" time="0.512035">
+<testsuite name="board.spec.js" timestamp="2026-11-22T22:47:43.938Z" hostname="" tests="4" failures="1" skipped="1" time="0.005" errors="0">
+<testcase name="board › inner › adds" classname="board.spec.js" time="0.002">
+</testcase>
+<testcase name="board › inner › fails" classname="board.spec.js" time="0.001">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results/board-board-inner-fails/error-context.md]]
+]]>
+</system-out>
+<failure message="expect(received).toBe(expected) // Object.is equality" type="expect.toBe">
+<![CDATA[  board.spec.js:6:5 › board › inner › fails ────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      4 |   test.describe('inner', () => {
+      5 |     test('adds', async () => { expect(new Board().add(1).cards.length).toBe(1); });
+    > 6 |     test('fails', async () => { expect(1).toBe(2); });
+        |                                           ^
+      7 |   });
+      8 |   test.skip('skipped', async () => {});
+      9 | });
+        at /project/test/board.spec.js:6:43
+
+    Error Context: ../test-results/board-board-inner-fails/error-context.md
+]]>
+</failure>
+</testcase>
+<testcase name="board › skipped" classname="board.spec.js">
+<properties>
+<property name="skip" value="">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="top level" classname="board.spec.js" time="0.002">
+</testcase>
+</testsuite>
+</testsuites>

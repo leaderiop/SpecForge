@@ -103,9 +103,9 @@ artifact with a non-`file` URI scheme still fails the report.
 | `javascript-sbom` | `npx --no -- cyclonedx-npm --output-format JSON --spec-version 1.6 --package-lock-only …` | `.specforge/reports/javascript-sbom.cdx.json` | none | `npm install --save-dev @cyclonedx/cyclonedx-npm` |
 | `javascript-osv` | `osv-scanner scan source --lockfile package-lock.json --format json --output {report}` | `.specforge/reports/javascript-osv.json` | none | `brew install osv-scanner` (or the release binary) |
 | `javascript-api` | `npx --no -- api-extractor run --local --config {config}` | `.specforge/reports/javascript-api.api.json` | none | `npm install --save-dev @microsoft/api-extractor typescript` |
-| `javascript-vitest` | `npx --no -- vitest run --reporter=default --reporter=junit --outputFile.junit={report}` | `.specforge/reports/vitest.xml` | `-t {filter}` | `npm install --save-dev vitest` |
-| `javascript-jest` | `node --env-file={config} node_modules/jest/bin/jest.js --reporters=default --reporters=jest-junit` | `.specforge/reports/jest.xml` | `-t {filter}` | `npm install --save-dev jest jest-junit` |
-| `javascript-playwright` | `npx --no -- playwright test --reporter=junit …` | captured stdout under `.specforge/reports/playwright` | `--grep {filter}` | `npm install --save-dev @playwright/test` |
+| `javascript-vitest` | `npx --no -- vitest run --reporter=default --reporter=junit --outputFile.junit={report}` | `.specforge/reports/javascript-vitest.xml` | `-t {filter}` | `npm install --save-dev vitest` |
+| `javascript-jest` | `node --env-file={config} node_modules/jest/bin/jest.js --reporters=default --reporters=jest-junit` | `.specforge/reports/javascript-jest.xml` | `-t {filter}` | `npm install --save-dev jest jest-junit` |
+| `javascript-playwright` | `npx --no -- playwright test --reporter=junit …` | captured stdout under `.specforge/reports/javascript-playwright` | `--grep {filter}` | `npm install --save-dev @playwright/test` |
 
 The plan that builds each pack fixes its exact argv and names; this table is the design they implement.
 
