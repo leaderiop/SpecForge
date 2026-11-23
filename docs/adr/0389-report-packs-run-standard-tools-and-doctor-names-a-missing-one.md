@@ -1,6 +1,8 @@
 # Report packs run standard tools, and doctor names a missing one
 
-**Status:** accepted (2026-11-23, round r6-breadth, Phase 11). **Amends**
+**Status:** accepted (2026-11-23, round r6-breadth, Phase 11). Amended by
+[ADR 0390](0390-a-milestone-computes-its-api-breaks-and-release-evidence-and-two-guards-read-them.md) (D9: every
+accepted risk listed). **Amends**
 [ADR 0348](0348-a-collector-declares-a-config-file-and-the-rust-packs.md) (a report may be a glob; the host reports a
 collector's warnings). **Follows** [ADR 0388](0388-x2-is-the-share-of-test-ids-a-standard-report-saw.md) (the readers
 and kinds), [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) and
@@ -141,7 +143,13 @@ a wholly empty capture is already the host's E045, and an export's error would f
   toolchain.
 - api-extractor reads built declarations: the pack's config names `<projectFolder>/dist/index.d.ts` as its entry, so
   the project builds them there first; the pack runs no build.
-- cargo-cyclonedx and clippy run build scripts; the consent prompt shows the command.
+- Each risk below is accepted, and each runs only after the collector's command is approved; the consent prompt shows
+  the command.
+  - The coverage packs and the runner packs (vitest, jest, Playwright) run the project's own tests.
+  - osv-scanner sends the project's package names and versions to the OSV API.
+  - ESLint loads the project's own plugins and configuration code.
+  - Kani builds and model-checks the project's code.
+  - cargo-cyclonedx, cargo public-api and clippy run the project's build scripts.
 - osv-scanner exits 1 when it finds vulnerabilities, which the host does not judge: it reads the report whatever the
   exit code.
 
