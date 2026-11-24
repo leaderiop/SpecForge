@@ -143,8 +143,9 @@ fn accepted(
     let mut first: BTreeMap<String, &str> = BTreeMap::new();
     if read.truncated {
         warnings.push(format!(
-            "the read '{ACCEPTED}' (**/public-api.txt): more files matched than were read ({FILE_READ_MAX}); no \
-             break was judged against a file not read"
+            "the read '{ACCEPTED}' (**/public-api.txt) stopped early: the host's walk reached its cap of \
+             {GLOB_VISITS_MAX} entries, or more than {FILE_READ_MAX} files matched; no break was judged against a \
+             file not read"
         ));
     }
     let crates: BTreeSet<&str> = entries.iter().map(|e| e.container.as_str()).collect();

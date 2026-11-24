@@ -38,9 +38,9 @@ pub use specforge_protocol_types::{
 
 pub use specforge_protocol_types::{
     ByteRange, CapabilityDescriptor, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
-    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, FILE_READ_MAX, FsAccess, GitOp,
-    HttpMethod, MAX_PROBE_ROUNDS, Operation, OutcomeClass, OutcomeData, PlannedItem, PortScope,
-    Probe, ProbeOutcome, StatEntry, ValueForm,
+    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, FILE_READ_MAX, FsAccess,
+    GLOB_VISITS_MAX, GitOp, HttpMethod, MAX_PROBE_ROUNDS, Operation, OutcomeClass, OutcomeData,
+    PlannedItem, PortScope, Probe, ProbeOutcome, StatEntry, ValueForm,
 };
 
 pub use specforge_protocol_types::{
@@ -655,7 +655,7 @@ pub mod prelude {
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
         CollectorBuilder, DanglingReason, DanglingReference, FILE_READ_MAX, Fact, FactLocation,
-        PlanBuilder,
+        GLOB_VISITS_MAX, PlanBuilder,
     };
     pub use crate::{DeltaAspect, DeltaBase, DeltaChange, DeltaEdge, DeltaNode, DeltaPayload};
     pub use specforge_extension_sdk_macros::extension;

@@ -18,7 +18,7 @@ use specforge_effects::fs::SKIPPED;
 use specforge_effects::{Root, Roots};
 
 use specforge_protocol_types::{
-    FILE_READ_MAX, FileFact, FileFacts, FileRead, TEXT_MAX_CEILING_BYTES, is_wild,
+    FILE_READ_MAX, FileFact, FileFacts, FileRead, GLOB_VISITS_MAX, TEXT_MAX_CEILING_BYTES, is_wild,
 };
 use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_problem};
 
@@ -31,8 +31,6 @@ pub const TEXT_BUDGET: usize = 1024 * 1024;
 /// The most a read's `text_max` raises its per-file cap to (so its budget is at most 16 MiB): the registry's ceiling,
 /// so the two cannot drift.
 pub const TEXT_MAX_CEILING: usize = TEXT_MAX_CEILING_BYTES as usize;
-/// The most entries (files and directories) one glob visits, matched or not.
-pub const MAX_VISITS: usize = 20_000;
 
 /// Where the files are read from.
 #[derive(Clone)]
@@ -180,13 +178,13 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GlobPaths {
     pub files: Vec<String>,
-    /// The walk stopped early: past [`MAX_VISITS`] entries, or past [`FILE_READ_MAX`] matches.
+    /// The walk stopped early: past [`GLOB_VISITS_MAX`] entries, or past [`FILE_READ_MAX`] matches.
     pub truncated: bool,
 }
 
 /// The project files under `source` that `glob` matches, by the one walk every glob read takes (ADR 0293 D4): a
 /// directory in [`SKIPPED`] is entered only when the glob names it, a directory reached through a link is not entered
-/// (nor a literal prefix that links out of the project), and the walk stops after [`MAX_VISITS`] entries. A file
+/// (nor a literal prefix that links out of the project), and the walk stops after [`GLOB_VISITS_MAX`] entries. A file
 /// collector's report glob reads through it too (ADR 0389).
 pub fn glob_paths(source: &FileSource<'_>, glob: &str) -> GlobPaths {
     let lookup = DiskLookup(source.disk);
@@ -258,7 +256,7 @@ fn walk(
     };
     for name in names {
         found.visits += 1;
-        if found.truncated || found.visits > MAX_VISITS {
+        if found.truncated || found.visits > GLOB_VISITS_MAX {
             found.truncated = true;
             return;
         }

@@ -306,8 +306,10 @@ fn a_truncated_accepted_read_is_one_warning() {
     let out = collect(&against(SNAPSHOT, read)).unwrap();
     assert!(changes(&out).iter().all(|c| *c == Some("unchanged")));
     assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+    // The guest cannot tell the walk's entry cap from the file cap: the warning names both.
     assert!(
-        out.warnings[0].contains("more files matched than were read"),
+        out.warnings[0].contains("stopped early: the host's walk reached its cap of 20000 entries")
+            && out.warnings[0].contains("or more than 2000 files matched"),
         "{:?}",
         out.warnings
     );

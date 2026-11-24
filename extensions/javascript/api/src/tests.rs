@@ -314,3 +314,16 @@ fn a_report_not_served_or_of_another_package_is_one_warning_and_no_change() {
         );
     }
 }
+
+#[specforge_test(requirement = "FEATURE-149")]
+fn a_truncated_read_names_the_walks_entry_cap_and_the_file_cap() {
+    let mut read = served("etc/widget.api.md", TAGGED);
+    read["truncated"] = json!(true);
+    let out = collect(&against(CHANGED, json!({ "accepted": read }))).unwrap();
+    assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+    assert_eq!(
+        out.warnings[0],
+        "the read 'accepted' (**/etc/*.api.md) stopped early: the host's walk reached its cap of 20000 entries, \
+         or more than 2000 files matched; no break was judged against a file not read"
+    );
+}

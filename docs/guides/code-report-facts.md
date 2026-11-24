@@ -137,7 +137,10 @@ upgrade can change every line.
 
 **Limits.** A required method added to a trait cannot be seen in the text. A Rust visibility narrowing reads as
 `removed`, because cargo public-api prints public items only. An attribute change (`#[non_exhaustive]`, `#[must_use]`)
-reads as `changed`.
+reads as `changed`. The globs walk the whole project but the skipped folders (`.git`, `node_modules`, `target`, …), and
+a walk stops after 20,000 entries (`GLOB_VISITS_MAX`) or 2,000 matches (`FILE_READ_MAX`): in a larger repository the
+accepted files past the cut are not read, no break is judged for their crates or packages, and the pack's W203 says the
+read stopped early, naming both caps.
 
 ## What a reader refuses
 

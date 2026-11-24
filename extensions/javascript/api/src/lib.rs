@@ -147,8 +147,8 @@ fn accepted(
         };
         if read.truncated {
             warnings.push(format!(
-                "the read '{name}' ({glob}): more files matched than were read ({FILE_READ_MAX}); no break was \
-                 judged against a file not read"
+                "the read '{name}' ({glob}) stopped early: the host's walk reached its cap of {GLOB_VISITS_MAX} \
+                 entries, or more than {FILE_READ_MAX} files matched; no break was judged against a file not read"
             ));
         }
         for file in &read.facts {

@@ -110,7 +110,9 @@ pub use prompt::{
     Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptOutput,
     PromptRole, PromptStep, ServedSlash,
 };
-pub use reads::{FILE_READ_MAX, FileFact, FileFacts, FileMap, FileRead, TEXT_MAX_CEILING_BYTES};
+pub use reads::{
+    FILE_READ_MAX, FileFact, FileFacts, FileMap, FileRead, GLOB_VISITS_MAX, TEXT_MAX_CEILING_BYTES,
+};
 pub use rooted::{PrefixProblem, Root, RootedPath};
 pub use route::{ROUTE_START, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor};
 pub use settings::{

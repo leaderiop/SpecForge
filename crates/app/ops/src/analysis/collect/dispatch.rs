@@ -5,10 +5,10 @@ use crate::view::ProjectView;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
 use specforge_effects::process::OUTPUT_CAP;
-use specforge_project::file_reads::{FileSource, MAX_VISITS, glob_paths};
+use specforge_project::file_reads::{FileSource, glob_paths};
 use specforge_protocol_types::Operation;
 use specforge_protocol_types::{
-    CollectInput, CollectOutput, CollectReportFile, FILE_READ_MAX, Fact, RawGraph,
+    CollectInput, CollectOutput, CollectReportFile, FILE_READ_MAX, Fact, GLOB_VISITS_MAX, RawGraph,
 };
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, PortCall};
 use std::path::{Path, PathBuf};
@@ -72,7 +72,7 @@ pub(super) fn read_glob(
             OpErrorKind::SchemaMismatch,
             codes::E045,
             format!(
-                "the report glob '{glob}' reaches past the walk's cap of {MAX_VISITS} entries or {FILE_READ_MAX} files; \
+                "the report glob '{glob}' reaches past the walk's cap of {GLOB_VISITS_MAX} entries or {FILE_READ_MAX} files; \
                  name a narrower glob"
             ),
         ));
