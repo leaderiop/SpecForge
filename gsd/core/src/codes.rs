@@ -697,7 +697,7 @@ pub static CODES: &[Code] = &[
     code(
         "E533",
         "Breaking API change without a major version bump",
-        "A milestone whose API facts show a changed, narrowed or removed item is not API-compatible with the last shipped milestone of its workstream scope (Cargo's rule: for 0.x the minor counts as major), and its name and that milestone's are versions",
+        "A milestone whose API facts show a changed, narrowed or removed item is closed while its version is API-compatible with the last shipped milestone of its workstream scope (Cargo's rule: for 0.x the minor counts as major), or while its name is not a version, so no major bump can be shown",
         "project-and-roadmap",
         Severity::Error,
         Severity::Error,
