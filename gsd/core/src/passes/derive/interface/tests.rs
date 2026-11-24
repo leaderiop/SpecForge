@@ -85,10 +85,11 @@ fn api_breaks_of_e533_caps_at_50_lines_then_one_more_line() {
 }
 
 #[test]
-fn api_breaks_of_e533_escapes_each_id() {
+fn api_breaks_of_e533_keeps_each_id_as_the_fact_holds_it() {
+    // Escaped once, by the guard that prints it (`gates/release/tests.rs`).
     let found = values(&input(vec![item("api:rust:a::f\nb`'", Some("changed"))]));
     assert_eq!(
         breaks(&found),
-        [("v1.8", json!(["changed api:rust:a::f\\nb`\\'"]))]
+        [("v1.8", json!(["changed api:rust:a::f\nb`'"]))]
     );
 }

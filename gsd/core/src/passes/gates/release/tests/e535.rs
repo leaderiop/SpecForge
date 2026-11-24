@@ -151,6 +151,26 @@ fn e535_escapes_what_it_echoes() {
     );
 }
 
+#[test]
+fn e535_escapes_a_name_and_version_derive_kept_raw_once() {
+    let derived = crate::passes::derive::release::values(&close(
+        "v1.8",
+        vec![
+            json!({ "id": "v1.8", "kind": "milestone" }),
+            json!({ "id": "pkg:cargo/a", "kind": "package",
+                    "fields": { "name": "a\u{1b}'b", "version": "1.\u{7}7" } }),
+        ],
+    ));
+    assert_eq!(derived.len(), 1);
+    let mut subject = json!({ "id": "v1.8", "kind": "milestone" });
+    subject["values"] = json!({ "release": derived[0].value });
+    let found = e535(&close("v1.8", vec![subject]));
+    assert_eq!(
+        messages(&found),
+        ["package 'a\\u{1b}\\'b' is at version '1.\\u{7}7', not at milestone 'v1.8''s version"]
+    );
+}
+
 /// A shipped milestone whose computed `release` copies the recorded tag `tag`, with `commit` when it resolves.
 fn tagged(id: &str, at: &str, tag: &str, commit: Option<&str>) -> Value {
     let mut milestone = shipped(id, at);

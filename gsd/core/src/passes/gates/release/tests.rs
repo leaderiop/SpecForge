@@ -303,4 +303,28 @@ fn e533_escapes_every_id_it_echoes() {
     );
 }
 
+#[test]
+fn e533_escapes_an_id_derive_kept_raw_once() {
+    let id = "api:rust:a::f\u{7}\n'";
+    let derived = crate::passes::derive::interface::values(&close(
+        "v1.8",
+        vec![
+            shipped("v1.7", "2026-02-01"),
+            json!({ "id": "v1.8", "kind": "milestone" }),
+            json!({ "id": id, "kind": "api_item", "fields": { "change": "removed" } }),
+        ],
+    ));
+    assert_eq!(derived.len(), 1);
+    let mut subject = json!({ "id": "v1.8", "kind": "milestone" });
+    subject["values"] = json!({ "api_breaks": derived[0].value });
+    let found = e533(&close("v1.8", vec![shipped("v1.7", "2026-02-01"), subject]));
+    assert_eq!(
+        found.iter().map(|d| d.message.as_str()).collect::<Vec<_>>(),
+        [
+            "API item 'api:rust:a::f\\u{7}\\n\\'' is removed without a major version bump: milestone 'v1.8' is \
+             compatible with the last shipped 'v1.7'"
+        ]
+    );
+}
+
 mod e535;

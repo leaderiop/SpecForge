@@ -1,14 +1,13 @@
 //! A milestone's `api_breaks` (ADR 0390 D4): a selection of the `@code/core` `api_item` facts, which the API packs
 //! classified against the committed accepted report. Each fact whose `change` is `changed`, `narrowed` or `removed`
-//! is one `<change> <id>` line, sorted by id, at most [`LINES`] then one `more <N>` line; `added`, `unchanged` and any
-//! later value never count. Written on each milestone neither shipped nor abandoned, and only when some fact carries
+//! is one `<change> <id>` line, the id as the fact holds it (the guard escapes what it prints), sorted by id, at most
+//! [`LINES`] then one `more <N>` line; `added`, `unchanged` and any later value never count. Written on each milestone neither shipped nor abandoned, and only when some fact carries
 //! a `change` at all: absent means never observed, empty means clean. It reflects the facts of the last collect;
 //! `gsd/E533` reads it at the close.
 
 use specforge_extension_sdk::prelude::*;
 
 use super::execute::value;
-use crate::passes::one_line;
 use crate::passes::plans::{of_kind, text};
 
 /// `@code/core`'s kind, named once as `thread.rs` names `test`.
@@ -38,7 +37,7 @@ pub fn values(input: &PassInput) -> Vec<PassValue> {
     let mut lines: Vec<String> = broken
         .iter()
         .take(LINES)
-        .map(|(id, c)| format!("{c} {}", one_line(id)))
+        .map(|(id, c)| format!("{c} {id}"))
         .collect();
     if more > 0 {
         lines.push(format!("more {more}"));

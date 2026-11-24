@@ -59,7 +59,7 @@ fn release_of_e535_is_absent_without_a_versioned_package() {
 }
 
 #[test]
-fn release_of_e535_caps_its_lines_and_escapes_them() {
+fn release_of_e535_caps_its_lines_and_keeps_them_raw() {
     let mut facts: Vec<Value> = (0..53)
         .map(|n| package(&format!("p{n:02}"), Some("0.1.0")))
         .collect();
@@ -73,7 +73,7 @@ fn release_of_e535_caps_its_lines_and_escapes_them() {
     assert_eq!(lines[0], "p00 0.1.0");
     assert_eq!(lines[50], "more 4");
     let found = release(&input(vec![package("z\u{1b}", Some("1.\u{7}0"))]), &[]);
-    assert_eq!(found[0].value["packages"], json!(["z\\u{1b} 1.\\u{7}0"]));
+    assert_eq!(found[0].value["packages"], json!(["z\u{1b} 1.\u{7}0"]));
 }
 
 #[test]
