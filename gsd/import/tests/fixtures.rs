@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 use gsd_import::table;
 use serde_json::{Value, json};
 use specforge_extension_sdk::PlanOp;
+use specforge_extension_sdk::prelude::CommandOutput;
 use specforge_extension_sdk::testing::MockHost;
 
 use common::{fixture, import_fixture, payload, planning_facts};
@@ -38,11 +39,19 @@ fn creates(
         .collect()
 }
 
+/// The creates of `kind`.
+fn of_kind(
+    creates: Vec<(String, String, String, String, Value)>,
+    kind: &str,
+) -> Vec<(String, String, String, String, Value)> {
+    creates.into_iter().filter(|(k, ..)| k == kind).collect()
+}
+
 #[test]
 fn taskboard_requirements_reach_one_plan() {
     let out = import_fixture("taskboard");
     assert_eq!(out.exit_code, 0, "{}", out.stderr);
-    let creates = creates(&out);
+    let creates = of_kind(creates(&out), "requirement");
     let ids: Vec<&str> = creates.iter().map(|(_, id, ..)| id.as_str()).collect();
     assert_eq!(
         ids,
@@ -81,7 +90,7 @@ fn taskboard_requirements_reach_one_plan() {
     );
     let report = payload(&out);
     assert_eq!(report["format"], 1);
-    assert_eq!(report["counts"], json!({"requirement": 8}));
+    assert_eq!(report["counts"]["requirement"], 8);
     let entries = report["entries"].as_array().expect("entries");
     assert!(
         entries
@@ -101,9 +110,9 @@ fn every_other_planning_file_has_one_entry() {
     let served: BTreeSet<String> = planning_facts(&fixture("taskboard"))
         .iter()
         .map(|f| f["path"].as_str().expect("a path").to_string())
-        .filter(|p| p != ".planning/REQUIREMENTS.md")
+        .filter(|p| p != ".planning/REQUIREMENTS.md" && p != ".planning/PROJECT.md")
         .collect();
-    assert_eq!(served.len(), 17);
+    assert_eq!(served.len(), 16);
     for path in &served {
         let of_file: Vec<&Value> = entries
             .iter()
@@ -164,7 +173,7 @@ fn a_security_file_needs_gsd_security_when_the_project_does_not_load_it() {
 #[test]
 fn ledger_and_vault_requirements_reach_their_plans() {
     let ids = |name: &str| -> Vec<String> {
-        creates(&import_fixture(name))
+        of_kind(creates(&import_fixture(name)), "requirement")
             .into_iter()
             .map(|(_, id, ..)| id)
             .collect()
@@ -176,6 +185,243 @@ fn ledger_and_vault_requirements_reach_their_plans() {
         ]
     );
     assert_eq!(ids("vault"), ["SEC-01", "SEC-02", "SHARE-01"]);
+}
+
+/// The fields of the create `kind id`, and its file.
+fn create_of(out: &CommandOutput, kind: &str, id: &str) -> (String, Value) {
+    creates(out)
+        .into_iter()
+        .find(|(k, i, ..)| k == kind && i == id)
+        .map(|(_, _, file, _, fields)| (file, fields))
+        .unwrap_or_else(|| panic!("{kind} {id} is created"))
+}
+
+#[test]
+fn taskboard_project_and_its_decisions_take_the_twins_values() {
+    let out = import_fixture("taskboard");
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let (file, project) = create_of(&out, "project", "taskboard");
+    assert_eq!(file, "spec/gsd/project.spec");
+    // `what` and `context` hold the whole section; the twin keeps the first sentence (ADR 0391 D13).
+    assert_eq!(
+        project,
+        json!({
+            "name": "Taskboard",
+            "what": "A small board for tracking tasks from the command line. A user adds a task with a title, marks it complete and lists what is left. It is a Node 20 script with no dependencies, built to prove the GSD model in SpecForge.",
+            "core_value": "A task is never lost.",
+            "context": "Built to prove the GSD model in SpecForge. Small enough that one person reads all of it.",
+            "constraints": [{"kind": "tech_stack", "what": "Node 20, no dependencies", "why": "it ships as one script"}],
+            "out_of_scope": [{"item": "Sharing a board by link", "why": "needs accounts, which v1 does not have"}],
+            "key_decisions": ["D-01", "D-02"],
+        })
+    );
+    // The twin: project.spec and discuss.spec.
+    let (file, d1) = create_of(&out, "decision", "D-01");
+    assert_eq!(file, "spec/gsd/project.spec");
+    assert_eq!(
+        d1,
+        json!({"text": "ES modules, no build step", "rationale": "`node src/cli.js` must just run", "outcome": "pending", "origin": "project"})
+    );
+    let (_, d2) = create_of(&out, "decision", "D-02");
+    assert_eq!(
+        d2,
+        json!({"text": "Tasks keep an integer id", "rationale": "Short to type: `taskboard done 3`", "outcome": "pending", "origin": "project"})
+    );
+    let entries = payload(&out)["entries"].clone();
+    let at = |line: u64| -> Vec<(String, String)> {
+        entries
+            .as_array()
+            .expect("entries")
+            .iter()
+            .filter(|e| e["file"] == ".planning/PROJECT.md" && e["line"] == line)
+            .map(|e| {
+                (
+                    e["section"].as_str().expect("a section").to_string(),
+                    e["outcome"].as_str().expect("an outcome").to_string(),
+                )
+            })
+            .collect()
+    };
+    assert_eq!(
+        at(12),
+        [("Requirements".to_string(), "redundant".to_string())]
+    );
+    assert_eq!(at(14), [("Validated".to_string(), "computed".to_string())]);
+    assert_eq!(at(16), [("Validated".to_string(), "ignored".to_string())]);
+    assert_eq!(at(18), [("Active".to_string(), "computed".to_string())]);
+    assert_eq!(
+        at(39),
+        [("Key Decisions".to_string(), "filled".to_string())]
+    );
+    assert_eq!(
+        at(45),
+        [("*Last updated:".to_string(), "computed".to_string())]
+    );
+}
+
+#[test]
+fn ledger_and_vault_projects_read_their_own_shapes() {
+    let ledger = import_fixture("ledger");
+    let (_, project) = create_of(&ledger, "project", "ledger");
+    // A constraint with no ` — ` has no `why`, as the twin writes it.
+    assert_eq!(
+        project["constraints"],
+        json!([{"kind": "tech_stack", "what": "Rust 2021, the standard library only"}])
+    );
+    assert_eq!(
+        project["out_of_scope"],
+        json!([{"item": "Currencies other than one", "why": "a ledger is one currency"}])
+    );
+    let vault = import_fixture("vault");
+    let (_, project) = create_of(&vault, "project", "vault");
+    assert_eq!(project["key_decisions"], json!(["D-01"]));
+    assert_eq!(project.get("out_of_scope"), None);
+    let (_, d1) = create_of(&vault, "decision", "D-01");
+    assert_eq!(d1["text"], "AES-256-GCM from `node:crypto`");
+}
+
+/// `import` of one served file on an empty graph.
+fn import_one(path: &str, text: &str) -> CommandOutput {
+    common::import(
+        &specforge_extension_sdk::prelude::CommandGraph::default(),
+        &common::feed(
+            vec![common::fact(path, text)],
+            false,
+            Some(&common::manifest(&["@gsd/core"])),
+        ),
+    )
+}
+
+/// `(line, outcome, reason)` of each entry of `out`.
+fn lines(out: &CommandOutput) -> Vec<(u64, String, String)> {
+    payload(out)["entries"]
+        .as_array()
+        .expect("entries")
+        .iter()
+        .filter_map(|e| {
+            Some((
+                e["line"].as_u64()?,
+                e["outcome"].as_str()?.to_string(),
+                e["reason"].as_str()?.to_string(),
+            ))
+        })
+        .collect()
+}
+
+#[test]
+fn a_project_reports_what_it_cannot_map() {
+    let text = "# Odd Project\n\n## What This Is\n\nA thing.\n\n## Core Value\n\nIt works.\n\n## Requirements\n\n### Out of Scope\n\n- Teleporting\n\n## Context\n\nNone.\n\n## Constraints\n\n- **Mood**: calm — it helps\n- No label at all\n\n## Key Decisions\n\n| Decision | Rationale | Outcome |\n|---|---|---|\n| Use X | because | Maybe |\n\n## Glossary\n\n### Terms\n";
+    let out = import_one(".planning/PROJECT.md", text);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let (_, project) = create_of(&out, "project", "odd-project");
+    assert_eq!(
+        project["constraints"],
+        json!([
+            {"kind": "other", "what": "Mood: calm", "why": "it helps"},
+            {"kind": "other", "what": "No label at all"}
+        ])
+    );
+    assert_eq!(project.get("out_of_scope"), None);
+    let (_, d1) = create_of(&out, "decision", "D-01");
+    assert_eq!(d1.get("outcome"), None);
+    let lines = lines(&out);
+    let has = |line: u64, outcome: &str, says: &str| {
+        assert!(
+            lines
+                .iter()
+                .any(|(l, o, r)| *l == line && o == outcome && r.contains(says)),
+            "{line} {outcome} {says}: {lines:#?}"
+        );
+    };
+    has(15, "unmapped", "needs a reason");
+    has(23, "filled", "keeps its words in `what`");
+    has(24, "filled", "keeps its words in `what`");
+    has(30, "unmapped", "none of Good, Revisit, Pending");
+    has(32, "unmapped", "no row of the PROJECT.md table");
+    // `### Terms` sits under the reported `## Glossary`: not reported twice.
+    assert!(!lines.iter().any(|(l, ..)| *l == 34), "{lines:#?}");
+    // A name the id grammar refuses refuses the project, not its decisions.
+    let out = import_one(
+        ".planning/PROJECT.md",
+        &text.replace("# Odd Project", "# 日本"),
+    );
+    assert!(creates(&out).iter().all(|(k, ..)| k != "project"));
+    assert!(creates(&out).iter().any(|(k, ..)| k == "decision"));
+    assert!(lines_of(&out, 1, "gives no id"));
+}
+
+fn lines_of(out: &CommandOutput, line: u64, says: &str) -> bool {
+    lines(out)
+        .iter()
+        .any(|(l, _, r)| *l == line && r.contains(says))
+}
+
+#[test]
+fn taskboard_state_maps_nothing_and_reports_each_section() {
+    let out = import_fixture("taskboard");
+    let entries = payload(&out)["entries"].clone();
+    let of_state: Vec<(Value, String, String)> = entries
+        .as_array()
+        .expect("entries")
+        .iter()
+        .filter(|e| e["file"] == ".planning/STATE.md")
+        .map(|e| {
+            (
+                e["line"].clone(),
+                e["section"].as_str().expect("a section").to_string(),
+                e["outcome"].as_str().expect("an outcome").to_string(),
+            )
+        })
+        .collect();
+    let want: Vec<(Value, String, String)> = [
+        (Value::Null, "", "runtime"),
+        (json!(1), "---", "computed"),
+        (json!(19), "Project State", "unmapped"),
+        (json!(21), "Project Reference", "unmapped"),
+        (json!(28), "Current Position", "computed"),
+        (json!(37), "Performance Metrics", "unmapped"),
+        (json!(44), "Accumulated Context", "unmapped"),
+        (json!(46), "Decisions", "unmapped"),
+        (json!(50), "Pending Todos", "unmapped"),
+        (json!(56), "Blockers/Concerns", "ignored"),
+        (json!(58), "Session Continuity", "runtime"),
+    ]
+    .into_iter()
+    .map(|(l, s, o)| (l, s.to_string(), o.to_string()))
+    .collect();
+    assert_eq!(of_state, want);
+}
+
+#[test]
+fn a_state_blocker_is_reported_and_a_broken_frontmatter_named() {
+    let state = "---\nstatus: [open\n---\n# State\n\n### Blockers/Concerns\n\n- The API key is not set\n- None yet.\n";
+    let out = import_one(".planning/STATE.md", state);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    assert!(
+        out.plan.as_ref().is_none_or(|p| p.ops.is_empty()),
+        "STATE.md writes nothing"
+    );
+    let entries = payload(&out)["entries"].clone();
+    let line = |n: u64| {
+        entries
+            .as_array()
+            .expect("entries")
+            .iter()
+            .find(|e| e["line"] == n)
+            .cloned()
+            .unwrap_or_else(|| panic!("an entry at {n}: {entries:#?}"))
+    };
+    assert_eq!(line(2)["outcome"], "unmapped");
+    assert!(
+        line(2)["reason"]
+            .as_str()
+            .is_some_and(|r| r.starts_with("frontmatter not read")),
+        "{}",
+        line(2)
+    );
+    assert_eq!(line(8)["outcome"], "unmapped");
+    assert_eq!(line(8)["reason"], table::LATER);
+    assert_eq!(line(9)["outcome"], "ignored");
 }
 
 /// Every key of a fixture's `config.json` as a dotted path to a leaf (an empty object is a leaf).

@@ -226,6 +226,8 @@ pub enum Home {
     Reported(&'static str),
     /// An empty placeholder or nothing to import.
     Ignored(&'static str),
+    /// A session's or gsd-tools' runtime state; the reason says whose.
+    Runtime(&'static str),
     /// A field with no `.planning` source, written with `value`, reported `filled` with `why`.
     Filled {
         kind: &'static str,
@@ -277,6 +279,7 @@ pub const SECTIONS: &[&[Row]] = &[
     sections::PROJECT,
     sections::REQUIREMENTS,
     sections::ROADMAP,
+    sections::STATE,
     sections::PLAN,
     sections::PLAN_SHARED,
     sections::SUMMARY,

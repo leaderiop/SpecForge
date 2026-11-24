@@ -67,7 +67,9 @@ fn every_home_is_declared() {
                     computed += 1;
                     (kind, field, &["computed"])
                 }
-                Home::Redundant(_) | Home::Reported(_) | Home::Ignored(_) => continue,
+                Home::Redundant(_) | Home::Reported(_) | Home::Ignored(_) | Home::Runtime(_) => {
+                    continue;
+                }
             };
             let at = format!("{} `{}`: {kind}.{field}", row.file, row.key);
             let writer = declared

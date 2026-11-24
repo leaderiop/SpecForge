@@ -64,11 +64,12 @@ fn a_section_has_one_home() {
             row.file,
             row.key
         );
+        // STATE.md maps nothing, but its reader reports it section by section.
         assert!(
-            FATES
-                .iter()
-                .any(|(name, fate)| *name == row.file && *fate == Fate::Maps),
-            "{}: rows of a file no reader maps",
+            FATES.iter().any(|(name, fate)| *name == row.file
+                && (*fate == Fate::Maps
+                    || (*name == "STATE.md" && matches!(fate, Fate::Runtime(_))))),
+            "{}: rows of a file no reader reads",
             row.file
         );
         assert_eq!(section(row.file, row.key), Some(row));

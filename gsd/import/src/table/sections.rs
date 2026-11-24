@@ -60,6 +60,7 @@ pub const PROJECT: &[Row] = &[
     row(P, "# Name", &[id("project"), title("project"), to("project", "name", Text)]),
     row(P, "## What This Is", &[to("project", "what", Text)]),
     row(P, "## Core Value", &[to("project", "core_value", Text)]),
+    row(P, "## Requirements", &[redundant("REQUIREMENTS.md gives the requirements; its ### Validated and ### Active lists are computed from them")]),
     row(P, "## Business Context", &[reported(LATER)]),
     row(P, "## Current Milestone", &[reported(LATER)]),
     row(P, "### Validated", &[computed("project", "validated")]),
@@ -135,6 +136,17 @@ pub const ROADMAP: &[Row] = &[
     row(RM, "**Mode**", &[reported(LATER)]),
     row(RM, "Plans:", &[title("plan")]),
     row(RM, "TBD (run /gsd-plan-phase", &[Home::Ignored(EMPTY)]),
+];
+
+const ST: &str = "STATE.md";
+/// STATE.md maps nothing (13-RESEARCH Part B): a section no row names is unmapped, "derived".
+#[rustfmt::skip]
+pub const STATE: &[Row] = &[
+    row(ST, "---", &[computed("milestone", "progress")]),
+    row(ST, "## Current Position", &[computed("phase", "status")]),
+    row(ST, "## Session Continuity", &[Home::Runtime("a session's state: a pause needs the host's clock and who paused, and the session is over once the project is imported")]),
+    row(ST, "### Blockers/Concerns", &[reported(LATER)]),
+    row(ST, "None yet.", &[Home::Ignored(EMPTY)]),
 ];
 
 /// A phase plan's and a quick plan's keys, tags and tasks: only where the id comes from differs.
