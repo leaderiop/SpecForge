@@ -158,7 +158,7 @@ pub struct Create {
     pub fields: Value,
 }
 
-/// Each create of `out`'s plan; its path is its scope reference (`summary`, `plan` or `phase`) and its id.
+/// Each create of `out`'s plan; its path is its scope reference (`summary`, `plan`, `research` or `phase`) and its id.
 pub fn creates(out: &CommandOutput) -> Vec<Create> {
     let plan = out.plan.as_ref().expect("import answers a plan");
     plan.ops
@@ -173,8 +173,10 @@ pub fn creates(out: &CommandOutput) -> Vec<Create> {
                 ..
             } => {
                 let fields = json!(fields);
-                let scope = ["summary", "plan", "phase"]
+                // A research's `summary` is its text, not a scope.
+                let scope = ["summary", "plan", "research", "phase"]
                     .iter()
+                    .filter(|k| !(kind == "research" && **k == "summary"))
                     .find_map(|k| fields[*k].as_str());
                 Create {
                     kind: kind.clone(),

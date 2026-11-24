@@ -121,9 +121,10 @@ fn every_other_planning_file_has_one_entry() {
                 && !p.ends_with("-SUMMARY.md")
                 && !p.ends_with("-CONTEXT.md")
                 && !p.ends_with("-DISCUSSION-LOG.md")
+                && !p.ends_with("-RESEARCH.md")
         })
         .collect();
-    assert_eq!(served.len(), 8);
+    assert_eq!(served.len(), 7);
     for path in &served {
         let of_file: Vec<&Value> = entries
             .iter()

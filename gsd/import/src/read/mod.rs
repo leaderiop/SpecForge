@@ -7,6 +7,7 @@ pub mod plan;
 pub mod project;
 pub mod quick;
 pub mod requirements;
+pub mod research;
 pub mod roadmap;
 pub mod state;
 pub mod summary;
@@ -55,15 +56,17 @@ fn relative(served: &Served) -> &str {
         .unwrap_or(&served.path)
 }
 
-/// Whether `served` is a summary, which is read after every plan (it takes its plan's title).
-fn is_summary(served: &&Served) -> bool {
-    relative(served).ends_with("-SUMMARY.md")
+/// Whether `served` is read after every other file: a summary takes its plan's title, a research names its phase
+/// context's decisions.
+fn is_late(served: &&Served) -> bool {
+    let rel = relative(served);
+    rel.ends_with("-SUMMARY.md") || rel.ends_with("-RESEARCH.md")
 }
 
 /// Reads every served file: `REQUIREMENTS.md` first (a phase keeps only the requirements it defines), then
-/// `ROADMAP.md` (later readers take its phases and plan titles), then the rest in the order served, the summaries last,
-/// then the Traceability check of `REQUIREMENTS.md` against the roadmap. The roadmap read is returned for the readers
-/// after it.
+/// `ROADMAP.md` (later readers take its phases and plan titles), then the rest in the order served, the summaries and
+/// researches last, then the Traceability check of `REQUIREMENTS.md` against the roadmap. The roadmap read is returned
+/// for the readers after it.
 pub fn all(
     planning: &[Served],
     manifest: &Manifest,
@@ -110,10 +113,7 @@ pub fn all(
             .iter()
             .filter(|s| !matches!(relative(s), "REQUIREMENTS.md" | "ROADMAP.md"))
     };
-    for served in rest()
-        .filter(|s| !is_summary(s))
-        .chain(rest().filter(is_summary))
-    {
+    for served in rest().filter(|s| !is_late(s)).chain(rest().filter(is_late)) {
         file(served, &cx, records, report);
     }
     if let (
@@ -156,6 +156,9 @@ pub fn file(served: &Served, cx: &Context<'_>, records: &mut Records, report: &m
         }
         ("NN-DISCUSSION-LOG.md", _, Some(text)) => {
             discussion::read(&served.path, relative(served), text, cx, records, report)
+        }
+        ("NN-RESEARCH.md", _, Some(text)) => {
+            research::read(&served.path, relative(served), text, cx, records, report)
         }
         ("STATE.md", _, Some(text)) => {
             report.push(whole(

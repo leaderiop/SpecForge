@@ -541,6 +541,7 @@ const RS: &str = "NN-RESEARCH.md";
 #[rustfmt::skip]
 pub const RESEARCH: &[Row] = &[
     row(RS, "file stem", &[id("research"), to("research", "phase", Ref)]),
+    row(RS, "# Phase N: Name - Research", &[title("research")]),
     row(RS, "**Researched:**", &[to("research", "researched", Text)]),
     row(RS, "**Domain:**", &[to("research", "domain", Text)]),
     row(RS, "**Confidence:**", &[to("research", "confidence", Word)]),
@@ -612,6 +613,7 @@ pub const RESEARCH: &[Row] = &[
         to("source", "checked", Text),
     ]),
     row(RS, "package legitimacy", &[reported(LATER)]),
+    row(RS, "footer", &[reported(PROSE)]),
 ];
 
 const VF: &str = "NN-VERIFICATION.md";
