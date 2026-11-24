@@ -18,7 +18,7 @@ use specforge_effects::fs::SKIPPED;
 use specforge_effects::{Root, Roots};
 
 use specforge_protocol_types::{
-    FILE_READ_MAX, FileFact, FileFacts, FileRead, GLOB_VISITS_MAX, TEXT_MAX_CEILING_BYTES, is_wild,
+    FILE_READ_MAX, FileFact, FileFacts, FileRead, GLOB_VISITS_MAX, is_wild,
 };
 use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_problem};
 
@@ -26,11 +26,9 @@ use crate::judged::file_digest;
 
 /// The most text of one file a read sends, unless it declares `text_max`.
 pub const TEXT_CAP: usize = 64 * 1024;
-/// The most text one read sends in all, unless four times its per-file cap is more.
+/// The most text one read sends in all, unless four times its per-file cap is more: at most 16 MiB, as a read whose
+/// `text_max` is over [`specforge_protocol_types::TEXT_MAX_CEILING_BYTES`] is never read (`read_problem`, W021).
 pub const TEXT_BUDGET: usize = 1024 * 1024;
-/// The most a read's `text_max` raises its per-file cap to (so its budget is at most 16 MiB): the registry's ceiling,
-/// so the two cannot drift.
-pub const TEXT_MAX_CEILING: usize = TEXT_MAX_CEILING_BYTES as usize;
 
 /// Where the files are read from.
 #[derive(Clone)]
@@ -114,12 +112,11 @@ pub fn read(
     files
 }
 
-/// The most text of one file `read` sends: `None` when it asks for no text.
+/// The most text of one file `read` sends: `None` when it asks for no text. `read` passed `read_problem`, the one
+/// check of `text_max` against the ceiling.
 fn text_cap(read: &FileRead) -> Option<usize> {
-    read.text.then(|| {
-        read.text_max
-            .map_or(TEXT_CAP, |max| (max as usize).min(TEXT_MAX_CEILING))
-    })
+    read.text
+        .then(|| read.text_max.map_or(TEXT_CAP, |max| max as usize))
 }
 
 fn field_facts(
