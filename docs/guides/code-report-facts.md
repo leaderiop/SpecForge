@@ -8,7 +8,7 @@ reads. `@code/core` declares the five report kinds and checks them
 | Report | Library | Kind | Scheme |
 |--------|---------|------|--------|
 | LCOV tracefile | `specforge-code-lcov` | `coverage` | `cov` |
-| `cargo public-api` text, api-extractor `.api.json` | `specforge-code-api` | `api_item` | `api` |
+| `cargo public-api` text, api-extractor `.api.json` and `.api.md` | `specforge-code-api` | `api_item` | `api` |
 | SARIF 2.1.0 log | `specforge-code-sarif` | `static_finding` | `sarif` |
 | CycloneDX JSON BOM | `specforge-code-cyclonedx` | `dependency` | `dep` |
 | `osv-scanner --format json` report | `specforge-code-osv` | `vulnerability` | `vuln` |
@@ -57,7 +57,8 @@ that item (edge `covers`); what no item of a file holds is `cov:@<file>`. The co
 doc model. No format is sniffed: a pack calls the reader of its own. One `api_item` per public entry,
 `api:rust:<crate>::<path>` (a trait-impl member `…::<Type as Trait>::m`) or `api:js:<package>::<name>[.<member>]`, cites
 the item with that path (edge `api_of`). The id holds no line, no order and no source file; `signature` is kept
-verbatim. The same id with another signature takes `~2`.
+verbatim. The same id with another signature takes `~2`. `read_js_report` reads an api-extractor API report
+(`.api.md`), the accepted side below.
 
 **SARIF.** `read` takes version `2.1.0` only. The rule is `ruleId`, else `rule.id`, else the driver rule its index
 names; the level is the result's, else `none` for a `kind` other than `fail`, else the rule's
@@ -84,6 +85,56 @@ a `requirements.txt` beside a `Cargo.lock` never hides the cargo findings.
 A report id's parts are percent-encoded (`%`, `/`, `#`, `:`, `~`, `@`, `?`, whitespace and control characters), so an
 id parses back to its parts and no report text forges a delimiter or a `~2` suffix. A Rust API path segment keeps a
 plain space (`<Type as Trait>`), and a JavaScript API name encodes its own `.` (`%2E`), which joins a member path.
+
+## The accepted API side
+
+An `api_item` says what the public API is now. The API packs also say how it moved since it was last accepted
+([ADR 0390](../adr/0390-a-milestone-computes-its-api-breaks-and-release-evidence-and-two-guards-read-them.md) D3). The
+accepted side is the report the project commits for review, each tool's own baseline:
+
+| Pack | Read | Glob | The committed file |
+|------|------|------|--------------------|
+| `@rust/api` | `accepted` | `**/public-api.txt` | cargo-public-api's snapshot (`tests/public-api.txt`, `tests/snapshots/public-api.txt`), written with the pack's own flags: `cargo public-api --color never -ss > public-api.txt` |
+| `@javascript/api` | `accepted` | `**/etc/*.api.md` | api-extractor's API report, `etc/<package>.api.md` |
+| `@javascript/api` | `reviews` | `common/reviews/api/*.api.md` | rush's API report folder |
+
+Never `**/*.api.md`: api-extractor's `temp/` holds the run's own copy of the report, which would hide every break. The
+`.alpha.api.md`, `.beta.api.md` and `.public.api.md` variants are not read either.
+
+The packs read the file as a declared file read, `Input::files(..)` with `FileReadSpec::text_up_to(4_194_304)`: the host
+refuses a file outside the project or reached through a link, and never sends a credential-looking file as text, as
+for any read. `text_up_to`
+raises a read's text ceiling from 64 KiB to at most 4 MiB, and its budget to the larger of 1 MiB and four times the
+ceiling (protocol 2.3.0). The file is not read as a report: a report is read only when the run wrote it, and a
+committed file is older than the run.
+
+**`change`.** Each `api_item` of a crate or package present on both sides carries `change`: `added`, `unchanged`,
+`changed`, `narrowed` or `removed`. A changed, narrowed or removed entry also carries `accepted_signature`,
+`accepted_tag` (when the accepted entry has one) and `accepted_visibility` (when it differs). The id does not change,
+and an entry gone from the code is a fact with `change` `removed`, which `code/W104` skips. A crate or package on one
+side only is not judged: its facts carry no `change`. Accepted `@internal` entries are skipped. The release tags rank
+Public, Beta, Alpha, Internal, and a member with no tag of its own inherits its container's, so narrowing a class
+narrows each member. Entries pair by base id, then by comparable signature, never by a `~2` suffix. `changed`,
+`narrowed` and `removed` are breaking, `added` is not: `@gsd/core` lists the breaking ones in `milestone.api_breaks`
+and `gsd/E533` refuses to close a milestone whose version does not allow them.
+
+**Outcomes.**
+
+- No accepted file: no fact carries `change`. Committing the report is the opt-in.
+- A file that does not parse (a merge-conflict marker, a broken fence), or two reports of one JavaScript package: the
+  collector's error naming it, and the collect stores nothing of the run.
+- A file the host did not serve (`too_large`, `budget`, `not_utf8`), or one naming no crate or package the run read:
+  one warning naming it, shown as W203, and no break judged against it.
+
+**Accepting a break.** The packs never write the accepted file: api-extractor's `apiReport` stays disabled in the pack's
+config. You accept a break by committing the updated report: `cargo public-api --color never -ss >
+tests/public-api.txt`, or `api-extractor run --local` with `apiReport` enabled in your own config (it copies
+`temp/<package>.api.md` to `etc/`). Then run `specforge collect`. Write the file with the tool version CI runs: a tool
+upgrade can change every line.
+
+**Limits.** A required method added to a trait cannot be seen in the text. A Rust visibility narrowing reads as
+`removed`, because cargo public-api prints public items only. An attribute change (`#[non_exhaustive]`, `#[must_use]`)
+reads as `changed`.
 
 ## What a reader refuses
 

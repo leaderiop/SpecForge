@@ -331,7 +331,7 @@ re-vendors the packs that link it.
 | `item` | `rust`, `js` | `package` (edge `in_package` to the `package`), `file`, `kind` (a list: `function`, `method`, `struct`, …), `visibility` (`public`, `crate`, `restricted`, `private`), `signature` (a digest), `doc`, `attrs`, `names` (edge `names`), `test_id` (edge `runs_as` to the `test` a test function is) |
 | `package` | `pkg` | `name`, `version`, `edition`, `rust_version`, `engines`, `features`, `targets`, `path`, `depends_on` (edge `uses_package` to each `package`) |
 | `coverage` | `cov` | `item` (edge `covers` to the `item` holding the lines), `file`, `functions_found`, `functions_hit`, `lines_found`, `lines_hit`, `branches_found`, `branches_hit` |
-| `api_item` | `api` | `item` (edge `api_of` to the `item`), `path`, `kind` (an item kind, or `variant`, `reexport`, `extern_crate`, `other`), `visibility`, `signature` (verbatim), `tag` (api-extractor's release tag) |
+| `api_item` | `api` | `item` (edge `api_of` to the `item`), `path`, `kind` (an item kind, or `variant`, `reexport`, `extern_crate`, `other`), `visibility`, `signature` (verbatim), `tag` (api-extractor's release tag), `change` (`added`, `unchanged`, `changed`, `narrowed`, `removed`; against the committed accepted report), `accepted_signature`, `accepted_tag`, `accepted_visibility` (the accepted entry's, on a changed, narrowed or removed one) |
 | `static_finding` | `sarif` | `tool`, `rule`, `level` (`error`, `warning`, `note`, `none`, `unknown`), `message`, `file`, `line`, `item` (edge `found_in` to the innermost `item`), `package` (edge `found_in_package` to the `package`, when no item holds it) |
 | `dependency` | `dep` | `package` (edge `dependency_of` to the project `package` the BOM describes), `purl`, `name`, `version`, `scope` (`required`, `optional`, `excluded`), `direct` |
 | `vulnerability` | `vuln` | `package` (edge `affects` to the project `package`), `osv_id`, `aliases`, `summary`, `purl`, `version`, `severity` (`critical`, `high`, `medium`, `low`, `unknown`) |
@@ -351,6 +351,13 @@ The ids:
 | a static finding | `sarif:<tool>/<rule>#<file>:<line>`, `#<file>` with no line, neither with no location; `~2`, `~3` on a repeat in document order |
 | a dependency | `dep:<package id>/<purl without qualifiers and subpath>`, `dep:<package id>/@<[group/]name[@version]>` with no purl |
 | a vulnerability | `vuln:<package id>/<OSV id>` |
+
+`@code/core` 1.4.0 added `change` and the three `accepted_*` fields to `api_item`
+([ADR 0390](adr/0390-a-milestone-computes-its-api-breaks-and-release-evidence-and-two-guards-read-them.md) D3). The API
+packs read the project's committed accepted report beside the run, never as a report: `@rust/api` cargo-public-api's
+`**/public-api.txt`, `@javascript/api` api-extractor's `**/etc/*.api.md` or rush's `common/reviews/api/*.api.md`, each
+file up to 4 MiB ([guide](guides/code-report-facts.md#the-accepted-api-side)). With no accepted file a fact carries no
+`change`; an entry gone from the code is a fact with `change` `removed`.
 
 An item id never holds `#` and a test id always does, so one scheme carries both; every id parses back to itself, and
 a symbol of rust-analyzer's or scip-typescript's SCIP index maps into exactly one. No kind is scoped: a reference

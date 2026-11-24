@@ -126,6 +126,23 @@ and `@gsd/core` is the GSD spec framework; all are written with the same SDK any
 The [extension inventory](extension-inventory.md) lists exactly what each declares; the
 [entity pages](entities/) document each builtin kind.
 
+A new check rarely needs a new kind. `@gsd/core` judges a release's breaking API changes and its release evidence with
+computed fields of its existing `milestone` kind and two guards at the milestone close, and declares no `interface` or
+`release` kind ([ADR 0390](adr/0390-a-milestone-computes-its-api-breaks-and-release-evidence-and-two-guards-read-them.md)):
+
+- `milestone.api_breaks` lists each `api_item` fact whose `change` is `changed`, `narrowed` or `removed`: the API
+  packs judge each entry against the project's committed API report ([guide](guides/code-report-facts.md)).
+  `gsd/E533` refuses to close a milestone with breaks unless its version is not API-compatible with the last shipped
+  one (Cargo's rule: for `0.x` a minor bump counts as major).
+- `milestone.release` holds the release tag `@gsd/core`'s own `gsd-git` collector found for a shipped milestone
+  (`refs/tags/v<version>`, the harness field `milestone.tag`) and the `package` facts whose `version` is not the
+  milestone's. `gsd/E535` refuses the close when the last shipped milestone has no tag, a package's version differs
+  (the names in `specforge.release_exempt` aside) or the version goes backwards.
+
+Both are gate codes of `/gsd-complete-milestone` and `specforge gsd close-milestone` only, switched by
+`specforge.interface_gate` and `specforge.release_gate` (off under `gsd-compat`, on under `gsd-strict` and `gsd-plus`).
+`specforge check` shows the computed fields; the refusal comes at the close.
+
 ## Any domain
 
 Because the core has no domain, the same mechanism fits very different work. These are examples of what an

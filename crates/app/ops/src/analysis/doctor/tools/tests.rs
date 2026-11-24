@@ -405,6 +405,50 @@ fn a_missing_program_is_one_info_finding_naming_its_collectors_and_codes() {
 }
 
 #[specforge_test(requirement = "FEATURE-021")]
+fn a_declaration_string_with_control_characters_is_printed_escaped() {
+    // A third-party declaration whose program sets the terminal's title and writes lines of its own, and whose
+    // install line clears the screen and adds a command on a line of its own (T-11-09).
+    let program = "tool\u{1b}]0;owned\u{7}\nline\r";
+    let install = "cargo install tool\u{1b}[2J\nrm -rf ~\r";
+    let report = diagnosed(
+        vec![
+            runner("@x/run", "run", &[program], &["coverage"], Some(install)),
+            judge(),
+        ],
+        &["Cargo.toml"],
+        &FakeProcess::new(),
+    );
+
+    let found = tools(&report);
+    assert_eq!(found.len(), 1, "{found:?}");
+    let About::Tools {
+        program: named,
+        collectors,
+        codes,
+    } = &found[0].about
+    else {
+        panic!("{:?}", found[0].about);
+    };
+    assert_eq!(named, "tool\\u{1b}]0;owned\\u{7}\\nline\\r");
+    let shown = [
+        named.as_str(),
+        &collectors.join(" "),
+        &codes.join(" "),
+        &found[0].check,
+        &found[0].remediation,
+    ]
+    .join(" ");
+    for raw in ['\u{1b}', '\u{7}', '\n', '\r'] {
+        assert!(!shown.contains(raw), "{raw:?} in {shown:?}");
+    }
+    // The install line is refused, not escaped: the finding names the program instead.
+    assert_eq!(
+        found[0].remediation,
+        format!("install `{named}` and put it on PATH")
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-021")]
 fn a_program_on_path_says_nothing() {
     let process = FakeProcess::new().on_path("cargo-llvm-cov", "/usr/bin/cargo-llvm-cov");
 
