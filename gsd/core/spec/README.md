@@ -150,9 +150,9 @@ task T1 "Issue a token on sign-in" {
 Nothing in it is computed: `wave`, `autonomous` and `status` are derived (`specforge query 03-02` shows them), and
 the plan's summary, written by the executor at the end, lands in the same file.
 
-## Route
+## Routes
 
-`@gsd/core` declares one route, `gsd/requirement-thread` (ADR 0331 D8, ADR 0352 D3, ADR 0371 D7): `specforge trace
+`@gsd/core` declares two routes. The first is `gsd/requirement-thread` (ADR 0331 D8, ADR 0352 D3, ADR 0371 D7): `specforge trace
 <requirement>` follows it and prints the requirement's thread on one line, or as a tree when a step has several
 matches. It reads GSD's own fields and collected data alone: no truth names a requirement for it, and no truth's
 `proof` is read.
@@ -185,6 +185,11 @@ TASK-01 (proven)
     → TR1 verified, fresh
   → deliverable D1 (test/tasks.test.js#a task is added with the next id)
 ```
+
+The second is `gsd/milestone-release` ([ADR 0390](../../../docs/adr/0390-a-milestone-computes-its-api-breaks-and-release-evidence-and-two-guards-read-them.md)
+D10): `specforge trace <milestone>` prints the milestone with the evidence gsd/E533 and gsd/E535 read, its computed
+`api_breaks` and `release` (`tag`, `commit`, `packages`) and the `tag` `gsd-git` recorded ([project.md](project.md#milestone)),
+then one `phase <id>` step for each of its phases (`<phase.milestone`; a route needs a step).
 
 ## Every GSD file maps to a kind
 
