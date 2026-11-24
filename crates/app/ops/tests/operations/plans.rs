@@ -8,6 +8,8 @@
 use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
+use specforge_extension_sdk::DeclaredCategory;
+use specforge_extension_sdk::prelude::{ContributionsBuilder, ExtensionMeta};
 use specforge_ops::authoring::apply::{PlanOutcome, Surface, execute};
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommands};
 use specforge_ops::view::ProjectView;
@@ -426,6 +428,73 @@ fn a_harness_value_is_set_only_by_its_extension_or_a_peer() {
     )
     .unwrap_err();
     assert_eq!(error.error.code, "harness_field");
+}
+
+/// A create of the UAT test `U9` in the new file `03-09.spec`, scoped as [`ONE`] is and holding the harness value
+/// `result` `pass`: the op `gsd import` answers for a recorded result (ADR 0391 D7, assumption A7).
+fn create_u9() -> Value {
+    json!([{"op": "create", "kind": "uat_test", "id": "U9", "title": "U9", "file": "03-09.spec",
+            "revision": "absent", "fields": {"phase": "03", "result": "pass"}}])
+}
+
+/// The create landed: the file holds the entity and the ledger its `result` line.
+fn holds_u9(p: &TestProject) {
+    let text = std::fs::read_to_string(p.root().join("03-09.spec")).unwrap();
+    assert!(
+        text.contains("uat_test U9") && text.contains("result"),
+        "{text}"
+    );
+    assert!(
+        ledger(p).contains(&line("v1.0/03/U9", "result", "\"pass\"")),
+        "{}",
+        ledger(p)
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-131")]
+fn a_peer_creates_an_entity_holding_a_harness_value() {
+    let p = project();
+    assert_eq!(refused(&p, UI, "ui", "mark", create_u9()), None);
+    holds_u9(&p);
+    let q = project();
+    let runtime = serving(&[(OTHER, "cmd__record", 0, create_u9())]);
+    let ran = run_command(&q, &compiled(&q, &runtime), &runtime, "other", "record");
+    assert_eq!(
+        ran.refusal.map(|(code, _)| code).as_deref(),
+        Some("harness_field")
+    );
+    assert!(ran.wrote.is_empty(), "{:?}", ran.wrote);
+}
+
+/// An extension that names [`CORE`] an optional peer, with one writing command `mark`.
+const OPTIONAL: &str = "@t/optional";
+
+fn optional() -> ContributionsBuilder {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(OPTIONAL, "1.0.0"));
+    c.optional_peer(CORE, "^1.0");
+    let mark = json!({"id": "mark", "title": "mark", "description": "mark", "export": "cmd__mark",
+                      "args": [], "writes": true});
+    c.raw_category(DeclaredCategory::Surfaces, json!([{"commands": [mark]}]));
+    c
+}
+
+#[specforge_test(requirement = "FEATURE-131")]
+fn an_optional_peer_creates_an_entity_holding_a_harness_value() {
+    let mut enabled = GSD_WRITES_EXTENSIONS.to_vec();
+    enabled.push(OPTIONAL);
+    let p = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&enabled)
+        .installing_enabled()
+        .file("m.spec", MILESTONE);
+    let runtime = Arc::new(GsdWrites::new().runtime().with(optional).answer_raw(
+        OPTIONAL,
+        "cmd__mark",
+        gsd_writes_answer(0, create_u9()),
+    ));
+    let ran = run_command(&p, &compiled(&p, &runtime), &runtime, "optional", "mark");
+    assert_eq!(ran.refusal, None);
+    holds_u9(&p);
 }
 
 #[specforge_test(requirement = "FEATURE-131")]
