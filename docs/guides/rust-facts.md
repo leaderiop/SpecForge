@@ -121,4 +121,4 @@ as `skipped` from its item, so a spec citing it is not `code/E101`.
 | `` `cargo-nextest` was not found on PATH `` | Install nextest: `cargo install cargo-nextest --locked`. |
 | `E045` rust-test produced no report at … | The build failed before nextest ran, or your own config's `specforge` profile wrote the report elsewhere. Run the command above yourself to see nextest's output. |
 | `<path>: the host did not serve it (<why>)` | The host withheld a `Cargo.toml` (too large, not UTF-8, unreadable). `rust-cargo` reads every manifest or none. |
-| `the read '…' matched more files than the host serves` | The project holds over 2,000 manifests or target files of one kind. |
+| `the read '…' stopped early` | The host's walk of the project reached its cap of 20,000 entries, or the project holds over 2,000 manifests or target files of one kind. |

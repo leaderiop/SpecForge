@@ -6,8 +6,9 @@
 //! and autodiscovery included, and each package becomes one `package` fact minted by `specforge-code-facts`:
 //! `pkg:cargo/<name>`, located at its `[package]` table, with its targets and the project packages it depends on.
 //!
-//! A manifest whose text the host withheld, one cargo's reader cannot read, and a read that matched more files than
-//! the host serves are the collector's error: a package is never dropped silently.
+//! A manifest whose text the host withheld, one cargo's reader cannot read, and a read that stopped early (the host's
+//! walk reached its entry cap, or more files matched than it serves) are the collector's error: a package is never
+//! dropped silently.
 
 use specforge_code_facts::Package;
 use specforge_extension_sdk::prelude::*;
@@ -57,16 +58,16 @@ impl Contributions for RustCargo {
     }
 }
 
-/// The paths and texts of the served read `name`'s files; the collector's error when the read matched more files than
-/// the host serves, as a package or a target would be missing.
+/// The paths and texts of the served read `name`'s files; the collector's error when the read stopped early (the
+/// host's walk reached its entry cap, or more files matched than it serves), as a package or a target would be missing.
 fn read(input: &CollectInput, name: &str) -> Result<Vec<(String, Option<String>)>, String> {
     let Some(read) = input.files.get(name) else {
         return Ok(Vec::new());
     };
     if read.truncated {
         return Err(format!(
-            "the read '{name}' matched more files than the host serves ({FILE_READ_MAX}): rust-cargo would miss \
-             packages or targets, so it reads none"
+            "the read '{name}' stopped early: the host's walk reached its cap of {GLOB_VISITS_MAX} entries, or more \
+             than {FILE_READ_MAX} files matched; rust-cargo would miss packages or targets, so it reads none"
         ));
     }
     read.facts

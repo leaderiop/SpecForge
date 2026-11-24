@@ -167,6 +167,12 @@ fn a_withheld_or_truncated_read_is_the_collectors_error() {
         .unwrap();
         let why = collect(&truncated).unwrap_err();
         assert!(why.contains(&format!("'{read}'")), "{why}");
+        // The guest cannot tell the walk's entry cap from the file cap: the error names both.
+        assert!(
+            why.contains("stopped early: the host's walk reached its cap of 20000 entries")
+                && why.contains("or more than 2000 files matched"),
+            "{why}"
+        );
     }
     let unreadable = collect(&input(&[("bad/Cargo.toml", "[package\n")], &[])).unwrap_err();
     assert!(unreadable.starts_with("bad/Cargo.toml: "), "{unreadable}");
