@@ -15,7 +15,21 @@ fn a_milestone_name_with_one_to_three_numeric_parts_is_a_version() {
 #[test]
 fn any_other_name_is_not_a_version() {
     for name in [
-        "mvp", "v1.7-rc1", "v1.2.3.4", "", "v", "v1..2", "vv1.7", "v1.7.", " v1.7", "v+1",
+        "mvp",
+        "v1.7-rc1",
+        "v1.2.3.4",
+        "",
+        "v",
+        "v1..2",
+        "vv1.7",
+        "v1.7.",
+        " v1.7",
+        "v+1",
+        // git revision syntax (`@{`, `:`), a control character and a non-ASCII digit (ARABIC-INDIC ONE)
+        "v1@{",
+        "v1:0",
+        "v1\u{7}",
+        "v\u{661}.0",
     ] {
         assert!(parse(name).is_none(), "{name:?}");
     }
