@@ -131,8 +131,10 @@ only at a gate, so `specforge check` shows the computed fields, and the refusal 
 
 ## D9. The twins
 
-Success criterion 5 is measured as the harness's `codes()` empty for the taskboard, ledger and vault twins under the
-three profiles, and no E533 or E535 at their close gate. A raw `specforge check` keeps owed judged warnings in every
+Success criterion 5 is measured as the harness's `codes()` empty for the taskboard and ledger twins under the three
+profiles, the vault twin's `codes()` equal to the set it carried before this decision (W019, gsd/W103, two
+gsd.security/E101 for the duplicate threat it exists to carry, W302 and W303 for its judged security verdicts), and no
+W407, E533 or E535 for any twin at its close gate. A raw `specforge check` keeps owed judged warnings in every
 profile, so it is not the measure. W407 is silenced by each twin's own setting `specforge.task_commits: false` (the
 twins record no commits), held in a committed `specforge.json` of the fixture that the test harness merges under a
 test's own settings. The ledger's crate is `0.1.0` under milestone `v1.0`; bumping the fixture or exempting it moves no
