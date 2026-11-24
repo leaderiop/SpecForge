@@ -1,0 +1,11 @@
+[package]
+name = "adder"
+version = "1.8.0"
+edition = "2021"
+description = "Adds and subtracts integers: the crate the release gates (gsd/E533, gsd/E535) are proved on"
+license = "MIT"
+
+[dependencies]
+
+# Its own workspace: the test project is no member of the repository's.
+[workspace]
