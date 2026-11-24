@@ -45,6 +45,10 @@ pub struct CommandDescriptor {
     /// Records what a person says: the host runs it only for a person at a terminal (protocol 1.12.0, ADR 0301).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub human: bool,
+    /// Imports what was recorded outside the spec: the host writes a third-party extension's error its plan adds, and
+    /// refuses a first-party one (protocol 2.3.0, ADR 0392).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub imports: bool,
     /// Local codes of the extension: the command is refused (`gate_failed`) while one fails in the `subject`'s scope
     /// (protocol 1.10.0, ADR 0291).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

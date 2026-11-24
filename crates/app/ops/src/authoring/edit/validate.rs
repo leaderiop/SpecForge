@@ -127,15 +127,43 @@ fn revealed(
     }
 }
 
+/// Which of the errors a plan adds are written rather than refused (E080): the plan records history, which an
+/// extension's rule cannot unmake.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Lands {
+    /// None: every error the plan adds refuses it (a typed edit; a command's or a hook's plan).
+    #[default]
+    Nothing,
+    /// Every extension's error, whatever its code: a collector's plan (ADR 0303).
+    Extensions,
+    /// A third-party extension's own error, its code namespaced (`gsd.security/E101`): an importing command's plan
+    /// (ADR 0392). A first-party code still refuses, the host's own or a `@specforge/*` builtin's, such as the E016 a
+    /// path's value check reports.
+    ThirdParty,
+}
+
+impl Lands {
+    /// Whether `d`, an error the plan adds, is written rather than refused.
+    pub(crate) fn lands(self, d: &Diagnostic) -> bool {
+        match self {
+            Lands::Nothing => false,
+            Lands::Extensions => d.origin().is_some(),
+            Lands::ThirdParty => {
+                d.origin().is_some() && CodeRef::parse(&d.code).namespace.is_some()
+            }
+        }
+    }
+}
+
 /// The diagnostics of `after` that `before` does not have, one by one: (errors, warnings and infos). A diagnostic
-/// `judged` names is never an error here, whatever its severity. `moved` relocates the subjects of `before`.
-/// `host_only`: an extension's diagnostic is never an error here either (ADR 0303).
+/// `judged` names is never an error here, whatever its severity. `moved` relocates the subjects of `before`. An error
+/// `lands` writes is not one either (ADR 0303, ADR 0392).
 pub(crate) fn added(
     before: &[Diagnostic],
     after: Vec<Diagnostic>,
     judged: impl Fn(&Diagnostic) -> bool,
     moved: &Moves,
-    host_only: bool,
+    lands: Lands,
 ) -> (Vec<Diagnostic>, Vec<Diagnostic>) {
     let mut had: HashMap<Key, usize> = HashMap::new();
     for d in before {
@@ -149,12 +177,7 @@ pub(crate) fn added(
         }
         match had.get_mut(&key(&d, &[])) {
             Some(n) if *n > 0 => *n -= 1,
-            _ if d.severity == Severity::Error
-                && !judged(&d)
-                && !(host_only && d.origin().is_some()) =>
-            {
-                errors.push(d)
-            }
+            _ if d.severity == Severity::Error && !judged(&d) && !lands.lands(&d) => errors.push(d),
             _ => rest.push(d),
         }
     }
@@ -167,14 +190,14 @@ pub(crate) fn refuse_new_errors(
     after: &CompiledProject,
     registries: &RegistryBuild,
     change: &PlannedChange,
-    host_only: bool,
+    lands: Lands,
 ) -> Result<(), Refusal<EditField>> {
     let (errors, _) = added(
         &before.judged_diagnostics(),
         after.diagnostics(),
         not_added(before, after, Some(change)),
         change.moved(),
-        host_only,
+        lands,
     );
     if errors.is_empty() {
         Ok(())
@@ -191,7 +214,7 @@ pub fn check(
     view: &ProjectView<'_>,
     change: &PlannedChange,
     declared: &Declared,
-    host_only: bool,
+    lands: Lands,
 ) -> Result<Vec<Diagnostic>, Refusal<EditField>> {
     let before = view.project().judged_diagnostics();
     let texts = change.after();
@@ -205,7 +228,7 @@ pub fn check(
         post.diagnostics(),
         not_added(view.project(), &post, Some(change)),
         change.moved(),
-        host_only,
+        lands,
     );
     if !errors.is_empty() {
         return Err(new_errors(errors, view.registries().codes()));
@@ -308,7 +331,7 @@ mod tests {
         let mut pending = Diagnostic::new(codes::W167, "an interrupted write is pending rollback");
         // A preset that raises W167 makes it an error of the edited project.
         pending.severity = Severity::Error;
-        let (errors, rest) = added(&[], vec![pending], |_| false, &[], false);
+        let (errors, rest) = added(&[], vec![pending], |_| false, &[], Lands::Nothing);
         assert!(errors.is_empty() && rest.is_empty());
     }
 
@@ -326,7 +349,7 @@ mod tests {
             vec![error("gsd/E501"), error("gsd/E999")],
             judged,
             &[],
-            false,
+            Lands::Nothing,
         );
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].code, "gsd/E999");
@@ -338,7 +361,7 @@ mod tests {
             vec![error("gsd/E501")],
             judged,
             &[],
-            false,
+            Lands::Nothing,
         );
         assert!(errors.is_empty() && rest.is_empty());
     }
@@ -372,7 +395,7 @@ mod tests {
             vec![finding("v1.0/01/01-01/TR2")],
             |_| false,
             &[],
-            false,
+            Lands::Nothing,
         );
         assert_eq!(errors.len(), 1);
     }
@@ -384,11 +407,16 @@ mod tests {
         let moves = [("v1.0/01".to_string(), "v1.0/02".to_string())];
         let after = vec![finding("v1.0/02/01-01/TR1")];
         assert!(
-            added(&before, after.clone(), |_| false, &moves, false)
+            added(&before, after.clone(), |_| false, &moves, Lands::Nothing)
                 .0
                 .is_empty()
         );
-        assert_eq!(added(&before, after, |_| false, &[], false).0.len(), 1);
+        assert_eq!(
+            added(&before, after, |_| false, &[], Lands::Nothing)
+                .0
+                .len(),
+            1
+        );
     }
 
     fn finding(entity: &str) -> Diagnostic {
@@ -404,13 +432,42 @@ mod tests {
     }
 
     #[specforge_test(requirement = "FEATURE-128")]
-    fn host_only_ignores_an_extensions_error_and_keeps_a_host_one() {
+    fn a_collectors_plan_lands_an_extensions_error_and_keeps_a_host_one() {
         let host = Diagnostic::untyped("E003", Severity::Error, "unresolved");
         let ext = finding("v1.0/01/01-01/TR1");
-        let (errors, _) = added(&[], vec![host, ext.clone()], |_| false, &[], true);
+        let (errors, _) = added(
+            &[],
+            vec![host, ext.clone()],
+            |_| false,
+            &[],
+            Lands::Extensions,
+        );
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].code, "E003");
-        assert_eq!(added(&[], vec![ext], |_| false, &[], false).0.len(), 1);
+        assert_eq!(
+            added(&[], vec![ext], |_| false, &[], Lands::Nothing)
+                .0
+                .len(),
+            1
+        );
+    }
+
+    #[specforge_test(requirement = "FEATURE-131")]
+    fn an_import_lands_a_third_party_error_and_keeps_a_first_party_one() {
+        let host = Diagnostic::untyped("E003", Severity::Error, "unresolved");
+        let path = Diagnostic::from_extension("@specforge/checks", "E016", Severity::Error, "gone");
+        let ext = finding("v1.0/01/01-01/TR1");
+        let (errors, _) = added(
+            &[],
+            vec![host, path.clone(), ext.clone()],
+            |_| false,
+            &[],
+            Lands::ThirdParty,
+        );
+        let codes: Vec<&str> = errors.iter().map(|d| d.code.as_str()).collect();
+        assert_eq!(codes, ["E003", "E016"]);
+        // A collector's plan lands the first-party extension's error too (ADR 0303).
+        assert!(Lands::Extensions.lands(&path) && !Lands::ThirdParty.lands(&path));
     }
 
     #[specforge_test(requirement = "FEATURE-131")]

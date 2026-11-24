@@ -189,3 +189,25 @@ fn human_sets_writes() {
     let plain = serde_json::to_value(&writer().declaration().surfaces.commands[0]).unwrap();
     assert!(plain.get("human").is_none());
 }
+
+#[specforge_test(requirement = "FEATURE-131")]
+fn imports_sets_writes() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/i", "1.0.0"));
+    b.command("import", |c| {
+        c.title("Import")
+            .description("Import what a legacy project recorded")
+            .imports()
+            .handler(|_| CommandOutput::ok("ok\n"));
+    });
+    let declaration = b.declaration();
+    let command = &declaration.surfaces.commands[0];
+    assert!(command.imports && command.writes && !command.human);
+    let wire = serde_json::to_value(command).unwrap();
+    assert_eq!(
+        (wire["imports"].clone(), wire["writes"].clone()),
+        (json!(true), json!(true))
+    );
+    // An ordinary command does not carry the key.
+    let plain = serde_json::to_value(&writer().declaration().surfaces.commands[0]).unwrap();
+    assert!(plain.get("imports").is_none());
+}

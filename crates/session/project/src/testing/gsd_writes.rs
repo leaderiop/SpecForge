@@ -3,7 +3,8 @@
 //! fails, not the fixture:
 //!
 //! - [`CORE`] (`@t/core`): the kinds of [`super::gsd_history_wire`] and `override` (human-only), `commit`; a writing
-//!   command `record`, a command `quiet` that declares no `writes`, a writing collector `git`
+//!   command `record`, a command `quiet` that declares no `writes`, a human command `attest`, an importing command
+//!   `import`, a writing collector `git`
 //! - [`UI`] (`@t/ui`, a peer of core): a writing collector `dom`, a writing command `mark`
 //! - [`OTHER`] (`@t/other`, no peer): a writing command `record`
 //!
@@ -191,6 +192,13 @@ fn attest() -> Value {
     attest
 }
 
+/// A command that imports what was recorded outside the spec (ADR 0392): its plan is judged for host errors only.
+fn import() -> Value {
+    let mut import = command("import", true);
+    import["imports"] = json!(true);
+    import
+}
+
 fn core(guard: bool) -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(CORE, "1.0.0"));
     c.raw_category(DeclaredCategory::Entities, gsd_writes_wire());
@@ -201,7 +209,7 @@ fn core(guard: bool) -> ContributionsBuilder {
     c.raw_category(DeclaredCategory::Passes, passes);
     c.raw_category(
         DeclaredCategory::Surfaces,
-        json!([{"commands": [command("record", true), command("quiet", false), attest()]}]),
+        json!([{"commands": [command("record", true), command("quiet", false), attest(), import()]}]),
     );
     c.raw_category(DeclaredCategory::Collectors, json!([collector("git")]));
     c

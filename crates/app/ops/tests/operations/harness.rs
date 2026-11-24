@@ -300,6 +300,7 @@ fn a_typed_edit_of_a_context_field_is_refused_context_field() {
         Origin::mcp(),
         Origin::Command {
             extension: specforge_project::testing::GSD_JUDGED.to_string(),
+            imports: false,
         },
     ];
     for origin in &origins {

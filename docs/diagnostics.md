@@ -1134,7 +1134,10 @@ is written; an edit that creates neither, one that also sets, unsets, links,
 unlinks, deletes or moves at or under that entity, and a migration still count
 it (ADR 0385). A writing collector's plan is compared with the project as its
 collect left it, and is refused for host errors only: an extension's error
-refuses no collected fact (ADR 0303).
+refuses no collected fact (ADR 0303). The plan of a command that declares
+`imports` is refused for a first-party code only (the host's or a `@specforge/*`
+builtin's, E016 included): a third-party extension's error the imported records
+carry is written, and `check` reports it (ADR 0392).
 
 Owner: core
 Level: error

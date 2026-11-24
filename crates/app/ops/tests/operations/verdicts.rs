@@ -208,6 +208,7 @@ pub(crate) fn gsd_in(
     let plan: EditPlan = serde_json::from_value(json!({"ops": ops})).unwrap();
     let origin = Origin::Command {
         extension: GSD_JUDGED.to_string(),
+        imports: false,
     };
     match apply_plan_with(
         &view,

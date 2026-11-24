@@ -24,6 +24,7 @@ pub use skeleton::{Skeleton, Skeletons, Slot, SlotOf};
 use specforge_project::harness::compose;
 pub use steps::{Step, plan, plan_steps};
 pub use typed::takes_json;
+pub use validate::Lands;
 
 use crate::authoring::format::{Configs, Place};
 use crate::authoring::planned::PlannedChange;

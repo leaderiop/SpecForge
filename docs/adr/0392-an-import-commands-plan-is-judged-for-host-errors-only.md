@@ -29,25 +29,29 @@ protocol version change: one key added to the current minor, 2.3.0.
   also declares `writes`): it imports what was recorded outside the spec. A command that declares `imports` and not
   `writes` is W021 and dropped, as a `human` one is. `@gsd/import`'s `import` declares it.
 - **Its plan is judged for host errors only.** The host applies the plan with
-  `Origin::Command { extension, imports: true }`, and `apply_plan` judges it as it judges a collector's (ADR 0303):
-  E080 ignores every diagnostic whose origin is an extension's, whatever its code or extension, in the plan's check and
-  in the re-judgement under the write lock (`host_only`, threaded through `plan_steps`, `validate::check` and
-  `refuse_new_errors`).
-- **What still refuses.** Every host error the plan adds: a path field naming no file (E016), an unresolved reference
-  (E003), an id the grammar refuses, two entities with one id, a file the parser refuses. And everything checked before
-  E080, unchanged: a malformed plan, the field flags (computed, context, human, a harness field of an extension that is
-  not the command's or a peer's), a verdict from any extension but the rule's own (ADR 0391 D5), a stale revision, a
-  collected entity.
-- **What lands.** An extension's rule error the imported records carry is written. `specforge check` reports it beside
-  the owed verdicts and exits 1, and the user fixes it in `spec/gsd/` with SpecForge's own tools.
+  `Origin::Command { extension, imports: true }`, and E080 writes, rather than refuses, an error that a third-party
+  extension reported in its own namespace (`gsd.security/E101`, `gsd/E312`), in the plan's check and in the
+  re-judgement under the write lock. `validate::Lands`, threaded through `plan_steps`, `validate::check` and
+  `refuse_new_errors` in place of ADR 0303's `host_only` flag, names the three cases: `Nothing` (a typed edit, a
+  command's or a hook's plan), `Extensions` (a collector's plan, ADR 0303, unchanged: any extension's error, whatever
+  its code) and `ThirdParty` (an importing command's plan).
+- **What still refuses.** Every error whose code is first party, the host's own or a `@specforge/*` builtin's, which
+  the host's catalog describes (ADR 0286): a path field naming no file (E016, which `@specforge/checks` reports for a
+  path value check, so its origin is an extension's), an unresolved reference (E003), an id the grammar refuses, two
+  entities with one id, a file the parser refuses. And everything checked before E080, unchanged: a malformed plan,
+  the field flags (computed, context, human, a harness field of an extension that is not the command's or a peer's), a
+  verdict from any extension but the rule's own (ADR 0391 D5), a stale revision, a collected entity.
+- **What lands.** A third-party extension's rule error the imported records carry is written. `specforge check`
+  reports it beside the owed verdicts and exits 1, and the user fixes it in `spec/gsd/` with SpecForge's own tools.
 - **Who may declare it.** Any extension. The declaration is in the extension's contributions, so its declaration
   golden shows it, and a review of the extension sees it once rather than per call.
 
 ## Amends ADR 0391
 
 - **D9.** "What the guest cannot see is the host's" now reads: the host refuses a plan that adds any unjudged *host*
-  error. An extension's rule error lands (this ADR). The guest still mirrors the host's own refusals (D9 "Mirror the
-  host") and the E016 paragraph stands: a path that no longer exists refuses the whole import.
+  error, a first-party code (E016 included). A third-party extension's rule error lands (this ADR). The guest still
+  mirrors the host's own refusals (D9 "Mirror the host") and the E016 paragraph stands: a path that no longer exists
+  refuses the whole import.
 - **D13, Check.** `specforge check` on an imported fixture exits 1. Its codes are the owed judged codes (D5) and the
   rule errors the fixture's `.planning/` carries: none for taskboard and ledger, the vault's two `gsd.security/E101`.
 
@@ -63,6 +67,9 @@ protocol version change: one key added to the current minor, 2.3.0.
 - **A flag on the edit plan.** A command could then opt out per call; the declaration is fixed and reviewable.
 - **A new `Origin::Import`.** Every place that reads a command's origin (a peer's harness write, a verdict's origin)
   would have to name both; an import is still a command.
+- **An import judged exactly as a collector's, any extension's error landing.** `@specforge/checks` reports a path
+  that names no file (E016) as an extension's finding, so a stale path would land, which ADR 0391 D9 refuses: the user
+  corrects that path in `.planning/`. A collector keeps ADR 0303's rule; its facts name files it just read.
 - **Every command judged host-only.** A command that authors (a new plan, a quick task) must stay held by the
   project's rules (ADR 0297).
 

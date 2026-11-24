@@ -212,6 +212,11 @@ impl ExtensionCommand {
         self.declaration.human
     }
 
+    /// Whether it imports what was recorded outside the spec: its plan is judged for host errors only (ADR 0392).
+    pub fn imports(&self) -> bool {
+        self.declaration.imports
+    }
+
     /// The declaring extension's short name, which routes its commands.
     pub fn short(&self) -> &str {
         &self.short

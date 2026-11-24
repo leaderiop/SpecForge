@@ -23,7 +23,7 @@ pub use collector::apply_collected;
 pub use command::{CommandRun, PlanOutcome, execute, execute_with};
 pub use judged::HostJudgedRules;
 
-use crate::authoring::edit::{EditField, Edited, Step, plan_steps};
+use crate::authoring::edit::{EditField, Edited, Lands, Step, plan_steps};
 use crate::authoring::planned::PlannedChange;
 use crate::view::ProjectView;
 use crate::{Caller, OpError, OpErrorKind, Refusal, Writes, Wrote};
@@ -95,8 +95,9 @@ pub enum Surface {
 /// Who asked for a write.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Origin {
-    /// A command of `extension` answered the plan.
-    Command { extension: String },
+    /// A command of `extension` answered the plan. `imports`: the command declares it imports what was recorded
+    /// outside the spec, so its plan is judged for host errors only (ADR 0392).
+    Command { extension: String, imports: bool },
     /// A collector of `extension` answered the plan.
     Collector { extension: String },
     /// A hook of `extension` answered the plan.
@@ -176,8 +177,13 @@ pub fn apply_plan_with(
         steps.insert(at + inserted, step);
     }
     revision::against_compile(view.project(), &lowered.files)?;
-    let host_only = matches!(origin, Origin::Collector { .. });
-    let planned = plan_steps(view, &steps, host_only)?;
+    // History an extension's rule cannot unmake: a collected fact (ADR 0303) and an import (ADR 0392).
+    let lands = match origin {
+        Origin::Collector { .. } => Lands::Extensions,
+        Origin::Command { imports: true, .. } => Lands::ThirdParty,
+        _ => Lands::Nothing,
+    };
+    let planned = plan_steps(view, &steps, lands)?;
     let report = planned.report().clone();
     let wrote = Wrote::unless_preview(dry_run, || {
         let change = planned.change().clone().serialized();
@@ -194,7 +200,7 @@ pub fn apply_plan_with(
         change.apply_checked(caller, || {
             revision::against_disk(&sources, caller, &files)?;
             verdict::against_disk(project, &verdicts)?;
-            rejudge(project, &change, &files, host_only)
+            rejudge(project, &change, &files, lands)
         })
     })?;
     Ok(Edited { report, wrote })
@@ -344,7 +350,7 @@ fn rejudge(
     project: &CompiledProject,
     change: &PlannedChange,
     files: &std::collections::BTreeMap<String, String>,
-    host_only: bool,
+    lands: Lands,
 ) -> Result<(), OpError> {
     let own: BTreeSet<String> = files.keys().cloned().collect();
     if !project.sources_moved(&own) {
@@ -360,7 +366,7 @@ fn rejudge(
         &after,
         project.environment().registries(),
         change,
-        host_only,
+        lands,
     )
     .map_err(|refusal| refusal.error)
 }

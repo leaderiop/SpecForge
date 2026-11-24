@@ -777,7 +777,7 @@ fn refuse(
 /// Whether `origin` may set a harness value of a field `declaring` declares: a command, collector or hook of that
 /// extension, or of one whose handshake names it a peer dependency.
 pub(crate) fn may_write_harness(view: &ProjectView<'_>, origin: &Origin, declaring: &str) -> bool {
-    let (Origin::Command { extension }
+    let (Origin::Command { extension, .. }
     | Origin::Collector { extension }
     | Origin::Hook { extension }) = origin
     else {

@@ -412,6 +412,14 @@ impl CommandBuilder {
         self.writes()
     }
 
+    /// The command imports what was recorded outside the spec (a legacy project's history), so the host judges its
+    /// plan for host errors only: a third-party extension's rule error lands and `check` reports it, a first-party
+    /// code (E016) still refuses (ADR 0392). It `writes`.
+    pub fn imports(&mut self) -> &mut Self {
+        self.descriptor.imports = true;
+        self.writes()
+    }
+
     /// The command answers an edit plan ([`CommandOutput::with_plan`]) the host applies (ADR 0289). It receives
     /// the `revisions` of the project's sources, and the host gives it `--dry-run`, so no arg may take that name.
     pub fn writes(&mut self) -> &mut Self {

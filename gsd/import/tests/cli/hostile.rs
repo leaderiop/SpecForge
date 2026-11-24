@@ -256,12 +256,10 @@ fn a_stale_path_is_refused_by_the_host() {
     refused(&p, &["E080", "src/gone.js"]);
 }
 
-/// Blocked (13-09): the vault's `.planning/` claims threat ID T-01-02 in plans 01-01 and 01-02 (the real
-/// `gsd.security/E101` duplicate its twin keeps by design), so the host refuses the import with E080 and writes
-/// nothing. Whether the guest drops a claimant, refuses naming the ID, or the host's refusal stands is ADR 0391's to
-/// say (D9, D13); run with `--run-ignored all` once it does.
+/// The vault's `.planning/` claims threat ID T-01-02 in plans 01-01 and 01-02 (the `gsd.security/E101` duplicate its
+/// twin keeps by design). An import is judged for host errors only (ADR 0392), so both claims land and `check`
+/// reports the two E101.
 #[test]
-#[ignore = "blocked: the vault's duplicate threat ID T-01-02 (gsd.security/E101) is refused by the host (E080)"]
 fn the_vault_imports_in_time() {
     let p = imported(vault()).with_extension("@gsd/security", "GSD_SECURITY_WASM");
     let start = std::time::Instant::now();
@@ -270,4 +268,10 @@ fn the_vault_imports_in_time() {
     eprintln!("the vault with @gsd/security imported in {elapsed:?}");
     assert_eq!(run.code, 0, "{}", run.all());
     assert!(elapsed < std::time::Duration::from_secs(30), "{elapsed:?}");
+    let e101 = p
+        .codes()
+        .into_iter()
+        .filter(|code| code == "gsd.security/E101")
+        .count();
+    assert_eq!(e101, 2);
 }

@@ -20,7 +20,8 @@ pub const MANIFEST: &str = "manifest";
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("import", |cmd| {
         cmd.description("Import a GSD project once: read the project root's .planning/ folder into one edit plan that writes spec/gsd/, and report every file, section and row it did not map, with the reason")
-            .writes()
+            // History, not authoring: a rule error the `.planning/` carries lands and `check` reports it (ADR 0392).
+            .imports()
             .input(Input::files(
                 PLANNING,
                 FileReadSpec::glob(".planning/**").text_up_to(TEXT_MAX_CEILING_BYTES),

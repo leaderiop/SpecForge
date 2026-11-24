@@ -59,6 +59,7 @@ mod held_spelling;
 mod hooks;
 mod host_support;
 mod human;
+mod imports;
 mod infer;
 mod infer_guide;
 mod infer_sources;
