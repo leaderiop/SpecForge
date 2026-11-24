@@ -1,0 +1,10 @@
+{
+  "name": "vault",
+  "version": "1.0.0",
+  "spec_root": "spec",
+  "settings": {
+    "@gsd/core": {
+      "specforge.task_commits": false
+    }
+  }
+}

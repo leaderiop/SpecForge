@@ -1,0 +1,11 @@
+{
+  "name": "ledger",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "settings": {
+    "@gsd/core": {
+      "specforge.task_commits": false,
+      "specforge.release_exempt": ["ledger"]
+    }
+  }
+}
