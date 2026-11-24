@@ -228,6 +228,26 @@ fn an_unreadable_accepted_file_is_the_collectors_error_naming_it() {
 }
 
 #[specforge_test(requirement = "FEATURE-150")]
+fn two_accepted_files_of_the_crate_are_the_collectors_error_naming_both() {
+    let read = json!({"facts": [
+        served("tests/public-api.txt", SNAPSHOT),
+        served("tests/snapshots/public-api.txt", SNAPSHOT),
+    ]});
+    let why = collect(&against(SNAPSHOT, read)).unwrap_err();
+    assert_eq!(
+        why,
+        "tests/public-api.txt and tests/snapshots/public-api.txt: two accepted API files of the crate; keep one"
+    );
+    // Two files of two crates are no conflict: each judges its own.
+    let read = json!({"facts": [
+        served("tests/public-api.txt", SNAPSHOT),
+        served("other/tests/public-api.txt", "pub mod other_api\npub fn other_api::f()\n"),
+    ]});
+    let out = collect(&against(SNAPSHOT, read)).unwrap();
+    assert!(changes(&out).iter().all(|c| *c == Some("unchanged")));
+}
+
+#[specforge_test(requirement = "FEATURE-150")]
 fn an_accepted_file_not_served_or_of_another_crate_is_one_warning_and_no_change() {
     let unserved = json!({"path": "tests/public-api.txt", "exists": true, "bytes": 5_000_000, "error": "too_large"});
     let foreign = served(

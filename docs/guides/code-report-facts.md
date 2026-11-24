@@ -121,8 +121,9 @@ and `gsd/E533` refuses to close a milestone whose version does not allow them.
 **Outcomes.**
 
 - No accepted file: no fact carries `change`. Committing the report is the opt-in.
-- A file that does not parse (a merge-conflict marker, a broken fence), or two reports of one JavaScript package: the
-  collector's error naming it, and the collect stores nothing of the run.
+- A file that does not parse (a merge-conflict marker, a broken fence), or two accepted files of one crate or package
+  (an old `tests/public-api.txt` kept beside `tests/snapshots/public-api.txt`): the collector's error naming them, and
+  the collect stores nothing of the run.
 - A file the host did not serve (`too_large`, `budget`, `not_utf8`), or one naming no crate or package the run read:
   one warning naming it, shown as W203, and no break judged against it.
 

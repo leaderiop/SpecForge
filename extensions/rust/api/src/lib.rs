@@ -26,14 +26,15 @@
 //! builder omitting blanket and auto-trait impls the same way), or every impl the run omits reads as removed. Only a
 //! crate on both sides is judged: each item's `api_item` then carries `change` (`added`, `unchanged`, `changed`,
 //! `narrowed`, `removed`) against it; without an accepted file the facts carry none. Accepting a break is committing
-//! the updated file. A file that does not parse is the collector's error naming it; a file the host did not serve
+//! the updated file. A file that does not parse, or two files naming one crate (the old `tests/public-api.txt` kept
+//! beside `tests/snapshots/public-api.txt`), is the collector's error naming them; a file the host did not serve
 //! (over 4 MiB, not UTF-8) or naming no crate the run read is one warning naming it, which the host shows as W203.
 //! Limits: cargo public-api prints public items only, so a narrowing (`pub` to `pub(crate)`) reads as removed; the
 //! line holds the attributes, so adding any attribute (`#[must_use]` as `#[non_exhaustive]`) reads as changed; the
 //! tool's ordering and format are not stable, so a tool upgrade can change every line: regenerate the file with the
 //! version that runs.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_code_api::read_rust_text;
 use specforge_code_facts::{api_facts, api_facts_against, ApiEntry};
@@ -126,7 +127,8 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
 }
 
 /// The entries of the served accepted files that name a crate of `entries`; a warning for each file not served or
-/// naming none, and for a read that matched more files than were served.
+/// naming none, and for a read that matched more files than were served. Two files naming one crate are the
+/// collector's error: the accepted side of a crate is one file.
 fn accepted(
     input: &CollectInput,
     entries: &[ApiEntry],
@@ -135,6 +137,8 @@ fn accepted(
     let Some(read) = input.files.get(ACCEPTED) else {
         return Ok(Vec::new());
     };
+    // The file each crate's accepted entries came from.
+    let mut first: BTreeMap<String, &str> = BTreeMap::new();
     if read.truncated {
         warnings.push(format!(
             "the read '{ACCEPTED}' (**/public-api.txt): more files matched than were read ({FILE_READ_MAX}); no \
@@ -159,6 +163,15 @@ fn accepted(
                 "{}: names no crate this run read; no break was judged for it",
                 file.path
             ));
+        }
+        for entry in &read {
+            let named = *first.entry(entry.container.clone()).or_insert(&file.path);
+            if named != file.path {
+                return Err(format!(
+                    "{named} and {}: two accepted API files of the crate; keep one",
+                    file.path
+                ));
+            }
         }
         accepted.extend(read);
     }
