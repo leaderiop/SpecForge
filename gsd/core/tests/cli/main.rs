@@ -134,6 +134,7 @@ mod quick_context;
 mod re_verify;
 mod reference;
 mod rejudge_scope;
+mod release_gate;
 mod render_prompts;
 mod rendered_lines;
 mod roadmap;
