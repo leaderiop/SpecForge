@@ -276,6 +276,13 @@ macro_rules! plan_rows {
             ),
             row(
                 $file,
+                concat!($prefix, "<behavior>"),
+                &[reported(
+                    "a TDD task's expected behaviours: no field holds them, its truths and tests do",
+                )],
+            ),
+            row(
+                $file,
                 concat!($prefix, "<verification>"),
                 &[to("plan", "verification", List)],
             ),

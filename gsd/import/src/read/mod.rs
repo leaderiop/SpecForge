@@ -1,10 +1,12 @@
 //! The readers: each served `.planning/` file goes to the reader of its format, or to one report entry with the fate
 //! the table gives it ([`crate::table`]).
 
+pub mod plan;
 pub mod project;
 pub mod requirements;
 pub mod roadmap;
 pub mod state;
+pub mod tasks;
 
 use std::ops::Range;
 
@@ -25,6 +27,16 @@ pub struct Served {
     pub error: Option<String>,
 }
 
+/// What a reader knows beyond its own file.
+#[derive(Debug, Clone, Copy)]
+pub struct Context<'a> {
+    pub manifest: &'a Manifest,
+    /// The roadmap's phases and plan titles (empty while `ROADMAP.md` itself is read).
+    pub roadmap: &'a roadmap::Roadmap,
+    /// Every served path, relative to `.planning/`.
+    pub served: &'a [&'a str],
+}
+
 /// The path of `served` relative to `.planning/`.
 fn relative(served: &Served) -> &str {
     served
@@ -33,9 +45,15 @@ fn relative(served: &Served) -> &str {
         .unwrap_or(&served.path)
 }
 
+/// Whether `served` is a summary, which is read after every plan (it takes its plan's title).
+fn is_summary(served: &&Served) -> bool {
+    relative(served).ends_with("-SUMMARY.md")
+}
+
 /// Reads every served file: `REQUIREMENTS.md` first (a phase keeps only the requirements it defines), then
-/// `ROADMAP.md` (later readers take its phases and plan titles), then the rest in the order served, then the
-/// Traceability check of `REQUIREMENTS.md` against the roadmap. The roadmap read is returned for the readers after it.
+/// `ROADMAP.md` (later readers take its phases and plan titles), then the rest in the order served, the summaries last,
+/// then the Traceability check of `REQUIREMENTS.md` against the roadmap. The roadmap read is returned for the readers
+/// after it.
 pub fn all(
     planning: &[Served],
     manifest: &Manifest,
@@ -44,8 +62,15 @@ pub fn all(
 ) -> roadmap::Roadmap {
     let find = |name: &str| planning.iter().find(|s| relative(s) == name);
     let (requirements, road) = (find("REQUIREMENTS.md"), find("ROADMAP.md"));
+    let served: Vec<&str> = planning.iter().map(relative).collect();
+    let empty = roadmap::Roadmap::default();
+    let early = Context {
+        manifest,
+        roadmap: &empty,
+        served: &served,
+    };
     if let Some(served) = requirements {
-        file(served, manifest, records, report);
+        file(served, &early, records, report);
     }
     // The directories under `phases/`, from the files the host served in them (a `.gitkeep` keeps an empty one).
     let mut dirs: Vec<&str> = planning
@@ -61,15 +86,25 @@ pub fn all(
             ..
         }) => roadmap::read(path, text, &dirs, records, report),
         Some(served) => {
-            file(served, manifest, records, report);
+            file(served, &early, records, report);
             roadmap::Roadmap::default()
         }
         None => roadmap::Roadmap::default(),
     };
-    for served in planning {
-        if !matches!(relative(served), "REQUIREMENTS.md" | "ROADMAP.md") {
-            file(served, manifest, records, report);
-        }
+    let cx = Context {
+        roadmap: &roadmap,
+        ..early
+    };
+    let rest = || {
+        planning
+            .iter()
+            .filter(|s| !matches!(relative(s), "REQUIREMENTS.md" | "ROADMAP.md"))
+    };
+    for served in rest()
+        .filter(|s| !is_summary(s))
+        .chain(rest().filter(is_summary))
+    {
+        file(served, &cx, records, report);
     }
     if let (
         Some(Served {
@@ -86,7 +121,8 @@ pub fn all(
 }
 
 /// Reads `served` into `records`, or reports it whole with its fate.
-pub fn file(served: &Served, manifest: &Manifest, records: &mut Records, report: &mut Report) {
+pub fn file(served: &Served, cx: &Context<'_>, records: &mut Records, report: &mut Report) {
+    let manifest = cx.manifest;
     let Some((name, fate)) = table::fate_of(relative(served)) else {
         report.push(whole(served, Outcome::Unmapped, "unknown file".to_string()));
         return;
@@ -96,6 +132,9 @@ pub fn file(served: &Served, manifest: &Manifest, records: &mut Records, report:
             requirements::read(&served.path, text, records, report)
         }
         ("PROJECT.md", _, Some(text)) => project::read(&served.path, text, records, report),
+        ("NN-MM-PLAN.md", _, Some(text)) => {
+            plan::read_phase(&served.path, relative(served), text, cx, records, report)
+        }
         ("STATE.md", _, Some(text)) => {
             report.push(whole(
                 served,

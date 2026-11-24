@@ -53,6 +53,21 @@ pub fn phase(id: &str) -> bool {
         && dec.is_none_or(digits)
 }
 
+/// GSD's phase number with its integer part on two digits (`2` is `02`, `2.1` is `02.1`); none for anything else.
+pub fn padded(number: &str) -> Option<String> {
+    let (int, dec) = match number.split_once('.') {
+        Some((int, dec)) => (int, Some(dec)),
+        None => (number, None),
+    };
+    if !digits(int) || dec.is_some_and(|d| !digits(d)) {
+        return None;
+    }
+    Some(match dec {
+        Some(dec) => format!("{int:0>2}.{dec}"),
+        None => format!("{int:0>2}"),
+    })
+}
+
 /// A phase's plan `<NN>-<MM>` (`01-02`, `02.1-01`).
 pub fn plan(id: &str) -> bool {
     id.rsplit_once('-')

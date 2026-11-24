@@ -117,9 +117,10 @@ fn every_other_planning_file_has_one_entry() {
                 ".planning/ROADMAP.md",
             ]
             .contains(&p.as_str())
+                && !p.ends_with("-PLAN.md")
         })
         .collect();
-    assert_eq!(served.len(), 15);
+    assert_eq!(served.len(), 12);
     for path in &served {
         let of_file: Vec<&Value> = entries
             .iter()
@@ -143,8 +144,8 @@ fn every_other_planning_file_has_one_entry() {
     };
     // A Tier 1 file with no reader yet gives the kit's kinds column; the extras their fate's reason.
     assert_eq!(
-        reason(".planning/phases/01-core/01-01-PLAN.md"),
-        "plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup"
+        reason(".planning/phases/01-core/01-VERIFICATION.md"),
+        "verification, verify_gap, override, human_item, and verdicts"
     );
     assert_eq!(
         reason(".planning/state.json"),

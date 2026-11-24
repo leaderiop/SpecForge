@@ -1,11 +1,51 @@
 //! Calling `import` in process, as the host would, on a `.planning/` folder on disk.
 #![allow(dead_code, reason = "each test crate uses part of it")]
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
-use specforge_extension_sdk::testing::{CommandFeed, call_every_command_with};
+use specforge_extension_sdk::testing::{CommandFeed, MockHost, call_every_command_with};
+
+/// `kind.field` (or `kind.block.member`) → its writer (`""` for the author), from one `describe entities` answer.
+fn writers(entities: &Value, into: &mut BTreeMap<String, String>) {
+    let writer = |f: &Value| f["writer"].as_str().unwrap_or_default().to_string();
+    for kind in entities["items"].as_array().expect("items") {
+        let name = kind["name"].as_str().expect("a kind name");
+        for field in kind["fields"].as_array().expect("fields") {
+            let field_name = field["name"].as_str().expect("a field name");
+            into.insert(format!("{name}.{field_name}"), writer(field));
+            for member in field["members"].as_array().into_iter().flatten() {
+                let member_name = member["name"].as_str().expect("a member name");
+                into.insert(format!("{name}.{field_name}.{member_name}"), writer(member));
+            }
+        }
+    }
+}
+
+/// The writers of every field of `@gsd/core` (its kinds golden) and of `@gsd/security` (its declaration): the import's
+/// peers, whose harness fields it may write (ADR 0391 D7).
+pub fn declared() -> BTreeMap<String, String> {
+    let golden: Value = serde_json::from_str(
+        &std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../core/tests/golden/kinds.json"
+        ))
+        .expect("the kinds golden"),
+    )
+    .expect("the golden is JSON");
+    let security: Value = serde_json::from_str(
+        &MockHost::new(gsd_security::build())
+            .describe_json("entities")
+            .expect("@gsd/security describes its entities"),
+    )
+    .expect("describe answers JSON");
+    let mut out = BTreeMap::new();
+    writers(&golden["entities"], &mut out);
+    writers(&security, &mut out);
+    out
+}
 
 /// A parity fixture's directory.
 pub fn fixture(name: &str) -> PathBuf {

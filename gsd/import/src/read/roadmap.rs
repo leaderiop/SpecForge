@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::{Value, json};
 
 use super::{is_bullet, row, slug};
-use crate::ids;
+use crate::ids::{self, padded};
 use crate::paths;
 use crate::records::{Record, Records, Source};
 use crate::report::{Entry, Outcome, Report};
@@ -318,22 +318,6 @@ fn key_line(line: &str) -> Option<(&str, &str)> {
         Some(key) => Some((key.trim(), after.trim())),
         None => after.split_once(':').map(|(_, v)| (key.trim(), v.trim())),
     }
-}
-
-/// GSD's phase number with its integer part on two digits (`2` is `02`, `2.1` is `02.1`); none for anything else.
-fn padded(number: &str) -> Option<String> {
-    let (int, dec) = match number.split_once('.') {
-        Some((int, dec)) => (int, Some(dec)),
-        None => (number, None),
-    };
-    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
-    if !digits(int) || dec.is_some_and(|d| !digits(d)) {
-        return None;
-    }
-    Some(match dec {
-        Some(dec) => format!("{int:0>2}.{dec}"),
-        None => format!("{int:0>2}"),
-    })
 }
 
 /// The phase of the heading `s`, read from its lines, with no milestone yet; none, reported, when the heading is in
