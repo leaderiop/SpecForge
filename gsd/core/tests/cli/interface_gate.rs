@@ -99,6 +99,33 @@ fn e533_refuses_the_close_after_a_collected_removal_under_strict_and_plus() {
 }
 
 #[test]
+fn e533_refuses_each_break_of_a_close_once() {
+    let p = release(json!({ "profile": "gsd-strict" }));
+    // `ops::add` widened to i64 and `ops::sub` dropped: two breaks, one error each, sorted by id.
+    p.write(
+        "two-breaks.txt",
+        "pub mod adder\npub mod adder::ops\npub fn adder::ops::add(a: i64, b: i64) -> i64\n",
+    );
+    collect_api(&p, "two-breaks.txt");
+    assert_eq!(
+        p.fields_of("v1.8")["api_breaks"],
+        json!([
+            "changed api:rust:adder::ops::add",
+            format!("removed {REMOVED}")
+        ])
+    );
+    assert_eq!(
+        named(&p, "v1.8", "gsd/E533"),
+        [
+            "API item 'api:rust:adder::ops::add' is changed without a major version bump: milestone 'v1.8' is \
+             compatible with the last shipped 'v1.7'",
+            "API item 'api:rust:adder::ops::sub' is removed without a major version bump: milestone 'v1.8' is \
+             compatible with the last shipped 'v1.7'"
+        ]
+    );
+}
+
+#[test]
 fn e533_is_silent_once_the_fresh_api_is_committed_as_accepted() {
     let p = release(json!({ "profile": "gsd-strict" }));
     collect_api(&p, FRESH);

@@ -100,6 +100,54 @@ fn release_of_e535_holds_a_package_named_more_or_with_a_space_as_a_package() {
     );
 }
 
+/// The `release` values the `derive` pass answers over v1.7, shipped with a recorded tag, and the package `b` at
+/// 1.7.0, under the `@gsd/core` `settings` the call carries.
+fn derived_release(settings: Value) -> Vec<(String, Value)> {
+    let call = json!({
+        "entities": [
+            { "id": "v1.7", "kind": "milestone", "fields": { "completion": "at 2026-02-01", "tag": "name" },
+              "values": { "tag": { "name": "v1.7" } } },
+            { "id": "v1.8", "kind": "milestone" },
+            package("b", Some("1.7.0")),
+        ],
+        "edges": [],
+        "settings": settings,
+    });
+    let answer = crate::build()
+        .dispatch_export("__pass_derive", call.to_string().as_bytes())
+        .expect("the derive pass")
+        .expect("an answer");
+    let output: Value = serde_json::from_slice(&answer).expect("JSON");
+    output["values"]
+        .as_array()
+        .expect("values")
+        .iter()
+        .filter(|v| v["field"] == "release")
+        .map(|v| {
+            (
+                v["entity"].as_str().expect("an id").to_string(),
+                v["value"].clone(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn release_values_copy_no_tag_while_git_create_tag_is_false() {
+    let package = json!({ "packages": [{ "name": "b", "version": "1.7.0" }] });
+    assert_eq!(
+        derived_release(json!({})),
+        [
+            ("v1.8".to_string(), package.clone()),
+            ("v1.7".to_string(), json!({ "tag": "v1.7" })),
+        ]
+    );
+    assert_eq!(
+        derived_release(json!({ "git.create_tag": false })),
+        [("v1.8".to_string(), package)]
+    );
+}
+
 #[test]
 fn release_of_e535_copies_a_shipped_milestones_recorded_tag() {
     let entities = vec![

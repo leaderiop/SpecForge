@@ -62,6 +62,21 @@ fn a_version_prints_as_written_without_its_v() {
 }
 
 #[test]
+fn a_part_past_u64_is_not_a_version() {
+    assert!(parse("v18446744073709551615").is_some());
+    assert!(parse("v18446744073709551616").is_none());
+    assert!(parse("v1.99999999999999999999").is_none());
+}
+
+#[test]
+fn an_all_zero_older_version_is_compatible_with_itself_alone() {
+    assert!(compatible(&v("0.0.0"), &v("0.0.0")));
+    assert!(compatible(&v("0"), &v("0.0")));
+    assert!(!compatible(&v("0.0.0"), &v("0.0.1")));
+    assert!(!compatible(&v("0.0"), &v("0.1")));
+}
+
+#[test]
 fn a_zero_padded_version_compares_by_its_numbers() {
     assert_eq!(v("v1.07"), v("v1.7"));
     assert!(v("v2026.01") < v("v2026.2"));

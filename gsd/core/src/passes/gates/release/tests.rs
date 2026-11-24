@@ -318,6 +318,17 @@ fn e533_escapes_every_id_it_echoes() {
 }
 
 #[test]
+fn a_subject_part_past_u64_fails_e533_closed_and_leaves_e535_silent() {
+    // Not a version: E533 cannot show a major bump, and E535 has no version to release.
+    let subject = "v1.99999999999999999999";
+    let entities = vec![shipped("v1.7", "2026-02-01"), open(subject, &["removed a"])];
+    let found = e533(&close(subject, entities.clone()));
+    assert_eq!(found.len(), 1);
+    assert!(found[0].message.ends_with("is not a version"));
+    assert!(e535(&close(subject, entities)).is_empty());
+}
+
+#[test]
 fn e533_escapes_an_id_derive_kept_raw_once() {
     let id = "api:rust:a::f\u{7}\n'";
     let derived = crate::passes::derive::interface::values(&close(
