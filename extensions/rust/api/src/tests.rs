@@ -219,12 +219,39 @@ fn an_accepted_function_the_run_lacks_is_removed() {
 
 #[specforge_test(requirement = "FEATURE-150")]
 fn an_unreadable_accepted_file_is_the_collectors_error_naming_it() {
-    let read = json!({"facts": [served("tests/public-api.txt", "pub mod demo\ngarbage\n")]});
+    let broken = "<<<<<<< HEAD\npub mod example_api\ngarbage\n";
+    let read = json!({"facts": [served("tests/public-api.txt", broken)]});
     let why = collect(&against(SNAPSHOT, read)).unwrap_err();
     assert!(
-        why.starts_with("tests/public-api.txt: ") && why.contains("line 2"),
+        why.starts_with("tests/public-api.txt: ") && why.contains("line 1"),
         "{why}"
     );
+}
+
+#[specforge_test(requirement = "FEATURE-150")]
+fn a_broken_file_of_another_crate_or_no_snapshot_is_one_warning_and_the_collect_goes_on() {
+    for (path, text) in [
+        ("other/tests/public-api.txt", "pub mod other_api\ngarbage\n"),
+        (
+            "docs/public-api.txt",
+            "The public API of this project, in prose.\n",
+        ),
+    ] {
+        let read = json!({"facts": [served(path, text)]});
+        let out = collect(&against(SNAPSHOT, read)).unwrap();
+        assert_eq!(
+            serde_json::to_value(&out.facts).unwrap(),
+            snapshot(SNAPSHOT_FACTS)
+        );
+        assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+        assert!(
+            out.warnings[0].starts_with(&format!(
+                "{path}: not a snapshot of a crate this run read (line "
+            )),
+            "{:?}",
+            out.warnings
+        );
+    }
 }
 
 #[specforge_test(requirement = "FEATURE-150")]

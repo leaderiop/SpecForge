@@ -22,10 +22,11 @@ requirement FEATURE-150 "API Snapshot Facts (Rust)" {
     pack's own flags (cargo public-api --color never -ss). Only a crate
     on both sides is judged: each api_item then carries its change
     (added, unchanged, changed, narrowed, removed) against the accepted
-    file; without one the facts carry none. A file that does not parse,
-    or two files naming one crate, is the collector's error naming
-    them; a file the host did not serve,
-    or naming no crate the run read, is one warning naming it (W203), so
+    file; without one the facts carry none. A snapshot of the run's
+    crate that does not parse, or two files naming one crate, is the
+    collector's error naming them; a file the host did not serve, or
+    naming no crate the run read, broken or not, is one warning naming
+    it (W203) and the collect goes on, so
     an unusable baseline never passes silently. Accepting a break is
     committing the updated file. A narrowing to pub(crate) reads as
     removed, as the tool lists public items only.

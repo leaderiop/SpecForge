@@ -26,9 +26,10 @@
 //! builder omitting blanket and auto-trait impls the same way), or every impl the run omits reads as removed. Only a
 //! crate on both sides is judged: each item's `api_item` then carries `change` (`added`, `unchanged`, `changed`,
 //! `narrowed`, `removed`) against it; without an accepted file the facts carry none. Accepting a break is committing
-//! the updated file. A file that does not parse, or two files naming one crate (the old `tests/public-api.txt` kept
-//! beside `tests/snapshots/public-api.txt`), is the collector's error naming them; a file the host did not serve
-//! (over 4 MiB, not UTF-8) or naming no crate the run read is one warning naming it, which the host shows as W203.
+//! the updated file. A snapshot of the run's crate (its `pub mod <crate>` line) that does not parse, or two files naming
+//! one crate (the old `tests/public-api.txt` kept beside `tests/snapshots/public-api.txt`), is the collector's error
+//! naming them; a file the host did not serve (over 4 MiB, not UTF-8) or naming no crate the run read, broken or not,
+//! is one warning naming it, which the host shows as W203, and the collect goes on.
 //! Limits: cargo public-api prints public items only, so a narrowing (`pub` to `pub(crate)`) reads as removed; the
 //! line holds the attributes, so adding any attribute (`#[must_use]` as `#[non_exhaustive]`) reads as changed; the
 //! tool's ordering and format are not stable, so a tool upgrade can change every line: regenerate the file with the
@@ -36,7 +37,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use specforge_code_api::read_rust_text;
+use specforge_code_api::{read_rust_text, rust_text_crate};
 use specforge_code_facts::{api_facts, api_facts_against, ApiEntry};
 use specforge_extension_sdk::prelude::*;
 
@@ -127,8 +128,9 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
 }
 
 /// The entries of the served accepted files that name a crate of `entries`; a warning for each file not served or
-/// naming none, and for a read that matched more files than were served. Two files naming one crate are the
-/// collector's error: the accepted side of a crate is one file.
+/// naming none (a broken snapshot of another crate included), and for a read that matched more files than were served.
+/// A snapshot of a crate of `entries` that does not parse, and two files naming one crate, are the collector's error:
+/// the accepted side of a crate is one file.
 fn accepted(
     input: &CollectInput,
     entries: &[ApiEntry],
@@ -156,7 +158,19 @@ fn accepted(
             ));
             continue;
         };
-        let mut read = read_rust_text(text).map_err(|why| format!("{}: {why}", file.path))?;
+        let mut read = match read_rust_text(text) {
+            Ok(read) => read,
+            Err(why) if rust_text_crate(text).is_some_and(|name| crates.contains(name)) => {
+                return Err(format!("{}: {why}", file.path));
+            }
+            Err(why) => {
+                warnings.push(format!(
+                    "{}: not a snapshot of a crate this run read ({why}); no break was judged for it",
+                    file.path
+                ));
+                continue;
+            }
+        };
         read.retain(|e| crates.contains(e.container.as_str()));
         if read.is_empty() {
             warnings.push(format!(

@@ -263,6 +263,30 @@ fn two_reports_of_the_package_or_a_bad_one_is_the_collectors_error_naming_them()
 }
 
 #[specforge_test(requirement = "FEATURE-149")]
+fn prose_or_a_broken_report_of_another_package_is_one_warning_and_the_collect_goes_on() {
+    let today = collect(&input(&[CHANGED])).unwrap();
+    let other = TAGGED.replace("\"@demo/widget\"", "\"@demo/other\"");
+    for (path, text) in [
+        (
+            "etc/notes.api.md",
+            "# Notes\n\nThe users API, in prose.\n".to_string(),
+        ),
+        ("other/etc/other.api.md", format!("{other}\n<<<<<<< HEAD\n")),
+    ] {
+        let out = collect(&against(CHANGED, json!({"accepted": served(path, &text)}))).unwrap();
+        assert_eq!(out.facts, today.facts);
+        assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+        assert!(
+            out.warnings[0].starts_with(&format!(
+                "{path}: not an API report of a package this run read ("
+            )),
+            "{:?}",
+            out.warnings
+        );
+    }
+}
+
+#[specforge_test(requirement = "FEATURE-149")]
 fn a_report_not_served_or_of_another_package_is_one_warning_and_no_change() {
     let today = collect(&input(&[CHANGED])).unwrap();
     let other = TAGGED.replace("\"@demo/widget\"", "\"@demo/other\"");

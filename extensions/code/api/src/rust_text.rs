@@ -102,6 +102,16 @@ pub fn read_rust_text(text: &str) -> Result<Vec<ApiEntry>, String> {
     Ok(entries)
 }
 
+/// The crate the root module line of `text` names, `pub mod <crate>`, wherever it is: what a snapshot the reader
+/// refuses was meant to be of (cargo public-api lists the root module first; a conflicted file still has it).
+pub fn rust_text_crate(text: &str) -> Option<&str> {
+    text.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("pub mod ")
+            .filter(|name| !name.is_empty() && !name.contains([':', ' ']))
+    })
+}
+
 /// `line` after its leading `#[…]` attributes, or `None` when one does not close.
 fn without_attributes(mut line: &str) -> Option<&str> {
     while line.starts_with("#[") {

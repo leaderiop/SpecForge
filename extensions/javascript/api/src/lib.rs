@@ -24,9 +24,10 @@
 //! fresh run's own copy, which would hide every break; the `.alpha`, `.beta` and `.public` report variants are not read
 //! either. The report's title names its package: only a report of the package the run read is judged, and each
 //! `api_item` then carries `change` (`added`, `unchanged`, `changed`, `narrowed`, `removed`) against it; without one the
-//! facts carry none. A report that does not parse (a merge-conflict marker, a broken fence) is the collector's error
-//! naming it, as are two reports of the package (the accepted side is one file); a report the host did not serve (over
-//! 4 MiB, not UTF-8) or of another package is one warning naming it, which the host shows as W203.
+//! facts carry none. A report of the package that does not parse (a merge-conflict marker, a broken fence) is the
+//! collector's error naming it, as are two reports of the package (the accepted side is one file); a file the host did
+//! not serve (over 4 MiB, not UTF-8), with no report title (prose in an `etc/` folder) or of another package, broken or
+//! not, is one warning naming it, which the host shows as W203, and the collect goes on.
 //!
 //! Accepting a break is committing the updated report: enable `apiReport` in your own `api-extractor.json` (the same
 //! entry, `dist/index.d.ts`), run `api-extractor run --local` (it copies `temp/<package>.api.md` to `etc/`), commit
@@ -36,7 +37,7 @@
 
 use std::collections::BTreeSet;
 
-use specforge_code_api::{read_js_model, read_js_report};
+use specforge_code_api::{js_report_package, read_js_model, read_js_report};
 use specforge_code_facts::{api_facts, api_facts_against, ApiEntry};
 use specforge_extension_sdk::prelude::*;
 
@@ -130,9 +131,9 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     })
 }
 
-/// The entries of the one served accepted report of the run's package (the doc model's); a warning for each report not
-/// served or of another package, and for a read that matched more files than were served. Two reports of the package
-/// are the collector's error.
+/// The entries of the one served accepted report of the run's package (the doc model's); a warning for each file not
+/// served, not a report or of another package, and for a read that matched more files than were served. A report of
+/// the package that does not parse, and two reports of it, are the collector's error.
 fn accepted(
     input: &CollectInput,
     entries: &[ApiEntry],
@@ -162,7 +163,20 @@ fn accepted(
                 ));
                 continue;
             };
-            let mut report = read_js_report(text).map_err(|why| format!("{}: {why}", file.path))?;
+            let mut report = match read_js_report(text) {
+                Ok(report) => report,
+                Err(why) if js_report_package(text).is_some_and(|name| packages.contains(name)) => {
+                    return Err(format!("{}: {why}", file.path));
+                }
+                Err(why) => {
+                    warnings.push(format!(
+                        "{}: not an API report of a package this run read ({why}); no break was judged \
+                         for it",
+                        file.path
+                    ));
+                    continue;
+                }
+            };
             report.retain(|e| packages.contains(e.container.as_str()));
             if report.is_empty() {
                 warnings.push(format!(

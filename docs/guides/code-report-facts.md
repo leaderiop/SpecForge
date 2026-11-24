@@ -121,11 +121,13 @@ and `gsd/E533` refuses to close a milestone whose version does not allow them.
 **Outcomes.**
 
 - No accepted file: no fact carries `change`. Committing the report is the opt-in.
-- A file that does not parse (a merge-conflict marker, a broken fence), or two accepted files of one crate or package
-  (an old `tests/public-api.txt` kept beside `tests/snapshots/public-api.txt`): the collector's error naming them, and
-  the collect stores nothing of the run.
-- A file the host did not serve (`too_large`, `budget`, `not_utf8`), or one naming no crate or package the run read:
-  one warning naming it, shown as W203, and no break judged against it.
+- An accepted file of the run's own crate or package (its `pub mod <crate>` line, its report title) that does not
+  parse (a merge-conflict marker, a broken fence), or two accepted files of one crate or package (an old
+  `tests/public-api.txt` kept beside `tests/snapshots/public-api.txt`): the collector's error naming them, and the
+  collect stores nothing of the run.
+- A file the host did not serve (`too_large`, `budget`, `not_utf8`), a matched file that is no report or snapshot
+  (prose in an `etc/` folder), or one naming no crate or package the run read, broken or not: one warning naming it,
+  shown as W203, no break judged against it, and the collect goes on.
 
 **Accepting a break.** The packs never write the accepted file: api-extractor's `apiReport` stays disabled in the pack's
 config. You accept a break by committing the updated report: `cargo public-api --color never -ss >

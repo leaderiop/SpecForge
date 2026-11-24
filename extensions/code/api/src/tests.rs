@@ -663,3 +663,20 @@ fn a_malformed_report_is_an_error_naming_why() {
             .contains("line 8")
     );
 }
+
+#[test]
+fn a_refused_file_still_names_the_package_or_crate_it_was_meant_for() {
+    let conflicted = report("<<<<<<< HEAD\nexport function f(): void;");
+    assert!(read_js_report(&conflicted).is_err());
+    assert_eq!(js_report_package(&conflicted), Some("p"));
+    assert_eq!(js_report_package("# Notes\n\nprose\n"), None);
+    assert_eq!(js_report_package("## API Report File for \"\"\n"), None);
+
+    assert_eq!(
+        rust_text_crate("<<<<<<< HEAD\npub mod demo\ngarbage\n"),
+        Some("demo")
+    );
+    assert_eq!(rust_text_crate(RUST), Some("example_api"));
+    assert_eq!(rust_text_crate("pub mod demo::inner\nprose\n"), None);
+    assert_eq!(rust_text_crate("prose\n"), None);
+}

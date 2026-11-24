@@ -110,13 +110,7 @@ pub fn read_js_report(text: &str) -> Result<Vec<ApiEntry>, String> {
                 reader = Some(Reader::new(package));
                 opened = n;
             }
-            None => {
-                package = package.or_else(|| {
-                    line.strip_prefix("## API Report File for \"")
-                        .and_then(|rest| rest.trim_end().strip_suffix('"'))
-                        .filter(|name| !name.is_empty())
-                });
-            }
+            None => package = package.or_else(|| title(line)),
         }
     }
     match reader {
@@ -125,6 +119,19 @@ pub fn read_js_report(text: &str) -> Result<Vec<ApiEntry>, String> {
         Some(_) if !closed => Err(format!("line {opened}: the ```ts fence is never closed")),
         Some(open) => Ok(open.entries),
     }
+}
+
+/// The package the first title line of `text` names, `## API Report File for "<package>"`, wherever it is: what a
+/// file the report reader refuses was meant to be the report of (a conflicted report still has its title).
+pub fn js_report_package(text: &str) -> Option<&str> {
+    text.lines().find_map(title)
+}
+
+/// The package `line` names when it is the report's title.
+fn title(line: &str) -> Option<&str> {
+    line.strip_prefix("## API Report File for \"")
+        .and_then(|rest| rest.trim_end().strip_suffix('"'))
+        .filter(|name| !name.is_empty())
 }
 
 fn no_title() -> String {

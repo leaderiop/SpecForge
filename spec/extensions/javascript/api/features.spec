@@ -23,9 +23,11 @@ requirement FEATURE-149 "API Snapshot Facts (JavaScript)" {
     are never read. Only the package the run read is judged: each
     api_item then carries its change (added, unchanged, changed,
     narrowed, removed) against its report; without one the facts carry
-    none. A report that does not parse, or two reports of the package,
-    is the collector's error naming them; a report the host did not
-    serve, or of another package, is one warning naming it (W203).
+    none. A report of the package that does not parse, or two reports
+    of the package, is the collector's error naming them; a file the
+    host did not serve, with no report title, or of another package,
+    broken or not, is one warning naming it (W203) and the collect goes
+    on.
     Accepting a break is committing the updated report, written by the
     project's own api-extractor run --local with the report enabled and
     the pack's entry.

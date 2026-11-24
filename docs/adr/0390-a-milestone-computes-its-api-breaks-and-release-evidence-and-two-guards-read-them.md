@@ -61,9 +61,11 @@ The owner chose the tools' own baseline: a report the project commits and accept
   as `removed`, because cargo public-api prints public items only. An attribute change (`#[non_exhaustive]`,
   `#[must_use]`) reads as `changed`. A tool upgrade can change every line, so the accepted file is regenerated with the
   version CI runs.
-- **Outcomes.** No accepted file: silence (the committed report is the opt-in). An unparseable one: the collector's
-  Err naming the file. An unusable one (`too_large`, `budget`, `not_utf8`, or naming no crate or package the run
-  read): one W203 naming it.
+- **Outcomes.** No accepted file: silence (the committed report is the opt-in). An unparseable one of the run's own
+  crate or package (by its `pub mod <crate>` line or its report title), or two of one crate or package: the
+  collector's Err naming the files. An unusable one (`too_large`, `budget`, `not_utf8`, no report or snapshot at all,
+  or naming no crate or package the run read, parseable or not): one W203 naming it, and the collect goes on, so a
+  stray `etc/notes.api.md` or a conflicted sibling package stops no collector.
 - **Accepting a break.** api-extractor's `apiReport` stays disabled in the pack's config (T-11-26), so the pack writes
   no accepted file. A user accepts a break by committing the updated report from their own
   `api-extractor run --local` or `cargo public-api --color never -ss > public-api.txt`.
