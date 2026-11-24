@@ -1,12 +1,13 @@
 //! `specforge gsd import` (ADR 0391 D2): no positional; the host serves the project root's `.planning/**` and its
 //! `specforge.json`, and the command answers one edit plan that writes `spec/gsd/`, with the report as its output.
 
-use serde_json::Value;
+use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use crate::read::{self, Served};
 use crate::records::Records;
 use crate::report::Report;
+use crate::{emit, preflight};
 
 pub const INVALID: &str = "invalid_input";
 
@@ -31,11 +32,11 @@ pub fn declare(c: &mut ContributionsBuilder) {
     });
 }
 
-/// The served files of the read `name`, sorted by path as the host sends a glob's.
-fn served(call: &CommandCall<'_>, name: &str) -> Vec<Served> {
+/// The served files of the read `name`, sorted by path as the host sends a glob's, and whether the read stopped early.
+fn served(call: &CommandCall<'_>, name: &str) -> (Vec<Served>, bool) {
     call.files(name)
         .map(|files| {
-            files
+            let served = files
                 .facts
                 .iter()
                 .map(|fact| Served {
@@ -43,36 +44,37 @@ fn served(call: &CommandCall<'_>, name: &str) -> Vec<Served> {
                     text: fact.text.clone(),
                     error: fact.error.clone(),
                 })
-                .collect()
+                .collect();
+            (served, files.truncated)
         })
         .unwrap_or_default()
 }
 
+/// Preflight, read, emit, answer: a refusal anywhere answers no plan.
 fn import(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    let graph = call.graph();
+    preflight::refuse_reimport(graph)?;
+    let manifest = preflight::manifest(&served(call, MANIFEST).0)?;
+    let (planning, truncated) = served(call, PLANNING);
+    preflight::check_reads(&planning, truncated)?;
     let mut records = Records::default();
     let mut report = Report::default();
-    for file in served(call, PLANNING) {
-        read::file(&file, &mut records, &mut report);
+    for file in &planning {
+        read::file(file, &mut records, &mut report);
     }
-    let mut plan = call.plan();
-    for record in records.iter() {
-        plan.create(
-            record.kind,
-            &record.id,
-            &record.title,
-            &record.file,
-            record.fields.clone(),
-            Vec::new(),
-        );
-    }
-    let counts = records.counts();
-    Ok(answer(
-        call,
-        report.payload(&counts),
-        report.text(&counts),
-        Some(&plan),
-    ))
+    let (plan, counts) = emit::emit(&records, graph, call.plan(), &mut report)?;
+    let mut payload = report.payload(&counts);
+    payload["security"] = json!({ "loaded": manifest.security, "check": SECURITY_CHECK });
+    let mut text = report.text(&counts);
+    text.push_str(&format!(
+        "@gsd/security {}loaded ({SECURITY_CHECK})\n",
+        if manifest.security { "" } else { "not " }
+    ));
+    Ok(answer(call, payload, text, Some(&plan)))
 }
+
+/// How the import knows the project loads `@gsd/security` (ADR 0391 D11).
+const SECURITY_CHECK: &str = "a text check of specforge.json's extensions, not a registry query";
 
 /// Runs a command's body: its `Err` is the refusal, reported as `invalid_input` (core's `support::run`).
 pub fn run(

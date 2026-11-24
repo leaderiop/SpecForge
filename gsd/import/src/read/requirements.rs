@@ -105,7 +105,7 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
                     Outcome::Unmapped,
                     format!(
                         "requirement {} has no ### category above it: not imported",
-                        item.id
+                        item.id.escape_debug()
                     ),
                 ));
                 continue;
@@ -115,7 +115,10 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
                     &at(n),
                     category,
                     Outcome::Unmapped,
-                    format!("requirement {} has no text: not imported", item.id),
+                    format!(
+                        "requirement {} has no text: not imported",
+                        item.id.escape_debug()
+                    ),
                 ));
                 continue;
             }
@@ -125,12 +128,6 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
                 ("tier".to_string(), json!(tier)),
             ]);
             add_defined(&mut fields, defined);
-            report.push(Entry::at(
-                &at(n),
-                category,
-                Outcome::Mapped,
-                format!("requirement {}", item.id),
-            ));
             records.add(
                 Record {
                     kind: "requirement",
@@ -138,6 +135,7 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
                     title: text,
                     file: FILE.to_string(),
                     fields,
+                    refs: Vec::new(),
                     source: at(n),
                 },
                 report,
@@ -286,6 +284,7 @@ fn out_of_scope(
                     title: cell(feature).to_string(),
                     file: FILE.to_string(),
                     fields,
+                    refs: Vec::new(),
                     source,
                 },
                 report,

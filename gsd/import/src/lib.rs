@@ -2,6 +2,11 @@
 //! that writes `spec/gsd/`, plus a report naming every file it did not map, with a reason (ADR 0391).
 
 pub mod command;
+pub mod emit;
+pub mod ids;
+pub mod kinds;
+pub mod limits;
+pub mod preflight;
 pub mod read;
 pub mod records;
 pub mod report;

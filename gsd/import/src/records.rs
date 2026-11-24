@@ -30,6 +30,8 @@ pub struct Record {
     /// The `spec/gsd/` file it is written to.
     pub file: String,
     pub fields: BTreeMap<String, Value>,
+    /// The ids its reference fields name (its phase, its plan): each must be created by the plan or be in the graph.
+    pub refs: Vec<String>,
     pub source: Source,
 }
 
@@ -48,7 +50,9 @@ impl Records {
                 Outcome::Unmapped,
                 format!(
                     "{} {} is given twice (first at {}): not imported",
-                    record.kind, record.id, first.source
+                    record.kind,
+                    record.id.escape_debug(),
+                    first.source
                 ),
             )),
             None => {
@@ -68,14 +72,5 @@ impl Records {
 
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
-    }
-
-    /// How many records of each kind.
-    pub fn counts(&self) -> BTreeMap<&'static str, usize> {
-        let mut counts = BTreeMap::new();
-        for (kind, _) in self.0.keys() {
-            *counts.entry(*kind).or_default() += 1;
-        }
-        counts
     }
 }
