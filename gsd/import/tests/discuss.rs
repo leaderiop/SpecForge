@@ -429,13 +429,26 @@ fn a_research_of_a_bad_confidence_is_dropped_with_its_items() {
 }
 
 #[test]
-fn a_research_source_keeps_a_control_character_the_report_escapes() {
+fn a_research_source_holding_a_control_character_is_reported_not_created() {
     let url = "https://x.test/a\u{7}b";
     let text = format!("{HEAD}## Sources\n\n### Primary\n- {url} - note\n");
     let out = run(vec![(RESEARCH, text.as_str())]);
     assert_eq!(out.exit_code, 0, "{}", out.stderr);
-    let source = find(&creates(&out), "source", "v1.0/02/02-RESEARCH/SRC1");
-    assert_eq!(source.fields["url"], json!(url));
+    // No .spec file holds a control character: the host would refuse the whole plan.
+    assert!(
+        !creates(&out)
+            .iter()
+            .any(|c| c.path == "v1.0/02/02-RESEARCH/SRC1"),
+        "the source is created"
+    );
+    assert!(
+        entries(&out, RESEARCH)
+            .iter()
+            .any(|(_, _, outcome, reason)| outcome == "unmapped"
+                && reason.contains("SRC1: its title holds a control or bidirectional character")),
+        "{:#?}",
+        entries(&out, RESEARCH)
+    );
     assert!(
         !payload(&out)["entries"].to_string().contains('\u{7}')
             && !entries(&out, RESEARCH)

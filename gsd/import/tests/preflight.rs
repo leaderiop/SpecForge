@@ -538,3 +538,55 @@ fn a_scoped_record_is_created_with_its_own_id() {
             .any(|e| e.line == Some(3) && e.reason.contains("not an id a phase takes"))
     );
 }
+
+#[test]
+fn a_record_holding_text_no_spec_file_holds_is_dropped_with_its_children() {
+    let mut report = Report::default();
+    let mut records = Records::default();
+    records.add(record("milestone", "v1.0", &[], 1), &mut report);
+    let mut phase = record("phase", "v1.0/01", &["v1.0"], 2);
+    phase.title = "Core\u{1b}[31m".into();
+    records.add(phase, &mut report);
+    records.add(
+        record("plan", "v1.0/01/01-01", &["v1.0/01"], 3),
+        &mut report,
+    );
+    let mut bidi = record("requirement", "A-01", &[], 4);
+    bidi.fields
+        .insert("text".into(), json!(["fine", {"note": "x\u{202e}y"}]));
+    records.add(bidi, &mut report);
+    // A tab and a line break, CRLF included, are a .spec file's own.
+    let mut lines = record("requirement", "A-02", &[], 5);
+    lines.title = "a\tb".into();
+    lines
+        .fields
+        .insert("text".into(), json!("one\r\ntwo\nthree"));
+    records.add(lines, &mut report);
+    let plan = PlanBuilder::new(Default::default(), Default::default());
+    let (plan, _, _) =
+        gsd_import::emit::emit(&records, &CommandGraph::default(), plan, &mut report)
+            .expect("not refused");
+    assert_eq!(create_ids(plan), ["v1.0", "A-02"]);
+    let reason = |line: usize| {
+        report
+            .entries()
+            .into_iter()
+            .find(|e| e.line == Some(line))
+            .map(|e| e.reason.clone())
+            .unwrap_or_default()
+    };
+    let unwritable = "holds a control or bidirectional character, which no .spec file holds";
+    assert_eq!(
+        reason(2),
+        format!("phase v1.0/01: its title {unwritable}: not imported")
+    );
+    assert!(
+        reason(3).contains("parent not imported (v1.0/01)"),
+        "{}",
+        reason(3)
+    );
+    assert_eq!(
+        reason(4),
+        format!("requirement A-01: its text {unwritable}: not imported")
+    );
+}
