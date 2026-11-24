@@ -13,6 +13,8 @@ pub mod state;
 pub mod summary;
 pub mod tasks;
 pub mod threats;
+pub mod uat;
+pub mod verification;
 
 use std::collections::BTreeMap;
 use std::ops::Range;
@@ -159,6 +161,12 @@ pub fn file(served: &Served, cx: &Context<'_>, records: &mut Records, report: &m
         }
         ("NN-RESEARCH.md", _, Some(text)) => {
             research::read(&served.path, relative(served), text, cx, records, report)
+        }
+        ("NN-VERIFICATION.md", _, Some(text)) => {
+            verification::read(&served.path, relative(served), text, cx, records, report)
+        }
+        ("NN-UAT.md", _, Some(text)) => {
+            uat::read(&served.path, relative(served), text, cx, records, report)
         }
         ("STATE.md", _, Some(text)) => {
             report.push(whole(
@@ -337,14 +345,58 @@ pub fn labelled<'l>(
     })
 }
 
-/// Whether `value` is a `YYYY-MM-DD` date.
+/// Whether `value` is a `YYYY-MM-DD` date of the calendar (`2026-13-45` is not): the host refuses a plan holding one
+/// that is not.
 pub fn is_date(value: &str) -> bool {
     let b = value.as_bytes();
-    b.len() == 10
+    let shaped = b.len() == 10
         && b.iter().enumerate().all(|(i, c)| match i {
             4 | 7 => *c == b'-',
             _ => c.is_ascii_digit(),
-        })
+        });
+    let n = |r: Range<usize>| value[r].parse::<u32>().unwrap_or(0);
+    shaped && {
+        let (year, month, day) = (n(0..4), n(5..7), n(8..10));
+        let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+        let days = match month {
+            2 if leap => 29,
+            2 => 28,
+            4 | 6 | 9 | 11 => 30,
+            1..=12 => 31,
+            _ => 0,
+        };
+        (1..=days).contains(&day)
+    }
+}
+
+/// Whether `value` is an RFC 3339 timestamp: a [`is_date`] date, `T`, `HH:MM:SS`, an optional fraction, then `Z` or an
+/// offset `±HH:MM`.
+pub fn is_timestamp(value: &str) -> bool {
+    let two = |s: &str, max: u32| {
+        s.len() == 2
+            && s.bytes().all(|c| c.is_ascii_digit())
+            && s.parse::<u32>().is_ok_and(|v| v <= max)
+    };
+    let Some((date, time)) = value.split_once(['T', 't']) else {
+        return false;
+    };
+    let (clock, zone) = match time.find(['Z', 'z', '+', '-']) {
+        Some(at) => time.split_at(at),
+        None => return false,
+    };
+    let (clock, fraction) = clock.split_once('.').unwrap_or((clock, "0"));
+    let hms: Vec<&str> = clock.split(':').collect();
+    let offset = match zone {
+        "Z" | "z" => true,
+        _ => zone[1..]
+            .split_once(':')
+            .is_some_and(|(h, m)| two(h, 23) && two(m, 59)),
+    };
+    is_date(date)
+        && matches!(hms.as_slice(), [h, m, s] if two(h, 23) && two(m, 59) && two(s, 60))
+        && !fraction.is_empty()
+        && fraction.bytes().all(|c| c.is_ascii_digit())
+        && offset
 }
 
 /// A file of one phase, `phases/<dir>/<NN><suffix>` (`02-CONTEXT.md`): where its records go.
@@ -417,8 +469,11 @@ pub fn phase_file<'a>(
         format,
         prefix: "",
     };
-    let suffix = format.trim_start_matches("NN");
-    let Some((dir, number)) = plan::in_phase(rel, suffix).filter(|(_, n)| ids::phase(n)) else {
+    // `NN-CONTEXT.md` names its number; `SECURITY.md` is the kit's name of `NN-SECURITY.md`.
+    let suffix = format
+        .strip_prefix("NN")
+        .map_or_else(|| format!("-{format}"), str::to_string);
+    let Some((dir, number)) = plan::in_phase(rel, &suffix).filter(|(_, n)| ids::phase(n)) else {
         report.push(doc.unmapped(
             1,
             "file name",
@@ -434,5 +489,43 @@ pub fn phase_file<'a>(
             phase: path,
         }),
         Scope::Quick => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dates_and_timestamps_are_the_calendars() {
+        for ok in ["2026-10-30", "2024-02-29", "2026-12-31"] {
+            assert!(is_date(ok), "{ok}");
+        }
+        for bad in [
+            "2026-13-45",
+            "2026-02-29",
+            "2026-04-31",
+            "2026-00-10",
+            "26-10-30",
+            "2026/10/30",
+        ] {
+            assert!(!is_date(bad), "{bad}");
+        }
+        for ok in [
+            "2026-03-03T10:30:00Z",
+            "2026-03-03T10:30:00.5+01:00",
+            "2026-03-03t23:59:60z",
+        ] {
+            assert!(is_timestamp(ok), "{ok}");
+        }
+        for bad in [
+            "2026-03-03",
+            "yesterday",
+            "2026-03-03T24:00:00Z",
+            "2026-03-03T10:30Z",
+            "2026-03-03T10:30:00",
+        ] {
+            assert!(!is_timestamp(bad), "{bad}");
+        }
     }
 }

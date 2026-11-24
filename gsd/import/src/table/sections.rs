@@ -54,6 +54,7 @@ const VERDICT: &str = "the verifier's per-item results are verdicts, never impor
 const CONTEXT_MD: &str = "the phase's CONTEXT.md gives it";
 const INSTRUCTION: &str = "the template's instruction to agents";
 const HARNESS_TS: &str = "a harness timestamp the import does not write (ADR 0391 D7)";
+const FILE_NAME: &str = "the file name gives the phase";
 
 const P: &str = "PROJECT.md";
 #[rustfmt::skip]
@@ -620,6 +621,10 @@ const VF: &str = "NN-VERIFICATION.md";
 #[rustfmt::skip]
 pub const VERIFICATION: &[Row] = &[
     row(VF, "file stem", &[id("verification"), to("verification", "phase", Ref)]),
+    row(VF, "phase", &[redundant(FILE_NAME)]),
+    row(VF, "**Phase Goal:**", &[redundant("ROADMAP.md gives the phase goal")]),
+    row(VF, "## Goal Achievement", &[Home::Ignored("a heading over the verifier's tables, each reported under its own")]),
+    row(VF, "footer", &[reported(PROSE)]),
     row(VF, "status", &[computed("verification", "status")]),
     row(VF, "score", &[computed("verification", "score")]),
     row(VF, "verified", &[computed("verification", "verified")]),
@@ -645,6 +650,8 @@ const UA: &str = "NN-UAT.md";
 #[rustfmt::skip]
 pub const UAT: &[Row] = &[
     row(UA, "file stem", &[id("uat_session"), to("uat_session", "phase", Ref)]),
+    row(UA, "phase", &[redundant(FILE_NAME)]),
+    row(UA, "## Tests", &[Home::Ignored("a heading over the tests, each mapped under its own")]),
     row(UA, "source", &[to("uat_session", "source", List)]),
     row(UA, "started", &[to("uat_session", "started", Text)]),
     row(UA, "status", &[computed("uat_session", "status")]),

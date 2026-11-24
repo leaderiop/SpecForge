@@ -122,9 +122,11 @@ fn every_other_planning_file_has_one_entry() {
                 && !p.ends_with("-CONTEXT.md")
                 && !p.ends_with("-DISCUSSION-LOG.md")
                 && !p.ends_with("-RESEARCH.md")
+                && !p.ends_with("-VERIFICATION.md")
+                && !p.ends_with("-UAT.md")
         })
         .collect();
-    assert_eq!(served.len(), 7);
+    assert_eq!(served.len(), 5);
     for path in &served {
         let of_file: Vec<&Value> = entries
             .iter()
@@ -146,11 +148,7 @@ fn every_other_planning_file_has_one_entry() {
             .map(|e| e["reason"].clone())
             .expect("an entry")
     };
-    // A Tier 1 file with no reader yet gives the kit's kinds column; the extras their fate's reason.
-    assert_eq!(
-        reason(".planning/phases/01-core/01-VERIFICATION.md"),
-        "verification, verify_gap, override, human_item, and verdicts"
-    );
+    // The extras give their fate's reason.
     assert_eq!(
         reason(".planning/state.json"),
         "gsd-tools' derived state (`state json`): STATE.md and the graph compute it"
