@@ -1,11 +1,12 @@
 //! The accepted side of an API snapshot (ADR 0390 D3): each public entry of a run judged against the committed
 //! accepted report of its crate or package, and the `change` its `api_item` fact carries.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use specforge_extension_sdk::prelude::Fact;
 
 use crate::api::{api_facts, fact, insert, ApiEntry, Served};
+use crate::ids::Scheme;
 use crate::report::Repeats;
 
 /// What an entry is against the accepted report: `@code/core`'s vocabulary of `api_item.change`.
@@ -65,12 +66,13 @@ const INTERNAL: &str = "Internal";
 /// The leading words [`comparable`] drops, at most one of each row, in row order.
 const PREFIXES: [&[&str]; 3] = [&["export "], &["declare "], &["const ", "let ", "var "]];
 
-/// A signature as both spellings of one declaration compare: whitespace collapsed to one space, a leading `export `,
-/// then `declare `, then `const `, `let ` or `var ` dropped, and trailing `;`, `,` and `{` dropped. api-extractor's
-/// doc model writes `export declare function f(): void;` and `LIMIT = 3` where its report writes
-/// `export function f(): void;` and `const LIMIT = 3;`. The first Rust visibility word (`pub`, `pub(crate)`, …) is
-/// dropped too: cargo public-api writes it in the line, and the entry's `visibility` judges it.
-pub fn comparable(signature: &str) -> String {
+/// A signature of the `scheme` as both spellings of one declaration compare: whitespace collapsed to one space, a
+/// leading `export `, then `declare `, then `const `, `let ` or `var ` dropped, and trailing `;`, `,` and `{` dropped.
+/// api-extractor's doc model writes `export declare function f(): void;` and `LIMIT = 3` where its report writes
+/// `export function f(): void;` and `const LIMIT = 3;`. For [`Scheme::Rust`] only, the first visibility word (`pub`,
+/// `pub(crate)`, …) is dropped too: cargo public-api writes it in the line, and the entry's `visibility` judges it. A
+/// JavaScript `function pub(a: string)` keeps its parameters.
+pub fn comparable(scheme: Scheme, signature: &str) -> String {
     let collapsed = signature.split_whitespace().collect::<Vec<_>>().join(" ");
     let mut rest = collapsed.as_str();
     for words in PREFIXES {
@@ -78,9 +80,11 @@ pub fn comparable(signature: &str) -> String {
             rest = &rest[word.len()..];
         }
     }
-    without_visibility(rest)
-        .trim_end_matches([';', ',', '{', ' '])
-        .to_string()
+    let rest = match scheme {
+        Scheme::Rust => without_visibility(rest),
+        Scheme::Js => rest.to_string(),
+    };
+    rest.trim_end_matches([';', ',', '{', ' ']).to_string()
 }
 
 /// `text` without its first word `pub` or `pub(…)`, the space after it included.
@@ -129,11 +133,15 @@ pub fn api_facts_against(
             .collect()
     };
     let (fresh_side, accepted_side) = (side(entries), side(accepted));
-    let judged = |e: &ApiEntry| {
+    let on_both_sides = |e: &ApiEntry| {
         let container = (e.scheme, e.container.clone());
         fresh_side.contains(&container) && accepted_side.contains(&container)
     };
-    let alone: Vec<ApiEntry> = entries.iter().filter(|e| !judged(e)).cloned().collect();
+    let alone: Vec<ApiEntry> = entries
+        .iter()
+        .filter(|e| !on_both_sides(e))
+        .cloned()
+        .collect();
     let mut facts: BTreeMap<String, Fact> = api_facts(&alone, served)
         .into_iter()
         .map(|fact| (fact.id.clone(), fact))
@@ -143,7 +151,7 @@ pub fn api_facts_against(
     let mut repeats = Repeats::default();
     let mut groups: BTreeMap<String, Group> = BTreeMap::new();
     let mut seen = BTreeSet::new();
-    for entry in entries.iter().filter(|e| judged(e)) {
+    for entry in entries.iter().filter(|e| on_both_sides(e)) {
         let (base, item, written) = served.minted(entry);
         if seen.insert((base.clone(), entry.signature.as_str())) {
             let id = repeats.id(base.clone());
@@ -159,7 +167,7 @@ pub fn api_facts_against(
     let mut seen = BTreeSet::new();
     for entry in accepted
         .iter()
-        .filter(|e| judged(e) && e.tag.as_deref() != Some(INTERNAL))
+        .filter(|e| on_both_sides(e) && e.tag.as_deref() != Some(INTERNAL))
     {
         let (base, _, written) = served.minted(entry);
         if seen.insert((base.clone(), entry.signature.as_str())) {
@@ -172,18 +180,18 @@ pub fn api_facts_against(
         let (pairs, removed) = pair(&group);
         for (minted, paired) in group.fresh.into_iter().zip(pairs) {
             let fresh = minted.entry;
-            let mut judged = fact(minted.id, fresh, minted.item, minted.written);
-            judged = match paired.map(|at| group.accepted[at].0) {
-                None => judged.field("change", ApiChange::Added.as_str()),
-                Some(old) if comparable(&old.signature) != comparable(&fresh.signature) => {
-                    against(judged, ApiChange::Changed, old, Some(fresh))
+            let minted_fact = fact(minted.id, fresh, minted.item, minted.written);
+            let scored = match paired.map(|at| group.accepted[at].0) {
+                None => minted_fact.field("change", ApiChange::Added.as_str()),
+                Some(old) if key(old) != key(fresh) => {
+                    against(minted_fact, ApiChange::Changed, old, Some(fresh))
                 }
                 Some(old) if narrower(fresh, old) => {
-                    against(judged, ApiChange::Narrowed, old, Some(fresh))
+                    against(minted_fact, ApiChange::Narrowed, old, Some(fresh))
                 }
-                Some(_) => judged.field("change", ApiChange::Unchanged.as_str()),
+                Some(_) => minted_fact.field("change", ApiChange::Unchanged.as_str()),
             };
-            insert(&mut facts, judged);
+            insert(&mut facts, scored);
         }
         for at in removed {
             let (old, written) = &group.accepted[at];
@@ -213,27 +221,31 @@ struct Minted<'e> {
 /// For each of `group`'s run entries, the accepted entry it pairs with, and the accepted entries left alone: equal
 /// comparable signatures first, then the leftovers of both sides in document order.
 fn pair(group: &Group) -> (Vec<Option<usize>>, Vec<usize>) {
-    let keys: Vec<String> = group
-        .accepted
-        .iter()
-        .map(|(e, _)| comparable(&e.signature))
-        .collect();
-    let mut taken = vec![false; keys.len()];
+    // Each comparable signature's accepted entries, in document order: a keyed lookup, so pairing is not quadratic.
+    let mut by_key: BTreeMap<String, VecDeque<usize>> = BTreeMap::new();
+    for (at, (e, _)) in group.accepted.iter().enumerate() {
+        by_key.entry(key(e)).or_default().push_back(at);
+    }
+    let mut taken = vec![false; group.accepted.len()];
     let mut pairs: Vec<Option<usize>> = group
         .fresh
         .iter()
         .map(|minted| {
-            let key = comparable(&minted.entry.signature);
-            let at = (0..keys.len()).find(|&at| !taken[at] && keys[at] == key)?;
+            let at = by_key.get_mut(&key(minted.entry))?.pop_front()?;
             taken[at] = true;
             Some(at)
         })
         .collect();
-    let mut left = (0..keys.len()).filter(|&at| !taken[at]);
+    let mut left = (0..taken.len()).filter(|&at| !taken[at]);
     for slot in pairs.iter_mut().filter(|slot| slot.is_none()) {
         *slot = left.next();
     }
     (pairs, left.collect())
+}
+
+/// The [`comparable`] signature of `entry`, in its own scheme.
+fn key(entry: &ApiEntry) -> String {
+    comparable(entry.scheme, &entry.signature)
 }
 
 /// Whether `fresh` is narrower than `accepted`: a lower release tag, or a visibility later in `Visibility::NAMES`.

@@ -71,34 +71,36 @@ const F: &str = "api:js:%40demo%2Fw::f";
 
 #[test]
 fn the_comparison_key_bridges_the_report_and_the_doc_model() {
+    let js = |signature| comparable(Scheme::Js, signature);
+    let rust = |signature| comparable(Scheme::Rust, signature);
     let key = "function create(o: Options): Widget";
     assert_eq!(
-        comparable("export declare function create(o: Options): Widget;"),
+        js("export declare function create(o: Options): Widget;"),
         key
     );
+    assert_eq!(js("export  function create(o: Options):\n Widget;"), key);
+    assert_eq!(js("LIMIT = 3"), js("const LIMIT = 3;"));
+    assert_eq!(js("A = 1"), js("A = 1,"));
+    assert_eq!(js("export declare class W "), js("export class W {"));
+    assert_eq!(rust("pub fn demo::f()"), rust("pub(crate) fn demo::f()"));
     assert_eq!(
-        comparable("export  function create(o: Options):\n Widget;"),
-        key
-    );
-    assert_eq!(comparable("LIMIT = 3"), comparable("const LIMIT = 3;"));
-    assert_eq!(comparable("A = 1"), comparable("A = 1,"));
-    assert_eq!(
-        comparable("export declare class W "),
-        comparable("export class W {")
-    );
-    assert_eq!(
-        comparable("pub fn demo::f()"),
-        comparable("pub(crate) fn demo::f()")
-    );
-    assert_eq!(
-        comparable("#[non_exhaustive] pub struct demo::S"),
+        rust("#[non_exhaustive] pub struct demo::S"),
         "#[non_exhaustive] struct demo::S"
     );
     assert_ne!(
-        comparable("pub fn demo::f(a: u8)"),
-        comparable("pub fn demo::f(a: u16)")
+        rust("pub fn demo::f(a: u8)"),
+        rust("pub fn demo::f(a: u16)")
     );
-    assert_eq!(comparable("publish(): void;"), "publish(): void");
+    assert_eq!(js("publish(): void;"), "publish(): void");
+    // The visibility word is Rust's: a JavaScript function named `pub` keeps its parameters.
+    assert_eq!(
+        js("export function pub(a: string): void;"),
+        "function pub(a: string): void"
+    );
+    assert_ne!(
+        js("export function pub(a: string): void;"),
+        js("export function pub(a: number): void;")
+    );
     assert_eq!(
         ApiChange::NAMES,
         ["added", "unchanged", "changed", "narrowed", "removed"]

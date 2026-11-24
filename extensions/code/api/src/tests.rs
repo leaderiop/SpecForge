@@ -1,5 +1,5 @@
 use specforge_code_facts::{
-    api_facts, api_facts_against, comparable, ApiKind, ItemKind, Visibility,
+    api_facts, api_facts_against, comparable, ApiKind, ItemKind, Scheme, Visibility,
 };
 use specforge_extension_sdk::prelude::Fact;
 
@@ -520,11 +520,14 @@ fn judged(facts: &[Fact]) -> Vec<Judged> {
 fn a_fresh_model_against_the_report_of_its_own_run_is_all_unchanged() {
     let key = "function create(o: Options): Widget";
     assert_eq!(
-        comparable("export declare function create(o: Options): Widget;"),
+        comparable(
+            Scheme::Js,
+            "export declare function create(o: Options): Widget;"
+        ),
         key
     );
     assert_eq!(
-        comparable("export function create(o: Options): Widget;"),
+        comparable(Scheme::Js, "export function create(o: Options): Widget;"),
         key
     );
     let fresh = read_js_model(TAGGED_MODEL).expect("the model reads");
