@@ -24,6 +24,13 @@
             "item",
             "package"
           ]
+        },
+        {
+          "glob": "**/public-api.txt",
+          "input": "files",
+          "name": "accepted",
+          "text": true,
+          "text_max": 4194304
         }
       ],
       "install": "cargo install cargo-public-api --locked (and: rustup toolchain install nightly --profile minimal)",

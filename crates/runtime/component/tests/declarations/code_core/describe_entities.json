@@ -611,6 +611,59 @@
           "name": "tag",
           "required": false,
           "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The entry against the committed accepted report; absent when no accepted report covers its crate or package",
+          "edge": null,
+          "enum_values": [
+            "added",
+            "unchanged",
+            "changed",
+            "narrowed",
+            "removed"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "change",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The accepted report's entry as it wrote it, for a changed, narrowed or removed entry",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "accepted_signature",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The accepted report's release tag, for a changed, narrowed or removed entry that has one",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "accepted_tag",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The accepted report's visibility, for a changed or narrowed entry whose visibility differs",
+          "edge": null,
+          "enum_values": [
+            "public",
+            "crate",
+            "restricted",
+            "private"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "accepted_visibility",
+          "required": false,
+          "target_kind": null
         }
       ],
       "has_body_parser": false,

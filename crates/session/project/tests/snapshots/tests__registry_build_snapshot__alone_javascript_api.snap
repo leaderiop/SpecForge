@@ -16,7 +16,7 @@ expression: "digest(&load(&runtime, &[name]))"
     },
     {
       "code": "E027",
-      "message": "extension '@javascript/api' requires peer dependency '@code/core' ^1.2 which is not installed"
+      "message": "extension '@javascript/api' requires peer dependency '@code/core' ^1.4 which is not installed"
     },
     {
       "code": "E027",

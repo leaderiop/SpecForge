@@ -1287,7 +1287,9 @@
             "E106",
             "E511",
             "E515",
-            "E516"
+            "E516",
+            "E533",
+            "E535"
           ],
           "id": "close_milestone",
           "subject": "milestone",
@@ -3272,7 +3274,9 @@
             "E106",
             "E511",
             "E515",
-            "E516"
+            "E516",
+            "E533",
+            "E535"
           ],
           "id": "complete_milestone",
           "inputs": [

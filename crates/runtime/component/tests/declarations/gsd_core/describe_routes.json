@@ -60,6 +60,29 @@
           "via": "<deliverable.requirement"
         }
       ]
+    },
+    {
+      "annotations": [
+        {
+          "field": "api_breaks"
+        },
+        {
+          "field": "release"
+        },
+        {
+          "field": "tag"
+        }
+      ],
+      "description": "A milestone's release evidence: its API breaks, its release (tag, commit, packages) and its recorded tag, and its phases",
+      "name": "milestone-release",
+      "start": "milestone",
+      "steps": [
+        {
+          "label": "phase",
+          "name": "phase",
+          "via": "<phase.milestone"
+        }
+      ]
     }
   ]
 }
