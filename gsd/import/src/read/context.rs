@@ -10,7 +10,7 @@ use gsd_kit::markdown::{self, InlineBlock};
 use serde_json::{Value, json};
 
 use super::{
-    Context, PhaseFile, blocks_in, bullets_in, is_bold_only, is_date, is_footer, is_tag,
+    Context, PhaseFile, blocks_in, bullets_in, is_bold_only, is_date, is_footer, is_tag, mapped,
     phase_file, prose,
 };
 use crate::ids;
@@ -137,23 +137,28 @@ pub fn read(
         if s.level <= 2 {
             parent = s.title.clone();
         }
-        let list = |field: &str, fields: &mut BTreeMap<String, Value>| {
+        let to =
+            |what: &str, report: &mut Report| report.push(mapped(&f.at(s.line), &s.title, what));
+        let list = |field: &str, fields: &mut BTreeMap<String, Value>, report: &mut Report| {
+            to(&format!("context.{field}"), report);
             let items: Vec<&str> = t.bullets(&s.body).into_iter().map(|(_, b)| b).collect();
             if !items.is_empty() {
                 fields.insert(field.to_string(), json!(items));
             }
         };
-        let prose_of = |field: &str, fields: &mut BTreeMap<String, Value>| {
+        let prose_of = |field: &str, fields: &mut BTreeMap<String, Value>, report: &mut Report| {
+            to(&format!("context.{field}"), report);
             if let Some(text) = prose(&t.blocks, &s.body) {
                 fields.insert(field.to_string(), json!(text));
             }
         };
         match (s.level, parent.as_str(), s.title.as_str()) {
             (1, ..) if title.is_none() => title = Some(s.title.clone()),
-            (2, _, "Phase Boundary") => prose_of("boundary", &mut fields),
-            (2, _, "Specific Ideas") => prose_of("specifics", &mut fields),
-            (2, _, DECISIONS | INSIGHTS) => {}
+            (2, _, "Phase Boundary") => prose_of("boundary", &mut fields, report),
+            (2, _, "Specific Ideas") => prose_of("specifics", &mut fields, report),
+            (2, _, DECISIONS | INSIGHTS) => to("each area under it", report),
             (2, _, "Canonical References") => {
+                to("context.canonical_refs", report);
                 covered = s.body.clone();
                 let refs = canonical_refs(&t, s, &all);
                 if !refs.is_empty() {
@@ -161,14 +166,18 @@ pub fn read(
                 }
             }
             (2, _, "Deferred Ideas") => {
+                to("each bullet a deferred_idea", report);
                 covered = s.body.clone();
                 deferred(&f, &t, s, records, report);
             }
-            (3, DECISIONS, title) if discretion(title) => list("discretion", &mut fields),
-            (3, DECISIONS, _) => decisions(&f, &t, s, &mut decided, records, report),
-            (3, INSIGHTS, "Reusable Assets") => list("reusable_assets", &mut fields),
-            (3, INSIGHTS, "Established Patterns") => list("patterns", &mut fields),
-            (3, INSIGHTS, "Integration Points") => list("integration_points", &mut fields),
+            (3, DECISIONS, title) if discretion(title) => list("discretion", &mut fields, report),
+            (3, DECISIONS, _) => {
+                to("each D-NN bullet a decision", report);
+                decisions(&f, &t, s, &mut decided, records, report)
+            }
+            (3, INSIGHTS, "Reusable Assets") => list("reusable_assets", &mut fields, report),
+            (3, INSIGHTS, "Established Patterns") => list("patterns", &mut fields, report),
+            (3, INSIGHTS, "Integration Points") => list("integration_points", &mut fields, report),
             _ => {
                 if s.level > 1 {
                     covered = s.body.clone();

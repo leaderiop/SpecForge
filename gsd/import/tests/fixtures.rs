@@ -687,3 +687,43 @@ fn every_printed_core_key_is_declared() {
     }
     assert!(checked > 100, "{checked}");
 }
+
+#[test]
+fn each_fixtures_counts_are_pinned() {
+    for (name, security, want) in [
+        // 13-RESEARCH "Taskboard: twin entity ← source line"; the ledger and the vault per its "adds" line.
+        (
+            "taskboard",
+            false,
+            json!({
+                "project": 1, "decision": 5, "requirement": 8, "milestone": 1, "phase": 4, "plan": 3,
+                "task": 6, "truth": 6, "artifact": 3, "key_link": 3, "summary": 2, "deliverable": 3,
+                "uat_session": 1, "uat_test": 3, "uat_gap": 1, "verification": 1, "context": 1,
+                "deferred_idea": 1, "discussion": 1, "research": 1, "source": 1, "finding": 1,
+                "stack_choice": 1, "pattern": 2, "pitfall": 1, "dont_hand_roll": 1, "open_question": 1,
+            }),
+        ),
+        (
+            "ledger",
+            false,
+            json!({
+                "project": 1, "decision": 2, "requirement": 6, "milestone": 1, "phase": 3, "plan": 4,
+                "task": 7, "truth": 7, "artifact": 4, "key_link": 3, "summary": 3, "deliverable": 3,
+                "verification": 1,
+            }),
+        ),
+        (
+            "vault",
+            true,
+            json!({
+                "project": 1, "decision": 1, "requirement": 3, "milestone": 1, "phase": 2, "plan": 3,
+                "task": 5, "truth": 3, "artifact": 3, "key_link": 3, "summary": 2,
+                "trust_boundary": 2, "threat": 6, "security_audit": 1, "accepted_risk": 1, "audit_run": 1,
+            }),
+        ),
+    ] {
+        let out = common::import_with(name, security);
+        assert_eq!(out.exit_code, 0, "{name}: {}", out.stderr);
+        assert_eq!(payload(&out)["counts"], want, "{name}");
+    }
+}

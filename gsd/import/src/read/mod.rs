@@ -255,6 +255,12 @@ pub fn row(file: &str, key: &str, source: &Source, section: &str) -> Entry {
     Entry::at(source, section, outcome, reason)
 }
 
+/// The entry of a heading whose section a reader maps (into `to`: `project.core_value`, `each row a decision`), so no
+/// heading goes unreported (the census of `tests/census.rs`).
+pub fn mapped(source: &Source, section: &str, to: &str) -> Entry {
+    Entry::at(source, section, Outcome::Mapped, format!("mapped: {to}"))
+}
+
 /// `text` as an id: ASCII letters and digits lower-cased, every other run of characters one `-`, none at either end
 /// (`Hotfix: titles survive a reload` is `hotfix-titles-survive-a-reload`).
 pub fn slug(text: &str) -> String {
@@ -431,6 +437,11 @@ impl PhaseFile<'_> {
     /// An `unmapped` entry at the 0-based `line`.
     pub fn unmapped(&self, line: usize, section: &str, why: String) -> Entry {
         self.doc.unmapped(line + 1, section, why)
+    }
+
+    /// The [`mapped`] entry of the heading at the 0-based `line`.
+    pub fn mapped(&self, line: usize, section: &str, to: &str) -> Entry {
+        mapped(&self.at(line), section, to)
     }
 
     /// The `spec/gsd/` file of the phase.

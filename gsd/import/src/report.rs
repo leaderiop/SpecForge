@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
+use crate::owed::{self, Owed};
 use crate::records::Source;
 
 /// What became of a file, a section or a row: the ten classes of ADR 0391 D3.
@@ -149,8 +150,8 @@ pub struct Report {
     entries: Vec<Entry>,
     /// `specforge settings set` lines (ADR 0391 D6), each already quoted for a shell.
     settings: Vec<String>,
-    /// The verdicts `.planning/` recorded, each with the command that records it now (D5).
-    owed: Vec<String>,
+    /// The verdicts the imported entities owe, each listed with the commands that record it (D5).
+    owed: Vec<Owed>,
     /// The fields no `.planning` source gives, which the user writes after the import.
     authored_after_import: Vec<String>,
     ids: Vec<Minted>,
@@ -165,8 +166,8 @@ impl Report {
         self.settings.push(line);
     }
 
-    pub fn owed(&mut self, line: String) {
-        self.owed.push(line);
+    pub fn owed(&mut self, owed: Owed) {
+        self.owed.push(owed);
     }
 
     pub fn authored_after_import(&mut self, note: String) {
@@ -215,7 +216,7 @@ impl Report {
             "format": 1,
             "entries": entries,
             "settings": rendered(&self.settings),
-            "owed": rendered(&self.owed),
+            "owed": sorted(&self.owed).into_iter().map(Owed::json).collect::<Vec<Value>>(),
             "authored_after_import": rendered(&self.authored_after_import),
             "ids": ids,
             "counts": counts,
@@ -238,20 +239,24 @@ impl Report {
                 shown(&e.reason)
             ));
         }
+        let mut owed: Vec<Owed> = self.owed.clone();
+        owed.sort();
+        // The owed lines keep their order: each phase's command, then its queries, then the count.
+        let owed: Vec<String> = owed::lines(&owed).iter().map(|l| escape(l)).collect();
         for (heading, lines) in [
             (
                 "settings: run each line to keep the setting",
-                &self.settings,
+                rendered(&self.settings),
             ),
-            ("owed: record each verdict anew", &self.owed),
+            ("owed: record each verdict anew", owed),
             (
                 "authored after import: no .planning source gives these",
-                &self.authored_after_import,
+                rendered(&self.authored_after_import),
             ),
         ] {
             if !lines.is_empty() {
                 out.push_str(&format!("\n{heading}\n"));
-                for line in rendered(lines) {
+                for line in lines {
                     out.push_str(&format!("  {line}\n"));
                 }
             }

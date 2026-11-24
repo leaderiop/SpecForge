@@ -351,7 +351,7 @@ fn a_reference_to_nothing_drops_the_record_and_its_children() {
         Vec::new(),
     );
     let plan = PlanBuilder::new(Default::default(), Default::default());
-    let (plan, counts) =
+    let (plan, counts, _) =
         gsd_import::emit::emit(&records, &graph, plan, &mut report).expect("not refused");
     let ids: Vec<String> = plan
         .finish()
@@ -405,8 +405,9 @@ fn the_plan_creates_kinds_in_order_and_ids_within_a_kind() {
     records.add(record("milestone", "v1.0", &[], 5), &mut report);
     records.add(record("requirement", "A-01", &[], 6), &mut report);
     let plan = PlanBuilder::new(Default::default(), Default::default());
-    let (plan, _) = gsd_import::emit::emit(&records, &CommandGraph::default(), plan, &mut report)
-        .expect("not refused");
+    let (plan, _, _) =
+        gsd_import::emit::emit(&records, &CommandGraph::default(), plan, &mut report)
+            .expect("not refused");
     let ids: Vec<String> = plan
         .finish()
         .ops
@@ -493,8 +494,9 @@ fn a_record_missing_a_required_field_is_dropped_with_its_children() {
         &mut report,
     );
     let plan = PlanBuilder::new(Default::default(), Default::default());
-    let (plan, _) = gsd_import::emit::emit(&records, &CommandGraph::default(), plan, &mut report)
-        .expect("not refused");
+    let (plan, _, _) =
+        gsd_import::emit::emit(&records, &CommandGraph::default(), plan, &mut report)
+            .expect("not refused");
     assert_eq!(create_ids(plan), ["v1.0"]);
     let reasons: Vec<(Option<usize>, String)> = report
         .entries()
@@ -525,8 +527,9 @@ fn a_scoped_record_is_created_with_its_own_id() {
     records.add(record("phase", "v1.0/02.1", &["v1.0"], 2), &mut report);
     records.add(record("phase", "v1.0/0 2", &["v1.0"], 3), &mut report);
     let plan = PlanBuilder::new(Default::default(), Default::default());
-    let (plan, _) = gsd_import::emit::emit(&records, &CommandGraph::default(), plan, &mut report)
-        .expect("not refused");
+    let (plan, _, _) =
+        gsd_import::emit::emit(&records, &CommandGraph::default(), plan, &mut report)
+            .expect("not refused");
     assert_eq!(create_ids(plan), ["v1.0", "02.1"]);
     assert!(
         report

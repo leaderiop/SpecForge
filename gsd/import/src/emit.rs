@@ -17,13 +17,17 @@ use crate::limits::{MAX_ENTRIES, MAX_OPS};
 use crate::records::{Record, Records};
 use crate::report::{Entry, Outcome, Report};
 
-/// The plan built on `plan` from what of `records` passes, and how many entities of each kind it creates.
-pub fn emit(
-    records: &Records,
+/// What [`emit`] answers: the plan, how many entities of each kind it creates, and the records it creates.
+pub type Emitted<'r> = (PlanBuilder, BTreeMap<&'static str, usize>, Vec<&'r Record>);
+
+/// The plan built on `plan` from what of `records` passes, how many entities of each kind it creates, and the records
+/// it creates.
+pub fn emit<'r>(
+    records: &'r Records,
     graph: &CommandGraph,
     mut plan: PlanBuilder,
     report: &mut Report,
-) -> Result<(PlanBuilder, BTreeMap<&'static str, usize>), String> {
+) -> Result<Emitted<'r>, String> {
     if records.len() > MAX_OPS {
         return Err(format!(
             "truncated at {MAX_OPS}: .planning/ gives {} entities, more than one plan holds; nothing is imported",
@@ -142,7 +146,7 @@ pub fn emit(
             report.len()
         ));
     }
-    Ok((plan, counts))
+    Ok((plan, counts, kept))
 }
 
 /// A record's own id, the last segment of its path: a scoped entity is created with it and its scope field

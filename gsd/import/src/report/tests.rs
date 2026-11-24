@@ -69,7 +69,11 @@ fn filled(entries: Vec<Entry>) -> Report {
     }
     report.setting("specforge settings set @gsd/core mode 'yolo'".to_string());
     report.setting("specforge settings set @gsd/core granularity 'fine'".to_string());
-    report.owed("/gsd-verify-work 01".to_string());
+    report.owed(Owed {
+        phase: Some("01".to_string()),
+        code: owed::E501,
+        entity: "v1.0/01/01-01/TR1".to_string(),
+    });
     report.authored_after_import("milestone v1.0: its title".to_string());
     report.minted(Minted {
         kind: "requirement".to_string(),
@@ -112,7 +116,7 @@ fn report_text_is_one_escaped_line_per_entry() {
         ]
     );
     assert!(text.contains("\nsettings: run each line to keep the setting\n  specforge settings set @gsd/core granularity 'fine'\n  specforge settings set @gsd/core mode 'yolo'\n"));
-    assert!(text.contains("\nowed: record each verdict anew\n  /gsd-verify-work 01\n"));
+    assert!(text.contains("\nowed: record each verdict anew\n  /gsd-verify-work 01\n    specforge query 'v1.0/01/01-01/TR1' --inputs gsd/E501 --format json\n  1 verdicts owed: `specforge check` exits 1 until these verdicts are recorded\n"));
     assert!(text.ends_with("import: 0 entities (), 5 report entries\n"));
     assert!(!text.chars().any(|c| hidden(c) && c != '\n'));
 }
@@ -138,6 +142,10 @@ fn report_payload_has_every_section() {
     assert_eq!(
         payload["ids"],
         json!([{"kind": "requirement", "old": "Out of Scope row 1", "new": "OOS-01"}])
+    );
+    assert_eq!(
+        payload["owed"],
+        json!([{"code": "gsd/E501", "entity": "v1.0/01/01-01/TR1", "phase": "01"}])
     );
     let first = &payload["entries"][0];
     assert_eq!(first["reason"], "bidi \\u{202e}txt.exe");

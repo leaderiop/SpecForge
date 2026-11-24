@@ -57,9 +57,10 @@ pub fn read(
             }
             (2, "Deferred Ideas") => report.push(f.row("## Deferred Ideas", s.line, &s.title)),
             (2, _) => {
-                if entries.is_empty() {
-                    report.push(f.row("## Area", s.line, &s.title));
-                }
+                report.push(match entries.is_empty() {
+                    true => f.row("## Area", s.line, &s.title),
+                    false => f.mapped(s.line, &s.title, "one of discussion.entries"),
+                });
                 entries.push(entry(&f, &t, &s, &tables, report));
             }
             _ => report.push(f.unmapped(s.line, &s.title, UNKNOWN.to_string())),

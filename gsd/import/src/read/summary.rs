@@ -323,6 +323,7 @@ fn body_sections(
                 }
             }
             (2, "Threat Flags") if cx.manifest.security => {
+                report.push(super::mapped(&doc.at(line), &s.title, "summary.threat_flags"));
                 let flags: Vec<String> = gsd_kit::markdown::tables(body)
                     .into_iter()
                     .filter(|t| t.heading == "Threat Flags")

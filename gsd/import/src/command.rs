@@ -4,10 +4,11 @@
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
+use crate::preflight::Manifest;
 use crate::read::{self, Served};
 use crate::records::Records;
 use crate::report::Report;
-use crate::{emit, preflight};
+use crate::{emit, owed, preflight};
 
 pub const INVALID: &str = "invalid_input";
 
@@ -57,10 +58,38 @@ fn import(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let manifest = preflight::manifest(&served(call, MANIFEST).0)?;
     let (planning, truncated) = served(call, PLANNING);
     preflight::check_reads(&planning, truncated)?;
+    let imported = imported(planning, &manifest, graph, call.plan())?;
+    Ok(answer(
+        call,
+        imported.payload,
+        imported.text,
+        Some(&imported.plan),
+    ))
+}
+
+/// What one import answers: its plan, and its report as JSON and as text.
+pub struct Imported {
+    pub plan: PlanBuilder,
+    pub payload: Value,
+    pub text: String,
+}
+
+/// Reads `planning`, in path order whatever the order it is given in (an import is deterministic, ADR 0391 D8), into
+/// a plan built on `plan` over `graph`, with its report and the verdicts it owes.
+pub fn imported(
+    mut planning: Vec<Served>,
+    manifest: &Manifest,
+    graph: &CommandGraph,
+    plan: PlanBuilder,
+) -> Result<Imported, String> {
+    planning.sort_by(|a, b| a.path.cmp(&b.path));
     let mut records = Records::default();
     let mut report = Report::default();
-    read::all(&planning, &manifest, &mut records, &mut report);
-    let (plan, counts) = emit::emit(&records, graph, call.plan(), &mut report)?;
+    read::all(&planning, manifest, &mut records, &mut report);
+    let (plan, counts, kept) = emit::emit(&records, graph, plan, &mut report)?;
+    for owed in owed::owed(kept.iter().copied()) {
+        report.owed(owed);
+    }
     let mut payload = report.payload(&counts);
     payload["security"] = json!({ "loaded": manifest.security, "check": SECURITY_CHECK });
     let mut text = report.text(&counts);
@@ -68,7 +97,11 @@ fn import(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         "@gsd/security {}loaded ({SECURITY_CHECK})\n",
         if manifest.security { "" } else { "not " }
     ));
-    Ok(answer(call, payload, text, Some(&plan)))
+    Ok(Imported {
+        plan,
+        payload,
+        text,
+    })
 }
 
 /// How the import knows the project loads `@gsd/security` (ADR 0391 D11).

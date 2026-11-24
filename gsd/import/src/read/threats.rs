@@ -50,6 +50,19 @@ pub fn read(
             ));
             continue;
         }
+        for h in gsd_kit::markdown::headings(&element.body) {
+            let section = format!("<threat_model> ## {}", h.text);
+            let source = doc.at(element.line + h.line);
+            report.push(match h.text.as_str() {
+                BOUNDARIES => super::mapped(&source, &section, "each row a trust_boundary"),
+                REGISTER => super::mapped(&source, &section, "each row a threat"),
+                _ => doc.unmapped(
+                    element.line + h.line,
+                    &section,
+                    "a section no row of the plan's table names: not imported".to_string(),
+                ),
+            });
+        }
         for table in gsd_kit::markdown::tables(&element.body) {
             // The body starts on the opening tag's line; a table's line is 0-based, its rows two lines below it.
             let at = element.line + table.line;

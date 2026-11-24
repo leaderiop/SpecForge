@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use gsd_kit::markdown;
 use serde_json::{Value, json};
 
-use super::is_date;
+use super::{is_date, mapped};
 use crate::paths;
 use crate::records::{Record, Records, Source};
 use crate::report::{Entry, Outcome, Report};
@@ -46,17 +46,33 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             section = heading.trim().to_string();
             category = None;
             tier = tier_of(&section);
-            if section == "Traceability" {
-                report.push(Entry::at(
+            let entry = match tier {
+                _ if section == "Traceability" => Entry::at(
                     &at(n),
                     &section,
                     Outcome::Redundant,
                     "ROADMAP.md's **Requirements** lines give each phase's requirements"
                         .to_string(),
-                ));
-            }
+                ),
+                Some(tier) => mapped(&at(n), &section, &format!("requirement.tier {tier}")),
+                None => Entry::at(
+                    &at(n),
+                    &section,
+                    Outcome::Unmapped,
+                    "a section no row of the REQUIREMENTS.md table names: not imported".to_string(),
+                ),
+            };
+            report.push(entry);
         } else if let Some(heading) = line.strip_prefix("### ") {
             category = Some(heading.trim().to_string());
+            report.push(mapped(&at(n), heading.trim(), "requirement.category"));
+        } else if let Some(title) = line.strip_prefix("# ") {
+            report.push(Entry::at(
+                &at(n),
+                title.trim(),
+                Outcome::Redundant,
+                "PROJECT.md's title names the project".to_string(),
+            ));
         } else if line.starts_with("**Core Value:**") {
             report.push(Entry::at(
                 &at(n),

@@ -167,8 +167,9 @@ pub fn read(
                 .iter()
                 .any(|c| title_.starts_with(c))
         {
-            // A container: its `###` sections are read below.
+            report.push(f.mapped(s.line, title_, "each ### section under it"));
         } else if level == 3 && in_parent(CONSTRAINTS) && title_ == "Locked Decisions" {
+            report.push(f.mapped(s.line, title_, "research.user_constraints"));
             let named = locked(&f, &t, s, records, report);
             if !named.is_empty() {
                 refs.extend(named.iter().cloned());
@@ -179,35 +180,44 @@ pub fn read(
         } else if level == 3 && in_parent(CONSTRAINTS) && title_.starts_with("Deferred Ideas") {
             report.push(f.row("<user_constraints> ### Deferred Ideas", s.line, title_));
         } else if level == 2 && title_ == "Architectural Responsibility Map" {
+            report.push(f.mapped(s.line, title_, "research.responsibility_map"));
             let map = responsibility_map(&f, s, &tables, report);
             if !map.is_empty() {
                 fields.insert("responsibility_map".to_string(), json!(map));
             }
         } else if level == 2 && title_ == "Summary" {
+            report.push(f.mapped(s.line, title_, "research.summary and its findings"));
             summary(&mut items, &t, s, &mut fields, records, report);
         } else if level == 3
             && in_parent(STACK)
             && let Some(tier) = tier_of(title_)
         {
+            report.push(f.mapped(s.line, title_, "each row a stack_choice"));
             stack(&mut items, s, tier, &tables, records, report);
         } else if level == 3 && in_parent(PATTERNS) && numbered(title_, "Pattern").is_some() {
+            report.push(f.mapped(s.line, title_, "a pattern"));
             pattern(&mut items, &t, s, text, records, report);
         } else if level == 3 && in_parent(PATTERNS) && title_ == "Anti-Patterns to Avoid" {
+            report.push(f.mapped(s.line, title_, "each bullet an anti-pattern"));
             anti_patterns(&mut items, &t, s, records, report);
         } else if level == 2 && matches!(title_, "Don't Hand-Roll" | "Don’t Hand-Roll") {
+            report.push(f.mapped(s.line, title_, "each row a dont_hand_roll"));
             dont_hand_roll(&mut items, s, &tables, records, report);
         } else if level == 3
             && in_parent(PITFALLS)
             && let Some(name) = numbered(title_, "Pitfall")
         {
+            report.push(f.mapped(s.line, title_, "a pitfall"));
             pitfall(&mut items, &t, s, name, records, report);
         } else if level == 2 && title_.starts_with("Open Questions") {
             covered = s.body.clone();
+            report.push(f.mapped(s.line, title_, "each question an open_question"));
             questions(&mut items, &t, s, records, report);
         } else if level == 3
             && in_parent(SOURCES)
             && let Some(tier) = source_tier(title_)
         {
+            report.push(f.mapped(s.line, title_, "each bullet a source"));
             sources(&mut items, &t, s, tier, records, report);
         } else if level == 2 && title_.starts_with("Package Legitimacy") {
             covered = s.body.clone();
