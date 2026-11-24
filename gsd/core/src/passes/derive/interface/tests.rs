@@ -71,3 +71,24 @@ fn api_breaks_of_e533_sorts_by_id_and_keeps_the_three_breaking_changes() {
         )]
     );
 }
+
+#[test]
+fn api_breaks_of_e533_caps_at_50_lines_then_one_more_line() {
+    let items = (0..60)
+        .map(|i| item(&format!("api:rust:a::f{i:02}"), Some("removed")))
+        .collect();
+    let found = values(&input(items));
+    let lines = found[0].value.as_array().expect("a list");
+    assert_eq!(lines.len(), 51);
+    assert_eq!(lines[49], "removed api:rust:a::f49");
+    assert_eq!(lines[50], "more 10");
+}
+
+#[test]
+fn api_breaks_of_e533_escapes_each_id() {
+    let found = values(&input(vec![item("api:rust:a::f\nb`'", Some("changed"))]));
+    assert_eq!(
+        breaks(&found),
+        [("v1.8", json!(["changed api:rust:a::f\\nb`\\'"]))]
+    );
+}
