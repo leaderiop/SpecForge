@@ -292,8 +292,9 @@ impl<'t> Reader<'t> {
             ));
         }
         match self.frames.last() {
+            // The name is the report's text: quoted escaped, so no control character reaches a message.
             Some(frame) => Err(format!(
-                "line {}: the body of `{}` is never closed",
+                "line {}: the body of {:?} is never closed",
                 frame.line, frame.name
             )),
             None => Ok(()),

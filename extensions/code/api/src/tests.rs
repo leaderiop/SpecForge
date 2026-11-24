@@ -665,6 +665,13 @@ fn a_malformed_report_is_an_error_naming_why() {
 }
 
 #[test]
+fn an_unclosed_body_names_its_declaration_escaped() {
+    let error = read_js_report(&report("export class \u{1b}[2J {\n    m(): void;")).unwrap_err();
+    assert_eq!(error, "line 7: the body of \"\\u{1b}[2J\" is never closed");
+    assert!(!error.contains('\u{1b}'), "{error:?}");
+}
+
+#[test]
 fn a_refused_file_still_names_the_package_or_crate_it_was_meant_for() {
     let conflicted = report("<<<<<<< HEAD\nexport function f(): void;");
     assert!(read_js_report(&conflicted).is_err());
