@@ -9,6 +9,7 @@
 #[path = "../../../core/tests/cli/harness.rs"]
 mod harness;
 
+mod hostile;
 mod import;
 
 use std::collections::BTreeMap;
