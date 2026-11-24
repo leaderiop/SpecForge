@@ -83,6 +83,22 @@ fn tags_that_do_not_resolve_are_recorded_without_a_commit() {
 }
 
 #[test]
+fn tags_of_a_zero_padded_version_look_up_the_name_as_written() {
+    let repo = Repo {
+        tags: HashMap::from([("v2026.01".to_string(), SHA.to_string())]),
+        ..Repo::default()
+    };
+    let set = tagged(repo, vec![milestone("v2026.01", true)]);
+    assert_eq!(
+        set,
+        [(
+            "v2026.01".to_string(),
+            json!({ "name": "v2026.01", "commit": SHA })
+        )]
+    );
+}
+
+#[test]
 fn tags_already_held_are_not_set_again() {
     let mut held = milestone("v1.7", true);
     held.fields

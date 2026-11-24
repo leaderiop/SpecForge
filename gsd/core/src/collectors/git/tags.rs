@@ -1,8 +1,9 @@
 //! A shipped milestone's `tag` (ADR 0390 D6): GSD tags a release `v<version>` after its close, and `gsd-git` records
 //! whether that tag resolves, for `derive` to copy into `milestone.release` and `gsd/E535` to judge. A pass never asks
 //! the git port (ADR 0335 D4): this collector does, once per shipped milestone whose name is a version, with the port's
-//! `commit` verb on `refs/tags/v<version>` (an annotated tag resolves to its commit). The revision is built from the
-//! parsed version alone, digits and dots, so no text of a milestone's name reaches the port.
+//! `commit` verb on `refs/tags/v<version>` (an annotated tag resolves to its commit), the version as the name wrote it
+//! (`v2026.01`, the tag GSD creates). The revision is built from the parsed version alone, digits and dots, so no
+//! other text of a milestone's name reaches the port.
 //!
 //! No observation writes nothing: a shallow clone holds no tags, and with `git.create_tag` false GSD tags no release.
 

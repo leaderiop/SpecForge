@@ -24,7 +24,7 @@ fn shipped(milestone: &PassEntity) -> bool {
     milestone.fields.contains_key("completion")
 }
 
-fn version(milestone: &PassEntity) -> Option<Version> {
+fn version(milestone: &PassEntity) -> Option<Version<'_>> {
     parse(name_of(&milestone.id))
 }
 

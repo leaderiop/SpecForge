@@ -1,6 +1,6 @@
 use super::*;
 
-fn v(name: &str) -> Version {
+fn v(name: &str) -> Version<'_> {
     parse(name).expect("a version")
 }
 
@@ -53,8 +53,17 @@ fn a_package_matches_the_milestones_first_two_or_written_parts() {
 }
 
 #[test]
-fn a_version_prints_the_parts_it_wrote_without_its_v() {
+fn a_version_prints_as_written_without_its_v() {
     assert_eq!(v("v1.7").to_string(), "1.7");
     assert_eq!(v("1.7.2").to_string(), "1.7.2");
-    assert_eq!(v("v01.7").to_string(), "1.7");
+    // CalVer keeps its zero: the tag GSD creates for `v2026.01` is `v2026.01`.
+    assert_eq!(v("v2026.01").to_string(), "2026.01");
+    assert_eq!(v("v01.7").to_string(), "01.7");
+}
+
+#[test]
+fn a_zero_padded_version_compares_by_its_numbers() {
+    assert_eq!(v("v1.07"), v("v1.7"));
+    assert!(v("v2026.01") < v("v2026.2"));
+    assert!(matches(&v("v2026.01"), "2026.1.0"));
 }
