@@ -40,7 +40,7 @@ fn no_gsd_code_splits_a_markdown_table_row_by_hand() {
     let mut found = Vec::new();
     let mut exempt_hit = vec![false; EXEMPT.len()];
     let mut scanned = 0;
-    for dir in ["kit", "core", "security"] {
+    for dir in ["kit", "core", "security", "import"] {
         for path in files::under(&root.join(dir)) {
             let relative = path
                 .strip_prefix(&root)

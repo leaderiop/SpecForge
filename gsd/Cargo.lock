@@ -137,6 +137,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "gsd-import"
+version = "1.0.0"
+dependencies = [
+ "gsd-core",
+ "gsd-kit",
+ "gsd-security",
+ "regex",
+ "rustix",
+ "serde_json",
+ "sha2",
+ "specforge-extension-sdk",
+ "tempfile",
+]
+
+[[package]]
 name = "gsd-kit"
 version = "1.0.0"
 dependencies = [
