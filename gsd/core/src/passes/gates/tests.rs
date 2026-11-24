@@ -344,7 +344,7 @@ fn a_stale_verdict_is_e516_and_a_fresh_one_is_not() {
 fn everything_wrong() -> (Vec<Value>, Vec<Value>) {
     let entities = vec![
         json!({ "id": "v1.0", "kind": "milestone", "values": {
-            "api_breaks": ["removed api:rust:a::f"], "release": { "packages": ["b 0.9.0"] } } }),
+            "api_breaks": ["removed api:rust:a::f"], "release": { "packages": [{ "name": "b", "version": "0.9.0" }] } } }),
         json!({ "id": "v1", "kind": "milestone", "fields": { "completion": "at 2026-01-01" } }),
         json!({ "id": "v1.0/01", "kind": "phase", "values": { "requirements": ["R1"] } }),
         json!({ "id": "R1", "kind": "requirement", "fields": { "status": "complete" } }),

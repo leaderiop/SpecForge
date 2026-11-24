@@ -46,7 +46,7 @@ fn e535_refuses_a_package_not_at_the_milestones_version_under_strict_and_plus() 
         at_version(&p, "1.7.0");
         assert_eq!(
             p.fields_of("v1.8")["release"]["packages"],
-            json!(["adder 1.7.0"]),
+            json!([{ "name": "adder", "version": "1.7.0" }]),
             "{profile}"
         );
         let found = named(&p, "v1.8", E535);
@@ -186,6 +186,10 @@ fn trace_follows_the_milestone_release_route() {
             .expect("the release, as JSON text"),
     )
     .expect("JSON");
-    assert_eq!(release, json!({ "packages": ["adder 1.7.0"] }), "{found:#}");
+    assert_eq!(
+        release,
+        json!({ "packages": [{ "name": "adder", "version": "1.7.0" }] }),
+        "{found:#}"
+    );
     assert_eq!(found["steps"][0]["matches"][0]["entity_id"], "v1.8/01");
 }

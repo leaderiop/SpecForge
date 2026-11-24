@@ -11,8 +11,16 @@ const PACKAGES: &str = "set the package's version to the milestone's, or list th
     `specforge.release_exempt` when the milestone does not release it; then run `specforge collect` again: this check \
     reads the package versions of the last collect";
 
-/// An open milestone whose computed `release.packages` is `packages`.
+/// An open milestone whose computed `release.packages` is `packages`, each written `<name> <version>` and split at
+/// its last space.
 fn releasing(id: &str, packages: &[&str]) -> Value {
+    let packages: Vec<Value> = packages
+        .iter()
+        .map(|p| {
+            let (name, version) = p.rsplit_once(' ').expect("<name> <version>");
+            json!({ "name": name, "version": version })
+        })
+        .collect();
     json!({ "id": id, "kind": "milestone", "values": { "release": { "packages": packages } } })
 }
 
@@ -124,12 +132,12 @@ fn e535_is_silent_outside_a_gate_and_for_a_name_that_is_no_version() {
 
 #[test]
 fn e535_names_at_most_25_packages_then_counts_the_rest() {
-    let lines: Vec<String> = (0..30)
-        .map(|n| format!("p{n:02} 0.1.0"))
-        .chain(["more 5".to_string()])
-        .collect();
+    let lines: Vec<String> = (0..30).map(|n| format!("p{n:02} 0.1.0")).collect();
     let lines: Vec<&str> = lines.iter().map(String::as_str).collect();
-    let found = e535(&close("v1.8", vec![releasing("v1.8", &lines)]));
+    // 30 listed, and 5 more `derive` counted past its own cap.
+    let mut milestone = releasing("v1.8", &lines);
+    milestone["values"]["release"]["more"] = json!(5);
+    let found = e535(&close("v1.8", vec![milestone]));
     assert_eq!(found.len(), 26);
     assert_eq!(
         found[25].message,
@@ -139,6 +147,21 @@ fn e535_names_at_most_25_packages_then_counts_the_rest() {
         found
             .iter()
             .all(|d| d.suggestion.as_deref() == Some(PACKAGES))
+    );
+}
+
+#[test]
+fn e535_reads_a_package_named_more_or_with_a_space_as_a_package() {
+    let found = e535(&close(
+        "v1.8",
+        vec![releasing("v1.8", &["more 5", "my crate 0.1.0"])],
+    ));
+    assert_eq!(
+        messages(&found),
+        [
+            "package 'more' is at version '5', not at the version of milestone 'v1.8'",
+            "package 'my crate' is at version '0.1.0', not at the version of milestone 'v1.8'"
+        ]
     );
 }
 

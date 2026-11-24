@@ -29,9 +29,17 @@ fn version(milestone: &PassEntity) -> Option<Version<'_>> {
     parse(name_of(&milestone.id))
 }
 
-/// The first [`ERRORS`] lines of a computed list, and how many more it holds: past them, plus the count of the
-/// `more <N>` line `derive` caps the field with (it counts, it names nothing).
-fn capped(lines: &[String]) -> (Vec<&str>, usize) {
+/// The first [`ERRORS`] of `items`, and how many more there are: past them, plus `more` that `derive` counted past its
+/// own cap.
+fn capped<T>(mut items: Vec<T>, more: usize) -> (Vec<T>, usize) {
+    let more = more + items.len().saturating_sub(ERRORS);
+    items.truncate(ERRORS);
+    (items, more)
+}
+
+/// The `<change> <id>` lines of `api_breaks`, and the count of the `more <N>` line `derive` caps it with. No id line
+/// reads `more <N>`: each starts with its change.
+fn breaks_of(lines: &[String]) -> (Vec<&str>, usize) {
     let mut more = 0;
     let mut named = Vec::new();
     for line in lines {
@@ -43,9 +51,27 @@ fn capped(lines: &[String]) -> (Vec<&str>, usize) {
             None => named.push(line.as_str()),
         }
     }
-    more += named.len().saturating_sub(ERRORS);
-    named.truncate(ERRORS);
-    (named, more)
+    capped(named, more)
+}
+
+/// The `name` and `version` of each package of a milestone's computed `release.packages`, and its `more` count.
+fn packages_of(milestone: &PassEntity) -> (Vec<(&str, &str)>, usize) {
+    let release = milestone.values.get("release");
+    let packages = release
+        .and_then(|r| r.get("packages"))
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(|p| Some((p.get("name")?.as_str()?, p.get("version")?.as_str()?)))
+                .collect()
+        })
+        .unwrap_or_default();
+    let more = release
+        .and_then(|r| r.get("more"))
+        .and_then(Value::as_u64)
+        .and_then(|n| usize::try_from(n).ok())
+        .unwrap_or(0);
+    capped(packages, more)
 }
 
 /// The last shipped milestone of `milestone`'s workstream scope whose name is a version, itself excluded: latest by
@@ -101,7 +127,7 @@ pub(super) fn e533(input: &PassInput) -> Vec<PassDiagnostic> {
         "bump the milestone's major version (Cargo's rule: for 0.x the minor), or restore the item, or commit the \
          updated accepted report when the change is accepted; {COLLECT}"
     );
-    let (items, more) = capped(&breaks);
+    let (items, more) = breaks_of(&breaks);
     let mut found: Vec<PassDiagnostic> = items
         .into_iter()
         .map(|line| line.split_once(' ').unwrap_or(("changed", line)))
@@ -142,8 +168,9 @@ fn release_of<'a>(milestone: &'a PassEntity, member: &str) -> Option<&'a str> {
 
 /// E535: release evidence that does not match the milestone (ADR 0390 D6). At a gate on a milestone whose name is a
 /// version: one error when the recorded tag of the subject once shipped, else of the last shipped milestone of its
-/// scope ([`last_shipped`]), resolves to no commit; while the subject is unshipped, one error per line of its computed
-/// `release.packages` (a package not at its version), at most [`ERRORS`] then one summary, and one error when its
+/// scope ([`last_shipped`]), resolves to no commit; while the subject is unshipped, one error per package of its
+/// computed `release.packages` (a package not at its version), at most [`ERRORS`] then one summary counting the rest
+/// and `release.more`, and one error when its
 /// version is not later than the last shipped one. Absent evidence is no observation, never a failure.
 pub(super) fn e535(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input).flatten() else {
@@ -193,24 +220,11 @@ pub(super) fn e535(input: &PassInput) -> Vec<PassDiagnostic> {
             &format!("name the milestone by a version later than the last shipped {last}"),
         ));
     }
-    let packages: Vec<String> = milestone
-        .values
-        .get("release")
-        .and_then(|r| r.get("packages"))
-        .and_then(Value::as_array)
-        .map(|lines| {
-            lines
-                .iter()
-                .filter_map(|l| l.as_str().map(str::to_string))
-                .collect()
-        })
-        .unwrap_or_default();
     let how = "set the package's version to the milestone's, or list the package in `specforge.release_exempt` when \
                the milestone does not release it; then run `specforge collect` again: this check reads the package \
                versions of the last collect";
-    let (lines, more) = capped(&packages);
-    for line in lines {
-        let (name, at) = line.split_once(' ').unwrap_or((line, ""));
+    let (packages, more) = packages_of(milestone);
+    for (name, at) in packages {
         found.push(refuse(
             "E535",
             PassSeverity::Error,

@@ -104,10 +104,11 @@ versions are compatible when they agree up to and including the first non-zero c
   answers a pure kind `denied(call-kind)` and nothing runs; and a pass's cache key is its payload (ADR 0353 D4), which
   a git answer read mid-call would not be part of. The test
   `a_pure_call_that_calls_a_port_is_denied_its_call_kind` holds the rule.
-- **Packages.** For an unshipped subject, `release.packages` lists `<name> <version>` of every `package` fact with a
-  `version` that does not equal the milestone's, less the names in `specforge.release_exempt`. Equal compares the first
-  max(2, the milestone's parts) numeric components; a `+build` suffix is ignored; a pre-release is not equal. At most
-  50 lines, then `more <N>`. A package with no version is not judged.
+- **Packages.** For an unshipped subject, `release.packages` holds the `name` and `version` of every `package` fact
+  with a `version` that does not equal the milestone's, less the names in `specforge.release_exempt`. Equal compares
+  the first max(2, the milestone's parts) numeric components; a `+build` suffix is ignored; a pre-release is not
+  equal. At most 50 packages, and `release.more` counts the rest: a separate member, so no package name reads as the
+  count. A package with no version is not judged.
 - **Backwards.** An unshipped subject whose version is not later than the last shipped one of its scope (D5's rule for
   "last shipped").
 - **Order.** GSD tags after `close-milestone`, so the milestone being closed has no tag yet. The tag part judges the

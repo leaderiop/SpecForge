@@ -1,8 +1,9 @@
 //! A milestone's `release` (ADR 0390 D6): the release evidence `gsd/E535` reads. On each milestone neither shipped nor
-//! abandoned whose name is a version, `packages` lists `<name> <version>` of every `@code/core` `package` fact whose
-//! version is not the milestone's ([`crate::release::matches`]) and whose name is not in `specforge.release_exempt`,
-//! sorted, at most [`LINES`] then one `more <N>` line; name and version as the facts hold them (the guard escapes what
-//! it prints). Written only when some package fact carries a version: absent
+//! abandoned whose name is a version, `packages` holds the `name` and `version` of every `@code/core` `package` fact
+//! whose version is not the milestone's ([`crate::release::matches`]) and whose name is not in
+//! `specforge.release_exempt`, sorted, at most [`LINES`], and `more` counts the rest (absent when none): two
+//! members, so no package name, not even `more` or one with a space, reads as the count. Name and version are as the
+//! facts hold them (the guard escapes what it prints). Written only when some package fact carries a version: absent
 //! means never observed, empty means clean. A package with no version is not judged. It reflects the facts of the last
 //! collect. On a shipped milestone, `tag` and `commit` copy the `tag` `gsd-git` recorded, unless `git.create_tag` is
 //! false (GSD then tags no release).
@@ -60,18 +61,21 @@ fn release(input: &PassInput, exempt: &[&str]) -> Vec<PassValue> {
         .filter(|m| !m.fields.contains_key("abandoned") && !m.fields.contains_key("completion"))
         .filter_map(|m| {
             let version = parse(name_of(&m.id))?;
-            let mut off: Vec<String> = packages
+            let mut off: Vec<&(&str, &str)> = packages
                 .iter()
                 .filter(|(name, v)| !matches(&version, v) && !exempt.contains(name))
-                .map(|(name, v)| format!("{name} {v}"))
                 .collect();
             off.sort();
-            let more = off.len().saturating_sub(LINES);
-            off.truncate(LINES);
-            if more > 0 {
-                off.push(format!("more {more}"));
+            let listed: Vec<Value> = off
+                .iter()
+                .take(LINES)
+                .map(|(name, v)| json!({ "name": name, "version": v }))
+                .collect();
+            let mut release = json!({ "packages": listed });
+            if off.len() > LINES {
+                release["more"] = json!(off.len() - LINES);
             }
-            Some(value(&m.id, "release", json!({ "packages": off })))
+            Some(value(&m.id, "release", release))
         })
         .collect()
 }

@@ -19,7 +19,13 @@ const PROGRESS: &[Field] = &[
     int("plans_complete"),
     int("percent"),
 ];
-const RELEASE: &[Field] = &[str("tag"), str("commit"), strs("packages")];
+const OFF_PACKAGE: &[Field] = &[str("name"), str("version")];
+const RELEASE: &[Field] = &[
+    str("tag"),
+    str("commit"),
+    blocks("packages", OFF_PACKAGE),
+    int("more"),
+];
 const TAG: &[Field] = &[str("name"), str("commit")];
 const MILESTONE_STATE: &[&str] = &["planned", "in_progress", "shipped", "abandoned"];
 
@@ -69,8 +75,8 @@ pub const MILESTONE: Kind = Kind::new(
         ),
         block("release", RELEASE).c().doc(
             "the release evidence gsd/E535 reads: `tag` and `commit` the recorded tag of a shipped milestone, \
-             `packages` the `<name> <version>` of each package fact not at an open milestone's version; absent when \
-             nothing was observed",
+             `packages` the `name` and `version` of each package fact not at an open milestone's version, at most 50, \
+             and `more` the count past them; absent when nothing was observed",
         ),
         block("tag", TAG).h().doc(
             "written by gsd-git from `refs/tags/v<version>` for a shipped milestone named by its version: the tag's \

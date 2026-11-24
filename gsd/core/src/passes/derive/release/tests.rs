@@ -42,7 +42,10 @@ fn release_of_e535_lists_the_package_not_at_the_open_milestones_version() {
     let found = release(&input(packages()), &[]);
     assert_eq!(
         released(&found),
-        [("v1.8", json!({ "packages": ["b 1.7.0"] }))]
+        [(
+            "v1.8",
+            json!({ "packages": [{ "name": "b", "version": "1.7.0" }] })
+        )]
     );
 }
 
@@ -65,15 +68,36 @@ fn release_of_e535_caps_its_lines_and_keeps_them_raw() {
         .collect();
     facts.push(package("z\u{1b}[2J", Some("1.0")));
     let found = release(&input(facts), &[]);
-    let lines = found[0].value["packages"]
+    let listed = found[0].value["packages"]
         .as_array()
         .expect("a list")
         .clone();
-    assert_eq!(lines.len(), 51);
-    assert_eq!(lines[0], "p00 0.1.0");
-    assert_eq!(lines[50], "more 4");
+    assert_eq!(listed.len(), 50);
+    assert_eq!(listed[0], json!({ "name": "p00", "version": "0.1.0" }));
+    assert_eq!(found[0].value["more"], 4);
     let found = release(&input(vec![package("z\u{1b}", Some("1.\u{7}0"))]), &[]);
-    assert_eq!(found[0].value["packages"], json!(["z\u{1b} 1.\u{7}0"]));
+    assert_eq!(
+        found[0].value,
+        json!({ "packages": [{ "name": "z\u{1b}", "version": "1.\u{7}0" }] })
+    );
+}
+
+#[test]
+fn release_of_e535_holds_a_package_named_more_or_with_a_space_as_a_package() {
+    let found = release(
+        &input(vec![
+            package("more", Some("5")),
+            package("my crate", Some("0.1.0")),
+        ]),
+        &[],
+    );
+    assert_eq!(
+        found[0].value,
+        json!({ "packages": [
+            { "name": "more", "version": "5" },
+            { "name": "my crate", "version": "0.1.0" },
+        ] })
+    );
 }
 
 #[test]
