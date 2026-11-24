@@ -86,11 +86,12 @@ fn javascript_api_declares_api_extractor_its_config_and_its_peers() {
             Input::facts(&["item"]),
             Input::files(
                 "accepted",
-                FileReadSpec::glob("**/etc/*.api.md").text_up_to(4_194_304)
+                FileReadSpec::glob("**/etc/*.api.md").text_up_to(TEXT_MAX_CEILING_BYTES)
             ),
             Input::files(
                 "reviews",
-                FileReadSpec::glob("common/reviews/api/*.api.md").text_up_to(4_194_304)
+                FileReadSpec::glob("common/reviews/api/*.api.md")
+                    .text_up_to(TEXT_MAX_CEILING_BYTES)
             )
         ]
     );

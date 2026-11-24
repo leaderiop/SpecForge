@@ -84,7 +84,7 @@ impl Contributions for RustApi {
                 .input(Input::facts(&["item", "package"]))
                 .input(Input::files(
                     ACCEPTED,
-                    FileReadSpec::glob("**/public-api.txt").text_up_to(4_194_304),
+                    FileReadSpec::glob("**/public-api.txt").text_up_to(TEXT_MAX_CEILING_BYTES),
                 ))
                 .answers(&["api_item"])
                 .collect(collect);

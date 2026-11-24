@@ -404,7 +404,7 @@ descriptor, and routes the export to the handler. The CLI runs it as `specforge 
 | `cmd.category(..)` | A CLI grouping |
 | `cmd.arg(name, \|a\| ..)` | Declares an arg (below) |
 | `cmd.handler(\|call\| ..)` | The function answering it: `CommandCall` in, `CommandOutput` out |
-| `cmd.input(Input::files(name, FileReadSpec::field("kind.field").text()))` | Project files the host reads for the call (ADR 0293, ADR 0337): `call.files(name)` holds their facts and, with `.text()`, their text capped at 64 KiB (`.text_up_to(bytes)`: at `bytes`, at most 4 MiB, the read's budget the larger of 1 MiB and four times it); `FileReadSpec::glob("src/**/*.rs")` names files by pattern. `cmd.input(Input::State)` asks for the extension's state |
+| `cmd.input(Input::files(name, FileReadSpec::field("kind.field").text()))` | Project files the host reads for the call (ADR 0293, ADR 0337): `call.files(name)` holds their facts and, with `.text()`, their text capped at 64 KiB (`.text_up_to(bytes)`: at `bytes`, at most 4 MiB (`TEXT_MAX_CEILING_BYTES`), the read's budget the larger of 1 MiB and four times it); `FileReadSpec::glob("src/**/*.rs")` names files by pattern. `cmd.input(Input::State)` asks for the extension's state |
 
 A command's `call.now()` is the host's clock when it was called, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds; protocol 1.11.0, ADR 0294), the same instant as `call.today()`; a hook's `call.now()` and a writing collector's input carry it too. A prompt and a pass are not told the time. A command's `call.nonce()` is 32 lowercase hex digits of the host's entropy, fresh per call (ADR 0341): draw a command's random values from it, deterministically, so a test pins them as it pins the clock. It is randomness, not a secret; only a command is told one.
 

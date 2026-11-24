@@ -101,7 +101,7 @@ impl Contributions for JavascriptApi {
             for (name, glob) in ACCEPTED {
                 k.input(Input::files(
                     name,
-                    FileReadSpec::glob(glob).text_up_to(4_194_304),
+                    FileReadSpec::glob(glob).text_up_to(TEXT_MAX_CEILING_BYTES),
                 ));
             }
             k.answers(&["api_item"]).collect(collect);

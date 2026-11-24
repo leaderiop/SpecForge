@@ -85,7 +85,7 @@ fn rust_api_declares_cargo_public_api_with_its_stdout_captured_its_filter_and_it
             Input::facts(&["item", "package"]),
             Input::files(
                 ACCEPTED,
-                FileReadSpec::glob("**/public-api.txt").text_up_to(4_194_304)
+                FileReadSpec::glob("**/public-api.txt").text_up_to(TEXT_MAX_CEILING_BYTES)
             )
         ]
     );
