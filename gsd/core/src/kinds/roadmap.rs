@@ -19,6 +19,7 @@ const PROGRESS: &[Field] = &[
     int("plans_complete"),
     int("percent"),
 ];
+const RELEASE: &[Field] = &[str("tag"), str("commit"), strs("packages")];
 const MILESTONE_STATE: &[&str] = &["planned", "in_progress", "shipped", "abandoned"];
 
 /// A milestone section of `ROADMAP.md`, named `v1.0` and scoped by its workstream when it has one. Its title is its
@@ -64,6 +65,11 @@ pub const MILESTONE: Kind = Kind::new(
         strs("api_breaks").c().doc(
             "the API items the last collect found changed, narrowed or removed against the committed accepted \
              report: `<change> <id>`; absent when no API fact carries a change; gsd/E533 reads it",
+        ),
+        block("release", RELEASE).c().doc(
+            "the release evidence gsd/E535 reads: `tag` and `commit` the recorded tag of a shipped milestone, \
+             `packages` the `<name> <version>` of each package fact not at an open milestone's version; absent when \
+             nothing was observed",
         ),
     ],
 )

@@ -37,3 +37,24 @@ fn compatibility_is_cargos_rule() {
     assert!(!compatible(&v("0.0.3"), &v("0.0.4")));
     assert!(compatible(&v("v1"), &v("v1.1")));
 }
+
+#[test]
+fn a_package_matches_the_milestones_first_two_or_written_parts() {
+    for same in ["1.7.0", "1.7.0+b5", "1.7", "1.7.1"] {
+        assert!(matches(&v("v1.7"), same), "{same}");
+    }
+    for other in ["1.7.0-rc.1", "1.8.0", "x", "", "1.7.0.1"] {
+        assert!(!matches(&v("v1.7"), other), "{other}");
+    }
+    assert!(!matches(&v("v1.7.2"), "1.7.0"));
+    assert!(matches(&v("v1.7.2"), "1.7.2+build"));
+    assert!(matches(&v("v1"), "1.0.4"));
+    assert!(!matches(&v("v1"), "1.1.0"));
+}
+
+#[test]
+fn a_version_prints_the_parts_it_wrote_without_its_v() {
+    assert_eq!(v("v1.7").to_string(), "1.7");
+    assert_eq!(v("1.7.2").to_string(), "1.7.2");
+    assert_eq!(v("v01.7").to_string(), "1.7");
+}

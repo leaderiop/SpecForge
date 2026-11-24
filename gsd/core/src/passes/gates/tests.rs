@@ -340,10 +340,11 @@ fn a_stale_verdict_is_e516_and_a_fresh_one_is_not() {
 /// A project every guard has something to say about at a gate on milestone v1.0: no audit (E106), an unverified
 /// phase (E511), an open window (E512), a stale plan-check (W318), a tdd plan with a summary and no review (W404), a
 /// complete requirement no task traces (E515), a stale verdict (E516) and an API break over a shipped milestone whose
-/// name is no version (E533).
+/// name is no version (E533), and a package not at the milestone's version (E535).
 fn everything_wrong() -> (Vec<Value>, Vec<Value>) {
     let entities = vec![
-        json!({ "id": "v1.0", "kind": "milestone", "values": { "api_breaks": ["removed api:rust:a::f"] } }),
+        json!({ "id": "v1.0", "kind": "milestone", "values": {
+            "api_breaks": ["removed api:rust:a::f"], "release": { "packages": ["b 0.9.0"] } } }),
         json!({ "id": "mvp", "kind": "milestone", "fields": { "completion": "at 2026-01-01" } }),
         json!({ "id": "v1.0/01", "kind": "phase", "values": { "requirements": ["R1"] } }),
         json!({ "id": "R1", "kind": "requirement", "fields": { "status": "complete" } }),

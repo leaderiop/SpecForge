@@ -13,7 +13,8 @@
 //! what it took, and `critical_path` a phase's heaviest chain of plans along the
 //! strict waves (`passes::waves`) and its weight. `review` answers a review concern's status, a round's open
 //! counts and a revision conflict's status, `batch` a quick batch's status and eligible items, `learning` a
-//! lesson's status, and `interface` a milestone's `api_breaks` from the `@code/core` `api_item` facts.
+//! lesson's status, `interface` a milestone's `api_breaks` from the `@code/core` `api_item` facts, and `release` its
+//! release evidence from the `package` facts.
 //!
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
@@ -29,6 +30,7 @@ mod interface;
 pub mod ladder;
 mod learning;
 mod progress;
+mod release;
 mod requirement;
 mod review;
 pub(crate) mod uat;
@@ -56,6 +58,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .input(Input::facts(&[
                 crate::passes::thread::TEST,
                 interface::API_ITEM,
+                release::PACKAGE,
             ]))
             .run(derive);
     });
@@ -87,6 +90,7 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(critical_path::values(input));
     values.extend(review::values(input));
     values.extend(interface::values(input));
+    values.extend(release::values(input));
     let diagnostics = branch::diagnostics(input);
     PassOutput {
         values,

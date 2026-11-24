@@ -30,7 +30,7 @@ static COMPLETE_MILESTONE: Spec = Spec {
     command: "complete-milestone",
     args: &[Arg::reference("milestone", "milestone")],
     subject: Some("milestone"),
-    gates: &["E106", "E511", "E515", "E516", "E533"],
+    gates: &["E106", "E511", "E515", "E516", "E533", "E535"],
     steps: COMPLETE_STEPS,
     slash: Some(Slash {
         hint: "<milestone>",

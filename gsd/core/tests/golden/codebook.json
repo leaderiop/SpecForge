@@ -448,6 +448,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
       "explanation": "A milestone whose API facts show a changed, narrowed or removed item is not API-compatible with the last shipped milestone of its workstream scope (Cargo's rule: for 0.x the minor counts as major), and its name and that milestone's are versions. It is an error.",
       "title": "Breaking API change without a major version bump"
+    },
+    {
+      "code": "E535",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
+      "explanation": "A milestone named by its version is closed while a package fact's version is not its version, while its version is not later than the last shipped milestone of its workstream scope, or while the last shipped milestone's tag does not resolve to a commit. It is an error.",
+      "title": "Release evidence does not match the milestone"
     }
   ]
 }

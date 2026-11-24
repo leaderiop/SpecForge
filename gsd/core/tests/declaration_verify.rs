@@ -89,7 +89,7 @@ fn the_guards_are_declared_with_their_reports() {
     assert_eq!(
         reported,
         [
-            "E106", "E511", "E512", "E515", "E516", "E533", "W318", "W404"
+            "E106", "E511", "E512", "E515", "E516", "E533", "E535", "W318", "W404"
         ],
         "{passes}"
     );

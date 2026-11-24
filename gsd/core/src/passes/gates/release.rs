@@ -1,4 +1,5 @@
-//! E533: a breaking API change the milestone's version does not allow (ADR 0390 D5).
+//! E533: a breaking API change the milestone's version does not allow (ADR 0390 D5), and E535: release evidence that
+//! does not match the milestone ([`e535`], D6). Both share the baseline, [`last_shipped`].
 //!
 //! At a gate on an unshipped milestone whose computed `api_breaks` is not empty, the baseline is the last shipped
 //! other milestone of the same workstream scope (latest by `shipped`, ties by the higher version). No baseline is a
@@ -26,6 +27,34 @@ fn version(milestone: &PassEntity) -> Option<Version> {
     parse(name_of(&milestone.id))
 }
 
+/// The first [`ERRORS`] lines of a computed list, and how many more it holds: past them, plus the count of the
+/// `more <N>` line `derive` caps the field with (it counts, it names nothing).
+fn capped(lines: &[String]) -> (Vec<&str>, usize) {
+    let mut more = 0;
+    let mut named = Vec::new();
+    for line in lines {
+        match line
+            .strip_prefix("more ")
+            .and_then(|n| n.parse::<usize>().ok())
+        {
+            Some(n) => more += n,
+            None => named.push(line.as_str()),
+        }
+    }
+    more += named.len().saturating_sub(ERRORS);
+    named.truncate(ERRORS);
+    (named, more)
+}
+
+/// The last shipped milestone of `milestone`'s workstream scope, itself excluded: latest by `shipped`, ties by the
+/// higher version.
+fn last_shipped<'a>(input: &'a PassInput, milestone: &PassEntity) -> Option<&'a PassEntity> {
+    let scope = link(input, milestone, "workstream");
+    of_kind(input, "milestone")
+        .filter(|m| m.id != milestone.id && shipped(m) && link(input, m, "workstream") == scope)
+        .max_by(|a, b| (text(a, "shipped"), version(a)).cmp(&(text(b, "shipped"), version(b))))
+}
+
 pub(super) fn e533(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input).flatten() else {
         return Vec::new();
@@ -37,11 +66,7 @@ pub(super) fn e533(input: &PassInput) -> Vec<PassDiagnostic> {
     if shipped(milestone) || breaks.is_empty() {
         return Vec::new();
     }
-    let scope = link(input, milestone, "workstream");
-    let Some(baseline) = of_kind(input, "milestone")
-        .filter(|m| m.id != subject && shipped(m) && link(input, m, "workstream") == scope)
-        .max_by(|a, b| (text(a, "shipped"), version(a)).cmp(&(text(b, "shipped"), version(b))))
-    else {
+    let Some(baseline) = last_shipped(input, milestone) else {
         return Vec::new();
     };
     let named = quoted(subject);
@@ -73,22 +98,10 @@ pub(super) fn e533(input: &PassInput) -> Vec<PassDiagnostic> {
         "bump the milestone's major version (Cargo's rule: for 0.x the minor), or restore the item, or commit the \
          updated accepted report when the change is accepted; {COLLECT}"
     );
-    // `derive` caps the field with a `more <N>` line: it counts, it names no item.
-    let mut more = 0;
-    let mut items = Vec::new();
-    for line in &breaks {
-        match line
-            .strip_prefix("more ")
-            .and_then(|n| n.parse::<usize>().ok())
-        {
-            Some(n) => more += n,
-            None => items.push(line.split_once(' ').unwrap_or(("changed", line))),
-        }
-    }
-    more += items.len().saturating_sub(ERRORS);
+    let (items, more) = capped(&breaks);
     let mut found: Vec<PassDiagnostic> = items
         .into_iter()
-        .take(ERRORS)
+        .map(|line| line.split_once(' ').unwrap_or(("changed", line)))
         .map(|(change, id)| {
             refuse(
                 "E533",
@@ -114,6 +127,79 @@ pub(super) fn e533(input: &PassInput) -> Vec<PassDiagnostic> {
                  the last shipped {last}"
             ),
             &how,
+        ));
+    }
+    found
+}
+
+/// E535: release evidence that does not match the milestone (ADR 0390 D6). At a gate on a milestone whose name is a
+/// version: while it is unshipped, one error per line of its computed `release.packages` (a package not at its
+/// version), at most [`ERRORS`] then one summary, and one error when its version is not later than the last shipped
+/// one of its scope ([`last_shipped`]). Absent evidence is no observation, never a failure.
+pub(super) fn e535(input: &PassInput) -> Vec<PassDiagnostic> {
+    let Some(subject) = gate(input).flatten() else {
+        return Vec::new();
+    };
+    let Some(milestone) = of_kind(input, "milestone").find(|m| m.id == subject) else {
+        return Vec::new();
+    };
+    let Some(own) = version(milestone) else {
+        return Vec::new();
+    };
+    let named = quoted(subject);
+    let mut found = Vec::new();
+    if shipped(milestone) {
+        return found;
+    }
+    if let Some(last) = last_shipped(input, milestone)
+        .filter(|last| version(last).is_some_and(|older| own <= older))
+    {
+        let last = quoted(&last.id);
+        found.push(refuse(
+            "E535",
+            PassSeverity::Error,
+            subject,
+            format!("milestone {named} goes backwards from the last shipped {last}: its version is not later"),
+            &format!("name the milestone by a version later than the last shipped {last}"),
+        ));
+    }
+    let packages: Vec<String> = milestone
+        .values
+        .get("release")
+        .and_then(|r| r.get("packages"))
+        .and_then(serde_json::Value::as_array)
+        .map(|lines| {
+            lines
+                .iter()
+                .filter_map(|l| l.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let how = "set the package's version to the milestone's, or list the package in `specforge.release_exempt` when \
+               the milestone does not release it; then run `specforge collect` again: this check reads the package \
+               versions of the last collect";
+    let (lines, more) = capped(&packages);
+    for line in lines {
+        let (name, at) = line.split_once(' ').unwrap_or((line, ""));
+        found.push(refuse(
+            "E535",
+            PassSeverity::Error,
+            subject,
+            format!(
+                "package {} is at version {}, not at milestone {named}'s version",
+                quoted(name),
+                quoted(at)
+            ),
+            how,
+        ));
+    }
+    if more > 0 {
+        found.push(refuse(
+            "E535",
+            PassSeverity::Error,
+            subject,
+            format!("{more} more packages are not at milestone {named}'s version"),
+            how,
         ));
     }
     found

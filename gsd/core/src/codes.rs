@@ -702,6 +702,14 @@ pub static CODES: &[Code] = &[
         Severity::Error,
         Severity::Error,
     ),
+    code(
+        "E535",
+        "Release evidence does not match the milestone",
+        "A milestone named by its version is closed while a package fact's version is not its version, while its version is not later than the last shipped milestone of its workstream scope, or while the last shipped milestone's tag does not resolve to a commit",
+        "project-and-roadmap",
+        Severity::Error,
+        Severity::Error,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

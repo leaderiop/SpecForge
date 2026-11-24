@@ -302,3 +302,5 @@ fn e533_escapes_every_id_it_echoes() {
         ]
     );
 }
+
+mod e535;

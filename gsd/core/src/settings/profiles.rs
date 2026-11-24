@@ -20,6 +20,7 @@ const PRESETS: &[(&str, [bool; 3])] = &[
     ("specforge.plan_paths_touched", [false, true, true]),
     ("specforge.task_trailers", [false, true, true]),
     ("specforge.interface_gate", [false, true, true]),
+    ("specforge.release_gate", [false, true, true]),
 ];
 
 /// `(setting, environment variable)`: the key half of each search availability flag. A secret may not share a

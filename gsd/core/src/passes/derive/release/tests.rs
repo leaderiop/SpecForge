@@ -1,0 +1,77 @@
+use serde_json::{Value, json};
+
+use super::*;
+
+fn package(name: &str, version: Option<&str>) -> Value {
+    let fields = version.map_or_else(
+        || json!({ "name": name }),
+        |v| json!({ "name": name, "version": v }),
+    );
+    json!({ "id": format!("pkg:cargo/{name}"), "kind": "package", "fields": fields })
+}
+
+/// v1.7 shipped, v1.8 open, v1.9 abandoned, `mvp` open, then `facts`.
+fn input(facts: Vec<Value>) -> PassInput {
+    let mut entities = vec![
+        json!({ "id": "v1.7", "kind": "milestone", "fields": { "completion": "at 2026-02-01" } }),
+        json!({ "id": "v1.8", "kind": "milestone" }),
+        json!({ "id": "v1.9", "kind": "milestone", "fields": { "abandoned": "reason gone" } }),
+        json!({ "id": "mvp", "kind": "milestone" }),
+    ];
+    entities.extend(facts);
+    serde_json::from_value(json!({ "entities": entities, "edges": [] })).expect("a pass input")
+}
+
+fn released(found: &[PassValue]) -> Vec<(&str, Value)> {
+    found
+        .iter()
+        .map(|v| (v.entity.as_str(), v.value.clone()))
+        .collect()
+}
+
+fn packages() -> Vec<Value> {
+    vec![
+        package("a", Some("1.8.0")),
+        package("b", Some("1.7.0")),
+        package("c", None),
+    ]
+}
+
+#[test]
+fn release_of_e535_lists_the_package_not_at_the_open_milestones_version() {
+    let found = release(&input(packages()), &[]);
+    assert_eq!(
+        released(&found),
+        [("v1.8", json!({ "packages": ["b 1.7.0"] }))]
+    );
+}
+
+#[test]
+fn release_of_e535_skips_an_exempt_package() {
+    let found = release(&input(packages()), &["b"]);
+    assert_eq!(released(&found), [("v1.8", json!({ "packages": [] }))]);
+}
+
+#[test]
+fn release_of_e535_is_absent_without_a_versioned_package() {
+    assert!(release(&input(vec![package("c", None)]), &[]).is_empty());
+    assert!(release(&input(vec![]), &[]).is_empty());
+}
+
+#[test]
+fn release_of_e535_caps_its_lines_and_escapes_them() {
+    let mut facts: Vec<Value> = (0..53)
+        .map(|n| package(&format!("p{n:02}"), Some("0.1.0")))
+        .collect();
+    facts.push(package("z\u{1b}[2J", Some("1.0")));
+    let found = release(&input(facts), &[]);
+    let lines = found[0].value["packages"]
+        .as_array()
+        .expect("a list")
+        .clone();
+    assert_eq!(lines.len(), 51);
+    assert_eq!(lines[0], "p00 0.1.0");
+    assert_eq!(lines[50], "more 4");
+    let found = release(&input(vec![package("z\u{1b}", Some("1.\u{7}0"))]), &[]);
+    assert_eq!(found[0].value["packages"], json!(["z\\u{1b} 1.\\u{7}0"]));
+}

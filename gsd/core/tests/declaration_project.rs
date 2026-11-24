@@ -65,7 +65,7 @@ fn phase_and_milestone_are_named_by_their_title() {
 #[test]
 fn milestone_and_phase_declare_the_fields_of_the_model() {
     let milestone = "delivered accomplishments whats_next goal target_features abandoned workstream completion \
-        state first_commit shipped stats git_range progress branch api_breaks";
+        state first_commit shipped stats git_range progress branch api_breaks release";
     let milestone: Vec<&str> = milestone.split_whitespace().collect();
     assert_eq!(fields_of("milestone"), milestone);
     assert_eq!(
@@ -157,9 +157,10 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
     // + 2: the phase's computed `critical_path` and `critical_weight` (its heaviest chain of plans).
     // - 2: the milestone's and the phase's `name`: each is named by its title (ADR 0387).
     // + 1: the milestone's computed `api_breaks` (ADR 0390 D4).
+    // + 1: the milestone's computed `release` (ADR 0390 D6).
     assert_eq!(
         total,
-        68 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2 + 2 - 2 + 1,
+        68 + 3 - 2 + 1 + 2 + 2 + 2 + 2 + 2 + 2 - 2 + 1 + 1,
         "the kinds' fields"
     );
 }
