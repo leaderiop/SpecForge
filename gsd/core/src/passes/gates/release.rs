@@ -216,7 +216,7 @@ pub(super) fn e535(input: &PassInput) -> Vec<PassDiagnostic> {
             PassSeverity::Error,
             subject,
             format!(
-                "package {} is at version {}, not at milestone {named}'s version",
+                "package {} is at version {}, not at the version of milestone {named}",
                 quoted(name),
                 quoted(at)
             ),
@@ -228,7 +228,7 @@ pub(super) fn e535(input: &PassInput) -> Vec<PassDiagnostic> {
             "E535",
             PassSeverity::Error,
             subject,
-            format!("{more} more packages are not at milestone {named}'s version"),
+            format!("{more} more packages are not at the version of milestone {named}"),
             how,
         ));
     }

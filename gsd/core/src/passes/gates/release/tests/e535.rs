@@ -31,7 +31,7 @@ fn e535_refuses_a_package_not_at_the_milestones_version() {
     ));
     assert_eq!(
         messages(&found),
-        ["package 'b' is at version '1.7.0', not at milestone 'v1.8''s version"]
+        ["package 'b' is at version '1.7.0', not at the version of milestone 'v1.8'"]
     );
     assert_eq!(found[0].code, "E535");
     assert_eq!(found[0].severity, PassSeverity::Error);
@@ -133,7 +133,7 @@ fn e535_names_at_most_25_packages_then_counts_the_rest() {
     assert_eq!(found.len(), 26);
     assert_eq!(
         found[25].message,
-        "10 more packages are not at milestone 'v1.8''s version"
+        "10 more packages are not at the version of milestone 'v1.8'"
     );
     assert!(
         found
@@ -147,7 +147,7 @@ fn e535_escapes_what_it_echoes() {
     let found = e535(&close("v1.8", vec![releasing("v1.8", &["a\nb'c 1\t0"])]));
     assert_eq!(
         messages(&found),
-        ["package 'a\\nb\\'c' is at version '1\\t0', not at milestone 'v1.8''s version"]
+        ["package 'a\\nb\\'c' is at version '1\\t0', not at the version of milestone 'v1.8'"]
     );
 }
 
@@ -167,7 +167,9 @@ fn e535_escapes_a_name_and_version_derive_kept_raw_once() {
     let found = e535(&close("v1.8", vec![subject]));
     assert_eq!(
         messages(&found),
-        ["package 'a\\u{1b}\\'b' is at version '1.\\u{7}7', not at milestone 'v1.8''s version"]
+        [
+            "package 'a\\u{1b}\\'b' is at version '1.\\u{7}7', not at the version of milestone 'v1.8'"
+        ]
     );
 }
 

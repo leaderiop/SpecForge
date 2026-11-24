@@ -54,7 +54,7 @@ fn e535_refuses_a_package_not_at_the_milestones_version_under_strict_and_plus() 
             refused_by(&p, "complete_milestone", &["v1.8"], "E535");
             assert_eq!(
                 found,
-                ["package 'adder' is at version '1.7.0', not at milestone 'v1.8''s version"],
+                ["package 'adder' is at version '1.7.0', not at the version of milestone 'v1.8'"],
                 "{profile}"
             );
         } else {

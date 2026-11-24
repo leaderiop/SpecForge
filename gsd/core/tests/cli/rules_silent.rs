@@ -113,7 +113,7 @@ fn e535_on_the_ledger_is_silenced_by_its_own_exemption() {
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(
         named(&p, "v1.0", "gsd/E535"),
-        ["package 'ledger' is at version '0.1.0', not at milestone 'v1.0''s version"]
+        ["package 'ledger' is at version '0.1.0', not at the version of milestone 'v1.0'"]
     );
     p.settings(json!({ "profile": "gsd-strict" }));
     assert_eq!(named(&p, "v1.0", "gsd/E535"), Vec::<String>::new());
