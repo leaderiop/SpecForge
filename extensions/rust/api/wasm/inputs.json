@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_rust_api.wasm",
-  "artifact_sha256": "344ae3e47eb64b05a2254deb72064752ec2aa628fcd9dda18716bbaea852208c",
+  "artifact_sha256": "3cdd6713ee73a5b90fe9758e57b2e0c31dcd0a533a5441c31fd900a08a11eaba",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -23,12 +23,12 @@
     "crates/leaf/protocol-types/src/field.rs": "d1b4dfecfa9de527add0ada5ac8eadb429ebcc76d15bc2ff34b7939e8f41633f",
     "crates/leaf/protocol-types/src/inputs.rs": "97c49952e96648e37eeb69965ca3d2fad4dda05bbc1515032d69102e918311ed",
     "crates/leaf/protocol-types/src/judged.rs": "9e7f691b8b9d646332518c093757645a7c1672132ef0c95b516b9c3e25f6e317",
-    "crates/leaf/protocol-types/src/lib.rs": "5410aa790608c2f85471e450505f49a7b6e178fa44716e75f66af1edafa4dd28",
+    "crates/leaf/protocol-types/src/lib.rs": "64926b885431e304bbe057d60822ff73e8a834a76017e8d10f8f1cc77bf8cc7f",
     "crates/leaf/protocol-types/src/operation.rs": "55e6b1e358c026ca56d6324410806f8cd4cce697f1f361abfe9ad624985012a5",
     "crates/leaf/protocol-types/src/plan.rs": "7a41d42b439411283e08ef8fc270b6fdd86eedf8aceea6b190264fe11e4ff54a",
     "crates/leaf/protocol-types/src/ports.rs": "fe253dac3665743f6cd9435f38410a211f914a3f46cb3a7469071b9ed76106dd",
     "crates/leaf/protocol-types/src/prompt.rs": "bf7b8aac6fa77da1df46b14eaa14f81c1e98bfeae4a97b2c582878765b36d20e",
-    "crates/leaf/protocol-types/src/reads.rs": "65f6e54ee88263f79ac73c20b4d5366985c3d1e5df337afba2e2f91ff3e66cf1",
+    "crates/leaf/protocol-types/src/reads.rs": "7926b241e6328bb05bf340ccf51ea6dba2814de5076eb7ca8ddd1d86d40c7da7",
     "crates/leaf/protocol-types/src/rooted.rs": "86750cd009adf6daed8a9309fc0c95384b5661e28abadf37b1a00bbc5a10e9a4",
     "crates/leaf/protocol-types/src/route.rs": "18163bb5eda662886c28521fb36ec253ee0150f95a891c2123a85bb2477e9953",
     "crates/leaf/protocol-types/src/settings.rs": "9967d358e7bade6d700be42855f79bb55c6df0d8a98ad0d9a815dcb6befecfeb",
@@ -55,7 +55,7 @@
     "crates/runtime/extension-sdk/src/host/in_process.rs": "9989b8fb1f2b6a92fda3029ad9fb940c600b06ac891cb6c65fdc7e7674d7872c",
     "crates/runtime/extension-sdk/src/host_contrib.rs": "2c0b76df6d103d35986481e5228af74c30b2155c7004493fb7984255baeb6c04",
     "crates/runtime/extension-sdk/src/judged.rs": "4d5ca738008c0aaa9cc88e70de2051778928021efe2c2b251ae6f4fcfd57190c",
-    "crates/runtime/extension-sdk/src/lib.rs": "73ea8baf8b13f290a8161e1328ba7c1bdb3335ab036a2fea234340fa5aaf3ba4",
+    "crates/runtime/extension-sdk/src/lib.rs": "6f6361825973281f8c8992096af6bfd09ec5cafe8b4e572069313addf2eaa16f",
     "crates/runtime/extension-sdk/src/operations.rs": "231bea810e55f51e00d818843b75aa64013afd16a40f3a088a55fee9a2b68b50",
     "crates/runtime/extension-sdk/src/plan.rs": "858a4310f5d5dc861aa135f126d499ef01eedd201565bc5b96ba305d7d1180af",
     "crates/runtime/extension-sdk/src/prompt.rs": "bf47ef66a158c9830beff1570619fc16029b8a8589bfde475eb4741a09034c95",
@@ -68,11 +68,11 @@
     "crates/runtime/extension-sdk/wit/host.wit": "fc297976ff03eab250e76d7c4a01f5bc89124406fc7c8bc08802eb2417895472",
     "extensions/code/api/Cargo.toml": "0ec7e09fd08c471d405b140f2f4ba08a827759ef2d43ed4285b1b2a0b3240f07",
     "extensions/code/api/src/js_model.rs": "287c3fd4d4feb64a934f2a3d724dee672b0ed778fcf9ff6b9396dab545210221",
-    "extensions/code/api/src/js_report.rs": "662bc601929ff93000a8db841ef32811a96333d70b1318ad52829777164e7c38",
-    "extensions/code/api/src/lib.rs": "90b1da79eeeeff39883b79fd2cb0c05e5d213bd5421669e723209cefdd41db7b",
-    "extensions/code/api/src/rust_text.rs": "e9ea5f70f0ae8efb98801de20343f335f8f9991715d79b440c2327b901be0b64",
+    "extensions/code/api/src/js_report.rs": "028ffa203f1e122d9e429afc4a467a2ac5b34bf82f5cebe2f4b391c0a30e7370",
+    "extensions/code/api/src/lib.rs": "24cfeed2f5f84c8a68e9e3900f4580ea754e23e3293a0cb0374edb249f77e0bb",
+    "extensions/code/api/src/rust_text.rs": "158bfe14aca8f178b5e623ba6acd58eb75f483328c9be5186498ec7d5cd55ebd",
     "extensions/code/facts/Cargo.toml": "78711c072008558fb21fc45885a253dd47f50b0e4d38791e8820a899d8f27d2b",
-    "extensions/code/facts/src/accepted.rs": "101681dba6c956d938752c836d75f5f43c9fb0288e6c67b672870d8c540bbae4",
+    "extensions/code/facts/src/accepted.rs": "e4ac2a4d178964150dd57a76f534212742ccb6470a677a31d2312e662ce3a96f",
     "extensions/code/facts/src/api.rs": "95ab73c3243d001df2f14736fd37d0b86fe0160fdb1fe41beaf0ea732e86cd86",
     "extensions/code/facts/src/coverage.rs": "753322a3faebf6d81b3f890daa8fce1be08ae7a839f7aa33691a5f60df4c1c2f",
     "extensions/code/facts/src/cvss.rs": "6cf21e349338c7c73e233b7234e4d1434145f56271dc4fec5b6b5b1acd8bc896",
@@ -91,6 +91,6 @@
     "extensions/code/junit/src/xml.rs": "fa399f0b4782f298aaf8a2407f25c6112a9c40dbcf98951def06f8e06976dc20",
     "extensions/rust/api/Cargo.lock": "1af68f23027c44bf971230b01cc3164bfb76655e216f31246051d5d6abc4647b",
     "extensions/rust/api/Cargo.toml": "be22f357e2ad2b1305bd2665512e95866efa1526bec3841363e43b7a1df32579",
-    "extensions/rust/api/src/lib.rs": "df3d51a12d089f664bb946b4ea9498b2c4aaf71e6cbc1ed5aceb96143438c5e7"
+    "extensions/rust/api/src/lib.rs": "2607ebb7e700ebb657f2de2af92a52c67a69175b4fc2e7b4a94f66e9dbd43751"
   }
 }

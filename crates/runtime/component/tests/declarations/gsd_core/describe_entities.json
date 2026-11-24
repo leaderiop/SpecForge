@@ -775,7 +775,7 @@
         },
         {
           "default_value": null,
-          "description": "the release evidence gsd/E535 reads: `tag` and `commit` the recorded tag of a shipped milestone, `packages` the `<name> <version>` of each package fact not at an open milestone's version; absent when nothing was observed",
+          "description": "the release evidence gsd/E535 reads: `tag` and `commit` the recorded tag of a shipped milestone, `packages` the `name` and `version` of each package fact not at an open milestone's version, at most 50, and `more` the count past them; absent when nothing was observed",
           "edge": null,
           "field_type": "block",
           "inverse_of": null,
@@ -804,9 +804,41 @@
               "default_value": null,
               "description": null,
               "edge": null,
-              "field_type": "string_list",
+              "field_type": "block_list",
               "inverse_of": null,
+              "members": [
+                {
+                  "default_value": null,
+                  "description": null,
+                  "edge": null,
+                  "field_type": "string",
+                  "inverse_of": null,
+                  "name": "name",
+                  "required": false,
+                  "target_kind": null
+                },
+                {
+                  "default_value": null,
+                  "description": null,
+                  "edge": null,
+                  "field_type": "string",
+                  "inverse_of": null,
+                  "name": "version",
+                  "required": false,
+                  "target_kind": null
+                }
+              ],
               "name": "packages",
+              "required": false,
+              "target_kind": null
+            },
+            {
+              "default_value": null,
+              "description": null,
+              "edge": null,
+              "field_type": "integer",
+              "inverse_of": null,
+              "name": "more",
               "required": false,
               "target_kind": null
             }

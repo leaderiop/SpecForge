@@ -446,7 +446,7 @@
     {
       "code": "E533",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#project-and-roadmap",
-      "explanation": "A milestone whose API facts show a changed, narrowed or removed item is not API-compatible with the last shipped milestone of its workstream scope (Cargo's rule: for 0.x the minor counts as major), and its name and that milestone's are versions. It is an error.",
+      "explanation": "A milestone whose API facts show a changed, narrowed or removed item is closed while its version is API-compatible with the last shipped milestone of its workstream scope (Cargo's rule: for 0.x the minor counts as major), or while its name is not a version, so no major bump can be shown. It is an error.",
       "title": "Breaking API change without a major version bump"
     },
     {
