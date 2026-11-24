@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
+use specforge_extension_sdk::PlanOp;
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::testing::{CommandFeed, MockHost, call_every_command_with};
 
@@ -145,4 +146,115 @@ pub fn import_fixture(name: &str) -> CommandOutput {
 /// The JSON the command printed.
 pub fn payload(out: &CommandOutput) -> Value {
     serde_json::from_str(&out.stdout).unwrap_or_else(|e| panic!("{e}: {}", out.stdout))
+}
+
+/// One create of the plan, with its graph path.
+#[derive(Debug, Clone)]
+pub struct Create {
+    pub kind: String,
+    pub path: String,
+    pub title: String,
+    pub file: String,
+    pub fields: Value,
+}
+
+/// Each create of `out`'s plan; its path is its scope reference (`summary`, `plan` or `phase`) and its id.
+pub fn creates(out: &CommandOutput) -> Vec<Create> {
+    let plan = out.plan.as_ref().expect("import answers a plan");
+    plan.ops
+        .iter()
+        .map(|op| match op {
+            PlanOp::Create {
+                kind,
+                id,
+                title,
+                file,
+                fields,
+                ..
+            } => {
+                let fields = json!(fields);
+                let scope = ["summary", "plan", "phase"]
+                    .iter()
+                    .find_map(|k| fields[*k].as_str());
+                Create {
+                    kind: kind.clone(),
+                    path: scope.map_or_else(|| id.clone(), |s| format!("{s}/{id}")),
+                    title: title.clone(),
+                    file: file.clone(),
+                    fields,
+                }
+            }
+            other => panic!("import answers creates only, not {other:?}"),
+        })
+        .collect()
+}
+
+/// The create `kind path`.
+pub fn find(all: &[Create], kind: &str, path: &str) -> Create {
+    all.iter()
+        .find(|c| c.kind == kind && c.path == path)
+        .cloned()
+        .unwrap_or_else(|| panic!("{kind} {path} is created"))
+}
+
+/// The paths of the creates of `kind`, in plan order.
+pub fn paths<'c>(all: &'c [Create], kind: &str) -> Vec<&'c str> {
+    all.iter()
+        .filter(|c| c.kind == kind)
+        .map(|c| c.path.as_str())
+        .collect()
+}
+
+/// `(line, section, outcome, reason)` of each entry about `file`.
+pub fn entries(out: &CommandOutput, file: &str) -> Vec<(u64, String, String, String)> {
+    payload(out)["entries"]
+        .as_array()
+        .expect("entries")
+        .iter()
+        .filter(|e| e["file"] == file)
+        .map(|e| {
+            let s = |k: &str| e[k].as_str().unwrap_or_default().to_string();
+            (
+                e["line"].as_u64().unwrap_or(0),
+                s("section"),
+                s("outcome"),
+                s("reason"),
+            )
+        })
+        .collect()
+}
+
+/// Whether `entries` holds one at `line` with `outcome` whose reason holds `says`.
+pub fn has(
+    entries: &[(u64, String, String, String)],
+    line: u64,
+    outcome: &str,
+    says: &str,
+) -> bool {
+    entries
+        .iter()
+        .any(|(l, _, o, r)| *l == line && o == outcome && r.contains(says))
+}
+
+/// The manifest of the fixture `name`, listing `@gsd/security` when `security`, as the harness writes it (a fixture's
+/// committed manifest lists no extension).
+pub fn fixture_manifest(name: &str, security: bool) -> String {
+    let text = std::fs::read_to_string(fixture(name).join("specforge.json")).expect("a manifest");
+    let mut json: Value = serde_json::from_str(&text).expect("JSON");
+    if security {
+        json["extensions"] = json!(["@gsd/core", "@gsd/security=../../security/target/x.wasm"]);
+    }
+    json.to_string()
+}
+
+/// The fixture `name` imported, with or without `@gsd/security` in its manifest.
+pub fn import_with(name: &str, security: bool) -> CommandOutput {
+    import(
+        &CommandGraph::default(),
+        &feed(
+            planning_facts(&fixture(name)),
+            false,
+            Some(&fixture_manifest(name, security)),
+        ),
+    )
 }

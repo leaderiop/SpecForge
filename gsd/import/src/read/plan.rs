@@ -1,7 +1,7 @@
 //! `NN-MM-PLAN.md` and a quick plan to a `plan` (13-RESEARCH Part B, the `NN-MM-PLAN.md` and `quick/` tables; the rows
 //! are `table::sections::{PLAN, PLAN_SHARED, QUICK, QUICK_PLAN}`): the file name gives the id, the frontmatter and the
 //! `<objective>`, `<context>`, `<verification>` and `<success_criteria>` elements the fields, and [`super::tasks`] the
-//! tasks and must-haves. Every other key and element is reported with the table's reason.
+//! tasks and must-haves, and [`super::threats`] its threat model. Every other key and element is reported with the table's reason.
 //!
 //! The file name wins over the frontmatter: a `phase:` or `plan:` (or a quick plan's `quick_id:`) that disagrees with it
 //! is reported at its line, never used. Element bodies are cut by their literal closing tag ([`crate::xmltags`]) and
@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value as Json, json};
 
-use super::{Context, is_bullet, row, tasks};
+use super::{Context, is_bullet, row, tasks, threats};
 use crate::frontmatter::{self, Located, Value};
 use crate::ids;
 use crate::paths;
@@ -372,6 +372,8 @@ pub fn read(
     if let Some(v) = must_haves {
         tasks::must_haves(doc, v, &plan, &file, records, report);
     }
+    let security = cx.manifest.security;
+    threats::read(doc, &body, (&plan, &file), security, records, report);
 }
 
 /// One frontmatter key of the plan `id`: a field, a cross-check, or a report entry with the table's reason.

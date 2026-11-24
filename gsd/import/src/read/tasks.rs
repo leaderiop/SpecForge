@@ -19,7 +19,7 @@ const TASK_TYPES: &[&str] = &["auto", "tdd", "tracer"];
 const TASK: &str = "<task type=\"auto|tdd|tracer\">";
 
 /// One entity scoped by the plan `plan`, written to `file`.
-fn scoped(
+pub fn scoped(
     doc: &Doc<'_>,
     kind: &'static str,
     id: String,

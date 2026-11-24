@@ -9,6 +9,7 @@ pub mod roadmap;
 pub mod state;
 pub mod summary;
 pub mod tasks;
+pub mod threats;
 
 use std::ops::Range;
 
