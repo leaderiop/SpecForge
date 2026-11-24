@@ -9,6 +9,7 @@
 #[path = "../../../core/tests/cli/harness.rs"]
 mod harness;
 
+mod compare;
 mod hostile;
 mod import;
 
