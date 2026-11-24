@@ -243,13 +243,26 @@ fn e533_fires_once_on_a_subject_that_is_not_a_version() {
 }
 
 #[test]
-fn e533_fires_once_on_a_baseline_that_is_not_a_version() {
+fn e533_takes_no_baseline_whose_name_is_not_a_version() {
+    // A release candidate or an `mvp` that shipped last is skipped: v1.7 is the baseline.
+    for skipped in ["mvp", "v1.8-rc1"] {
+        let found = e533(&close(
+            "v1.8",
+            vec![
+                shipped("v1.7", "2026-01-01"),
+                shipped(skipped, "2026-02-01"),
+                open("v1.8", &["removed a"]),
+            ],
+        ));
+        assert_eq!(found.len(), 1, "{skipped}");
+        assert!(found[0].message.ends_with("the last shipped 'v1.7'"));
+    }
+    // With no shipped version at all, it is a first release.
     let found = e533(&close(
         "v2.0",
         vec![shipped("mvp", "2026-02-01"), open("v2.0", &["removed a"])],
     ));
-    assert_eq!(found.len(), 1);
-    assert!(found[0].message.ends_with("'mvp' is not a version"));
+    assert!(found.is_empty());
 }
 
 #[test]
@@ -284,11 +297,12 @@ fn e533_escapes_every_id_it_echoes() {
     let found = e533(&close(
         "v1.8\n",
         vec![
-            shipped("v1.7`", "2026-02-01"),
+            shipped("v1.7", "2026-02-01"),
             open("v1.8\n", &["removed a\nb'`c"]),
         ],
     ));
-    assert!(!found.is_empty());
+    assert_eq!(found.len(), 1);
+    assert!(found[0].message.ends_with("'v1.8\\n' is not a version"));
     for d in &found {
         assert!(!d.message.contains('\n'), "{:?}", d.message);
         assert!(d.suggestion.as_deref().is_some_and(|s| !s.contains('\n')));

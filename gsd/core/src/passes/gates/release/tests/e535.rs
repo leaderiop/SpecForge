@@ -220,6 +220,26 @@ fn e535_allows_a_last_tag_that_resolves() {
 }
 
 #[test]
+fn e535_takes_no_baseline_whose_name_is_not_a_version() {
+    // `mvp` shipped last and is skipped, as E533 skips it: v1.7's tag and version are judged.
+    let found = e535(&close(
+        "v1.6",
+        vec![
+            tagged("v1.7", "2026-01-01", "v1.7", None),
+            shipped("mvp", "2026-02-01"),
+            releasing("v1.6", &[]),
+        ],
+    ));
+    assert_eq!(
+        messages(&found),
+        [
+            "the tag 'v1.7' of the shipped milestone 'v1.7' resolves to no commit",
+            "milestone 'v1.6' goes backwards from the last shipped 'v1.7': its version is not later"
+        ]
+    );
+}
+
+#[test]
 fn e535_judges_a_shipped_subjects_own_tag() {
     let found = e535(&close(
         "v1.8",

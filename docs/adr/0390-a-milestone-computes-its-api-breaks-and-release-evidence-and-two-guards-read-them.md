@@ -84,10 +84,12 @@ API-compatible with the last shipped milestone of the same workstream scope. Com
 versions are compatible when they agree up to and including the first non-zero component of the older one, so for
 `0.x` a minor bump counts as major.
 
-- **Last shipped:** the other shipped milestones of the scope, the latest by their `shipped` date, ties broken by the
-  higher version, the subject excluded. No shipped milestone: allowed (a first release).
-- **Not a version:** a subject or baseline name that is not a version (`v1.7`, `1.7`, `v1.7.2`: one to three numeric
-  parts) makes E533 fire, saying no major bump can be shown.
+- **Last shipped:** the other shipped milestones of the scope whose name is a version, the latest by their `shipped`
+  date, ties broken by the higher version, the subject excluded. A shipped milestone whose name is not a version (an
+  `mvp`, a release candidate `v1.7-rc1`) is no release to compare with: E533 and E535 both skip it. No such
+  milestone: allowed (a first release).
+- **Not a version:** a subject name that is not a version (`v1.7`, `1.7`, `v1.7.2`: one to three numeric parts)
+  makes E533 fire, saying no major bump can be shown.
 - **Findings:** one error per broken item, at most 25, then one summary error. Each echoed id is escaped (`quoted`).
 
 ## D6. What E535 judges, and where git is read
