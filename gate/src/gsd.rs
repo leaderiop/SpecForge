@@ -1,10 +1,11 @@
-//! The `gsd` check: the `@gsd` workspace (`gsd/`) lints, builds `@gsd/security` to `wasm32-wasip2` and passes its
-//! tests against the `specforge` binary (ADR gsd/0001 D6, ADR gsd/0002). The workspace patches the in-tree SDK, so a
-//! kernel change that breaks an `@gsd` extension fails in the pull request that made it.
+//! The `gsd` check: the `@gsd` workspace (`gsd/`) lints, builds `@gsd/security` and `@gsd/import` to `wasm32-wasip2`
+//! and passes its tests against the `specforge` binary (ADR gsd/0001 D6, ADR gsd/0002). The workspace patches the
+//! in-tree SDK, so a kernel change that breaks an `@gsd` extension fails in the pull request that made it.
 //!
 //! Who builds what (ADR 0373 D5): `@gsd/core` is a builtin the CLI embeds, vendored by `revendor` into
 //! `gsd/core/wasm/`, and nothing builds its wasm to load it; the suite loads it by name. `@gsd/security` is not
-//! vendored: this step builds its wasm from `gsd/` and the suite reads it through `GSD_SECURITY_WASM`.
+//! vendored: this step builds its wasm from `gsd/` and the suite reads it through `GSD_SECURITY_WASM`. `@gsd/import`
+//! is built here too, and read through `GSD_IMPORT_WASM`, until its blob is vendored (ADR 0391 D12).
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -26,11 +27,11 @@ pub const TRIGGER: &[&str] = &[
     "extensions/**/*.wasm",
 ];
 
-/// Stops at the first failing step: clippy for native and wasm, the release build of `@gsd/security`'s wasm (the one
-/// `@gsd` wasm anything builds; `@gsd/core` is the builtin the CLI embeds), the `specforge` CLI build, then
-/// `cargo nextest run` (every test binary at once; `cargo test` runs them one after another) with `SPECFORGE_BIN` and
-/// `GSD_SECURITY_WASM` set to the two artifacts. Cargo runs in `gsd/`: it reads `.cargo/config.toml` (the SDK patch)
-/// from its working directory, not from `--manifest-path`.
+/// Stops at the first failing step: clippy for native and wasm, the release builds of `@gsd/security`'s and
+/// `@gsd/import`'s wasm (`@gsd/core` is the builtin the CLI embeds), the `specforge` CLI build, then
+/// `cargo nextest run` (every test binary at once; `cargo test` runs them one after another) with `SPECFORGE_BIN`,
+/// `GSD_SECURITY_WASM` and `GSD_IMPORT_WASM` set to the three artifacts. Cargo runs in `gsd/`: it reads
+/// `.cargo/config.toml` (the SDK patch) from its working directory, not from `--manifest-path`.
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let cargo = |args: &[&str]| cargo(ctx, args);
     ctx.sh(&mut cargo(&[
@@ -51,29 +52,34 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         "-D",
         "warnings",
     ]))?;
-    let security = build_security_wasm(ctx)?;
+    let security = build_wasm(ctx, "gsd-security")?;
+    let import = build_wasm(ctx, "gsd-import")?;
     let specforge = ctx.specforge()?;
     ctx.sh(cargo(&["nextest", "run", "--locked", "--no-fail-fast"])
         .env("SPECFORGE_BIN", specforge)
-        .env("GSD_SECURITY_WASM", security))
+        .env("GSD_SECURITY_WASM", security)
+        .env("GSD_IMPORT_WASM", import))
 }
 
-/// Build `@gsd/security` for `wasm32-wasip2` in release (it is not vendored, ADR 0373 D5), the component the suite
-/// reads through `GSD_SECURITY_WASM`; answers its path.
-fn build_security_wasm(ctx: &Ctx) -> Result<PathBuf, String> {
+/// Build `package` for `wasm32-wasip2` in release, a component the suite reads by path rather than as a vendored
+/// builtin (ADR 0373 D5); answers its path, `<package with - as _>.wasm`.
+fn build_wasm(ctx: &Ctx, package: &str) -> Result<PathBuf, String> {
     ctx.sh(&mut cargo(
         ctx,
         &[
             "build",
             "--locked",
             "-p",
-            "gsd-security",
+            package,
             "--release",
             "--target",
             "wasm32-wasip2",
         ],
     ))?;
-    Ok(target(ctx).join("wasm32-wasip2/release/gsd_security.wasm"))
+    Ok(target(ctx).join(format!(
+        "wasm32-wasip2/release/{}.wasm",
+        package.replace('-', "_")
+    )))
 }
 
 /// `<target_dir>/gsd`: the workspace's own target directory.

@@ -298,6 +298,38 @@ impl Project {
         self
     }
 
+    /// The state a GSD project is in before its import: every `.spec` file under the spec root and the fixture's
+    /// `specforge-harness` removed; `.planning/`, `specforge.json` and the sources kept.
+    #[allow(
+        dead_code,
+        reason = "@gsd/import's tests include this file and use it; core's do not"
+    )]
+    pub fn without_spec(self) -> Self {
+        fn remove_specs(dir: &Path) {
+            let Ok(entries) = std::fs::read_dir(dir) else {
+                return;
+            };
+            for entry in entries {
+                let path = entry.expect("a directory entry").path();
+                if path.is_dir() {
+                    remove_specs(&path);
+                } else if path.extension().is_some_and(|ext| ext == "spec") {
+                    std::fs::remove_file(&path).expect("remove a .spec file");
+                }
+            }
+        }
+        let spec_root = self.manifest()["spec_root"]
+            .as_str()
+            .unwrap_or("spec")
+            .to_string();
+        remove_specs(&self.root.join(spec_root));
+        let harness = self.root.join("specforge-harness");
+        if harness.is_file() {
+            std::fs::remove_file(harness).expect("remove specforge-harness");
+        }
+        self
+    }
+
     /// The taskboard twin's setup: [`TWIN_BUILTINS`] loaded.
     fn twin(self) -> Self {
         self.with_builtins(&TWIN_BUILTINS)
