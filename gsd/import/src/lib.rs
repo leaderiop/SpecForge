@@ -3,6 +3,7 @@
 
 pub mod command;
 pub mod emit;
+pub mod frontmatter;
 pub mod ids;
 pub mod kinds;
 pub mod limits;
@@ -12,6 +13,7 @@ pub mod records;
 pub mod report;
 pub mod settings;
 pub mod table;
+pub mod xmltags;
 
 use specforge_extension_sdk::prelude::*;
 
