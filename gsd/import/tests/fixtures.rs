@@ -4,6 +4,7 @@ mod common;
 
 use std::collections::BTreeSet;
 
+use gsd_import::table;
 use serde_json::{Value, json};
 use specforge_extension_sdk::PlanOp;
 
@@ -105,7 +106,12 @@ fn every_other_planning_file_has_one_entry() {
     for path in &served {
         let of_file: Vec<&Value> = entries.iter().filter(|e| e["file"] == *path).collect();
         assert_eq!(of_file.len(), 1, "{path}: {of_file:#?}");
-        assert_eq!(of_file[0]["outcome"], "unmapped", "{path}");
+        let (_, fate) = table::fate_of(path.trim_start_matches(".planning/")).expect("a fate");
+        assert_eq!(
+            of_file[0]["outcome"],
+            table::outcome(fate).as_str(),
+            "{path}"
+        );
         assert_eq!(of_file[0]["line"], Value::Null, "{path}");
     }
     let reason = |path: &str| {
@@ -115,13 +121,40 @@ fn every_other_planning_file_has_one_entry() {
             .map(|e| e["reason"].clone())
             .expect("an entry")
     };
-    // The reason is the kit's kinds column for the file's row, or "unknown file".
+    // A Tier 1 file with no reader yet gives the kit's kinds column; the extras their fate's reason.
     assert_eq!(reason(".planning/ROADMAP.md"), "milestone, phase");
     assert_eq!(
         reason(".planning/phases/01-core/01-01-PLAN.md"),
         "plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup"
     );
-    assert_eq!(reason(".planning/state.json"), "unknown file");
+    assert_eq!(
+        reason(".planning/state.json"),
+        "gsd-tools' derived state (`state json`): STATE.md and the graph compute it"
+    );
+    assert_eq!(
+        reason(".planning/phases/03-listing/.gitkeep"),
+        "an empty directory's placeholder"
+    );
+}
+
+#[test]
+fn a_security_file_needs_gsd_security_when_the_project_does_not_load_it() {
+    let out = import_fixture("vault");
+    let entries = payload(&out)["entries"].clone();
+    let entry = entries
+        .as_array()
+        .expect("entries")
+        .iter()
+        .find(|e| e["file"] == ".planning/phases/01-core/01-SECURITY.md")
+        .cloned()
+        .expect("an entry");
+    assert_eq!(entry["outcome"], "needs-extension");
+    assert!(
+        entry["reason"]
+            .as_str()
+            .is_some_and(|r| r.ends_with("@gsd/security's, which the project does not load")),
+        "{entry}"
+    );
 }
 
 #[test]

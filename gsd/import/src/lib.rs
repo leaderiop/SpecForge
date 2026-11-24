@@ -10,6 +10,7 @@ pub mod preflight;
 pub mod read;
 pub mod records;
 pub mod report;
+pub mod table;
 
 use specforge_extension_sdk::prelude::*;
 

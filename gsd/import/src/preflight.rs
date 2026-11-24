@@ -6,7 +6,8 @@ use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
 use crate::kinds::CORE_KINDS;
-use crate::read::{self, Served};
+use crate::read::Served;
+use crate::table;
 
 /// What `specforge.json` says that the import needs, read as text (D11: not a registry query).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,7 +101,7 @@ pub fn check_reads(planning: &[Served], truncated: bool) -> Result<(), String> {
     }
     for file in planning {
         let rel = file.path.strip_prefix(".planning/").unwrap_or(&file.path);
-        if let (Some(error), true) = (&file.error, read::maps(rel)) {
+        if let (Some(error), true) = (&file.error, table::maps(rel)) {
             return Err(format!(
                 "{} was not read ({error}): its entities would be missing, so nothing is imported",
                 file.path.escape_debug()
