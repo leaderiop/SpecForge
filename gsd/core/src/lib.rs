@@ -16,6 +16,7 @@ mod passes;
 mod probe;
 pub mod prompts;
 mod quick_id;
+mod release;
 mod relocation;
 mod route;
 mod rules;

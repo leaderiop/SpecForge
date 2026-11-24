@@ -1820,6 +1820,17 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the API items the last collect found changed, narrowed or removed against the committed accepted report: `<change> <id>`; absent when no API fact carries a change; gsd/E533 reads it",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "api_breaks",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,

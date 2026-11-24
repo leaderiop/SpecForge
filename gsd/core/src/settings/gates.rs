@@ -55,6 +55,11 @@ pub const SPECFORGE: &[(&str, &str, &str)] = &[
         "E521",
         "A task commit names its task by its Gsd-Task trailer.",
     ),
+    (
+        "specforge.interface_gate",
+        "E533",
+        "A milestone that changes, narrows or removes an API item bumps its major version over the last shipped one.",
+    ),
 ];
 
 /// The codes `setting` gates, if it is a GSD key that gates any.

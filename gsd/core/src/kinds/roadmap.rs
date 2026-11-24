@@ -61,6 +61,10 @@ pub const MILESTONE: Kind = Kind::new(
         str("branch")
             .c()
             .doc("the branch it is executed on: git.branching_strategy and its template"),
+        strs("api_breaks").c().doc(
+            "the API items the last collect found changed, narrowed or removed against the committed accepted \
+             report: `<change> <id>`; absent when no API fact carries a change; gsd/E533 reads it",
+        ),
     ],
 )
 .scoped_by("workstream");

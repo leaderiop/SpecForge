@@ -86,7 +86,7 @@ setting.
 | Profile | Behaves as |
 |---|---|
 | `gsd-compat` (default) | GSD at the tracked version: every rule GSD only warns about warns, every check GSD leaves to a prompt is still judged but does not block. The parity suite runs on it. |
-| `gsd-strict` | the same rules, blocking where GSD warns: same-wave file conflicts, a stale plan-check verdict, a backstop truth without evidence, and an open broken window at ship; and, beyond GSD, a verdict that is not fresh at any step (gsd/E516), a complete requirement no commit and passing test trace (gsd/E515) and a task commit without its `Gsd-Task:` trailer (gsd/E521). |
+| `gsd-strict` | the same rules, blocking where GSD warns: same-wave file conflicts, a stale plan-check verdict, a backstop truth without evidence, and an open broken window at ship; and, beyond GSD, a verdict that is not fresh at any step (gsd/E516), a complete requirement no commit and passing test trace (gsd/E515) a task commit without its `Gsd-Task:` trailer (gsd/E521) and, at the milestone close, a breaking API change without a major version bump (gsd/E533). |
 | `gsd-plus` | strict, and cross-workstream conflict detection (gsd/E517). |
 
 A profile presets these settings:
@@ -100,6 +100,7 @@ A profile presets these settings:
 | `specforge.cross_workstream_conflicts` | false | false | true |
 | `specforge.plan_paths_touched` | false | true | true |
 | `specforge.task_trailers` | false | true | true |
+| `specforge.interface_gate` | false | true | true |
 
 ## Other presets
 
@@ -128,6 +129,7 @@ because the host takes a variant setting only as a string or enum; `workflow.com
 | `specforge.cross_workstream_conflicts` | active plans of different workstreams share no file (gsd/E517) |
 | `specforge.plan_paths_touched` | a complete plan's commits touched every path it planned, and the files it deletes are gone (gsd/W520) |
 | `specforge.task_trailers` | a task commit names its task by its `Gsd-Task:` trailer (gsd/E521) |
+| `specforge.interface_gate` | a milestone that changes, narrows or removes an API item bumps its major version over the last shipped one (gsd/E533) |
 
 Ten more are bool, default **true**, and show or hide skills: `specforge.surface.<cluster>` for each of GSD's skill
 clusters (`core_loop`, `audit_review`, `milestone`, `research_ideate`, `workspace_state`, `docs`, `ui`, `ai_eval`,

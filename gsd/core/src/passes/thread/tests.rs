@@ -268,6 +268,10 @@ fn every_pass_that_reads_the_thread_declares_test_facts() {
         match facts(&pass.inputs).as_slice() {
             [] => {}
             [only] if only == TEST => reading.push(&pass.name),
+            // derive also reads the API facts for a milestone's `api_breaks` (ADR 0390 D4).
+            [test, api] if test == TEST && api == "api_item" && pass.name == "derive" => {
+                reading.push(&pass.name);
+            }
             other => panic!("pass '{}' declares the facts {other:?}", pass.name),
         }
     }

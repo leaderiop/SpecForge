@@ -694,6 +694,14 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
         Severity::Error,
     ),
+    code(
+        "E533",
+        "Breaking API change without a major version bump",
+        "A milestone whose API facts show a changed, narrowed or removed item is not API-compatible with the last shipped milestone of its workstream scope (Cargo's rule: for 0.x the minor counts as major), and its name and that milestone's are versions",
+        "project-and-roadmap",
+        Severity::Error,
+        Severity::Error,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
