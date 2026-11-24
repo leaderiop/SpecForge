@@ -3,9 +3,11 @@
 
 pub mod plan;
 pub mod project;
+pub mod quick;
 pub mod requirements;
 pub mod roadmap;
 pub mod state;
+pub mod summary;
 pub mod tasks;
 
 use std::ops::Range;
@@ -134,6 +136,12 @@ pub fn file(served: &Served, cx: &Context<'_>, records: &mut Records, report: &m
         ("PROJECT.md", _, Some(text)) => project::read(&served.path, text, records, report),
         ("NN-MM-PLAN.md", _, Some(text)) => {
             plan::read_phase(&served.path, relative(served), text, cx, records, report)
+        }
+        ("NN-MM-SUMMARY.md", _, Some(text)) => {
+            summary::read_phase(&served.path, relative(served), text, cx, records, report)
+        }
+        ("quick/*", _, Some(text)) => {
+            quick::read(&served.path, relative(served), text, cx, records, report)
         }
         ("STATE.md", _, Some(text)) => {
             report.push(whole(

@@ -118,9 +118,10 @@ fn every_other_planning_file_has_one_entry() {
             ]
             .contains(&p.as_str())
                 && !p.ends_with("-PLAN.md")
+                && !p.ends_with("-SUMMARY.md")
         })
         .collect();
-    assert_eq!(served.len(), 12);
+    assert_eq!(served.len(), 10);
     for path in &served {
         let of_file: Vec<&Value> = entries
             .iter()

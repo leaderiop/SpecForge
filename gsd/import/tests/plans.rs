@@ -506,3 +506,289 @@ fn no_record_holds_a_computed_field() {
     }
     assert!(checked > 200, "{checked}");
 }
+
+#[test]
+fn taskboard_summary_and_deliverable_values_match_the_twin() {
+    let out = import_fixture("taskboard");
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let all = creates(&out);
+    assert_eq!(
+        paths(&all, "summary"),
+        ["v1.0/01/01-01/01-01-SUMMARY", "v1.0/01/01-02/01-02-SUMMARY"]
+    );
+    assert_eq!(
+        paths(&all, "deliverable"),
+        [
+            "v1.0/01/01-01/01-01-SUMMARY/D1",
+            "v1.0/01/01-02/01-02-SUMMARY/D1",
+            "v1.0/01/01-02/01-02-SUMMARY/D2"
+        ]
+    );
+    let summary = find(&all, "summary", "v1.0/01/01-01/01-01-SUMMARY");
+    assert_eq!(
+        (summary.title.as_str(), summary.file.as_str()),
+        ("The task model and add: summary", "spec/gsd/phases/01.spec")
+    );
+    // The twin, plans.spec, exactly.
+    assert_eq!(
+        summary.fields,
+        json!({
+            "plan": "v1.0/01/01-01",
+            "status": "complete",
+            "one_liner": "A board of plain data with `addTask`, ids counting up from 1 and never reused.",
+            "subsystem": "tasks",
+            "tags": ["node", "esm"],
+            "provides": ["createBoard and addTask"],
+            "affects": ["01-02", "persistence"],
+            "tech_patterns": ["a board is plain data: { tasks, nextId }"],
+            "requirements_completed": ["TASK-01"],
+        })
+    );
+    // A known difference (D6): the twin carries no `requires`; the block form is imported.
+    let summary = find(&all, "summary", "v1.0/01/01-02/01-02-SUMMARY");
+    assert_eq!(
+        summary.fields["requires"],
+        json!([{"phase": "v1.0/01", "provides": "createBoard and addTask"}])
+    );
+    assert_eq!(
+        find(&all, "deliverable", "v1.0/01/01-02/01-02-SUMMARY/D1").fields,
+        json!({
+            "summary": "v1.0/01/01-02/01-02-SUMMARY",
+            "description": "A task is completed by its id, and an unknown id is refused by name",
+            "requirement": "TASK-02",
+            "human_judgment": false,
+            "checks": [
+                {"kind": "unit", "ref": "test/tasks.test.js#a task is completed by its id"},
+                {"kind": "unit", "ref": "test/tasks.test.js#completing an unknown id throws"}
+            ],
+        })
+    );
+    assert_eq!(
+        find(&all, "deliverable", "v1.0/01/01-02/01-02-SUMMARY/D2").fields,
+        json!({
+            "summary": "v1.0/01/01-02/01-02-SUMMARY",
+            "description": "The command line adds and completes tasks",
+            "human_judgment": true,
+            "rationale": "The output wording is a judgement a person makes at the terminal",
+        })
+    );
+    let reported = entries(&out, ".planning/phases/01-core/01-02-SUMMARY.md");
+    for (line, outcome, says) in [
+        (2, "redundant", "the file name gives them"),
+        (20, "computed", "summary.files_created is computed"),
+        (24, "unmapped", "a Tier 2 section"),
+        (35, "computed", "deliverable.checks.status is computed"),
+        (38, "computed", "deliverable.checks.status is computed"),
+        (46, "computed", "summary.duration is computed"),
+        (
+            47,
+            "unmapped",
+            "a harness timestamp the import does not write",
+        ),
+        (51, "redundant", "the plan's title names the summary"),
+        (55, "unmapped", "prose: no field holds it"),
+        (65, "unmapped", "git history is the collector's"),
+        (70, "unmapped", "a Tier 2 section"),
+        (78, "unmapped", "a Tier 2 section"),
+        (1, "mapped", "summary v1.0/01/01-02/01-02-SUMMARY"),
+        (29, "mapped", "deliverable v1.0/01/01-02/01-02-SUMMARY/D1"),
+    ] {
+        assert!(
+            has(&reported, line, outcome, says),
+            "{line} {outcome} {says}: {reported:#?}"
+        );
+    }
+}
+
+#[test]
+fn vault_summary_reports_a_requires_of_plan_ids_and_its_threat_flags() {
+    let path = ".planning/phases/01-core/01-02-SUMMARY.md";
+    let out = import_with("vault", false);
+    let all = creates(&out);
+    let summary = find(&all, "summary", "v1.0/01/01-02/01-02-SUMMARY");
+    assert_eq!(summary.fields.get("requires"), None);
+    assert_eq!(summary.fields.get("threat_flags"), None);
+    let reported = entries(&out, path);
+    assert!(
+        has(&reported, 7, "unmapped", "names no `provides`"),
+        "{reported:#?}"
+    );
+    assert!(
+        has(&reported, 45, "needs-extension", "@gsd/security"),
+        "{reported:#?}"
+    );
+    // A known difference (D15): with @gsd/security, the twin carries no threat flags; the import does.
+    let all = creates(&import_with("vault", true));
+    assert_eq!(
+        find(&all, "summary", "v1.0/01/01-02/01-02-SUMMARY").fields["threat_flags"],
+        json!([
+            "threat_flag: information_disclosure | src/cli.js | the secret is an argv entry, visible in `ps` and in shell history"
+        ])
+    );
+}
+
+#[test]
+fn ledger_quick_plan_and_summary_match_the_twin() {
+    let out = import_fixture("ledger");
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let all = creates(&out);
+    let plan = find(&all, "plan", "261105-tcl");
+    assert_eq!(
+        (plan.title.as_str(), plan.file.as_str()),
+        ("Show totals in a fixed-width column", "spec/gsd/quick.spec")
+    );
+    // The twin, quick.spec: no phase.
+    assert_eq!(
+        plan.fields,
+        json!({
+            "type": "execute",
+            "slug": "totals-column",
+            "files_modified": ["src/lib.rs", "src/main.rs", "tests/totals.rs"],
+            "objective": "Show totals in a fixed-width column.",
+            "purpose": "totals line up when a user prints several stores one under another.",
+            "output": "`column(cents)` in `src/lib.rs`, used by `ledger total`.",
+            "success_criteria": ["A total prints right-aligned in a column of fourteen"],
+        })
+    );
+    assert_eq!(
+        find(&all, "task", "261105-tcl/T1").fields,
+        json!({
+            "plan": "261105-tcl",
+            "type": "auto",
+            "files": ["src/lib.rs", "src/main.rs", "tests/totals.rs"],
+            "action": "Add `column(cents)`: euros and cents, right-aligned in 14 characters; `ledger total` prints through it. Fold the total in an `i32` so the column's width is the value's width.",
+            "verify_text": "cargo test --test totals a_total_prints_in_a_column_of_fourteen",
+            "done": "A total prints in a column of fourteen",
+        })
+    );
+    assert_eq!(
+        find(&all, "truth", "261105-tcl/TR1").fields["text"],
+        "A total prints right-aligned in a column of fourteen"
+    );
+    assert_eq!(
+        find(&all, "artifact", "261105-tcl/AR1").fields,
+        json!({"plan": "261105-tcl", "path": "src/lib.rs", "provides": "column", "contains": "pub fn column"})
+    );
+    let summary = find(&all, "summary", "261105-tcl/261105-tcl-SUMMARY");
+    assert_eq!(
+        summary.title,
+        "Show totals in a fixed-width column: summary"
+    );
+    // A known difference (D14): the twin's subsystem is `entries`; a quick summary has none, so it is filled.
+    assert_eq!(
+        summary.fields,
+        json!({
+            "plan": "261105-tcl",
+            "status": "complete",
+            "one_liner": "`ledger total` prints its total right-aligned in a column of fourteen.",
+            "subsystem": "quick",
+            "requirements_completed": [],
+        })
+    );
+    let reported = entries(
+        &out,
+        ".planning/quick/261105-tcl-totals-column/261105-tcl-SUMMARY.md",
+    );
+    for (line, outcome, says) in [
+        (1, "filled", "a quick summary has no subsystem"),
+        (1, "filled", "a quick summary lists no requirements"),
+        (2, "redundant", "the quick plan gives them"),
+        (3, "redundant", "the quick plan gives them"),
+        (
+            28,
+            "unmapped",
+            "a section no row of the quick/* table names",
+        ),
+    ] {
+        assert!(
+            has(&reported, line, outcome, says),
+            "{line} {outcome} {says}: {reported:#?}"
+        );
+    }
+    let reported = entries(
+        &out,
+        ".planning/quick/261105-tcl-totals-column/261105-tcl-PLAN.md",
+    );
+    assert!(
+        has(&reported, 6, "computed", "plan.autonomous is computed"),
+        "{reported:#?}"
+    );
+}
+
+#[test]
+fn a_quick_context_and_research_are_reported_tier_2() {
+    let dir = ".planning/quick/261201-abc-x";
+    let out = run(vec![
+        (&format!("{dir}/261201-abc-CONTEXT.md"), "# Context\n"),
+        (&format!("{dir}/261201-abc-RESEARCH.md"), "# Research\n"),
+        (&format!("{dir}/notes.md"), "x\n"),
+    ]);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    for name in ["CONTEXT", "RESEARCH"] {
+        let reported = entries(&out, &format!("{dir}/261201-abc-{name}.md"));
+        assert_eq!(reported.len(), 1, "{reported:#?}");
+        assert!(
+            has(&reported, 0, "unmapped", "a Tier 2 section"),
+            "{reported:#?}"
+        );
+    }
+    assert!(has(
+        &entries(&out, &format!("{dir}/notes.md")),
+        0,
+        "unmapped",
+        "no row names it"
+    ));
+}
+
+/// A summary of the plan 01-01 with `front` added to its frontmatter.
+fn summary_text(front: &str) -> String {
+    format!(
+        "---\nphase: 01-one\nplan: 01\nsubsystem: core\nstatus: complete\nrequirements-completed: []\n{front}---\n\n# Plan 01 Summary\n\n**It works.**\n"
+    )
+}
+
+#[test]
+fn a_summary_without_its_plan_is_not_imported() {
+    let path = ".planning/phases/01-one/01-01-SUMMARY.md";
+    let out = run(vec![(path, &summary_text(""))]);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    assert!(paths(&creates(&out), "summary").is_empty());
+    assert!(has(
+        &entries(&out, path),
+        1,
+        "unmapped",
+        "no plan for this summary"
+    ));
+}
+
+#[test]
+fn a_summary_writes_no_harness_timestamp() {
+    let path = ".planning/phases/01-one/01-01-SUMMARY.md";
+    let out = run(vec![
+        (".planning/phases/01-one/01-01-PLAN.md", &plan_text("", "")),
+        (
+            path,
+            &summary_text("started: 2026-03-03\ncompleted: 2026-03-04\n"),
+        ),
+    ]);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let all = creates(&out);
+    let summary = find(&all, "summary", "v1.0/01/01-01/01-01-SUMMARY");
+    assert_eq!(
+        summary.fields,
+        json!({"plan": "v1.0/01/01-01", "status": "complete", "one_liner": "It works.", "subsystem": "core", "requirements_completed": []})
+    );
+    assert_eq!(summary.title, "Do it: summary");
+    let reported = entries(&out, path);
+    for line in [7, 8] {
+        assert!(
+            has(
+                &reported,
+                line,
+                "unmapped",
+                "a harness timestamp the import does not write"
+            ),
+            "{line}: {reported:#?}"
+        );
+    }
+}

@@ -344,6 +344,11 @@ macro_rules! summary_rows {
             ),
             row(
                 $file,
+                concat!($prefix, "# title"),
+                &[redundant("the plan's title names the summary")],
+            ),
+            row(
+                $file,
                 concat!($prefix, "tags"),
                 &[to("summary", "tags", List)],
             ),
@@ -473,6 +478,7 @@ pub const PLAN_SHARED: &[Row] = plan_rows!(PL, "");
 const SM: &str = "NN-MM-SUMMARY.md";
 #[rustfmt::skip]
 pub const SUMMARY: &[Row] = &[
+    row(SM, "phase, plan", &[redundant("the file name gives them; a mismatch is reported")]),
     row(SM, "subsystem", &[to("summary", "subsystem", Text)]),
     row(SM, "requirements-completed", &[to("summary", "requirements_completed", Ref)]),
 ];
@@ -668,6 +674,7 @@ pub const QUICK: &[Row] = &[
     row(QK, "PLAN quick_id", &[id("plan")]),
     row(QK, "PLAN slug", &[to("plan", "slug", Text)]),
     row(QK, "PLAN title", &[title("plan")]),
+    row(QK, "SUMMARY quick_id, slug", &[redundant("the quick plan gives them")]),
     row(QK, "SUMMARY subsystem", &[filled("summary", "subsystem", "quick", "a quick summary has no subsystem")]),
     row(QK, "SUMMARY requirements-completed", &[filled(
         "summary",

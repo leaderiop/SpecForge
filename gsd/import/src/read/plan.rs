@@ -400,26 +400,7 @@ fn frontmatter_key(
     };
     match (key, scope) {
         ("phase" | "plan", Scope::Phase { number, .. }) => {
-            let (_, own) = id.rsplit_once('-').unwrap_or((id, id));
-            let written = text.unwrap_or_default();
-            let agrees = match key {
-                "phase" => {
-                    ids::padded(written.split_once('-').map_or(written, |(n, _)| n)).as_deref()
-                        == Some(number.as_str())
-                }
-                _ => format!("{written:0>2}") == own,
-            };
-            if agrees {
-                report.push(doc.row("phase, plan", line, key));
-            } else {
-                report.push(doc.unmapped(
-                    line,
-                    key,
-                    format!(
-                        "`{key}: {written}` disagrees with the file name {id}: the file name wins"
-                    ),
-                ));
-            }
+            report.push(names_file(doc, (key, v), id, number))
         }
         ("quick_id", Scope::Quick) if text == Some(id) => {}
         ("quick_id", Scope::Quick) => report.push(doc.unmapped(
@@ -499,6 +480,34 @@ fn frontmatter_key(
         // Read by `tasks::must_haves` once the plan's path is known.
         ("must_haves", _) => {}
         _ => report.push(doc.row(key, line, key)),
+    }
+}
+
+/// A frontmatter `phase:` or `plan:` against the file name's plan `id` in the phase `number`: `redundant` when it agrees
+/// (the `phase, plan` row), else the mismatch, at its line; the file name wins either way.
+pub fn names_file(
+    doc: &Doc<'_>,
+    (key, v): (&str, &Located<Value>),
+    id: &str,
+    number: &str,
+) -> Entry {
+    let (_, own) = id.rsplit_once('-').unwrap_or((id, id));
+    let written = v.value.as_str().map_or("", str::trim);
+    let agrees = match key {
+        "phase" => {
+            ids::padded(written.split_once('-').map_or(written, |(n, _)| n)).as_deref()
+                == Some(number)
+        }
+        _ => format!("{written:0>2}") == own,
+    };
+    if agrees {
+        doc.row("phase, plan", v.line, key)
+    } else {
+        doc.unmapped(
+            v.line,
+            key,
+            format!("`{key}: {written}` disagrees with the file name {id}: the file name wins"),
+        )
     }
 }
 

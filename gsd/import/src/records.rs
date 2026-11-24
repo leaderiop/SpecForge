@@ -64,6 +64,11 @@ impl Records {
         self.0.contains_key(&(kind, id.to_string()))
     }
 
+    /// The record `kind id`, if one was added.
+    pub fn get(&self, kind: &'static str, id: &str) -> Option<&Record> {
+        self.0.get(&(kind, id.to_string()))
+    }
+
     /// The records in kind then id order.
     pub fn iter(&self) -> impl Iterator<Item = &Record> {
         self.0.values()
