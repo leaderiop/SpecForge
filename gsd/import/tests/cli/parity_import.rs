@@ -3,11 +3,38 @@
 //! difference listed with its reason in [`DIFFERENCES`] and held both ways. Run with `GSD_IMPORT_DIFF=1` (and
 //! `--no-capture`) to print every difference instead of failing.
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::compare::{self, Excluded, ID_PAIRS};
-use crate::harness::{Project, ledger, taskboard, vault};
+use crate::harness::{Project, judged, ledger, taskboard, unjudged, vault};
 use crate::imported;
+
+/// The profiles every pin holds under: `PROFILES` of `gsd/core/tests/cli/interface_gate.rs`.
+const PROFILES: [&str; 3] = ["gsd-compat", "gsd-strict", "gsd-plus"];
+
+/// What the imported vault carries under every profile, sorted: the twin's `VAULT_CARRIES`
+/// (`gsd/core/tests/cli/rules_silent.rs`) with two `gsd.security/W302` instead of five, because the twin's closed
+/// `01-01/T-01-02` and both `T-01-SC` threats have no status in `.planning/` and the import invents none (ADR 0391
+/// D13). The two `gsd.security/E101` (threat `T-01-02` claimed in plans 01-01 and 01-02) land, an import being judged
+/// for host errors only (ADR 0392).
+pub const IMPORTED_VAULT_CARRIES: [&str; 7] = [
+    "W019",
+    "gsd.security/E101",
+    "gsd.security/E101",
+    "gsd.security/W302",
+    "gsd.security/W302",
+    "gsd.security/W303",
+    "gsd/W103",
+];
+
+/// The security workflow's verdicts the imported vault owes, `(code, entity)`, which `@gsd/security`'s book judges and
+/// core's harness `BOOKS` does not hold: W302 on each threat `01-SECURITY.md` closes (`T-01-01` of plan 01-01 and
+/// `T-01-03` of plan 01-02), W303 on the audit.
+pub const VAULT_SECURITY_OWED: [(&str, &str); 3] = [
+    ("gsd.security/W302", "v1.0/01/01-01/T-01-01"),
+    ("gsd.security/W302", "v1.0/01/01-02/T-01-03"),
+    ("gsd.security/W303", "v1.0/01/01-SECURITY"),
+];
 
 /// `(fixture, kind, id, field, reason)`: each difference of an imported fixture from its twin that is not a guest
 /// defect, with where it comes from. `field` is a field name, `title`, [`compare::IMPORT_ONLY`] or
@@ -440,5 +467,97 @@ fn every_difference_has_a_reason() {
             !reason.trim().is_empty(),
             "{fixture} {kind} {id} {field}: no reason"
         );
+    }
+}
+
+/// The codes a fixture's import is pinned to under every profile: none for taskboard and ledger.
+fn pinned(fixture: &str) -> &'static [&'static str] {
+    match fixture {
+        "vault" => &IMPORTED_VAULT_CARRIES,
+        _ => &[],
+    }
+}
+
+#[test]
+fn imported_codes_equal_the_pins() {
+    for (name, _, before) in FIXTURES {
+        let p = run_import(before());
+        for profile in PROFILES {
+            p.settings(json!({ "profile": profile }));
+            let mut codes = p.codes();
+            codes.sort();
+            assert_eq!(codes, pinned(name), "{name} {profile}");
+        }
+    }
+}
+
+/// `(code, entity)` of every verdict `specforge gsd import --format json` on `project` reports owed, sorted.
+fn owed_by_import(project: &Project) -> Vec<(String, String)> {
+    let run = project.run(&["gsd", "import", "--format", "json"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let answer: Value = serde_json::from_str(&run.stdout)
+        .unwrap_or_else(|e| panic!("the answer is JSON ({e}): {}", run.all()));
+    let mut owed: Vec<(String, String)> = answer["output"]["owed"]
+        .as_array()
+        .expect("the owed list")
+        .iter()
+        .map(|o| {
+            let text = |key: &str| o[key].as_str().expect("a string").to_string();
+            (text("code"), text("entity"))
+        })
+        .collect();
+    owed.sort();
+    owed
+}
+
+/// `check` on an imported fixture exits 1 (ADR 0391 D5, D13; ADR 0392): the judged rules' `no verdict` on exactly the
+/// entities core's books say owe one, nothing else but the fixture's pin, and the import's own owed list names the same
+/// pairs, with the vault's security verdicts, which core's books do not hold.
+#[test]
+fn check_owes_exactly_the_judged_codes() {
+    for (name, _, before) in FIXTURES {
+        let p = before();
+        let owed = owed_by_import(&p);
+        let run = p.run(&["check"]);
+        assert_eq!(run.code, 1, "{name}: {}", run.all());
+        let report = p.report_all();
+        let expected = p.expected_judged(&[]);
+        assert_eq!(judged(&report), expected, "{name}: {report:#?}");
+        assert!(
+            report
+                .iter()
+                .filter(|(code, _)| crate::harness::is_judged(code))
+                .all(|(_, message)| message.ends_with(": no verdict")),
+            "{name}: {report:#?}"
+        );
+        let rest = unjudged(&report);
+        let mut codes: Vec<&str> = rest.iter().map(|(code, _)| code.as_str()).collect();
+        codes.sort();
+        assert_eq!(codes, pinned(name), "{name}: {report:#?}");
+        let mut owes = expected;
+        if name == "vault" {
+            let security: Vec<(String, String)> = rest
+                .iter()
+                .filter(|(code, _)| {
+                    matches!(code.as_str(), "gsd.security/W302" | "gsd.security/W303")
+                })
+                .map(|(code, message)| {
+                    let id = message.split('\'').nth(1).unwrap_or_else(|| {
+                        panic!("a security verdict names its entity: {message}")
+                    });
+                    (code.clone(), id.to_string())
+                })
+                .collect();
+            let pinned: Vec<(String, String)> = VAULT_SECURITY_OWED
+                .iter()
+                .map(|(code, entity)| (code.to_string(), entity.to_string()))
+                .collect();
+            let mut found = security;
+            found.sort();
+            assert_eq!(found, pinned, "{report:#?}");
+            owes.extend(pinned);
+            owes.sort();
+        }
+        assert_eq!(owed, owes, "{name}: the import's owed list");
     }
 }
