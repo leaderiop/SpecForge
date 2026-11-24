@@ -12,6 +12,7 @@ mod harness;
 mod compare;
 mod hostile;
 mod import;
+mod parity_import;
 
 use std::collections::BTreeMap;
 use std::path::Path;
