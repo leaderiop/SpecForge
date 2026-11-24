@@ -235,8 +235,10 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
         ]),
         own_settings: serde_json::Value::Null,
     };
-    // Read before the first rewrite replaces the fixture's manifest.
-    p.own_settings = p.manifest()["settings"]["@gsd/core"].clone();
+    // Read before the first rewrite replaces the fixture's manifest; `Null` when the fixture commits none.
+    if source.join("specforge.json").is_file() {
+        p.own_settings = p.manifest()["settings"]["@gsd/core"].clone();
+    }
     p.settings(serde_json::json!({}));
     p
 }
@@ -247,8 +249,10 @@ impl Project {
         self.settings_in("spec", settings);
     }
 
-    /// [`Self::settings`] with the manifest's `spec_root` (`.`: the spec root is the project root). The fixture's own
-    /// `@gsd/core` settings stay under `settings`, whose keys win.
+    /// [`Self::settings`] with the manifest's `spec_root` (`.`: the spec root is the project root). Only a fixture that
+    /// commits a `specforge.json` (today the taskboard, ledger and vault twins) has its own `@gsd/core` settings: they
+    /// stay under `settings`, whose keys win. The merge is shallow, by top-level key (settings are dotted flat keys),
+    /// so `settings(json!({}))` resets to the fixture's own settings, not to the defaults.
     pub fn settings_in(&self, spec_root: &str, settings: serde_json::Value) {
         // another extension's block survives a rewrite of core's
         let mut manifest = self.manifest();
