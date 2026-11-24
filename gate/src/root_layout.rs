@@ -82,6 +82,10 @@ pub const ROOT: &[(&str, &str)] = &[
     ("scripts", "the shell helpers the gate and the release run"),
     ("spec", "SpecForge's own specification"),
     ("specforge.json", "the project file of `spec/`"),
+    (
+        "todos",
+        "trackable todos, one file each, with a status in its front matter",
+    ),
     ("xtask", "build-blobs, revendor and check-links"),
 ];
 
