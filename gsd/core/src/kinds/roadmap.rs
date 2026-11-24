@@ -20,6 +20,7 @@ const PROGRESS: &[Field] = &[
     int("percent"),
 ];
 const RELEASE: &[Field] = &[str("tag"), str("commit"), strs("packages")];
+const TAG: &[Field] = &[str("name"), str("commit")];
 const MILESTONE_STATE: &[&str] = &["planned", "in_progress", "shipped", "abandoned"];
 
 /// A milestone section of `ROADMAP.md`, named `v1.0` and scoped by its workstream when it has one. Its title is its
@@ -70,6 +71,10 @@ pub const MILESTONE: Kind = Kind::new(
             "the release evidence gsd/E535 reads: `tag` and `commit` the recorded tag of a shipped milestone, \
              `packages` the `<name> <version>` of each package fact not at an open milestone's version; absent when \
              nothing was observed",
+        ),
+        block("tag", TAG).h().doc(
+            "written by gsd-git from `refs/tags/v<version>` for a shipped milestone named by its version: the tag's \
+             `name`, and the `commit` it resolves to, absent when it resolves to none",
         ),
     ],
 )

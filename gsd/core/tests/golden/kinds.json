@@ -1874,6 +1874,39 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "written by gsd-git from `refs/tags/v<version>` for a shipped milestone named by its version: the tag's `name`, and the `commit` it resolves to, absent when it resolves to none",
+            "edge": null,
+            "field_type": "block",
+            "inverse_of": null,
+            "members": [
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "name",
+                "required": false,
+                "target_kind": null
+              },
+              {
+                "default_value": null,
+                "description": null,
+                "edge": null,
+                "field_type": "string",
+                "inverse_of": null,
+                "name": "commit",
+                "required": false,
+                "target_kind": null
+              }
+            ],
+            "name": "tag",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
           }
         ],
         "has_body_parser": false,

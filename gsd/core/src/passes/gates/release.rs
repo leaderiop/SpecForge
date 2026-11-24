@@ -8,6 +8,7 @@
 //! break is one error, at most [`ERRORS`], then one summary error. The guard reads the computed field alone, never the
 //! `api_item` facts (ADR 0353), so it judges the facts of the last `specforge collect`. Every echoed id is [`quoted`].
 
+use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
 use super::{gate, refuse};
@@ -132,10 +133,16 @@ pub(super) fn e533(input: &PassInput) -> Vec<PassDiagnostic> {
     found
 }
 
+/// A text member of a milestone's computed `release`.
+fn release_of<'a>(milestone: &'a PassEntity, member: &str) -> Option<&'a str> {
+    milestone.values.get("release")?.get(member)?.as_str()
+}
+
 /// E535: release evidence that does not match the milestone (ADR 0390 D6). At a gate on a milestone whose name is a
-/// version: while it is unshipped, one error per line of its computed `release.packages` (a package not at its
-/// version), at most [`ERRORS`] then one summary, and one error when its version is not later than the last shipped
-/// one of its scope ([`last_shipped`]). Absent evidence is no observation, never a failure.
+/// version: one error when the recorded tag of the subject once shipped, else of the last shipped milestone of its
+/// scope ([`last_shipped`]), resolves to no commit; while the subject is unshipped, one error per line of its computed
+/// `release.packages` (a package not at its version), at most [`ERRORS`] then one summary, and one error when its
+/// version is not later than the last shipped one. Absent evidence is no observation, never a failure.
 pub(super) fn e535(input: &PassInput) -> Vec<PassDiagnostic> {
     let Some(subject) = gate(input).flatten() else {
         return Vec::new();
@@ -148,12 +155,33 @@ pub(super) fn e535(input: &PassInput) -> Vec<PassDiagnostic> {
     };
     let named = quoted(subject);
     let mut found = Vec::new();
+    let baseline = last_shipped(input, milestone);
+    // GSD tags after the close: the release judged is the subject once shipped, else the last one before it.
+    let released = if shipped(milestone) {
+        Some(milestone)
+    } else {
+        baseline
+    };
+    if let Some(released) = released
+        && let Some(tag) = release_of(released, "tag")
+        && release_of(released, "commit").is_none()
+    {
+        found.push(refuse(
+            "E535",
+            PassSeverity::Error,
+            subject,
+            format!(
+                "the tag {} of the shipped milestone {} resolves to no commit",
+                quoted(tag),
+                quoted(&released.id)
+            ),
+            "create and push the tag, then run `specforge collect` again: the tag is observed only at collect",
+        ));
+    }
     if shipped(milestone) {
         return found;
     }
-    if let Some(last) = last_shipped(input, milestone)
-        .filter(|last| version(last).is_some_and(|older| own <= older))
-    {
+    if let Some(last) = baseline.filter(|last| version(last).is_some_and(|older| own <= older)) {
         let last = quoted(&last.id);
         found.push(refuse(
             "E535",
@@ -167,7 +195,7 @@ pub(super) fn e535(input: &PassInput) -> Vec<PassDiagnostic> {
         .values
         .get("release")
         .and_then(|r| r.get("packages"))
-        .and_then(serde_json::Value::as_array)
+        .and_then(Value::as_array)
         .map(|lines| {
             lines
                 .iter()

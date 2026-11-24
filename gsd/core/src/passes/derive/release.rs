@@ -3,7 +3,8 @@
 //! version is not the milestone's ([`crate::release::matches`]) and whose name is not in `specforge.release_exempt`,
 //! sorted, at most [`LINES`] then one `more <N>` line. Written only when some package fact carries a version: absent
 //! means never observed, empty means clean. A package with no version is not judged. It reflects the facts of the last
-//! collect.
+//! collect. On a shipped milestone, `tag` and `commit` copy the `tag` `gsd-git` recorded, unless `git.create_tag` is
+//! false (GSD then tags no release).
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
@@ -24,7 +25,28 @@ pub fn values(input: &PassInput) -> Vec<PassValue> {
         .and_then(Value::as_array)
         .map(|names| names.iter().filter_map(Value::as_str).collect())
         .unwrap_or_default();
-    release(input, &exempt)
+    let mut values = release(input, &exempt);
+    if settings.bool("git.create_tag") != Some(false) {
+        values.extend(tagged(input));
+    }
+    values
+}
+
+/// A shipped milestone's `release` copies the tag `gsd-git` recorded (`milestone.tag`): its `name` as `tag`, and its
+/// `commit`, absent when the tag resolves to none. Absent when no tag was recorded.
+fn tagged(input: &PassInput) -> Vec<PassValue> {
+    of_kind(input, "milestone")
+        .filter(|m| !m.fields.contains_key("abandoned") && m.fields.contains_key("completion"))
+        .filter_map(|m| {
+            let tag = m.values.get("tag")?;
+            let name = tag.get("name")?.as_str()?;
+            let mut release = json!({ "tag": name });
+            if let Some(commit) = tag.get("commit").and_then(Value::as_str) {
+                release["commit"] = json!(commit);
+            }
+            Some(value(&m.id, "release", release))
+        })
+        .collect()
 }
 
 fn release(input: &PassInput, exempt: &[&str]) -> Vec<PassValue> {

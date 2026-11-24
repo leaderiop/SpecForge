@@ -75,3 +75,25 @@ fn release_of_e535_caps_its_lines_and_escapes_them() {
     let found = release(&input(vec![package("z\u{1b}", Some("1.\u{7}0"))]), &[]);
     assert_eq!(found[0].value["packages"], json!(["z\\u{1b} 1.\\u{7}0"]));
 }
+
+#[test]
+fn release_of_e535_copies_a_shipped_milestones_recorded_tag() {
+    let entities = vec![
+        json!({ "id": "v1.6", "kind": "milestone", "fields": { "completion": "at 2026-01-01", "tag": "name, commit" },
+                "values": { "tag": { "name": "v1.6", "commit": "abc" } } }),
+        json!({ "id": "v1.7", "kind": "milestone", "fields": { "completion": "at 2026-02-01", "tag": "name" },
+                "values": { "tag": { "name": "v1.7" } } }),
+        json!({ "id": "v1.5", "kind": "milestone", "fields": { "completion": "at 2025-12-01" } }),
+        json!({ "id": "v1.8", "kind": "milestone", "fields": { "tag": "name" },
+                "values": { "tag": { "name": "v1.8" } } }),
+    ];
+    let input: PassInput =
+        serde_json::from_value(json!({ "entities": entities, "edges": [] })).expect("a pass input");
+    assert_eq!(
+        released(&tagged(&input)),
+        [
+            ("v1.6", json!({ "tag": "v1.6", "commit": "abc" })),
+            ("v1.7", json!({ "tag": "v1.7" })),
+        ]
+    );
+}

@@ -30,6 +30,8 @@
 //! lines no answer holds, the field is left unwritten (the plan's title names the commit), never written short: it is
 //! immutable once written.
 //!
+//! It also records whether each shipped milestone's release tag `v<version>` resolves (`milestone.tag`, see [`tags`]).
+//!
 //! What a commit says is untrusted: control characters in a subject or a path become U+FFFD, and a commit whose time
 //! is out of range is skipped and named in the plan's title. The host refuses a whole plan for one value it cannot
 //! write, so one bad commit must never reach it.
@@ -38,6 +40,7 @@
 
 mod items;
 mod subject;
+mod tags;
 #[cfg(test)]
 mod tests;
 mod trailer;
@@ -663,9 +666,10 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         );
         recorded += 1;
     }
+    let tagged = tags::plan(nodes, &repo, &mut builder)?;
     skipped.dedup();
     let mut output = CollectOutput::default();
-    if recorded > 0 || backfilled > 0 {
+    if recorded > 0 || backfilled > 0 || tagged > 0 {
         let mut note = if skipped.is_empty() {
             String::new()
         } else {
@@ -693,6 +697,12 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             title.push(format!(
                 "name the items {backfilled} recorded commit{} changed",
                 plural(backfilled)
+            ));
+        }
+        if tagged > 0 {
+            title.push(format!(
+                "record the tag of {tagged} shipped milestone{}",
+                plural(tagged)
             ));
         }
         let mut title = title.join("; ");

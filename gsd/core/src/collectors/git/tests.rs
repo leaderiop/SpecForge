@@ -12,6 +12,7 @@ use super::*;
 mod items;
 mod port;
 mod serve;
+mod tags;
 mod trailers;
 
 pub(super) use serve::served;
@@ -126,6 +127,9 @@ pub(super) struct Repo {
     pub(super) room: Option<usize>,
     pub(super) logs: std::cell::Cell<usize>,
     pub(super) asked: std::cell::RefCell<Vec<GitDiffQuery>>,
+    /// Each tag's commit, by its name (`v1.7`), and whether the clone is shallow.
+    pub(super) tags: HashMap<String, String>,
+    pub(super) shallow: bool,
 }
 
 impl InProcessHost for Repo {
@@ -135,10 +139,13 @@ impl InProcessHost for Repo {
         }
         Ok(Some(GitRepo {
             toplevel: self.top.clone(),
-            shallow: false,
+            shallow: self.shallow,
         }))
     }
     fn git_commit(&self, revision: &str) -> Result<Option<String>, HostError> {
+        if let Some(tag) = revision.strip_prefix("refs/tags/") {
+            return Ok(self.tags.get(tag).cloned());
+        }
         assert_eq!(revision, "HEAD");
         Ok(self.log.first().map(|c| c.sha.clone()))
     }

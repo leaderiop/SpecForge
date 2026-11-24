@@ -150,3 +150,66 @@ fn e535_escapes_what_it_echoes() {
         ["package 'a\\nb\\'c' is at version '1\\t0', not at milestone 'v1.8''s version"]
     );
 }
+
+/// A shipped milestone whose computed `release` copies the recorded tag `tag`, with `commit` when it resolves.
+fn tagged(id: &str, at: &str, tag: &str, commit: Option<&str>) -> Value {
+    let mut milestone = shipped(id, at);
+    let release = commit.map_or_else(
+        || json!({ "tag": tag }),
+        |c| json!({ "tag": tag, "commit": c }),
+    );
+    milestone["values"] = json!({ "release": release });
+    milestone
+}
+
+const TAG: &str = "create and push the tag, then run `specforge collect` again: the tag is observed only at collect";
+
+#[test]
+fn e535_refuses_closing_the_next_milestone_while_the_last_tag_resolves_to_no_commit() {
+    let found = e535(&close(
+        "v1.8",
+        vec![
+            tagged("v1.7", "2026-02-01", "v1.7", None),
+            releasing("v1.8", &[]),
+        ],
+    ));
+    assert_eq!(
+        messages(&found),
+        ["the tag 'v1.7' of the shipped milestone 'v1.7' resolves to no commit"]
+    );
+    assert_eq!(found[0].suggestion.as_deref(), Some(TAG));
+    assert_eq!(found[0].entity.as_deref(), Some("v1.8"));
+}
+
+#[test]
+fn e535_allows_a_last_tag_that_resolves() {
+    let found = e535(&close(
+        "v1.8",
+        vec![
+            tagged("v1.7", "2026-02-01", "v1.7", Some("abc")),
+            releasing("v1.8", &[]),
+        ],
+    ));
+    assert!(found.is_empty());
+    // No tag recorded (no repository, a shallow clone, `git.create_tag` false): no observation, silent.
+    let found = e535(&close(
+        "v1.8",
+        vec![shipped("v1.7", "2026-02-01"), releasing("v1.8", &[])],
+    ));
+    assert!(found.is_empty());
+}
+
+#[test]
+fn e535_judges_a_shipped_subjects_own_tag() {
+    let found = e535(&close(
+        "v1.8",
+        vec![
+            tagged("v1.7", "2026-02-01", "v1.7", Some("abc")),
+            tagged("v1.8", "2026-03-01", "v1.8", None),
+        ],
+    ));
+    assert_eq!(
+        messages(&found),
+        ["the tag 'v1.8' of the shipped milestone 'v1.8' resolves to no commit"]
+    );
+}
