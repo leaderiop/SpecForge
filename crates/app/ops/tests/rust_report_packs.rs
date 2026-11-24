@@ -248,17 +248,23 @@ fn bom(name: &str) -> String {
     .to_string()
 }
 
-#[specforge_test_macros::test(requirement = "FEATURE-148")]
-fn rust_sbom_reads_only_the_bom_the_run_wrote() {
-    let p = fixture();
-    // A BOM an earlier run left, stamped before this run starts: the report glob reaches it, freshness does not.
-    p.write("stale/rust-sbom.cdx.json", bom("stale"));
+/// Write `text` at `path` of `p`, stamped one second before the run starts: a file an earlier run left or the project
+/// committed.
+fn earlier(p: &TestProject, path: &str, text: &str) {
+    p.write(path, text);
     std::fs::File::options()
         .write(true)
-        .open(p.root().join("stale/rust-sbom.cdx.json"))
+        .open(p.root().join(path))
         .unwrap()
         .set_modified(ScriptedMachine::started() - Duration::from_secs(1))
         .unwrap();
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-148")]
+fn rust_sbom_reads_only_the_bom_the_run_wrote() {
+    let p = fixture();
+    // A BOM an earlier run left: the report glob reaches it, freshness does not.
+    earlier(&p, "stale/rust-sbom.cdx.json", &bom("stale"));
     // The glob's base is the root: cargo-cyclonedx writes the BOM beside the root manifest.
     let run = ScriptedRun {
         files: vec![("rust-sbom.cdx.json".into(), bom("serde"))],
@@ -282,6 +288,64 @@ fn rust_api_records_the_public_api() {
     let api = facts(&outcome, "rust-api", "api_item");
     assert_eq!(ids(&api), ["api:rust:adder", "api:rust:adder::add"]);
     assert_eq!(api[1].fields["kind"], "function");
+}
+
+/// Each fact's id and its `change`, sorted by id.
+fn changes(api: &[&Fact]) -> Vec<(String, Option<String>)> {
+    let mut changes: Vec<_> = api
+        .iter()
+        .map(|f| {
+            let change = f.fields.get("change").and_then(|c| c.as_str());
+            (f.id.clone(), change.map(str::to_string))
+        })
+        .collect();
+    changes.sort();
+    changes
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-150")]
+fn rust_api_reads_the_committed_accepted_api() {
+    let p = fixture();
+    // Committed before the run: the accepted side is read whatever its age, unlike a report.
+    let accepted = format!("{PUBLIC_API}pub fn adder::sub(a: i32, b: i32) -> i32\n");
+    earlier(&p, "tests/public-api.txt", &accepted);
+    let outcome = collected(&p, "rust-api", &machine(printing(PUBLIC_API)));
+    let change = |id: &str, change: &str| (id.to_string(), Some(change.to_string()));
+    assert_eq!(
+        changes(&facts(&outcome, "rust-api", "api_item")),
+        [
+            change("api:rust:adder", "unchanged"),
+            change("api:rust:adder::add", "unchanged"),
+            change("api:rust:adder::sub", "removed"),
+        ]
+    );
+    assert_eq!(said(&outcome, "W203"), Vec::<String>::new());
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-150")]
+fn an_accepted_report_past_64_kib_is_read() {
+    let p = fixture();
+    let mut accepted = PUBLIC_API.to_string();
+    for n in 0..2700 {
+        accepted.push_str(&format!("pub fn adder::generated_{n:04}() -> i32\n"));
+    }
+    assert!(accepted.len() > 96 * 1024, "{}", accepted.len());
+    earlier(&p, "tests/public-api.txt", &accepted);
+    let outcome = collected(&p, "rust-api", &machine(printing(PUBLIC_API)));
+    let changes = changes(&facts(&outcome, "rust-api", "api_item"));
+    assert!(
+        changes.contains(&(
+            "api:rust:adder::add".to_string(),
+            Some("unchanged".to_string())
+        )),
+        "{:?}",
+        &changes[..3]
+    );
+    let warned = said(&outcome, "W203");
+    assert!(
+        !warned.iter().any(|w| w.contains("too_large")),
+        "{warned:?}"
+    );
 }
 
 /// Kani's regular output: the harness `tests::slow`, which only the fixture's library holds, verified.

@@ -10,6 +10,7 @@
 )]
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use specforge_effects::testing::MemoryConsent;
 use specforge_effects::{EffectsMode, Ports};
@@ -319,6 +320,65 @@ fn javascript_api_writes_its_config_and_records_the_doc_model() {
     let api = facts(&outcome, "javascript-api", "api_item");
     assert_eq!(ids(&api), ["api:js:%40acme%2Fcore::add"]);
     assert_eq!(api[0].fields["item"], "js:@acme/core/src/index.ts::add");
+}
+
+/// api-extractor's recordings of `@demo/widget` (the API reader's fixtures): the committed report before a break, and
+/// the doc model and report of the run that breaks it.
+const TAGGED_REPORT: &str = include_str!(
+    "../../../../extensions/code/api/fixtures/api-extractor-7.60.1.widget-tagged.api.md"
+);
+const CHANGED_MODEL: &str = include_str!(
+    "../../../../extensions/code/api/fixtures/api-extractor-7.60.1.widget-changed.api.json"
+);
+const CHANGED_REPORT: &str = include_str!(
+    "../../../../extensions/code/api/fixtures/api-extractor-7.60.1.widget-changed.api.md"
+);
+
+/// Each `api_item`'s name path (its id after `::`) and its `change`.
+fn changes(outcome: &Outcome) -> Vec<(String, Option<String>)> {
+    facts(outcome, "javascript-api", "api_item")
+        .iter()
+        .map(|f| {
+            let name = f.id.split_once("::").map_or("", |(_, name)| name);
+            let change = f.fields.get("change").and_then(|c| c.as_str());
+            (name.to_string(), change.map(str::to_string))
+        })
+        .collect()
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-149")]
+fn javascript_api_reads_the_committed_report_and_not_temp() {
+    let p = fixture();
+    // The committed report, stamped before the run: the accepted side is read whatever its age, unlike a report.
+    p.write("etc/widget.api.md", TAGGED_REPORT);
+    std::fs::File::options()
+        .write(true)
+        .open(p.root().join("etc/widget.api.md"))
+        .unwrap()
+        .set_modified(ScriptedMachine::started() - Duration::from_secs(1))
+        .unwrap();
+    // api-extractor's own copy of this run's report: fresh, and never the accepted side.
+    p.write("temp/widget.api.md", CHANGED_REPORT);
+
+    let outcome = collected(&p, "javascript-api", &machine(writing(CHANGED_MODEL)));
+    let against_etc = changes(&outcome);
+    for (name, change) in [("create", "changed"), ("trial", "removed")] {
+        assert!(
+            against_etc.contains(&(name.to_string(), Some(change.to_string()))),
+            "{name} {change}: {against_etc:?}"
+        );
+    }
+    assert_eq!(said(&outcome, "W203"), Vec::<String>::new());
+
+    p.remove("etc/widget.api.md");
+    let outcome = collected(&p, "javascript-api", &machine(writing(CHANGED_MODEL)));
+    let only_temp = changes(&outcome);
+    assert!(!only_temp.is_empty());
+    assert!(
+        only_temp.iter().all(|(_, change)| change.is_none()),
+        "{only_temp:?}"
+    );
+    assert_eq!(said(&outcome, "W203"), Vec::<String>::new());
 }
 
 /// The `test` facts `collector` answered: (id, status).
