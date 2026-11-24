@@ -466,6 +466,35 @@ fn a_peer_creates_an_entity_holding_a_harness_value() {
     assert!(ran.wrote.is_empty(), "{:?}", ran.wrote);
 }
 
+/// The importer's operation cap (ADR 0391 D9): 2,000 creates apply in ~38 s; 5,000 took 218 s, 10,000 passed 60 s.
+const MAX_OPS: usize = 2_000;
+
+#[specforge_test(requirement = "FEATURE-131")]
+fn one_plan_of_many_creates_applies() {
+    let p = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&GSD_WRITES_EXTENSIONS)
+        .installing_enabled()
+        .file("m.spec", MILESTONE);
+    let ops: Vec<Value> = (1..=MAX_OPS)
+        .map(|n| {
+            json!({"op": "create", "kind": "uat_test", "id": format!("U{n}"), "title": "U",
+                   "file": format!("bulk/{}.spec", (n - 1) / 100), "revision": "absent",
+                   "fields": {"phase": "03"}})
+        })
+        .collect();
+    let runtime = serving(&[(UI, "cmd__mark", 0, Value::Array(ops))]);
+    let ran = run_command(&p, &compiled(&p, &runtime), &runtime, "ui", "mark");
+    assert_eq!(ran.refusal, None);
+    let mut wrote = ran.wrote;
+    wrote.sort_unstable();
+    let mut expected: Vec<String> = (0..MAX_OPS / 100)
+        .map(|k| format!("bulk/{k}.spec"))
+        .collect();
+    expected.sort_unstable();
+    assert_eq!(wrote, expected);
+}
+
 /// An extension that names [`CORE`] an optional peer, with one writing command `mark`.
 const OPTIONAL: &str = "@t/optional";
 
