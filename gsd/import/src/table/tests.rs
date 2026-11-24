@@ -108,6 +108,8 @@ fn fate_of_classifies_a_path_under_planning() {
         Some(("SECURITY.md", Fate::Maps))
     );
     assert_eq!(fate_of("notes.txt"), None);
+    // GSD keeps config.json and state.json at the folder's root only.
+    assert_eq!(fate_of("phases/01-core/config.json"), None);
     assert!(maps("REQUIREMENTS.md"));
     assert!(!maps("STATE.md"));
 }

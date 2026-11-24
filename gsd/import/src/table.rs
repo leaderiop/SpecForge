@@ -147,7 +147,8 @@ pub const EXTRAS: &[(&str, Fate)] = &[
 ];
 
 /// The name of the `FATES` or `EXTRAS` row the path `rel` (relative to `.planning/`) matches, and its fate: a kit hit
-/// spanning the whole path, else an extra by the last segment; none for an unknown file.
+/// spanning the whole path, else an extra (`.gitkeep` in any directory, the others at the folder's root); none for an
+/// unknown file.
 pub fn fate_of(rel: &str) -> Option<(&'static str, Fate)> {
     let row = planning_names(rel)
         .into_iter()
@@ -156,7 +157,9 @@ pub fn fate_of(rel: &str) -> Option<(&'static str, Fate)> {
     let last = rel.rsplit('/').next().unwrap_or(rel);
     match row {
         Some(row) => FATES.iter().find(|(name, _)| *name == row),
-        None => EXTRAS.iter().find(|(name, _)| *name == last),
+        None => EXTRAS
+            .iter()
+            .find(|(name, _)| *name == rel || (*name == ".gitkeep" && *name == last)),
     }
     .copied()
 }

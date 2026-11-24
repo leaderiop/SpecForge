@@ -6,6 +6,7 @@ pub mod requirements;
 use crate::preflight::Manifest;
 use crate::records::Records;
 use crate::report::{Entry, Outcome, Report};
+use crate::settings;
 use crate::table::{self, Fate, TIER_2};
 
 /// One file the host served under `.planning/`: its project-relative path and what it read.
@@ -30,6 +31,17 @@ pub fn file(served: &Served, manifest: &Manifest, records: &mut Records, report:
     match (name, fate, &served.text) {
         ("REQUIREMENTS.md", _, Some(text)) => {
             requirements::read(&served.path, text, records, report)
+        }
+        ("config.json", Fate::Settings, Some(text)) => {
+            let (lines, entries) = settings::settings_lines(text, manifest);
+            let reason = format!("{} settings lines, printed below", lines.len());
+            report.push(whole(served, Outcome::Setting, reason));
+            for line in lines {
+                report.setting(line);
+            }
+            for entry in entries {
+                report.push(entry);
+            }
         }
         ("SECURITY.md", Fate::Maps, _) if !manifest.security => {
             let fate = Fate::NeedsExtension("@gsd/security");
