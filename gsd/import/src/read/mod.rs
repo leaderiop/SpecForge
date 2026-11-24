@@ -3,6 +3,7 @@
 
 pub mod project;
 pub mod requirements;
+pub mod roadmap;
 pub mod state;
 
 use std::ops::Range;
@@ -24,13 +25,69 @@ pub struct Served {
     pub error: Option<String>,
 }
 
-/// Reads `served` into `records`, or reports it whole with its fate.
-pub fn file(served: &Served, manifest: &Manifest, records: &mut Records, report: &mut Report) {
-    let rel = served
+/// The path of `served` relative to `.planning/`.
+fn relative(served: &Served) -> &str {
+    served
         .path
         .strip_prefix(".planning/")
-        .unwrap_or(&served.path);
-    let Some((name, fate)) = table::fate_of(rel) else {
+        .unwrap_or(&served.path)
+}
+
+/// Reads every served file: `REQUIREMENTS.md` first (a phase keeps only the requirements it defines), then
+/// `ROADMAP.md` (later readers take its phases and plan titles), then the rest in the order served, then the
+/// Traceability check of `REQUIREMENTS.md` against the roadmap. The roadmap read is returned for the readers after it.
+pub fn all(
+    planning: &[Served],
+    manifest: &Manifest,
+    records: &mut Records,
+    report: &mut Report,
+) -> roadmap::Roadmap {
+    let find = |name: &str| planning.iter().find(|s| relative(s) == name);
+    let (requirements, road) = (find("REQUIREMENTS.md"), find("ROADMAP.md"));
+    if let Some(served) = requirements {
+        file(served, manifest, records, report);
+    }
+    // The directories under `phases/`, from the files the host served in them (a `.gitkeep` keeps an empty one).
+    let mut dirs: Vec<&str> = planning
+        .iter()
+        .filter_map(|s| relative(s).strip_prefix("phases/")?.split_once('/'))
+        .map(|(dir, _)| dir)
+        .collect();
+    dirs.dedup();
+    let roadmap = match road {
+        Some(Served {
+            path,
+            text: Some(text),
+            ..
+        }) => roadmap::read(path, text, &dirs, records, report),
+        Some(served) => {
+            file(served, manifest, records, report);
+            roadmap::Roadmap::default()
+        }
+        None => roadmap::Roadmap::default(),
+    };
+    for served in planning {
+        if !matches!(relative(served), "REQUIREMENTS.md" | "ROADMAP.md") {
+            file(served, manifest, records, report);
+        }
+    }
+    if let (
+        Some(Served {
+            path,
+            text: Some(text),
+            ..
+        }),
+        Some(_),
+    ) = (requirements, road)
+    {
+        roadmap::cross_check(path, text, &roadmap, report);
+    }
+    roadmap
+}
+
+/// Reads `served` into `records`, or reports it whole with its fate.
+pub fn file(served: &Served, manifest: &Manifest, records: &mut Records, report: &mut Report) {
+    let Some((name, fate)) = table::fate_of(relative(served)) else {
         report.push(whole(served, Outcome::Unmapped, "unknown file".to_string()));
         return;
     };

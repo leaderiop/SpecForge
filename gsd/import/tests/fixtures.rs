@@ -110,9 +110,16 @@ fn every_other_planning_file_has_one_entry() {
     let served: BTreeSet<String> = planning_facts(&fixture("taskboard"))
         .iter()
         .map(|f| f["path"].as_str().expect("a path").to_string())
-        .filter(|p| p != ".planning/REQUIREMENTS.md" && p != ".planning/PROJECT.md")
+        .filter(|p| {
+            ![
+                ".planning/REQUIREMENTS.md",
+                ".planning/PROJECT.md",
+                ".planning/ROADMAP.md",
+            ]
+            .contains(&p.as_str())
+        })
         .collect();
-    assert_eq!(served.len(), 16);
+    assert_eq!(served.len(), 15);
     for path in &served {
         let of_file: Vec<&Value> = entries
             .iter()
@@ -135,7 +142,6 @@ fn every_other_planning_file_has_one_entry() {
             .expect("an entry")
     };
     // A Tier 1 file with no reader yet gives the kit's kinds column; the extras their fate's reason.
-    assert_eq!(reason(".planning/ROADMAP.md"), "milestone, phase");
     assert_eq!(
         reason(".planning/phases/01-core/01-01-PLAN.md"),
         "plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup"
@@ -278,6 +284,167 @@ fn ledger_and_vault_projects_read_their_own_shapes() {
     assert_eq!(project.get("out_of_scope"), None);
     let (_, d1) = create_of(&vault, "decision", "D-01");
     assert_eq!(d1["text"], "AES-256-GCM from `node:crypto`");
+}
+
+/// The title of the create `kind id`.
+fn title_of(out: &CommandOutput, kind: &str, id: &str) -> String {
+    let plan = out.plan.as_ref().expect("import answers a plan");
+    plan.ops
+        .iter()
+        .find_map(|op| match op {
+            PlanOp::Create {
+                kind: k,
+                id: i,
+                title,
+                ..
+            } if k == kind && i == id => Some(title.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("{kind} {id} is created"))
+}
+
+#[test]
+fn roadmap_flat_taskboard_gives_the_twins_milestone_and_phases() {
+    let out = import_fixture("taskboard");
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    assert_eq!(
+        create_of(&out, "milestone", "v1.0"),
+        ("spec/gsd/v1.0.spec".to_string(), json!({}))
+    );
+    let phase = |id: &str| {
+        let (file, fields) = create_of(&out, "phase", id);
+        assert_eq!(file, "spec/gsd/v1.0.spec", "{id}");
+        (title_of(&out, "phase", id), fields)
+    };
+    // The twin, v1.0.spec; success criteria verbatim (the twin cuts their backticks: ADR 0391 D13's comparator folds them).
+    assert_eq!(
+        phase("01"),
+        (
+            "Core".to_string(),
+            json!({
+                "milestone": "v1.0",
+                "slug": "core",
+                "goal": "Tasks can be added and completed",
+                "requirements": ["TASK-01", "TASK-02"],
+                "success_criteria": ["A user can add a task with a title", "A user can mark a task complete by its id"],
+            })
+        )
+    );
+    assert_eq!(
+        phase("02"),
+        (
+            "Persistence".to_string(),
+            json!({
+                "milestone": "v1.0",
+                "slug": "persistence",
+                "goal": "Tasks are saved to disk and read back",
+                "depends_on": ["v1.0/01"],
+                "requirements": ["STORE-01", "STORE-02"],
+                "success_criteria": [
+                    "Every change to the board is written to `tasks.json`",
+                    "A restarted board shows the tasks it had",
+                    "A title comes back exactly as it was written",
+                ],
+            })
+        )
+    );
+    assert_eq!(
+        phase("02.1"),
+        (
+            "Hotfix: titles survive a reload".to_string(),
+            json!({
+                "milestone": "v1.0",
+                "slug": "hotfix-titles-survive-a-reload",
+                "goal": "A title is written to disk and read back unchanged",
+                "depends_on": ["v1.0/02"],
+                "success_criteria": [
+                    "A title with a leading space or a line break comes back unchanged",
+                    "An empty title is refused",
+                ],
+            })
+        )
+    );
+    assert_eq!(
+        phase("03"),
+        (
+            "Listing".to_string(),
+            json!({
+                "milestone": "v1.0",
+                "slug": "listing",
+                "goal": "Open tasks are listed and filtered",
+                "depends_on": ["v1.0/02"],
+                "requirements": ["TASK-03", "LIST-01"],
+                "success_criteria": [
+                    "`taskboard list` shows the open tasks, oldest first",
+                    "`taskboard list <word>` shows only tasks whose title has the word",
+                ],
+            })
+        )
+    );
+    let report = payload(&out);
+    let roadmap: Vec<(u64, String, String)> = lines(&out)
+        .into_iter()
+        .zip(
+            report["entries"]
+                .as_array()
+                .expect("entries")
+                .iter()
+                .filter(|e| e["line"].is_u64()),
+        )
+        .filter(|(_, e)| e["file"] == ".planning/ROADMAP.md")
+        .map(|((l, o, _), e)| (l, e["section"].as_str().expect("a section").to_string(), o))
+        .collect();
+    for want in [
+        (1, "Roadmap: Taskboard", "redundant"),
+        (1, "(no milestone)", "filled"),
+        (3, "Overview", "unmapped"),
+        (8, "Phases", "computed"),
+        (10, "Phase Numbering", "unmapped"),
+        (25, "Phase 1: Core", "ignored"),
+        (31, "Phase 1: Core", "computed"),
+        (
+            52,
+            "Phase 02.1: Hotfix: titles survive a reload (INSERTED)",
+            "computed",
+        ),
+        (
+            55,
+            "Phase 02.1: Hotfix: titles survive a reload (INSERTED)",
+            "ignored",
+        ),
+        (
+            64,
+            "Phase 02.1: Hotfix: titles survive a reload (INSERTED)",
+            "ignored",
+        ),
+        (77, "Progress", "computed"),
+    ] {
+        assert!(
+            roadmap
+                .iter()
+                .any(|(l, s, o)| (*l, s.as_str(), o.as_str()) == want),
+            "{want:?} in {roadmap:#?}"
+        );
+    }
+    assert!(
+        report["authored_after_import"]
+            .as_array()
+            .expect("authored after import")
+            .iter()
+            .any(|l| l == "milestone v1.0: its title")
+    );
+    // The Traceability table agrees with the roadmap: no mismatch is reported.
+    assert!(!roadmap.iter().any(|(_, s, _)| s == "Traceability"));
+}
+
+#[test]
+fn roadmap_flat_ledger_and_vault_give_their_phases() {
+    for (name, phases) in [("ledger", 3), ("vault", 2)] {
+        let out = import_fixture(name);
+        assert_eq!(out.exit_code, 0, "{name}: {}", out.stderr);
+        assert_eq!(of_kind(creates(&out), "phase").len(), phases, "{name}");
+        assert_eq!(of_kind(creates(&out), "milestone").len(), 1, "{name}");
+    }
 }
 
 /// `import` of one served file on an empty graph.

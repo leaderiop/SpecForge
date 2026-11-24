@@ -59,9 +59,7 @@ fn import(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     preflight::check_reads(&planning, truncated)?;
     let mut records = Records::default();
     let mut report = Report::default();
-    for file in &planning {
-        read::file(file, &manifest, &mut records, &mut report);
-    }
+    read::all(&planning, &manifest, &mut records, &mut report);
     let (plan, counts) = emit::emit(&records, graph, call.plan(), &mut report)?;
     let mut payload = report.payload(&counts);
     payload["security"] = json!({ "loaded": manifest.security, "check": SECURITY_CHECK });

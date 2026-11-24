@@ -59,6 +59,11 @@ impl Records {
         }
     }
 
+    /// Whether a record `kind id` was added.
+    pub fn contains(&self, kind: &'static str, id: &str) -> bool {
+        self.0.contains_key(&(kind, id.to_string()))
+    }
+
     /// The records in kind then id order.
     pub fn iter(&self) -> impl Iterator<Item = &Record> {
         self.0.values()
