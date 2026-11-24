@@ -7,11 +7,9 @@ use std::collections::BTreeMap;
 use gsd_kit::markdown;
 use serde_json::{Value, json};
 
+use crate::paths;
 use crate::records::{Record, Records, Source};
 use crate::report::{Entry, Outcome, Report};
-
-/// The file every requirement is written to.
-pub const FILE: &str = "spec/gsd/requirements.spec";
 
 const OUT_OF_SCOPE: &str = "Out of Scope";
 
@@ -130,7 +128,7 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
                     kind: "requirement",
                     id: item.id.to_string(),
                     title: text,
-                    file: FILE.to_string(),
+                    file: paths::requirements(),
                     fields,
                     refs: Vec::new(),
                     source: at(n),
@@ -279,7 +277,7 @@ fn out_of_scope(
                     kind: "requirement",
                     id,
                     title: cell(feature).to_string(),
-                    file: FILE.to_string(),
+                    file: paths::requirements(),
                     fields,
                     refs: Vec::new(),
                     source,

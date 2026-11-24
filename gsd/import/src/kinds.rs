@@ -105,6 +105,86 @@ pub const CREATE_ORDER: &[&str] = &[
     "audit_run",
 ];
 
+/// Each `@gsd/core` and `@gsd/security` kind's required fields that an author writes (neither computed nor harness),
+/// in declaration order; a kind with none is not listed. A test holds it equal to both declarations. A record missing
+/// one is dropped before the plan is built (ADR 0391 D9): the host would refuse the whole plan for it.
+#[rustfmt::skip]
+pub const REQUIRED: &[(&str, &[&str])] = &[
+    ("project", &["name", "what", "core_value", "context", "constraints"]),
+    ("requirement", &["text", "category", "tier"]),
+    ("phase", &["milestone", "slug", "goal", "success_criteria"]),
+    ("workstream", &["purpose"]),
+    ("retrospective", &["milestone"]),
+    ("lesson", &["text"]),
+    ("methodology", &["name"]),
+    ("context", &["boundary"]),
+    ("decision", &["text", "origin"]),
+    ("deferred_idea", &["text", "phase", "origin"]),
+    ("phase_spec", &["phase", "goal"]),
+    ("locked_req", &["spec", "title", "current", "target", "acceptance"]),
+    ("interview", &["spec", "round", "perspective", "question"]),
+    ("edge", &["spec", "requirement", "category", "status"]),
+    ("spec_prohibition", &["spec", "requirement", "statement", "status"]),
+    ("discussion", &["phase"]),
+    ("research", &["confidence", "summary"]),
+    ("finding", &["research", "text", "confidence"]),
+    ("stack_choice", &["research", "name", "purpose"]),
+    ("pattern", &["research", "name", "what"]),
+    ("pitfall", &["research", "name", "goes_wrong", "why", "avoid"]),
+    ("dont_hand_roll", &["research", "problem", "instead", "why"]),
+    ("open_question", &["research", "question", "unclear"]),
+    ("source", &["research", "url", "tier"]),
+    ("package_audit", &["research", "package", "registry"]),
+    ("plan", &["type", "files_modified", "objective"]),
+    ("task", &["plan", "type", "action", "done"]),
+    ("checkpoint", &["plan", "kind", "resume_signal"]),
+    ("truth", &["plan", "text"]),
+    ("artifact", &["plan", "path", "provides"]),
+    ("key_link", &["plan", "from", "to", "via"]),
+    ("prohibition", &["plan", "statement", "verification"]),
+    ("disposition", &["plan", "round", "feedback", "outcome"]),
+    ("review", &["phase", "plans"]),
+    ("review_concern", &["review", "severity", "text"]),
+    ("revision_conflict", &["phase", "plan", "dimension", "property", "conflicts_with"]),
+    ("user_setup", &["plan", "service", "why"]),
+    ("plan_start", &["plan"]),
+    ("summary", &["plan", "status", "one_liner", "subsystem", "requirements_completed"]),
+    ("deliverable", &["summary", "description", "human_judgment"]),
+    ("deviation", &["summary", "kind", "text"]),
+    ("pause", &["reason"]),
+    ("handoff", &["state", "current_state", "next_action"]),
+    ("blocker", &["text"]),
+    ("quick_batch", &["items"]),
+    ("verification", &["phase"]),
+    ("verify_gap", &["verification", "truth", "reason"]),
+    ("override", &["verification", "truth", "reason"]),
+    ("human_item", &["verification", "test", "expected", "why_human"]),
+    ("uat_session", &["phase", "source"]),
+    ("uat_test", &["session", "expected"]),
+    ("uat_gap", &["test", "truth"]),
+    ("validation", &["phase"]),
+    ("validation_row", &["validation", "task", "test_type"]),
+    ("wave0_item", &["validation", "path", "kind"]),
+    ("manual_check", &["validation", "behavior", "why_manual", "instructions"]),
+    ("milestone_audit", &["milestone"]),
+    ("broken_window", &["kind", "phase", "description"]),
+    ("refactor_proposal", &["phase", "target_file", "target_function"]),
+    // @gsd/security
+    ("trust_boundary", &["plan", "boundary", "description"]),
+    ("threat", &["plan", "category", "component", "severity", "disposition", "mitigation"]),
+    ("security_audit", &["phase"]),
+    ("accepted_risk", &["audit", "threat", "rationale", "accepted_by"]),
+    ("audit_run", &["audit"]),
+];
+
+/// The required, author-written fields of `kind` ([`REQUIRED`]); none for a kind not listed.
+pub fn required(kind: &str) -> &'static [&'static str] {
+    REQUIRED
+        .iter()
+        .find(|(k, _)| *k == kind)
+        .map_or(&[], |(_, fields)| fields)
+}
+
 /// Where `kind` stands in [`CREATE_ORDER`].
 pub fn rank(kind: &str) -> usize {
     CREATE_ORDER

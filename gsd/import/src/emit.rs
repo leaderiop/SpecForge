@@ -1,14 +1,18 @@
 //! The records to one edit plan (ADR 0391 D9). The guest refuses what the host would, and reports it, before it
 //! answers: a host refusal of the plan (E080) would drop the JSON report. A record is dropped, never stubbed: an id the
-//! grammar refuses, an id given twice, a reference to nothing, a file outside `spec/gsd/`; a record naming a dropped
-//! one is reported "parent not imported". Past a cap the plan is refused "truncated at N".
+//! grammar refuses, an id given twice, a reference to nothing, a file outside `spec/gsd/`, a required field with no
+//! source (`kinds::REQUIRED`: a reader puts each `filled` value in the fields first); a record naming a dropped one is
+//! reported "parent not imported". Past a cap the plan is refused "truncated at N".
+//!
+//! A record's id is its graph path (`v1.0/01`): records, references and collisions key by it, and the create takes its
+//! last segment.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_extension_sdk::prelude::*;
 
 use crate::ids;
-use crate::kinds::rank;
+use crate::kinds::{rank, required};
 use crate::limits::{MAX_ENTRIES, MAX_OPS};
 use crate::records::{Record, Records};
 use crate::report::{Entry, Outcome, Report};
@@ -37,11 +41,22 @@ pub fn emit(
             format!("{} {}: {why}: not imported", record.kind, record.id),
         ));
     };
-    // The ids, files and collisions: what a record is alone.
+    // The ids, files, required fields and collisions: what a record is alone.
     let mut kept: Vec<&Record> = Vec::new();
     let mut taken: BTreeMap<&str, &Record> = BTreeMap::new();
     for record in ordered {
-        if !ids::valid(record.kind, &record.id) {
+        let missing = required(record.kind)
+            .iter()
+            .find(|field| !record.fields.contains_key(**field));
+        // A scope prefix is the path of an entity the record names, never text a document wrote (`A/B-01`).
+        let scoped = record
+            .id
+            .rsplit_once('/')
+            .is_none_or(|(scope, _)| record.refs.iter().any(|r| r == scope));
+        if !(scoped
+            && ids::valid(record.kind, local(&record.id))
+            && record.id.split('/').all(ids::name))
+        {
             refuse(record, format!("not an id a {} takes", record.kind), report);
         } else if !ids::file(&record.file) {
             refuse(
@@ -49,6 +64,8 @@ pub fn emit(
                 format!("its file {} is not under spec/gsd/", record.file),
                 report,
             );
+        } else if let Some(field) = missing {
+            refuse(record, format!("required {field} has no source"), report);
         } else if let Some(first) = taken.get(record.id.as_str()) {
             refuse(
                 record,
@@ -111,7 +128,7 @@ pub fn emit(
         ));
         plan.create(
             record.kind,
-            &record.id,
+            local(&record.id),
             &record.title,
             &record.file,
             record.fields.clone(),
@@ -126,4 +143,10 @@ pub fn emit(
         ));
     }
     Ok((plan, counts))
+}
+
+/// A record's own id, the last segment of its path: a scoped entity is created with it and its scope field
+/// (`phase 01` with `milestone v1.0` is `v1.0/01`).
+fn local(id: &str) -> &str {
+    id.rsplit('/').next().unwrap_or(id)
 }

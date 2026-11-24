@@ -9,7 +9,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::testing::MockHost;
 
 use common::{fact, feed, import, manifest, payload};
-use gsd_import::kinds::CORE_KINDS;
+use gsd_import::kinds::{CORE_KINDS, REQUIRED, required};
 use gsd_import::limits::{MAX_ENTRIES, MAX_OPS};
 use gsd_import::records::{Record, Records, Source};
 use gsd_import::report::Report;
@@ -313,13 +313,17 @@ fn a_second_record_of_one_id_is_dropped_and_reported() {
     );
 }
 
+/// A record of `kind` holding each of its required fields.
 fn record(kind: &'static str, id: &str, refs: &[&str], line: usize) -> Record {
     Record {
         kind,
         id: id.into(),
         title: id.into(),
         file: "spec/gsd/x.spec".into(),
-        fields: Default::default(),
+        fields: required(kind)
+            .iter()
+            .map(|f| (f.to_string(), json!("x")))
+            .collect(),
         refs: refs.iter().map(|r| r.to_string()).collect(),
         source: Source {
             file: ".planning/x.md".into(),
@@ -429,4 +433,105 @@ fn core_kinds_are_what_gsd_core_declares() {
         .collect();
     declared.sort_unstable();
     assert_eq!(declared, CORE_KINDS);
+}
+
+/// The ids of a plan's creates, in order.
+fn create_ids(plan: PlanBuilder) -> Vec<String> {
+    plan.finish()
+        .ops
+        .iter()
+        .map(|op| match op {
+            PlanOp::Create { id, .. } => id.clone(),
+            other => panic!("{other:?}"),
+        })
+        .collect()
+}
+
+#[test]
+fn required_fields_are_what_the_kinds_declare() {
+    let mut declared: Vec<(String, Vec<String>)> = Vec::new();
+    for build in [gsd_core::build(), gsd_security::build()] {
+        let entities: Value = serde_json::from_str(
+            &MockHost::new(build)
+                .describe_json("entities")
+                .expect("the entities"),
+        )
+        .expect("describe answers JSON");
+        for kind in entities["items"].as_array().expect("items") {
+            let fields: Vec<String> = kind["fields"]
+                .as_array()
+                .expect("fields")
+                .iter()
+                .filter(|f| {
+                    f["required"] == true
+                        && !matches!(f["writer"].as_str(), Some("computed" | "harness"))
+                })
+                .map(|f| f["name"].as_str().expect("a name").to_string())
+                .collect();
+            if !fields.is_empty() {
+                declared.push((kind["name"].as_str().expect("a name").to_string(), fields));
+            }
+        }
+    }
+    let listed: Vec<(String, Vec<String>)> = REQUIRED
+        .iter()
+        .map(|(k, f)| (k.to_string(), f.iter().map(|f| f.to_string()).collect()))
+        .collect();
+    assert_eq!(listed, declared);
+}
+
+#[test]
+fn a_record_missing_a_required_field_is_dropped_with_its_children() {
+    let mut report = Report::default();
+    let mut records = Records::default();
+    let mut phase = record("phase", "v1.0/01", &["v1.0"], 2);
+    phase.fields.remove("goal");
+    records.add(record("milestone", "v1.0", &[], 1), &mut report);
+    records.add(phase, &mut report);
+    records.add(
+        record("plan", "v1.0/01/01-01", &["v1.0/01"], 3),
+        &mut report,
+    );
+    let plan = PlanBuilder::new(Default::default(), Default::default());
+    let (plan, _) = gsd_import::emit::emit(&records, &CommandGraph::default(), plan, &mut report)
+        .expect("not refused");
+    assert_eq!(create_ids(plan), ["v1.0"]);
+    let reasons: Vec<(Option<usize>, String)> = report
+        .entries()
+        .into_iter()
+        .map(|e| (e.line, e.reason.clone()))
+        .collect();
+    assert!(
+        reasons.contains(&(
+            Some(2),
+            "phase v1.0/01: required goal has no source: not imported".to_string()
+        )),
+        "{reasons:#?}"
+    );
+    assert!(
+        reasons.contains(&(
+            Some(3),
+            "plan v1.0/01/01-01: parent not imported (v1.0/01): not imported".to_string()
+        )),
+        "{reasons:#?}"
+    );
+}
+
+#[test]
+fn a_scoped_record_is_created_with_its_own_id() {
+    let mut report = Report::default();
+    let mut records = Records::default();
+    records.add(record("milestone", "v1.0", &[], 1), &mut report);
+    records.add(record("phase", "v1.0/02.1", &["v1.0"], 2), &mut report);
+    records.add(record("phase", "v1.0/0 2", &["v1.0"], 3), &mut report);
+    let plan = PlanBuilder::new(Default::default(), Default::default());
+    let (plan, _) = gsd_import::emit::emit(&records, &CommandGraph::default(), plan, &mut report)
+        .expect("not refused");
+    assert_eq!(create_ids(plan), ["v1.0", "02.1"]);
+    assert!(
+        report
+            .entries()
+            .iter()
+            .any(|e| e.line == Some(3) && e.reason.contains("not an id a phase takes"))
+    );
 }

@@ -46,6 +46,17 @@ pub struct Table {
     pub line: usize,
 }
 
+/// An ATX or setext heading.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Heading {
+    /// 1 for `#`, up to 6.
+    pub level: u8,
+    /// Its text, trimmed, its code spans kept in backticks.
+    pub text: String,
+    /// Its first line.
+    pub line: usize,
+}
+
 /// The inline text of one leaf block: a paragraph, a heading, a list item's own text, or the lines of an HTML block
 /// that are not read again as Markdown.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -92,6 +103,12 @@ pub fn inline_blocks(text: &str) -> Vec<InlineBlock> {
     read(text, Options::ENABLE_TABLES).blocks
 }
 
+/// Every heading of `text` outside a fence and a comment, from every level, in line order: a `#` line inside a fence
+/// is code, and a heading under an XML section tag is read again as Markdown.
+pub fn headings(text: &str) -> Vec<Heading> {
+    read(text, Options::empty()).headings
+}
+
 /// Every GFM table of `text`, from every level, in line order. A cell is its source text, trimmed, its code spans
 /// kept in backticks and each `\|` unescaped, as GFM reads a cell.
 pub fn tables(text: &str) -> Vec<Table> {
@@ -106,6 +123,7 @@ struct Reading {
     tables: Vec<Table>,
     links: Vec<(Range<usize>, String)>,
     blocks: Vec<InlineBlock>,
+    headings: Vec<Heading>,
     /// The text of the last heading read, kept across the fragments read again.
     heading: String,
 }
@@ -127,6 +145,7 @@ fn read_at(frag: &str, base: usize, at: usize, options: Options, out: &mut Readi
     let mut fence: Option<Fence> = None;
     let mut html: Option<usize> = None;
     let mut heading: Option<String> = None;
+    let mut heading_at: (u8, usize) = (0, 0);
     let mut table: Option<Table> = None;
     let mut row: Vec<String> = Vec::new();
     let mut block = InlineBlock::default();
@@ -151,10 +170,18 @@ fn read_at(frag: &str, base: usize, at: usize, options: Options, out: &mut Readi
             _ => {}
         }
         match event {
-            Event::Start(Tag::Heading { .. }) => heading = Some(String::new()),
+            Event::Start(Tag::Heading { level, .. }) => {
+                heading = Some(String::new());
+                heading_at = (level as u8, here);
+            }
             Event::End(TagEnd::Heading(_)) => {
                 if let Some(h) = heading.take() {
                     out.heading = h.trim().to_string();
+                    out.headings.push(Heading {
+                        level: heading_at.0,
+                        text: out.heading.clone(),
+                        line: heading_at.1,
+                    });
                 }
             }
             Event::Text(text) if heading.is_some() => {
@@ -309,7 +336,24 @@ fn tag_only(line: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{fences, html_blocks, inline_blocks, inline_code, links, tables};
+    use super::{fences, headings, html_blocks, inline_blocks, inline_code, links, tables};
+
+    #[test]
+    fn headings_skip_fences_and_comments_and_read_setext_and_tagged_ones() {
+        let text = "# Title\n\n```md\n# not a heading\n```\n<!--\n## nor this\n-->\nSetext `x`\n---\n\n<objective>\n## Inside\ntext\n</objective>\n";
+        let found: Vec<(u8, String, usize)> = headings(text)
+            .into_iter()
+            .map(|h| (h.level, h.text, h.line))
+            .collect();
+        assert_eq!(
+            found,
+            [
+                (1, "Title".to_string(), 0),
+                (2, "Setext `x`".to_string(), 8),
+                (2, "Inside".to_string(), 12)
+            ]
+        );
+    }
 
     #[test]
     fn a_fence_under_a_section_tag_is_a_fence() {
