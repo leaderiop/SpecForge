@@ -1,6 +1,8 @@
 //! The readers: each served `.planning/` file goes to the reader of its format, or to one report entry with the fate
 //! the table gives it ([`crate::table`]).
 
+pub mod context;
+pub mod discussion;
 pub mod plan;
 pub mod project;
 pub mod quick;
@@ -11,15 +13,20 @@ pub mod summary;
 pub mod tasks;
 pub mod threats;
 
+use std::collections::BTreeMap;
 use std::ops::Range;
 
 use gsd_kit::markdown::InlineBlock;
+use serde_json::{Value, json};
 
+use crate::ids;
+use crate::paths;
 use crate::preflight::Manifest;
-use crate::records::{Records, Source};
+use crate::records::{Record, Records, Source};
 use crate::report::{Entry, Outcome, Report};
 use crate::settings;
 use crate::table::{self, Fate, Home, TIER_2};
+use plan::{Doc, Scope};
 
 /// One file the host served under `.planning/`: its project-relative path and what it read.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -144,6 +151,12 @@ pub fn file(served: &Served, cx: &Context<'_>, records: &mut Records, report: &m
         ("quick/*", _, Some(text)) => {
             quick::read(&served.path, relative(served), text, cx, records, report)
         }
+        ("NN-CONTEXT.md", _, Some(text)) => {
+            context::read(&served.path, relative(served), text, cx, records, report)
+        }
+        ("NN-DISCUSSION-LOG.md", _, Some(text)) => {
+            discussion::read(&served.path, relative(served), text, cx, records, report)
+        }
         ("STATE.md", _, Some(text)) => {
             report.push(whole(
                 served,
@@ -259,4 +272,164 @@ pub fn prose(blocks: &[InlineBlock], lines: &Range<usize>) -> Option<String> {
 pub fn is_bullet(line: &str) -> bool {
     let t = line.trim_start();
     t.starts_with("- ") || t.starts_with("* ") || t.starts_with("+ ")
+}
+
+/// Whether the raw line `line` is a template footer line, wholly in emphasis (`*Phase: 02-persistence*`).
+pub fn is_footer(line: &str) -> bool {
+    let t = line.trim();
+    t.len() > 2
+        && t.starts_with('*')
+        && t.ends_with('*')
+        && !t.starts_with("**")
+        && !t.starts_with("* ")
+}
+
+/// Whether `line` is one XML section tag alone (`<decisions>`, `</domain>`), which only wraps the Markdown inside it.
+pub fn is_tag(line: &str) -> bool {
+    let t = line.trim();
+    let name = t
+        .strip_prefix("</")
+        .or_else(|| t.strip_prefix('<'))
+        .and_then(|t| t.strip_suffix('>'))
+        .map(|t| t.split(' ').next().unwrap_or(t));
+    name.is_some_and(|n| {
+        n.starts_with(|c: char| c.is_ascii_alphabetic())
+            && n.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    })
+}
+
+/// Whether the raw line `line` is wholly bold: a template's instruction to agents
+/// (`**Downstream agents MUST read these before planning or implementing.**`).
+pub fn is_bold_only(line: &str) -> bool {
+    let t = line.trim();
+    t.len() > 4 && t.starts_with("**") && t.ends_with("**") && !t[2..t.len() - 2].contains("**")
+}
+
+/// The leaf blocks of `blocks` in `body` that a raw list marker starts (`lines` are the file's raw lines).
+pub fn bullets_in<'b>(
+    blocks: &'b [InlineBlock],
+    lines: &[&str],
+    body: &Range<usize>,
+) -> Vec<&'b InlineBlock> {
+    blocks_in(blocks, body)
+        .filter(|b| lines.get(b.lines[0]).is_some_and(|l| is_bullet(l)))
+        .collect()
+}
+
+/// The text after the bold label `label` (`**What:**`) on the first raw line of `body` that starts with it, outside a
+/// fence, trimmed, with its 0-based line.
+pub fn labelled<'l>(
+    lines: &[&'l str],
+    fenced: &[bool],
+    body: &Range<usize>,
+    labels: &[&str],
+) -> Option<(usize, &'l str)> {
+    body.clone().filter(|n| !fenced[*n]).find_map(|n| {
+        let line = lines.get(n)?.trim_start();
+        labels
+            .iter()
+            .find_map(|l| line.strip_prefix(l))
+            .map(|v| (n, v.trim()))
+    })
+}
+
+/// Whether `value` is a `YYYY-MM-DD` date.
+pub fn is_date(value: &str) -> bool {
+    let b = value.as_bytes();
+    b.len() == 10
+        && b.iter().enumerate().all(|(i, c)| match i {
+            4 | 7 => *c == b'-',
+            _ => c.is_ascii_digit(),
+        })
+}
+
+/// A file of one phase, `phases/<dir>/<NN><suffix>` (`02-CONTEXT.md`): where its records go.
+#[derive(Debug, Clone)]
+pub struct PhaseFile<'a> {
+    pub doc: Doc<'a>,
+    /// The phase number (`02`).
+    pub number: String,
+    /// The phase's graph path (`v1.0/02`).
+    pub phase: String,
+    /// The file stem, the record's own id (`02-CONTEXT`).
+    pub stem: String,
+}
+
+impl PhaseFile<'_> {
+    /// The 0-based `line` of the file.
+    pub fn at(&self, line: usize) -> Source {
+        self.doc.at(line + 1)
+    }
+
+    /// The table's entry for its key `key`, at the 0-based `line`, in `section`.
+    pub fn row(&self, key: &str, line: usize, section: &str) -> Entry {
+        self.doc.row(key, line + 1, section)
+    }
+
+    /// An `unmapped` entry at the 0-based `line`.
+    pub fn unmapped(&self, line: usize, section: &str, why: String) -> Entry {
+        self.doc.unmapped(line + 1, section, why)
+    }
+
+    /// The `spec/gsd/` file of the phase.
+    pub fn file(&self) -> String {
+        paths::phase(&self.number)
+    }
+
+    /// A record of the phase file, scoped by the entity `scope` through its field `field`: its id is `<scope>/<id>`.
+    pub fn within(
+        &self,
+        kind: &'static str,
+        (field, scope): (&str, &str),
+        id: &str,
+        title: &str,
+        mut fields: BTreeMap<String, Value>,
+        line: usize,
+    ) -> Record {
+        fields.insert(field.to_string(), json!(scope));
+        Record {
+            kind,
+            id: format!("{scope}/{id}"),
+            title: title.to_string(),
+            file: self.file(),
+            fields,
+            refs: vec![scope.to_string()],
+            source: self.at(line),
+        }
+    }
+}
+
+/// The phase file of the format `format` (`NN-CONTEXT.md`) served at `path` (`rel` under `.planning/`); none, reported,
+/// when its name gives no phase number or the roadmap holds no such phase.
+pub fn phase_file<'a>(
+    path: &'a str,
+    rel: &str,
+    format: &'static str,
+    cx: &Context<'_>,
+    report: &mut Report,
+) -> Option<PhaseFile<'a>> {
+    let doc = Doc {
+        path,
+        format,
+        prefix: "",
+    };
+    let suffix = format.trim_start_matches("NN");
+    let Some((dir, number)) = plan::in_phase(rel, suffix).filter(|(_, n)| ids::phase(n)) else {
+        report.push(doc.unmapped(
+            1,
+            "file name",
+            "the file name gives no phase number `NN`: not imported".to_string(),
+        ));
+        return None;
+    };
+    match plan::phase_scope(&doc, dir, number, cx, report)? {
+        Scope::Phase { number, path } => Some(PhaseFile {
+            doc,
+            stem: format!("{number}{}", suffix.trim_end_matches(".md")),
+            number,
+            phase: path,
+        }),
+        Scope::Quick => None,
+    }
 }

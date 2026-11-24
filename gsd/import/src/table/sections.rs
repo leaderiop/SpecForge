@@ -52,6 +52,7 @@ const PROSE: &str = "prose: no field holds it";
 const EMPTY: &str = "an empty placeholder";
 const VERDICT: &str = "the verifier's per-item results are verdicts, never imported (ADR 0391 D5): the plans give the entities";
 const CONTEXT_MD: &str = "the phase's CONTEXT.md gives it";
+const INSTRUCTION: &str = "the template's instruction to agents";
 const HARNESS_TS: &str = "a harness timestamp the import does not write (ADR 0391 D7)";
 
 const P: &str = "PROJECT.md";
@@ -488,6 +489,7 @@ const CX: &str = "NN-CONTEXT.md";
 #[rustfmt::skip]
 pub const CONTEXT: &[Row] = &[
     row(CX, "file stem", &[id("context"), to("context", "phase", Ref)]),
+    row(CX, "# Phase N: Name - Context", &[title("context")]),
     row(CX, "**Gathered:**", &[to("context", "gathered", Text)]),
     row(CX, "**Status:**", &[computed("context", "status")]),
     row(CX, "## Phase Boundary", &[to("context", "boundary", Text)]),
@@ -501,6 +503,7 @@ pub const CONTEXT: &[Row] = &[
     row(CX, "### Claude's Discretion", &[to("context", "discretion", List)]),
     row(CX, "<specifics>", &[to("context", "specifics", Text)]),
     row(CX, "<canonical_refs>", &[to("context", "canonical_refs", Blocks)]),
+    row(CX, "**Downstream agents MUST read these", &[Home::Ignored(INSTRUCTION)]),
     row(CX, "### Reusable Assets", &[to("context", "reusable_assets", List)]),
     row(CX, "### Established Patterns", &[to("context", "patterns", List)]),
     row(CX, "### Integration Points", &[to("context", "integration_points", List)]),
@@ -518,6 +521,8 @@ const DL: &str = "NN-DISCUSSION-LOG.md";
 #[rustfmt::skip]
 pub const DISCUSSION_LOG: &[Row] = &[
     row(DL, "file stem", &[id("discussion"), to("discussion", "phase", Ref)]),
+    row(DL, "# Phase N: Name - Discussion Log", &[title("discussion")]),
+    row(DL, "> **Audit trail only.**", &[Home::Ignored(INSTRUCTION)]),
     row(DL, "**Date:**, **Phase:**, **Areas discussed:**", &[redundant("the directory and CONTEXT.md give them")]),
     row(DL, "## Area", &[
         to("discussion", "entries.area", Blocks),
@@ -526,8 +531,10 @@ pub const DISCUSSION_LOG: &[Row] = &[
         to("discussion", "entries.notes", Blocks),
         filled("discussion", "entries.mode", "interactive", "the only shape a discussion log has"),
     ]),
+    row(DL, "| Description |", &[reported("no member of a discussion entry holds it")]),
     row(DL, "## Claude's Discretion", &[redundant(CONTEXT_MD)]),
     row(DL, "## Deferred Ideas", &[redundant(CONTEXT_MD)]),
+    row(DL, "footer", &[reported(PROSE)]),
 ];
 
 const RS: &str = "NN-RESEARCH.md";

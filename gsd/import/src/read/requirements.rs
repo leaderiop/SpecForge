@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use gsd_kit::markdown;
 use serde_json::{Value, json};
 
+use super::is_date;
 use crate::paths;
 use crate::records::{Record, Records, Source};
 use crate::report::{Entry, Outcome, Report};
@@ -166,15 +167,6 @@ fn add_defined(fields: &mut BTreeMap<String, Value>, defined: Option<&str>) {
     if let Some(date) = defined {
         fields.insert("defined".to_string(), json!(date));
     }
-}
-
-fn is_date(value: &str) -> bool {
-    let b = value.as_bytes();
-    b.len() == 10
-        && b.iter().enumerate().all(|(i, c)| match i {
-            4 | 7 => *c == b'-',
-            _ => c.is_ascii_digit(),
-        })
 }
 
 /// The tier a `## ` heading names.
