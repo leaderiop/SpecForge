@@ -86,7 +86,7 @@ setting.
 | Profile | Behaves as |
 |---|---|
 | `gsd-compat` (default) | GSD at the tracked version: every rule GSD only warns about warns, every check GSD leaves to a prompt is still judged but does not block. The parity suite runs on it. |
-| `gsd-strict` | the same rules, blocking where GSD warns: same-wave file conflicts, a stale plan-check verdict, a backstop truth without evidence, and an open broken window at ship; and, beyond GSD, a verdict that is not fresh at any step (gsd/E516), a complete requirement no commit and passing test trace (gsd/E515) a task commit without its `Gsd-Task:` trailer (gsd/E521) and, at the milestone close, a breaking API change without a major version bump (gsd/E533) and release evidence that does not match the milestone (gsd/E535). |
+| `gsd-strict` | the same rules, blocking where GSD warns: same-wave file conflicts, a stale plan-check verdict, a backstop truth without evidence, and an open broken window at ship; and, beyond GSD, a verdict that is not fresh at any step (gsd/E516), a complete requirement no commit and passing test trace (gsd/E515), a task commit without its `Gsd-Task:` trailer (gsd/E521), and, at the milestone close, a breaking API change without a major version bump (gsd/E533) and release evidence that does not match the milestone (gsd/E535). |
 | `gsd-plus` | strict, and cross-workstream conflict detection (gsd/E517). |
 
 A profile presets these settings:
