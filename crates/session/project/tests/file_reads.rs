@@ -366,6 +366,63 @@ fn a_glob_skips_build_and_vcs_directories_unless_it_names_them() {
     assert_eq!(facts(&input, "named")[0]["path"], "target/out.rs");
 }
 
+/// `gsd import` reads `.planning/**` and `specforge.json` (ADR 0391 D2): a dot-directory is walked like any other,
+/// its nested files and a `.gitkeep` served with text, and a credential-looking name in it is withheld.
+#[test]
+fn a_glob_reads_a_dot_directory() {
+    let planning = [
+        (".planning/PROJECT.md", "# Project\n"),
+        (".planning/config.json", "{\"mode\": \"yolo\"}\n"),
+        (".planning/phases/01-core/01-01-PLAN.md", "# Plan\n"),
+        (".planning/phases/03-listing/.gitkeep", ""),
+        (
+            ".planning/quick/261105-tcl-totals/261105-tcl-PLAN.md",
+            "# Quick\n",
+        ),
+    ];
+    let mut project = gsd_facts_project().file(".planning/.env", "TOKEN=hunter2\n");
+    for (path, text) in planning {
+        project = project.file(path, text);
+    }
+    let manifest = fs::read_to_string(project.root().join("specforge.json")).unwrap();
+    let (_, _, input) = probed(
+        project,
+        json!([
+            {"name": "planning", "glob": ".planning/**", "text": true},
+            {"name": "manifest", "glob": "specforge.json", "text": true},
+        ]),
+    );
+
+    let served: Vec<(&str, &str)> = facts(&input, "planning")
+        .iter()
+        .filter(|f| f["path"] != ".planning/.env")
+        .map(|f| {
+            assert_eq!(f["exists"], true, "{f}");
+            assert!(f.get("error").is_none(), "{f}");
+            (f["path"].as_str().unwrap(), f["text"].as_str().unwrap())
+        })
+        .collect();
+    let mut expected = planning.to_vec();
+    expected.sort_unstable();
+    assert_eq!(served, expected);
+    assert!(input["files"]["planning"].get("truncated").is_none());
+    // The host names the credential-looking file and withholds its text, as any text read does.
+    let env = fact(&input, "planning", ".planning/.env");
+    assert_eq!(
+        (env["exists"].as_bool(), env["error"].as_str()),
+        (Some(true), Some("denied")),
+        "{env}"
+    );
+    assert!(
+        env.get("text").is_none() && env.get("digest").is_none(),
+        "{env}"
+    );
+
+    let read = facts(&input, "manifest");
+    assert_eq!(read.len(), 1, "{read:?}");
+    assert_eq!(read[0]["text"], manifest.as_str());
+}
+
 #[test]
 fn a_malformed_read_is_reported_and_served_empty() {
     let project = gsd_facts_project();
