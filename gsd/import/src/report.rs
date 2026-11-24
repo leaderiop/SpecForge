@@ -1,5 +1,7 @@
-//! The import's report (ADR 0391 D8): one entry per file, section or row, with its outcome and the reason, sorted, with
-//! no clock and no absolute path.
+//! The import's report (ADR 0391 D8): one entry per file, section or row, with its outcome and the reason, then the
+//! settings lines, the owed verdicts, what is authored after the import and the minted ids. Sorted, with no clock and
+//! no absolute path, so one input gives the same bytes whatever the order it was read in. Every echoed string is
+//! escaped once, here, as it is rendered; the plan's field values keep the source text verbatim.
 
 use std::collections::BTreeMap;
 
@@ -49,7 +51,47 @@ impl Outcome {
     }
 }
 
-/// One line of the report. Fields in sort order: file, line (none, the whole file, first), section.
+/// The most characters of one echoed value the report shows.
+pub const SHOWN_MAX: usize = 200;
+
+/// Whether `c` is written `\u{..}` when echoed: a C0 control (tab and line feed too), DEL, a C1 control, the line and
+/// paragraph separators, or a Unicode bidi or format control, which a terminal acts on or reorders.
+pub fn hidden(c: char) -> bool {
+    c.is_control()
+        || matches!(
+            c,
+            '\u{061C}'
+                | '\u{200E}'
+                | '\u{200F}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202A}'..='\u{202E}'
+                | '\u{2066}'..='\u{2069}'
+        )
+}
+
+/// `text` with every [`hidden`] character written `\u{<hex>}`; any other text unchanged.
+pub fn escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        if hidden(c) {
+            out.push_str(&format!("\\u{{{:x}}}", c as u32));
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// `text` escaped and capped at [`SHOWN_MAX`] characters, a trailing `…` marking the cut.
+pub fn shown(text: &str) -> String {
+    match text.char_indices().nth(SHOWN_MAX) {
+        Some((at, _)) => format!("{}…", escape(&text[..at])),
+        None => escape(text),
+    }
+}
+
+/// One line of the report. Fields in sort order: file, line (none, the whole file, first), section, outcome, reason.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Entry {
     pub file: String,
@@ -83,19 +125,35 @@ impl Entry {
         }
     }
 
-    /// `file:line` or `file`.
+    /// `file:line` or `file`, shown.
     pub fn location(&self) -> String {
         match self.line {
-            Some(line) => format!("{}:{line}", self.file),
-            None => self.file.clone(),
+            Some(line) => format!("{}:{line}", shown(&self.file)),
+            None => shown(&self.file),
         }
     }
 }
 
-/// Every entry of one import.
+/// An id the import gave an entity whose source names it otherwise (or not at all).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Minted {
+    pub kind: String,
+    /// What the source calls it (a row, a file name).
+    pub old: String,
+    pub new: String,
+}
+
+/// Everything one import reports.
 #[derive(Debug, Default)]
 pub struct Report {
     entries: Vec<Entry>,
+    /// `specforge settings set` lines (ADR 0391 D6), each already quoted for a shell.
+    settings: Vec<String>,
+    /// The verdicts `.planning/` recorded, each with the command that records it now (D5).
+    owed: Vec<String>,
+    /// The fields no `.planning` source gives, which the user writes after the import.
+    authored_after_import: Vec<String>,
+    ids: Vec<Minted>,
 }
 
 impl Report {
@@ -103,6 +161,23 @@ impl Report {
         self.entries.push(entry);
     }
 
+    pub fn setting(&mut self, line: String) {
+        self.settings.push(line);
+    }
+
+    pub fn owed(&mut self, line: String) {
+        self.owed.push(line);
+    }
+
+    pub fn authored_after_import(&mut self, note: String) {
+        self.authored_after_import.push(note);
+    }
+
+    pub fn minted(&mut self, minted: Minted) {
+        self.ids.push(minted);
+    }
+
+    /// The number of entries: the cap `MAX_ENTRIES` counts them.
     pub fn len(&self) -> usize {
         self.entries.len()
     }
@@ -111,45 +186,75 @@ impl Report {
         self.entries.is_empty()
     }
 
-    /// The entries, sorted by file, line and section.
+    /// The entries, sorted by file, line, section, outcome and reason.
     pub fn entries(&self) -> Vec<&Entry> {
-        let mut entries: Vec<&Entry> = self.entries.iter().collect();
-        entries.sort();
-        entries
+        sorted(&self.entries)
     }
 
-    /// `{"format": 1, "entries": [..], "counts": {kind: n}}`.
+    /// `{"format": 1, "entries", "settings", "owed", "authored_after_import", "ids", "counts"}`, every echoed string
+    /// shown or escaped.
     pub fn payload(&self, counts: &BTreeMap<&'static str, usize>) -> Value {
         let entries: Vec<Value> = self
             .entries()
             .into_iter()
             .map(|e| {
                 json!({
-                    "file": e.file,
+                    "file": shown(&e.file),
                     "line": e.line,
-                    "section": e.section,
+                    "section": shown(&e.section),
                     "outcome": e.outcome.as_str(),
-                    "reason": e.reason,
+                    "reason": shown(&e.reason),
                 })
             })
             .collect();
-        json!({ "format": 1, "entries": entries, "counts": counts })
+        let ids: Vec<Value> = sorted(&self.ids)
+            .into_iter()
+            .map(|m| json!({"kind": m.kind, "old": shown(&m.old), "new": escape(&m.new)}))
+            .collect();
+        json!({
+            "format": 1,
+            "entries": entries,
+            "settings": rendered(&self.settings),
+            "owed": rendered(&self.owed),
+            "authored_after_import": rendered(&self.authored_after_import),
+            "ids": ids,
+            "counts": counts,
+        })
     }
 
-    /// One line per entry, then the count line.
+    /// One line per entry (`<file>:<line>  <section>  <outcome>  <reason>`, `-` for no section), then the settings
+    /// lines, the owed verdicts and what is authored after the import, each under its heading, then the count line.
     pub fn text(&self, counts: &BTreeMap<&'static str, usize>) -> String {
         let mut out = String::new();
         for e in self.entries() {
             let section = match e.section.as_str() {
-                "" => String::new(),
-                section => format!(" [{section}]"),
+                "" => "-".to_string(),
+                section => shown(section),
             };
             out.push_str(&format!(
-                "{} {}{section}: {}\n",
+                "{}  {section}  {}  {}\n",
                 e.location(),
                 e.outcome.as_str(),
-                e.reason
+                shown(&e.reason)
             ));
+        }
+        for (heading, lines) in [
+            (
+                "settings: run each line to keep the setting",
+                &self.settings,
+            ),
+            ("owed: record each verdict anew", &self.owed),
+            (
+                "authored after import: no .planning source gives these",
+                &self.authored_after_import,
+            ),
+        ] {
+            if !lines.is_empty() {
+                out.push_str(&format!("\n{heading}\n"));
+                for line in rendered(lines) {
+                    out.push_str(&format!("  {line}\n"));
+                }
+            }
         }
         let total: usize = counts.values().sum();
         let kinds: Vec<String> = counts.iter().map(|(k, n)| format!("{k} {n}")).collect();
@@ -161,3 +266,17 @@ impl Report {
         out
     }
 }
+
+fn sorted<T: Ord>(items: &[T]) -> Vec<&T> {
+    let mut out: Vec<&T> = items.iter().collect();
+    out.sort();
+    out
+}
+
+/// `lines` sorted, each escaped (a settings or owed line is never capped: it is meant to be run).
+fn rendered(lines: &[String]) -> Vec<String> {
+    sorted(lines).into_iter().map(|l| escape(l)).collect()
+}
+
+#[cfg(test)]
+mod tests;

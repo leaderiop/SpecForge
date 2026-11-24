@@ -105,7 +105,7 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
                     Outcome::Unmapped,
                     format!(
                         "requirement {} has no ### category above it: not imported",
-                        item.id.escape_debug()
+                        item.id
                     ),
                 ));
                 continue;
@@ -115,10 +115,7 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
                     &at(n),
                     category,
                     Outcome::Unmapped,
-                    format!(
-                        "requirement {} has no text: not imported",
-                        item.id.escape_debug()
-                    ),
+                    format!("requirement {} has no text: not imported", item.id),
                 ));
                 continue;
             }

@@ -34,11 +34,7 @@ pub fn emit(
             &record.source,
             record.kind,
             Outcome::Unmapped,
-            format!(
-                "{} {}: {why}: not imported",
-                record.kind,
-                record.id.escape_debug()
-            ),
+            format!("{} {}: {why}: not imported", record.kind, record.id),
         ));
     };
     // The ids, files and collisions: what a record is alone.
@@ -50,10 +46,7 @@ pub fn emit(
         } else if !ids::file(&record.file) {
             refuse(
                 record,
-                format!(
-                    "its file {} is not under spec/gsd/",
-                    record.file.escape_debug()
-                ),
+                format!("its file {} is not under spec/gsd/", record.file),
                 report,
             );
         } else if let Some(first) = taken.get(record.id.as_str()) {
@@ -88,11 +81,7 @@ pub fn emit(
             match missing {
                 None => true,
                 Some(id) if every.contains(id.as_str()) => {
-                    refuse(
-                        record,
-                        format!("parent not imported ({})", id.escape_debug()),
-                        report,
-                    );
+                    refuse(record, format!("parent not imported ({})", id), report);
                     false
                 }
                 Some(id) => {
@@ -100,7 +89,7 @@ pub fn emit(
                         record,
                         format!(
                             "it names {}, which neither the import nor the graph holds",
-                            id.escape_debug()
+                            id
                         ),
                         report,
                     );

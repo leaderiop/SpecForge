@@ -50,9 +50,7 @@ impl Records {
                 Outcome::Unmapped,
                 format!(
                     "{} {} is given twice (first at {}): not imported",
-                    record.kind,
-                    record.id.escape_debug(),
-                    first.source
+                    record.kind, record.id, first.source
                 ),
             )),
             None => {

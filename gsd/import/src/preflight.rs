@@ -46,7 +46,7 @@ pub fn manifest(served: &[Served]) -> Result<Manifest, String> {
     if spec_root != "spec" {
         return Err(format!(
             "specforge.json names the spec root '{}': the import writes spec/gsd/ and needs the spec root 'spec'",
-            spec_root.escape_debug()
+            crate::report::escape(&spec_root)
         ));
     }
     let loaded: Vec<String> = json
@@ -104,7 +104,7 @@ pub fn check_reads(planning: &[Served], truncated: bool) -> Result<(), String> {
         if let (Some(error), true) = (&file.error, table::maps(rel)) {
             return Err(format!(
                 "{} was not read ({error}): its entities would be missing, so nothing is imported",
-                file.path.escape_debug()
+                crate::report::escape(&file.path)
             ));
         }
     }
