@@ -3,6 +3,10 @@
 //!
 //! - `gsd/E501` (`gsd/core/src/judged.rs`): each truth, artifact and key link without a `pattern` of a complete plan,
 //!   and a plan is complete when its summary's `status` is `complete` (`passes::derive::execute::plan_statuses`);
+//! - `gsd/W525`: each prohibition without a `test` of a complete plan;
+//! - `gsd/W311`, `W313`, `W315`, `W316`, the plan checks: each plan that is not complete;
+//! - `gsd/E518`, `gsd/E202`, `gsd/W203`, `gsd/W205`: each milestone audit, phase spec, locked requirement and package
+//!   audit, owed from its creation;
 //! - `gsd.security/W302`: each threat whose `status` is `closed` (`complete_when status closed`);
 //! - `gsd.security/W303`: each security audit, owed from its creation.
 //!
@@ -17,6 +21,13 @@ use crate::records::Record;
 use crate::settings::shell_quote;
 
 pub const E501: &str = "gsd/E501";
+pub const W525: &str = "gsd/W525";
+pub const E518: &str = "gsd/E518";
+pub const E202: &str = "gsd/E202";
+pub const W203: &str = "gsd/W203";
+pub const W205: &str = "gsd/W205";
+/// The plan checks, owed while a plan is open (no complete summary).
+pub const PLAN_CHECKS: [&str; 4] = ["gsd/W311", "gsd/W313", "gsd/W315", "gsd/W316"];
 pub const W302: &str = "gsd.security/W302";
 pub const W303: &str = "gsd.security/W303";
 
@@ -49,26 +60,30 @@ pub fn owed<'r>(kept: impl IntoIterator<Item = &'r Record> + Clone) -> Vec<Owed>
         .filter(|r| r.kind == "summary" && text(r, "status").as_deref() == Some("complete"))
         .filter_map(|r| text(r, "plan"))
         .collect();
+    let plan_done = |r: &Record| text(r, "plan").is_some_and(|p| complete.contains(&p));
     let mut out: Vec<Owed> = kept
         .into_iter()
-        .filter_map(|r| {
-            let code = match r.kind {
-                "truth" | "artifact" => E501,
-                "key_link" if !r.fields.contains_key("pattern") => E501,
-                "threat" if text(r, "status").as_deref() == Some("closed") => W302,
-                "security_audit" => W303,
-                _ => return None,
+        .flat_map(|r| {
+            let codes: &[&'static str] = match r.kind {
+                "truth" | "artifact" if plan_done(r) => &[E501],
+                "key_link" if plan_done(r) && !r.fields.contains_key("pattern") => &[E501],
+                "prohibition" if plan_done(r) && !r.fields.contains_key("test") => &[W525],
+                "plan" if !complete.contains(&r.id) => &PLAN_CHECKS,
+                "milestone_audit" => &[E518],
+                "phase_spec" => &[E202],
+                "locked_req" => &[W203],
+                "package_audit" => &[W205],
+                "threat" if text(r, "status").as_deref() == Some("closed") => &[W302],
+                "security_audit" => &[W303],
+                _ => &[],
             };
-            if code == E501 && !text(r, "plan").is_some_and(|p| complete.contains(&p)) {
-                return None;
-            }
             let phase = r
                 .file
                 .strip_prefix(&format!("{}/phases/", paths::ROOT))
                 .and_then(|f| f.strip_suffix(".spec"))
                 .map(str::to_string);
-            Some(Owed {
-                phase,
+            codes.iter().map(move |&code| Owed {
+                phase: phase.clone(),
                 code,
                 entity: r.id.clone(),
             })
@@ -78,23 +93,35 @@ pub fn owed<'r>(kept: impl IntoIterator<Item = &'r Record> + Clone) -> Vec<Owed>
     out
 }
 
-/// The report's owed lines for `owed` (sorted): per phase the slash command that records its verdicts
-/// (`/gsd-verify-work <NN>` for `gsd/E501`, `/gsd-secure-phase <NN>` for `@gsd/security`'s), then per entity the query
-/// that shows what its judge reads, then the count.
+/// The slash command that records a verdict of `code`: the workflow that runs its judge.
+fn command(code: &str) -> &'static str {
+    match code {
+        E501 | W525 => "/gsd-verify-work",
+        E518 => "/gsd-audit-milestone",
+        E202 | W203 => "/gsd-spec-phase",
+        W302 | W303 => "/gsd-secure-phase",
+        // The plan checks and the package audit: the plan checker and the phase researcher.
+        _ => "/gsd-plan-phase",
+    }
+}
+
+/// The report's owed lines for `owed`: per phase and slash command that records its verdicts ([`command`]), then per
+/// entity the query that shows what its judge reads, then the count; `check` exits 1 while an error rule is owed.
 pub fn lines(owed: &[Owed]) -> Vec<String> {
+    let mut sorted: Vec<(&str, &Owed)> = owed.iter().map(|o| (command(o.code), o)).collect();
+    sorted.sort_by(|(a, x), (b, y)| (&x.phase, a, *x).cmp(&(&y.phase, b, *y)));
     let mut out = Vec::new();
     let mut group = None;
-    for o in owed {
-        let command = if o.code == E501 {
-            "/gsd-verify-work"
-        } else {
-            "/gsd-secure-phase"
-        };
+    for (command, o) in sorted {
         if group != Some((&o.phase, command)) {
             group = Some((&o.phase, command));
             out.push(match &o.phase {
                 Some(phase) => format!("{command} {phase}"),
-                None => "quick plans (no phase): ask the verifier to judge each".to_string(),
+                None if command == "/gsd-verify-work" => {
+                    "quick plans (no phase): ask the verifier to judge each".to_string()
+                }
+                // A quick plan's checks and a milestone audit: the command names no phase.
+                None => command.to_string(),
             });
         }
         out.push(format!(
@@ -104,7 +131,12 @@ pub fn lines(owed: &[Owed]) -> Vec<String> {
         ));
     }
     if !owed.is_empty() {
-        let check = if owed.iter().any(|o| o.code == E501) {
+        let check = if owed.iter().any(|o| {
+            o.code
+                .rsplit('/')
+                .next()
+                .is_some_and(|c| c.starts_with('E'))
+        }) {
             "exits 1"
         } else {
             "warns"
@@ -246,6 +278,81 @@ mod tests {
         assert_eq!(
             lines(&owed[1..3]).last().map(String::as_str),
             Some("2 verdicts owed: `specforge check` warns until these verdicts are recorded")
+        );
+    }
+
+    /// Core's other judged rules: the plan checks on an open plan, W525 on a complete plan's untested prohibition, and
+    /// the rules owed from creation.
+    #[test]
+    fn owed_mirrors_cores_other_judged_rules() {
+        let phase = "spec/gsd/phases/01.spec";
+        let plan = |id: &str| record("plan", id, phase, json!({}));
+        let records = [
+            record(
+                "summary",
+                "v1.0/01/01-01/01-01-SUMMARY",
+                phase,
+                json!({"plan": "v1.0/01/01-01", "status": "complete"}),
+            ),
+            plan("v1.0/01/01-01"),
+            plan("v1.0/01/01-02"),
+            record(
+                "prohibition",
+                "v1.0/01/01-01/P1",
+                phase,
+                json!({"plan": "v1.0/01/01-01"}),
+            ),
+            record(
+                "prohibition",
+                "v1.0/01/01-01/P2",
+                phase,
+                json!({"plan": "v1.0/01/01-01", "test": "t"}),
+            ),
+            record(
+                "prohibition",
+                "v1.0/01/01-02/P1",
+                phase,
+                json!({"plan": "v1.0/01/01-02"}),
+            ),
+            record("phase_spec", "v1.0/01/01-SPEC", phase, json!({})),
+            record("package_audit", "v1.0/01/01-RESEARCH/PA1", phase, json!({})),
+            record(
+                "milestone_audit",
+                "v1.0-MILESTONE-AUDIT",
+                "spec/gsd/milestones.spec",
+                json!({}),
+            ),
+        ];
+        let owed = owed(&records);
+        let found: Vec<(&str, &str)> = owed.iter().map(|o| (o.code, o.entity.as_str())).collect();
+        assert_eq!(
+            found,
+            [
+                (E518, "v1.0-MILESTONE-AUDIT"),
+                (E202, "v1.0/01/01-SPEC"),
+                (W205, "v1.0/01/01-RESEARCH/PA1"),
+                ("gsd/W311", "v1.0/01/01-02"),
+                ("gsd/W313", "v1.0/01/01-02"),
+                ("gsd/W315", "v1.0/01/01-02"),
+                ("gsd/W316", "v1.0/01/01-02"),
+                (W525, "v1.0/01/01-01/P1"),
+            ]
+        );
+        let lines = lines(&owed);
+        let headers: Vec<&str> = lines
+            .iter()
+            .filter(|l| !l.starts_with(' '))
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            headers,
+            [
+                "/gsd-audit-milestone",
+                "/gsd-plan-phase 01",
+                "/gsd-spec-phase 01",
+                "/gsd-verify-work 01",
+                "8 verdicts owed: `specforge check` exits 1 until these verdicts are recorded",
+            ]
         );
     }
 }

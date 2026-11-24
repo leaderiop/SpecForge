@@ -195,7 +195,8 @@ fn vault_owed_names_each_judged_entity() {
             )
         })
         .collect();
-    // The closed threats, the audit, and the must-haves of the two complete plans (02-01 has no summary).
+    // The closed threats, the audit, the must-haves of the two complete plans, and the plan checks of 02-01, which has
+    // no summary and so is open.
     assert_eq!(
         owed,
         [
@@ -208,6 +209,10 @@ fn vault_owed_names_each_judged_entity() {
             "01 gsd/E501 v1.0/01/01-02/AR1",
             "01 gsd/E501 v1.0/01/01-02/KL1",
             "01 gsd/E501 v1.0/01/01-02/TR1",
+            "02 gsd/W311 v1.0/02/02-01",
+            "02 gsd/W313 v1.0/02/02-01",
+            "02 gsd/W315 v1.0/02/02-01",
+            "02 gsd/W316 v1.0/02/02-01",
         ]
     );
     let (_, _, text) = imported_in("vault", true, false);
@@ -215,7 +220,7 @@ fn vault_owed_names_each_judged_entity() {
     assert!(text.contains("\n  /gsd-verify-work 01\n"), "{text}");
     assert!(
         text.contains(
-            "\n  9 verdicts owed: `specforge check` exits 1 until these verdicts are recorded\n"
+            "\n  13 verdicts owed: `specforge check` exits 1 until these verdicts are recorded\n"
         ),
         "{text}"
     );
