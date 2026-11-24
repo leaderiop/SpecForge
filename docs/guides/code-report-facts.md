@@ -101,11 +101,12 @@ accepted side is the report the project commits for review, each tool's own base
 Never `**/*.api.md`: api-extractor's `temp/` holds the run's own copy of the report, which would hide every break. The
 `.alpha.api.md`, `.beta.api.md` and `.public.api.md` variants are not read either.
 
-The packs read the file as a declared file read, `Input::files(..)` with `FileReadSpec::text_up_to(TEXT_MAX_CEILING_BYTES)` (4 MiB, the SDK prelude's constant): the host
-refuses a file outside the project or reached through a link, and never sends a credential-looking file as text, as
-for any read. `text_up_to`
-raises a read's text ceiling from 64 KiB to at most 4 MiB, and its budget to the larger of 1 MiB and four times the
-ceiling (protocol 2.3.0). The file is not read as a report: a report is read only when the run wrote it, and a
+The packs read the file as a declared file read, `Input::files(..)` with
+`FileReadSpec::text_up_to(TEXT_MAX_CEILING_BYTES)` (4 MiB, the SDK prelude's constant): the host refuses a file outside
+the project or reached through a link (a symbolic link always; a hard link, a file with a second name, when the request
+is bounded, as MCP's is, so the file reads as `unreadable` and its pack warns), and never sends a credential-looking
+file as text, as for any read. `text_up_to` raises a read's text ceiling from 64 KiB to at most 4 MiB, and its budget
+to the larger of 1 MiB and four times the ceiling (protocol 2.3.0). The file is not read as a report: a report is read only when the run wrote it, and a
 committed file is older than the run.
 
 **`change`.** Each `api_item` of a crate or package present on both sides carries `change`: `added`, `unchanged`,

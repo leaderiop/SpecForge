@@ -162,7 +162,10 @@ re-vendor, by ADR 0366 D3 and ADR 0373 D3's rule.
 - **O-2.** The report read (`read_held` in collect's dispatch) reads through `Containment::read_held`, which refuses a
   file with more than one name when the containment is bounded (ADR 0146), so a hard link to a file outside the
   project is E045 there. The CLI is unbounded by design (ADR 0092 D6) and still reads it. Test:
-  `a_hard_linked_report_is_refused_in_a_bounded_containment`.
+  `a_hard_linked_report_is_refused_in_a_bounded_containment`. The accepted file is a declared file read, not a report:
+  a call's and an analyze pass's `Input::files` read each file through the same containment
+  (`Containment::file_reads_disk`, walked as the plain disk), so a bounded one gives a hard-linked file
+  `error: "unreadable"` and the pack's W203. Test: `a_hard_linked_accepted_file_is_not_read_in_a_bounded_containment`.
 - **O-3.** ADR 0389 D9 now lists every risk the packs' approvals accept.
 
 ## Rejected

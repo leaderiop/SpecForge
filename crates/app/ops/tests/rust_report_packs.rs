@@ -81,21 +81,32 @@ fn printing(stdout: &str) -> ScriptedRun {
     }
 }
 
-/// Collect `runner` of `p` through `machine`, everything approved; a refusal is its code and message.
+/// Collect `runner` of `p` through `machine`, everything approved, unbounded as the CLI; a refusal is its code and
+/// message.
 fn collect_or_refused(
     p: &TestProject,
     runner: &str,
     machine: &ScriptedMachine,
 ) -> Result<Outcome, String> {
+    collect_within(p, runner, machine, &Containment::unbounded())
+}
+
+/// [`collect_or_refused`] inside `containment`.
+fn collect_within(
+    p: &TestProject,
+    runner: &str,
+    machine: &ScriptedMachine,
+    containment: &Containment,
+) -> Result<Outcome, String> {
     let compiled = p.compile();
-    let view = specforge_ops::view::ProjectView::of(&compiled);
+    // The view and the caller share the one containment, as an MCP call's do (ADR 0183).
+    let view = specforge_ops::view::ProjectView::of(&compiled).bounded_by(containment);
     // The disk, as the CLI lends it: rust-source's reads go through the host's own reader.
     let ports = Ports {
         fs: Arc::new(specforge_fs::LocalFs),
         ..specforge_effects::testing::ports()
     };
     let consent = MemoryConsent::approving_everything();
-    let containment = Containment::unbounded();
     collect(
         &view,
         Request {
@@ -103,7 +114,7 @@ fn collect_or_refused(
             mode: Mode::Run(RunnerOutput::Discard),
             announce: &mut |_, _| {},
             filter: None,
-            caller: Caller::new(&containment, Asking::Nobody).lending(
+            caller: Caller::new(containment, Asking::Nobody).lending(
                 &ports,
                 &consent,
                 EffectsMode::Online,
@@ -345,6 +356,49 @@ fn an_accepted_report_past_64_kib_is_read() {
     assert!(
         !warned.iter().any(|w| w.contains("too_large")),
         "{warned:?}"
+    );
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-150")]
+fn a_hard_linked_accepted_file_is_not_read_in_a_bounded_containment() {
+    let outside = tempfile::tempdir().unwrap();
+    let secret = outside.path().join("public-api.txt");
+    std::fs::write(
+        &secret,
+        format!("{PUBLIC_API}pub fn adder::sub(a: i32, b: i32) -> i32\n"),
+    )
+    .unwrap();
+    let p = fixture();
+    std::fs::create_dir_all(p.root().join("tests")).unwrap();
+    std::fs::hard_link(&secret, p.root().join("tests/public-api.txt")).unwrap();
+
+    // MCP bounds the request: the second name of a file outside the project is never read (ADR 0146).
+    let bounded = Containment::within(p.root());
+    let run = machine(printing(PUBLIC_API));
+    let outcome = collect_within(&p, "rust-api", &run, &bounded).unwrap();
+    let api = facts(&outcome, "rust-api", "api_item");
+    assert!(
+        changes(&api).iter().all(|(_, change)| change.is_none()),
+        "{:?}",
+        changes(&api)
+    );
+    let warned = said(&outcome, "W203");
+    assert!(
+        warned
+            .iter()
+            .any(|w| w.contains("tests/public-api.txt") && w.contains("(unreadable)")),
+        "{warned:?}"
+    );
+
+    // The CLI runs unbounded (ADR 0092 D6): the same link is read.
+    let outcome = collected(&p, "rust-api", &machine(printing(PUBLIC_API)));
+    let changes = changes(&facts(&outcome, "rust-api", "api_item"));
+    assert!(
+        changes.contains(&(
+            "api:rust:adder::sub".to_string(),
+            Some("removed".to_string())
+        )),
+        "{changes:?}"
     );
 }
 

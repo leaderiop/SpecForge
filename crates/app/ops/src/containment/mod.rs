@@ -10,7 +10,7 @@
 mod disk;
 mod file;
 
-pub use disk::ContainedDisk;
+pub use disk::{ContainedDisk, FileReadsDisk};
 pub use file::{ReadFailure, declared};
 
 use std::collections::BTreeMap;
@@ -90,6 +90,12 @@ impl Containment {
     /// bounds them (ADR 0145).
     pub fn disk(&self) -> ContainedDisk {
         ContainedDisk(self.clone())
+    }
+
+    /// The disk a declared file read (`Input::files`) reads through: walked as the plain disk, each file read
+    /// through this containment, so a bounded one refuses a file with several names (ADR 0146).
+    pub fn file_reads_disk(&self) -> FileReadsDisk {
+        FileReadsDisk(self.disk())
     }
 
     /// The same kind of bound for a project inside this one: `within(dir)` when bounded,

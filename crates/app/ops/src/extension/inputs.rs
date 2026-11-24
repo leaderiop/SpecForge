@@ -27,16 +27,18 @@ impl<'v, 'p> Serve<'v, 'p> {
         }
     }
 
-    /// The facts of each `files` input, by read name. A call runs once: they are read from the plain disk (ADR 0293).
+    /// The facts of each `files` input, by read name. A call runs once: they are read from the plain disk (ADR 0293),
+    /// each file through the view's containment, so a bounded one refuses a hard link (ADR 0146).
     pub(crate) fn files(&self) -> FileMap {
         let reads = self.inputs.files();
         if reads.is_empty() {
             return FileMap::default();
         }
+        let disk = self.view.containment().file_reads_disk();
         specforge_project::file_reads::read(
             &reads,
             self.view.entities(),
-            &self.view.env().file_source(&specforge_registry::PlainDisk),
+            &self.view.env().file_source(&disk),
         )
     }
 

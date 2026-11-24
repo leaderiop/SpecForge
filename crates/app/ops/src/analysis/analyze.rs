@@ -382,12 +382,14 @@ pub fn analyze(
     }
     // An analyze pass reads what changed as the compile it analyzes takes it (ADR 0376 D6).
     let delta = view.project().pass_delta();
+    // A pass's declared file reads go through the view's containment: a bounded one refuses a hard link (ADR 0146).
+    let disk = view.containment().file_reads_disk();
     if let Some(runtime) = view.runtime() {
         let context = PassContext {
             test_results: report.as_deref(),
             proved_claims: proved.as_ref().map(|_| &proved_claims),
             judgements: Some(view.project().judgements()),
-            files: Some(view.env().file_source(&specforge_registry::PlainDisk)),
+            files: Some(view.env().file_source(&disk)),
             delta: delta.as_deref(),
             ..PassContext::of(view.entities())
         };

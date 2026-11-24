@@ -3,7 +3,7 @@
 //! file checked (ADR 0104, ADR 0112 D1).
 
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use specforge_registry::{Disk, PlainDisk};
 
@@ -38,5 +38,33 @@ impl Disk for ContainedDisk {
                 ),
             )),
         }
+    }
+}
+
+/// The plain file system, each file read through one containment: what a declared file read (`Input::files`, ADR 0293)
+/// of a call or an analyze pass reads through. It lists, tells a directory and resolves a link as the plain disk does,
+/// so the shared walk still sees a linked directory and the path check still sees where a link lands; a read is the
+/// containment's, so a bounded one refuses a file with several names (ADR 0146), as a report read does (ADR 0390 D12).
+pub struct FileReadsDisk(pub(crate) ContainedDisk);
+
+impl Disk for FileReadsDisk {
+    fn exists(&self, path: &Path) -> bool {
+        PlainDisk.exists(path)
+    }
+
+    fn list(&self, dir: &Path) -> Option<Vec<String>> {
+        PlainDisk.list(dir)
+    }
+
+    fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
+        self.0.read(path)
+    }
+
+    fn is_dir(&self, path: &Path) -> bool {
+        PlainDisk.is_dir(path)
+    }
+
+    fn canonical(&self, path: &Path) -> Option<PathBuf> {
+        PlainDisk.canonical(path)
     }
 }
