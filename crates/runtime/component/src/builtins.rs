@@ -6,12 +6,12 @@ use specforge_wasm::{LoadError, Provenance, WasmRuntime};
 /// One builtin extension: its package name, its crate, the component `build-blobs` vendors into
 /// `<crate_dir>/wasm/`, and the vendored bytes this host embeds. Name and crate follow one rule:
 /// `extensions/<dir>` is `@specforge/<dir>`, and `extensions/<family>/<pack>` is `@<family>/<pack>`
-/// (ADR 0328 D3). One crate lives outside `extensions/` and is named in its row: `@gsd/core` at
-/// `gsd/core`, in the gsd workspace (ADR 0366 D1).
+/// (ADR 0328 D3). Two crates live outside `extensions/` and are named in their rows: `@gsd/core` at
+/// `gsd/core` and `@gsd/import` at `gsd/import`, both in the gsd workspace (ADR 0366 D1, ADR 0391 D12).
 pub struct Builtin {
     pub name: &'static str,
     /// Its crate, from the repository root: `extensions/<dir>`, `extensions/<family>/<pack>`, or
-    /// the path a named row gives (`gsd/core`).
+    /// the path a named row gives (`gsd/core`, `gsd/import`).
     pub crate_dir: &'static str,
     pub artifact: &'static str,
     pub bytes: &'static [u8],
@@ -67,6 +67,7 @@ builtins! {
     "@javascript/jest" in "javascript/jest" as "specforge_ext_javascript_jest.wasm",
     "@javascript/playwright" in "javascript/playwright" as "specforge_ext_javascript_playwright.wasm";
     "@gsd/core" at "gsd/core" as "gsd_core.wasm",
+    "@gsd/import" at "gsd/import" as "gsd_import.wasm",
 }
 
 /// (name, bytes) of every builtin, read from [`BUILTINS`]: what the extension load reads
@@ -138,7 +139,7 @@ impl Family {
     pub const ALL: [Family; 2] = [Family::Old, Family::Gsd];
 
     /// The names of the set, as ADR 0369 D3 lists them. The old set is in [`BUILTINS`] order; the gsd
-    /// set names `@gsd/core` first, then the nineteen builtins it shares with the old set
+    /// set names `@gsd/core` and `@gsd/import` first, then the nineteen builtins it shares with the old set
     /// (`@specforge/vitest` stays in the old set only).
     pub const fn names(self) -> &'static [&'static str] {
         match self {
@@ -172,6 +173,7 @@ impl Family {
             ],
             Family::Gsd => &[
                 "@gsd/core",
+                "@gsd/import",
                 "@code/core",
                 "@javascript/node-test",
                 "@specforge/checks",

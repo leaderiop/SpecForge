@@ -196,7 +196,8 @@ fn blobs_lists_the_recorded_blobs() {
     assert!(listed.iter().all(|l| l.starts_with("extensions/")
         || l.starts_with("fixtures/")
         || l.starts_with("examples/")
-        || l == "gsd/core"));
+        || l == "gsd/core"
+        || l == "gsd/import"));
 }
 
 /// A crate of the gsd workspace builds as that workspace does: its lock, its cargo directory and its SDK patch; any

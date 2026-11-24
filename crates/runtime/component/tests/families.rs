@@ -71,7 +71,7 @@ fn the_two_sets_are_adr_0369s_and_every_builtin_is_in_one() {
     );
     assert_eq!(
         names(&gsd.difference(&old).copied().collect()),
-        ["@gsd/core"],
+        ["@gsd/core", "@gsd/import"],
         "the gsd set only"
     );
 

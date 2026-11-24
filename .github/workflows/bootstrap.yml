@@ -2,7 +2,7 @@ name: Bootstrap
 
 # A cold clone rebuilds every committed blob. It takes ~8 min uncached, so a PR runs it only when what the blobs
 # compile from changes (the paths every `inputs.json` records, plus the build tooling); main runs it on every push.
-# A gsd input runs it too: `gsd/core/**`, `gsd/kit/**`, `gsd/.cargo/**` (the SDK patch) and `gsd/Cargo.lock`, which
+# A gsd input runs it too: `gsd/core/**`, `gsd/import/**`, `gsd/kit/**`, `gsd/.cargo/**` (the SDK patch) and `gsd/Cargo.lock`, which
 # `@gsd/core`'s record hashes whole. A gate test holds these paths to every input any record lists.
 # A PR that misses it still has the `builtins` check (ci.yml), which compares each blob's recorded inputs.
 on:
@@ -21,6 +21,7 @@ on:
       - "fixtures/**"
       - "examples/marketing/extension/**"
       - "gsd/core/**"
+      - "gsd/import/**"
       - "gsd/kit/**"
       - "gsd/Cargo.lock"
       - "gsd/.cargo/**"

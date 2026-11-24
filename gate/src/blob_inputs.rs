@@ -1,7 +1,7 @@
 //! `<crate_dir>/wasm/inputs.json`: what one committed blob (a builtin under `extensions/`, a fixture under
-//! `fixtures/`, an example project's own extension under `examples/<name>/extension`, or `@gsd/core` under
-//! `gsd/core`, the one builtin outside `extensions/`) was built from. `build-blobs` writes and checks it through this
-//! module; a quick run asks it which blobs a change set feeds. A blob is named by its crate directory from the
+//! `fixtures/`, an example project's own extension under `examples/<name>/extension`, or `@gsd/core` and
+//! `@gsd/import` under `gsd/core` and `gsd/import`, the two builtins outside `extensions/`) was built from.
+//! `build-blobs` writes and checks it through this module; a quick run asks it which blobs a change set feeds. A blob is named by its crate directory from the
 //! repository root. The JSON is unchanged byte for byte.
 
 use std::collections::BTreeMap;
@@ -150,9 +150,14 @@ pub fn inherited_tables(manifest: &str) -> String {
 }
 
 /// The crates that commit a blob besides the builtins under `extensions/` ([`crate::repo::EXTENSION_CRATES`]), as
-/// `repo::expand` patterns: the fixtures, the example projects' extensions and `@gsd/core` (ADR 0366 D2), so a `gsd/`
-/// input feeds the `builtins` check once its record exists.
-pub const BLOB_CRATES: &[&str] = &["fixtures/*", "examples/*/extension", "gsd/core"];
+/// `repo::expand` patterns: the fixtures, the example projects' extensions, `@gsd/core` (ADR 0366 D2) and
+/// `@gsd/import` (ADR 0391 D12), so a `gsd/` input feeds the `builtins` check once its record exists.
+pub const BLOB_CRATES: &[&str] = &[
+    "fixtures/*",
+    "examples/*/extension",
+    "gsd/core",
+    "gsd/import",
+];
 
 /// The gsd workspace, from the repository root: one Cargo workspace with one lock and its own `.cargo/config.toml`.
 const GSD_WORKSPACE: &str = "gsd";
@@ -201,8 +206,8 @@ pub fn workspace_inputs(crate_dir: &str) -> Vec<String> {
 }
 
 /// Every committed blob with a record: the crate directories (`extensions/<dir>`, `extensions/<family>/<pack>`,
-/// `fixtures/<dir>`, `examples/<dir>/extension`, `gsd/core`, sorted) whose `wasm/inputs.json` exists; an extension library has
-/// none, so it is no blob.
+/// `fixtures/<dir>`, `examples/<dir>/extension`, `gsd/core`, `gsd/import`, sorted) whose `wasm/inputs.json` exists;
+/// an extension library has none, so it is no blob.
 pub fn blobs(repo_root: &Path) -> Result<Vec<String>, String> {
     let suffix = format!("/wasm/{FILE}");
     let mut found: Vec<String> = crate::repo::EXTENSION_CRATES
