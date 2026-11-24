@@ -1,17 +1,34 @@
 //! A plan's `<threat_model>` through the command in process: `@gsd/security`'s trust boundaries and threats when the
 //! manifest loads it, against the vault twin's `plans.spec`; one needs-extension entry per element when it does not.
 //!
-//! Known differences from the twin (13-RESEARCH D5): a boundary's title is its `Boundary` cell and a threat's its
-//! `Component` (the twin's titles are hand-made); `data_crossing`, `files`, `status` and `evidence` come from
-//! `SECURITY.md` (13-08), never from the plan.
+//! Then `01-SECURITY.md`, against the twin's `security.spec`: the audit, the statuses it records, its accepted risk and
+//! its audit run.
+//!
+//! Known differences from the twin (13-RESEARCH D5, D11-D13): a boundary's title is its `Boundary` cell and a threat's
+//! its `Component` (the twin's titles are hand-made); `data_crossing` and `status` come from `SECURITY.md`, never from
+//! the plan, and only where a row names the entity: the twin's `files`, `evidence` and three more statuses have no
+//! `.planning` source (D11); the audit's `asvs_level` and `created`, which the twin omits, are carried, and the run's
+//! `at` is the heading's date at midnight with no `run_by` (D12); `01-02/TB1.data_crossing` is carried (D13).
 
 mod common;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use common::{creates, entries, fact, feed, find, has, import, import_with, manifest, paths};
+use common::{
+    creates, entries, fact, feed, find, fixture, fixture_manifest, has, import, import_with,
+    manifest, paths, planning_facts,
+};
 use gsd_import::limits::MAX_OPS;
+
+const SECURITY: &str = ".planning/phases/01-core/01-SECURITY.md";
+
+/// The threat statuses `01-SECURITY.md` records: a row matching the threat's id and component.
+const STATUSES: &[(&str, &str)] = &[
+    ("v1.0/01/01-01/T-01-01", "closed"),
+    ("v1.0/01/01-02/T-01-02", "open"),
+    ("v1.0/01/01-02/T-01-03", "closed"),
+];
 
 #[test]
 fn vault_threat_models_match_the_twin_with_security_loaded() {
@@ -22,23 +39,31 @@ fn vault_threat_models_match_the_twin_with_security_loaded() {
         paths(&all, "trust_boundary"),
         ["v1.0/01/01-01/TB1", "v1.0/01/01-02/TB1"]
     );
-    for (path, boundary, description) in [
+    // `data_crossing` is SECURITY.md's; the twin lacks 01-02's (D13).
+    for (path, boundary, description, crossing) in [
         (
             "v1.0/01/01-01/TB1",
             "process → vault.bin",
             "the sealed file is on a disk other users can read and write",
+            "encrypted secrets",
         ),
         (
             "v1.0/01/01-02/TB1",
             "shell → process",
             "the secret is typed as an argument and the key is an environment variable",
+            "secrets and the key, in the clear",
         ),
     ] {
         let tb = find(&all, "trust_boundary", path);
         let plan = path.rsplit_once('/').map(|(p, _)| p);
         assert_eq!(
             tb.fields,
-            json!({ "plan": plan, "boundary": boundary, "description": description })
+            json!({
+                "plan": plan,
+                "boundary": boundary,
+                "description": description,
+                "data_crossing": crossing,
+            })
         );
         assert_eq!(tb.title, boundary);
     }
@@ -108,19 +133,19 @@ fn vault_threat_models_match_the_twin_with_security_loaded() {
     ] {
         let threat = find(&all, "threat", path);
         let plan = path.rsplit_once('/').map(|(p, _)| p);
-        // No `status`: the auditor's verdict is SECURITY.md's (13-08).
-        assert_eq!(
-            threat.fields,
-            json!({
-                "plan": plan,
-                "category": category,
-                "component": component,
-                "severity": severity,
-                "disposition": disposition,
-                "mitigation": mitigation,
-            }),
-            "{path}"
-        );
+        let mut want = json!({
+            "plan": plan,
+            "category": category,
+            "component": component,
+            "severity": severity,
+            "disposition": disposition,
+            "mitigation": mitigation,
+        });
+        // The status is SECURITY.md's, set only where a row names the threat's id and component.
+        if let Some(status) = STATUSES.iter().find(|(p, _)| *p == path).map(|(_, s)| *s) {
+            want["status"] = json!(status);
+        }
+        assert_eq!(threat.fields, want, "{path}");
         assert_eq!(threat.title, component);
     }
 }
@@ -229,4 +254,213 @@ fn a_register_past_max_ops_refuses_the_import() {
         "{}",
         out.stderr
     );
+}
+
+/// The paths of the threats of `out` whose status is `status` (`Value::Null`: none).
+fn with_status(out: &CommandOutput, status: Value) -> Vec<String> {
+    let mut found: Vec<String> = creates(out)
+        .into_iter()
+        .filter(|c| c.kind == "threat" && c.fields["status"] == status)
+        .map(|c| c.path)
+        .collect();
+    found.sort_unstable();
+    found
+}
+
+#[test]
+fn vault_closes_exactly_two_threats() {
+    let out = import_with("vault", true);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    assert_eq!(
+        with_status(&out, json!("closed")),
+        ["v1.0/01/01-01/T-01-01", "v1.0/01/01-02/T-01-03"]
+    );
+    assert_eq!(with_status(&out, json!("open")), ["v1.0/01/01-02/T-01-02"]);
+    // No row names these by id and component: no status is invented (D11).
+    assert_eq!(
+        with_status(&out, Value::Null),
+        [
+            "v1.0/01/01-01/T-01-02",
+            "v1.0/01/01-01/T-01-SC",
+            "v1.0/01/01-02/T-01-SC"
+        ]
+    );
+    let reported = entries(&out, SECURITY);
+    for (line, says) in [
+        (30, "threat v1.0/01/01-01/T-01-01: status closed"),
+        (31, "threat v1.0/01/01-02/T-01-02: status open"),
+        (32, "threat v1.0/01/01-02/T-01-03: status closed"),
+        (21, "trust_boundary v1.0/01/01-01/TB1: data_crossing"),
+        (22, "trust_boundary v1.0/01/01-02/TB1: data_crossing"),
+    ] {
+        assert!(
+            has(&reported, line, "mapped", says),
+            "{line} {says}: {reported:#?}"
+        );
+    }
+}
+
+#[test]
+fn vault_security_audit_matches_the_twin() {
+    let out = import_with("vault", true);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let all = creates(&out);
+    let audit = find(&all, "security_audit", "v1.0/01/01-SECURITY");
+    assert_eq!(
+        audit.fields,
+        json!({ "phase": "v1.0/01", "asvs_level": 1, "created": "2026-10-30T00:00:00Z" })
+    );
+    assert_eq!(audit.file, "spec/gsd/phases/01.spec");
+    assert_eq!(paths(&all, "accepted_risk"), ["v1.0/01/01-SECURITY/AR1"]);
+    assert_eq!(
+        find(&all, "accepted_risk", "v1.0/01/01-SECURITY/AR1").fields,
+        json!({
+            "audit": "v1.0/01/01-SECURITY",
+            "threat": "v1.0/01/01-02/T-01-03",
+            "rationale": "the names are not secret; the values are never printed",
+            "accepted_by": "maintainer",
+            "at": "2026-10-30",
+        })
+    );
+    assert_eq!(paths(&all, "audit_run"), ["v1.0/01/01-SECURITY/AU1"]);
+    assert_eq!(
+        find(&all, "audit_run", "v1.0/01/01-SECURITY/AU1").fields,
+        json!({
+            "audit": "v1.0/01/01-SECURITY",
+            "at": "2026-10-29T00:00:00Z",
+            "total": 3,
+            "closed": 1,
+            "open": 2,
+        })
+    );
+    let reported = entries(&out, SECURITY);
+    for (line, outcome, says) in [
+        (2, "redundant", "the file name gives the phase"),
+        (3, "redundant", "the file name gives the phase"),
+        (4, "computed", "security_audit.status is computed"),
+        (6, "computed", "security_audit.threats_open is computed"),
+        (8, "filled", "the frontmatter gives a date only"),
+        (11, "mapped", "security_audit v1.0/01/01-SECURITY"),
+        (13, "ignored", "the template's instruction"),
+        (17, "mapped", "each row sets data_crossing"),
+        (26, "mapped", "each row sets status"),
+        (34, "unmapped", "prose"),
+        (40, "mapped", "each row is an accepted_risk"),
+        (44, "mapped", "accepted_risk v1.0/01/01-SECURITY/AR1"),
+        (46, "unmapped", "prose"),
+        (50, "ignored", "a heading over the audit runs"),
+        (52, "filled", "the heading gives a date only"),
+        (52, "mapped", "audit_run v1.0/01/01-SECURITY/AU1"),
+        (62, "unmapped", "prose"),
+        (69, "unmapped", "prose"),
+    ] {
+        assert!(
+            has(&reported, line, outcome, says),
+            "{line} {says}: {reported:#?}"
+        );
+    }
+}
+
+#[test]
+fn vault_security_needs_the_extension_without_it() {
+    let out = import_with("vault", false);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let all = creates(&out);
+    for kind in ["security_audit", "accepted_risk", "audit_run", "threat"] {
+        assert!(paths(&all, kind).is_empty(), "{kind}");
+    }
+    let reported = entries(&out, SECURITY);
+    assert_eq!(reported.len(), 1, "{reported:#?}");
+    assert_eq!(reported[0].2, "needs-extension");
+}
+
+#[test]
+fn a_hostile_security_audit_sets_nothing_it_cannot_match() {
+    let text = "---\nphase: \"02\"\nslug: core\nasvs_level: 7\ncreated: someday\n---\n\n\
+        # Phase 1 — Security\n\n\
+        ## Trust Boundaries\n\n\
+        | Boundary | Description | Data Crossing |\n|---|---|---|\n| nowhere → here | d | x |\n\n\
+        ## Threat Register\n\n\
+        | Threat ID | Category | Component | Severity | Disposition | Mitigation | Status |\n\
+        |---|---|---|---|---|---|---|\n\
+        | T-01-01\u{202e} | I | src/vault.js seal | high | mitigate | m | closed |\n\
+        | T-01-02 | I | src/nowhere | high | mitigate | m | closed |\n\
+        | T-01-SC | T | npm/pip/cargo installs | high | mitigate | x | closed |\n\
+        | T-01-01 | I | src/vault.js seal | high | mitigate | m | fixed |\n\
+        | T-01-03 | I | src/cli.js list | low | accept | another mitigation | closed |\n\n\
+        ## Accepted Risks Log\n\n\
+        | Risk ID | Threat Ref | Rationale | Accepted By | Date |\n|---|---|---|---|---|\n\
+        | AR-1 | T-09-99 | r | me | 2026-10-30 |\n\
+        | AR-2 | T-01-03 | r | me | 2026-13-45 |\n\
+        | Risk 3 | T-01-03 | r | me | 2026-10-30 |\n\n\
+        ## Security Audit 2026-13-45\n\n\
+        | Metric | Count |\n|---|---|\n| Threats found | three |\n| Elapsed | 4 |\n";
+    let facts: Vec<Value> = planning_facts(&fixture("vault"))
+        .into_iter()
+        .map(|f| {
+            if f["path"] == SECURITY {
+                fact(SECURITY, text)
+            } else {
+                f
+            }
+        })
+        .collect();
+    let out = import(
+        &CommandGraph::default(),
+        &feed(facts, false, Some(&fixture_manifest("vault", true))),
+    );
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    assert_eq!(
+        with_status(&out, json!("closed")),
+        ["v1.0/01/01-02/T-01-03"]
+    );
+    assert!(with_status(&out, json!("open")).is_empty());
+    let all = creates(&out);
+    assert_eq!(
+        find(&all, "security_audit", "v1.0/01/01-SECURITY").fields,
+        json!({ "phase": "v1.0/01" })
+    );
+    assert_eq!(paths(&all, "accepted_risk"), ["v1.0/01/01-SECURITY/AR2"]);
+    assert_eq!(
+        find(&all, "accepted_risk", "v1.0/01/01-SECURITY/AR2").fields,
+        json!({
+            "audit": "v1.0/01/01-SECURITY",
+            "threat": "v1.0/01/01-02/T-01-03",
+            "rationale": "r",
+            "accepted_by": "me",
+        })
+    );
+    assert_eq!(
+        find(&all, "audit_run", "v1.0/01/01-SECURITY/AU1").fields,
+        json!({ "audit": "v1.0/01/01-SECURITY" })
+    );
+    let reported = entries(&out, SECURITY);
+    for (line, says) in [
+        (2, "names another phase than the file name's 01"),
+        (4, "is no level 1 to 3"),
+        (5, "is no date or RFC 3339 timestamp"),
+        (
+            14,
+            "no plan of the phase holds the boundary `nowhere → here`",
+        ),
+        (20, "no plan of the phase holds the threat `T-01-01"),
+        (21, "the component `src/nowhere`: no status set"),
+        (22, "2 plans' entities match the threat `T-01-SC`"),
+        (23, "is none of open, closed: no status set"),
+        (24, "differs from the plan's"),
+        (
+            30,
+            "no plan of the phase holds the threat `T-09-99`: not imported",
+        ),
+        (31, "the Date `2026-13-45` is no YYYY-MM-DD date"),
+        (32, "the Risk ID `Risk 3` is no `AR-<n>`"),
+        (34, "`at` left out"),
+        (38, "the Count of `Threats found` is no whole number"),
+        (39, "the metric `Elapsed` is no field of an audit run"),
+    ] {
+        assert!(
+            has(&reported, line, "unmapped", says),
+            "{line} {says}: {reported:#?}"
+        );
+    }
 }

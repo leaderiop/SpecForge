@@ -69,6 +69,11 @@ impl Records {
         self.0.get(&(kind, id.to_string()))
     }
 
+    /// The record `kind id`, to enrich (a SECURITY.md row sets its plan threat's status).
+    pub fn get_mut(&mut self, kind: &'static str, id: &str) -> Option<&mut Record> {
+        self.0.get_mut(&(kind, id.to_string()))
+    }
+
     /// The records in kind then id order.
     pub fn iter(&self) -> impl Iterator<Item = &Record> {
         self.0.values()

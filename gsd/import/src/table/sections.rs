@@ -707,9 +707,18 @@ pub const QUICK_SUMMARY: &[Row] = summary_rows!(QK, "SUMMARY ");
 const SC: &str = "SECURITY.md";
 #[rustfmt::skip]
 pub const SECURITY: &[Row] = &[
-    row(SC, "phase, slug", &[id("security_audit"), to("security_audit", "phase", Ref)]),
+    row(SC, "phase, slug", &[
+        id("security_audit"),
+        to("security_audit", "phase", Ref),
+        redundant("the file name gives the phase and the directory its slug; a mismatch is reported"),
+    ]),
     row(SC, "asvs_level", &[to("security_audit", "asvs_level", Text)]),
-    row(SC, "created", &[to("security_audit", "created", Text)]),
+    row(SC, "created", &[
+        to("security_audit", "created", Text),
+        filled("security_audit", "created", "<date>T00:00:00Z", "the frontmatter gives a date only; the field is a timestamp"),
+    ]),
+    row(SC, "> Per-phase security contract", &[Home::Ignored(INSTRUCTION)]),
+    row(SC, "## Security Audit Trail", &[Home::Ignored("a heading over the audit runs, each mapped under its own")]),
     row(SC, "status", &[computed("security_audit", "status")]),
     row(SC, "threats_open", &[computed("security_audit", "threats_open")]),
     row(SC, "## Trust Boundaries", &[to("trust_boundary", "data_crossing", Text)]),
