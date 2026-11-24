@@ -15,6 +15,13 @@ const TAGS: [(&str, &str); 4] = [
 /// The deepest a body may nest: a report nests two or three; more is a hostile file.
 const DEPTH_MAX: usize = 64;
 
+/// The most entries a report holds: a large package's holds a few thousand; more is a hostile file.
+const ENTRIES_MAX: usize = 100_000;
+
+/// The most bytes the entries' name paths hold together, each name counted with a `String`'s own size: every entry
+/// copies the names of the bodies around it, so depth alone does not bound what a 4 MiB file costs.
+const NAMES_MAX: usize = 16 * 1024 * 1024;
+
 /// Words before a declaration's keyword.
 const MODIFIERS: [&str; 4] = ["export", "declare", "default", "abstract"];
 
@@ -80,7 +87,8 @@ struct Pending {
 /// doc model's, visibility public, no owner, the signature its text as the report wrote it, a `//` comment inside it
 /// removed and its lines trimmed and joined by one space. One pass over the lines, no recursion. An error, naming
 /// why: no title before the fence, no fence, a fence or a body never closed, a declaration never ended, a closing
-/// brace with no body open, a line that is no declaration or member, a body nested deeper than 64, a line starting
+/// brace with no body open, a line that is no declaration or member, a body nested deeper than 64, more than 100,000
+/// entries or 16 MiB of names in their paths (each entry holds its enclosing bodies' names), a line starting
 /// `<<<<<<<`, `=======` or `>>>>>>>` (a merge conflict), each with its 1-based line.
 pub fn read_js_report(text: &str) -> Result<Vec<ApiEntry>, String> {
     let mut package: Option<&str> = None;
@@ -148,6 +156,8 @@ struct Reader<'t> {
     tag: Option<&'static str>,
     /// The last entry, when it is an accessor its pair joins.
     accessor: Option<usize>,
+    /// The bytes the entries' paths hold so far, against [`NAMES_MAX`].
+    names: usize,
 }
 
 impl<'t> Reader<'t> {
@@ -159,6 +169,7 @@ impl<'t> Reader<'t> {
             pending: None,
             tag: None,
             accessor: None,
+            names: 0,
         }
     }
 
@@ -256,6 +267,22 @@ impl<'t> Reader<'t> {
                 self.accessor = None;
                 return Ok(());
             }
+        }
+        if self.entries.len() == ENTRIES_MAX {
+            return Err(format!(
+                "line {}: more than {ENTRIES_MAX} entries",
+                pending.line
+            ));
+        }
+        self.names += path
+            .iter()
+            .map(|name| name.len() + std::mem::size_of::<String>())
+            .sum::<usize>();
+        if self.names > NAMES_MAX {
+            return Err(format!(
+                "line {}: the entries' name paths hold more than {NAMES_MAX} bytes",
+                pending.line
+            ));
         }
         self.accessor = accessor.then_some(self.entries.len());
         self.entries.push(ApiEntry {

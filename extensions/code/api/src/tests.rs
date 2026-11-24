@@ -668,6 +668,44 @@ fn a_malformed_report_is_an_error_naming_why() {
 }
 
 #[test]
+fn a_hostile_reports_depth_entries_and_names_are_bounded() {
+    let nested = |depth: usize| {
+        report(&format!(
+            "{}export const a: 1;\n{}",
+            "export namespace n {\n".repeat(depth),
+            "}\n".repeat(depth)
+        ))
+    };
+    // 64 bodies deep reads; one more is the error.
+    let deepest = read_js_report(&nested(64)).expect("64 deep reads");
+    assert_eq!(deepest.len(), 65);
+    assert_eq!(deepest[64].path.len(), 65);
+    assert!(read_js_report(&nested(65))
+        .unwrap_err()
+        .contains("deeper than 64"));
+
+    let many = |count: usize| report(&"export const a: 1;\n".repeat(count));
+    assert_eq!(
+        read_js_report(&many(100_000)).expect("reads").len(),
+        100_000
+    );
+    let error = read_js_report(&many(100_001)).unwrap_err();
+    assert_eq!(error, "line 100007: more than 100000 entries");
+
+    // A 200 KB namespace name, copied into each of its 100 members' paths: about 20 MB of names.
+    let long = format!(
+        "export namespace {} {{\n{}}}",
+        "n".repeat(200_000),
+        "    export const a: 1;\n".repeat(100)
+    );
+    let error = read_js_report(&report(&long)).unwrap_err();
+    assert!(
+        error.ends_with("the entries' name paths hold more than 16777216 bytes"),
+        "{error}"
+    );
+}
+
+#[test]
 fn an_unclosed_body_names_its_declaration_escaped() {
     let error = read_js_report(&report("export class \u{1b}[2J {\n    m(): void;")).unwrap_err();
     assert_eq!(error, "line 7: the body of \"\\u{1b}[2J\" is never closed");
