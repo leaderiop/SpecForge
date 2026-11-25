@@ -383,3 +383,87 @@ fn x2_floor_fails_a_ledger_copy_missing_one_case() {
         (None, Ok(()))
     );
 }
+
+/// The `Cargo.toml` of each `members` entry of the workspace manifest `dir/Cargo.toml` (`""` is the root), from the
+/// root, a `*` segment expanded.
+fn members_of(root: &Path, dir: &str) -> Vec<String> {
+    let manifest = std::fs::read_to_string(root.join(dir).join("Cargo.toml")).unwrap();
+    let list = manifest.split_once("\nmembers = [").unwrap().1;
+    let list = list.split_once(']').unwrap().0;
+    list.lines()
+        .map(|line| line.split('#').next().unwrap())
+        .flat_map(|line| line.split('"').skip(1).step_by(2))
+        .flat_map(|member| {
+            let member = if dir.is_empty() {
+                member.to_string()
+            } else {
+                format!("{dir}/{member}")
+            };
+            crate::repo::expand(root, &format!("{member}/Cargo.toml"))
+        })
+        .collect()
+}
+
+/// Every `Cargo.toml` under `dir` (from the root), at any depth, outside build output and `node_modules`.
+fn manifests_under(root: &Path, dir: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    let entries = std::fs::read_dir(root.join(dir))
+        .unwrap_or_else(|e| panic!("the excluded `{dir}` names no directory: {e}"));
+    for entry in entries {
+        let entry = entry.unwrap();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let path = format!("{dir}/{name}");
+        if entry.file_type().unwrap().is_dir() {
+            if !matches!(name.as_str(), "target" | "node_modules" | ".git") {
+                found.extend(manifests_under(root, &path));
+            }
+        } else if name == "Cargo.toml" {
+            found.push(path);
+        }
+    }
+    found
+}
+
+/// `@rust/cargo`'s `exclude` in `specforge.json` is the one setting that shrinks SpecForge's X2 denominator, so no
+/// entry may hide a crate whose tests the gate runs: a root workspace member, a guest (the `guests` check's nextest
+/// manifests) or a `gsd/` workspace member. The example extensions, which that check only lints, may sit under one.
+#[test]
+fn the_rust_cargo_exclude_list_hides_no_crate_whose_tests_run() {
+    let root = specforge_repo_root::repo_root();
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("specforge.json")).unwrap())
+            .unwrap();
+    let excluded = json["settings"]["@rust/cargo"]["exclude"]
+        .as_array()
+        .unwrap();
+    let mut tested = members_of(root, "");
+    tested.extend(members_of(root, "gsd"));
+    tested.extend(crate::guests::guests_of(&crate::repo::this_repo()));
+    for known in [
+        "gate/Cargo.toml",
+        "gsd/core/Cargo.toml",
+        "extensions/rust/test/Cargo.toml",
+    ] {
+        assert!(
+            tested.iter().any(|m| m == known),
+            "{known} is not among {tested:?}"
+        );
+    }
+    let hidden: Vec<String> = excluded
+        .iter()
+        // As `@rust/cargo` reads an entry: its non-empty, non-`.` segments joined by one `/`.
+        .map(|entry| {
+            let segments = entry.as_str().unwrap().split('/');
+            segments
+                .filter(|s| !s.is_empty() && *s != ".")
+                .collect::<Vec<_>>()
+                .join("/")
+        })
+        .flat_map(|dir| manifests_under(root, &dir))
+        .filter(|manifest| tested.contains(manifest))
+        .collect();
+    assert!(
+        hidden.is_empty(),
+        "specforge.json's @rust/cargo exclude hides crates whose tests run, shrinking X2: {hidden:?}"
+    );
+}

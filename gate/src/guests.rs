@@ -147,7 +147,7 @@ pub(crate) fn slugged(manifests: Vec<String>) -> Result<Vec<(String, String)>, S
 
 /// The guests' and the extension libraries' manifests: `extensions/<dir>/Cargo.toml` and
 /// `extensions/<family>/<pack>/Cargo.toml` (ADR 0328 D3).
-fn guests_of(repo: &Repo) -> Vec<String> {
+pub(crate) fn guests_of(repo: &Repo) -> Vec<String> {
     EXTENSION_CRATES
         .iter()
         .flat_map(|dirs| crate::repo::expand(&repo.root, &format!("{dirs}/Cargo.toml")))
