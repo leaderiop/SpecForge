@@ -4,7 +4,6 @@ use super::*;
 
 fn manifest(loaded: &[&str]) -> Manifest {
     Manifest {
-        spec_root: "spec".to_string(),
         security: loaded.contains(&"@gsd/security"),
         loaded: loaded.iter().map(|s| s.to_string()).collect(),
     }

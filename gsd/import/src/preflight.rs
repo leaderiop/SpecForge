@@ -12,7 +12,6 @@ use crate::table;
 /// What `specforge.json` says that the import needs, read as text (D11: not a registry query).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {
-    pub spec_root: String,
     /// `extensions` lists `@gsd/security`.
     pub security: bool,
     /// The extensions it lists, each by the name its text gives ([`entry_name`]).
@@ -20,7 +19,9 @@ pub struct Manifest {
 }
 
 /// The manifest the `manifest` read served; refused when it is missing, not JSON, or names a spec root other than
-/// `spec` (D4: the twins and the fixtures use `spec`, and the spec root is no input a command is given).
+/// `spec` (D4: the twins and the fixtures use `spec`, and the spec root is no input a command is given). An absent
+/// spec root and `.` both mean the project root to the host (`ProjectConfig::sources`), which holds `spec/gsd/`: both
+/// are accepted.
 pub fn manifest(served: &[Served]) -> Result<Manifest, String> {
     let file = served
         .iter()
@@ -34,20 +35,20 @@ pub fn manifest(served: &[Served]) -> Result<Manifest, String> {
     })?;
     let json: Value =
         serde_json::from_str(text).map_err(|e| format!("specforge.json is not JSON: {e}"))?;
-    let spec_root = match json.get("spec_root") {
-        None => "spec".to_string(),
-        Some(Value::String(root)) => root.clone(),
+    match json.get("spec_root") {
+        None => {}
+        Some(Value::String(root)) if root == "spec" || root == "." => {}
+        Some(Value::String(root)) => {
+            return Err(format!(
+                "specforge.json names the spec root '{}': the import writes spec/gsd/ and needs the spec root 'spec'",
+                crate::report::escape(root)
+            ));
+        }
         Some(other) => {
             return Err(format!(
                 "specforge.json: spec_root is not a string: {other}"
             ));
         }
-    };
-    if spec_root != "spec" {
-        return Err(format!(
-            "specforge.json names the spec root '{}': the import writes spec/gsd/ and needs the spec root 'spec'",
-            crate::report::escape(&spec_root)
-        ));
     }
     let loaded: Vec<String> = json
         .get("extensions")
@@ -61,7 +62,6 @@ pub fn manifest(served: &[Served]) -> Result<Manifest, String> {
         })
         .unwrap_or_default();
     Ok(Manifest {
-        spec_root,
         security: loaded.iter().any(|name| name == "@gsd/security"),
         loaded,
     })
@@ -143,16 +143,34 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_legacy_or_padded_entry_loads_security() {
-        let text = r#"{"extensions": ["@gsd/core@^1.1", " @gsd/security@^1.0 "]}"#;
-        let served = [Served {
+    fn read(text: &str) -> Result<Manifest, String> {
+        manifest(&[Served {
             path: "specforge.json".to_string(),
             text: Some(text.to_string()),
             error: None,
-        }];
-        let manifest = manifest(&served).expect("a manifest");
+        }])
+    }
+
+    #[test]
+    fn a_legacy_or_padded_entry_loads_security() {
+        let text = r#"{"extensions": ["@gsd/core@^1.1", " @gsd/security@^1.0 "]}"#;
+        let manifest = read(text).expect("a manifest");
         assert!(manifest.security);
         assert_eq!(manifest.loaded, ["@gsd/core", "@gsd/security"]);
+    }
+
+    #[test]
+    fn a_spec_root_holding_spec_gsd_is_accepted_and_any_other_refused() {
+        // Absent and `.` are the project root to the host, which holds spec/gsd/ as `spec` does.
+        for text in ["{}", r#"{"spec_root": "spec"}"#, r#"{"spec_root": "."}"#] {
+            assert!(read(text).is_ok(), "{text}");
+        }
+        for (text, says) in [
+            (r#"{"spec_root": "specs"}"#, "the spec root 'specs'"),
+            (r#"{"spec_root": 1}"#, "spec_root is not a string"),
+        ] {
+            let why = read(text).expect_err("refused");
+            assert!(why.contains(says), "{text}: {why}");
+        }
     }
 }

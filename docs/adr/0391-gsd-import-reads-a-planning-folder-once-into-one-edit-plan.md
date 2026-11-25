@@ -79,7 +79,8 @@ fails the test.
   source value that fails it is reported at its `file:line` and the entity is not created.
 - **Files.** Every target file path is built only from validated ids, under `spec/gsd/`. A spec root other than `spec`
   (read from `specforge.json`) is refused with a message: the twins and the fixtures use `spec`, and the spec root is
-  no input a command is given.
+  no input a command is given. An absent spec root and `.` are accepted: both mean the project root to the host,
+  which holds `spec/gsd/`.
 
 ## D5. Verdicts are never imported
 
