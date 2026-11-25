@@ -195,3 +195,19 @@ fn record_reports_refuses_any_fixture_but_the_three_before_running_one() {
         "the allowlist is checked before any fixture runs"
     );
 }
+
+#[test]
+fn record_reports_refuses_a_non_regular_report_before_copying_without_following_links() {
+    let script = record_reports();
+    let refusal = "odd=$(find \"$staged\" -mindepth 2 ! -type f)
+if [ -n \"$odd\" ]; then";
+    let refused = script.find(refusal).expect("the non-regular file refusal");
+    let exits = script[refused..].find("exit 1").expect("the refusal exits") + refused;
+    let copies: Vec<usize> = script.match_indices("cp ").map(|(at, _)| at).collect();
+    assert_eq!(copies.len(), 1, "one copy into the reports directory");
+    assert!(exits < copies[0], "the refusal runs before the copy");
+    assert!(
+        script[copies[0]..].starts_with("cp -P \"$staged/$fixture\"/* \"$out\"/"),
+        "the copy follows no symlink: cp -P"
+    );
+}
