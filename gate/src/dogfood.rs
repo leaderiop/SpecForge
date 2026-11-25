@@ -1,18 +1,18 @@
 //! The `dogfood` check (ADR 0374 D5): the repository's own tests prove its requirements.
 //!
-//! nextest writes a JUnit report under its `gate` and `ci` profiles (`<repository root>/target/nextest/<profile>/`;
-//! CI downloads each test partition's into its own directory there). Every `junit*.xml` found is merged into the one
-//! report `@rust/test` reads ([`crate::junit::merge`]). In a copy of the tracked tree ([`crate::checked_tree`]: no
-//! fact store, and no untracked copy of the sources, of this machine is in it), the root project is collected by
-//! `rust-cargo`, `rust-source` and `rust-test` over that report; then each requirement's computed `proof` is read
-//! from `specforge export --format graph --kinds requirement` and judged by [`crate::judge::requirement_verdict`].
-//! The requirements the guests' tests name come from `specforge anchors --file extensions`: guests run under `cargo
-//! test` and write no JUnit, so what only they prove reads `no_test`, and the verdict counts it.
+//! nextest writes a JUnit report under its `gate` and `ci` profiles (`<repository root>/target/nextest/<profile>/`):
+//! the root run's (CI downloads each test partition's into its own directory there), every guest's under
+//! `junit-guests/<guest>/` and the `@gsd` workspace's under `junit-gsd/` (ADR 0393 D2, D3). The check refuses to
+//! judge when any of the three sets is missing; every `junit*.xml` found is merged into the one report `@rust/test`
+//! reads ([`crate::junit::merge`]). In a copy of the tracked tree ([`crate::checked_tree`]: no fact store, and no
+//! untracked copy of the sources, of this machine is in it), the root project is collected by `rust-cargo`,
+//! `rust-source` and `rust-test` over that report; then each requirement's computed `proof` is read from `specforge
+//! export --format graph --kinds requirement` and judged by [`crate::judge::requirement_verdict`], from the export
+//! alone.
 //!
 //! It also prints X2 (ADR 0388) to its log, [`crate::x2`] over `specforge export --format graph --kinds item,test`
 //! of each project it collects. X2 is print only: a failed collect or export of an X2 project is the check's error.
 
-use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
@@ -24,12 +24,7 @@ use crate::{checked_tree, judge, junit, steps, x2};
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let dir = report_dir(&ctx.repo.root, ctx.mode.nextest_profile());
     let found = reports(&dir);
-    if found.is_empty() {
-        return Err(format!(
-            "no nextest JUnit report under {}: run `cargo gate full --only tests` first",
-            dir.display()
-        ));
-    }
+    report_sets(&dir, &found)?;
     let mut texts = Vec::new();
     for path in &found {
         ctx.log(&format!("report {}", path.display()));
@@ -69,20 +64,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             "requirement",
         ],
     )?;
-    let anchors = json(
-        ctx,
-        specforge,
-        &[
-            "anchors",
-            "--path",
-            &tree,
-            "--file",
-            "extensions",
-            "--format",
-            "json",
-        ],
-    )?;
-    let (lines, failed) = judge::requirement_verdict(&export, &anchored(&anchors));
+    let (lines, failed) = judge::requirement_verdict(&export);
     for line in &lines {
         ctx.log(line);
     }
@@ -278,14 +260,26 @@ pub(crate) fn reports(dir: &Path) -> Vec<PathBuf> {
     found
 }
 
-/// The entity ids `specforge anchors --file … --format json` lists.
-fn anchored(anchors: &Value) -> BTreeSet<String> {
-    anchors["entities"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|e| e["entity_id"].as_str().map(String::from))
-        .collect()
+/// Ok when `found` (the reports under `dir`) holds a report of each set: the root tests' (any not under the guests'
+/// or the gsd directory), the guests' and the `@gsd` workspace's. A lost set would read as "all tests" (ADR 0393 D3).
+fn report_sets(dir: &Path, found: &[PathBuf]) -> Result<(), String> {
+    let (guests, gsd) = (dir.join(GUESTS), dir.join(GSD));
+    let root = found
+        .iter()
+        .any(|path| !path.starts_with(&guests) && !path.starts_with(&gsd));
+    for (set, present) in [
+        ("root tests", root),
+        ("guests", found.iter().any(|path| path.starts_with(&guests))),
+        ("gsd", found.iter().any(|path| path.starts_with(&gsd))),
+    ] {
+        if !present {
+            return Err(format!(
+                "no {set} JUnit report under {}: run cargo gate full --only tests,guests,gsd first",
+                dir.display()
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// `specforge <args>`'s stdout as JSON; an error when it exits non-zero (carrying the reason it printed, which the

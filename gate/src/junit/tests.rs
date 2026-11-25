@@ -27,5 +27,8 @@ fn a_report_with_no_testsuites_root_is_refused() {
     let refused = merge(&parts).expect_err("no <testsuites> root");
     assert!(refused.contains("report 2"), "{refused}");
     let none = merge(&[]).expect_err("nothing to merge");
-    assert!(none.contains("cargo gate full --only tests"), "{none}");
+    assert!(
+        none.contains("cargo gate full --only tests,guests,gsd"),
+        "{none}"
+    );
 }

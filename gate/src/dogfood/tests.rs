@@ -107,18 +107,42 @@ fn the_gsd_workspace_writes_its_junit_under_the_root_report_dir() {
     }
 }
 
+/// The root tests', the guests' and the `@gsd` workspace's reports are each required, in the local and the CI layout:
+/// a missing set is an error naming it and the run that writes it (ADR 0393 D3).
 #[test]
-fn the_anchored_entities_are_the_guest_named_set() {
-    let anchors = serde_json::json!({"entities": [
-        {"entity_id": "FEATURE-001", "kind": "requirement"},
-        {"entity_id": "FEATURE-002", "kind": "requirement"},
-        {"entity_id": "FEATURE-001", "kind": "requirement"},
-    ]});
-    assert_eq!(
-        anchored(&anchors),
-        BTreeSet::from(["FEATURE-001".to_string(), "FEATURE-002".to_string()])
-    );
-    assert!(anchored(&serde_json::json!({"entities": []})).is_empty());
+fn dogfood_refuses_without_each_report_set() {
+    let local = [
+        "junit.xml",
+        "junit-guests/a/junit.xml",
+        "junit-gsd/junit.xml",
+    ];
+    let ci = [
+        "junit-tests-1/junit.xml",
+        "junit-guests/a/junit.xml",
+        "junit-gsd/junit.xml",
+    ];
+    for layout in [local, ci] {
+        let dir = tempfile::tempdir().unwrap();
+        for file in layout {
+            write(dir.path(), file);
+        }
+        report_sets(dir.path(), &reports(dir.path())).unwrap();
+    }
+    for (missing, set) in [(0, "root tests"), (1, "guests"), (2, "gsd")] {
+        let dir = tempfile::tempdir().unwrap();
+        for (_, file) in local.iter().enumerate().filter(|(i, _)| *i != missing) {
+            write(dir.path(), file);
+        }
+        let refused = report_sets(dir.path(), &reports(dir.path())).unwrap_err();
+        assert!(
+            refused.starts_with(&format!("no {set} JUnit report under ")),
+            "{refused}"
+        );
+        assert!(
+            refused.contains("cargo gate full --only tests,guests,gsd"),
+            "{refused}"
+        );
+    }
 }
 
 #[test]

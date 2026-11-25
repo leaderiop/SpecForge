@@ -126,9 +126,8 @@ const FAILED_NAMED: usize = 10;
 /// --kinds requirement`) and its computed `proof` (`@gsd/core`), a node with none counted under `none`. It fails
 /// when there is no requirement, when none is `proven` (a test run with an empty result shows red) or when any is
 /// `failed`, naming the first failed ones. It always prints `requirements proven: N of M` with the count of each
-/// other state, and how many `no_test` requirements only guests' tests name (`guest_named`): guests run under
-/// `cargo test` and write no JUnit, so what only they prove reads `no_test`.
-pub fn requirement_verdict(export: &Value, guest_named: &BTreeSet<String>) -> (Vec<String>, bool) {
+/// other state.
+pub fn requirement_verdict(export: &Value) -> (Vec<String>, bool) {
     let mut states: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
     for node in export["nodes"]
         .as_array()
@@ -144,17 +143,13 @@ pub fn requirement_verdict(export: &Value, guest_named: &BTreeSet<String>) -> (V
     }
     let count = |state: &str| states.get(state).map_or(0, Vec::len);
     let total: usize = states.values().map(Vec::len).sum();
-    let guests_only = states.get("no_test").map_or(0, |ids| {
-        ids.iter().filter(|id| guest_named.contains(**id)).count()
-    });
     let others: String = states
         .iter()
         .filter(|(state, _)| !matches!(**state, "proven" | "failed" | "not_run" | "no_test"))
         .map(|(state, ids)| format!(", {state} {}", ids.len()))
         .collect();
     let mut lines = vec![format!(
-        "requirements proven: {} of {total} (failed {}, not_run {}, no_test {}, of them {guests_only} named only by \
-         guests' tests{others})",
+        "requirements proven: {} of {total} (failed {}, not_run {}, no_test {}{others})",
         count("proven"),
         count("failed"),
         count("not_run"),
@@ -166,7 +161,7 @@ pub fn requirement_verdict(export: &Value, guest_named: &BTreeSet<String>) -> (V
         failed = true;
     } else if count("proven") == 0 {
         lines.push(
-            "no requirement is proven: no passing test names one (run `cargo gate full --only tests` first)"
+            "no requirement is proven: no passing test names one (run `cargo gate full --only tests,guests,gsd` first)"
                 .to_string(),
         );
         failed = true;
@@ -362,7 +357,7 @@ mod tests {
     fn requirement_verdict_fails_an_export_with_no_requirement() {
         let decision = json!({"nodes": [{"id": "D-001", "kind": "decision", "fields": {}}]});
         for export in [json!({"nodes": []}), json!({}), decision] {
-            let (lines, failed) = requirement_verdict(&export, &BTreeSet::new());
+            let (lines, failed) = requirement_verdict(&export);
             assert!(failed, "{lines:?}");
             assert!(
                 lines[1].starts_with("no requirement in the export"),
@@ -377,12 +372,11 @@ mod tests {
             {"id": "A-01", "kind": "requirement", "fields": {}},
             {"id": "A-02", "kind": "requirement", "fields": {"proof": "no_test"}},
         ]});
-        let (lines, failed) = requirement_verdict(&export, &BTreeSet::new());
+        let (lines, failed) = requirement_verdict(&export);
         assert!(failed);
         assert_eq!(
             lines[0],
-            "requirements proven: 0 of 2 (failed 0, not_run 0, no_test 1, of them 0 named only by guests' tests, \
-             none 1)"
+            "requirements proven: 0 of 2 (failed 0, not_run 0, no_test 1, none 1)"
         );
         assert!(
             lines[1].starts_with("no requirement is proven"),
@@ -394,12 +388,12 @@ mod tests {
     fn requirement_verdict_fails_a_failed_requirement_and_names_it() {
         let mut export = tracer_export();
         export["nodes"][1]["fields"]["proof"] = json!("failed");
-        let (lines, failed) = requirement_verdict(&export, &BTreeSet::new());
+        let (lines, failed) = requirement_verdict(&export);
         assert!(failed);
         assert_eq!(
             lines,
             [
-                "requirements proven: 1 of 3 (failed 1, not_run 0, no_test 1, of them 0 named only by guests' tests)",
+                "requirements proven: 1 of 3 (failed 1, not_run 0, no_test 1)",
                 "TRACER-02 failed: a test that names it failed",
             ]
         );
@@ -412,7 +406,7 @@ mod tests {
         nodes.extend((1..=12).map(|n| {
             json!({"id": format!("BAD-{n:02}"), "kind": "requirement", "fields": {"proof": "failed"}})
         }));
-        let (lines, failed) = requirement_verdict(&json!({ "nodes": nodes }), &BTreeSet::new());
+        let (lines, failed) = requirement_verdict(&json!({ "nodes": nodes }));
         assert!(failed);
         assert_eq!(lines.len(), 1 + 10 + 1, "{lines:?}");
         assert_eq!(lines.last().unwrap(), "and 2 more failed");
@@ -420,24 +414,11 @@ mod tests {
 
     #[test]
     fn requirement_verdict_passes_the_fixtures_export() {
-        let (lines, failed) = requirement_verdict(&tracer_export(), &BTreeSet::new());
+        let (lines, failed) = requirement_verdict(&tracer_export());
         assert!(!failed, "{lines:?}");
         assert_eq!(
             lines,
-            [
-                "requirements proven: 2 of 3 (failed 0, not_run 0, no_test 1, of them 0 named only by guests' tests)"
-            ]
-        );
-    }
-
-    #[test]
-    fn requirement_verdict_counts_the_no_test_requirements_only_guests_name() {
-        let guests = BTreeSet::from(["TRACER-03".to_string(), "TRACER-01".to_string()]);
-        let (lines, failed) = requirement_verdict(&tracer_export(), &guests);
-        assert!(!failed, "{lines:?}");
-        assert!(
-            lines[0].contains("no_test 1, of them 1 named only by guests' tests"),
-            "{lines:?}"
+            ["requirements proven: 2 of 3 (failed 0, not_run 0, no_test 1)"]
         );
     }
 
