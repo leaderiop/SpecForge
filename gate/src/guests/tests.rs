@@ -53,6 +53,46 @@ fn a_guests_slug_is_its_directory_under_extensions() {
     assert_eq!(slug("extensions/checks/Cargo.toml"), "checks");
 }
 
+/// Two guests whose directories slug alike are refused, naming both; distinct ones keep their order.
+#[test]
+fn two_guests_sharing_a_slug_are_refused() {
+    let manifests = |paths: &[&str]| paths.iter().map(|p| p.to_string()).collect::<Vec<_>>();
+    assert_eq!(
+        slugged(manifests(&[
+            "extensions/rust/test/Cargo.toml",
+            "extensions/checks/Cargo.toml"
+        ])),
+        Ok(vec![
+            (
+                "extensions/rust/test/Cargo.toml".to_string(),
+                "rust-test".to_string()
+            ),
+            (
+                "extensions/checks/Cargo.toml".to_string(),
+                "checks".to_string()
+            ),
+        ])
+    );
+    let err = slugged(manifests(&[
+        "extensions/cargo-test/Cargo.toml",
+        "extensions/cargo/test/Cargo.toml",
+    ]))
+    .unwrap_err();
+    assert!(
+        err.starts_with(
+            "extensions/cargo-test/Cargo.toml and extensions/cargo/test/Cargo.toml share the guest slug `cargo-test`"
+        ),
+        "{err}"
+    );
+}
+
+/// The real guests' slugs are distinct.
+#[test]
+fn the_repositorys_guests_have_distinct_slugs() {
+    let guests = slugged(guests_of(&crate::repo::this_repo())).unwrap();
+    assert!(guests.len() > 1, "{guests:?}");
+}
+
 /// The committed base holds the gate and ci profiles and leaves the store, the JUnit path and the root's package
 /// overrides out: the gate adds the first two, and nextest refuses the overrides against a guest manifest.
 #[test]

@@ -47,8 +47,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             .args(after);
         cmd
     };
-    for manifest in guests_of(ctx.repo) {
-        let slug = slug(&manifest);
+    for (manifest, slug) in slugged(guests_of(ctx.repo))? {
         let file = configs.join(format!("{slug}.toml"));
         std::fs::write(&file, config(&base, &store, profile, &slug)?)
             .map_err(|e| format!("{}: {e}", file.display()))?;
@@ -120,6 +119,22 @@ pub(crate) fn slug(manifest: &str) -> String {
     dir.strip_prefix("extensions/")
         .unwrap_or(dir)
         .replace('/', "-")
+}
+
+/// Each manifest with its [`slug`], in order; an error naming both manifests when two share a slug, since the second
+/// run would overwrite the first's config and JUnit report.
+pub(crate) fn slugged(manifests: Vec<String>) -> Result<Vec<(String, String)>, String> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    for manifest in manifests {
+        let slug = slug(&manifest);
+        if let Some((first, _)) = out.iter().find(|(_, s)| *s == slug) {
+            return Err(format!(
+                "{first} and {manifest} share the guest slug `{slug}`: one would overwrite the other's JUnit report"
+            ));
+        }
+        out.push((manifest, slug));
+    }
+    Ok(out)
 }
 
 /// The guests' and the extension libraries' manifests: `extensions/<dir>/Cargo.toml` and
