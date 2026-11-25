@@ -258,10 +258,21 @@ fn requires(
     };
     let mut out = Vec::new();
     for item in items {
-        let Value::Map(_) = &item.value else {
+        let Value::Map(members) = &item.value else {
             report.push(doc.row("requires: [plan ids]", item.line, "requires"));
             continue;
         };
+        for (member, value) in members {
+            if !matches!(member.as_str(), "phase" | "provides") {
+                report.push(doc.unmapped(
+                    value.line,
+                    "requires",
+                    format!(
+                        "a requires member `{member}` no row of the table names: no field holds it"
+                    ),
+                ));
+            }
+        }
         let get = |k: &str| {
             item.value
                 .get(k)
@@ -409,6 +420,9 @@ fn deliverables(
                     }
                     None => report.push(bad("is not one text")),
                 },
+                "requirement" if matches!(value.value, Value::List(_) | Value::Map(_)) => {
+                    report.push(bad("is not one requirement id"))
+                }
                 "requirement" => {
                     let kept = defined(
                         doc,
@@ -473,17 +487,46 @@ fn deliverables(
     }
 }
 
-/// A coverage item's `verification` list as `checks` blocks `{kind, ref}`; each `status` is reported computed.
+/// A coverage item's `verification` list as `checks` blocks `{kind, ref}`; each `status` is reported computed, and any
+/// other member, a check that is no map and a value that is no list are reported.
 fn checks(doc: &Doc<'_>, v: &Located<Value>, report: &mut Report) -> Vec<Json> {
     let items = match &v.value {
         Value::List(items) => items.as_slice(),
-        _ => &[],
+        Value::Str(s) if s.trim().is_empty() => &[],
+        _ => {
+            report.push(doc.unmapped(
+                v.line,
+                "coverage",
+                "`verification` is not a list: not imported".to_string(),
+            ));
+            &[]
+        }
     };
     let mut out = Vec::new();
     for item in items {
+        let Value::Map(members) = &item.value else {
+            report.push(doc.unmapped(
+                item.line,
+                "coverage",
+                "a check that is not a map: not imported".to_string(),
+            ));
+            continue;
+        };
         let get = |k: &str| item.value.get(k);
-        if let Some(status) = get("status") {
-            report.push(doc.row("coverage verification status", status.line, "coverage"));
+        for (member, value) in members {
+            match member.as_str() {
+                "kind" | "ref" => {}
+                "status" => {
+                    report.push(doc.row("coverage verification status", value.line, "coverage"))
+                }
+                _ => report.push(doc.unmapped(
+                    value.line,
+                    "coverage",
+                    format!(
+                        "a check member `{member}` no row of the table names: no field holds it"
+                    ),
+                )),
+            }
         }
         let text = |k: &str| get(k).and_then(|v| v.value.as_str()).map(str::trim);
         match (

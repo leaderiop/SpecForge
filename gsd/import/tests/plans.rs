@@ -691,6 +691,42 @@ fn a_second_plan_of_one_id_keeps_its_tasks_to_itself() {
 }
 
 #[test]
+fn a_deliverable_and_a_requires_report_each_member_they_do_not_read() {
+    let path = ".planning/phases/01-one/01-01-SUMMARY.md";
+    let front = "requires:\n  - phase: 01-one\n    provides: x\n    via: y\ncoverage:\n  - id: d1\n    \
+        description: D\n    human_judgment: false\n    requirement: [A-01, B-02]\n    verification:\n      \
+        - kind: unit\n        ref: t1\n        command: npm test\n      - plain\n  - id: d2\n    description: E\n    \
+        human_judgment: false\n    verification: npm test\n";
+    let out = run(vec![
+        (".planning/phases/01-one/01-01-PLAN.md", &plan_text("", "")),
+        (path, &summary_text(front)),
+    ]);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let all = creates(&out);
+    let summary = find(&all, "summary", "v1.0/01/01-01/01-01-SUMMARY");
+    assert_eq!(
+        summary.fields["requires"],
+        json!([{"phase": "v1.0/01", "provides": "x"}])
+    );
+    let d1 = find(&all, "deliverable", "v1.0/01/01-01/01-01-SUMMARY/d1");
+    assert_eq!(d1.fields["checks"], json!([{"kind": "unit", "ref": "t1"}]));
+    assert_eq!(d1.fields.get("requirement"), None);
+    let reported = entries(&out, path);
+    for (line, says) in [
+        (10, "a requires member `via` no row of the table names"),
+        (15, "`requirement` is not one requirement id"),
+        (19, "a check member `command` no row of the table names"),
+        (20, "a check that is not a map"),
+        (24, "`verification` is not a list"),
+    ] {
+        assert!(
+            has(&reported, line, "unmapped", says),
+            "{line} {says}: {reported:#?}"
+        );
+    }
+}
+
+#[test]
 fn a_summary_writes_no_harness_timestamp() {
     let path = ".planning/phases/01-one/01-01-SUMMARY.md";
     let out = run(vec![
