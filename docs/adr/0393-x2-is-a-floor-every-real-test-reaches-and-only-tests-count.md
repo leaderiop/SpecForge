@@ -79,10 +79,15 @@ requirement a guest test fails to prove.
 
 ## D4. A JavaScript test call is an item, and a leaf test carries node-test's id
 
-`@javascript/source` reads test files for their test calls only. A call whose callee is `test`, `it`, `describe` or
-`suite`, or one of those with `.skip`, `.todo` or `.only`, or a subtest `<name>.test(...)` inside a test, whose first
-argument is a string or a template with no substitution and not empty, becomes a `function` item with the attribute
-`test`; its path is the enclosing suite and test names, then its own. A plain call needs a function argument.
+`@javascript/source` reads test files for their test calls only: the files `node --test` runs by default (its
+patterns `**/*.test.*`, `**/*-test.*`, `**/*_test.*`, `**/test-*.*`, `**/test.*` and `**/test/**`, over `.js .cjs
+.mjs .ts .mts .cts`), since node-test is the runner whose ids they carry, and only when the package the pack names a
+file after is the one node-test names it after (a test file of a fixture package under `test/` gives no item). A
+`.spec.*` file or one under `tests/`, `__tests__/` or `__mocks__/` stays no source item and gives no test item. A
+call whose callee is `test`, `it`, `describe` or `suite`, or one of those with `.skip`, `.todo` or `.only`, or a
+subtest `<name>.test(...)` inside a test, whose first argument is a string or a template with no substitution and not
+empty, becomes a `function` item with the attribute `test`; its path is the enclosing suite and test names, then its
+own. A plain call needs a function argument.
 
 node's JUnit reporter writes a test or a suite as a `<testsuite>` exactly when at least one test, suite or subtest
 ran inside it, and as a `<testcase>` otherwise (checked against node v26.13.0): an empty `describe`, a `describe`

@@ -4,11 +4,12 @@
 //! alternation). A listed file is read when a package the pack reads owns it ([`Workspace::owner`]: a file under none
 //! is outside the pack, as a `.rs` file no crate reaches is outside `@rust/source`) and its path inside that package is
 //! neither a test file (a runner pack holds the tests; their helpers are no API) nor generated output ([`kept`]). A
-//! test file that is not generated output is parsed too, with the test query, for its test calls only ([`tested`], ADR
-//! 0393 D4). A package is read unless its `package.json`, inside the package above it or the project, is a test's or
-//! generated output's ([`read_packages`]). The selected files of one grammar are parsed in one request, the files an
-//! answer's cap left unparsed asked again. A listing the host truncated is replaced, for its extension, by a parse of
-//! its glob whose answer the same selection filters.
+//! test file that `node --test` runs by default, not generated output, is parsed too, with the test query, for its
+//! test calls only, when its package is the one node-test names it after ([`tested`], ADR 0393 D4): a test file of a
+//! package the pack does not read gives no item. A package is read unless its `package.json`, inside the package above
+//! it or the project, is a test's or generated output's ([`read_packages`]). The selected files of one grammar are
+//! parsed in one request, the files an answer's cap left unparsed asked again. A listing the host truncated is
+//! replaced, for its extension, by a parse of its glob whose answer the same selection filters.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -126,12 +127,33 @@ pub(crate) fn kept(workspace: &Workspace, path: &str) -> bool {
         .is_some_and(|(_, under)| readable(under))
 }
 
-/// Whether the pack reads the project-relative `path` for its test calls: a package it reads owns it, and the path
-/// inside that package is a test file and not generated output.
-pub(crate) fn tested(workspace: &Workspace, path: &str) -> bool {
-    workspace
-        .owner(path)
-        .is_some_and(|(_, under)| is_test(under) && !is_generated(under))
+/// Whether `node --test` runs the project-relative `path` by default (node 23.6 and later, whose type stripping runs
+/// `.ts .mts .cts`): `*.test.*`, `*-test.*`, `*_test.*`, `test-*.*`, `test.*`, or any file under a `test` directory,
+/// of an extension node runs. node-test is the runner whose ids the test calls carry.
+fn node_runs(path: &str) -> bool {
+    let (dirs, name) = split(path);
+    let Some((stem, extension)) = name.rsplit_once('.') else {
+        return false;
+    };
+    ["js", "cjs", "mjs", "ts", "mts", "cts"].contains(&extension)
+        && ([".test", "-test", "_test"]
+            .iter()
+            .any(|suffix| stem.ends_with(suffix))
+            || stem.starts_with("test-")
+            || stem == "test"
+            || dirs.contains(&"test"))
+}
+
+/// Whether the pack reads the project-relative `path` for its test calls: `node --test` runs it, a package the pack
+/// reads (`workspace`) owns it and is the one node-test names it after (the owner among `all` the named packages, a
+/// fixture's under a test directory included), and the path inside that package is a test file and not generated
+/// output.
+pub(crate) fn tested(workspace: &Workspace, all: &Workspace, path: &str) -> bool {
+    let named = all.owner(path).map(|(package, _)| &package.dir);
+    node_runs(path)
+        && workspace.owner(path).is_some_and(|(package, under)| {
+            named == Some(&package.dir) && is_test(under) && !is_generated(under)
+        })
 }
 
 /// `workspace` without the packages the pack does not read: one whose `package.json`, inside the nearest package the
@@ -169,8 +191,7 @@ pub(crate) struct Parsed {
 /// Every file of the project's listings that `select` ([`kept`] or [`tested`]) accepts, parsed with `query`, by path.
 pub(crate) fn parsed(
     input: &CollectInput,
-    workspace: &Workspace,
-    select: fn(&Workspace, &str) -> bool,
+    select: &dyn Fn(&str) -> bool,
     query: &str,
 ) -> Result<Vec<Parsed>, String> {
     let mut by_language: BTreeMap<&str, Vec<String>> = BTreeMap::new();
@@ -186,7 +207,7 @@ pub(crate) fn parsed(
         by_language.entry(listing.language).or_default().extend(
             read.facts
                 .iter()
-                .filter(|file| file.exists && select(workspace, &file.path))
+                .filter(|file| file.exists && select(&file.path))
                 .map(|file| file.path.clone()),
         );
     }
@@ -204,7 +225,7 @@ pub(crate) fn parsed(
     for listing in globbed {
         parsed.extend(all_parsed(
             request(listing.language, SyntaxFiles::Glob(listing.glob()), query),
-            |path| select(workspace, path),
+            select,
         )?);
     }
     parsed.sort_by(|a, b| a.path.cmp(&b.path));

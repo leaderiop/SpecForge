@@ -63,14 +63,16 @@ impl Contributions for JavascriptSource {
 
 /// Every item of every kept source file, every test call of every test file, and every named package, as facts.
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
-    let workspace = files::read_packages(Workspace::of(input));
+    let all = Workspace::of(input);
+    let workspace = files::read_packages(all.clone());
     let mut definitions = Vec::new();
-    for file in files::parsed(input, &workspace, files::kept, QUERY)? {
+    for file in files::parsed(input, &|path| files::kept(&workspace, path), QUERY)? {
         if let Some((package, under)) = workspace.owner(&file.path) {
             definitions.extend(items::read(package, &file.path, under, &file.matches));
         }
     }
-    for file in files::parsed(input, &workspace, files::tested, TESTS)? {
+    let tested = |path: &str| files::tested(&workspace, &all, path);
+    for file in files::parsed(input, &tested, TESTS)? {
         if let Some((package, under)) = workspace.owner(&file.path) {
             definitions.extend(calls::read(package, &file.path, under, &file.matches));
         }

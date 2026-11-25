@@ -42,8 +42,14 @@ with the TypeScript grammar, and every `.tsx`, `.js`, `.jsx`, `.mjs` and
 - **Test files, but for their test calls**: a name holding `.test.`,
   `.spec.`, `-test.` or `_test.`, or starting `test-` or `test.`, and anything
   under a `test`, `tests`, `__tests__` or `__mocks__` directory. A second
-  query reads such a file for its statically named test calls only, each an
-  item (section 5); its helpers are no API and no item.
+  query reads for its statically named test calls only, each an item
+  (section 5), a test file `node --test` runs by default, since node-test
+  names the tests: `*.test.*`, `*-test.*`, `*_test.*`, `test-*.*`, `test.*`
+  and anything under a `test` directory of the project, in `.js`, `.cjs`,
+  `.mjs`, `.ts`, `.mts` or `.cts` (node 23.6 and later run TypeScript). A
+  test file of a package this pack does not read (a fixture under `test/`)
+  gives no item, as node-test names its tests after that package. A test
+  file's helpers are no API and no item.
 - **Generated output**: a `.min.js`, `.min.mjs` or `.min.cjs` file, and
   anything under `coverage`, `build`, `out`, `.nuxt`, `.svelte-kit`, `.turbo`,
   `.cache` or `storybook-static`. The host's walk never enters `dist`,

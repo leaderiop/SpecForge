@@ -124,3 +124,15 @@ fn the_keep_rules_judge_a_path_inside_its_package_a_package_json_too() {
     assert_eq!(packages(&unnamed), ["pkg:npm/tool"]);
     assert_eq!(items(&unnamed), ["js:tool/src/a.js::a"]);
 }
+
+#[specforge_test(requirement = "FEATURE-056")]
+fn a_fixture_packages_test_file_gives_no_item() {
+    // node runs `test/fixtures/proj/a.test.js`, and node-test names it after `proj`, a package this pack does not
+    // read: under `app` its id would be `js:app/test/fixtures/proj/a.test.js#x`, one no report holds.
+    let facts = collected(&[
+        ("test/fixtures/proj/package.json", r#"{"name":"proj"}"#),
+        ("test/fixtures/proj/a.test.js", "test(\"x\", () => {});\n"),
+        ("test/fixtures/plain/b.test.js", "test(\"y\", () => {});\n"),
+    ]);
+    assert_eq!(items(&facts), ["js:app/test/fixtures/plain/b.test.js::y"]);
+}

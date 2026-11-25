@@ -319,12 +319,16 @@ fn a_test_file_is_parsed_only_for_its_test_calls() {
         ("tests/g.ts", "function helper() {}\n"),
         ("src/__tests__/h.jsx", "function helper() {}\n"),
         ("src/__mocks__/i.cjs", "function helper() {}\n"),
+        ("src/k.test.ts", "function helper() {}\n"),
+        ("src/l.test.tsx", "function helper() {}\n"),
+        ("test/m.jsx", "function helper() {}\n"),
+        ("src/test.n.js", "function helper() {}\n"),
     ];
     let (out, asked) = run(host(&files), &[]);
-    // The source files with the pack's query, then the test files with the test query: a helper is no item.
+    // The source files with the pack's query, then the test files `node --test` runs with the test query: a helper
+    // is no item. A test file node does not run by default (`.spec.`, `tests/`, `__tests__/`, `__mocks__/`, `.tsx`,
+    // `.jsx`, `test.n.js`) is read by neither query.
     let tests = [
-        "src/__mocks__/i.cjs",
-        "src/__tests__/h.jsx",
         "src/a.test.js",
         "src/c-test.js",
         "src/d_test.mjs",
@@ -337,7 +341,7 @@ fn a_test_file_is_parsed_only_for_its_test_calls() {
         [
             ("tsx", vec!["attest/x.js", "src/a.js", "src/latest.js"]),
             ("tsx", tests.to_vec()),
-            ("typescript", vec!["src/b.spec.ts", "tests/g.ts"]),
+            ("typescript", vec!["src/k.test.ts"]),
         ]
     );
     assert_eq!(
