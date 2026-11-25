@@ -7,20 +7,26 @@ use std::process::Command;
 #[path = "common/node.rs"]
 mod node;
 
+/// Every file under `dir`, at any depth (the recorded tool reports sit in `reports/`), with its text, by path.
 fn goldens(dir: &Path) -> Vec<(String, String)> {
-    let mut found: Vec<(String, String)> = std::fs::read_dir(dir)
-        .expect("goldens")
-        .map(|e| {
-            let path = e.expect("entry").path();
-            (
-                path.file_name()
-                    .expect("name")
-                    .to_string_lossy()
-                    .into_owned(),
-                std::fs::read_to_string(&path).expect("read"),
-            )
-        })
-        .collect();
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(dir).expect("goldens") {
+        let path = entry.expect("entry").path();
+        let name = path
+            .file_name()
+            .expect("name")
+            .to_string_lossy()
+            .into_owned();
+        if path.is_dir() {
+            found.extend(
+                goldens(&path)
+                    .into_iter()
+                    .map(|(file, text)| (format!("{name}/{file}"), text)),
+            );
+        } else {
+            found.push((name, std::fs::read_to_string(&path).expect("read")));
+        }
+    }
     found.sort();
     found
 }
