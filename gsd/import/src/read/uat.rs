@@ -134,7 +134,9 @@ pub fn read(
         fields,
         0,
     );
-    record.refs.extend(sources);
+    record
+        .links
+        .extend(sources.into_iter().map(|s| ("source", s)));
     records.add(record, report);
 }
 

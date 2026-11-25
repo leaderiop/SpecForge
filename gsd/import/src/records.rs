@@ -30,8 +30,12 @@ pub struct Record {
     /// The `spec/gsd/` file it is written to.
     pub file: String,
     pub fields: BTreeMap<String, Value>,
-    /// The ids its reference fields name (its phase, its plan): each must be created by the plan or be in the graph.
+    /// The ids its scope and required reference fields name (its phase, its plan): each must be created by the plan or
+    /// be in the graph, else the record is not imported ("parent not imported").
     pub refs: Vec<String>,
+    /// `(field, id)` for each id an optional reference field or a reference list names (a phase's `requirements`, a
+    /// plan's `depends_on`): an id that is not imported is left out of `field`, reported, and the record is kept.
+    pub links: Vec<(&'static str, String)>,
     pub source: Source,
 }
 
@@ -152,6 +156,7 @@ mod tests {
             file: "spec/gsd/x.spec".to_string(),
             fields: BTreeMap::new(),
             refs: refs.iter().map(|r| r.to_string()).collect(),
+            links: Vec::new(),
             source: Source {
                 file: file.to_string(),
                 line,

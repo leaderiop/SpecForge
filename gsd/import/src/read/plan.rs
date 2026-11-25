@@ -287,6 +287,7 @@ pub fn read(
     let file = scope.file();
     let mut fields: BTreeMap<String, Json> = BTreeMap::new();
     let mut refs: Vec<String> = Vec::new();
+    let mut links = Vec::new();
     if let Scope::Phase { path, .. } = scope {
         fields.insert("phase".to_string(), json!(path));
         refs.push(path.clone());
@@ -294,7 +295,7 @@ pub fn read(
     let (front, start) = front(doc, text, report);
     let mut must_haves = None;
     for (key, v) in entries(&front) {
-        let built = (&mut fields, &mut refs);
+        let built = (&mut fields, &mut links);
         frontmatter_key(doc, (key, v), id, scope, cx, records, built, report);
         if key == "must_haves" {
             must_haves = Some(v);
@@ -364,6 +365,7 @@ pub fn read(
             file: file.clone(),
             fields,
             refs,
+            links,
             source: doc.at(1),
         },
         report,
@@ -388,7 +390,10 @@ fn frontmatter_key(
     scope: &Scope,
     cx: &Context<'_>,
     records: &Records,
-    (fields, refs): (&mut BTreeMap<String, Json>, &mut Vec<String>),
+    (fields, links): (
+        &mut BTreeMap<String, Json>,
+        &mut Vec<(&'static str, String)>,
+    ),
     report: &mut Report,
 ) {
     let line = v.line;
@@ -462,7 +467,7 @@ fn frontmatter_key(
                     }
                     }
                     if !kept.is_empty() {
-                        refs.extend(kept.iter().cloned());
+                        links.extend(kept.iter().map(|p| ("depends_on", p.clone())));
                         fields.insert(key.to_string(), json!(kept));
                     }
                 }
@@ -473,7 +478,7 @@ fn frontmatter_key(
             Some(ids) => {
                 let kept = defined(doc, &ids, line, key, records, report);
                 if !kept.is_empty() {
-                    refs.extend(kept.iter().cloned());
+                    links.extend(kept.iter().map(|r| ("requirements", r.clone())));
                     fields.insert(key.to_string(), json!(kept));
                 }
             }

@@ -467,6 +467,7 @@ impl PhaseFile<'_> {
             file: self.file(),
             fields,
             refs: vec![scope.to_string()],
+            links: Vec::new(),
             source: self.at(line),
         }
     }

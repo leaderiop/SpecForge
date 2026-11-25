@@ -36,6 +36,7 @@ pub fn scoped(
         file: file.to_string(),
         fields,
         refs: vec![plan.to_string()],
+        links: Vec::new(),
         source: doc.at(line),
     }
 }

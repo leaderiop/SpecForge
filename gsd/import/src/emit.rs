@@ -2,8 +2,9 @@
 //! answers: a host refusal of the plan (E080) would drop the JSON report. A record is dropped, never stubbed: an id the
 //! grammar refuses, an id given twice, a reference to nothing, a file outside `spec/gsd/`, a required field with no
 //! source (`kinds::REQUIRED`: a reader puts each `filled` value in the fields first), a title or field holding a
-//! character no `.spec` file holds; a record naming a dropped one is reported "parent not imported". Past a cap the
-//! plan is refused "truncated at N".
+//! character no `.spec` file holds; a record whose scope or required reference names a dropped one is reported "parent
+//! not imported", while a link (an item of a reference list, an optional reference) naming one is left out of its field
+//! and reported, the record kept. Past a cap the plan is refused "truncated at N".
 //!
 //! A record's id is its graph path (`v1.0/01`): records, references and collisions key by it, and the create takes its
 //! last segment.
@@ -132,8 +133,36 @@ pub fn emit<'r>(
             break;
         }
     }
+    // The links: an item naming nothing is left out of its field, the record kept (the readers' per-item rule).
+    let alive: BTreeSet<&str> = kept.iter().map(|&r| r.id.as_str()).collect();
     let mut counts: BTreeMap<&'static str, usize> = BTreeMap::new();
     for record in &kept {
+        let mut fields = record.fields.clone();
+        for (field, id) in &record.links {
+            if alive.contains(id.as_str()) || graph.node(id).is_some() {
+                continue;
+            }
+            let why = if every.contains(id.as_str()) {
+                "which is not imported"
+            } else {
+                "which neither the import nor the graph holds"
+            };
+            report.push(Entry::at(
+                &record.source,
+                record.kind,
+                Outcome::Unmapped,
+                format!(
+                    "{} {}: its {field} names {id}, {why}: left out",
+                    record.kind, record.id
+                ),
+            ));
+            unlink(
+                &mut fields,
+                field,
+                id,
+                required(record.kind).contains(field),
+            );
+        }
         report.push(Entry::at(
             &record.source,
             record.kind,
@@ -145,7 +174,7 @@ pub fn emit<'r>(
             local(&record.id),
             &record.title,
             &record.file,
-            record.fields.clone(),
+            fields,
             Vec::new(),
         );
         *counts.entry(record.kind).or_default() += 1;
@@ -191,8 +220,182 @@ fn unwritable(record: &Record) -> Option<&str> {
         .map(|(field, _)| field.as_str())
 }
 
+/// `fields[field]` without what names `id`: the item `id` or an item block holding it (`requires: {phase, provides}`)
+/// of a list, or the field when it is `id`. An optional list left empty goes; a required one stays written, empty, as
+/// a reader writes it when it keeps no item (`requirements_completed: []`).
+fn unlink(fields: &mut BTreeMap<String, Value>, field: &str, id: &str, required: bool) {
+    let names = |v: &Value| match v {
+        Value::String(s) => s == id,
+        Value::Object(map) => map.values().any(|v| v.as_str() == Some(id)),
+        _ => false,
+    };
+    match fields.get_mut(field) {
+        Some(Value::Array(items)) => {
+            items.retain(|item| !names(item));
+            if items.is_empty() && !required {
+                fields.remove(field);
+            }
+        }
+        Some(value) if names(value) => {
+            fields.remove(field);
+        }
+        _ => {}
+    }
+}
+
 /// A record's own id, the last segment of its path: a scoped entity is created with it and its scope field
 /// (`phase 01` with `milestone v1.0` is `v1.0/01`).
 fn local(id: &str) -> &str {
     id.rsplit('/').next().unwrap_or(id)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+    use specforge_extension_sdk::PlanOp;
+
+    use super::*;
+    use crate::records::Source;
+
+    /// A record of `kind` holding each of its required fields, naming `refs` and linking `links`.
+    fn record(
+        kind: &'static str,
+        id: &str,
+        refs: &[&str],
+        links: &[(&'static str, &str)],
+    ) -> Record {
+        Record {
+            kind,
+            id: id.to_string(),
+            title: id.to_string(),
+            file: "spec/gsd/x.spec".to_string(),
+            fields: required(kind)
+                .iter()
+                .map(|f| (f.to_string(), json!("x")))
+                .collect(),
+            refs: refs.iter().map(|r| r.to_string()).collect(),
+            links: links.iter().map(|(f, id)| (*f, id.to_string())).collect(),
+            source: Source {
+                file: ".planning/x.md".to_string(),
+                line: 1,
+            },
+        }
+    }
+
+    /// The creates of `records` on an empty graph, each id with its fields.
+    fn created(
+        records: &Records,
+        report: &mut Report,
+    ) -> BTreeMap<String, BTreeMap<String, Value>> {
+        let plan = PlanBuilder::new(Default::default(), Default::default());
+        let (plan, _, _) =
+            emit(records, &CommandGraph::default(), plan, report).expect("not refused");
+        plan.finish()
+            .ops
+            .into_iter()
+            .filter_map(|op| match op {
+                PlanOp::Create { id, fields, .. } => Some((id, fields)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn reasons(report: &Report) -> Vec<String> {
+        report
+            .entries()
+            .into_iter()
+            .map(|e| e.reason.clone())
+            .collect()
+    }
+
+    #[test]
+    fn a_dropped_list_item_is_left_out_and_its_holder_kept() {
+        let mut records = Records::default();
+        let mut report = Report::default();
+        // A-01's text holds U+200F, which the parser refuses: it is dropped, and the phase naming it is kept.
+        let mut rlm = record("requirement", "A-01", &[], &[]);
+        rlm.fields.insert("text".to_string(), json!("x\u{200F}"));
+        records.add(rlm, &mut report);
+        records.add(record("requirement", "A-02", &[], &[]), &mut report);
+        records.add(record("milestone", "v1.0", &[], &[]), &mut report);
+        let mut phase = record(
+            "phase",
+            "v1.0/01",
+            &["v1.0"],
+            &[("requirements", "A-01"), ("requirements", "A-02")],
+        );
+        phase
+            .fields
+            .insert("requirements".to_string(), json!(["A-01", "A-02"]));
+        records.add(phase, &mut report);
+        let mut plan = record(
+            "plan",
+            "v1.0/01/01-01",
+            &["v1.0/01"],
+            &[("requirements", "A-01")],
+        );
+        plan.fields
+            .insert("requirements".to_string(), json!(["A-01"]));
+        records.add(plan, &mut report);
+        let created = created(&records, &mut report);
+        assert_eq!(
+            created.keys().map(String::as_str).collect::<Vec<_>>(),
+            ["01", "01-01", "A-02", "v1.0"]
+        );
+        assert_eq!(created["01"]["requirements"], json!(["A-02"]));
+        // An optional list left empty goes.
+        assert!(!created["01-01"].contains_key("requirements"));
+        let said = reasons(&report);
+        assert!(
+            said.iter().any(|r| r
+                == "phase v1.0/01: its requirements names A-01, which is not imported: left out"),
+            "{said:#?}"
+        );
+        assert!(
+            !said.iter().any(|r| r.contains("parent not imported")),
+            "{said:#?}"
+        );
+    }
+
+    #[test]
+    fn a_dropped_parent_still_drops_its_children() {
+        let mut records = Records::default();
+        let mut report = Report::default();
+        let mut milestone = record("milestone", "v1.0", &[], &[]);
+        milestone.title = "x\u{202E}".to_string();
+        records.add(milestone, &mut report);
+        records.add(record("phase", "v1.0/01", &["v1.0"], &[]), &mut report);
+        records.add(
+            record("plan", "v1.0/01/01-01", &["v1.0/01"], &[]),
+            &mut report,
+        );
+        assert!(created(&records, &mut report).is_empty());
+        let said = reasons(&report);
+        assert!(
+            said.iter()
+                .any(|r| r.contains("v1.0/01: parent not imported (v1.0)")),
+            "{said:#?}"
+        );
+    }
+
+    #[test]
+    fn unlink_leaves_out_what_names_the_id() {
+        let mut fields: BTreeMap<String, Value> = BTreeMap::from([
+            ("completed".to_string(), json!(["A"])),
+            ("optional".to_string(), json!(["A"])),
+            ("one".to_string(), json!("A")),
+            (
+                "requires".to_string(),
+                json!([{"phase": "A", "provides": "p"}, {"phase": "B", "provides": "q"}]),
+            ),
+        ]);
+        unlink(&mut fields, "completed", "A", true);
+        unlink(&mut fields, "optional", "A", false);
+        unlink(&mut fields, "one", "A", false);
+        unlink(&mut fields, "requires", "A", false);
+        assert_eq!(
+            Value::Object(fields.into_iter().collect()),
+            json!({"completed": [], "requires": [{"phase": "B", "provides": "q"}]})
+        );
+    }
 }

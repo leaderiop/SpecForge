@@ -205,10 +205,10 @@ pub fn read(
         if !slug.is_empty() {
             d.fields.insert("slug".to_string(), json!(slug));
         }
-        let mut refs = vec![d.milestone.clone()];
+        let mut links = Vec::new();
         if let Some((value, n)) = &d.depends {
             let deps = depends(value, *n, &roadmap, &at, &d.heading, report);
-            refs.extend(deps.iter().cloned());
+            links.extend(deps.iter().map(|id| ("depends_on", id.clone())));
             if !deps.is_empty() {
                 d.fields.insert("depends_on".to_string(), json!(deps));
             }
@@ -232,7 +232,7 @@ pub fn read(
                     ));
                 }
             }
-            refs.extend(kept.iter().cloned());
+            links.extend(kept.iter().map(|id| ("requirements", id.clone())));
             if !kept.is_empty() {
                 d.fields.insert("requirements".to_string(), json!(kept));
             }
@@ -245,7 +245,8 @@ pub fn read(
                 title: d.title,
                 file: paths::milestone(&d.milestone),
                 fields: d.fields,
-                refs,
+                refs: vec![d.milestone.clone()],
+                links,
                 source: at(d.line),
             },
             report,
@@ -263,6 +264,7 @@ fn milestone(id: &str, title: &str, source: Source) -> Record {
         file: paths::milestone(id),
         fields: BTreeMap::new(),
         refs: Vec::new(),
+        links: Vec::new(),
         source,
     }
 }

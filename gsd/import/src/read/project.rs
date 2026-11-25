@@ -139,7 +139,11 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             title: name,
             file: paths::project(),
             fields,
-            refs: decisions,
+            refs: Vec::new(),
+            links: decisions
+                .into_iter()
+                .map(|d| ("key_decisions", d))
+                .collect(),
             source: at(line),
         },
         report,
@@ -294,6 +298,7 @@ fn key_decisions(
                     file: paths::project(),
                     fields,
                     refs: Vec::new(),
+                    links: Vec::new(),
                     source,
                 },
                 report,

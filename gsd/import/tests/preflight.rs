@@ -325,6 +325,7 @@ fn record(kind: &'static str, id: &str, refs: &[&str], line: usize) -> Record {
             .map(|f| (f.to_string(), json!("x")))
             .collect(),
         refs: refs.iter().map(|r| r.to_string()).collect(),
+        links: Vec::new(),
         source: Source {
             file: ".planning/x.md".into(),
             line,

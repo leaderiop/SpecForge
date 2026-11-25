@@ -94,7 +94,7 @@ pub fn read(
     let all = sections::sections(text);
     let tables = markdown::tables(text);
     let mut fields: BTreeMap<String, Value> = BTreeMap::new();
-    let mut refs = vec![f.phase.clone()];
+    let mut links = Vec::new();
     // The header: the lines before the first `##`.
     let first = all
         .iter()
@@ -172,7 +172,7 @@ pub fn read(
             report.push(f.mapped(s.line, title_, "research.user_constraints"));
             let named = locked(&f, &t, s, records, report);
             if !named.is_empty() {
-                refs.extend(named.iter().cloned());
+                links.extend(named.iter().map(|d| ("user_constraints", d.clone())));
                 fields.insert("user_constraints".to_string(), json!(named));
             }
         } else if level == 3 && in_parent(CONSTRAINTS) && discretion(title_) {
@@ -235,7 +235,7 @@ pub fn read(
         fields,
         0,
     );
-    record.refs = refs;
+    record.links = links;
     records.add(record, report);
 }
 
@@ -614,7 +614,7 @@ fn questions(
     for (line, fields, resolved) in asked {
         let title = fields["question"].as_str().unwrap_or_default().to_string();
         let mut record = items.next(QUESTION, &title, fields, line);
-        record.refs.extend(resolved);
+        record.links.extend(resolved.map(|d| ("resolved_by", d)));
         records.add(record, report);
     }
 }

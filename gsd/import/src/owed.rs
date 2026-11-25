@@ -164,6 +164,7 @@ mod tests {
             file: file.to_string(),
             fields: serde_json::from_value::<BTreeMap<String, Value>>(fields).unwrap_or_default(),
             refs: Vec::new(),
+            links: Vec::new(),
             source: Source {
                 file: String::new(),
                 line: 1,

@@ -90,7 +90,7 @@ pub fn read(
     let file = scope.file();
     let mut fields: BTreeMap<String, Json> = BTreeMap::new();
     fields.insert("plan".to_string(), json!(plan));
-    let mut refs = vec![plan.clone()];
+    let mut links = Vec::new();
     let (front, start) = plan::front(doc, text, report);
     let mut coverage = None;
     for (key, v) in entries(&front) {
@@ -128,7 +128,7 @@ pub fn read(
             ("requirements-completed", _) => match list(&v.value) {
                 Some(ids) => {
                     let kept = defined(doc, &ids, line, key, records, report);
-                    refs.extend(kept.iter().cloned());
+                    links.extend(kept.iter().map(|r| ("requirements_completed", r.clone())));
                     fields.insert("requirements_completed".to_string(), json!(kept));
                 }
                 None => report.push(doc.unmapped(
@@ -138,7 +138,7 @@ pub fn read(
                 )),
             },
             ("requires", _) => {
-                let blocks = requires(doc, v, cx, &mut refs, report);
+                let blocks = requires(doc, v, cx, &mut links, report);
                 if !blocks.is_empty() {
                     fields.insert("requires".to_string(), json!(blocks));
                 }
@@ -174,7 +174,8 @@ pub fn read(
             title: format!("{title}: summary"),
             file: file.clone(),
             fields,
-            refs,
+            refs: vec![plan.clone()],
+            links,
             source: doc.at(1),
         },
         report,
@@ -240,7 +241,7 @@ fn requires(
     doc: &Doc<'_>,
     v: &Located<Value>,
     cx: &Context<'_>,
-    refs: &mut Vec<String>,
+    links: &mut Vec<(&'static str, String)>,
     report: &mut Report,
 ) -> Vec<Json> {
     let items = match &v.value {
@@ -273,7 +274,7 @@ fn requires(
             get("provides"),
         ) {
             (Some(path), Some(provides)) if !provides.is_empty() => {
-                refs.push(path.clone());
+                links.push(("requires", path.clone()));
                 out.push(json!({"phase": path, "provides": provides}));
             }
             _ => report.push(
@@ -382,7 +383,7 @@ fn deliverables(
         };
         let mut fields: BTreeMap<String, Json> = BTreeMap::new();
         fields.insert("summary".to_string(), json!(summary));
-        let mut refs = vec![summary.to_string()];
+        let mut links = Vec::new();
         let mut id = None;
         for (key, value) in members {
             let text = value
@@ -418,7 +419,7 @@ fn deliverables(
                         report,
                     );
                     if let Some(r) = kept.into_iter().next() {
-                        refs.push(r.clone());
+                        links.push(("requirement", r.clone()));
                         fields.insert(key.clone(), json!(r));
                     }
                 }
@@ -463,7 +464,8 @@ fn deliverables(
                 title,
                 file: file.to_string(),
                 fields,
-                refs,
+                refs: vec![summary.to_string()],
+                links,
                 source: doc.at(item.line),
             },
             report,
