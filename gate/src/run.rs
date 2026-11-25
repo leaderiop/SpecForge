@@ -427,13 +427,13 @@ pub(crate) fn schedule(steps: &[Step], states: &[State]) -> Wave {
 }
 
 /// The file compiling checks take turns on, one per machine and user, whichever worktree they run from.
-fn compile_lock_path() -> PathBuf {
+pub(crate) fn compile_lock_path() -> PathBuf {
     std::env::temp_dir().join("specforge-gate-compile.lock")
 }
 
 /// Waits until no other gate on this machine compiles, and holds that turn until the file drops. The OS releases the
 /// lock when its holder dies, even a killed one. A lock that cannot be taken only loses the queueing, so the check runs.
-fn compile_turn(path: &Path) -> Option<File> {
+pub(crate) fn compile_turn(path: &Path) -> Option<File> {
     let file = File::create(path).ok()?;
     file.lock().ok()?;
     Some(file)

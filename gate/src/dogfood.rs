@@ -103,21 +103,37 @@ const CONTROL: &str = "dogfood::tests::x2_floor_fails_a_ledger_copy_missing_one_
 const CONTROL_TAIL: usize = 20;
 
 /// Run [`CONTROL`] with `SPECFORGE_BIN` set to `specforge`, under nextest's default profile (which writes no JUnit
-/// report). On success the log gets exactly one line, `negative control passed: <CONTROL> (ADR 0393 D8)`, and none of
-/// nextest's output; its own failing X2 lines go to the control's temp log, never this one (CONTEXT D-09). An error
-/// names the control and carries the tail of nextest's output.
+/// report). Its test binary is built first under the compile turn (dogfood is no compiling check, so the scheduler
+/// takes none for it). On success the log gets exactly one line, `negative control passed: <CONTROL> (ADR 0393 D8)`,
+/// and none of nextest's output; its own failing X2 lines go to the control's temp log, never this one (CONTEXT D-09).
+/// An error names the control and carries the tail of nextest's output.
 fn negative_control(ctx: &Ctx, specforge: &Path) -> Result<(), String> {
+    {
+        let _turn = crate::run::compile_turn(&crate::run::compile_lock_path());
+        control_nextest(ctx, specforge, &["--no-run"])?;
+    }
     let filter = format!("test(={CONTROL})");
+    control_nextest(
+        ctx,
+        specforge,
+        &["--run-ignored", "only", "--no-tests=fail", "-E", &filter],
+    )?;
+    ctx.log(&format!("negative control passed: {CONTROL} (ADR 0393 D8)"));
+    Ok(())
+}
+
+/// `cargo nextest run -p gate --profile default <args>` with `SPECFORGE_BIN` set to `specforge`, its output kept out of
+/// the log; an error names the control and carries the tail of that output.
+fn control_nextest(ctx: &Ctx, specforge: &Path, args: &[&str]) -> Result<(), String> {
     let output = ctx
         .cmd("cargo")
         .args(["nextest", "run", "-p", "gate", "--profile", "default"])
-        .args(["--run-ignored", "only", "--no-tests=fail", "-E", &filter])
+        .args(args)
         .env("SPECFORGE_BIN", specforge)
         .stdin(std::process::Stdio::null())
         .output()
         .map_err(|e| format!("negative control {CONTROL}: running cargo nextest: {e}"))?;
     if output.status.success() {
-        ctx.log(&format!("negative control passed: {CONTROL} (ADR 0393 D8)"));
         return Ok(());
     }
     let said = format!(
