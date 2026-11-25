@@ -14,7 +14,8 @@
 //!
 //! A test file is parsed with the test query (`queries/js-tests.scm`) for its test calls only (ADR 0393 D4): each
 //! statically named `test`, `it`, `describe` or `suite` call, and each subtest, is a `function` item with the
-//! attribute `test`, and a leaf test carries the test id node-test mints for it ([`calls`]). Its helpers are no item.
+//! attribute `test`, and a call node reports as a test case carries the test id node-test mints for it ([`calls`]).
+//! Its helpers are no item.
 
 mod calls;
 mod files;

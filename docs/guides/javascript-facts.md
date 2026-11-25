@@ -102,7 +102,8 @@ always does, so an item and a test of one file cannot clash.
 A test call in a test file is a `function` item with the attribute `test`
 ([ADR 0393](../adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)).
 Its id is `js:<package>/<file>::<suite>.<name>`, the names of the calls
-around it outermost first, then its own. A leaf test also carries `test_id`,
+around it outermost first, then its own. A call node reports as a test case
+(below) also carries `test_id`,
 `js:<package>/<file>#<suite > … > name>`, the id `@javascript/node-test`
 gives the same test, so X2 counts it:
 
@@ -113,14 +114,25 @@ test('a task is added with the next id', () => { /* ... */ })
 // test_id js:taskboard/test/tasks.test.js#a task is added with the next id
 ```
 
-- A call counts when its name is static: a string, or a template with no
-  substitution. It is `describe` or `suite`, `test` or `it` with a function
-  argument, one of those with `.skip`, `.todo` or `.only`, or a subtest
-  `t.test(name, fn)` inside a test.
-- A `describe` or `suite`, and a test holding subtests, is an item with no
-  test id: node reports it as a suite, never a test case.
-- A dynamic name (`test(name, …)`, `.each`, `.concurrent`) mints nothing,
-  nor does anything inside that call, and raises nothing.
+- A call counts when its name is static and not empty: a string, or a
+  template with no substitution. It is `describe` or `suite`, `test` or `it`
+  with a function argument, one of those with `.skip`, `.todo` or `.only`, or
+  a subtest `t.test(name, fn)` inside a test.
+- node's JUnit report writes a test or a suite as a `<testsuite>` when a
+  test, suite or subtest ran inside it, else as a `<testcase>`. So a call
+  carries a test id when it has `.skip`, or when no `test`, `it`, `describe`,
+  `suite` or subtest call sits inside it: an empty `describe` and one with no
+  function are test cases. A call holding one, even one that is no item (a
+  subtest named by a variable or given a function reference), carries none.
+- node never runs a skipped call's function, so nothing inside a `.skip`
+  call, or a call whose options have a `skip` key (`{ skip: true }`), is an
+  item. Such a call with options carries a test id only when nothing sits
+  inside it. A `.todo` call runs its function: what it holds is read.
+- A dynamic name (`test(name, …)`, `.each`, `.concurrent`) or an empty one
+  (node names it `<anonymous>` or after its function) mints nothing, nor does
+  anything inside that call, and raises nothing.
+- Subtests a helper registers out of the call's sight (`await check(t)`) are
+  not seen: the test keeps its test id though node reports it as a suite.
 
 Two `package.json` may give one name (an example app beside the real one):
 the package in the shallowest directory (then the lexically first) keeps

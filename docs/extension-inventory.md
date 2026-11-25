@@ -402,8 +402,9 @@ per named package (`pkg:npm/<name>`, its dependencies on the project's own packa
 each `.ts .mts .cts .tsx .js .jsx .mjs .cjs` file a named package owns, generated output left out, into
 `item` facts `js:<package>/<file>::<name>[.<member>]`: what the file or a namespace declares, and the members of its
 classes and interfaces, `public` when an importer reaches it. A test file is read for its statically named test calls
-only: each is a `function` item with the attribute `test`, and a leaf test carries `test_id`, the id
-`@javascript/node-test` gives it ([ADR 0393](adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)).
+only: each is a `function` item with the attribute `test`, and a call node reports as a test case (a skipped one, or
+one holding no test call) carries `test_id`, the id `@javascript/node-test` gives it
+([ADR 0393](adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)).
 
 ## @specforge/checks
 

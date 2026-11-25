@@ -15,8 +15,11 @@ requirement FEATURE-056 "JavaScript Item Facts" {
     minted by specforge-code-facts, and every named package a
     pkg:npm/<name> package fact (ADR 0347). A test file is read through a
     second query for its statically named test calls only: each is a
-    function item with the attribute test, and a leaf test carries the
-    test_id js:<package>/<file>#<suite > ... > name> node-test gives it;
-    a describe, a suite and a test holding subtests carry none (ADR 0393).
+    function item with the attribute test. A call node reports as a test
+    case carries the test_id js:<package>/<file>#<suite > ... > name>
+    node-test gives it: a skipped call, or one with no test, suite or
+    subtest call inside it. A test or suite holding one is reported as a
+    suite and carries none, and nothing inside a skipped call is an item
+    (ADR 0393).
   """
 }

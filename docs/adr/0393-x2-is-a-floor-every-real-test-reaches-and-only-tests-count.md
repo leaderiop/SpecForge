@@ -81,13 +81,21 @@ requirement a guest test fails to prove.
 
 `@javascript/source` reads test files for their test calls only. A call whose callee is `test`, `it`, `describe` or
 `suite`, or one of those with `.skip`, `.todo` or `.only`, or a subtest `<name>.test(...)` inside a test, whose first
-argument is a string or a template with no substitution, becomes a `function` item with the attribute `test`; its
-path is the enclosing suite and test names, then its own. Only a leaf test or subtest (one with no test or suite call
-inside it) carries `test_id = TestId::js(package, file, path)`, the id node-test mints. A `describe` or `suite`, and a
-test with subtests, carry none: node reports them as `<testsuite>`, never `<testcase>`, so their id could never be
-seen. A plain call needs a function argument. A dynamic name (an identifier, a concatenation, a substitution, `.each`,
-`.concurrent`) mints nothing and raises nothing, so such a test is invisible to X2, never falsely missing. Helpers in
-test files stay no item. No new item kind is added.
+argument is a string or a template with no substitution and not empty, becomes a `function` item with the attribute
+`test`; its path is the enclosing suite and test names, then its own. A plain call needs a function argument.
+
+node's JUnit reporter writes a test or a suite as a `<testsuite>` exactly when at least one test, suite or subtest
+ran inside it, and as a `<testcase>` otherwise (checked against node v26.13.0): an empty `describe`, a `describe`
+with no function and any `.skip` call are test cases. So a call carries `test_id = TestId::js(package, file, path)`,
+the id node-test mints, when it is called with `.skip`, or when no test, suite or subtest call sits inside it, minted
+or not: a subtest with a dynamic name, a function reference or only options still makes its parent a `<testsuite>`.
+node never runs a skipped call's function, so nothing inside a `.skip` call or a call with a `skip` option is an
+item; a call with a `skip` option that holds calls carries no id either, since whether it is skipped is decided when
+it runs. A `.todo` call runs its function, so what it holds is read. A dynamic name (an identifier, a concatenation, a
+substitution, `.each`, `.concurrent`) or an empty one (node names it `<anonymous>` or after its function) mints
+nothing and raises nothing. Shortcut: a subtest a helper registers out of the call's span (`await check(t)`) is not
+seen, so that test keeps an id node reports as a suite; X2 names it missing, and the test is rewritten to call
+`t.test` in its own body. Helpers in test files stay no item. No new item kind is added.
 
 The reason: the definition stays ADR 0388 D1's, so taskboard and vault read their number from the same computation
 as every other project; a new kind would re-vendor every code-facts linker and `@code/core`.
@@ -146,7 +154,8 @@ diagnostics" would not reproduce; recorded output keeps the A/B trees and their 
 - **Passing the root nextest config** to a guest: its overrides fail the parse (D1).
 - **A gate-side exclude** of fixture and example crates: the gate would compute another number than a user's
   `specforge` (ADR 0388 D1).
-- **A test id on a `describe`**: node never reports a suite as a test case.
+- **A test id on every `describe`, or on none**: node reports a suite as a test case exactly when nothing ran inside
+  it (D4), so the id follows what the suite holds.
 - **A new item kind** for JavaScript tests: it re-vendors every code-facts linker and `@code/core`.
 - **Live tool runs in the gate** for the fixtures' packs: too many tools, and their output drifts.
 - **Editing the fixtures** so every pack applies: it re-pins three A/B trees and re-records their baselines.

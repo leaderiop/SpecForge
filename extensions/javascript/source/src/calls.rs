@@ -1,14 +1,22 @@
 //! A test file's test calls as definitions (ADR 0393 D4).
 //!
 //! The matches of one call merge into one [`Call`] (`queries/js-tests.scm` matches a call once per pattern that names
-//! it). A call is counted when its name is static (its first argument a string, or a template with no substitution)
-//! and it is a `describe` or `suite`, a `test` or `it` with `skip`, `todo` or `only` or a function argument, or a
-//! subtest `<name>.test(…)` with a function argument inside a test. It is minted when it and every call around it are
-//! counted: a call with a dynamic name (`.each`, `.concurrent` included) mints nothing, nor anything inside it, and
-//! raises nothing. A minted call is a `function` item with the attribute `test`, its path the names of the calls around
-//! it, outermost first, then its own. Only a test or subtest holding no minted call carries a test id, the one
-//! node-test mints from the same path ([`TestId::js`]): node reports a suite and a test with subtests as a
-//! `<testsuite>`, never a `<testcase>`.
+//! it). A call is counted when its name is static and not empty (its first argument a string, or a template with no
+//! substitution: node names an empty one `<anonymous>` or after its function) and it is a `describe` or `suite`, a
+//! `test` or `it` with `skip`, `todo` or `only` or a function argument, or a subtest `<name>.test(…)` with a function
+//! argument inside a test. It is minted when it and every call around it are counted and no call around it is skipped:
+//! a call with a dynamic name (`.each`, `.concurrent` included) mints nothing, nor anything inside it, and raises
+//! nothing; node never runs a skipped call's function, so nothing inside it is a test. A minted call is a `function`
+//! item with the attribute `test`, its path the names of the calls around it, outermost first, then its own.
+//!
+//! node's JUnit report writes a test or a suite as a `<testsuite>` exactly when a test, suite or subtest ran inside it,
+//! and as a `<testcase>` otherwise: a `describe` with nothing inside, one with no function, and any `.skip` call are
+//! test cases. So a minted call carries the test id node-test mints from the same path ([`TestId::js`]) when it is
+//! called with `.skip`, or when no runner call sits inside it, minted or not (a subtest with a dynamic name, a
+//! function reference or only options still makes its parent a `<testsuite>`). A call whose options may skip it
+//! (`{ skip: … }`) and that holds runner calls carries none: whether node reports it or what it holds is decided when
+//! it runs. Shortcut: a subtest a helper registers out of the call's span (`await check(t)`) is not seen, so that test
+//! keeps an id node reports as a suite; upgrade if X2 names such a test missing in a real project.
 
 use specforge_code_facts::{location, Definition, ItemId, ItemKind, Names, TestId, Visibility};
 use specforge_extension_sdk::host::{SyntaxMatch, SyntaxRole, SyntaxSpan};
@@ -44,6 +52,10 @@ struct Call {
     /// Its template has a substitution.
     dynamic: bool,
     modifier: bool,
+    /// Called with `.skip`: node never runs its function.
+    skip: bool,
+    /// An options argument has a `skip` key: node may skip it.
+    skip_option: bool,
     callback: bool,
     /// The index of the innermost call whose span holds this one.
     parent: Option<usize>,
@@ -58,12 +70,16 @@ impl Call {
         }
         self.dynamic |= named("dynamic").next().is_some();
         self.modifier |= named("modifier").next().is_some();
+        self.skip |= named("modifier").any(|c| c.text == "skip");
+        self.skip_option |= named("skip_option").next().is_some();
         self.callback |= named("callback").next().is_some();
     }
 
-    /// Its name when static.
+    /// Its name when static and not empty.
     fn name(&self) -> Option<&str> {
-        self.literal.as_deref().filter(|_| !self.dynamic)
+        self.literal
+            .as_deref()
+            .filter(|name| !self.dynamic && !name.is_empty())
     }
 }
 
@@ -98,6 +114,8 @@ fn calls(matches: &[SyntaxMatch]) -> Vec<Call> {
             literal: None,
             dynamic: false,
             modifier: false,
+            skip: false,
+            skip_option: false,
             callback: false,
             parent: open.last().copied(),
         };
@@ -121,6 +139,16 @@ fn counted(calls: &[Call], at: usize) -> bool {
         }
 }
 
+/// Whether the call `at` may register a test node under the call around it when that one runs, minted or not: any
+/// test or suite call, and a subtest call inside a test (in a suite's body `<name>.test(…)` is no subtest).
+fn registers(calls: &[Call], at: usize) -> bool {
+    let call = &calls[at];
+    call.parent.is_some_and(|parent| match call.role {
+        Role::Test | Role::Suite => true,
+        Role::Subtest => calls[parent].role != Role::Suite,
+    })
+}
+
 /// The test calls of `file` (project-relative; `under` the directory of `package`, which owns it), parsed as
 /// `matches` by the test query.
 pub(crate) fn read(
@@ -137,6 +165,8 @@ pub(crate) fn read(
     let top: Vec<String> = Vec::new();
     for (at, call) in calls.iter().enumerate() {
         let around = match call.parent {
+            // node never runs a skipped call's function: nothing inside it is a test.
+            Some(parent) if calls[parent].skip || calls[parent].skip_option => None,
             Some(parent) => paths[parent].as_ref(),
             None => Some(&top),
         };
@@ -148,7 +178,7 @@ pub(crate) fn read(
                 path.push(name.to_string());
                 path
             });
-        if let (Some(parent), Some(_)) = (call.parent, &path) {
+        if let Some(parent) = call.parent.filter(|_| registers(&calls, at)) {
             holds[parent] = true;
         }
         paths.push(path);
@@ -159,7 +189,7 @@ pub(crate) fn read(
         .enumerate()
         .filter_map(|(at, (call, path))| {
             let path = path?;
-            let leaf = call.role != Role::Suite && !holds[at];
+            let leaf = call.skip || !holds[at];
             Some(Definition {
                 id: ItemId::js(&segment, under, &path),
                 package: package.id.clone(),

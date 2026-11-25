@@ -180,7 +180,8 @@ pub(crate) fn decoded(parts: &[&SyntaxCapture]) -> String {
         match (escape, unit) {
             (_, Some(first @ 0xD800..=0xDBFF)) => high = Some((first, &part.text)),
             (Some(escape), _) => value.push_str(&unescaped(escape)),
-            (None, _) => value.push_str(&part.text),
+            // A template's line end is a line feed in its value, a CRLF's or a lone CR's alike (a string has none).
+            (None, _) => value.push_str(&part.text.replace("\r\n", "\n").replace('\r', "\n")),
         }
     }
     if let Some((_, text)) = high {

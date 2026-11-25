@@ -11,6 +11,7 @@
 ;   @dynamic             a template's substitution: the name is not static
 ;   @modifier            `skip`, `todo` or `only` called on `test`, `it`, `describe` or `suite`
 ;   @callback            a function written as an argument after the first
+;   @skip_option         an options object argument with a `skip` key (`{ skip: true }`, `{ skip }`): node may skip it
 ; A capture whose name starts with _ only feeds a predicate.
 ;
 ; Every call of a runner's name matches its plain pattern, whatever its arguments, so a call with a dynamic name still
@@ -94,3 +95,17 @@
   arguments: (arguments . (_) [(arrow_function) (function_expression) (generator_function)] @callback))
   @definition.subtest
   (#eq? @_method "test"))
+
+; ---------------------------------------------------------------- { skip: … } options
+((call_expression function: [(identifier) @_callee (member_expression object: (identifier) @_callee)]
+  arguments: (arguments (object [(pair key: (property_identifier) @_key) (pair key: (string (string_fragment) @_key))
+    (shorthand_property_identifier) @_key]) @skip_option)) @definition.test
+  (#any-of? @_callee "test" "it") (#eq? @_key "skip"))
+((call_expression function: [(identifier) @_callee (member_expression object: (identifier) @_callee)]
+  arguments: (arguments (object [(pair key: (property_identifier) @_key) (pair key: (string (string_fragment) @_key))
+    (shorthand_property_identifier) @_key]) @skip_option)) @definition.suite
+  (#any-of? @_callee "describe" "suite") (#eq? @_key "skip"))
+((call_expression function: (member_expression object: (identifier) property: (property_identifier) @_method)
+  arguments: (arguments (object [(pair key: (property_identifier) @_key) (pair key: (string (string_fragment) @_key))
+    (shorthand_property_identifier) @_key]) @skip_option)) @definition.subtest
+  (#eq? @_method "test") (#eq? @_key "skip"))

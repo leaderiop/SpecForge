@@ -1,4 +1,4 @@
-//! A test file's test calls: each statically named one an item with the attribute `test`, a leaf test carrying the id
+//! A test file's test calls: each statically named one an item with the attribute `test`, a test case carrying the id
 //! node-test mints for it (ADR 0393 D4).
 
 use specforge_code_facts::TestId;
@@ -158,10 +158,148 @@ describe.skip("d", () => {});
     assert_eq!(
         tests_in("test/b.test.js", text),
         [
-            test_item("d", None),
+            test_item("d", Some("d")),
             test_item("o", Some("o")),
             test_item("s", Some("s")),
             test_item("t", Some("t")),
+        ]
+    );
+}
+
+/// A test file and the `<testcase>` paths `node --test --test-reporter=junit` (node v26.13.0) wrote running it, each
+/// path's names joined by ` > `: a `<testsuite>` is never among them.
+const NODE_FILE: &str = r#"const { test, it, describe, suite } = require("node:test");
+test("dyn", async (t) => { for (const n of ["a"]) await t.test(n, () => {}); });
+test("ref", async (t) => { await t.test("x", fnRef); });
+function fnRef() {}
+test("opt", async (t) => { await t.test("q", { skip: true }); });
+test("nocbsub", async (t) => { await t.test("w"); });
+describe.skip("ds", () => { it("inner", () => {}); });
+test.skip("ts", async (t) => { await t.test("sub", () => {}); });
+test.todo("tt", async (t) => { await t.test("tsub", () => {}); });
+describe.todo("dt", () => { it("dtinner", () => {}); });
+describe("empty", () => {});
+describe("nocb");
+suite("suitenocb");
+test("");
+test("", () => {});
+describe("", () => { it("inanon", () => {}); });
+test("nested plain", async () => { test("np child", () => {}); });
+test("nested it", async () => { await it("ni child", () => {}); });
+test("optskip", { skip: true }, async (t) => { await t.test("os child", () => {}); });
+describe("doptskip", { skip: true }, () => { it("dos child", () => {}); });
+test("leafskip", { "skip": "why" }, () => {});
+test("opttodo", { todo: true }, async (t) => { await t.test("ot child", () => {}); });
+test("no callback");
+test.todo("todo nocb");
+describe("only holder", () => { it.only("o1", () => {}); it("o2", () => {}); });
+test("crlf\
+cont", () => {});
+test("u \u0041", () => {});
+test(`tpl
+line`, () => {});
+it.skip("itskip", () => { it("never"); });
+"#;
+const NODE_CASES: [&str; 28] = [
+    "dyn > a",
+    "ref > x",
+    "opt > q",
+    "nocbsub > w",
+    "ds",
+    "ts",
+    "tt > tsub",
+    "dt > dtinner",
+    "empty",
+    "nocb",
+    "suitenocb",
+    "<anonymous>",
+    "<anonymous>",
+    "<anonymous> > inanon",
+    "nested plain > np child",
+    "nested it > ni child",
+    "optskip",
+    "doptskip",
+    "leafskip",
+    "opttodo > ot child",
+    "no callback",
+    "todo nocb",
+    "only holder > o1",
+    "only holder > o2",
+    "crlfcont",
+    "u A",
+    "tpl\nline",
+    "itskip",
+];
+
+#[specforge_test(requirement = "FEATURE-056")]
+fn every_test_id_is_a_test_case_node_reports() {
+    let found = tests_in("test/b.test.js", NODE_FILE);
+    let path = |id: &str| {
+        id.strip_prefix("js:app/test/b.test.js#")
+            .expect("the file's test id")
+            .to_string()
+    };
+    for (item, test_id) in &found {
+        if let Some(test_id) = test_id {
+            assert!(
+                NODE_CASES.contains(&path(test_id).as_str()),
+                "{item}: node reports no <testcase> {test_id}"
+            );
+        }
+    }
+    assert_eq!(
+        found,
+        [
+            test_item("crlfcont", Some("crlfcont")),
+            // A suite holding nothing, or with no function, is a test case; one holding a test is a suite.
+            test_item("doptskip", None),
+            test_item("ds", Some("ds")),
+            test_item("dt", None),
+            test_item("dt.dtinner", Some("dt > dtinner")),
+            // A test whose subtest is not minted (a dynamic name, a function reference, options only, no function)
+            // is a suite all the same.
+            test_item("dyn", None),
+            test_item("empty", Some("empty")),
+            test_item("itskip", Some("itskip")),
+            test_item("leafskip", Some("leafskip")),
+            test_item("nested it", None),
+            test_item("nested it.ni child", Some("nested it > ni child")),
+            test_item("nested plain", None),
+            test_item("nested plain.np child", Some("nested plain > np child")),
+            test_item("nocb", Some("nocb")),
+            test_item("nocbsub", None),
+            test_item("only holder", None),
+            test_item("only holder.o1", Some("only holder > o1")),
+            test_item("only holder.o2", Some("only holder > o2")),
+            test_item("opt", None),
+            // Options that may skip it: whether it or what it holds is reported is decided when it runs.
+            test_item("optskip", None),
+            // A todo test runs its function: what it holds is reported.
+            test_item("opttodo", None),
+            test_item("opttodo.ot child", Some("opttodo > ot child")),
+            test_item("ref", None),
+            test_item("suitenocb", Some("suitenocb")),
+            test_item("todo nocb", Some("todo nocb")),
+            test_item("tpl\nline", Some("tpl\nline")),
+            // A skipped call is a test case, and nothing inside it runs.
+            test_item("ts", Some("ts")),
+            test_item("tt", None),
+            test_item("tt.tsub", Some("tt > tsub")),
+            test_item("u A", Some("u A")),
+        ]
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-056")]
+fn a_template_name_in_a_crlf_file_has_node_line_ends() {
+    // node v26.13.0 named these `a&#10;b`, `cd` and `ef`: a template's line end is a line feed, a continuation none.
+    let text = "test(`a\r\nb`, () => {});\r\ntest(\"c\\\r\nd\", () => {});\r\ntest(`e\\\r\nf`, () => {});\r\n";
+    assert_eq!(
+        tests_in("test/b.test.js", text),
+        [
+            test_item("a\nb", Some("a\nb")),
+            test_item("cd", Some("cd")),
+            test_item("ef", Some("ef")),
         ]
     );
 }
@@ -191,7 +329,7 @@ describe.each([1])("each %s", () => {
 fn a_template_without_substitution_and_escapes_are_decoded() {
     let text = r#"
 test(`plain template`, () => {});
-test("quote \" and A", () => {});
+test("quote \" and \u0041", () => {});
 "#;
     assert_eq!(
         tests_in("test/b.test.js", text),
