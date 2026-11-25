@@ -181,7 +181,7 @@ pub fn emit<'r>(
     }
     if report.len() > MAX_ENTRIES {
         return Err(format!(
-            "truncated at {MAX_ENTRIES}: the report would hold {} entries; nothing is imported",
+            "truncated at {MAX_ENTRIES}: the report would hold {} lines; nothing is imported",
             report.len()
         ));
     }
@@ -375,6 +375,34 @@ mod tests {
             said.iter()
                 .any(|r| r.contains("v1.0/01: parent not imported (v1.0)")),
             "{said:#?}"
+        );
+    }
+
+    #[test]
+    fn settings_lines_and_minted_ids_count_toward_the_report_cap() {
+        let mut report = Report::default();
+        for n in 0..MAX_ENTRIES / 2 {
+            report.setting(format!("specforge settings set @gsd/core k{n} 'x'"));
+        }
+        for n in 0..=MAX_ENTRIES / 2 {
+            report.minted(crate::report::Minted {
+                kind: "requirement".to_string(),
+                old: format!("row {n}"),
+                new: format!("OOS-{n}"),
+            });
+        }
+        let plan = PlanBuilder::new(Default::default(), Default::default());
+        let Err(refused) = emit(
+            &Records::default(),
+            &CommandGraph::default(),
+            plan,
+            &mut report,
+        ) else {
+            panic!("a report past the cap is refused");
+        };
+        assert!(
+            refused.starts_with(&format!("truncated at {MAX_ENTRIES}")),
+            "{refused}"
         );
     }
 

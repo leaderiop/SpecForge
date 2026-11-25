@@ -210,13 +210,15 @@ impl Report {
         self.ids.push(minted);
     }
 
-    /// The number of entries: the cap `MAX_ENTRIES` counts them.
+    /// The number of report lines the cap `MAX_ENTRIES` counts: the entries, the settings lines, the
+    /// authored-after-import notes and the minted ids. The owed verdicts are not counted: they follow the created
+    /// entities, which `MAX_OPS` bounds.
     pub fn len(&self) -> usize {
-        self.entries.len()
+        self.entries.len() + self.settings.len() + self.authored_after_import.len() + self.ids.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        self.len() == 0
     }
 
     /// The entries, sorted by file, line, section, outcome and reason.
