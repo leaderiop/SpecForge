@@ -199,3 +199,30 @@ fn a_failed_requirement_verdict_still_logs_the_x2_error() {
     assert_eq!(result, x2_error());
     assert_eq!(outcome(false, &lines, Ok(())), (None, Ok(())));
 }
+
+/// A fixture collect passes with Info only; a Warning or an Error fails it, named by code and message, and so does an
+/// answer whose shape lost its `diagnostics` array (CONTEXT D-10).
+#[test]
+fn no_warning_or_error_passes_info_and_names_each_warning_or_error() {
+    let with = |severity: &str, code: &str| {
+        serde_json::json!({"diagnostics": [
+            {"severity": "Info", "code": "I214", "message": "m"},
+            {"severity": severity, "code": code, "message": "bad"},
+        ]})
+    };
+    assert_eq!(no_warning_or_error(&with("Info", "I209")), Ok(()));
+    assert_eq!(
+        no_warning_or_error(&serde_json::json!({"diagnostics": []})),
+        Ok(())
+    );
+    assert_eq!(
+        no_warning_or_error(&with("Warning", "W203")),
+        Err("W203: bad".to_string())
+    );
+    assert_eq!(
+        no_warning_or_error(&with("Error", "E104")),
+        Err("E104: bad".to_string())
+    );
+    let refused = no_warning_or_error(&serde_json::json!({"facts": 3})).unwrap_err();
+    assert!(refused.contains("no diagnostics array"), "{refused}");
+}

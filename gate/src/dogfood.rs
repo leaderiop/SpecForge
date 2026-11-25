@@ -11,7 +11,8 @@
 //! alone.
 //!
 //! It also prints X2 (ADR 0388) to its log, [`crate::x2`] over `specforge export --format graph --kinds item,test`
-//! of each project it collects. X2 is print only: a failed collect or export of an X2 project is the check's error.
+//! of each project it collects. X2 is print only: a failed collect or export of an X2 project is the check's error, and
+//! so is a fixture collect answering a Warning or an Error ([`no_warning_or_error`]; an Info passes).
 
 use std::path::{Path, PathBuf};
 
@@ -102,7 +103,8 @@ fn outcome(
 const ONLINE: [&str; 5] = ["--yes", "--effects", "online", "--format", "json"];
 
 /// A parity fixture X2 is printed for (ADR 0388 D3), collected in a scratch copy of its tracked files under
-/// `<target>/gate/x2/<name>` with a `specforge.json` loading `extensions`.
+/// `<target>/gate/x2/<name>` with a `specforge.json` loading `extensions`: every pack the fixture detects, each report
+/// pack reading a report recorded by `gsd/parity/record-reports.sh` (ADR 0393 D9).
 struct Fixture {
     name: &'static str,
     /// The fixture's directory, from the repository root.
@@ -113,7 +115,8 @@ struct Fixture {
     collects: &'static [(&'static str, Option<&'static str>)],
 }
 
-/// Printed after SpecForge, in this order. Taskboard's JavaScript items carry no `test_id`, so it reads `0/0`.
+/// Printed after SpecForge, in this order: taskboard, ledger and vault (CONTEXT D-01, D-10). Vault loads no
+/// `@gsd/security`, which its own project file does: X2 reads items and tests only.
 const FIXTURES: &[Fixture] = &[
     Fixture {
         name: "taskboard",
@@ -124,10 +127,15 @@ const FIXTURES: &[Fixture] = &[
             "@code/core",
             "@javascript/node-test",
             "@javascript/source",
+            "@javascript/coverage",
         ],
         collects: &[
             ("javascript-source", None),
             ("node-test", Some("gsd/parity/goldens/taskboard/junit.xml")),
+            (
+                "javascript-coverage",
+                Some("gsd/parity/goldens/taskboard/reports/javascript-coverage.lcov"),
+            ),
         ],
     },
     Fixture {
@@ -145,6 +153,26 @@ const FIXTURES: &[Fixture] = &[
             ("rust-cargo", None),
             ("rust-source", None),
             ("rust-test", Some("gsd/parity/goldens/ledger/rust-test.xml")),
+        ],
+    },
+    Fixture {
+        name: "vault",
+        dir: "gsd/parity/fixtures/vault",
+        extensions: &[
+            "@gsd/core",
+            "@specforge/checks",
+            "@code/core",
+            "@javascript/node-test",
+            "@javascript/source",
+            "@javascript/coverage",
+        ],
+        collects: &[
+            ("javascript-source", None),
+            ("node-test", Some("gsd/parity/goldens/vault/junit.xml")),
+            (
+                "javascript-coverage",
+                Some("gsd/parity/goldens/vault/reports/javascript-coverage.lcov"),
+            ),
         ],
     },
 ];
@@ -183,9 +211,41 @@ fn fixture_x2(
         }
         args.extend(ONLINE);
         json(ctx, specforge, &args)
+            .and_then(|collect| no_warning_or_error(&collect))
             .map_err(|e| format!("X2 {name}: collecting with {runner}: {e}"))?;
     }
     log_x2(ctx, specforge, name, &copy)
+}
+
+/// Ok when a `collect --format json` answer's `diagnostics` hold no Warning and no Error (an Info passes, CONTEXT
+/// D-10); else each of them as `<code>: <message>`, joined. An answer with no `diagnostics` array is an error: its shape
+/// changed.
+fn no_warning_or_error(collect: &Value) -> Result<(), String> {
+    let diagnostics = collect
+        .get("diagnostics")
+        .and_then(Value::as_array)
+        .ok_or("the answer has no diagnostics array")?;
+    let text = |d: &Value, key| {
+        d.get(key)
+            .and_then(Value::as_str)
+            .unwrap_or("?")
+            .to_string()
+    };
+    let bad: Vec<String> = diagnostics
+        .iter()
+        .filter(|d| {
+            matches!(
+                d.get("severity").and_then(Value::as_str),
+                Some("Warning" | "Error")
+            )
+        })
+        .map(|d| format!("{}: {}", text(d, "code"), text(d, "message")))
+        .collect();
+    if bad.is_empty() {
+        Ok(())
+    } else {
+        Err(bad.join("; "))
+    }
 }
 
 /// Log the X2 lines of the collected project at `path`, read from `specforge export --format graph --kinds
