@@ -374,12 +374,12 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "dogfood",
-        proves: "the nextest reports of the root tests, every guest and the @gsd workspace, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5, ADR 0393 D3); it also prints X2 for SpecForge and the parity fixtures (ADR 0388)",
+        proves: "the nextest reports of the root tests, every guest and the @gsd workspace, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5, ADR 0393 D3); X2 is 100% on SpecForge, taskboard, ledger and vault (ADR 0388, ADR 0393 D8)",
         reach: Reach::Full,
         trigger: Trigger::Always,
         compiles: false,
         after: &["tests", "guests", "gsd"],
-        fix: "<target>/gate/dogfood.log names each failed requirement: specforge anchors <id> --path <target>/gate/dogfood lists the tests that name it; run them (cargo nextest run --workspace --profile gate -E 'test(<name>)', a guest's: cargo nextest run --manifest-path extensions/<dir>/Cargo.toml --config-file <target>/gate/nextest-guests/<slug>.toml -E 'test(<name>)') and fix the one that fails; none proven: the tests did not run or named none. The log also holds the X2 lines; a failed X2 collect or export names its project and step (its scratch copy is <target>/gate/x2/<project>). Then cargo gate full --only tests,guests,gsd,dogfood",
+        fix: "<target>/gate/dogfood.log names each failed requirement: specforge anchors <id> --path <target>/gate/dogfood lists the tests that name it; run them (cargo nextest run --workspace --profile gate -E 'test(<name>)', a guest's: cargo nextest run --manifest-path extensions/<dir>/Cargo.toml --config-file <target>/gate/nextest-guests/<slug>.toml -E 'test(<name>)') and fix the one that fails; none proven: the tests did not run or named none. The log also holds the X2 lines; a failed X2 collect or export names its project and step (its scratch copy is <target>/gate/x2/<project>); a missing id is an item with a test id and no test fact: run its test so a report holds it, or mark it ignored or cfg-excluded so @rust/test reports it skipped. Then cargo gate full --only tests,guests,gsd,dogfood",
         run: dogfood::run,
     },
     Check {

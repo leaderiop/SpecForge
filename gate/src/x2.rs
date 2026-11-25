@@ -1,5 +1,6 @@
 //! X2 (ADR 0388): of a project's `item` facts that carry a `test_id`, the share whose test id is the id of a
-//! `test` fact, of any status. Pure functions the `dogfood` check calls; each is tested on literal input.
+//! `test` fact, of any status. X2 is a floor every project the `dogfood` check collects must reach: 100%, and never
+//! `0/0` (ADR 0393 D8). Pure functions the check calls; each is tested on literal input.
 
 use std::collections::BTreeSet;
 
@@ -83,6 +84,29 @@ pub(crate) fn lines(project: &str, x2: &X2) -> Vec<String> {
     std::iter::once(head)
         .chain(x2.missing.iter().map(|id| format!("  {id}")))
         .collect()
+}
+
+/// How many missing item ids [`floor`]'s error names; the log lists them all.
+pub(crate) const MISSING_NAMED: usize = 10;
+
+/// The floor (ADR 0393 D8): Ok when every one of at least one item with a test id has a test fact. Otherwise the head
+/// of [`lines`] (its rounded-down percent) and the first [`MISSING_NAMED`] missing ids, with how many more there are;
+/// `X2 <project>: no item has a test_id` on `0/0`.
+pub(crate) fn floor(project: &str, x2: &X2) -> Result<(), String> {
+    if x2.total == 0 {
+        return Err(format!("X2 {project}: no item has a test_id"));
+    }
+    if x2.missing.is_empty() {
+        return Ok(());
+    }
+    let head = lines(project, x2).swap_remove(0);
+    let named = x2.missing[..x2.missing.len().min(MISSING_NAMED)].join(", ");
+    let more = x2.missing.len().saturating_sub(MISSING_NAMED);
+    Err(if more == 0 {
+        format!("{head}: missing {named}")
+    } else {
+        format!("{head}: missing {named}, and {more} more (the log lists all)")
+    })
 }
 
 #[cfg(test)]

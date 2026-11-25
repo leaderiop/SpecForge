@@ -10,9 +10,10 @@
 //! export --format graph --kinds requirement` and judged by [`crate::judge::requirement_verdict`], from the export
 //! alone.
 //!
-//! It also prints X2 (ADR 0388) to its log, [`crate::x2`] over `specforge export --format graph --kinds item,test`
-//! of each project it collects. X2 is print only: a failed collect or export of an X2 project is the check's error, and
-//! so is a fixture collect answering a Warning or an Error ([`no_warning_or_error`]; an Info passes).
+//! It also logs X2 (ADR 0388) of SpecForge and each parity fixture, [`crate::x2`] over `specforge export --format
+//! graph --kinds item,test`, and X2 is a floor (ADR 0393 D8): every project is logged first, then the check fails any
+//! below 100% or at `0/0` ([`x2::floor`]). A failed collect or export of an X2 project is that project's error, and so
+//! is a fixture collect answering a Warning or an Error ([`no_warning_or_error`]; an Info passes).
 
 use std::path::{Path, PathBuf};
 
@@ -69,13 +70,23 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     for line in &lines {
         ctx.log(line);
     }
-    // X2 is print only (ADR 0388 D2): a failed collect or export is the error, never the ratio.
-    // SpecForge's missing list is every guest test (thousands): it goes to the log only.
-    let x2 = log_x2(ctx, specforge, "SpecForge", &tree).and_then(|()| {
-        FIXTURES
-            .iter()
-            .try_for_each(|fixture| fixture_x2(ctx, specforge, fixture, &tracked))
-    });
+    // X2 is a floor (ADR 0393 D8): every project is collected and logged in turn before the floor judges, so a failing
+    // SpecForge does not hide the fixtures' lines; the errors are joined after the last. The full missing list goes to
+    // the log only.
+    let errors: Vec<String> =
+        std::iter::once(("SpecForge", log_x2(ctx, specforge, "SpecForge", &tree)))
+            .chain(
+                FIXTURES
+                    .iter()
+                    .map(|fixture| (fixture.name, fixture_x2(ctx, specforge, fixture, &tracked))),
+            )
+            .filter_map(|(name, x2)| x2.and_then(|x2| x2::floor(name, &x2)).err())
+            .collect();
+    let x2 = if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("\n"))
+    };
     let (logged, result) = outcome(failed, &lines, x2);
     if let Some(line) = logged {
         ctx.log(&line);
@@ -102,7 +113,7 @@ fn outcome(
 /// What every collect of the check passes besides its runner.
 const ONLINE: [&str; 5] = ["--yes", "--effects", "online", "--format", "json"];
 
-/// A parity fixture X2 is printed for (ADR 0388 D3), collected in a scratch copy of its tracked files under
+/// A parity fixture X2 is logged and floored for (ADR 0388 D3), collected in a scratch copy of its tracked files under
 /// `<target>/gate/x2/<name>` with a `specforge.json` loading `extensions`: every pack the fixture detects, each report
 /// pack reading a report recorded by `gsd/parity/record-reports.sh` (ADR 0393 D9).
 struct Fixture {
@@ -115,7 +126,7 @@ struct Fixture {
     collects: &'static [(&'static str, Option<&'static str>)],
 }
 
-/// Printed after SpecForge, in this order: taskboard, ledger and vault (CONTEXT D-01, D-10). Vault loads no
+/// Logged after SpecForge, in this order: taskboard, ledger and vault (CONTEXT D-01, D-10). Vault loads no
 /// `@gsd/security`, which its own project file does: X2 reads items and tests only.
 const FIXTURES: &[Fixture] = &[
     Fixture {
@@ -201,13 +212,14 @@ const FIXTURES: &[Fixture] = &[
     },
 ];
 
-/// Collect `fixture` in its scratch copy and log its X2 lines; an error names the fixture and the step that failed.
+/// Collect `fixture` in its scratch copy, log its X2 lines and return its X2; an error names the fixture and the step
+/// that failed.
 fn fixture_x2(
     ctx: &Ctx,
     specforge: &Path,
     fixture: &Fixture,
     tracked: &[String],
-) -> Result<(), String> {
+) -> Result<x2::X2, String> {
     let name = fixture.name;
     let prefix = format!("{}/", fixture.dir);
     let files: Vec<String> = tracked
@@ -273,8 +285,8 @@ fn no_warning_or_error(collect: &Value) -> Result<(), String> {
 }
 
 /// Log the X2 lines of the collected project at `path`, read from `specforge export --format graph --kinds
-/// item,test`; an error names the project.
-fn log_x2(ctx: &Ctx, specforge: &Path, name: &str, path: &str) -> Result<(), String> {
+/// item,test`, and return that X2; an error names the project.
+fn log_x2(ctx: &Ctx, specforge: &Path, name: &str, path: &str) -> Result<x2::X2, String> {
     let export = json(
         ctx,
         specforge,
@@ -290,10 +302,11 @@ fn log_x2(ctx: &Ctx, specforge: &Path, name: &str, path: &str) -> Result<(), Str
     )
     .map_err(|e| format!("X2 {name}: exporting its items and tests: {e}"))?;
     let (items, tests) = x2::read(&export).map_err(|e| format!("X2 {name}: {e}"))?;
-    for line in x2::lines(name, &x2::ratio(&items, &tests)) {
+    let x2 = x2::ratio(&items, &tests);
+    for line in x2::lines(name, &x2) {
         ctx.log(&line);
     }
-    Ok(())
+    Ok(x2)
 }
 
 /// `<root>/target/nextest/<profile>`: where nextest writes the JUnit report of a run under `profile` (its store is

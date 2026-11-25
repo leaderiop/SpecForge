@@ -114,6 +114,44 @@ fn x2_never_prints_100_percent_while_an_item_is_missing() {
 }
 
 #[test]
+fn the_floor_passes_only_every_item_of_at_least_one() {
+    assert_eq!(floor("p", &of(7, 7)), Ok(()));
+    assert_eq!(
+        floor("p", &of(0, 0)),
+        Err("X2 p: no item has a test_id".to_string())
+    );
+    assert_eq!(
+        floor("p", &of(5, 6)),
+        Err("X2 p: 5/6 (83.3%): missing m".to_string())
+    );
+    let error = floor("p", &of(9_999, 10_000)).unwrap_err();
+    assert!(
+        error.starts_with("X2 p: 9999/10000 (99.9%): missing m"),
+        "never rounds to a pass: {error}"
+    );
+}
+
+#[test]
+fn the_floor_names_ten_missing_ids_in_order_and_counts_the_rest() {
+    let missing: Vec<String> = (0..25).map(|n| format!("m{n:02}")).collect();
+    let x2 = X2 {
+        present: 0,
+        total: 25,
+        missing: missing.clone(),
+    };
+    let error = floor("p", &x2).unwrap_err();
+    assert_eq!(
+        error,
+        format!(
+            "X2 p: 0/25 (0.0%): missing {}, and 15 more (the log lists all)",
+            missing[..10].join(", ")
+        )
+    );
+    assert_eq!(MISSING_NAMED, 10);
+    assert!(!error.contains("m10"), "an eleventh id named: {error}");
+}
+
+#[test]
 fn x2_refuses_an_export_of_another_shape_rather_than_reading_0_of_0() {
     for (export, named) in [
         (json!({}), "nodes"),
