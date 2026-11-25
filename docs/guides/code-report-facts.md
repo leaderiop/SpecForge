@@ -187,14 +187,25 @@ highest.
 
 ## The X2 line
 
-X2 is the share of items carrying a test id whose test a standard test report saw. `cargo gate full` prints it in its
-dogfood log for SpecForge, the taskboard fixture and the ledger fixture:
+X2 is the share of items carrying a test id whose test a standard test report saw. `cargo gate full`'s dogfood check
+computes it for SpecForge, the taskboard fixture, the ledger fixture and the vault fixture, and writes each line to its
+dogfood log. SpecForge's line reads the JUnit reports of the root tests, of every extension guest
+(`target/nextest/<profile>/junit-guests/`) and of the `@gsd` workspace (`junit-gsd/`). A fixture's line reads its recorded test
+report and the reports `gsd/parity/record-reports.sh` records under `gsd/parity/goldens/<fixture>/reports/`; the
+fixture itself is left untouched:
 
 ```
-X2 SpecForge: n/m (p.p%)
-X2 taskboard: 0/0 (no item has a test_id)
+X2 SpecForge: N/N (100.0%)
+X2 taskboard: 3/3 (100.0%)
 X2 ledger: 6/6 (100.0%)
+X2 vault: 3/3 (100.0%)
 ```
 
-It is printed, not enforced: ADR 0388 sets no floor. The percent rounds down, so `100.0%` means no item is missing. An
-export of another shape is the check's error, never a `0/0` line.
+X2 is a floor ([ADR 0393](../adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md), refining
+[ADR 0388](../adr/0388-x2-is-the-share-of-test-ids-a-standard-report-saw.md)): every project reaches 100% of its N
+items. A project below 100%, or with no item carrying a test id (`0/0`), fails the check, which names up to ten missing
+ids per project; the log lists all of them. Each run first proves the floor fails, on a copy of the ledger's report
+missing one case, and logs `negative control passed: …`. The check needs `cargo-nextest`.
+
+The percent rounds down, so `100.0%` means no item is missing. An export of another shape is the check's error, never
+a `0/0` line.

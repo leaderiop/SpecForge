@@ -387,18 +387,23 @@ and names each test after the nearest `package.json` with a `name` ([guide](guid
 
 The Rust packs write all four kinds ([ADR 0348](adr/0348-a-collector-declares-a-config-file-and-the-rust-packs.md),
 [guide](guides/rust-facts.md)), each detected by a `Cargo.toml` and run in fact order: `rust-cargo` (`@rust/cargo`)
-reads every `Cargo.toml` with `cargo_toml` into `package` facts and runs nothing; `rust-source` (`@rust/source`) walks
+reads every `Cargo.toml` with `cargo_toml` into `package` facts and runs nothing, leaving out the manifests under
+the project-relative directories its `exclude` setting lists (fixture crates that are no package of the project,
+[ADR 0393](adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)); `rust-source` (`@rust/source`) walks
 each target's module tree by rustc's rules and has the host's parser read it into `item` facts, a test function
-carrying the id nextest gives it and the entity its `#[specforge_test]` names; `rust-test` (`@rust/test`) runs
-`cargo-nextest` with a config file the host writes and reads its JUnit report into `test` and `test_run` facts, an
-`#[ignore]`d test nextest leaves out recorded `skipped`. It needs `cargo install cargo-nextest --locked`.
+carrying the id nextest gives it and the entity its `#[specforge_test]` names (a `__guard_only` helper carries none);
+`rust-test` (`@rust/test`) runs `cargo-nextest` with a config file the host writes and reads its JUnit report into
+`test` and `test_run` facts, an `#[ignore]`d test nextest leaves out, or one a `cfg(...)` false on the host compiles
+out, recorded `skipped`. It needs `cargo install cargo-nextest --locked`.
 
 `@javascript/source` writes `item` and `package` facts ([guide](guides/javascript-facts.md)): its collector
 `javascript-source`, detected by a `package.json`, runs nothing. It reads every `package.json` into one `package` fact
 per named package (`pkg:npm/<name>`, its dependencies on the project's own packages), and has the host's reader parse
-each `.ts .mts .cts .tsx .js .jsx .mjs .cjs` file a named package owns, test files and generated output left out, into
+each `.ts .mts .cts .tsx .js .jsx .mjs .cjs` file a named package owns, generated output left out, into
 `item` facts `js:<package>/<file>::<name>[.<member>]`: what the file or a namespace declares, and the members of its
-classes and interfaces, `public` when an importer reaches it.
+classes and interfaces, `public` when an importer reaches it. A test file is read for its statically named test calls
+only: each is a `function` item with the attribute `test`, and a leaf test carries `test_id`, the id
+`@javascript/node-test` gives it ([ADR 0393](adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)).
 
 ## @specforge/checks
 

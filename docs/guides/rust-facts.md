@@ -62,6 +62,18 @@ order, each served the facts of the one before:
   `collect` says so, and the failing tests are recorded as `failed`.
 - **Your own run:** run nextest with that config yourself, then
   `specforge collect --runner rust-test --no-run`.
+- **Fixture crates:** a `Cargo.toml` that is no package of the project (a
+  test fixture, an example) is left out by `@rust/cargo`'s `exclude` setting
+  in `specforge.json`. Each entry is a directory relative to the project root
+  (one trailing `/` is trimmed); every manifest under it is skipped, so its
+  targets yield no items and no test ids. An empty, absolute or `..` entry
+  fails the collector with `exclude entry '<entry>' is not a project-relative directory`.
+
+  ```json
+  "settings": {
+    "@rust/cargo": { "exclude": ["examples", "xtask/tests/fixtures"] }
+  }
+  ```
 
 ## 3. The ids
 
@@ -94,7 +106,12 @@ fn adds() { assert_eq!(add(1, 2), 3); }
 ```
 
 nextest leaves an `#[ignore]`d test out of its report; `rust-test` records it
-as `skipped` from its item, so a spec citing it is not `code/E101`.
+as `skipped` from its item, so a spec citing it is not `code/E101`. A test the
+report lacks whose `cfg(...)` is false on the host (`windows`,
+`target_os = "windows"`, …; a unix host is assumed) was compiled out, and is
+recorded `skipped` the same way. An attribute naming `__guard_only` marks no
+test: that function carries no `test_id`
+([ADR 0393](../adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)).
 
 ## Things to know
 

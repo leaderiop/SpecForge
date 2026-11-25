@@ -110,8 +110,8 @@ the same SDK any extension uses:
 | `@code/core` | Declare collector-written kinds, a family builtin's own codes, and check passes over facts |
 | `@specforge/checks` | Declare value checkers with scopes and family switches, on a kit a domain pack can link too |
 | `@javascript/node-test` | Declare a collector that reads project files and answers facts, with an extension library (`specforge-code-junit`) |
-| `@rust/cargo`, `@rust/source`, `@rust/test` | Collectors served each other's facts: a manifest library (`cargo_toml`), the host's parser, and a config file the host writes for a command |
-| `@javascript/source` | Read the project's source with the host's reader through a query it ships, and share a library (`specforge-javascript-workspace`) with another pack |
+| `@rust/cargo`, `@rust/source`, `@rust/test` | Collectors served each other's facts: a manifest library (`cargo_toml`), the host's parser, a config file the host writes for a command, and a project setting (`exclude`) a collector reads |
+| `@javascript/source` | Read the project's source with the host's reader through a query it ships, read test files through a second query for their test calls only, and share a library (`specforge-javascript-workspace`) with another pack |
 | `@rust/coverage` | Run cargo-llvm-cov after approval and record its LCOV as `coverage` facts through a reader library (`specforge-code-lcov`); `specforge add` also enables `@rust/source` |
 | `@rust/lint` | Run clippy after approval, capture its JSON on standard output and record `static_finding` facts; `specforge add` also enables `@rust/source` |
 | `@rust/deps` | Hold two collectors: cargo-cyclonedx, whose BOMs a report glob reads fresh, for `dependency` facts, and osv-scanner for `vulnerability` facts; `specforge add` also enables `@rust/source` |

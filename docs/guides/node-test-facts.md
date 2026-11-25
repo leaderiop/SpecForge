@@ -73,6 +73,9 @@ test('a task is added with the next id', () => { /* ... */ })
 // js:taskboard/test/tasks.test.js#a task is added with the next id
 ```
 
+`@javascript/source` gives the matching test call the same id as its
+`test_id`, so X2 counts it ([guide](javascript-facts.md)).
+
 ## 4. Cite a test
 
 Cite a test by its id, quoted, in a field that names test facts. A GSD truth
