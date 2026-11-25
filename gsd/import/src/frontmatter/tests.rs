@@ -236,6 +236,42 @@ fn nesting_stops_at_the_depth_cap() {
 }
 
 #[test]
+fn a_block_scalars_lines_are_text_not_structure() {
+    let map =
+        front("---\ncode: |\n  \tindented\n  % not a directive\n  ...\n  --- x\nnext: y\n---\n")
+            .expect("read");
+    assert_eq!(
+        map.value.get("code"),
+        Some(&s(2, "\tindented\n% not a directive\n...\n--- x\n"))
+    );
+    assert_eq!(map.value.get("next"), Some(&s(7, "y")));
+    // Outside a block the same lines are refused at their line.
+    assert_eq!(refused_at("---\na: 1\n% x\n---\n").0, 3);
+    assert_eq!(refused_at("---\na:\n\t- x\n---\n").0, 3);
+}
+
+#[test]
+fn double_quoted_escapes_are_decoded_or_refused() {
+    let map = front(
+        "---\nu: \"caf\\u00e9\"\nx: \"\\x41\\r\\0\"\nbig: \"\\U0001F600\"\nkept: \"a\\\\b \\\"q\\\" \\/\"\n---\n",
+    )
+    .expect("read");
+    assert_eq!(map.value.get("u"), Some(&s(2, "café")));
+    assert_eq!(map.value.get("x"), Some(&s(3, "A\r\0")));
+    assert_eq!(map.value.get("big"), Some(&s(4, "😀")));
+    assert_eq!(map.value.get("kept"), Some(&s(5, "a\\b \"q\" /")));
+    for (text, says) in [
+        ("---\nv: \"C:\\path\"\n---\n", "an escape `\\p`"),
+        ("---\nv: \"\\u00\"\n---\n", "an escape `\\u`"),
+        ("---\nv: \"\\uD800\"\n---\n", "an escape `\\u`"),
+    ] {
+        let (at, reason) = refused_at(text);
+        assert_eq!(at, 2, "{text}");
+        assert!(reason.contains(says), "{text}: {reason}");
+    }
+}
+
+#[test]
 fn a_key_given_twice_is_found_in_linear_time() {
     // 200,000 keys: a scan of the earlier keys per key is 2e10 comparisons; a set is well under a second.
     let n = 200_000;

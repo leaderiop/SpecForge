@@ -8,7 +8,8 @@
 //! typed: `01` stays the text `01`, `true` the text `true`, for the reader to interpret.
 //!
 //! Refused, mapping nothing of the frontmatter: an anchor, an alias, a tag, a merge key, a second document, a tab in an
-//! indentation, nesting deeper than [`MAX_DEPTH`], a line longer than [`MAX_LINE`], a key given twice.
+//! indentation, nesting deeper than [`MAX_DEPTH`], a line longer than [`MAX_LINE`], a key given twice, a
+//! double-quoted escape YAML does not define. A block scalar's lines are text: a tab, `%` or `...` in one is kept.
 //!
 //! Lines are 1-based over the whole file, frontmatter lines included.
 
@@ -114,18 +115,20 @@ pub fn read(front: &Front<'_>) -> Result<Located<Value>, Refused> {
         if raw.len() > MAX_LINE {
             return refused(no, format!("a line longer than {MAX_LINE} bytes"));
         }
-        let content = raw.trim_start_matches(' ');
-        if content.starts_with('\t') {
-            return refused(no, "a tab indents this line");
-        }
-        let content = content.trim_end();
-        if content == "..." || content.starts_with("--- ") || content.starts_with('%') {
-            return refused(no, "a second YAML document or a directive");
-        }
+        let content = raw.trim_start_matches(' ').trim_end();
+        // Refused only where the parser reads the line as a key or an item: a block scalar's line is text.
+        let refusal = if content.starts_with('\t') {
+            Some("a tab indents this line")
+        } else if content == "..." || content.starts_with("--- ") || content.starts_with('%') {
+            Some("a second YAML document or a directive")
+        } else {
+            None
+        };
         lines.push(Line {
             no,
             indent: raw.len() - raw.trim_start_matches(' ').len(),
             content,
+            refusal,
         });
     }
     let mut parser = Parser { lines, at: 0 };
@@ -136,6 +139,7 @@ pub fn read(front: &Front<'_>) -> Result<Located<Value>, Refused> {
             value: Value::Map(Vec::new()),
         });
     };
+    first.read()?;
     if first.content.starts_with('-')
         && (first.content.len() == 1 || first.content[1..].starts_with(' '))
     {
@@ -144,7 +148,10 @@ pub fn read(front: &Front<'_>) -> Result<Located<Value>, Refused> {
     let map = parser.map(first.indent, 1)?;
     match parser.peek() {
         None => Ok(map),
-        Some(rest) => refused(rest.no, "a line outside the frontmatter's map"),
+        Some(rest) => {
+            rest.read()?;
+            refused(rest.no, "a line outside the frontmatter's map")
+        }
     }
 }
 
@@ -154,6 +161,18 @@ struct Line<'a> {
     indent: usize,
     /// The line without its indentation and trailing white space.
     content: &'a str,
+    /// Why the line is refused when read as a key or an item: a tab indenting it, a document mark or a directive.
+    refusal: Option<&'static str>,
+}
+
+impl Line<'_> {
+    /// The line, read as a key or an item: refused when it carries a [`Line::refusal`].
+    fn read(&self) -> Result<(), Refused> {
+        match self.refusal {
+            Some(why) => refused(self.no, why),
+            None => Ok(()),
+        }
+    }
 }
 
 struct Parser<'a> {
@@ -201,6 +220,7 @@ impl<'a> Parser<'a> {
         // The keys seen, so a key given twice is found in linear time over a frontmatter of any size.
         let mut seen: BTreeSet<String> = BTreeSet::new();
         while let Some(line) = self.peek() {
+            line.read()?;
             if line.indent < indent || (line.indent == indent && item(line.content).is_some()) {
                 break;
             }
@@ -232,6 +252,7 @@ impl<'a> Parser<'a> {
         Self::deep(start, depth)?;
         let mut items = Vec::new();
         while let Some(line) = self.peek() {
+            line.read()?;
             if line.indent < indent {
                 break;
             }
@@ -245,9 +266,9 @@ impl<'a> Parser<'a> {
                 // `- key: value`: a map whose keys stand at the column of `key`.
                 let column = indent + line.content.len() - rest.len();
                 self.lines[self.at] = Line {
-                    no: line.no,
                     indent: column,
                     content: rest,
+                    ..line
                 };
                 items.push(self.map(column, depth + 1)?);
             } else {
@@ -503,12 +524,43 @@ fn quoted(text: &str, q: char, no: usize) -> Result<String, Refused> {
     let mut chars = text[1..].char_indices();
     while let Some((i, c)) = chars.next() {
         match c {
-            '\\' if q == '"' => match chars.next() {
-                Some((_, 'n')) => out.push('\n'),
-                Some((_, 't')) => out.push('\t'),
-                Some((_, e)) => out.push(e),
-                None => break,
-            },
+            '\\' if q == '"' => {
+                let Some((_, e)) = chars.next() else { break };
+                let mut hex = |digits: usize| {
+                    let code: String = chars.by_ref().take(digits).map(|(_, c)| c).collect();
+                    (code.len() == digits && code.chars().all(|c| c.is_ascii_hexdigit()))
+                        .then(|| u32::from_str_radix(&code, 16).ok())
+                        .flatten()
+                        .and_then(char::from_u32)
+                };
+                // YAML 1.2's double-quoted escapes (5.7); any other is refused, never read as its letter.
+                let decoded = match e {
+                    '0' => Some('\0'),
+                    'a' => Some('\u{7}'),
+                    'b' => Some('\u{8}'),
+                    't' | '\t' => Some('\t'),
+                    'n' => Some('\n'),
+                    'v' => Some('\u{b}'),
+                    'f' => Some('\u{c}'),
+                    'r' => Some('\r'),
+                    'e' => Some('\u{1b}'),
+                    ' ' | '"' | '/' | '\\' => Some(e),
+                    'N' => Some('\u{85}'),
+                    '_' => Some('\u{a0}'),
+                    'L' => Some('\u{2028}'),
+                    'P' => Some('\u{2029}'),
+                    'x' => hex(2),
+                    'u' => hex(4),
+                    'U' => hex(8),
+                    _ => None,
+                };
+                match decoded {
+                    Some(c) => out.push(c),
+                    None => {
+                        return refused(no, format!("an escape `\\{e}` this reader does not read"));
+                    }
+                }
+            }
             c if c == q => {
                 if q == '\'' && text[1 + i + 1..].starts_with('\'') {
                     out.push('\'');
