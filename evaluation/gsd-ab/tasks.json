@@ -89,7 +89,7 @@
         "gsd.security/W302 spec/plans.spec:176", "gsd.security/W302 spec/plans.spec:187", "gsd.security/W302 spec/plans.spec:70", "gsd.security/W302 spec/plans.spec:82",
         "gsd.security/W302 spec/plans.spec:94", "gsd.security/W303 spec/security.spec:1", "gsd/E501 spec/plans.spec:129", "gsd/E501 spec/plans.spec:134",
         "gsd/E501 spec/plans.spec:141", "gsd/E501 spec/plans.spec:32", "gsd/E501 spec/plans.spec:37", "gsd/E501 spec/plans.spec:44",
-        "gsd/W103 spec/v1.0.spec:17", "gsd/W311 spec/plans.spec:199", "gsd/W313 spec/plans.spec:199", "gsd/W315 spec/plans.spec:199",
+        "gsd/W103 spec/v1.0.spec:15", "gsd/W311 spec/plans.spec:199", "gsd/W313 spec/plans.spec:199", "gsd/W315 spec/plans.spec:199",
         "gsd/W316 spec/plans.spec:199", "gsd/W407 spec/plans.spec:120", "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:23"
       ] },
     { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "d7bd6006a68101d06dbeb6fbc701fd59b3756063", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"],
