@@ -112,15 +112,38 @@ fn a_secret_is_never_printed() {
         "\"brave_search\": false",
         "\"brave_search\": \"sk-test-123\"",
     );
+    // An object (and a key under the flag) and a one-string array are the API key too (U1, T-13-14).
+    p.edit(
+        CONFIG,
+        "\"exa_search\": false",
+        "\"exa_search\": {\"api_key\": \"sk-NESTED-LEAK\", \"deep\": {\"key\": \"sk-DEEP-LEAK\"}}",
+    );
+    p.edit(CONFIG, "\"jina\": false", "\"jina\": [\"sk-ARRAY-LEAK\"]");
     let text = import(&p, &["--dry-run"]);
     let json = import(&p, &["--dry-run", "--format", "json"]);
     for run in [&text, &json] {
-        assert!(
-            !run.all().contains("sk-test-123"),
-            "the secret is printed: {}",
-            run.all()
-        );
-        assert!(run.stdout.contains("BRAVE_API_KEY"), "{}", run.stdout);
+        for leak in [
+            "sk-test-123",
+            "sk-NESTED-LEAK",
+            "sk-DEEP-LEAK",
+            "sk-ARRAY-LEAK",
+        ] {
+            assert!(
+                !run.all().contains(leak),
+                "the secret {leak} is printed: {}",
+                run.all()
+            );
+        }
+        for variable in ["BRAVE_API_KEY", "EXA_API_KEY", "JINA_API_KEY"] {
+            assert!(run.stdout.contains(variable), "{variable}: {}", run.stdout);
+        }
+        assert!(!run.stdout.contains("exa_search.api_key"), "{}", run.stdout);
+    }
+    for line in [
+        "specforge settings set @gsd/core exa_search true",
+        "specforge settings set @gsd/core jina true",
+    ] {
+        assert!(text.stdout.contains(line), "{line}: {}", text.stdout);
     }
     let answer: serde_json::Value = serde_json::from_str(&json.stdout).expect("JSON");
     let entry = answer["output"]["entries"]

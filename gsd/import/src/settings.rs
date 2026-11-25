@@ -227,8 +227,15 @@ impl Lines {
                 "" => name.to_string(),
                 _ => format!("{prefix}.{name}"),
             };
+            // Whatever sits under a search flag is its API key: kept whole at the flag, never a printable child.
+            let key = SECRETS
+                .iter()
+                .find(|(flag, _)| names(flag, &key))
+                .map_or(key, |(flag, _)| flag.to_string());
             match value {
-                Value::Object(inner) if block_depth(&key).is_none_or(|left| left > 0) => {
+                Value::Object(inner)
+                    if secret(&key).is_none() && block_depth(&key).is_none_or(|left| left > 0) =>
+                {
                     self.object(&key, inner)
                 }
                 _ => {
@@ -273,11 +280,16 @@ impl Lines {
             );
         }
         let words = match (key, value) {
-            (_, Value::String(_)) if secret(key).is_some() => {
+            // A flag is a bool (null is unset above): any other shape is the API key itself.
+            (_, Value::String(_) | Value::Number(_) | Value::Array(_) | Value::Object(_))
+                if secret(key).is_some() =>
+            {
                 let variable = secret(key).unwrap_or_default();
                 report(
                     Outcome::Setting,
-                    format!("a string is an API key, not printed: export {variable} to give it"),
+                    format!(
+                        "a non-bool value is an API key, not printed: export {variable} to give it"
+                    ),
                 );
                 "true".to_string()
             }

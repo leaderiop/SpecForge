@@ -134,6 +134,55 @@ fn settings_lines_never_print_a_secret() {
 }
 
 #[test]
+fn settings_lines_never_print_a_secret_of_any_shape() {
+    let (lines, entries) = run(
+        json!({
+            "brave_search": {"api_key": "sk-SECRET-OBJECT"},
+            "exa_search": {"a": {"b": {"key": "sk-SECRET-NESTED"}}},
+            "jina": ["sk-SECRET-ARRAY"],
+            "perplexity": 4_242_424_242_u64,
+            "tavily_search.api_key": "sk-SECRET-CHILD",
+            "ref_search": {"*": "sk-SECRET-STAR"},
+            "firecrawl": null,
+        }),
+        &[],
+    );
+    // One line per flag, none per child key.
+    assert_eq!(
+        lines,
+        [
+            "specforge settings set @gsd/core brave_search true",
+            "specforge settings set @gsd/core exa_search true",
+            "specforge settings set @gsd/core jina true",
+            "specforge settings set @gsd/core perplexity true",
+            "specforge settings set @gsd/core ref_search true",
+            "specforge settings set @gsd/core tavily_search true",
+        ]
+    );
+    let reasons: Vec<(&str, &str)> = entries
+        .iter()
+        .map(|(k, _, r)| (k.as_str(), r.as_str()))
+        .collect();
+    for (flag, variable) in [
+        ("brave_search", "BRAVE_API_KEY"),
+        ("exa_search", "EXA_API_KEY"),
+        ("jina", "JINA_API_KEY"),
+        ("perplexity", "PERPLEXITY_API_KEY"),
+        ("ref_search", "REF_API_KEY"),
+        ("tavily_search", "TAVILY_API_KEY"),
+    ] {
+        assert!(
+            reasons
+                .iter()
+                .any(|(k, r)| *k == flag && r.contains(variable) && r.contains("not printed")),
+            "{flag}: {entries:?}"
+        );
+    }
+    let all = format!("{lines:?}{entries:?}");
+    assert!(!all.contains("SECRET") && !all.contains("4242"), "{all}");
+}
+
+#[test]
 fn settings_lines_report_what_has_no_line() {
     let (lines, entries) = run(
         json!({
