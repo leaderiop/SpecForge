@@ -1,0 +1,109 @@
+{
+  "results": [
+    {
+      "source": {
+        "path": "/project/Cargo.lock",
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "smallvec",
+            "version": "1.6.0",
+            "ecosystem": "crates.io"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2024-03-01T12:00:00Z",
+              "schema_version": "1.6.0",
+              "id": "RUSTSEC-2099-0003",
+              "aliases": ["CVE-2099-0003"],
+              "summary": "Out-of-bounds read in SmallVec::drain",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "smallvec",
+                    "purl": "pkg:cargo/smallvec"
+                  }
+                }
+              ],
+              "severity": [
+                {"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"}
+              ]
+            }
+          ],
+          "groups": [{"ids": ["RUSTSEC-2099-0003"]}]
+        },
+        {
+          "package": {
+            "name": "time",
+            "version": "0.1.45",
+            "ecosystem": "crates.io"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2024-02-10T08:00:00Z",
+              "schema_version": "1.6.0",
+              "id": "RUSTSEC-2099-0004",
+              "summary": "Unsound localtime in the time crate",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "crates.io",
+                    "name": "time",
+                    "purl": "pkg:cargo/time"
+                  }
+                }
+              ],
+              "severity": [
+                {"type": "CVSS_V4", "score": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:N/VC:H/VI:N/VA:H/SC:N/SI:N/SA:N"}
+              ]
+            }
+          ],
+          "groups": [{"ids": ["RUSTSEC-2099-0004"]}]
+        }
+      ]
+    },
+    {
+      "source": {
+        "path": "/project/web/package-lock.json",
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "@babel/traverse",
+            "version": "7.22.0",
+            "ecosystem": "npm"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2024-01-15T09:00:00Z",
+              "schema_version": "1.6.0",
+              "id": "GHSA-m3p6-8x4q-2c7v",
+              "aliases": ["CVE-2099-0005"],
+              "summary": "Arbitrary code execution when compiling crafted code",
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "npm",
+                    "name": "@babel/traverse"
+                  }
+                }
+              ],
+              "severity": [
+                {"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"},
+                {"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}
+              ],
+              "database_specific": {
+                "github_reviewed": true
+              }
+            }
+          ],
+          "groups": [{"ids": ["GHSA-m3p6-8x4q-2c7v"]}]
+        }
+      ]
+    }
+  ]
+}

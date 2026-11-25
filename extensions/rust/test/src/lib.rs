@@ -18,14 +18,18 @@
 //! Each case sits in exactly one `<testsuite>`, named by its binary id (`toy`, `toy::bin/toy`, `toy::api`): the test
 //! is `rust:<binary id>#<name>`. It is served `@rust/source`'s items; a test whose id an item's `test_id` holds takes
 //! the item's places, file and names. nextest omits an ignored test from its report, so every item marked `test` and
-//! `ignore` whose id the report lacks becomes a `skipped` test without a run: a cited ignored test is held.
+//! `ignore` whose id the report lacks becomes a `skipped` test without a run: a cited ignored test is held. So does
+//! a test item a `cfg(…)` compiles out on the host (`cfg(windows)` on a unix host, ADR 0393 D5), the host's family read
+//! from the project root it passes as `cwd`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
-use specforge_code_facts::{test_facts, Names, TestCase, TestId};
+use specforge_code_facts::{test_facts, TestCase, TestId};
 use specforge_code_junit::cases;
 use specforge_extension_sdk::prelude::*;
+
+mod cfg;
 
 const COLLECTOR: &str = "rust-test";
 /// The JUnit report nextest writes, relative to the project root.
@@ -83,47 +87,12 @@ impl Contributions for RustTest {
 struct Item<'f> {
     fact: &'f Fact,
     ignored: bool,
+    /// A `cfg(…)` attribute compiles it out on the host (ADR 0393 D5).
+    excluded: bool,
 }
 
-impl Item<'_> {
-    /// `case` placed at this item: its places, file and names.
-    fn place(&self, case: TestCase) -> TestCase {
-        let names: Names = self
-            .fact
-            .fields
-            .get("names")
-            .and_then(|names| names.as_array())
-            .into_iter()
-            .flatten()
-            .filter_map(|name| name.as_str())
-            .map(|name| {
-                let places = self
-                    .fact
-                    .named_at
-                    .get("names")
-                    .and_then(|named| named.get(name))
-                    .cloned()
-                    .unwrap_or_default();
-                (name.to_string(), places)
-            })
-            .collect();
-        TestCase {
-            file: case.file.or_else(|| {
-                self.fact
-                    .fields
-                    .get("file")
-                    .and_then(|f| f.as_str())
-                    .map(str::to_string)
-            }),
-            names,
-            at: self.fact.at.clone(),
-            ..case
-        }
-    }
-}
-
-/// The served items by the test id they hold.
-fn items(facts: &[Fact]) -> BTreeMap<&str, Item<'_>> {
+/// The served items by the test id they hold, judged for a host of `family`.
+fn items(facts: &[Fact], family: Option<cfg::Family>) -> BTreeMap<&str, Item<'_>> {
     facts
         .iter()
         .filter(|fact| fact.kind == "item")
@@ -137,14 +106,23 @@ fn items(facts: &[Fact]) -> BTreeMap<&str, Item<'_>> {
                 .flatten()
                 .filter_map(|a| a.as_str())
                 .collect();
-            let ignored = attrs.contains(&"test") && attrs.contains(&"ignore");
-            Some((test_id, Item { fact, ignored }))
+            let test = attrs.contains(&"test");
+            let ignored = test && attrs.contains(&"ignore");
+            let excluded = test && attrs.iter().any(|attr| cfg::excludes(attr, family));
+            Some((
+                test_id,
+                Item {
+                    fact,
+                    ignored,
+                    excluded,
+                },
+            ))
         })
         .collect()
 }
 
-/// Map nextest's JUnit report to a `test` and a `test_run` fact per case, and a `skipped` test per ignored test item
-/// the report lacks. A report whose case is not in exactly one `<testsuite>` is not nextest's: the collector's error.
+/// Map nextest's JUnit report to a `test` and a `test_run` fact per case, and a `skipped` test per ignored or
+/// cfg-excluded test item the report lacks (ADR 0393 D5). A report whose case is not in exactly one `<testsuite>` is not nextest's: the collector's error.
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let [report] = &input.reports[..] else {
         return Err(format!(
@@ -153,7 +131,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         ));
     };
     let found = cases(&report.content).map_err(|why| format!("{}: {why}", report.path))?;
-    let items = items(&input.facts);
+    let items = items(&input.facts, cfg::Family::of(input.cwd.as_deref()));
     let mut reported = BTreeSet::new();
     let mut tests = Vec::new();
     for case in &found {
@@ -170,15 +148,15 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         let key = id.to_string();
         let test = TestCase::of(id, case, None);
         tests.push(match items.get(key.as_str()) {
-            Some(item) => item.place(test),
+            Some(item) => test.placed(item.fact),
             None => test,
         });
         reported.insert(key);
     }
     for (test_id, item) in &items {
-        if item.ignored && !reported.contains(*test_id) {
+        if (item.ignored || item.excluded) && !reported.contains(*test_id) {
             let id = TestId::from_str(test_id).map_err(|e| format!("{}: {e}", item.fact.id))?;
-            tests.push(item.place(TestCase::unrun(id, TestStatus::Skipped)));
+            tests.push(TestCase::unrun(id, TestStatus::Skipped).placed(item.fact));
         }
     }
     Ok(CollectOutput {

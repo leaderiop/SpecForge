@@ -1,0 +1,34 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "static_finding"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.toml"
+        ]
+      },
+      "capability": "rust-lint",
+      "capture": "stdout",
+      "export": "collect__rust_lint",
+      "input_formats": [
+        "cargo-json"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item",
+            "package"
+          ]
+        }
+      ],
+      "install": "rustup component add clippy",
+      "name": "rust-lint",
+      "report": ".specforge/reports/rust-lint"
+    }
+  ]
+}

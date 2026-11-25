@@ -413,6 +413,576 @@
       "testable": false,
       "verify_kinds": [],
       "writer": "collector"
+    },
+    {
+      "description": "What a coverage report (LCOV) says of one item, written by a coverage pack's collector (ADR 0388): cov:<item id> for the innermost item holding the report's lines, cov:@<file> for what no item of a file holds (W104)",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The item holding the lines; absent when no collected item does",
+          "edge": "covers",
+          "field_type": "reference",
+          "inverse_of": null,
+          "name": "item",
+          "required": false,
+          "target_kind": "item"
+        },
+        {
+          "default_value": null,
+          "description": "The report's file, project-relative, with / separators",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "file",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The functions the report lists in it",
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "name": "functions_found",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Those of its functions that ran",
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "name": "functions_hit",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The lines the report measured in it",
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "name": "lines_found",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Those of its lines that ran",
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "name": "lines_hit",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The branches the report measured in it",
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "name": "branches_found",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Those of its branches that were taken",
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "name": "branches_hit",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "coverage",
+      "open_fields": false,
+      "schemes": [
+        "cov"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
+    },
+    {
+      "description": "One public entry of an API snapshot, written by an api pack's collector (ADR 0388): api:rust:<crate>::<path> (cargo public-api, a trait-impl member ...::<Type as Trait>::m), api:js:<package>::<name path> (api-extractor), the id holding no line, order nor source file",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The item the entry is the API of; absent when no collected item has its path (W104 for a kind an item can have)",
+          "edge": "api_of",
+          "field_type": "reference",
+          "inverse_of": null,
+          "name": "item",
+          "required": false,
+          "target_kind": "item"
+        },
+        {
+          "default_value": null,
+          "description": "The entry's qualified path as the snapshot wrote it",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "path",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "What the entry is: an item kind, or variant, reexport, extern_crate, other, which no item is",
+          "edge": null,
+          "enum_values": [
+            "module",
+            "function",
+            "method",
+            "field",
+            "struct",
+            "enum",
+            "union",
+            "trait",
+            "type",
+            "const",
+            "static",
+            "macro",
+            "class",
+            "interface",
+            "variable",
+            "namespace",
+            "variant",
+            "reexport",
+            "extern_crate",
+            "other"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "kind",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Who may name it, as the snapshot wrote it",
+          "edge": null,
+          "enum_values": [
+            "public",
+            "crate",
+            "restricted",
+            "private"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "visibility",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The entry exactly as the snapshot wrote it, attributes included",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "signature",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The api-extractor release tag (Public, Beta, Alpha, Internal)",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "tag",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The entry against the committed accepted report; absent when no accepted report covers its crate or package",
+          "edge": null,
+          "enum_values": [
+            "added",
+            "unchanged",
+            "changed",
+            "narrowed",
+            "removed"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "change",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The accepted report's entry as it wrote it, for a changed, narrowed or removed entry",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "accepted_signature",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The accepted report's release tag, for a changed, narrowed or removed entry that has one",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "accepted_tag",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The accepted report's visibility, for a changed or narrowed entry whose visibility differs",
+          "edge": null,
+          "enum_values": [
+            "public",
+            "crate",
+            "restricted",
+            "private"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "accepted_visibility",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "api_item",
+      "open_fields": false,
+      "schemes": [
+        "api"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
+    },
+    {
+      "description": "One result of a SARIF run (a lint or static analysis finding), written by a lint pack's collector (ADR 0388): sarif:<tool>/<rule>#<file>:<line>, #<file> with no line, neither with no location, ~2 on a repeat in document order",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The run's tool (tool.driver.name)",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "tool",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The rule id the result states; unknown when it states none (W105)",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "rule",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The level the result or its rule's defaultConfiguration states; unknown when neither does (W105), never SARIF's own warning default",
+          "edge": null,
+          "enum_values": [
+            "error",
+            "warning",
+            "note",
+            "none",
+            "unknown"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "level",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The result's message.text",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "message",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The file of its first location, project-relative, with / separators",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "file",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The 1-based start line of its first location",
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "name": "line",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The innermost item holding its line; absent when no collected item does",
+          "edge": "found_in",
+          "field_type": "reference",
+          "inverse_of": null,
+          "name": "item",
+          "required": false,
+          "target_kind": "item"
+        },
+        {
+          "default_value": null,
+          "description": "The package holding its file, when no item holds its line; absent with neither (W104)",
+          "edge": "found_in_package",
+          "field_type": "reference",
+          "inverse_of": null,
+          "name": "package",
+          "required": false,
+          "target_kind": "package"
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "static_finding",
+      "open_fields": false,
+      "schemes": [
+        "sarif"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
+    },
+    {
+      "description": "One component of a CycloneDX bill of materials, written by an SBOM pack's collector (ADR 0388): dep:<package id>/<purl without qualifiers and subpath>, or dep:<package id>/@<[group/]name[@version]> for a component with no purl (W106); one fact per id, a purl listed twice merged",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The project package the BOM describes (its metadata.component)",
+          "edge": "dependency_of",
+          "field_type": "reference",
+          "inverse_of": null,
+          "name": "package",
+          "required": false,
+          "target_kind": "package"
+        },
+        {
+          "default_value": null,
+          "description": "The component's package URL as written; absent when it has none (W106)",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "purl",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The component's name, group/name when it states a group",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "name",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The component's version, when it states one",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "version",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The component's scope, required when the BOM states none (the spec's default); the widest of a purl listed twice",
+          "edge": null,
+          "enum_values": [
+            "required",
+            "optional",
+            "excluded"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "scope",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Whether the project package depends on it directly; present only when the BOM states a dependency graph for its root, never false for a graph it does not state",
+          "edge": null,
+          "field_type": "bool",
+          "inverse_of": null,
+          "name": "direct",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "dependency",
+      "open_fields": false,
+      "schemes": [
+        "dep"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
+    },
+    {
+      "description": "One OSV record of an osv-scanner report, written by a vulnerability pack's collector (ADR 0388): vuln:<package id>/<OSV id>, one fact per project package the scanned lockfile belongs to and OSV id, the versions of one dependency merged; severity critical, high, medium, low, else unknown (W107)",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The project package the scanned lockfile belongs to: the one at its directory, else each one under it",
+          "edge": "affects",
+          "field_type": "reference",
+          "inverse_of": null,
+          "name": "package",
+          "required": false,
+          "target_kind": "package"
+        },
+        {
+          "default_value": null,
+          "description": "The OSV record's id (GHSA-…, RUSTSEC-…)",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "osv_id",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The record's aliases (CVE ids and the like), sorted",
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "aliases",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The record's one-line summary; absent when it states none",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "summary",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The affected dependency's package URL at each affected version",
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "purl",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The affected dependency's versions the lockfile pins",
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "version",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The record's own severity label (MODERATE reads medium), else the rating of its highest CVSS v3 base score, else unknown (W107); the highest of the records merged",
+          "edge": null,
+          "enum_values": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "unknown"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "severity",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "vulnerability",
+      "open_fields": false,
+      "schemes": [
+        "vuln"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
     }
   ]
 }

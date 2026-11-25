@@ -60,7 +60,8 @@ impl Args {
             .with_hosts(specforge_ops::host::diagnose::findings(
                 &view, &renderers, caller,
             ))
-            .with_grants(&view, &consent);
+            .with_grants(&view, &consent)
+            .with_tools(&view, &*process);
         let credentials = User::current(std::sync::Arc::clone(&ports.git)).credential_health();
         let found = OnPath::find(std::env::var_os("PATH").as_deref(), &*process);
         let path_binary = on_path::finding(found.as_ref(), &view);
@@ -259,6 +260,7 @@ fn render_human(
         ("Rules", Part::Rule),
         ("Surfaces", Part::Surface),
         ("Toolchain", Part::Toolchain),
+        ("Tools", Part::Tools),
         ("Grants", Part::Grants),
         ("Hosts", Part::Host),
     ] {

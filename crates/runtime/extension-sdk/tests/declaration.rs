@@ -345,6 +345,22 @@ fn a_code_entry_may_be_settled_later() {
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-028")]
+fn a_code_entry_may_name_the_collected_kinds_it_judges() {
+    let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/reports", "0.1.0"));
+    b.code("W104", |d| {
+        d.title("Report entry on no item")
+            .explanation("Serve the item.")
+            .facts(&["coverage", "api_item"]);
+    });
+    b.code("W105", |d| {
+        d.title("Plain").explanation("About authored entities.");
+    });
+    let declared = b.declaration();
+    assert_eq!(declared.codes[0].facts, ["coverage", "api_item"]);
+    assert!(declared.codes[1].facts.is_empty());
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
 fn settings_presets_secrets_and_flags_are_declared() {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/gsd", "0.1.0"));
     b.setting("workflow.tdd_mode", |s| {

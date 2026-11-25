@@ -150,6 +150,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         unlinked,
         plan: None,
         facts: Vec::new(),
+        warnings: Vec::new(),
     })
 }
 

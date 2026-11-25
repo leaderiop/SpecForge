@@ -1,0 +1,33 @@
+{
+  "category": "surfaces",
+  "items": [
+    {
+      "commands": [
+        {
+          "args": [],
+          "description": "Import a GSD project once: read the project root's .planning/ folder into one edit plan that writes spec/gsd/, and report every file, section and row it did not map, with the reason",
+          "export": "cmd__import",
+          "id": "import",
+          "imports": true,
+          "inputs": [
+            {
+              "glob": ".planning/**",
+              "input": "files",
+              "name": "planning",
+              "text": true,
+              "text_max": 4194304
+            },
+            {
+              "glob": "specforge.json",
+              "input": "files",
+              "name": "manifest",
+              "text": true
+            }
+          ],
+          "title": "",
+          "writes": true
+        }
+      ]
+    }
+  ]
+}

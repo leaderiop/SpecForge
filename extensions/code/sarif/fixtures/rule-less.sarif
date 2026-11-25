@@ -1,0 +1,146 @@
+{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "demo-lint",
+          "rules": [
+            {
+              "id": "R1"
+            },
+            {
+              "id": "R2",
+              "defaultConfiguration": {
+                "level": "note"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "level": "error",
+          "message": {
+            "text": "a result naming no rule"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/lib.rs"
+                },
+                "region": {
+                  "startLine": 2
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "R1",
+          "message": {
+            "text": "a rule with no defaultConfiguration and no level"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/lib.rs"
+                },
+                "region": {
+                  "startLine": 7
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "R1",
+          "kind": "pass",
+          "message": {
+            "text": "a pass with no level"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/lib.rs"
+                },
+                "region": {
+                  "startLine": 15
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleIndex": 1,
+          "message": {
+            "text": "a rule given by index alone, its default note"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/lib.rs"
+                },
+                "region": {
+                  "startLine": 16
+                }
+              }
+            }
+          ]
+        },
+        {
+          "rule": {
+            "id": "R2"
+          },
+          "message": {
+            "text": "a rule given by its reference id, its default note"
+          }
+        },
+        {
+          "ruleId": "R1",
+          "level": "warning",
+          "message": {
+            "text": "the first of two results at one place"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/lib.rs"
+                },
+                "region": {
+                  "startLine": 24,
+                  "startColumn": 5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "R1",
+          "level": "warning",
+          "message": {
+            "text": "the second of two results at one place"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/lib.rs"
+                },
+                "region": {
+                  "startLine": 24,
+                  "startColumn": 20
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

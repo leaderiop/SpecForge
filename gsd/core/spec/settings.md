@@ -40,7 +40,7 @@ Typed as GSD types them (K6 takes K3's field types), with three shapes GSD's JSO
 
 | GSD key | Declared as |
 |---|---|
-| `brave_search`, `firecrawl`, `exa_search`, `tavily_search`, `ref_search`, `perplexity`, `jina` (`string \| boolean \| null`) | a bool setting that forces the source on or off, with no default under any of the seven (unset: detected from the key's presence, as GSD does at `config-new-project`; GSD also detects from `~/.gsd/<name>_api_key` files, which the environment-only secrets do not read), and a secret read from `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `REF_API_KEY`, `PERPLEXITY_API_KEY`, `JINA_API_KEY`, named `<flag>_key` (`brave_search_key`, `firecrawl_key`, `exa_search_key`, `tavily_search_key`, `ref_search_key`, `perplexity_key`, `jina_key`) because the kernel refuses a secret that shares a setting's name; `specforge gsd import` moves a string value out to the environment and reports it |
+| `brave_search`, `firecrawl`, `exa_search`, `tavily_search`, `ref_search`, `perplexity`, `jina` (`string \| boolean \| null`) | a bool setting that forces the source on or off, with no default under any of the seven (unset: detected from the key's presence, as GSD does at `config-new-project`; GSD also detects from `~/.gsd/<name>_api_key` files, which the environment-only secrets do not read), and a secret read from `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `REF_API_KEY`, `PERPLEXITY_API_KEY`, `JINA_API_KEY`, named `<flag>_key` (`brave_search_key`, `firecrawl_key`, `exa_search_key`, `tavily_search_key`, `ref_search_key`, `perplexity_key`, `jina_key`) because the kernel refuses a secret that shares a setting's name; `specforge gsd import` prints the flag and reports the variable to export, never the value |
 | `model_profile_overrides.<runtime>.<tier>` (`string \| object`) | the block `{model str R, reasoning_effort enum}`; the import rewrites a bare string to `{model}` |
 | a key GSD leaves unset (`(none)`, `null`, _unset_, or a capability's empty string or `-1`) | no default; `null` is unset |
 | `resolve_model_ids` (`false \| true \| "omit"`) | an enum `aliases \| ids \| omit`, default `aliases`; the import maps `false`, `true` and `"omit"` |
@@ -56,7 +56,7 @@ partner could satisfy `critical < warning`; the pair itself is not checked, as G
 (the model leaves them unset; GSD treats any non-positive value as unset too, and only `-1` is accepted here).
 
 A `number` setting (ADR 0305) takes a whole or a decimal number within whole-number bounds: `hooks.context_warning_threshold` (1-100) and `hooks.context_critical_threshold` (0-99) are numbers. The other settings GSD's capabilities declare as `number` (`7.5`, `1.5` seconds) are whole numbers here; the bounds of a number are whole, so `99.5` is within the critical bound. `worktree.baseRef` is declared here, but GSD keeps it in `.claude/settings.local.json`, not `.planning/config.json`
-(`docs/CONFIGURATION.md`), so `specforge gsd import` reads it from there.
+(`docs/CONFIGURATION.md`), outside `.planning/`, so `specforge gsd import` reports it and does not read it.
 Where `docs/CONFIGURATION.md` and the defaults manifest disagree, the manifest wins (`workflow.inline_plan_threshold` is 2, the
 docs say 3). A host URL whose capability default is empty and whose documented default is a URL (`review.ollama_host`) takes the
 documented one.
@@ -86,7 +86,7 @@ setting.
 | Profile | Behaves as |
 |---|---|
 | `gsd-compat` (default) | GSD at the tracked version: every rule GSD only warns about warns, every check GSD leaves to a prompt is still judged but does not block. The parity suite runs on it. |
-| `gsd-strict` | the same rules, blocking where GSD warns: same-wave file conflicts, a stale plan-check verdict, a backstop truth without evidence, and an open broken window at ship; and, beyond GSD, a verdict that is not fresh at any step (gsd/E516), a complete requirement no commit and passing test trace (gsd/E515) and a task commit without its `Gsd-Task:` trailer (gsd/E521). |
+| `gsd-strict` | the same rules, blocking where GSD warns: same-wave file conflicts, a stale plan-check verdict, a backstop truth without evidence, and an open broken window at ship; and, beyond GSD, a verdict that is not fresh at any step (gsd/E516), a complete requirement no commit and passing test trace (gsd/E515), a task commit without its `Gsd-Task:` trailer (gsd/E521), and, at the milestone close, a breaking API change without a major version bump (gsd/E533) and release evidence that does not match the milestone (gsd/E535). |
 | `gsd-plus` | strict, and cross-workstream conflict detection (gsd/E517). |
 
 A profile presets these settings:
@@ -100,6 +100,8 @@ A profile presets these settings:
 | `specforge.cross_workstream_conflicts` | false | false | true |
 | `specforge.plan_paths_touched` | false | true | true |
 | `specforge.task_trailers` | false | true | true |
+| `specforge.interface_gate` | false | true | true |
+| `specforge.release_gate` | false | true | true |
 
 ## Other presets
 
@@ -118,7 +120,9 @@ below are bool, default false, and each gates rules ([rules.md](rules.md#setting
 `specforge.agent_variant`, gates none:
 it is an enum, `full` (the default) or `compact`, that picks the body of the ten agents that have a compact variant
 (codex and cursor; Claude Code always renders the full body, as upstream installs no compact agent for it). It is an enum
-because the host takes a variant setting only as a string or enum; `workflow.compact_content` presets it.
+because the host takes a variant setting only as a string or enum; `workflow.compact_content` presets it. Another,
+`specforge.release_exempt`, gates none either: a string list, empty by default, of the package names gsd/E535 does
+not judge (packages the milestone does not release, such as a workspace's internal crates).
 
 | Setting | Switches on |
 |---|---|
@@ -128,6 +132,8 @@ because the host takes a variant setting only as a string or enum; `workflow.com
 | `specforge.cross_workstream_conflicts` | active plans of different workstreams share no file (gsd/E517) |
 | `specforge.plan_paths_touched` | a complete plan's commits touched every path it planned, and the files it deletes are gone (gsd/W520) |
 | `specforge.task_trailers` | a task commit names its task by its `Gsd-Task:` trailer (gsd/E521) |
+| `specforge.interface_gate` | a milestone that changes, narrows or removes an API item bumps its major version over the last shipped one (gsd/E533) |
+| `specforge.release_gate` | a milestone's packages are at its version, its version is later than the last shipped one, and that one's tag resolves (gsd/E535) |
 
 Ten more are bool, default **true**, and show or hide skills: `specforge.surface.<cluster>` for each of GSD's skill
 clusters (`core_loop`, `audit_review`, `milestone`, `research_ideate`, `workspace_state`, `docs`, `ui`, `ai_eval`,

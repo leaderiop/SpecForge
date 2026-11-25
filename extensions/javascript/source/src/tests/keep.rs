@@ -38,6 +38,15 @@ fn a_short_walk_is_the_collectors_error_whatever_the_answers_cap() {
 }
 
 #[specforge_test(requirement = "FEATURE-056")]
+fn a_test_files_helpers_are_no_item_beside_its_test_calls() {
+    let facts = collected(&[(
+        "src/b.test.js",
+        "export const t = 1;\nfunction helper() {}\ntest(\"works\", () => helper());\n",
+    )]);
+    assert_eq!(items(&facts), ["js:app/src/b.test.js::works"]);
+}
+
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_kept_file_the_fs_port_withholds_is_the_collectors_error() {
     let files = [
         APP,
@@ -53,6 +62,31 @@ fn a_kept_file_the_fs_port_withholds_is_the_collectors_error() {
         error,
         "src/held.js: the host's reader did not parse it (denied); javascript-source reads every kept source \
          file or none"
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-056")]
+fn a_test_file_the_reader_could_not_parse_is_a_warning_and_no_item() {
+    let files = [
+        APP,
+        ("src/a.js", "export const a = 1;\n"),
+        ("test/held.test.js", "test(\"h\", () => {});\n"),
+        ("test/ok.test.js", "test(\"ok\", () => {});\n"),
+    ];
+    let withheld = Host {
+        denied: vec!["test/held.test.js"],
+        ..host(&files)
+    };
+    let input = input(&withheld, &[]);
+    let out = serve(Rc::new(withheld), || collect(&input)).expect("the collector answers");
+    assert_eq!(
+        items(&out.facts),
+        ["js:app/src/a.js::a", "js:app/test/ok.test.js::ok"]
+    );
+    assert_eq!(
+        out.warnings,
+        ["test/held.test.js: the host's reader did not parse this test file (denied); javascript-source reads no \
+          test call from it"]
     );
 }
 
@@ -114,4 +148,16 @@ fn the_keep_rules_judge_a_path_inside_its_package_a_package_json_too() {
     .unwrap();
     assert_eq!(packages(&unnamed), ["pkg:npm/tool"]);
     assert_eq!(items(&unnamed), ["js:tool/src/a.js::a"]);
+}
+
+#[specforge_test(requirement = "FEATURE-056")]
+fn a_fixture_packages_test_file_gives_no_item() {
+    // node runs `test/fixtures/proj/a.test.js`, and node-test names it after `proj`, a package this pack does not
+    // read: under `app` its id would be `js:app/test/fixtures/proj/a.test.js#x`, one no report holds.
+    let facts = collected(&[
+        ("test/fixtures/proj/package.json", r#"{"name":"proj"}"#),
+        ("test/fixtures/proj/a.test.js", "test(\"x\", () => {});\n"),
+        ("test/fixtures/plain/b.test.js", "test(\"y\", () => {});\n"),
+    ]);
+    assert_eq!(items(&facts), ["js:app/test/fixtures/plain/b.test.js::y"]);
 }

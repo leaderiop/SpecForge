@@ -1,0 +1,32 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "coverage"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "package.json"
+        ]
+      },
+      "capability": "javascript-coverage",
+      "export": "collect__javascript_coverage",
+      "input_formats": [
+        "lcov"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item"
+          ]
+        }
+      ],
+      "install": "npm install --save-dev c8",
+      "name": "javascript-coverage",
+      "report": ".specforge/reports/javascript-coverage/lcov.info"
+    }
+  ]
+}

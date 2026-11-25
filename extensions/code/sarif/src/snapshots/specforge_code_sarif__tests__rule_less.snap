@@ -1,0 +1,148 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "static_finding",
+    "id": "sarif:demo-lint/unknown#src%2Flib.rs:2",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::Board",
+      "level": "error",
+      "line": 2,
+      "message": "a result naming no rule",
+      "rule": "unknown",
+      "tool": "demo-lint"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 2,
+        "start_col": 1,
+        "end_line": 3,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:demo-lint/R1#src%2Flib.rs:7",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::Board::len",
+      "level": "unknown",
+      "line": 7,
+      "message": "a rule with no defaultConfiguration and no level",
+      "rule": "R1",
+      "tool": "demo-lint"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 7,
+        "start_col": 1,
+        "end_line": 8,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:demo-lint/R1#src%2Flib.rs:15",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::tests::reads",
+      "level": "none",
+      "line": 15,
+      "message": "a pass with no level",
+      "rule": "R1",
+      "tool": "demo-lint"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 15,
+        "start_col": 1,
+        "end_line": 16,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:demo-lint/R2#src%2Flib.rs:16",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::tests::reads",
+      "level": "note",
+      "line": 16,
+      "message": "a rule given by index alone, its default note",
+      "rule": "R2",
+      "tool": "demo-lint"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 16,
+        "start_col": 1,
+        "end_line": 17,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:demo-lint/R2",
+    "fields": {
+      "level": "note",
+      "message": "a rule given by its reference id, its default note",
+      "rule": "R2",
+      "tool": "demo-lint"
+    }
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:demo-lint/R1#src%2Flib.rs:24",
+    "fields": {
+      "file": "src/lib.rs",
+      "level": "warning",
+      "line": 24,
+      "message": "the first of two results at one place",
+      "package": "pkg:cargo/demo",
+      "rule": "R1",
+      "tool": "demo-lint"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 24,
+        "start_col": 1,
+        "end_line": 25,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:demo-lint/R1#src%2Flib.rs:24~2",
+    "fields": {
+      "file": "src/lib.rs",
+      "level": "warning",
+      "line": 24,
+      "message": "the second of two results at one place",
+      "package": "pkg:cargo/demo",
+      "rule": "R1",
+      "tool": "demo-lint"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 24,
+        "start_col": 1,
+        "end_line": 25,
+        "end_col": 1
+      }
+    ]
+  }
+]

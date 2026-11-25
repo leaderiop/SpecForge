@@ -44,6 +44,14 @@ impl FileReadSpec {
         self.0.text = true;
         self
     }
+
+    /// Send each file's text up to `bytes` (at most 4 MiB) instead of 64 KiB, as well as its facts; the read's text
+    /// budget is the larger of 1 MiB and four times `bytes` (protocol 2.3.0).
+    pub fn text_up_to(mut self, bytes: u32) -> Self {
+        self.0.text = true;
+        self.0.text_max = Some(bytes);
+        self
+    }
 }
 
 impl From<FileReadSpec> for FileRead {

@@ -169,6 +169,8 @@ pub fn seeded(task: &str, arm: &str, flags: &[&str]) -> Result<Project, String> 
         root,
         source: None,
         extensions: RefCell::new(extensions),
+        // The arm's `specforge.json` is the copy's own: a test's settings replace it.
+        own_settings: serde_json::Value::Null,
     })
 }
 

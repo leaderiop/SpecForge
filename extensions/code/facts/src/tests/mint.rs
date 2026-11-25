@@ -2,7 +2,7 @@
 
 use super::{owner, strings};
 use crate::*;
-use specforge_code_junit::{cases, relative};
+use specforge_code_junit::cases;
 use specforge_extension_sdk::host::SyntaxPoint;
 use specforge_extension_sdk::prelude::{Fact, FactLocation, TestStatus};
 use specforge_test::prelude::*;
@@ -88,6 +88,30 @@ fn an_unrun_test_has_no_run() {
     let facts = test_facts([TestCase::unrun(id, TestStatus::Skipped)]);
     assert_eq!(kinds_and_ids(&facts), [("test", "rust:toy#tests::later")]);
     assert_eq!(facts[0].fields["status"], "skipped");
+}
+
+#[test]
+fn a_test_placed_at_its_item_takes_its_places_names_and_file() {
+    let item = Fact::new("item", "rust:toy::tests::adds")
+        .field("file", "src/lib.rs")
+        .at(place("src/lib.rs", 4))
+        .name("names", "TR1", place("src/lib.rs", 3))
+        .unplaced_name("names", "TR2");
+    let id = TestId::rust("toy", "tests::adds");
+    let placed = case(id.clone(), TestStatus::Passed, Some(0.5)).placed(&item);
+    assert_eq!(placed.file.as_deref(), Some("src/lib.rs"));
+    assert_eq!(placed.at, [place("src/lib.rs", 4)]);
+    assert_eq!(placed.names["TR1"], [place("src/lib.rs", 3)]);
+    assert_eq!(placed.names["TR2"], Vec::<FactLocation>::new());
+    assert_eq!(
+        (placed.status, placed.seconds, placed.ran),
+        (TestStatus::Passed, Some(0.5), true)
+    );
+    let own = TestCase {
+        file: Some("tests/own.rs".to_string()),
+        ..case(id, TestStatus::Failed, None)
+    };
+    assert_eq!(own.placed(&item).file.as_deref(), Some("tests/own.rs"));
 }
 
 #[test]

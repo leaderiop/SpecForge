@@ -1,5 +1,5 @@
-//! The gate guards: `gsd/E106`, `E511`, `E512`, `W318`, `W404`, `E515` and `E516` (D-r39-12, D-K20a-7). A command's or prompt's
-//! gate runs the guard passes that report its codes; a gate fails only on an Error.
+//! The gate guards: `gsd/E106`, `E511`, `E512`, `W318`, `W404`, `E515`, `E516` (D-r39-12, D-K20a-7), `E533` and `E535`
+//! (ADR 0390). A command's or prompt's gate runs the guard passes that report its codes; a gate fails only on an Error.
 //!
 //! A guard also runs on every judged write, with no trigger. Every guard here answers nothing unless its trigger is a
 //! gate (its trigger kind), so a write is never refused by one: an agent's plan, and `gsd-git`'s, stay free
@@ -12,7 +12,8 @@
 //! W318 and E516 read the settled judgements alone: a judged target declares when its verdict is owed (a plan check
 //! while its plan is open, a must-have once its plan is complete), and the host settles away the rest, so no guard
 //! decides for itself whether a plan was executed. E516, which also reads the workflow a gate is for, lives in
-//! `gates/e516.rs`.
+//! `gates/e516.rs`; E533 and E535, which read a milestone's computed `api_breaks` and `release` and its version, in
+//! `gates/release.rs`.
 
 use std::collections::BTreeSet;
 
@@ -24,7 +25,9 @@ use super::thread::{Proof, requirement_proven};
 use crate::scope::scope_of;
 
 mod e516;
+mod release;
 use e516::e516;
+use release::{e533, e535};
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
 
@@ -38,6 +41,8 @@ const GUARDS: &[(&str, &str, Check)] = &[
     ("gate_w404", "W404", w404),
     ("gate_e515", "E515", e515),
     ("gate_e516", "E516", e516),
+    ("gate_e533", "E533", e533),
+    ("gate_e535", "E535", e535),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

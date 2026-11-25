@@ -157,6 +157,8 @@ fn every_taskboard_golden_is_compared_once() {
             name.rsplit_once('.')
                 .map_or(name.clone(), |(stem, _)| stem.to_string())
         })
+        // Recorded tool reports, compared by the gate's dogfood check, not the scenario (CONTEXT D-15).
+        .filter(|name| name != "reports")
         .collect();
     assert_eq!(on_disk.len(), 19, "the recorded goldens");
     let listed: Vec<&str> = SCENARIO.iter().map(|(g, ..)| *g).collect();

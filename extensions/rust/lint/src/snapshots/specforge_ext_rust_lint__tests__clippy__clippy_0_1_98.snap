@@ -1,0 +1,94 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "static_finding",
+    "id": "sarif:clippy/unused_variables#src%2Flib.rs:12",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::first",
+      "level": "warning",
+      "line": 12,
+      "message": "unused variable: `unused`",
+      "rule": "unused_variables",
+      "tool": "clippy"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 12,
+        "start_col": 1,
+        "end_line": 13,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:clippy/clippy%3A%3Alen_without_is_empty#src%2Flib.rs:6",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::Board::len",
+      "level": "warning",
+      "line": 6,
+      "message": "struct `Board` has a public `len` method, but no `is_empty` method",
+      "rule": "clippy::len_without_is_empty",
+      "tool": "clippy"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 6,
+        "start_col": 1,
+        "end_line": 7,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:clippy/clippy%3A%3Aneedless_return#src%2Flib.rs:7",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::Board::len",
+      "level": "warning",
+      "line": 7,
+      "message": "unneeded `return` statement",
+      "rule": "clippy::needless_return",
+      "tool": "clippy"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 7,
+        "start_col": 1,
+        "end_line": 8,
+        "end_col": 1
+      }
+    ]
+  },
+  {
+    "kind": "static_finding",
+    "id": "sarif:clippy/clippy%3A%3Aunwrap_used#src%2Flib.rs:13",
+    "fields": {
+      "file": "src/lib.rs",
+      "item": "rust:demo::first",
+      "level": "warning",
+      "line": 13,
+      "message": "used `unwrap()` on an `Option` value",
+      "rule": "clippy::unwrap_used",
+      "tool": "clippy"
+    },
+    "at": [
+      {
+        "file": "src/lib.rs",
+        "start_line": 13,
+        "start_col": 1,
+        "end_line": 14,
+        "end_col": 1
+      }
+    ]
+  }
+]

@@ -1,0 +1,147 @@
+#![allow(
+    clippy::unwrap_used,
+    reason = "a test's unwrap is its assertion: a None or an Err fails the test"
+)]
+
+use super::*;
+
+#[test]
+fn a_guests_config_is_the_store_the_base_and_its_junit_path() {
+    let base = "[profile.gate]\nretries = 0\n";
+    assert_eq!(
+        config(base, Path::new("/r/target/nextest"), "gate", "rust-test").unwrap(),
+        "[store]\ndir = \"/r/target/nextest\"\n\n[profile.gate]\nretries = 0\n\
+         [profile.gate.junit]\npath = \"junit-guests/rust-test/junit.xml\"\n"
+    );
+}
+
+/// The store is a TOML basic string: an apostrophe needs nothing, a backslash and a double quote are escaped.
+#[test]
+fn any_store_path_is_written_as_an_escaped_basic_string() {
+    for (store, written) in [
+        ("/Users/o'neil/r", "/Users/o'neil/r"),
+        (r"C:\r\target", r"C:\\r\\target"),
+        ("/r/a\"b", "/r/a\\\"b"),
+    ] {
+        let text = config("", Path::new(store), "gate", "checks").unwrap();
+        assert!(
+            text.starts_with(&format!("[store]\ndir = \"{written}\"\n")),
+            "{text}"
+        );
+    }
+}
+
+#[test]
+fn a_store_with_a_control_character_is_refused() {
+    for store in ["/r/a\nb", "/r/a\rb", "/r/a\tb"] {
+        let err = config("", Path::new(store), "gate", "checks").unwrap_err();
+        assert!(err.contains(&format!("{store:?}")), "{err}");
+    }
+}
+
+#[test]
+fn a_slug_outside_lowercase_digits_and_dashes_is_refused() {
+    for slug in ["", "Rust-test", "rust_test", "rust/test", "a b", "x\"y"] {
+        let err = config("", Path::new("/r"), "gate", slug).unwrap_err();
+        assert!(err.contains(&format!("{slug:?}")), "{err}");
+    }
+}
+
+#[test]
+fn a_guests_slug_is_its_directory_under_extensions() {
+    assert_eq!(slug("extensions/rust/test/Cargo.toml"), "rust-test");
+    assert_eq!(slug("extensions/checks/Cargo.toml"), "checks");
+}
+
+/// Two guests whose directories slug alike are refused, naming both; distinct ones keep their order.
+#[test]
+fn two_guests_sharing_a_slug_are_refused() {
+    let manifests = |paths: &[&str]| paths.iter().map(|p| p.to_string()).collect::<Vec<_>>();
+    assert_eq!(
+        slugged(manifests(&[
+            "extensions/rust/test/Cargo.toml",
+            "extensions/checks/Cargo.toml"
+        ])),
+        Ok(vec![
+            (
+                "extensions/rust/test/Cargo.toml".to_string(),
+                "rust-test".to_string()
+            ),
+            (
+                "extensions/checks/Cargo.toml".to_string(),
+                "checks".to_string()
+            ),
+        ])
+    );
+    let err = slugged(manifests(&[
+        "extensions/cargo-test/Cargo.toml",
+        "extensions/cargo/test/Cargo.toml",
+    ]))
+    .unwrap_err();
+    assert!(
+        err.starts_with(
+            "extensions/cargo-test/Cargo.toml and extensions/cargo/test/Cargo.toml share the guest slug `cargo-test`"
+        ),
+        "{err}"
+    );
+}
+
+/// The real guests' slugs are distinct.
+#[test]
+fn the_repositorys_guests_have_distinct_slugs() {
+    let guests = slugged(guests_of(&crate::repo::this_repo())).unwrap();
+    assert!(guests.len() > 1, "{guests:?}");
+}
+
+/// The body lines of `[profile.<name>]` in `text`: each one neither blank nor a comment, up to the next table.
+fn profile_body<'a>(text: &'a str, name: &str) -> Vec<&'a str> {
+    let header = format!("[profile.{name}]");
+    text.lines()
+        .map(str::trim)
+        .skip_while(|line| *line != header)
+        .skip(1)
+        .take_while(|line| !line.starts_with('['))
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect()
+}
+
+/// The guests' `default`, `ci` and `gate` profiles are the root's, line for line, so retries and slow-timeouts never
+/// drift apart (the root's JUnit and override tables stay out of both bodies).
+#[test]
+fn the_guests_profiles_are_the_roots() {
+    let root = specforge_repo_root::repo_root();
+    let read = |file: &str| std::fs::read_to_string(root.join(file)).unwrap();
+    let (guests, workspace) = (read(BASE), read(".config/nextest.toml"));
+    for name in ["default", "ci", "gate"] {
+        let body = profile_body(&guests, name);
+        assert!(!body.is_empty(), "{BASE}: no [profile.{name}]");
+        assert_eq!(
+            body,
+            profile_body(&workspace, name),
+            "{BASE}: [profile.{name}] differs from .config/nextest.toml's"
+        );
+    }
+}
+
+/// The committed base holds the gate and ci profiles and leaves the store, the JUnit path and the root's package
+/// overrides out: the gate adds the first two, and nextest refuses the overrides against a guest manifest.
+#[test]
+fn the_committed_base_holds_the_profiles_and_no_store_junit_or_override() {
+    let path = specforge_repo_root::repo_root().join(BASE);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let lines: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.starts_with('#'))
+        .collect();
+    for table in ["[profile.gate]", "[profile.ci]"] {
+        assert!(lines.contains(&table), "{}: no {table}", path.display());
+    }
+    for line in &lines {
+        assert!(
+            !line.starts_with("[store]") && !line.contains("junit") && !line.contains("overrides"),
+            "{}: {line}",
+            path.display()
+        );
+    }
+}

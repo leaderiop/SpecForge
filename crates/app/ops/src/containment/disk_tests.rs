@@ -79,6 +79,27 @@ fn an_unbounded_containment_reads_a_file_with_two_names() {
     assert_eq!(disk.read(&base.join("proj/hard")).unwrap(), b"SECRETWORD");
 }
 
+/// The declared file reads' disk walks as the plain one (it sees where a link lands) and reads as the containment.
+#[test]
+fn the_file_reads_disk_resolves_links_plainly_and_refuses_a_second_name_when_bounded() {
+    let (_dir, base) = scene();
+    let root = base.join("proj");
+    std::fs::write(base.join("outside/secret"), "SECRETWORD").unwrap();
+    std::fs::hard_link(base.join("outside/secret"), root.join("hard")).unwrap();
+    std::os::unix::fs::symlink(base.join("outside"), root.join("away")).unwrap();
+    let disk = Containment::within(&root).file_reads_disk();
+    assert_eq!(
+        disk.canonical(&root.join("away")),
+        Some(base.join("outside"))
+    );
+    assert!(disk.is_dir(&root.join("away")));
+    let error = disk.read(&root.join("hard")).unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    assert!(!error.to_string().contains("SECRETWORD"), "{error}");
+    let unbounded = Containment::unbounded().file_reads_disk();
+    assert_eq!(unbounded.read(&root.join("hard")).unwrap(), b"SECRETWORD");
+}
+
 #[test]
 fn a_directory_is_not_refused_for_its_link_count() {
     let (_dir, base) = scene();

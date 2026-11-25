@@ -23,14 +23,15 @@ mod facts;
 mod merge;
 mod order;
 mod process;
+mod warnings;
 
 pub use crate::machine::{
     CollectorCommand, CollectorMachine, REPORT_ENV, Ran, RunFailure, RunnerOutput,
 };
 use collector::detect;
-pub use collector::{Collector, collectors, uses_here};
-pub use dispatch::dispatch;
+pub use collector::{Collector, collectors, detected_here, uses_here};
 use dispatch::dispatch_over;
+pub use dispatch::{REPORT_BYTES_MAX, dispatch};
 use evidence::{Evidence, Source};
 pub use merge::MergeStats;
 use merge::{KnownEntities, merge};
@@ -298,13 +299,23 @@ pub fn collect(
     let mut served = order::Served::new(root, containment, &available);
     // The syntax cache writes that failed over every collector, and the first one's error: W200 once.
     let (mut unwritten, mut unwritable) = (0, None);
+    // A report glob is listed by the walk `Input::files` globs take (ADR 0389), over the plain disk.
+    let project = view.env().file_source(&specforge_registry::PlainDisk);
     for (collector, source) in planned {
         let Evidence {
             files,
             stdout,
             exit_code,
             ran,
-        } = match source.gather(collector, root, containment, machine, &mut *announce) {
+            unread,
+        } = match source.gather(
+            collector,
+            root,
+            containment,
+            &project,
+            machine,
+            &mut *announce,
+        ) {
             Ok(evidence) => evidence,
             // Detection chose it, so the project did not ask for it: no evidence skips it (ADR 0331).
             Err(error) if chosen == Chosen::Detected && error.code == codes::E045.id() => {
@@ -313,6 +324,7 @@ pub fn collect(
             }
             Err(error) => return Err(error.into()),
         };
+        diagnostics.extend(warnings::unread(collector, &unread));
 
         let lent = crate::extension::lend::port_call(
             view,
@@ -339,6 +351,7 @@ pub fn collect(
             }
             failed
         })?;
+        diagnostics.extend(warnings::warned(collector, &collected.warnings));
         let mut syntax = None;
         if let Some(lent) = lent {
             diagnostics.extend(lent.take_denials());

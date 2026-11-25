@@ -1,0 +1,32 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "cargo-public-api",
+        "--color",
+        "never",
+        "-ss"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "CARGO_*",
+        "RUSTUP_*",
+        "RUSTC",
+        "RUSTC_*",
+        "RUSTFLAGS",
+        "RUSTDOCFLAGS",
+        "RUST_LOG"
+      ],
+      "filter": [
+        "--package",
+        "{filter}"
+      ],
+      "name": "rust-api",
+      "port": "process",
+      "why": "run the command whose report the collector 'rust-api' reads"
+    }
+  ]
+}

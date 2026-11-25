@@ -245,7 +245,7 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "guests",
-        proves: "each guest's tests pass and it is clippy-clean for wasm and native, and each example's extension is clippy-clean for wasm",
+        proves: "each guest's tests pass under nextest, each run writing its JUnit report under target/nextest/<profile>/junit-guests/ (ADR 0393 D1), and it is clippy-clean for wasm and native, and each example's extension is clippy-clean for wasm",
         reach: Reach::Quick,
         trigger: Trigger::Paths(&[
             "extensions/**",
@@ -253,11 +253,12 @@ pub static CHECKS: &[Check] = &[
             "crates/**",
             "integrations/rust/**",
             "Cargo.toml",
+            ".config/nextest-guests.toml",
         ]),
         compiles: false,
         after: &[],
         fix: "read <target>/gate/guests.log",
-        run: steps::guests,
+        run: crate::guests::run,
     },
     Check {
         name: "gsd",
@@ -373,12 +374,12 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "dogfood",
-        proves: "the tests' nextest reports, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5)",
+        proves: "the nextest reports of the root tests, every guest and the @gsd workspace, read through @rust/test, prove at least one requirement and fail none (ADR 0374 D5, ADR 0393 D3); X2 is 100% on SpecForge, taskboard, ledger and vault (ADR 0388, ADR 0393 D8)",
         reach: Reach::Full,
         trigger: Trigger::Always,
         compiles: false,
-        after: &["tests"],
-        fix: "<target>/gate/dogfood.log names each failed requirement: specforge anchors <id> --path <target>/gate/dogfood lists the tests that name it; run them (cargo nextest run --workspace --profile gate -E 'test(<name>)') and fix the one that fails; none proven: the tests did not run or named none. Then cargo gate full --only tests,dogfood",
+        after: &dogfood::REPORTERS,
+        fix: "<target>/gate/dogfood.log names each failed requirement: specforge anchors <id> --path <target>/gate/dogfood lists the tests that name it; run them (cargo nextest run --workspace --profile gate -E 'test(<name>)', a guest's: CARGO_TARGET_DIR=<target>/ext cargo nextest run --manifest-path extensions/<dir>/Cargo.toml --config-file <target>/gate/nextest-guests/<slug>.toml -E 'test(<name>)') and fix the one that fails; none proven: the tests did not run or named none. The log also holds the X2 lines; a failed X2 collect or export names its project and step (its scratch copy is <target>/gate/x2/<project>); a missing id is an item with a test id and no test fact: run its test so a report holds it, or mark it ignored or cfg-excluded so @rust/test reports it skipped. Then cargo gate full --only tests,guests,gsd,dogfood",
         run: dogfood::run,
     },
     Check {
@@ -618,7 +619,8 @@ pub(crate) fn doctest_members(repo: &Repo) -> Vec<String> {
         .collect()
 }
 
-fn member_has_doctest(repo: &Repo, dir: &str) -> bool {
+/// Whether the crate at `dir` (from the repository root) holds a runnable doctest in its `src/`.
+pub(crate) fn member_has_doctest(repo: &Repo, dir: &str) -> bool {
     let mut sources = Vec::new();
     collect_rust_sources(&repo.root.join(dir).join("src"), &mut sources);
     judge::has_runnable_doctest(&sources.iter().map(String::as_str).collect::<Vec<_>>())

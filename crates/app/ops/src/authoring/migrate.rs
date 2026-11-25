@@ -30,7 +30,7 @@ use specforge_wasm::WasmRuntime;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
-use crate::authoring::edit::validate::{added, not_added};
+use crate::authoring::edit::validate::{Lands, added, not_added};
 use crate::authoring::format::{Configs, Forms, Place};
 use crate::change::{ProjectChange, unreadable, unwritable};
 use crate::{Caller, Held, OpError, OpErrorKind, ReadFailure, Refusal, Writes, Wrote};
@@ -375,7 +375,8 @@ pub fn judge(
         verdict.post_diagnostics.clone(),
         judged,
         &[],
-        false,
+        Lands::Nothing,
+        post.environment().registries().codes(),
     )
     .0
     .len();

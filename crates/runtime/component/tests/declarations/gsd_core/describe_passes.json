@@ -111,6 +111,8 @@
         "milestone.git_range",
         "milestone.progress",
         "milestone.branch",
+        "milestone.api_breaks",
+        "milestone.release",
         "phase.inserted",
         "phase.backlog",
         "phase.branch",
@@ -171,7 +173,9 @@
         {
           "input": "facts",
           "kinds": [
-            "test"
+            "test",
+            "api_item",
+            "package"
           ]
         }
       ],
@@ -385,6 +389,24 @@
       "phase": "guard",
       "reports": [
         "E516"
+      ]
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "gate_e533",
+      "phase": "guard",
+      "reports": [
+        "E533"
+      ]
+    },
+    {
+      "after": null,
+      "before": null,
+      "name": "gate_e535",
+      "phase": "guard",
+      "reports": [
+        "E535"
       ]
     },
     {

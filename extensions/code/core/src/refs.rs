@@ -7,15 +7,28 @@ use specforge_extension_sdk::UnheldReference;
 
 use crate::{ITEM_KIND, KINDS, PACKAGE_KIND, RUN_KIND, TEST_KIND};
 
-/// The pack that collects each kind of `@code/core`, by the scheme of a test's or an item's id and the purl type of a
-/// package's: what W102 tells to run.
-pub(crate) const PACKS: [(&str, &str, &str); 6] = [
-    (TEST_KIND, Scheme::Js.as_str(), "@javascript/node-test"),
-    (TEST_KIND, Scheme::Rust.as_str(), "@rust/test"),
-    (ITEM_KIND, Scheme::Rust.as_str(), "@rust/source"),
-    (ITEM_KIND, Scheme::Js.as_str(), "@javascript/source"),
-    (PACKAGE_KIND, "cargo", "@rust/cargo"),
-    (PACKAGE_KIND, "npm", "@javascript/source"),
+/// The packs that collect each kind of `@code/core`, by the scheme of a test's or an item's id and the purl type of a
+/// package's: what W102 tells to run. A test scheme has one pack per runner.
+pub(crate) const PACKS: [(&str, &str, &[&str]); 6] = [
+    (
+        TEST_KIND,
+        Scheme::Js.as_str(),
+        &[
+            "@javascript/node-test",
+            "@javascript/vitest",
+            "@javascript/jest",
+            "@javascript/playwright",
+        ],
+    ),
+    (
+        TEST_KIND,
+        Scheme::Rust.as_str(),
+        &["@rust/test", "@rust/proof"],
+    ),
+    (ITEM_KIND, Scheme::Rust.as_str(), &["@rust/source"]),
+    (ITEM_KIND, Scheme::Js.as_str(), &["@javascript/source"]),
+    (PACKAGE_KIND, "cargo", &["@rust/cargo"]),
+    (PACKAGE_KIND, "npm", &["@javascript/source"]),
 ];
 
 /// Each unheld reference whose collected kinds (`UnheldReference.kinds`, narrowed to those its id is shaped as) meet
@@ -94,10 +107,16 @@ fn held<'k>(input: &PassInput, scheme: &str, kinds: &[&'k str]) -> Vec<&'k str> 
 
 /// The W102 of `item`, whose `kinds` no served store holds in `scheme`.
 fn uncollected(item: &UnheldReference, scheme: &str, kinds: &[&str]) -> PassDiagnostic {
-    let packs: Vec<&str> = kinds
+    let mut packs: Vec<&str> = Vec::new();
+    for pack in kinds
         .iter()
-        .filter_map(|kind| pack(scheme, &item.id, kind))
-        .collect();
+        .filter_map(|kind| packs_of(scheme, &item.id, kind))
+        .flatten()
+    {
+        if !packs.contains(pack) {
+            packs.push(pack);
+        }
+    }
     let remedy = match packs.is_empty() {
         true => "run `specforge collect`".to_string(),
         false => format!("run `specforge collect` with {}", quoted(&packs)),
@@ -113,14 +132,17 @@ fn uncollected(item: &UnheldReference, scheme: &str, kinds: &[&str]) -> PassDiag
     )
 }
 
-/// `words`, each in backticks, joined by `or`.
-fn quoted(words: &[&str]) -> String {
+/// `words`, each in backticks: "`a`, `b` or `c`".
+pub(crate) fn quoted(words: &[&str]) -> String {
     let quoted: Vec<String> = words.iter().map(|word| format!("`{word}`")).collect();
-    quoted.join(" or ")
+    match quoted.split_last() {
+        Some((last, rest)) if !rest.is_empty() => format!("{} or {last}", rest.join(", ")),
+        _ => quoted.concat(),
+    }
 }
 
-/// The pack that writes `kind` facts like `id`, in `scheme`: a run's is its test's, a package's its purl type's.
-fn pack(scheme: &str, id: &str, kind: &str) -> Option<&'static str> {
+/// The packs that write `kind` facts like `id`, in `scheme`: a run's are its test's, a package's its purl type's.
+fn packs_of(scheme: &str, id: &str, kind: &str) -> Option<&'static [&'static str]> {
     let (kind, family) = match kind {
         RUN_KIND => (TEST_KIND, TestId::of_run(id).ok()?.scheme().as_str()),
         PACKAGE_KIND => (kind, id.parse::<PackageId>().ok()?.purl_type()),
@@ -129,7 +151,7 @@ fn pack(scheme: &str, id: &str, kind: &str) -> Option<&'static str> {
     PACKS
         .iter()
         .find(|(k, f, _)| *k == kind && *f == family)
-        .map(|(_, _, pack)| *pack)
+        .map(|(_, _, packs)| *packs)
 }
 
 /// `diagnostic` at `span`, when there is one.

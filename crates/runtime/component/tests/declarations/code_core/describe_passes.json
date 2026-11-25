@@ -32,6 +32,24 @@
       ],
       "name": "proof",
       "phase": "check"
+    },
+    {
+      "after": null,
+      "before": null,
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "coverage",
+            "api_item",
+            "static_finding",
+            "dependency",
+            "vulnerability"
+          ]
+        }
+      ],
+      "name": "reports",
+      "phase": "check"
     }
   ]
 }

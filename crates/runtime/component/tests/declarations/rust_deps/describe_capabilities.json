@@ -1,0 +1,59 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "cargo-cyclonedx",
+        "cyclonedx",
+        "--format",
+        "json",
+        "--spec-version",
+        "1.5",
+        "--all-features",
+        "--override-filename",
+        "rust-sbom.cdx"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "CARGO_*",
+        "RUSTUP_*",
+        "RUSTC",
+        "RUSTC_*",
+        "SOURCE_DATE_EPOCH"
+      ],
+      "name": "rust-sbom",
+      "port": "process",
+      "why": "run the command whose report the collector 'rust-sbom' reads"
+    },
+    {
+      "argv": [
+        "osv-scanner",
+        "scan",
+        "source",
+        "--lockfile",
+        "Cargo.lock",
+        "--format",
+        "json",
+        "--output-file",
+        "{report}"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "NO_PROXY",
+        "https_proxy",
+        "http_proxy",
+        "no_proxy",
+        "OSV_*"
+      ],
+      "name": "rust-osv",
+      "port": "process",
+      "why": "run the command whose report the collector 'rust-osv' reads"
+    }
+  ]
+}

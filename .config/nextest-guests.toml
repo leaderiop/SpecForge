@@ -1,0 +1,25 @@
+# The extension guests' nextest profiles (ADR 0393 D1). Each guest is its own workspace, so nextest finds no
+# config of its own: the gate's `guests` check prefixes this file with a `[store]` table (the repository root's
+# `target/nextest`) and appends a `[profile.<p>.junit]` path per guest, then passes the result with
+# `--config-file`. The bodies are `.config/nextest.toml`'s, line for line (a gate test holds them in step); its package
+# overrides and JUnit tables stay there (they name root packages, and nextest refuses to parse them against a guest
+# manifest).
+
+[profile.default]
+retries = 0
+fail-fast = true
+slow-timeout = { period = "30s", terminate-after = 2 }
+status-level = "fail"
+
+[profile.ci]
+retries = 1
+fail-fast = false
+slow-timeout = { period = "60s", terminate-after = 3 }
+status-level = "all"
+
+[profile.gate]
+retries = 0
+fail-fast = false
+slow-timeout = { period = "60s", terminate-after = 3 }
+status-level = "fail"
+final-status-level = "slow"

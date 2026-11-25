@@ -1,0 +1,46 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "api_item"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "tsconfig.json"
+        ]
+      },
+      "capability": "javascript-api",
+      "export": "collect__javascript_api",
+      "input_formats": [
+        "api-extractor-json"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item"
+          ]
+        },
+        {
+          "glob": "**/etc/*.api.md",
+          "input": "files",
+          "name": "accepted",
+          "text": true,
+          "text_max": 4194304
+        },
+        {
+          "glob": "common/reviews/api/*.api.md",
+          "input": "files",
+          "name": "reviews",
+          "text": true,
+          "text_max": 4194304
+        }
+      ],
+      "install": "npm install --save-dev @microsoft/api-extractor typescript",
+      "name": "javascript-api",
+      "report": ".specforge/reports/javascript-api.api.json"
+    }
+  ]
+}

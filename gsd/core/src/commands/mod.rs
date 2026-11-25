@@ -39,11 +39,12 @@ use specforge_extension_sdk::prelude::*;
 
 /// The harness fields and the one thing that writes each: `(kind, field, writer)`. A writer is a writing command, or
 /// the collector `gsd-git` for a commit's fields but its `waiver`, which `waive_trailer` writes (a person's, never the
-/// collector's). `tests/writer_roster.rs` pins the table against the `H` fields the kinds declare. `record_window` is
-/// the writer of a window's `recorded_at`; `propose_refactor` also stamps it on the deviation window it creates under
-/// `refactor.trigger_strict`.
+/// collector's), and for a milestone's `tag` (ADR 0390 D6). `tests/writer_roster.rs` pins the table against the `H`
+/// fields the kinds declare. `record_window` is the writer of a window's `recorded_at`; `propose_refactor` also stamps
+/// it on the deviation window it creates under `refactor.trigger_strict`.
 pub const WRITERS: &[(&str, &str, &str)] = &[
     ("milestone", "completion", "close_milestone"),
+    ("milestone", "tag", "gsd-git"),
     ("checkpoint", "answer", "answer_checkpoint"),
     ("user_setup", "done", "confirm_setup"),
     ("plan_start", "at", "start_plan"),

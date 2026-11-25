@@ -412,6 +412,15 @@ impl CommandBuilder {
         self.writes()
     }
 
+    /// The command imports what was recorded outside the spec (a legacy project's history), so the host judges its
+    /// plan for host errors only: an error lands, and `check` reports it, only when its code is in the reporting
+    /// extension's own namespace and own catalog and declares no `facts`; a host or `@specforge/*` code (E016), a
+    /// fact-judging one (`code/E101`) and an uncatalogued one still refuse (ADR 0392). It `writes`.
+    pub fn imports(&mut self) -> &mut Self {
+        self.descriptor.imports = true;
+        self.writes()
+    }
+
     /// The command answers an edit plan ([`CommandOutput::with_plan`]) the host applies (ADR 0289). It receives
     /// the `revisions` of the project's sources, and the host gives it `--dry-run`, so no arg may take that name.
     pub fn writes(&mut self) -> &mut Self {

@@ -1,4 +1,12 @@
 {
   "category": "settings",
-  "items": []
+  "items": [
+    {
+      "default": [],
+      "description": "Project-relative directories whose manifests are no packages of this project (a fixture's or an example's crate): @rust/cargo answers no package for a manifest in or under one, so @rust/source reads no item there; the tool-running packs still run over the whole cargo workspace",
+      "field_type": "string_list",
+      "kind": "setting",
+      "name": "exclude"
+    }
+  ]
 }

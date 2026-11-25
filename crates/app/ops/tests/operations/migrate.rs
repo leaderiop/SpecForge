@@ -140,11 +140,11 @@ fn a_header_only_migration_of_the_frozen_spec_keeps_its_graph() {
         "{:?}",
         outcome.structural_differences()
     );
-    assert!(
-        outcome.verdict.post_errors().next().is_none(),
-        "{:?}",
-        outcome.verdict.post_errors().collect::<Vec<_>>()
-    );
+    // `@code/core` 1.2.0 declares `coverage` (ADR 0388): the unedited corpus's `term coverage` is its one error.
+    let errors: Vec<_> = outcome.verdict.post_errors().collect();
+    let pinned = errors.len() == 1 && errors[0].message.contains("ID 'coverage' collides");
+    assert!(pinned, "{errors:?}");
+    assert_eq!(errors[0].code, "E013", "{errors:?}");
 }
 
 #[specforge_test(requirement = "FEATURE-122")]

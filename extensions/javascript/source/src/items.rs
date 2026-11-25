@@ -162,7 +162,7 @@ impl<'m> Group<'m> {
 /// A string's value from its fragments and escape sequences, as the grammar splits it: each escape decoded
 /// (`\'` is `'`, `\u{41}` is `A`, a line continuation nothing), and a surrogate pair written as two `\u` escapes
 /// one character (`\uD83D\uDE00` is `😀`), as JavaScript reads it. A lone surrogate keeps its escaped text.
-fn decoded(parts: &[&SyntaxCapture]) -> String {
+pub(crate) fn decoded(parts: &[&SyntaxCapture]) -> String {
     let mut value = String::new();
     // A high surrogate's escape whose low half may follow: its code unit and its text.
     let mut high: Option<(u32, &str)> = None;
@@ -180,7 +180,8 @@ fn decoded(parts: &[&SyntaxCapture]) -> String {
         match (escape, unit) {
             (_, Some(first @ 0xD800..=0xDBFF)) => high = Some((first, &part.text)),
             (Some(escape), _) => value.push_str(&unescaped(escape)),
-            (None, _) => value.push_str(&part.text),
+            // A template's line end is a line feed in its value, a CRLF's or a lone CR's alike (a string has none).
+            (None, _) => value.push_str(&part.text.replace("\r\n", "\n").replace('\r', "\n")),
         }
     }
     if let Some((_, text)) = high {

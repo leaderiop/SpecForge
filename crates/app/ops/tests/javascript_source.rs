@@ -166,6 +166,7 @@ fn a_fixture_workspace_collects_its_items_with_ids_kinds_and_locations() {
     expected.extend(
         [
             "js:@acme/core/src/view.tsx::View",
+            "js:@acme/core/test/board.test.ts::adds",
             "js:app/packages/cli/bin/cli.mjs::main",
             "js:app/scripts/legacy.cjs::build",
             "js:app/scripts/legacy.cjs::clean",
@@ -176,7 +177,7 @@ fn a_fixture_workspace_collects_its_items_with_ids_kinds_and_locations() {
     assert_eq!(
         ids(&outcome, "item"),
         expected,
-        "nothing from test/, coverage/ or *.min.js"
+        "from test/ only its test call, nothing from coverage/ or *.min.js"
     );
 
     let add = fact(&outcome, &core("add"));
@@ -222,7 +223,7 @@ fn a_fixture_workspace_collects_its_items_with_ids_kinds_and_locations() {
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-056")]
-fn a_test_file_mints_no_item_beside_its_runners_test() {
+fn a_test_call_is_an_item_whose_test_id_is_its_runners_test() {
     let p = project(FIXTURE, true);
     let outcome = collected_with(
         &p,
@@ -236,11 +237,23 @@ fn a_test_file_mints_no_item_beside_its_runners_test() {
         .map(|f| f.id.as_str())
         .collect();
     assert_eq!(tests, ["js:@acme/core/test/board.test.ts#adds"]);
+    // The call `test("adds", …)` is the one item of its file: the helper `function adds()` beside it is none.
     let from_tests: Vec<&str> = ids(&outcome, "item")
         .into_iter()
         .filter(|id| id.contains("/test/"))
         .collect();
-    assert!(from_tests.is_empty(), "{from_tests:?}");
+    assert_eq!(from_tests, ["js:@acme/core/test/board.test.ts::adds"]);
+    let call = fact(&outcome, from_tests[0]);
+    assert_eq!(call.fields["kind"], json!(["function"]));
+    assert_eq!(call.fields["attrs"], json!(["test"]));
+    assert_eq!(
+        call.fields["test_id"], tests[0],
+        "node-test's id for the case"
+    );
+    assert_eq!(
+        call.at[0].start_line, 7,
+        "the call's line, not the helper's"
+    );
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-056")]
@@ -300,7 +313,7 @@ fn the_items_point_at_their_package_fact() {
     .unwrap();
     let compiled = p.compile();
     let items = compiled.graph().nodes_by_kind("item");
-    assert_eq!(items.len(), 17);
+    assert_eq!(items.len(), 18, "seventeen source items and one test call");
     let code: Vec<String> = compiled
         .diagnostics()
         .iter()

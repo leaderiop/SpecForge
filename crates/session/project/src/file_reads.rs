@@ -17,17 +17,18 @@ use specforge_effects::contained::{Contained, Resolved};
 use specforge_effects::fs::SKIPPED;
 use specforge_effects::{Root, Roots};
 
-use specforge_protocol_types::{FILE_READ_MAX, FileFact, FileFacts, FileRead};
+use specforge_protocol_types::{
+    FILE_READ_MAX, FileFact, FileFacts, FileRead, GLOB_VISITS_MAX, is_wild,
+};
 use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_problem};
 
 use crate::judged::file_digest;
 
-/// The most text of one file a read sends.
+/// The most text of one file a read sends, unless it declares `text_max`.
 pub const TEXT_CAP: usize = 64 * 1024;
-/// The most text one read sends in all.
+/// The most text one read sends in all, unless four times its per-file cap is more: at most 16 MiB, as a read whose
+/// `text_max` is over [`specforge_protocol_types::TEXT_MAX_CEILING_BYTES`] is never read (`read_problem`, W021).
 pub const TEXT_BUDGET: usize = 1024 * 1024;
-/// The most entries (files and directories) one glob visits, matched or not.
-pub const MAX_VISITS: usize = 20_000;
 
 /// Where the files are read from.
 #[derive(Clone)]
@@ -100,7 +101,7 @@ pub fn read(
         if read_problem(read).is_some() || files.contains_key(&read.name) {
             continue;
         }
-        let mut budget = TEXT_BUDGET;
+        let mut budget = text_cap(read).map_or(TEXT_BUDGET, |cap| TEXT_BUDGET.max(4 * cap));
         let facts = match (&read.field, &read.glob) {
             (Some(field), _) => field_facts(read, field, entities, &ctx, &mut budget),
             (_, Some(glob)) => glob_facts(read, glob, &ctx, &mut budget),
@@ -109,6 +110,13 @@ pub fn read(
         files.insert(read.name.clone(), facts);
     }
     files
+}
+
+/// The most text of one file `read` sends: `None` when it asks for no text. `read` passed `read_problem`, the one
+/// check of `text_max` against the ceiling.
+fn text_cap(read: &FileRead) -> Option<usize> {
+    read.text
+        .then(|| read.text_max.map_or(TEXT_CAP, |max| max as usize))
 }
 
 fn field_facts(
@@ -144,13 +152,40 @@ fn field_facts(
     let facts = named
         .into_iter()
         .take(FILE_READ_MAX)
-        .map(|((entity, path), at)| fact(ctx, path, Some(entity), at.as_ref(), read.text, budget))
+        .map(|((entity, path), at)| {
+            fact(ctx, path, Some(entity), at.as_ref(), text_cap(read), budget)
+        })
         .collect();
     FileFacts { facts, truncated }
 }
 
 fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) -> FileFacts {
-    let source = ctx.source;
+    let GlobPaths { files, truncated } = glob_paths(ctx.source, glob);
+    let facts = files
+        .into_iter()
+        .map(|path| {
+            let at = ctx.contained.resolve(&path, Root::Project).ok();
+            fact(ctx, path, None, at.as_ref(), text_cap(read), budget)
+        })
+        .collect();
+    FileFacts { facts, truncated }
+}
+
+/// The project files a glob matches: project-relative, `/` separated, sorted and unique.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GlobPaths {
+    pub files: Vec<String>,
+    /// The walk stopped early: past [`GLOB_VISITS_MAX`] entries, or past [`FILE_READ_MAX`] matches.
+    pub truncated: bool,
+}
+
+/// The project files under `source` that `glob` matches, by the one walk every glob read takes (ADR 0293 D4): a
+/// directory in [`SKIPPED`] is entered only when the glob names it, a directory reached through a link is not entered
+/// (nor a literal prefix that links out of the project), and the walk stops after [`GLOB_VISITS_MAX`] entries. A file
+/// collector's report glob reads through it too (ADR 0389).
+pub fn glob_paths(source: &FileSource<'_>, glob: &str) -> GlobPaths {
+    let lookup = DiskLookup(source.disk);
+    let contained = Contained::new(&source.roots, &lookup);
     let segments: Vec<&str> = glob.split('/').filter(|s| *s != ".").collect();
     let named_here: Vec<&str> = segments.iter().copied().filter(|s| !is_wild(s)).collect();
     // Directories above the first wildcard are walked to directly: only the rest of the pattern decides.
@@ -167,9 +202,9 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
     let mut found = Found::default();
     let first = source.project_root.join(&start);
     // A literal prefix that is itself a link out of the project is not entered.
-    if start.is_empty() || ctx.contained.resolve(&start, Root::Project).is_ok() {
+    if start.is_empty() || contained.resolve(&start, Root::Project).is_ok() {
         let real = source.disk.canonical(&first);
-        walk(ctx, &start, real.as_deref(), &plan, &mut found);
+        walk(source, &start, real.as_deref(), &plan, &mut found);
     }
     let Found {
         mut files,
@@ -178,14 +213,7 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
     } = found;
     files.sort();
     files.dedup();
-    let facts = files
-        .into_iter()
-        .map(|path| {
-            let at = ctx.contained.resolve(&path, Root::Project).ok();
-            fact(ctx, path, None, at.as_ref(), read.text, budget)
-        })
-        .collect();
-    FileFacts { facts, truncated }
+    GlobPaths { files, truncated }
 }
 
 struct Walk<'a> {
@@ -208,8 +236,13 @@ struct Found {
 /// The files under `dir` (project-relative, `/` separated; empty is the root; `real` is `dir` with its links
 /// resolved, when the disk has links) whose path matches the glob, in order. A directory reached through a link is
 /// not entered: a link into an ancestor would loop, and one out of the project would leave it.
-fn walk(ctx: &Ctx<'_>, dir: &str, real: Option<&Path>, plan: &Walk<'_>, found: &mut Found) {
-    let source = ctx.source;
+fn walk(
+    source: &FileSource<'_>,
+    dir: &str,
+    real: Option<&Path>,
+    plan: &Walk<'_>,
+    found: &mut Found,
+) {
     let at = if dir.is_empty() {
         source.project_root.to_path_buf()
     } else {
@@ -220,7 +253,7 @@ fn walk(ctx: &Ctx<'_>, dir: &str, real: Option<&Path>, plan: &Walk<'_>, found: &
     };
     for name in names {
         found.visits += 1;
-        if found.truncated || found.visits > MAX_VISITS {
+        if found.truncated || found.visits > GLOB_VISITS_MAX {
             found.truncated = true;
             return;
         }
@@ -244,7 +277,7 @@ fn walk(ctx: &Ctx<'_>, dir: &str, real: Option<&Path>, plan: &Walk<'_>, found: &
                 _ => false,
             };
             if !linked {
-                walk(ctx, &rel, child_real.as_deref(), plan, found);
+                walk(source, &rel, child_real.as_deref(), plan, found);
             }
         } else if specforge_common::path_glob::matches(plan.glob, &rel) {
             if found.files.len() == FILE_READ_MAX {
@@ -256,13 +289,14 @@ fn walk(ctx: &Ctx<'_>, dir: &str, real: Option<&Path>, plan: &Walk<'_>, found: &
     }
 }
 
-/// The facts of the file `at` resolves to (`None`: the path leaves the project and is not read).
+/// The facts of the file `at` resolves to (`None`: the path leaves the project and is not read), and its text when
+/// `cap` is set and the file is within it.
 fn fact(
     ctx: &Ctx<'_>,
     path: String,
     entity: Option<String>,
     at: Option<&Resolved>,
-    text: bool,
+    cap: Option<usize>,
     budget: &mut usize,
 ) -> FileFact {
     let mut fact = FileFact {
@@ -283,7 +317,7 @@ fn fact(
     }
     // A text read never carries a secret-looking file, by its name or the name a link resolves to. Its existence is
     // still a fact and still a check input.
-    if text && resolved.withheld {
+    if cap.is_some() && resolved.withheld {
         fact.error = Some("denied".into());
         return fact;
     }
@@ -294,11 +328,9 @@ fn fact(
             let open_line = !bytes.is_empty() && bytes.last() != Some(&b'\n');
             fact.lines = Some(newlines + u64::from(open_line));
             fact.digest = Some(file_digest(&bytes));
-            if text {
+            if let Some(cap) = cap {
                 match String::from_utf8(bytes) {
-                    _ if fact.bytes > Some(TEXT_CAP as u64) => {
-                        fact.error = Some("too_large".into())
-                    }
+                    _ if fact.bytes > Some(cap as u64) => fact.error = Some("too_large".into()),
                     Ok(body) if body.len() > *budget => fact.error = Some("budget".into()),
                     Ok(body) => {
                         *budget -= body.len();
@@ -319,8 +351,4 @@ fn fact(
 
 fn slashed(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
-}
-
-fn is_wild(segment: &str) -> bool {
-    segment.contains(['*', '?'])
 }

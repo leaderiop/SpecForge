@@ -7,7 +7,6 @@
 //! - [`cases`] reads a report's `<testcase>`s, each with the `<testsuite>`s around it and the [`names`] its name
 //!   tags.
 //! - [`names`] reads the `[<ns>:<id>]` tags in a test's name: the entities the test says it proves.
-//! - [`relative`] makes a report's absolute file path project-relative, whatever spelling the host's root has.
 
 #[cfg(test)]
 mod tests;
@@ -24,7 +23,8 @@ pub struct Case {
     pub suites: Vec<String>,
     pub name: String,
     pub classname: String,
-    /// The `file` attribute as the report wrote it; a pack makes it project-relative with [`relative`].
+    /// The `file` attribute as the report wrote it; a pack makes it project-relative with
+    /// `specforge_code_facts::relative`.
     pub file: Option<String>,
     pub seconds: Option<f64>,
     /// `<failure>` or `<error>`: failed; `<skipped>` (a `todo` too): skipped; neither: passed.
@@ -146,95 +146,4 @@ fn attr(attrs: &[(String, String)], key: &str) -> String {
         .find(|(k, _)| k == key)
         .map(|(_, v)| v.clone())
         .unwrap_or_default()
-}
-
-/// `path` relative to the project root `cwd`, with `/` separators, or `None` when it lies outside it. Both are read
-/// the same way first: a `\\?\` (or `\\?\UNC\`) verbatim prefix is stripped, `\` is folded to `/`, a drive letter
-/// compares case-insensitively and a trailing `/` is dropped. The host's `cwd` is the canonical root, so the other
-/// spelling of macOS's `/private` alias (`/private/var` and `/var`, `/private/tmp` and `/tmp`) is tried too. A
-/// relative `path` is taken as project-relative already. Either way its `.` and `..` segments are resolved, and a
-/// path that climbs out of the project through `..` lies outside it, as an absolute one elsewhere does.
-pub fn relative(path: &str, cwd: &str) -> Option<String> {
-    let path = normal(path);
-    if !is_absolute(&path) {
-        return contained(&path);
-    }
-    let cwd = normal(cwd);
-    aliases(&cwd)
-        .iter()
-        .find_map(|root| {
-            aliases(&path)
-                .iter()
-                .find_map(|spelling| under(spelling, root))
-        })
-        .and_then(|rest| contained(&rest))
-}
-
-/// The project-relative `path` with its `.` and `..` segments resolved, or `None` when a `..` climbs out of the
-/// project or nothing is left.
-fn contained(path: &str) -> Option<String> {
-    let mut kept: Vec<&str> = Vec::new();
-    for segment in path.split('/') {
-        match segment {
-            "" | "." => {}
-            ".." => {
-                kept.pop()?;
-            }
-            name => kept.push(name),
-        }
-    }
-    (!kept.is_empty()).then(|| kept.join("/"))
-}
-
-/// `path` with no verbatim prefix, `/` separators and no trailing `/`.
-fn normal(path: &str) -> String {
-    let path = match path.strip_prefix(r"\\?\UNC\") {
-        Some(share) => format!(r"\\{share}"),
-        None => path.strip_prefix(r"\\?\").unwrap_or(path).to_string(),
-    };
-    let path = path.replace('\\', "/");
-    match path.trim_end_matches('/') {
-        "" if path.starts_with('/') => "/".to_string(),
-        trimmed => trimmed.to_string(),
-    }
-}
-
-/// Whether `path` (read by [`normal`]) is rooted: `/…` or a drive, `C:/…`.
-fn is_absolute(path: &str) -> bool {
-    path.starts_with('/') || drive(path).is_some()
-}
-
-/// The drive letter `path` starts with, `C:`, if any.
-fn drive(path: &str) -> Option<char> {
-    let mut chars = path.chars();
-    let letter = chars.next().filter(char::is_ascii_alphabetic)?;
-    (chars.next() == Some(':')).then_some(letter)
-}
-
-/// `path`, and its other spelling under macOS's `/private` alias.
-fn aliases(path: &str) -> Vec<String> {
-    let mut spellings = vec![path.to_string()];
-    for (long, short) in [("/private/var", "/var"), ("/private/tmp", "/tmp")] {
-        for (from, to) in [(long, short), (short, long)] {
-            match path.strip_prefix(from) {
-                Some(rest) if rest.is_empty() || rest.starts_with('/') => {
-                    spellings.push(format!("{to}{rest}"));
-                }
-                _ => {}
-            }
-        }
-    }
-    spellings
-}
-
-/// `path` below `root`, both read by [`normal`]: what follows `root/`, or `None`.
-fn under(path: &str, root: &str) -> Option<String> {
-    let (path, root) = match (drive(path), drive(root)) {
-        (Some(a), Some(b)) if a.eq_ignore_ascii_case(&b) => (&path[2..], &root[2..]),
-        (None, None) => (path, root),
-        _ => return None,
-    };
-    let rest = path.strip_prefix(root.trim_end_matches('/'))?;
-    let rest = rest.strip_prefix('/')?;
-    (!rest.is_empty()).then(|| rest.to_string())
 }

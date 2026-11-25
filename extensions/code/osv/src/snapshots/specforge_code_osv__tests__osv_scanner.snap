@@ -1,0 +1,43 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:cargo/demo/GHSA-7v4m-2x9q-3h8c",
+    "fields": {
+      "aliases": [
+        "CVE-2099-0001",
+        "RUSTSEC-2099-0001"
+      ],
+      "osv_id": "GHSA-7v4m-2x9q-3h8c",
+      "package": "pkg:cargo/demo",
+      "purl": [
+        "pkg:cargo/smallvec@1.6.0"
+      ],
+      "severity": "medium",
+      "summary": "Buffer overflow in SmallVec::insert_many",
+      "version": [
+        "1.6.0"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:cargo/demo/RUSTSEC-2099-0002",
+    "fields": {
+      "aliases": [],
+      "osv_id": "RUSTSEC-2099-0002",
+      "package": "pkg:cargo/demo",
+      "purl": [
+        "pkg:cargo/time@0.1.45"
+      ],
+      "severity": "unknown",
+      "summary": "Potential segfault in the time crate",
+      "version": [
+        "0.1.45"
+      ]
+    }
+  }
+]

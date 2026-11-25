@@ -45,6 +45,60 @@
       "label": "runs_as",
       "source_kind": "item",
       "target_kind": "test"
+    },
+    {
+      "description": "The item a coverage fact reports on",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "covers",
+      "source_kind": "coverage",
+      "target_kind": "item"
+    },
+    {
+      "description": "The item an API snapshot's entry is the API of",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "api_of",
+      "source_kind": "api_item",
+      "target_kind": "item"
+    },
+    {
+      "description": "The item a static finding lies in",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "found_in",
+      "source_kind": "static_finding",
+      "target_kind": "item"
+    },
+    {
+      "description": "The package a static finding lies in, when no item holds it",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "found_in_package",
+      "source_kind": "static_finding",
+      "target_kind": "package"
+    },
+    {
+      "description": "The project package a dependency is a component of the BOM of",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "dependency_of",
+      "source_kind": "dependency",
+      "target_kind": "package"
+    },
+    {
+      "description": "The project package a vulnerability affects",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "affects",
+      "source_kind": "vulnerability",
+      "target_kind": "package"
     }
   ]
 }

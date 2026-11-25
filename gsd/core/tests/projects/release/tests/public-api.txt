@@ -1,0 +1,4 @@
+pub mod adder
+pub mod adder::ops
+pub fn adder::ops::add(a: i32, b: i32) -> i32
+pub fn adder::ops::sub(a: i32, b: i32) -> i32

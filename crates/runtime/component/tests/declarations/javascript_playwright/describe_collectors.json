@@ -1,0 +1,34 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "test",
+        "test_run"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "playwright.config.*"
+        ]
+      },
+      "capability": "javascript-playwright",
+      "capture": "stdout",
+      "export": "collect__javascript_playwright",
+      "input_formats": [
+        "junit-xml"
+      ],
+      "inputs": [
+        {
+          "glob": "**/package.json",
+          "input": "files",
+          "name": "packages",
+          "text": true
+        }
+      ],
+      "install": "npm install --save-dev @playwright/test",
+      "name": "javascript-playwright",
+      "report": ".specforge/reports/javascript-playwright"
+    }
+  ]
+}

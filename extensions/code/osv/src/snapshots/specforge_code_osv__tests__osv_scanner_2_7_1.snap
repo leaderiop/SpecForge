@@ -1,0 +1,141 @@
+---
+source: src/tests.rs
+expression: minted.facts
+---
+[
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:cargo/demo/GHSA-43w2-9j62-hq99",
+    "fields": {
+      "aliases": [
+        "CVE-2021-25900",
+        "RUSTSEC-2021-0003"
+      ],
+      "osv_id": "GHSA-43w2-9j62-hq99",
+      "package": "pkg:cargo/demo",
+      "purl": [
+        "pkg:cargo/smallvec@1.6.0"
+      ],
+      "severity": "critical",
+      "summary": "Buffer overflow in SmallVec::insert_many",
+      "version": [
+        "1.6.0"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:cargo/demo/RUSTSEC-2021-0003",
+    "fields": {
+      "aliases": [
+        "CVE-2021-25900",
+        "GHSA-43w2-9j62-hq99"
+      ],
+      "osv_id": "RUSTSEC-2021-0003",
+      "package": "pkg:cargo/demo",
+      "purl": [
+        "pkg:cargo/smallvec@1.6.0"
+      ],
+      "severity": "critical",
+      "summary": "Buffer overflow in SmallVec::insert_many",
+      "version": [
+        "1.6.0"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:npm/%40demo/web/GHSA-29mw-wpgm-hmr9",
+    "fields": {
+      "aliases": [
+        "CVE-2020-28500"
+      ],
+      "osv_id": "GHSA-29mw-wpgm-hmr9",
+      "package": "pkg:npm/%40demo/web",
+      "purl": [
+        "pkg:npm/lodash@4.17.15"
+      ],
+      "severity": "medium",
+      "summary": "Regular Expression Denial of Service (ReDoS) in lodash",
+      "version": [
+        "4.17.15"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:npm/%40demo/web/GHSA-35jh-r3h4-6jhm",
+    "fields": {
+      "aliases": [
+        "CVE-2021-23337"
+      ],
+      "osv_id": "GHSA-35jh-r3h4-6jhm",
+      "package": "pkg:npm/%40demo/web",
+      "purl": [
+        "pkg:npm/lodash@4.17.15"
+      ],
+      "severity": "high",
+      "summary": "Command Injection in lodash",
+      "version": [
+        "4.17.15"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:npm/%40demo/web/GHSA-p6mc-m468-83gw",
+    "fields": {
+      "aliases": [
+        "CVE-2020-8203"
+      ],
+      "osv_id": "GHSA-p6mc-m468-83gw",
+      "package": "pkg:npm/%40demo/web",
+      "purl": [
+        "pkg:npm/lodash@4.17.15"
+      ],
+      "severity": "high",
+      "summary": "Prototype Pollution in lodash",
+      "version": [
+        "4.17.15"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:npm/%40demo/web/GHSA-r5fr-rjxr-66jc",
+    "fields": {
+      "aliases": [
+        "CVE-2026-4800"
+      ],
+      "osv_id": "GHSA-r5fr-rjxr-66jc",
+      "package": "pkg:npm/%40demo/web",
+      "purl": [
+        "pkg:npm/lodash@4.17.15"
+      ],
+      "severity": "high",
+      "summary": "lodash vulnerable to Code Injection via `_.template` imports key names",
+      "version": [
+        "4.17.15"
+      ]
+    }
+  },
+  {
+    "kind": "vulnerability",
+    "id": "vuln:pkg:npm/%40demo/web/GHSA-xxjr-mmjv-4gpg",
+    "fields": {
+      "aliases": [
+        "CVE-2025-13465"
+      ],
+      "osv_id": "GHSA-xxjr-mmjv-4gpg",
+      "package": "pkg:npm/%40demo/web",
+      "purl": [
+        "pkg:npm/lodash@4.17.15"
+      ],
+      "severity": "medium",
+      "summary": "Lodash has Prototype Pollution Vulnerability in `_.unset`, `_.omit`, and `_.pullAt` functions",
+      "version": [
+        "4.17.15"
+      ]
+    }
+  }
+]

@@ -7,7 +7,7 @@ use specforge_effects::Uses;
 use specforge_effects::git::{Git, Located};
 use specforge_protocol_types::{
     CONFIG_PLACEHOLDER, ExtensionDeclaration, FILTER_PLACEHOLDER, Input, Inputs, Operation,
-    PortScope, ProcessConfig, REPORT_PLACEHOLDER,
+    PortScope, ProcessConfig, REPORT_PLACEHOLDER, is_report_name, is_wild,
 };
 use std::path::Path;
 
@@ -41,8 +41,10 @@ pub struct Collector {
     /// The arguments its process capability appends after `run` when a caller passes a filter (ADR 0360), `{filter}`
     /// in one of them the caller's text: empty when it takes none.
     pub filter: Vec<String>,
-    /// What installs its program, said when the program is not found (ADR 0348 D4).
+    /// What installs its programs, said when one is not found (ADR 0348 D4).
     pub install: Option<String>,
+    /// The other programs its command runs beside `run`'s first, which doctor looks up too (ADR 0389 D3).
+    pub requires: Vec<String>,
 }
 
 impl Collector {
@@ -114,6 +116,7 @@ fn collector(
         config: process.and_then(|p| p.config.clone()),
         filter: process.map(|p| p.filter.clone()).unwrap_or_default(),
         install: c.install.clone(),
+        requires: c.requires.clone(),
     }
 }
 
@@ -141,6 +144,16 @@ pub(super) fn detect<'a>(
 /// `.git` that is no repository) is one: the collector runs, and its `locate` says why. No port: no repository.
 fn in_a_repository(git: Option<&dyn Git>, root: &Path) -> bool {
     git.is_some_and(|git| !matches!(git.locate(root), Located::NotARepository))
+}
+
+/// The collectors a collect run here would detect, a repository asked of `git`: what doctor probes the programs of.
+pub fn detected_here(
+    declarations: &[ExtensionDeclaration],
+    root: &Path,
+    git: Option<&dyn Git>,
+) -> Vec<Collector> {
+    let all = collectors(declarations);
+    detect(&all, root, git).into_iter().cloned().collect()
 }
 
 /// The scopes a collect run here would use, per extension: each detected collector's process capability (ADR 0335
@@ -201,9 +214,19 @@ pub(super) fn wildcard(pattern: &str, name: &str) -> bool {
     true
 }
 
-/// The report location, held. An extension may only declare a relative name without `..`
-/// ([`crate::containment::declared`], E058); where the name lands is the request's containment
-/// (a symlink that leaves the project is `outside_root`).
+/// The collector's report when it is a glob (ADR 0389): one of its `/`-separated segments holds `*` or `?`.
+pub(super) fn report_glob(collector: &Collector) -> Option<&str> {
+    collector
+        .report
+        .as_deref()
+        .filter(|report| report.split('/').any(is_wild))
+}
+
+/// The report location, held: the report itself, or for a glob its literal base directory (the segments before the
+/// first wildcard; the project root when there are none). An extension may only declare a relative name without `..`
+/// ([`crate::containment::declared`], E058); where the name lands is the request's containment (a symlink that leaves
+/// the project is `outside_root`). A glob names files the tool writes itself, so one whose last segment is not a
+/// literal file name, or a command told its report (`{report}`) or a captured output, which need one file, is E058.
 pub(super) fn report_path(
     collector: &Collector,
     root: &Path,
@@ -222,7 +245,47 @@ pub(super) fn report_path(
             ),
         ));
     };
-    Ok(containment.resolve(&root.join(relative))?)
+    if report_glob(collector).is_none() {
+        return Ok(containment.resolve(&root.join(relative))?);
+    }
+    // The registry refuses this declaration (E030); a collector built from one anyway reads nothing.
+    if !is_report_name(report) {
+        return Err(OpError::coded(
+            OpErrorKind::PreconditionFailed,
+            codes::E058,
+            format!(
+                "collector '{}' of {} declares the report glob '{report}': a report glob must end in a literal file \
+                 name, so it names the files one tool writes",
+                collector.name, collector.extension
+            ),
+        ));
+    }
+    if collector.told_its_report() || collector.capture.is_some() {
+        return Err(OpError::coded(
+            OpErrorKind::PreconditionFailed,
+            codes::E058,
+            format!(
+                "collector '{}' of {} declares the report glob '{report}' and also {}: a report glob names files the \
+                 tool writes itself, so there is no single file to name",
+                collector.name,
+                collector.extension,
+                if collector.capture.is_some() {
+                    "captures its output"
+                } else {
+                    "tells its command `{report}`"
+                }
+            ),
+        ));
+    }
+    let base: Vec<&str> = report
+        .split('/')
+        .take_while(|segment| !is_wild(segment))
+        .collect();
+    let base = match base.join("/") {
+        literal if literal.is_empty() => root.to_path_buf(),
+        literal => root.join(literal),
+    };
+    Ok(containment.resolve(&base)?)
 }
 
 /// E058 for a report asked of a collector that reads through its ports.

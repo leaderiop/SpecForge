@@ -3,8 +3,18 @@ use std::collections::BTreeSet;
 use super::*;
 use specforge_test::prelude::*;
 
+mod accepted;
+mod api;
+mod coverage;
+mod cvss;
+mod dependency;
+mod finding;
 mod mint;
+mod paths;
+mod places;
+mod report;
 mod syntax;
+mod vulnerability;
 
 fn strings(items: &[&str]) -> Vec<String> {
     items.iter().map(|s| s.to_string()).collect()

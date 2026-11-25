@@ -1,0 +1,184 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Id",
+    "fields": {
+      "change": "unchanged",
+      "kind": "type",
+      "path": "Id",
+      "signature": "export type Id = string;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Mode",
+    "fields": {
+      "change": "unchanged",
+      "kind": "enum",
+      "path": "Mode",
+      "signature": "export declare enum Mode ",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Mode.Fast",
+    "fields": {
+      "change": "unchanged",
+      "kind": "variant",
+      "path": "Mode.Fast",
+      "signature": "Fast = 0",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Mode.Slow",
+    "fields": {
+      "change": "unchanged",
+      "kind": "variant",
+      "path": "Mode.Slow",
+      "signature": "Slow = 1",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Options",
+    "fields": {
+      "change": "unchanged",
+      "kind": "interface",
+      "path": "Options",
+      "signature": "export interface Options ",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Options.mode",
+    "fields": {
+      "change": "unchanged",
+      "kind": "field",
+      "path": "Options.mode",
+      "signature": "mode: Mode;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::VERSION",
+    "fields": {
+      "change": "unchanged",
+      "kind": "variable",
+      "path": "VERSION",
+      "signature": "VERSION = \"1\"",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Widget",
+    "fields": {
+      "accepted_signature": "export class Widget {",
+      "accepted_tag": "Public",
+      "change": "narrowed",
+      "kind": "class",
+      "path": "Widget",
+      "signature": "export declare class Widget ",
+      "tag": "Beta",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Widget.experimental",
+    "fields": {
+      "change": "unchanged",
+      "kind": "method",
+      "path": "Widget.experimental",
+      "signature": "experimental(): void;",
+      "tag": "Beta",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Widget.render",
+    "fields": {
+      "accepted_signature": "render(): string;",
+      "accepted_tag": "Public",
+      "change": "narrowed",
+      "kind": "method",
+      "path": "Widget.render",
+      "signature": "render(): string;",
+      "tag": "Beta",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::Widget.size",
+    "fields": {
+      "accepted_signature": "size: number;",
+      "accepted_tag": "Public",
+      "change": "narrowed",
+      "kind": "field",
+      "path": "Widget.size",
+      "signature": "size: number;",
+      "tag": "Beta",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::added",
+    "fields": {
+      "change": "added",
+      "kind": "function",
+      "path": "added",
+      "signature": "export declare function added(): void;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::create",
+    "fields": {
+      "accepted_signature": "export function create(o: Options): Widget;",
+      "accepted_tag": "Public",
+      "change": "changed",
+      "kind": "function",
+      "path": "create",
+      "signature": "export declare function create(o: Options, n: number): Widget;",
+      "tag": "Public",
+      "visibility": "public"
+    }
+  },
+  {
+    "kind": "api_item",
+    "id": "api:js:%40demo%2Fwidget::trial",
+    "fields": {
+      "accepted_signature": "export function trial(): void;",
+      "accepted_tag": "Alpha",
+      "change": "removed",
+      "kind": "function",
+      "path": "trial",
+      "signature": "export function trial(): void;",
+      "tag": "Alpha",
+      "visibility": "public"
+    }
+  }
+]

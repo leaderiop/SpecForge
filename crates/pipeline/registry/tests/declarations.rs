@@ -57,6 +57,35 @@ fn a_malformed_short_name_is_e030() {
     );
 }
 
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
+fn a_report_glob_ending_in_a_wildcard_is_e030() {
+    let mut c = declaration("@acme/reports", "1.0.0");
+    for name in ["keys", "secrets", "sbom"] {
+        c.collector(name, |k| {
+            k.report("**/sbom.cdx.json")
+                .collect(|_| Ok(CollectOutput::default()));
+        });
+    }
+    let mut bad = c.declaration();
+    // A raw declaration can carry any report; the SDK refuses one at build.
+    bad.collectors[0].report = Some("**/*.pem".to_string());
+    bad.collectors[1].report = Some("config/.env?".to_string());
+    let build = build_registries(vec![bad]);
+    assert_eq!(codes(&build), ["E030", "E030"]);
+    let messages: Vec<&str> = diagnostics(&build)
+        .iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    assert!(
+        messages[0].contains("collector 'keys' declares the report '**/*.pem'"),
+        "{messages:?}"
+    );
+    assert!(
+        messages[1].contains("collector 'secrets' declares the report 'config/.env?'"),
+        "{messages:?}"
+    );
+}
+
 fn with_peer(name: &str, peer: &str, range: &str, optional: bool) -> ExtensionDeclaration {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"));
     c.meta.peer_dependencies.push(PeerDependency {
@@ -602,6 +631,25 @@ fn capabilities_with_a_config_that_is_not_sound_are_w021() {
         );
     }
     assert_eq!(found.len(), expect.len(), "{found:#?}");
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-028")]
+fn a_required_program_that_is_no_bare_name_is_w021() {
+    let found = capability_problems_of(|c| {
+        c.collector("cov", |k| {
+            k.requires(&["cargo-nextest", "", "bin/tool", "two words"])
+                .collect(|_| Ok(CollectOutput::default()));
+        });
+    });
+    assert_eq!(found.len(), 3, "{found:#?}");
+    for named in ["''", "'bin/tool'", "'two words'"] {
+        assert!(
+            found
+                .iter()
+                .any(|m| m.contains(&format!("`requires` program {named}"))),
+            "{named} in {found:#?}"
+        );
+    }
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-028")]

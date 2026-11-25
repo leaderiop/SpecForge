@@ -138,6 +138,7 @@ mod tests {
                     machine: false,
                     reported_while: None,
                     settled_later: false,
+                    facts: Vec::new(),
                 })
                 .collect();
             book.add(extension, entries).unwrap();

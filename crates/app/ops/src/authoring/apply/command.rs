@@ -133,6 +133,7 @@ pub fn execute_with(
     } else {
         let origin = Origin::Command {
             extension: command.extension().to_string(),
+            imports: command.imports(),
         };
         match apply_plan_with(view, plan, &origin, dry_run, caller, rules, calendar) {
             Ok(edited) if edited.wrote.previewed() => PlanOutcome::Previewed(edited),

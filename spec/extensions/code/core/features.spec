@@ -1,3 +1,22 @@
+requirement FEATURE-155 "An API Entry Judged Against Its Accepted Report" {
+  category "Feature"
+  tier     v2
+  text     """
+    An api_item fact said what a run's public API holds, but not what
+    changed since the API a project committed, so no guard could name a
+    break.
+
+    @code/core 1.4.0 adds four optional api_item fields (ADR 0390 D3):
+    change, one of added, unchanged, changed, narrowed or removed;
+    accepted_signature and accepted_tag, what the committed accepted report
+    wrote; and accepted_visibility, its visibility when it differs. A pack
+    judges only a crate or package present in both the run and the accepted
+    report; any other entry carries no change. Entries pair by id, then by
+    comparable signature, never by repeat suffix. A removed entry cites no
+    item, and W104 does not report it.
+  """
+}
+
 requirement FEATURE-004 "Test Facts a Spec Can Cite" {
   category "Feature"
   tier     v2

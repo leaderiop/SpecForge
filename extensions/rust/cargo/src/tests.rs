@@ -1,5 +1,6 @@
 use super::*;
-use serde_json::{json, Value};
+use serde_json::json;
+use specforge_extension_sdk::SettingsItem;
 use specforge_test::prelude::*;
 
 /// The input the host sends for these `(path, text)` manifests and these listed target files.
@@ -44,6 +45,17 @@ fn rust_cargo_declares_its_collector_its_reads_and_its_peer() {
         .map(|p| (p.name.as_str(), p.version.as_str(), p.optional))
         .collect();
     assert_eq!(peers, [("@code/core", "^1.1", false)]);
+    let [SettingsItem::Setting(exclude)] = &declaration.settings[..] else {
+        panic!("one setting: {:?}", declaration.settings);
+    };
+    assert_eq!(
+        (
+            exclude.name.as_str(),
+            exclude.field_type.as_str(),
+            &exclude.default
+        ),
+        ("exclude", "string_list", &Some(json!([])))
+    );
     let [collector] = &declaration.collectors[..] else {
         panic!("one collector: {:?}", declaration.collectors);
     };
@@ -167,6 +179,12 @@ fn a_withheld_or_truncated_read_is_the_collectors_error() {
         .unwrap();
         let why = collect(&truncated).unwrap_err();
         assert!(why.contains(&format!("'{read}'")), "{why}");
+        // The guest cannot tell the walk's entry cap from the file cap: the error names both.
+        assert!(
+            why.contains("stopped early: the host's walk reached its cap of 20000 entries")
+                && why.contains("or more than 2000 files matched"),
+            "{why}"
+        );
     }
     let unreadable = collect(&input(&[("bad/Cargo.toml", "[package\n")], &[])).unwrap_err();
     assert!(unreadable.starts_with("bad/Cargo.toml: "), "{unreadable}");
@@ -191,4 +209,77 @@ fn a_package_fact_is_located_at_its_package_table() {
         })
         .collect();
     assert_eq!(at, [("crates/base/Cargo.toml", 3, 2, 3, 9)]);
+}
+
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
+fn a_directory_excludes_itself_and_what_lies_under_it() {
+    let examples = ["examples".to_string()];
+    assert!(excluded("examples/shop", &examples));
+    assert!(excluded("examples/shop", &["examples/shop".to_string()]));
+    assert!(!excluded("examplesx", &examples), "a whole segment only");
+    assert!(!excluded("", &examples), "the root is under no entry");
+}
+
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
+fn the_exclude_list_takes_project_relative_directories_only() {
+    assert_eq!(exclude_list(None), Ok(Vec::new()));
+    assert_eq!(
+        exclude_list(Some(&json!([
+            "gsd/parity/fixtures/",
+            "examples",
+            "./examples",
+            "examples/./shop",
+            "examples//shop",
+            "examples//"
+        ]))),
+        Ok([
+            "gsd/parity/fixtures",
+            "examples",
+            "examples",
+            "examples/shop",
+            "examples/shop",
+            "examples"
+        ]
+        .map(str::to_string)
+        .to_vec()),
+        "an entry is normalized to the segments a package path is written in"
+    );
+    for (entry, named) in [
+        (json!("/abs"), "/abs"),
+        (json!("C:/x"), "C:/x"),
+        (json!(""), ""),
+        (json!("."), "."),
+        (json!("./"), "./"),
+        (json!("examples\\shop"), "examples\\shop"),
+        (json!("a/../b"), "a/../b"),
+        (json!(7), "7"),
+    ] {
+        assert_eq!(
+            exclude_list(Some(&json!([entry]))),
+            Err(format!(
+                "exclude entry '{named}' is not a project-relative directory"
+            ))
+        );
+    }
+}
+
+#[specforge_test(requirement = "FEATURE-002")]
+#[specforge_test(requirement = "FEATURE-108")]
+fn a_member_under_an_excluded_directory_is_no_package() {
+    let manifests = [
+        ("Cargo.toml", ROOT),
+        ("crates/app/Cargo.toml", APP),
+        ("crates/base/Cargo.toml", BASE),
+        ("fixtures/x/Cargo.toml", BASE),
+    ];
+    let out = packages_of(&input(&manifests, &[]), &["fixtures".to_string()]).unwrap();
+    assert_eq!(ids(&out.facts), ["pkg:cargo/app", "pkg:cargo/base"]);
+    let out = packages_of(&input(&manifests, &[]), &["crates/base".to_string()]).unwrap();
+    assert_eq!(
+        ids(&out.facts),
+        ["pkg:cargo/app", "pkg:cargo/base#fixtures/x"],
+        "a workspace member excluded after the read; its twin keeps its own id"
+    );
 }

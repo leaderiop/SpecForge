@@ -38,6 +38,19 @@ path = "junit.xml"
 filter = "package(specforge-cli) & test(=extension_authoring::a_scaffolded_extension_builds_and_validates)"
 slow-timeout = { period = "60s", terminate-after = 10 }
 
+# Applies one edit plan of as many creates as the `gsd import` operation cap
+# (`MAX_OPS` in gsd/import/src/limits.rs, ADR 0391 D9): ~38 s at 2,000 on an
+# idle machine, past the default 60 s bound when loaded.
+[[profile.default.overrides]]
+filter = "package(specforge-ops) & test(=plans::one_plan_of_many_creates_applies)"
+slow-timeout = { period = "60s", terminate-after = 3 }
+
+# The X2 floor's negative control (ADR 0393 D8) collects the ledger twice with
+# the real specforge: a cold wasm compile of the packs.
+[[profile.default.overrides]]
+filter = "package(gate) & test(=dogfood::tests::x2_floor_fails_a_ledger_copy_missing_one_case)"
+slow-timeout = { period = "120s", terminate-after = 3 }
+
 # absorb's end-to-end tests load `@gsd/core` and the old builtins cold on a
 # Windows runner, where a compile takes longer than the default kill bound
 # allows (ADR 0375 D4). Windows only: the Linux and macOS bounds are unchanged.

@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 73] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 75] = [
     (
         "E101",
         Evidence::Tests {
@@ -519,6 +519,20 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 73] = [
         Evidence::Tests {
             fires: "a_numbered_phase_title_is_w109",
             silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
+        },
+    ),
+    (
+        "E533",
+        Evidence::Tests {
+            fires: "e533_refuses_a_removed_item_without_a_major_bump",
+            silent: "e533_allows_a_break_at_a_major_bump",
+        },
+    ),
+    (
+        "E535",
+        Evidence::Tests {
+            fires: "e535_refuses_a_package_not_at_the_milestones_version",
+            silent: "e535_allows_a_release_whose_packages_match",
         },
     ),
 ];

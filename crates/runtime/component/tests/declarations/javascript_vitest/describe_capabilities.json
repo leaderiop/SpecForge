@@ -1,0 +1,32 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "npx",
+        "--no",
+        "--",
+        "vitest",
+        "run",
+        "--reporter=default",
+        "--reporter=junit",
+        "--outputFile.junit={report}"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "env": [
+        "NODE_*",
+        "VITEST_*",
+        "CI"
+      ],
+      "filter": [
+        "-t",
+        "{filter}"
+      ],
+      "name": "javascript-vitest",
+      "port": "process",
+      "why": "run the command whose report the collector 'javascript-vitest' reads"
+    }
+  ]
+}

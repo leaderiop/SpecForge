@@ -173,6 +173,31 @@ fn only_names_a_comma_separated_list_of_checks() {
     assert!(!named(Some("doc-links"), "links"));
 }
 
+/// A run that runs dogfood with every report writer empties the report dir first; a full run that runs dogfood
+/// without them is refused, naming what is missing and the command; CI's dogfood job runs it alone over fresh
+/// artifacts; a run without dogfood leaves the reports alone (ADR 0393 D3).
+#[test]
+fn dogfood_judges_only_reports_this_run_writes() {
+    let runs = |only: &'static str| move |check: &str| named(Some(only), check);
+    for mode in [Mode::Full, Mode::Ci] {
+        assert_eq!(purges_reports(mode, |_| true), Ok(true));
+        assert_eq!(
+            purges_reports(mode, runs("tests,guests,gsd,dogfood")),
+            Ok(true)
+        );
+        assert_eq!(purges_reports(mode, runs("tests,guests,gsd")), Ok(false));
+    }
+    assert_eq!(purges_reports(Mode::Ci, runs("dogfood")), Ok(false));
+    assert_eq!(
+        purges_reports(Mode::Full, runs("tests,dogfood")),
+        Err(
+            "dogfood judges the JUnit reports this run writes, and guests, gsd would not run: \
+             cargo gate full --only tests,guests,gsd,dogfood"
+                .to_string()
+        )
+    );
+}
+
 #[test]
 fn a_compile_turn_excludes_another_until_it_drops() {
     let dir = tempfile::tempdir().unwrap();

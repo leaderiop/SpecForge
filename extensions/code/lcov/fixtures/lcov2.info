@@ -1,0 +1,41 @@
+# The demo crate of llvm-cov.info as geninfo 2.2 writes it: function groups and demangled names.
+TN:demo
+SF:/project/src/lib.rs
+VER:2a4c9e1f
+FNL:0,3,5
+FNA:0,4,demo::add
+FNL:1,12,14
+FNA:1,2,<demo::Board>::len
+FNL:2,22,24
+FNA:2,1,demo::tests::adds
+FNL:3,27,34
+FNA:3,3,demo::helper::<u8>
+FNA:3,0,demo::helper::<(u8, u16)>
+FNF:4
+FNH:4
+DA:3,4
+DA:4,4
+DA:5,4
+DA:12,2
+DA:13,2
+DA:14,2
+DA:22,1
+DA:23,1
+DA:24,1
+DA:27,3
+DA:28,3
+DA:29,3
+DA:30,0
+DA:32,3
+DA:34,3
+DA:37,1
+BRDA:29,0,0,0
+BRDA:29,0,1,3
+BRF:2
+BRH:1
+MCDC:29,2,t,1,0,x > 2
+MCF:2
+MCH:1
+LF:16
+LH:15
+end_of_record

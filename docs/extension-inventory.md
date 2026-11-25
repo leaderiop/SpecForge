@@ -34,12 +34,24 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@specforge/testing` | 0 | 0 | `verify` kinds on 7 kinds | software, governance (both optional) |
 | `@specforge/cargo-test` | 0 | 0 | -- | testing (required) |
 | `@specforge/vitest` | 0 | 0 | -- | testing (required) |
-| `@code/core` | 4 (collector-written) | 5 | -- | none |
+| `@code/core` | 9 (collector-written) | 11 | -- | none |
 | `@javascript/node-test` | 0 | 0 | -- | code/core (required) |
 | `@rust/cargo` | 0 | 0 | -- | code/core (required) |
 | `@rust/source` | 0 | 0 | -- | code/core, rust/cargo (required) |
 | `@rust/test` | 0 | 0 | -- | code/core, rust/source (required) |
 | `@javascript/source` | 0 | 0 | -- | code/core (required) |
+| `@rust/coverage` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@rust/lint` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@rust/deps` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@rust/api` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@rust/proof` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@javascript/coverage` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/lint` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/deps` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/api` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/vitest` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/jest` | 0 | 0 | -- | code/core, javascript/source (required) |
+| `@javascript/playwright` | 0 | 0 | -- | code/core, javascript/source (required) |
 | `@specforge/checks` | 1 (collector-written) | 0 | -- | none |
 
 Extensions load after the peers they declare; extensions with no peer between them keep the order
@@ -50,7 +62,7 @@ must be in the declared version range.
 
 | Family | State |
 |--------|-------|
-| `@gsd/*` (the GSD spec framework modelled as extensions) | `@gsd/core` is a vendored builtin and `@gsd/security` is built from `gsd/`; the rest are not started ([gsd/README.md](../gsd/README.md)) |
+| `@gsd/*` (the GSD spec framework modelled as extensions) | `@gsd/core` and `@gsd/import` are vendored builtins and `@gsd/security` is built from `gsd/`; the rest are not started ([gsd/README.md](../gsd/README.md)) |
 | BMAD, OpenSpec, SpecKit | Not started |
 
 ## @specforge/product
@@ -301,7 +313,16 @@ collector, never by hand: a spec cites a fact by its id, and `specforge collect`
 It declares no collector. A runner pack (tests), a source pack (items) or a manifest pack (packages) peers it and
 mints the facts with the linked `specforge-code-facts` library (`extensions/code/facts`, an extension library,
 ADR 0328 D3), so every pack names a fact the same way. The library reads a JUnit report through
-`specforge-code-junit` (`extensions/code/junit`), the second extension library.
+`specforge-code-junit` (`extensions/code/junit`), the second extension library. Five more extension libraries read
+a standard report into the five report kinds ([ADR 0388](adr/0388-x2-is-the-share-of-test-ids-a-standard-report-saw.md),
+[guide](guides/code-report-facts.md)): `specforge-code-lcov` (LCOV coverage), `specforge-code-api` (cargo public-api
+and api-extractor snapshots), `specforge-code-sarif` (SARIF 2.1.0), `specforge-code-cyclonedx` (CycloneDX BOMs) and
+`specforge-code-osv` (osv-scanner reports). Each is an rlib that links code-facts, linked by the report packs
+([ADR 0389](adr/0389-report-packs-run-standard-tools-and-doctor-names-a-missing-one.md)): lcov by `@rust/coverage`
+and `@javascript/coverage`, sarif by `@javascript/lint` (`@rust/lint` turns clippy's JSON into findings itself),
+cyclonedx and osv by `@rust/deps` and `@javascript/deps`, api by `@rust/api` and `@javascript/api`. A sixth reader, `specforge-code-kani`
+(`extensions/code/kani`, Kani's regular output), links nothing and is linked by `@rust/proof` only. Editing a reader
+re-vendors the packs that link it.
 
 | Kind | Schemes | Fields |
 |------|---------|--------|
@@ -309,6 +330,11 @@ ADR 0328 D3), so every pack names a fact the same way. The library reads a JUnit
 | `test_run` | `run` | `test` (edge `run_of` to the `test`), `status`, `duration_ms` |
 | `item` | `rust`, `js` | `package` (edge `in_package` to the `package`), `file`, `kind` (a list: `function`, `method`, `struct`, …), `visibility` (`public`, `crate`, `restricted`, `private`), `signature` (a digest), `doc`, `attrs`, `names` (edge `names`), `test_id` (edge `runs_as` to the `test` a test function is) |
 | `package` | `pkg` | `name`, `version`, `edition`, `rust_version`, `engines`, `features`, `targets`, `path`, `depends_on` (edge `uses_package` to each `package`) |
+| `coverage` | `cov` | `item` (edge `covers` to the `item` holding the lines), `file`, `functions_found`, `functions_hit`, `lines_found`, `lines_hit`, `branches_found`, `branches_hit` |
+| `api_item` | `api` | `item` (edge `api_of` to the `item`), `path`, `kind` (an item kind, or `variant`, `reexport`, `extern_crate`, `other`), `visibility`, `signature` (verbatim), `tag` (api-extractor's release tag), `change` (`added`, `unchanged`, `changed`, `narrowed`, `removed`; against the committed accepted report), `accepted_signature`, `accepted_tag`, `accepted_visibility` (the accepted entry's, on a changed, narrowed or removed one) |
+| `static_finding` | `sarif` | `tool`, `rule`, `level` (`error`, `warning`, `note`, `none`, `unknown`), `message`, `file`, `line`, `item` (edge `found_in` to the innermost `item`), `package` (edge `found_in_package` to the `package`, when no item holds it) |
+| `dependency` | `dep` | `package` (edge `dependency_of` to the project `package` the BOM describes), `purl`, `name`, `version`, `scope` (`required`, `optional`, `excluded`), `direct` |
+| `vulnerability` | `vuln` | `package` (edge `affects` to the project `package`), `osv_id`, `aliases`, `summary`, `purl`, `version`, `severity` (`critical`, `high`, `medium`, `low`, `unknown`) |
 
 The ids:
 
@@ -320,6 +346,18 @@ The ids:
 | a JavaScript item | `js:<package>/<file>::<name>`, a member joined by `.` |
 | a test run | `run:<test id>` |
 | a package | `pkg:cargo/<name>`, `pkg:cargo/<name>#<dir>` (two of one name), `pkg:npm/<name>` (`@` written `%40`) |
+| coverage | `cov:<item id>` for the innermost item holding the lines, `cov:@<file>` for what no item of the file holds |
+| an API entry | `api:rust:<crate>::<module>::…::<name>` (a member `…::<Type>::m` or `…::<Type as Trait>::m`, a crate root `api:rust:<crate>`), `api:js:<package>::<name>[.<member>]` |
+| a static finding | `sarif:<tool>/<rule>#<file>:<line>`, `#<file>` with no line, neither with no location; `~2`, `~3` on a repeat in document order |
+| a dependency | `dep:<package id>/<purl without qualifiers and subpath>`, `dep:<package id>/@<[group/]name[@version]>` with no purl |
+| a vulnerability | `vuln:<package id>/<OSV id>` |
+
+`@code/core` 1.4.0 added `change` and the three `accepted_*` fields to `api_item`
+([ADR 0390](adr/0390-a-milestone-computes-its-api-breaks-and-release-evidence-and-two-guards-read-them.md) D3). The API
+packs read the project's committed accepted report beside the run, never as a report: `@rust/api` cargo-public-api's
+`**/public-api.txt`, `@javascript/api` api-extractor's `**/etc/*.api.md` or rush's `common/reviews/api/*.api.md`, each
+file up to 4 MiB ([guide](guides/code-report-facts.md#the-accepted-api-side)). With no accepted file a fact carries no
+`change`; an entry gone from the code is a fact with `change` `removed`.
 
 An item id never holds `#` and a test id always does, so one scheme carries both; every id parses back to itself, and
 a symbol of rust-analyzer's or scip-typescript's SCIP index maps into exactly one. No kind is scoped: a reference
@@ -332,6 +370,13 @@ sends them with each unheld reference):
 | `code/W102` | A reference names no fact, and no served store holds facts of a kind its field admits in its scheme (a fresh clone, before a collect, or the pack that writes it not run); it names the kind and the pack: `@javascript/node-test` or `@rust/test` for tests, `@rust/source` or `@javascript/source` for items, `@rust/cargo` or `@javascript/source` for packages |
 | `code/W401` | An entity that is not pending links a test whose last run failed |
 | `code/I402` | A test's or an item's `names` holds a name that is no entity, or the short name of several |
+| `code/W104` | A report fact names no item: a `coverage`, an `api_item` of a kind an item can have (not a crate root), or a `static_finding` that names no `package` either |
+| `code/W105` | A `static_finding`'s rule or level reads `unknown` |
+| `code/W106` | A `dependency` has no `purl` |
+| `code/W107` | A `vulnerability`'s severity is `unknown` |
+
+A report id's parts are percent-encoded (`%`, `/`, `#`, `:`, `~`, `@`, `?`, whitespace), so each id parses back to its
+parts. The `reports` pass raises `code/W104` to `code/W107` and is sent only the five report kinds, never a pending fact.
 
 An entity is pending while its owner is (its kind's `complete_when`, or its nearest scope ancestor's): its references
 are not checked and its failing tests are not reported, so a test not written yet is TDD, not an error.
@@ -342,18 +387,24 @@ and names each test after the nearest `package.json` with a `name` ([guide](guid
 
 The Rust packs write all four kinds ([ADR 0348](adr/0348-a-collector-declares-a-config-file-and-the-rust-packs.md),
 [guide](guides/rust-facts.md)), each detected by a `Cargo.toml` and run in fact order: `rust-cargo` (`@rust/cargo`)
-reads every `Cargo.toml` with `cargo_toml` into `package` facts and runs nothing; `rust-source` (`@rust/source`) walks
+reads every `Cargo.toml` with `cargo_toml` into `package` facts and runs nothing, leaving out the manifests under
+the project-relative directories its `exclude` setting lists (fixture crates that are no package of the project,
+[ADR 0393](adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)); `rust-source` (`@rust/source`) walks
 each target's module tree by rustc's rules and has the host's parser read it into `item` facts, a test function
-carrying the id nextest gives it and the entity its `#[specforge_test]` names; `rust-test` (`@rust/test`) runs
-`cargo-nextest` with a config file the host writes and reads its JUnit report into `test` and `test_run` facts, an
-`#[ignore]`d test nextest leaves out recorded `skipped`. It needs `cargo install cargo-nextest --locked`.
+carrying the id nextest gives it and the entity its `#[specforge_test]` names (a `__guard_only` helper carries none);
+`rust-test` (`@rust/test`) runs `cargo-nextest` with a config file the host writes and reads its JUnit report into
+`test` and `test_run` facts, an `#[ignore]`d test nextest leaves out, or one a `cfg(...)` false on the host compiles
+out, recorded `skipped`. It needs `cargo install cargo-nextest --locked`.
 
 `@javascript/source` writes `item` and `package` facts ([guide](guides/javascript-facts.md)): its collector
 `javascript-source`, detected by a `package.json`, runs nothing. It reads every `package.json` into one `package` fact
 per named package (`pkg:npm/<name>`, its dependencies on the project's own packages), and has the host's reader parse
-each `.ts .mts .cts .tsx .js .jsx .mjs .cjs` file a named package owns, test files and generated output left out, into
+each `.ts .mts .cts .tsx .js .jsx .mjs .cjs` file a named package owns, generated output left out, into
 `item` facts `js:<package>/<file>::<name>[.<member>]`: what the file or a namespace declares, and the members of its
-classes and interfaces, `public` when an importer reaches it.
+classes and interfaces, `public` when an importer reaches it. A test file is read for its statically named test calls
+only: each is a `function` item with the attribute `test`, and a call node reports as a test case (a skipped one, or
+one holding no test call) carries `test_id`, the id `@javascript/node-test` gives it
+([ADR 0393](adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)).
 
 ## @specforge/checks
 

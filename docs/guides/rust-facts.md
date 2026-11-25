@@ -62,6 +62,23 @@ order, each served the facts of the one before:
   `collect` says so, and the failing tests are recorded as `failed`.
 - **Your own run:** run nextest with that config yourself, then
   `specforge collect --runner rust-test --no-run`.
+- **Fixture crates:** a `Cargo.toml` that is no package of the project (a
+  test fixture, an example) is left out by `@rust/cargo`'s `exclude` setting
+  in `specforge.json`. Each entry is a directory relative to the project root,
+  written with `/` (`.` segments and extra `/` are dropped: `./examples/` is
+  `examples`). `rust-cargo` still reads every manifest (a workspace inherits
+  from them) but answers no package for one under an entry, so `rust-source`
+  reads no item there and no test id is minted. The packs that run a tool
+  (`rust-test`, coverage, lint, deps) still run it over the whole cargo
+  workspace. An empty or absolute entry, a `..` segment, a `\`,
+  or an entry naming the root itself (`.`) fails the collector with
+  `exclude entry '<entry>' is not a project-relative directory`.
+
+  ```json
+  "settings": {
+    "@rust/cargo": { "exclude": ["examples", "xtask/tests/fixtures"] }
+  }
+  ```
 
 ## 3. The ids
 
@@ -94,7 +111,19 @@ fn adds() { assert_eq!(add(1, 2), 3); }
 ```
 
 nextest leaves an `#[ignore]`d test out of its report; `rust-test` records it
-as `skipped` from its item, so a spec citing it is not `code/E101`.
+as `skipped` from its item, so a spec citing it is not `code/E101`. A test the
+report lacks whose `cfg(...)` is false on the host (`windows` on Linux or
+macOS, `unix` on Windows, `target_os = "windows"`, …; the host's family is
+read from the project root's path) was compiled out, and is recorded
+`skipped` the same way. On a unix host `target_os = "linux"` or `"macos"` is
+not decided, so such a test the report lacks stays missing. Every `cfg(...)`
+that compiles an item out is in its `attrs`: its own, those of the modules
+around it (`#[cfg(windows)] mod tests { … }`), its file's `#![cfg(...)]` and
+those on the `mod` declarations that reach its file. An attribute naming
+`__guard_only` marks no test; with several spec-link attributes stacked and
+no runner attribute, the lowest one decides, as the macro registers it. A
+function no test is registered for carries no `test_id`
+([ADR 0393](../adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)).
 
 ## Things to know
 
@@ -121,4 +150,4 @@ as `skipped` from its item, so a spec citing it is not `code/E101`.
 | `` `cargo-nextest` was not found on PATH `` | Install nextest: `cargo install cargo-nextest --locked`. |
 | `E045` rust-test produced no report at … | The build failed before nextest ran, or your own config's `specforge` profile wrote the report elsewhere. Run the command above yourself to see nextest's output. |
 | `<path>: the host did not serve it (<why>)` | The host withheld a `Cargo.toml` (too large, not UTF-8, unreadable). `rust-cargo` reads every manifest or none. |
-| `the read '…' matched more files than the host serves` | The project holds over 2,000 manifests or target files of one kind. |
+| `the read '…' stopped early` | The host's walk of the project reached its cap of 20,000 entries, or the project holds over 2,000 manifests or target files of one kind. |

@@ -12,7 +12,19 @@
 //!   `js:<package>/<file>::<name>`, with its `package` (edge `in_package`), file, kinds, visibility, signature digest,
 //!   doc, attrs, `names` and the `test_id` it runs as (edge `runs_as`);
 //! - `package` (scheme `pkg`): a cargo or npm package, a purl without version, with its manifest's values and the
-//!   project packages it `depends_on` (edge `uses_package`).
+//!   project packages it `depends_on` (edge `uses_package`);
+//! - the report facts a standard report's reader mints (ADR 0388): `coverage` (scheme `cov`), what a coverage report
+//!   says of the `item` it `covers` (`cov:<item id>`), or of a file's lines no item holds (`cov:@<file>`); `api_item`
+//!   (scheme `api`), one public entry of an API snapshot, `api:rust:<crate>::<path>` or `api:js:<package>::<name
+//!   path>`, with the `item` it is the API of (`api_of`), its kind, visibility, signature as written and release tag,
+//!   and its `change` against the committed accepted report with what that report said (ADR 0390 D3);
+//!   `static_finding` (scheme `sarif`), one result of a SARIF run, `sarif:<tool>/<rule>#<file>:<line>`, with its tool,
+//!   rule, level, message, file and line, and the `item` it is `found_in`, else the `package` (`found_in_package`);
+//!   `dependency` (scheme `dep`), one component of a CycloneDX BOM, `dep:<package id>/<purl>` or
+//!   `dep:<package id>/@<name@version>` with no purl, with its purl, name, version, scope and whether the project uses
+//!   it directly, and the project `package` the BOM describes (`dependency_of`); `vulnerability` (scheme `vuln`), one
+//!   OSV record of an osv-scanner report, `vuln:<package id>/<OSV id>`, with its OSV id, aliases, summary, affected
+//!   purls and versions and severity, and the project `package` it `affects`.
 //!
 //! Every kind is collector-written and none is scoped: a scheme reference names the fact whole. `@code/core` declares
 //! no collector: a pack collects, minting the facts with the linked `specforge-code-facts` library, so every pack
@@ -23,13 +35,22 @@
 //! holds one, W102 naming the pack otherwise), unless the citing entity is pending (ADR 0329 D4, ADR 0347 D9); its
 //! check pass `proof` reports a complete entity linking a failed test (W401), a test or item naming no entity (I402)
 //! (ADR 0329 D6, ADR 0347 D11) and a fact's own reference that answers nothing (E101, ADR 0346 D4). `refs` is sent
-//! the `test` and `test_run` facts, `proof` the facts of every kind (ADR 0353 D6).
+//! the `test` and `test_run` facts, `proof` the facts of its four kinds (ADR 0353 D6). Its check pass `reports` is
+//! sent only the report facts, and reports an entry that names no item (W104), a finding whose rule or level its
+//! report states nowhere (W105), a dependency with no purl (W106) and a vulnerability whose severity is unknown (W107)
+//! (ADR 0388). Each code names the collected kinds it judges, which `specforge doctor` reads to say which codes a
+//! missing tool switches off (ADR 0389 D4).
 
-use specforge_code_facts::{ItemKind, Scheme, Visibility};
+use specforge_code_facts::{
+    ApiChange, ApiKind, ItemKind, Level, Scheme, Scope, Severity, Visibility, API_ITEM, COVERAGE,
+    DEPENDENCY, STATIC_FINDING, VULNERABILITY,
+};
 use specforge_extension_sdk::prelude::*;
 
+mod kinds;
 mod proof;
 mod refs;
+mod reports;
 
 /// The kind of a test fact.
 const TEST_KIND: &str = "test";
@@ -39,8 +60,17 @@ const RUN_KIND: &str = "test_run";
 const ITEM_KIND: &str = "item";
 /// The kind of a package a manifest pack read.
 const PACKAGE_KIND: &str = "package";
-/// Every kind `@code/core` declares.
+/// The kinds of the test, item and package facts, which `refs` and `proof` read.
 const KINDS: [&str; 4] = [TEST_KIND, RUN_KIND, ITEM_KIND, PACKAGE_KIND];
+/// The report kinds, the facts a standard report's reader mints (ADR 0388): the only kinds the `reports` pass is
+/// sent. They stay out of [`KINDS`], which `refs` and `proof` read.
+const REPORT_KINDS: [&str; 5] = [
+    COVERAGE.kind,
+    API_ITEM.kind,
+    STATIC_FINDING.kind,
+    DEPENDENCY.kind,
+    VULNERABILITY.kind,
+];
 /// The schemes of a `test`'s id.
 const TEST_SCHEMES: [&str; 2] = [Scheme::Js.as_str(), Scheme::Rust.as_str()];
 /// The scheme of a `test_run`'s id.
@@ -67,7 +97,7 @@ pub(crate) struct Reference {
 
 /// Every reference field `@code/core` declares with a target kind: the one table its declarations read for the
 /// target and the edge, and `refs` for what a mistyped reference should have named and whose an unheld one is.
-pub(crate) const REFERENCES: [Reference; 4] = [
+pub(crate) const REFERENCES: [Reference; 10] = [
     Reference {
         kind: ITEM_KIND,
         field: "package",
@@ -96,6 +126,50 @@ pub(crate) const REFERENCES: [Reference; 4] = [
         edge: "run_of",
         together: true,
     },
+    // Another collector answers items, so an unheld one is no disagreement.
+    Reference {
+        kind: COVERAGE.kind,
+        field: "item",
+        target: ITEM_KIND,
+        edge: "covers",
+        together: false,
+    },
+    Reference {
+        kind: API_ITEM.kind,
+        field: "item",
+        target: ITEM_KIND,
+        edge: "api_of",
+        together: false,
+    },
+    // Two labels: one label cannot restrict two target kinds.
+    Reference {
+        kind: STATIC_FINDING.kind,
+        field: "item",
+        target: ITEM_KIND,
+        edge: "found_in",
+        together: false,
+    },
+    Reference {
+        kind: STATIC_FINDING.kind,
+        field: "package",
+        target: PACKAGE_KIND,
+        edge: "found_in_package",
+        together: false,
+    },
+    Reference {
+        kind: DEPENDENCY.kind,
+        field: "package",
+        target: PACKAGE_KIND,
+        edge: "dependency_of",
+        together: false,
+    },
+    Reference {
+        kind: VULNERABILITY.kind,
+        field: "package",
+        target: PACKAGE_KIND,
+        edge: "affects",
+        together: false,
+    },
 ];
 
 /// The row of [`REFERENCES`] for the field `field` of `kind`.
@@ -117,11 +191,21 @@ const STATUS: Vocabulary = Vocabulary::new(&["passed", "failed", "skipped"]);
 const ITEM_KINDS: Vocabulary = Vocabulary::new(&ItemKind::NAMES);
 /// Who may name a definition: the library's `Visibility` names, widest first.
 const VISIBILITY: Vocabulary = Vocabulary::new(&Visibility::NAMES);
+/// What an API snapshot's entry is: the library's `ApiKind` names, the item kinds first.
+const API_KINDS: Vocabulary = Vocabulary::new(&ApiKind::NAMES);
+/// What an API snapshot's entry is against the committed accepted report: the library's `ApiChange` names.
+const API_CHANGES: Vocabulary = Vocabulary::new(&ApiChange::NAMES);
+/// A SARIF result's level as its report states it: the library's `Level` names, `unknown` last.
+const LEVELS: Vocabulary = Vocabulary::new(&Level::NAMES);
+/// A BOM component's scope: the library's `Scope` names, widest first.
+const SCOPES: Vocabulary = Vocabulary::new(&Scope::NAMES);
+/// A vulnerability's severity: the library's `Severity` names, highest first, `unknown` last.
+const SEVERITIES: Vocabulary = Vocabulary::new(&Severity::NAMES);
 
 #[specforge_extension_sdk::extension(
     name = "@code/core",
-    version = "1.1.0",
-    description = "The neutral base of code facts: the test, test_run, item and package kinds the code packs collect, and the checks of the references a spec writes to them"
+    version = "1.4.0",
+    description = "The neutral base of code facts: the test, test_run, item and package kinds the code packs collect, the report facts (coverage, api_item, static_finding, dependency, vulnerability) a standard report's reader mints, and the checks of the references a spec writes to them and of what a report leaves unmapped"
 )]
 struct CodeCore;
 
@@ -299,6 +383,7 @@ impl Contributions for CodeCore {
                 .source_kind(ITEM_KIND)
                 .target_kind(TEST_KIND);
         });
+        kinds::report_kinds(c);
 
         // A pass is sent the facts of the kinds it declares (ADR 0353): `refs` names the closest held test or run,
         // and `proof` judges what the facts of every kind say, so item facts cross into one guest.
@@ -311,6 +396,12 @@ impl Contributions for CodeCore {
             p.phase("check")
                 .input(Input::facts(&KINDS))
                 .run(proof::proof);
+        });
+        // `reports` is sent only the report kinds (ADR 0353, ADR 0388): nothing is decoded when no report was collected.
+        c.pass("reports", |p| {
+            p.phase("check")
+                .input(Input::facts(&REPORT_KINDS))
+                .run(reports::reports);
         });
 
         c.code("E101", |d| {
@@ -325,7 +416,8 @@ impl Contributions for CodeCore {
                  that names an entity of another kind, is reported at the place its collector read it, addressed \
                  to that collector: its facts disagree, and running `specforge collect` again, or fixing the pack, \
                  is the remedy (ADR 0346).",
-            );
+            )
+            .facts(&[ITEM_KIND, PACKAGE_KIND, TEST_KIND, RUN_KIND]);
         });
         c.code("W102", |d| {
             d.title("No facts of the reference's kinds were collected").explanation(
@@ -333,7 +425,8 @@ impl Contributions for CodeCore {
                  its field admits (narrowed to those its id is shaped as) in its scheme: on a fresh clone, or before \
                  the pack that writes them ran, there is nothing to check it against. It is reported once per cited \
                  reference, and not while the citing entity's owner is pending. Run `specforge collect` with the \
-                 pack the finding names: `@javascript/node-test` for `js` tests, `@rust/test` for `rust` tests, \
+                 pack the finding names: `@javascript/node-test`, `@javascript/vitest`, `@javascript/jest` or \
+                 `@javascript/playwright` for `js` tests, `@rust/test` or `@rust/proof` for `rust` tests, \
                  `@rust/source` for `rust` items, `@javascript/source` for `js` items, `@rust/cargo` for \
                  `pkg:cargo` packages, `@javascript/source` for `pkg:npm` packages.",
             );
@@ -343,15 +436,18 @@ impl Contributions for CodeCore {
                 "An entity whose owner is complete links a test whose last collected status is `failed`: the proof \
                  it cites does not hold. A pending owner's failing test is not reported (TDD). Fix the code or the \
                  test, and run `specforge collect` again.",
-            );
+            )
+            .facts(&[TEST_KIND]);
         });
         c.code("I402", |d| {
             d.title("A test or item names an entity that does not exist").explanation(
                 "A test or item fact's `names` (the entities its source's idiom says it proves or implements) \
                  holds a name that is no entity of the project, or the short name of several: the entity was \
                  renamed or deleted, or the name is misspelled. Fix the name in the source, then collect again.",
-            );
+            )
+            .facts(&[ITEM_KIND, TEST_KIND]);
         });
+        reports::catalogue(c);
     }
 }
 

@@ -223,6 +223,7 @@ impl Contributions for Greet {
                         unlinked: Vec::new(),
                         plan: None,
                         facts: Vec::new(),
+                        warnings: Vec::new(),
                     })
                 });
         });
@@ -288,7 +289,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.setting(name, \|s\| ..)` | a typed setting: `bool()`, `integer()`, `number()`, `string()`, `enum_values(..)`, `string_list()`, `block()`, `block_list()`, `default(..)`, `describe(..)`, `gates(..)`, `gates_when_on(..)`, `keys(..)` for a family | `settings` |
 | `c.preset(source, \|p\| ..)` | what each value of an enum or bool setting presets and raises: `p.when(value, \|e\| e.set(..).raise(..))` | `settings` |
 | `c.secret(name, env, description)` | a secret read from an environment variable | `settings` |
-| `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL), `machine()`, `once_complete()` or `while_open()` (its owner state), `settled_later()` (a later step of the authoring settles it: a write that creates its subject, or under it, and alters nothing held there adds no error by it, ADR 0385) | `codes` |
+| `c.code(code, \|d\| ..)` | a diagnostic code the extension reports: `title(..)`, `explanation(..)`, `docs(..)` (an `http(s)` URL), `machine()`, `once_complete()` or `while_open()` (its owner state), `settled_later()` (a later step of the authoring settles it: a write that creates its subject, or under it, and alters nothing held there adds no error by it, ADR 0385), `facts(&[..])` (the collected kinds it judges, which `specforge doctor` reads, ADR 0389) | `codes` |
 | `c.route(name, \|r\| ..)` | a route `specforge trace` follows from a kind: `start(..)`, `step(name, via, \|s\| ..)`, annotations | `routes` |
 | `c.context(name, \|r\| ..)` | a context route a role reads one entity through: `subject(..)`, `agent(..)`, `budget(..)`, `core(name, selector)`, `enrich(name, selector)`, `settings(..)`, `record(field, subject)`, `record_suggesting(field, subject, help)`, `stale(code)` | `contexts` |
 | `c.peer(name, range)`, `c.optional_peer(name, range)` | a peer requirement | handshake |
@@ -403,7 +404,7 @@ descriptor, and routes the export to the handler. The CLI runs it as `specforge 
 | `cmd.category(..)` | A CLI grouping |
 | `cmd.arg(name, \|a\| ..)` | Declares an arg (below) |
 | `cmd.handler(\|call\| ..)` | The function answering it: `CommandCall` in, `CommandOutput` out |
-| `cmd.input(Input::files(name, FileReadSpec::field("kind.field").text()))` | Project files the host reads for the call (ADR 0293, ADR 0337): `call.files(name)` holds their facts and, with `.text()`, their capped text; `FileReadSpec::glob("src/**/*.rs")` names files by pattern. `cmd.input(Input::State)` asks for the extension's state |
+| `cmd.input(Input::files(name, FileReadSpec::field("kind.field").text()))` | Project files the host reads for the call (ADR 0293, ADR 0337): `call.files(name)` holds their facts and, with `.text()`, their text capped at 64 KiB (`.text_up_to(bytes)`: at `bytes`, at most 4 MiB (`TEXT_MAX_CEILING_BYTES`), the read's budget the larger of 1 MiB and four times it); `FileReadSpec::glob("src/**/*.rs")` names files by pattern. `cmd.input(Input::State)` asks for the extension's state |
 
 A command's `call.now()` is the host's clock when it was called, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds; protocol 1.11.0, ADR 0294), the same instant as `call.today()`; a hook's `call.now()` and a writing collector's input carry it too. A prompt and a pass are not told the time. A command's `call.nonce()` is 32 lowercase hex digits of the host's entropy, fresh per call (ADR 0341): draw a command's random values from it, deterministically, so a test pins them as it pins the clock. It is randomness, not a secret; only a command is told one.
 
@@ -516,7 +517,7 @@ A prompt is not a contract: the agent may ignore a step, and only a gate refuses
 
 ### Writing commands and collectors
 
-An extension never writes files. A command that records what a person says declares `cmd.human()` (it writes, and the host runs it only for a person at a terminal, ADR 0301). A command declares `cmd.writes()` and answers an edit plan the host checks, judges
+An extension never writes files. A command that records what a person says declares `cmd.human()` (it writes, and the host runs it only for a person at a terminal, ADR 0301). A command that imports history recorded outside the spec declares `cmd.imports()` (it writes, and its plan is judged for host errors only: an extension's rule error about authored entities lands and `check` reports it, a first-party one such as E016 or one judging collected facts such as `code/E101` refuses, ADR 0392; `@gsd/import` does). A command declares `cmd.writes()` and answers an edit plan the host checks, judges
 and applies all or nothing ([the wire](extension-protocol.md#writing), ADR 0289):
 
 ```rust
@@ -565,7 +566,7 @@ c.collector("cargo-test", |k| {
     k.input_format("specforge-test-json")
         .detect_files(&["Cargo.toml"])            // project-root files that select it
         .run(&["cargo", "test", "--workspace"])  // declares its process capability; `{report}` is the report path
-        .report("target/specforge")               // file or directory, inside the project
+        .report("target/specforge")               // file, directory or glob, inside the project
         .capture_stdout()                         // also pass the command's stdout
         .collect(|input: &CollectInput| Ok(collect(input))); // the handler
 });
@@ -590,7 +591,16 @@ reaches the user's terminal, and the host also keeps it (in
 `<name>.stdout.txt` inside a report directory) and passes it as
 `CollectInput::stdout`. `k.input(Input::files(name, FileReadSpec::glob("package.json").text()))` declares a project
 file the collector reads, as a command's `files` input does: its input's `files[name]` holds the facts (and, with `.text()`, the
-capped text), read by the host after the run. The guest never runs anything itself.
+capped text; `.text_up_to(bytes)` raises the 64 KiB cap to at most 4 MiB), read by the host after the run. The guest never runs anything itself.
+
+A report may also be a glob over project files the tool writes itself (`.report("**/rust-sbom.cdx.json")`, ADR
+0389): after each run the host reads every match modified since the run started (with `--no-run`, every match),
+walked as an `Input::files` glob is (build output such as `target/` and `node_modules/` skipped unless the glob names
+it, no link entered, at most 20,000 entries), and removes nothing first. The glob's last segment is a literal file
+name: `.report("**/*.json")` panics in the SDK and a raw declaration of one is E030, so a glob never reads every file
+of a kind. A report's files hold at most 64 MiB together (what a captured output may hold), past which the collect is
+E045. Such a command is told no path: `{report}` in its argv or config, or `capture_stdout()`, beside a glob is E058,
+and `SPECFORGE_REPORT` is not set.
 
 A handler may also answer `facts` (protocol 1.15.0, ADR 0327), the entities it observed, each of a kind its
 extension declares `collected(..)`:

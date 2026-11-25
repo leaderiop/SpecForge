@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 /// under `name` in the input's `files`.
 ///
 /// Exactly one of `field` and `glob` names the files; a read that names neither or both, a `name` that is no word or
-/// repeats, or a `root` on a glob is W021 and served empty.
+/// repeats, a `root` on a glob, or a `text_max` that is zero, over [`TEXT_MAX_CEILING_BYTES`] or without `text` is W021
+/// and served empty.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileRead {
     /// The key of this read in the input's `files`: a word `[a-z][a-z0-9_]*`, unique among the owner's reads.
@@ -28,13 +29,24 @@ pub struct FileRead {
     /// root's costs the read, not the declaration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
-    /// Send each file's text (UTF-8, at most 64 KiB) as well as its facts.
+    /// Send each file's text (UTF-8, at most 64 KiB, or `text_max`) as well as its facts.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub text: bool,
+    /// The most text of one file this read sends, in bytes, instead of 64 KiB; at most 4 MiB, and only with `text`
+    /// (protocol 2.3.0). The read's text budget is then the larger of 1 MiB and four times it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_max: Option<u32>,
 }
 
 /// The most files one [`FileRead`] names: past it the host reads that many and says [`FileFacts::truncated`].
 pub const FILE_READ_MAX: usize = 2000;
+
+/// The most entries (files and directories, matched or not) the walk of one glob visits: past it the walk stops and
+/// the host says [`FileFacts::truncated`], whatever it matched so far.
+pub const GLOB_VISITS_MAX: usize = 20_000;
+
+/// The largest [`FileRead::text_max`] (4 MiB): the registry refuses a larger one (W021) and the host never sends more.
+pub const TEXT_MAX_CEILING_BYTES: u32 = 4 * 1024 * 1024;
 
 /// What the host read for one [`FileRead`].
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,7 +54,8 @@ pub struct FileFacts {
     /// One per (entity, path), sorted by `(entity, path)`; a glob's by `path`.
     #[serde(default)]
     pub facts: Vec<FileFact>,
-    /// The glob matched more files than the host reads ([`FILE_READ_MAX`]).
+    /// The read stopped early: it named more files than the host reads ([`FILE_READ_MAX`]), or its glob's walk
+    /// reached [`GLOB_VISITS_MAX`] entries. The guest cannot tell which.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub truncated: bool,
 }

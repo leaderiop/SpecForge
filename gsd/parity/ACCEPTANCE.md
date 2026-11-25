@@ -17,7 +17,7 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | CLI modules | 288 | 170 | 21 | 97 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 93 | 51 | 14 | 13 | `core/tests/parity_rules/cutover.rs` |
-| Codes | 73 | 73 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
+| Codes | 75 | 75 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
 `core/spec/*.md`; they have no inventory family, so no count. They are exercised by every row above.
@@ -48,7 +48,7 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   argument shape); 51 belong to an extension, 14 are the gate engine, and 13 are core codes whose verdict is not reproduced: 10
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
-- Codes: 73 of the 73 codes fire and stay silent in a named test.
+- Codes: 75 of the 75 codes fire and stay silent in a named test.
 - Verification: the verifier's `gsd/E501` verdict on a truth reads what it cites, files and tests, and one that cites
   nothing is refused; an artifact's reads its `path` and a key link's its `from` and `to` (ADR 0377). A must-have owes
   its verdict once its plan is complete, a plan check while its plan is open, and a judgment-tier prohibition owes
@@ -220,6 +220,11 @@ Not verified:
 - W514 fires on every `check`, once per open deviation window that names a proposal, while `workflow.windows_enforce` is
   off; upstream warns once per triggering `refactor evaluate` (also when broken-windows is absent). The text and the
   remediation match. E515 is SpecForge's own, on under gsd-strict and gsd-plus, and has no upstream.
+- E533 (a breaking API change without a major version bump, ADR 0390) is SpecForge's own, a gate code of the milestone
+  close on under gsd-strict and gsd-plus (`specforge.interface_gate`), and has no upstream: upstream reads no API facts.
+- E535 (release evidence that does not match the milestone, ADR 0390) is SpecForge's own, a gate code of the milestone
+  close on under gsd-strict and gsd-plus (`specforge.release_gate`): upstream tags the release after the close and reads
+  no package version.
 - A threshold's bounds are whole numbers (D-K20a-9): a warning between 0 and 1 and a critical between 99 and 100 are
   refused (`hooks.context_critical_threshold` refuses `99.5`), which GSD accepts.
 - Three gate-cutover verdicts are divergences: `tdd-review-checkpoint-red-only` and `tdd-review-checkpoint-mixed-violation`
@@ -228,7 +233,7 @@ Not verified:
   judgment-tier prohibition without evidence and halts or marks it unverified; here W525 warns at `check` until the
   verifier records a fresh verdict, which is a model's and not authoritative, so it never halts).
 - The 10 other unreached verdicts are named in `cutover.rs`.
-- The "silent" evidence of 39 of the 73 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
+- The "silent" evidence of 39 of the 75 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 - `[agent-namespace-one-rule]` `workflow_guard` reads the agent namespace as `worktree_path_guard` does, with `worktree-wf_` and the charset; upstream's workflow guard has the two prefixes `agent-` and `worktree-agent-`.
 - `[protected-set]` `branch_check` protects `main`, `master`, `develop`, `trunk`, `release/…`, `git.protected_branches` and `git.base_branch`, and `git.allow_default_branch_commits` changes `blocks_commit`, not `protected`, so ship's and the `none` strategy's warnings still show on `main`. Upstream also reads the real default branch; the git port answers no remotes, so `origin/HEAD` is not read here.

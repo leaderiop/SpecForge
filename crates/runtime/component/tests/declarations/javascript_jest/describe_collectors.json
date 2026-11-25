@@ -1,0 +1,33 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "test",
+        "test_run"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "jest.config.*"
+        ]
+      },
+      "capability": "javascript-jest",
+      "export": "collect__javascript_jest",
+      "input_formats": [
+        "junit-xml"
+      ],
+      "inputs": [
+        {
+          "glob": "**/package.json",
+          "input": "files",
+          "name": "packages",
+          "text": true
+        }
+      ],
+      "install": "npm install --save-dev jest jest-junit",
+      "name": "javascript-jest",
+      "report": ".specforge/reports/javascript-jest.xml"
+    }
+  ]
+}

@@ -184,7 +184,7 @@ fn reported(project: &CompiledProject) -> Vec<String> {
 /// E080 refuses it with (`Err`).
 fn planned(spec: &str, steps: &[Step]) -> Result<Vec<String>, Vec<String>> {
     let compiled = project(spec).compile_in(runtime());
-    match edit::plan_steps(&ProjectView::of(&compiled), steps, false) {
+    match edit::plan_steps(&ProjectView::of(&compiled), steps, edit::Lands::Nothing) {
         Ok(plan) => Ok(plan
             .report()
             .added

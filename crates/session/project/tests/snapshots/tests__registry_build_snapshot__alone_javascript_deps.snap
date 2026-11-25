@@ -1,0 +1,55 @@
+---
+source: crates/session/project/tests/registry_build_snapshot.rs
+expression: "digest(&load(&runtime, &[name]))"
+---
+{
+  "check_passes": [],
+  "commands": [],
+  "diagnostics": [
+    {
+      "code": "W021",
+      "message": "extension '@javascript/deps': collector 'javascript-sbom' declares the facts of kind 'package', which is not served: no loaded extension declares it collector-written"
+    },
+    {
+      "code": "W021",
+      "message": "extension '@javascript/deps': collector 'javascript-osv' declares the facts of kind 'package', which is not served: no loaded extension declares it collector-written"
+    },
+    {
+      "code": "W021",
+      "message": "extension '@javascript/deps': collector 'javascript-sbom' answers the kind 'dependency', which no loaded extension declares collector-written"
+    },
+    {
+      "code": "W021",
+      "message": "extension '@javascript/deps': collector 'javascript-osv' answers the kind 'vulnerability', which no loaded extension declares collector-written"
+    },
+    {
+      "code": "E027",
+      "message": "extension '@javascript/deps' requires peer dependency '@code/core' ^1.2 which is not installed"
+    },
+    {
+      "code": "E027",
+      "message": "extension '@javascript/deps' requires peer dependency '@javascript/source' ^1.0 which is not installed"
+    }
+  ],
+  "edges": {},
+  "ext_short": {
+    "@javascript/deps": "deps"
+  },
+  "extension_info": [
+    [
+      "@javascript/deps",
+      "1.0.0"
+    ]
+  ],
+  "fields": {},
+  "graph_inputs": {
+    "absent_targets": {},
+    "derived_references": [],
+    "field_forms": {},
+    "member_kinds": []
+  },
+  "kinds": {},
+  "manifest_surfaces": [],
+  "rules": [],
+  "shadowed": 0
+}

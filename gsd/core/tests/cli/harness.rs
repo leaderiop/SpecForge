@@ -106,6 +106,9 @@ pub struct Project {
     /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component. A cell:
     /// [`Project::node_tests`] loads the test packs on a shared project.
     extensions: RefCell<Vec<(String, Option<PathBuf>)>>,
+    /// The `@gsd/core` block of the fixture's own committed `specforge.json` (`Null` without one), which
+    /// [`Project::settings_in`] keeps under a test's settings.
+    own_settings: serde_json::Value,
 }
 
 pub fn project(name: &str) -> Project {
@@ -124,16 +127,17 @@ pub const TWIN_BUILTINS: [&str; 3] = ["@code/core", "@javascript/node-test", "@j
 
 /// The parity suite's taskboard fixture: its `spec/` twin of the GSD project beside its `.planning/`, loading
 /// [`TWIN_BUILTINS`].
+///
+/// Each twin keeps its own committed `specforge.json` settings under a test's (ADR 0390 D9): the twins record no
+/// commits, so `specforge.task_commits: false` silences gsd/W407; and the ledger's crate is `0.1.0` under milestone
+/// v1.0, so it lists `ledger` in `specforge.release_exempt` rather than move its source (neither choice moves a
+/// golden). A test's own key wins.
 pub fn taskboard() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard")).twin()
 }
 
 /// The security parity suite's vault fixture: its `spec/` twin of the GSD project beside its `.planning/`, loading
-/// [`TWIN_BUILTINS`] as the taskboard does.
-#[allow(
-    dead_code,
-    reason = "core's own tests do not use it; @gsd/security's include this harness"
-)]
+/// [`TWIN_BUILTINS`] as the taskboard does, its own settings kept as [`taskboard`]'s are.
 pub fn vault() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/vault")).twin()
 }
@@ -144,7 +148,8 @@ pub const RUST_TEST_COLLECTORS: [&str; 2] = ["rust-cargo", "rust-source"];
 
 /// The parity suite's ledger fixture: a Rust project whose CI is red, its `spec/` twin beside its `.planning/`,
 /// loading beside `@gsd/core` the builtins `evaluation/gsd-ab/tasks.json` names as the ledger's `thread` (the code
-/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report).
+/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report). Its own settings are
+/// kept as [`taskboard`]'s are.
 #[allow(
     dead_code,
     reason = "@gsd/security's tests include this harness and do not use it"
@@ -219,7 +224,7 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
     let root = dir.path().join(inside);
     std::fs::create_dir_all(&root).expect("the project's directory");
     copy_dir(source, &root);
-    let p = Project {
+    let mut p = Project {
         _dir: dir,
         root,
         source: Some(source.to_path_buf()),
@@ -228,7 +233,12 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
             ("@gsd/core".to_string(), None),
             ("@specforge/checks".to_string(), None),
         ]),
+        own_settings: serde_json::Value::Null,
     };
+    // Read before the first rewrite replaces the fixture's manifest; `Null` when the fixture commits none.
+    if source.join("specforge.json").is_file() {
+        p.own_settings = p.manifest()["settings"]["@gsd/core"].clone();
+    }
     p.settings(serde_json::json!({}));
     p
 }
@@ -239,7 +249,10 @@ impl Project {
         self.settings_in("spec", settings);
     }
 
-    /// [`Self::settings`] with the manifest's `spec_root` (`.`: the spec root is the project root).
+    /// [`Self::settings`] with the manifest's `spec_root` (`.`: the spec root is the project root). Only a fixture that
+    /// commits a `specforge.json` (today the taskboard, ledger and vault twins) has its own `@gsd/core` settings: they
+    /// stay under `settings`, whose keys win. The merge is shallow, by top-level key (settings are dotted flat keys),
+    /// so `settings(json!({}))` resets to the fixture's own settings, not to the defaults.
     pub fn settings_in(&self, spec_root: &str, settings: serde_json::Value) {
         // another extension's block survives a rewrite of core's
         let mut manifest = self.manifest();
@@ -247,7 +260,12 @@ impl Project {
         if !blocks.is_object() {
             blocks = serde_json::json!({});
         }
-        blocks["@gsd/core"] = settings;
+        let mut core = self.own_settings.clone();
+        match (core.as_object_mut(), settings.as_object()) {
+            (Some(own), Some(test)) => own.extend(test.clone()),
+            _ => core = settings,
+        }
+        blocks["@gsd/core"] = core;
         let extensions: Vec<String> = self
             .extensions
             .borrow()
@@ -277,6 +295,46 @@ impl Project {
             .get_mut()
             .push((name.to_string(), Some(required(var))));
         self.rewrite_extensions();
+        self
+    }
+
+    /// The state a GSD project is in before its import: every `.spec` file under the spec root and the fixture's
+    /// `specforge-harness` removed; `.planning/`, `specforge.json` and the sources kept.
+    #[allow(
+        dead_code,
+        reason = "@gsd/import's tests include this file and use it; core's do not"
+    )]
+    pub fn without_spec(self) -> Self {
+        fn remove_specs(dir: &Path) {
+            let Ok(entries) = std::fs::read_dir(dir) else {
+                return;
+            };
+            for entry in entries {
+                let entry = entry.expect("a directory entry");
+                let path = entry.path();
+                // The entry's own type: a symlinked directory is not followed (a loop, or a tree outside the project).
+                if entry.file_type().expect("a file type").is_dir() {
+                    remove_specs(&path);
+                } else if path.extension().is_some_and(|ext| ext == "spec") {
+                    std::fs::remove_file(&path).expect("remove a .spec file");
+                }
+            }
+        }
+        let spec_root = self.manifest()["spec_root"]
+            .as_str()
+            .unwrap_or("spec")
+            .to_string();
+        assert!(
+            Path::new(&spec_root)
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_))),
+            "spec_root {spec_root:?} leaves the project"
+        );
+        remove_specs(&self.root.join(spec_root));
+        let harness = self.root.join("specforge-harness");
+        if harness.is_file() {
+            std::fs::remove_file(harness).expect("remove specforge-harness");
+        }
         self
     }
 

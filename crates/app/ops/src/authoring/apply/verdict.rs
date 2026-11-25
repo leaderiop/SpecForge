@@ -251,7 +251,7 @@ pub(crate) fn check(
             format!("'{}' is no outcome of the rule '{}'", op.outcome, op.rule),
         ));
     }
-    if !matches!(origin, Origin::Command { extension } if *extension == rule.extension) {
+    if !matches!(origin, Origin::Command { extension, .. } if *extension == rule.extension) {
         return Err(refused(
             op,
             "origin",

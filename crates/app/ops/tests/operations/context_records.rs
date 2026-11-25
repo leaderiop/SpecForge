@@ -68,6 +68,7 @@ fn apply(project: &TestProject, origin: &Origin, ops: Value) -> String {
 fn gsd() -> Origin {
     Origin::Command {
         extension: GSD_JUDGED.to_string(),
+        imports: false,
     }
 }
 
@@ -175,6 +176,7 @@ fn a_record_is_refused_for_an_unknown_route_an_unrecorded_kind_another_origin_or
     let before = spec(&project);
     let other = Origin::Command {
         extension: "@acme/other".to_string(),
+        imports: false,
     };
     for (origin, ops, reason) in [
         (

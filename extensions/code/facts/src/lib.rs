@@ -14,20 +14,59 @@
 //! - [`item_facts`] mints one `item` per item id from a source pack's [`Definition`]s, every place and kind listed;
 //!   [`signature_spelling`] is the one spelling a pack gives a signature in.
 //! - [`Package::fact`] mints a `package`; [`location`] turns the reader's points into a fact's place; [`joined`]
-//!   resolves a path a manifest or a source file writes against the project-relative directory it is written in.
+//!   resolves a path a manifest or a source file writes against the project-relative directory it is written in;
+//!   [`place`] says what a report's file path names, whatever spelling the host's root has: a project file, a path
+//!   outside the project, or no file (the root itself, rustc's `<std macros>`), and [`relative`] keeps only the file;
+//!   [`file_uri_path`] decodes a report's `file:` URI to a path for it to judge; [`outside_line`] and
+//!   [`no_file_line`] are the warnings a pack returns for the paths a reader skipped (ADR 0389 D7).
 //! - [`parse_all`] asks the host's source reader until it has answered every file a source pack keeps, the files an
 //!   answer's cap left unparsed asked again.
+//! - [`Places`] finds where a report's location lies among the served facts: the innermost `item` holding a file's
+//!   line, the `package` holding a file or a directory (ADR 0388).
+//! - [`ReportKind`]s name the five kinds a standard report mints and their schemes ([`COVERAGE`], [`API_ITEM`],
+//!   [`STATIC_FINDING`], [`DEPENDENCY`], [`VULNERABILITY`]), [`UNKNOWN`] what a report leaves unstated; [`id_part`]
+//!   makes report text safe in an id, [`shown`] and [`shown_json`] in an error or a diagnostic message, and
+//!   [`Repeats`] suffixes an id
+//!   answered twice `~2`, `~3`, ….
+//! - [`coverage_facts`] mints a `coverage` per item a coverage report's [`CoverageFile`]s reach, and one per file for
+//!   what no item holds.
+//! - [`api_facts`] mints an `api_item` per public entry an API snapshot's reader read ([`ApiEntry`], [`ApiKind`]),
+//!   citing the one served item its path names; [`api_facts_against`] also judges each entry against the committed
+//!   accepted report ([`ApiChange`], paired by [`comparable`] signature, ADR 0390 D3).
+//! - [`finding_facts`] mints a `static_finding` per result a SARIF reader read ([`SarifResult`], [`Level`]), citing
+//!   the innermost served item holding its location, else the package holding its file.
+//! - [`dependency_facts`] mints a `dependency` per component of the CycloneDX [`Bom`]s a reader read ([`Component`],
+//!   [`Scope`]), citing the one served package each BOM describes.
+//! - [`vulnerability_facts`] mints a `vulnerability` per OSV record and project package of an osv-scanner
+//!   [`OsvReport`] a reader read ([`OsvSource`], [`OsvPackage`], [`OsvRecord`], [`OsvScore`]), citing the packages the
+//!   scanned lockfile belongs to, with a [`Severity`]: the record's label, else the [`rating`] of its highest CVSS v3
+//!   [`base_score`]; a package it cannot place is named in [`Vulnerabilities::skipped`], never the whole report lost.
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
 
+mod accepted;
+mod api;
+mod coverage;
+mod cvss;
+mod dependency;
+mod finding;
 mod ids;
 mod mint;
 mod paths;
+mod places;
+mod report;
 mod syntax;
 #[cfg(test)]
 mod tests;
+mod vulnerability;
 
+pub use accepted::{api_facts_against, comparable, ApiChange};
+pub use api::{api_facts, ApiEntry, ApiKind};
+pub use coverage::{coverage_facts, Branch, CoverageFile, Function};
+pub use cvss::{base_score, rating};
+pub use dependency::{dependency_facts, Bom, Component, Scope};
+pub use finding::{finding_facts, Level, SarifResult};
 pub use ids::{
     crate_segment, js_segment, Edition, IdError, ItemId, Owner, PackageId, Scheme, TargetKind,
     TestId,
@@ -36,5 +75,14 @@ pub use mint::{
     item_facts, location, signature_spelling, test_facts, Definition, ItemKind, Names, Package,
     Signature, Target, TestCase, Visibility,
 };
-pub use paths::joined;
+pub use paths::{file_uri_path, joined, no_file_line, outside_line, place, relative, Place};
+pub use places::Places;
+pub use report::{
+    id_part, shown, shown_json, Repeats, ReportKind, API_ITEM, COVERAGE, DEPENDENCY,
+    STATIC_FINDING, UNKNOWN, VULNERABILITY,
+};
 pub use syntax::parse_all;
+pub use vulnerability::{
+    vulnerability_facts, OsvPackage, OsvRecord, OsvReport, OsvScore, OsvSource, Severity,
+    Vulnerabilities,
+};

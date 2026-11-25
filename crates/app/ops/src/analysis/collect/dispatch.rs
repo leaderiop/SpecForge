@@ -4,8 +4,12 @@ use super::collector::Collector;
 use crate::view::ProjectView;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
+use specforge_effects::process::OUTPUT_CAP;
+use specforge_project::file_reads::{FileSource, glob_paths};
 use specforge_protocol_types::Operation;
-use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile, Fact, RawGraph};
+use specforge_protocol_types::{
+    CollectInput, CollectOutput, CollectReportFile, FILE_READ_MAX, Fact, GLOB_VISITS_MAX, RawGraph,
+};
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, PortCall};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -35,37 +39,114 @@ pub(super) fn read_report(
     since: Option<SystemTime>,
     containment: &Containment,
 ) -> Result<Vec<CollectReportFile>, OpError> {
-    let fresh = |path: &PathBuf| {
-        since.is_none_or(|since| {
-            std::fs::metadata(path)
-                .and_then(|m| m.modified())
-                .is_ok_and(|modified| modified >= since)
-        })
-    };
     let mut held = Vec::new();
     if report.real.is_dir() {
-        for path in json_files(&report.real).into_iter().filter(fresh) {
+        for path in json_files(&report.real)
+            .into_iter()
+            .filter(|path| fresh(path, since))
+        {
             let name = path.file_name().unwrap_or_default();
             held.push(report.entry(containment, Path::new(name))?);
         }
     } else if report.real.is_file() {
         held.push(report.clone());
     }
+    read_held(&held, root, containment)
+}
+
+/// Read every project file `glob` matches (ADR 0389), listed by the walk `Input::files` globs take
+/// ([`glob_paths`]: ADR 0293 D4), only those modified at or after `since` when given. Each match is held by
+/// `containment` before it is opened: one that lands outside (a link out of the project) is skipped, never read, and
+/// its project path is returned beside the files, for a W203 to name. A walk cut short is E045 naming the cap; a read
+/// that fails is E045.
+pub(super) fn read_glob(
+    glob: &str,
+    project: &FileSource<'_>,
+    root: &Path,
+    since: Option<SystemTime>,
+    containment: &Containment,
+) -> Result<(Vec<CollectReportFile>, Vec<String>), OpError> {
+    let listed = glob_paths(project, glob);
+    if listed.truncated {
+        return Err(OpError::coded(
+            OpErrorKind::SchemaMismatch,
+            codes::E045,
+            format!(
+                "the report glob '{glob}' reaches past the walk's cap of {GLOB_VISITS_MAX} entries or {FILE_READ_MAX} files; \
+                 name a narrower glob"
+            ),
+        ));
+    }
+    let mut outside = Vec::new();
+    let mut held: Vec<Held> = Vec::new();
+    for path in &listed.files {
+        match containment.resolve(&root.join(path)) {
+            Ok(file) if fresh(&file.real, since) => held.push(file),
+            Ok(_) => {}
+            Err(_) => outside.push(path.clone()),
+        }
+    }
+    Ok((read_held(&held, root, containment)?, outside))
+}
+
+/// Whether the file at `path` was modified at or after `since` (always, with no `since`).
+fn fresh(path: &Path, since: Option<SystemTime>) -> bool {
+    since.is_none_or(|since| {
+        std::fs::metadata(path)
+            .and_then(|m| m.modified())
+            .is_ok_and(|modified| modified >= since)
+    })
+}
+
+/// The most bytes one collector's report files hold together: what a captured standard output may hold
+/// ([`OUTPUT_CAP`]), so a directory or a glob of many files reads no more than one capture.
+pub const REPORT_BYTES_MAX: u64 = OUTPUT_CAP;
+
+/// The text of each `held` file as a report, named as a project path of `root`, read through `containment`: a
+/// bounded one refuses a file with several names, which a hard link from outside the project could have made
+/// (ADR 0146). A read that fails, text that is not UTF-8, or files past [`REPORT_BYTES_MAX`] together, is E045.
+fn read_held(
+    held: &[Held],
+    root: &Path,
+    containment: &Containment,
+) -> Result<Vec<CollectReportFile>, OpError> {
+    let mut total: u64 = 0;
     held.iter()
         .map(|file| {
-            let content = file.read_to_string().map_err(|e| {
+            let content = containment.read_held(file).and_then(utf8).map_err(|e| {
                 OpError::coded(
                     OpErrorKind::SchemaMismatch,
                     codes::E045,
                     format!("failed to read report {}: {e}", file.named.display()),
                 )
             })?;
+            total = total.saturating_add(content.len() as u64);
+            if total > REPORT_BYTES_MAX {
+                return Err(OpError::coded(
+                    OpErrorKind::SchemaMismatch,
+                    codes::E045,
+                    format!(
+                        "the report files reach past {REPORT_BYTES_MAX} bytes together at {}; name a narrower report",
+                        file.named.display()
+                    ),
+                ));
+            }
             Ok(CollectReportFile {
                 path: file.shown(root).into_string(),
                 content,
             })
         })
         .collect()
+}
+
+/// `bytes` as text: bytes that are not UTF-8 are `InvalidData`, worded as `regular::read_to_string` words them.
+fn utf8(bytes: Vec<u8>) -> std::io::Result<String> {
+    String::from_utf8(bytes).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "stream did not contain valid UTF-8",
+        )
+    })
 }
 
 /// Hand the report files, and the captured standard output if any, to the

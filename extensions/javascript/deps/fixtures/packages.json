@@ -1,0 +1,6 @@
+[
+  {"kind": "package", "id": "pkg:npm/board",
+   "fields": {"name": "board", "version": "1.0.0", "path": ""}},
+  {"kind": "package", "id": "pkg:npm/web",
+   "fields": {"name": "web", "version": "0.1.0", "path": "web"}}
+]

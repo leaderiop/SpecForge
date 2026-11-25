@@ -1,0 +1,35 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "test",
+        "test_run"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.toml"
+        ]
+      },
+      "capability": "rust-proof",
+      "capture": "stdout",
+      "export": "collect__rust_proof",
+      "input_formats": [
+        "kani-regular"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item",
+            "package"
+          ]
+        }
+      ],
+      "install": "cargo install --locked kani-verifier && cargo kani setup",
+      "name": "rust-proof",
+      "report": ".specforge/reports/rust-proof"
+    }
+  ]
+}

@@ -24,6 +24,8 @@
 
 ; An outer attribute: its path, and the whole attribute (`cfg(unix)`).
 (attribute_item (attribute . (_) @path) @attribute) @reference.attribute
+; An inner attribute (`#![cfg(unix)]`), of the file or of the body around it.
+(inner_attribute_item (attribute . (_) @path) @attribute) @reference.inner_attribute
 ; The file a module declaration names: `#[path = "…"]`, or each `path = "…"` of a `#[cfg_attr(…)]`.
 (attribute_item
   (attribute . (identifier) @_path (#eq? @_path "path") value: (string_literal (string_content) @file)))
@@ -38,6 +40,10 @@
     (#any-of? @path "specforge_test" "spec" "specforge_test_macros::test" "specforge_test::test" "specforge::test")
     arguments: (token_tree . (identifier) . (string_literal (string_content) @id))))
   @reference.entity
+; An attribute naming the identifier `__guard_only` among its arguments: the macro registers no test for it.
+(attribute_item
+  (attribute arguments: (token_tree (identifier) @_guard (#eq? @_guard "__guard_only"))))
+  @reference.guard_only
 ; An outer doc comment, `///` or `/** */`.
 (line_comment outer: (outer_doc_comment_marker) doc: (doc_comment) @doc) @reference.doc
 (block_comment outer: (outer_doc_comment_marker) doc: (doc_comment) @doc) @reference.doc

@@ -4,22 +4,69 @@
     {
       "code": "E101",
       "explanation": "A reference names no collected fact of the kinds its field admits, narrowed to those its id is shaped as (a test id holds `#`, an item id never does), while a fact store the session served holds facts of one of those kinds in its scheme: the test, item or package was renamed, moved or deleted, or the reference is misspelled. A test or run reference is told the closest one of the same file or binary. It is not reported while the citing entity's owner is pending (ADR 0329 D4): a test not written yet is TDD. Fix the reference, or run `specforge collect` if what it names is new. A reference one of its own facts holds (a test run's test) that no fact or entity answers, or that names an entity of another kind, is reported at the place its collector read it, addressed to that collector: its facts disagree, and running `specforge collect` again, or fixing the pack, is the remedy (ADR 0346).",
+      "facts": [
+        "item",
+        "package",
+        "test",
+        "test_run"
+      ],
       "title": "A fact reference names no fact"
     },
     {
       "code": "W102",
-      "explanation": "A reference names no collected fact, and no fact store the session served holds facts of the kinds its field admits (narrowed to those its id is shaped as) in its scheme: on a fresh clone, or before the pack that writes them ran, there is nothing to check it against. It is reported once per cited reference, and not while the citing entity's owner is pending. Run `specforge collect` with the pack the finding names: `@javascript/node-test` for `js` tests, `@rust/test` for `rust` tests, `@rust/source` for `rust` items, `@javascript/source` for `js` items, `@rust/cargo` for `pkg:cargo` packages, `@javascript/source` for `pkg:npm` packages.",
+      "explanation": "A reference names no collected fact, and no fact store the session served holds facts of the kinds its field admits (narrowed to those its id is shaped as) in its scheme: on a fresh clone, or before the pack that writes them ran, there is nothing to check it against. It is reported once per cited reference, and not while the citing entity's owner is pending. Run `specforge collect` with the pack the finding names: `@javascript/node-test`, `@javascript/vitest`, `@javascript/jest` or `@javascript/playwright` for `js` tests, `@rust/test` or `@rust/proof` for `rust` tests, `@rust/source` for `rust` items, `@javascript/source` for `js` items, `@rust/cargo` for `pkg:cargo` packages, `@javascript/source` for `pkg:npm` packages.",
       "title": "No facts of the reference's kinds were collected"
     },
     {
       "code": "W401",
       "explanation": "An entity whose owner is complete links a test whose last collected status is `failed`: the proof it cites does not hold. A pending owner's failing test is not reported (TDD). Fix the code or the test, and run `specforge collect` again.",
+      "facts": [
+        "test"
+      ],
       "title": "A linked test fails"
     },
     {
       "code": "I402",
       "explanation": "A test or item fact's `names` (the entities its source's idiom says it proves or implements) holds a name that is no entity of the project, or the short name of several: the entity was renamed or deleted, or the name is misspelled. Fix the name in the source, then collect again.",
+      "facts": [
+        "item",
+        "test"
+      ],
       "title": "A test or item names an entity that does not exist"
+    },
+    {
+      "code": "W104",
+      "explanation": "A fact a report reader minted cites no item, because the report's file or line lies in no collected item (a macro expansion, top-level statements, or a file no source pack collected), or because an API snapshot's entry has a path no collected item has: a re-exported path whose definition path differs, an item a macro generates, or a crate whose library is named apart from its package. A static finding is reported only when no collected package holds its file either, or it has no location. The entry is kept with what the report says of it, so nothing is lost. Collect the source pack for those files (`@rust/source`, `@javascript/source`) and the manifest pack for their packages, then collect the report again.",
+      "facts": [
+        "api_item",
+        "coverage",
+        "static_finding"
+      ],
+      "title": "A report entry names no item"
+    },
+    {
+      "code": "W105",
+      "explanation": "A static finding's SARIF result states no rule (no `ruleId`, no `rule`, and no rule index naming a rule of its tool's driver), or states no level (none on the result, and none in its rule's `defaultConfiguration`): the field reads `unknown`. The finding is kept, never dropped. SARIF's own default level is `warning`; it is not applied, so a level the tool never wrote cannot pass for one it did. Make the tool write its rule ids and levels in its SARIF output, or the rule metadata (`tool.driver.rules` with a `defaultConfiguration.level`), then collect the report again.",
+      "facts": [
+        "static_finding"
+      ],
+      "title": "A finding's rule or level is unknown"
+    },
+    {
+      "code": "W106",
+      "explanation": "A component of a CycloneDX bill of materials carries no package URL (`purl`), so its dependency is named by name and version only (`dep:<package>/@<name@version>`). The dependency is kept, never dropped, but no other report can be matched to it: an OSV scan or another BOM names a package by its purl. Generate the BOM with an SBOM tool that writes a purl for every component (cargo-cyclonedx, cyclonedx-npm), then collect it again.",
+      "facts": [
+        "dependency"
+      ],
+      "title": "A dependency has no purl"
+    },
+    {
+      "code": "W107",
+      "explanation": "An OSV record of a vulnerability scan has no severity label (`database_specific.severity`) and no CVSS v3 vector this reader rates: its only severity entries are CVSS v4 or v2 vectors, or its v3 vector is malformed. The vulnerability is kept with severity `unknown`, never dropped and never given a guessed rating, so a gate on severity cannot pass it by mistake. Read the advisory by its OSV id (osv.dev, or the database its id names) and judge its severity there.",
+      "facts": [
+        "vulnerability"
+      ],
+      "title": "A vulnerability's severity is unknown"
     }
   ]
 }

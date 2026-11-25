@@ -39,6 +39,7 @@ pub fn ports() -> Ports {
 #[derive(Default)]
 pub struct FakeProcess {
     answers: BTreeMap<String, (ProcessClass, Vec<u8>)>,
+    paths: BTreeMap<String, PathBuf>,
     requests: Mutex<Vec<ProcessRequest>>,
 }
 
@@ -57,6 +58,12 @@ impl FakeProcess {
     ) -> Self {
         self.answers
             .insert(program.to_string(), (class, stdout.into()));
+        self
+    }
+
+    /// `which(program)` finds it `at`; every other program stays not found.
+    pub fn on_path(mut self, program: &str, at: impl Into<PathBuf>) -> Self {
+        self.paths.insert(program.to_string(), at.into());
         self
     }
 
@@ -101,6 +108,10 @@ impl Process for FakeProcess {
             Output::Inherit => {}
         }
         outcome
+    }
+
+    fn which(&self, program: &str) -> Option<PathBuf> {
+        self.paths.get(program).cloned()
     }
 }
 

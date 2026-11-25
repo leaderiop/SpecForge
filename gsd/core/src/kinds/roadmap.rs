@@ -19,6 +19,14 @@ const PROGRESS: &[Field] = &[
     int("plans_complete"),
     int("percent"),
 ];
+const OFF_PACKAGE: &[Field] = &[str("name"), str("version")];
+const RELEASE: &[Field] = &[
+    str("tag"),
+    str("commit"),
+    blocks("packages", OFF_PACKAGE),
+    int("more"),
+];
+const TAG: &[Field] = &[str("name"), str("commit")];
 const MILESTONE_STATE: &[&str] = &["planned", "in_progress", "shipped", "abandoned"];
 
 /// A milestone section of `ROADMAP.md`, named `v1.0` and scoped by its workstream when it has one. Its title is its
@@ -61,6 +69,19 @@ pub const MILESTONE: Kind = Kind::new(
         str("branch")
             .c()
             .doc("the branch it is executed on: git.branching_strategy and its template"),
+        strs("api_breaks").c().doc(
+            "the API items the last collect found changed, narrowed or removed against the committed accepted \
+             report: `<change> <id>`; absent when no API fact carries a change; gsd/E533 reads it",
+        ),
+        block("release", RELEASE).c().doc(
+            "the release evidence gsd/E535 reads: `tag` and `commit` the recorded tag of a shipped milestone, \
+             `packages` the `name` and `version` of each package fact not at an open milestone's version, at most 50, \
+             and `more` the count past them; absent when nothing was observed",
+        ),
+        block("tag", TAG).h().doc(
+            "written by gsd-git from `refs/tags/v<version>` for a shipped milestone named by its version: the tag's \
+             `name`, and the `commit` it resolves to, absent when it resolves to none",
+        ),
     ],
 )
 .scoped_by("workstream");

@@ -45,6 +45,36 @@ fn explain_explains_a_code_the_projects_extension_catalogs() {
     );
 }
 
+/// The embedded `@code/core` catalogs the `reports` pass's codes (ADR 0388): each is explained with its owner, level
+/// and title.
+#[specforge_test(requirement = "FEATURE-017")]
+fn explain_explains_the_report_warnings_of_code_core() {
+    let project = TestProject::new().without_config();
+    project.write(
+        "specforge.json",
+        json!({"name": "p", "version": "0.1.0", "spec_root": "spec", "extensions": ["@code/core"]})
+            .to_string(),
+    );
+    let cli = Cli::on(&project);
+    let mut texts = Vec::new();
+    for code in ["code/W104", "code/W105", "code/W106", "code/W107"] {
+        let entry = cli
+            .run(&["explain", code, "--format", "json"])
+            .exits(0)
+            .json();
+        assert_eq!(entry["code"], code, "{entry}");
+        assert_eq!(entry["owner"], "@code/core", "{entry}");
+        assert_eq!(entry["level"], "warning", "{entry}");
+        assert_eq!(entry["retired"], false, "{entry}");
+        assert!(
+            entry["title"].as_str().is_some_and(|t| !t.is_empty()),
+            "{entry}"
+        );
+        texts.push(cli.run(&["explain", code]).exits(0).stdout);
+    }
+    insta::assert_snapshot!(texts.join("\n"));
+}
+
 #[specforge_test(requirement = "FEATURE-017")]
 fn outside_its_project_a_catalogued_code_is_unknown() {
     let loose = TestProject::new().without_config();

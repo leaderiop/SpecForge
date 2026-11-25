@@ -91,6 +91,8 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .gate("E511")
             .gate("E515")
             .gate("E516")
+            .gate("E533")
+            .gate("E535")
             .subject("milestone")
             .arg("milestone", |a| {
                 a.required().description("the milestone (its id, or a short form that is not ambiguous)");

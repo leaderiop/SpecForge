@@ -33,7 +33,7 @@ fn specforge_settings_lists_gsd_core_defaults() {
     let defaults = listed(&p, false);
     assert_eq!(
         defaults.len(),
-        147,
+        150,
         "settings with a default (15 of them the balanced profile's model_overrides, 10 the surface clusters)"
     );
     for detected in ["brave_search", "firecrawl", "exa_search"] {
@@ -64,8 +64,8 @@ fn specforge_settings_lists_gsd_core_defaults() {
     let all = listed(&p, true);
     assert_eq!(
         all.len(),
-        220,
-        "194 keys (the 10 surface clusters among them), 11 families and the 15 model_overrides the profile presets (listed in place of the family)"
+        223,
+        "197 keys (the 10 surface clusters among them), 11 families and the 15 model_overrides the profile presets (listed in place of the family)"
     );
     assert!(all.contains_key("models.*") && all.contains_key("review.reviewer_instances.*.*"));
 }
@@ -135,7 +135,7 @@ fn gsd_strict_raises_w103_to_an_error() {
 }
 
 /// The SpecForge gates each profile switches on, as `specforge settings` lists the codes it leaves gated off: none
-/// under gsd-compat, all but cross-workstream conflicts (gsd/E517) under gsd-strict, all six under gsd-plus; and an
+/// under gsd-compat, all but cross-workstream conflicts (gsd/E517) under gsd-strict, all eight under gsd-plus; and an
 /// explicit setting beside the profile beats its preset.
 #[test]
 fn each_profile_switches_on_its_specforge_gates_and_an_explicit_setting_wins() {
@@ -144,23 +144,24 @@ fn each_profile_switches_on_its_specforge_gates_and_an_explicit_setting_wins() {
         let r = resolved(p, &[]);
         let all = strings(&r["gated"]);
         [
-            "gsd/W407", "gsd/E515", "gsd/E516", "gsd/E517", "gsd/W520", "gsd/E521",
+            "gsd/W407", "gsd/E515", "gsd/E516", "gsd/E517", "gsd/W520", "gsd/E521", "gsd/E533",
+            "gsd/E535",
         ]
         .map(|code| all.contains(&code))
     };
-    assert_eq!(gated(&p), [true; 6], "gsd-compat gates all six");
+    assert_eq!(gated(&p), [true; 8], "gsd-compat gates all eight");
     p.settings(serde_json::json!({ "profile": "gsd-strict" }));
     assert_eq!(
         gated(&p),
-        [false, false, false, true, false, false],
+        [false, false, false, true, false, false, false, false],
         "strict switches on all but cross-workstream conflicts"
     );
     p.settings(serde_json::json!({ "profile": "gsd-plus" }));
-    assert_eq!(gated(&p), [false; 6], "plus switches on all six");
+    assert_eq!(gated(&p), [false; 8], "plus switches on all eight");
     p.settings(serde_json::json!({ "profile": "gsd-plus", "specforge.task_commits": false }));
     assert_eq!(
         gated(&p),
-        [true, false, false, false, false, false],
+        [true, false, false, false, false, false, false, false],
         "an explicit setting beats the profile"
     );
 }

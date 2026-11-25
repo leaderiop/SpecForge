@@ -308,7 +308,7 @@ fn a_rust_test_ref_beside_only_item_facts_is_code_w102() {
             "code/W102".to_string(),
             "T1".to_string(),
             "`proof` names `rust:toy#tests::adds`, but no `rust` `test` facts were collected: run \
-             `specforge collect` with `@rust/test`"
+             `specforge collect` with `@rust/test` or `@rust/proof`"
                 .to_string()
         )],
         "{:?}",
@@ -382,4 +382,102 @@ fn a_harness_immutable_reference_is_no_finding() {
     let compiled = compiled(&p);
 
     assert_eq!(found(&compiled), [], "{:?}", compiled.diagnostics());
+}
+
+/// The project package the report facts below cite.
+const TOY: &str = "pkg:cargo/toy";
+
+/// The item `rust:toy::add` and the package [`TOY`], then the report facts `reports`: one store, as collected.
+fn with_reports(reports: Value) -> Value {
+    let mut facts = items(&["rust:toy::add"]);
+    let all = facts.as_array_mut().unwrap();
+    all.push(json!({"kind": "package", "id": TOY, "fields": {"name": "toy", "path": ""}}));
+    all.extend(reports.as_array().unwrap().iter().cloned());
+    facts
+}
+
+/// One report fact of each kind: unmappable when `mapped` is false (no item, no package, no purl, unknown rule and
+/// severity), else naming its item and purl, with a known rule and severity.
+fn reports(mapped: bool) -> Value {
+    let item = |mut fields: Value| {
+        if mapped {
+            fields["item"] = "rust:toy::add".into();
+        }
+        fields
+    };
+    let (rule, severity) = if mapped {
+        ("needless_return", "high")
+    } else {
+        ("unknown", "unknown")
+    };
+    let mut dependency =
+        json!({"package": TOY, "name": "serde", "version": "1.0.0", "scope": "required"});
+    if mapped {
+        dependency["purl"] = "pkg:cargo/serde@1.0.0".into();
+    }
+    json!([
+        {"kind": "coverage", "id": "cov:@src/gen.rs",
+         "fields": item(json!({"file": "src/gen.rs", "lines_found": 3, "lines_hit": 1}))},
+        {"kind": "api_item", "id": "api:rust:toy::add",
+         "fields": item(json!({"path": "toy::add", "kind": "function", "visibility": "public",
+                              "signature": "pub fn toy::add()"}))},
+        {"kind": "static_finding", "id": "sarif:clippy/rule",
+         "fields": item(json!({"tool": "clippy", "rule": rule, "level": "warning", "message": "m"}))},
+        {"kind": "dependency", "id": "dep:pkg:cargo/toy/serde", "fields": dependency},
+        {"kind": "vulnerability", "id": "vuln:pkg:cargo/toy/RUSTSEC-2099-0001",
+         "fields": {"package": TOY, "osv_id": "RUSTSEC-2099-0001", "aliases": [],
+                    "purl": ["pkg:cargo/serde@1.0.0"], "version": ["1.0.0"], "severity": severity}},
+    ])
+}
+
+/// The `reports` pass (ADR 0388) raises each code on its class only, once per fact, naming the fact: W104 on the
+/// coverage, api_item and finding naming no item, W105 on the finding's unknown rule, W106 on the purl-less
+/// dependency, W107 on the vulnerability of unknown severity.
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+fn the_reports_pass_warns_once_per_unmappable_report_fact() {
+    let p = project(&[]);
+    stored(p.root(), "rust-source", KEY, with_reports(reports(false)));
+
+    let compiled = compiled(&p);
+
+    let mut found: Vec<(String, String)> = about(&compiled)
+        .into_iter()
+        .map(|(code, entity, message)| {
+            assert!(message.contains(&entity), "{message} names {entity}");
+            (code, entity)
+        })
+        .collect();
+    found.sort();
+    let expected = [
+        ("code/W104", "api:rust:toy::add"),
+        ("code/W104", "cov:@src/gen.rs"),
+        ("code/W104", "sarif:clippy/rule"),
+        ("code/W105", "sarif:clippy/rule"),
+        ("code/W106", "dep:pkg:cargo/toy/serde"),
+        ("code/W107", "vuln:pkg:cargo/toy/RUSTSEC-2099-0001"),
+    ]
+    .map(|(code, entity)| (code.to_string(), entity.to_string()));
+    assert_eq!(found, expected, "{:?}", compiled.diagnostics());
+}
+
+/// Report facts naming their item and purl, with a known rule and severity, raise no report code (ADR 0388).
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+fn mapped_report_facts_get_no_report_warning() {
+    let p = project(&[]);
+    stored(p.root(), "rust-source", KEY, with_reports(reports(true)));
+
+    let compiled = compiled(&p);
+
+    assert_eq!(about(&compiled), [], "{:?}", compiled.diagnostics());
+}
+
+/// A project storing no report fact gets no report code (ADR 0388).
+#[specforge_test_macros::test(requirement = "FEATURE-003")]
+fn a_project_with_no_report_facts_gets_no_report_warning() {
+    let p = project(&[]);
+    stored(p.root(), "rust-source", KEY, with_reports(json!([])));
+
+    let compiled = compiled(&p);
+
+    assert_eq!(about(&compiled), [], "{:?}", compiled.diagnostics());
 }

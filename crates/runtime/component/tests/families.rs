@@ -54,12 +54,24 @@ fn the_two_sets_are_adr_0369s_and_every_builtin_is_in_one() {
             "@rust/test",
             "@javascript/source",
             "@javascript/node-test",
+            "@rust/coverage",
+            "@rust/lint",
+            "@rust/deps",
+            "@rust/api",
+            "@rust/proof",
+            "@javascript/coverage",
+            "@javascript/lint",
+            "@javascript/deps",
+            "@javascript/api",
+            "@javascript/vitest",
+            "@javascript/jest",
+            "@javascript/playwright",
         ]),
         "both sets"
     );
     assert_eq!(
         names(&gsd.difference(&old).copied().collect()),
-        ["@gsd/core"],
+        ["@gsd/core", "@gsd/import"],
         "the gsd set only"
     );
 
@@ -111,6 +123,57 @@ fn each_set_builds_one_registry_with_no_e026_and_no_missing_peer() {
             let found: Vec<_> = build.diagnostics().filter(|d| d.code == code).collect();
             assert!(found.is_empty(), "{family:?}: {code}: {found:?}");
         }
+    }
+}
+
+/// The legacy `@specforge/vitest` and `@javascript/vitest`, each with the peers it requires
+/// (`@specforge/testing`; `@code/core` and `@javascript/source`), build one registry with no E026 and no
+/// missing peer, and each keeps its own collector (owner decision D4: the old pack stays in the old set,
+/// so a project may load both while it moves).
+#[test]
+fn the_old_vitest_loads_beside_javascript_vitest() {
+    let names = [
+        "@specforge/testing",
+        "@code/core",
+        "@javascript/source",
+        "@specforge/vitest",
+        "@javascript/vitest",
+    ];
+    for name in names {
+        assert!(
+            BUILTINS.iter().any(|builtin| builtin.name == name),
+            "'{name}' is a BUILTINS row"
+        );
+    }
+    let declarations: Vec<_> = pinned_builtin_declarations()
+        .unwrap()
+        .into_iter()
+        .filter(|declaration| names.contains(&declaration.name()))
+        .collect();
+    assert_eq!(declarations.len(), names.len());
+    let collectors: BTreeSet<(String, String)> = declarations
+        .iter()
+        .flat_map(|declaration| {
+            declaration
+                .collectors
+                .iter()
+                .map(|collector| (declaration.name().to_string(), collector.name.clone()))
+        })
+        .collect();
+    for (owner, collector) in [
+        ("@specforge/vitest", "vitest"),
+        ("@javascript/vitest", "javascript-vitest"),
+    ] {
+        assert!(
+            collectors.contains(&(owner.to_string(), collector.to_string())),
+            "{owner} declares the collector '{collector}': {collectors:?}"
+        );
+    }
+
+    let build = build_registries(declarations);
+    for code in ["E026", "E027"] {
+        let found: Vec<_> = build.diagnostics().filter(|d| d.code == code).collect();
+        assert!(found.is_empty(), "{code}: {found:?}");
     }
 }
 

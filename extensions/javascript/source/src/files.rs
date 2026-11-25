@@ -3,11 +3,13 @@
 //! The host lists the project's files of each source extension (one `files` read per extension: a glob has no
 //! alternation). A listed file is read when a package the pack reads owns it ([`Workspace::owner`]: a file under none
 //! is outside the pack, as a `.rs` file no crate reaches is outside `@rust/source`) and its path inside that package is
-//! neither a test file (a runner pack holds the tests; their helpers are no API) nor generated output. A package is
-//! read unless its `package.json`, inside the package above it or the project, is a test's or generated output's
-//! ([`read_packages`]). The kept files of one grammar are
+//! neither a test file (a runner pack holds the tests; their helpers are no API) nor generated output ([`kept`]). A
+//! test file that `node --test` runs by default, not generated output, is parsed too, with the test query, for its
+//! test calls only, when its package is the one node-test names it after ([`tested`], ADR 0393 D4): a test file of a
+//! package the pack does not read gives no item. A package is read unless its `package.json`, inside the package above
+//! it or the project, is a test's or generated output's ([`read_packages`]). The selected files of one grammar are
 //! parsed in one request, the files an answer's cap left unparsed asked again. A listing the host truncated is
-//! replaced, for its extension, by a parse of its glob whose answer the same rules filter.
+//! replaced, for its extension, by a parse of its glob whose answer the same selection filters.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -18,7 +20,7 @@ use specforge_extension_sdk::host::{
 use specforge_extension_sdk::prelude::*;
 use specforge_javascript_workspace::{Package, Workspace};
 
-use crate::{COLLECTOR, QUERY};
+use crate::COLLECTOR;
 
 /// The grammar of TypeScript (`.ts .mts .cts`, a `.d.ts` too): its `<T>x` cast parses only there.
 pub(crate) const TYPESCRIPT: &str = "typescript";
@@ -125,6 +127,35 @@ pub(crate) fn kept(workspace: &Workspace, path: &str) -> bool {
         .is_some_and(|(_, under)| readable(under))
 }
 
+/// Whether `node --test` runs the project-relative `path` by default (node 23.6 and later, whose type stripping runs
+/// `.ts .mts .cts`): `*.test.*`, `*-test.*`, `*_test.*`, `test-*.*`, `test.*`, or any file under a `test` directory,
+/// of an extension node runs. node-test is the runner whose ids the test calls carry.
+fn node_runs(path: &str) -> bool {
+    let (dirs, name) = split(path);
+    let Some((stem, extension)) = name.rsplit_once('.') else {
+        return false;
+    };
+    ["js", "cjs", "mjs", "ts", "mts", "cts"].contains(&extension)
+        && ([".test", "-test", "_test"]
+            .iter()
+            .any(|suffix| stem.ends_with(suffix))
+            || stem.starts_with("test-")
+            || stem == "test"
+            || dirs.contains(&"test"))
+}
+
+/// Whether the pack reads the project-relative `path` for its test calls: `node --test` runs it, a package the pack
+/// reads (`workspace`) owns it and is the one node-test names it after (the owner among `all` the named packages, a
+/// fixture's under a test directory included), and the path inside that package is a test file and not generated
+/// output.
+pub(crate) fn tested(workspace: &Workspace, all: &Workspace, path: &str) -> bool {
+    let named = all.owner(path).map(|(package, _)| &package.dir);
+    node_runs(path)
+        && workspace.owner(path).is_some_and(|(package, under)| {
+            named == Some(&package.dir) && is_test(under) && !is_generated(under)
+        })
+}
+
 /// `workspace` without the packages the pack does not read: one whose `package.json`, inside the nearest package the
 /// pack reads above it (from the project root when there is none), is not readable (a fixture under `tests/`, a copy
 /// under `build/`), and so every package below it; their files are read by no package.
@@ -157,8 +188,16 @@ pub(crate) struct Parsed {
     pub matches: Vec<SyntaxMatch>,
 }
 
-/// Every kept file of the project's listings, parsed, by path.
-pub(crate) fn parsed(input: &CollectInput, workspace: &Workspace) -> Result<Vec<Parsed>, String> {
+/// Every file of the project's listings that `select` ([`kept`] or [`tested`]) accepts, parsed with `query`, by path.
+/// A file the reader could not parse (one the fs port withholds included) is the collector's error when `warnings` is
+/// `None` (a kept source file: the pack reads every one or none), else a warning naming it and no item (a test file:
+/// its test calls are best-effort, and a test call never minted is never missing).
+pub(crate) fn parsed(
+    input: &CollectInput,
+    select: &dyn Fn(&str) -> bool,
+    query: &str,
+    mut warnings: Option<&mut Vec<String>>,
+) -> Result<Vec<Parsed>, String> {
     let mut by_language: BTreeMap<&str, Vec<String>> = BTreeMap::new();
     let mut globbed = Vec::new();
     for listing in &LISTINGS {
@@ -172,7 +211,7 @@ pub(crate) fn parsed(input: &CollectInput, workspace: &Workspace) -> Result<Vec<
         by_language.entry(listing.language).or_default().extend(
             read.facts
                 .iter()
-                .filter(|file| file.exists && kept(workspace, &file.path))
+                .filter(|file| file.exists && select(&file.path))
                 .map(|file| file.path.clone()),
         );
     }
@@ -181,46 +220,62 @@ pub(crate) fn parsed(input: &CollectInput, workspace: &Workspace) -> Result<Vec<
         paths.sort();
         paths.dedup();
         parsed.extend(all_parsed(
-            request(language, SyntaxFiles::Paths(paths)),
+            request(language, SyntaxFiles::Paths(paths), query),
             |_| true,
+            warnings.as_deref_mut(),
         )?);
     }
     // The host walks a truncated listing's glob itself; a file the rules drop is never the pack's error (a minified
     // bundle past the deadline).
     for listing in globbed {
         parsed.extend(all_parsed(
-            request(listing.language, SyntaxFiles::Glob(listing.glob())),
-            |path| kept(workspace, path),
+            request(listing.language, SyntaxFiles::Glob(listing.glob()), query),
+            select,
+            warnings.as_deref_mut(),
         )?);
     }
     parsed.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(parsed)
 }
 
-/// `files` in `language`, read from the project root with the pack's query.
-fn request(language: &str, files: SyntaxFiles) -> SyntaxRequest {
+/// `files` in `language`, read from the project root with `query`.
+fn request(language: &str, files: SyntaxFiles, query: &str) -> SyntaxRequest {
     SyntaxRequest {
         source: SyntaxSource::Worktree {
             root: "project".to_string(),
         },
         files,
         language: language.to_string(),
-        query: QUERY.to_string(),
+        query: query.to_string(),
     }
 }
 
-/// `file`'s matches; `None` for a file deleted since the listing. A file the reader could not parse otherwise (one
-/// the fs port withholds included) is the collector's error, never an item dropped.
-fn answered(file: SyntaxFile) -> Result<Option<Parsed>, String> {
-    match file.outcome {
-        SyntaxOutcome::Parsed { matches, .. } => Ok(Some(Parsed {
+/// `file`'s matches; `None` for a file deleted since the listing. A file the reader could not parse otherwise is the
+/// collector's error, or with `warnings` a warning naming it ([`parsed`]).
+fn answered(
+    file: SyntaxFile,
+    warnings: Option<&mut Vec<String>>,
+) -> Result<Option<Parsed>, String> {
+    match (file.outcome, warnings) {
+        (SyntaxOutcome::Parsed { matches, .. }, _) => Ok(Some(Parsed {
             path: file.path,
             matches,
         })),
-        SyntaxOutcome::NotParsed {
-            reason: NotParsed::Missing,
-        } => Ok(None),
-        SyntaxOutcome::NotParsed { reason } => Err(format!(
+        (
+            SyntaxOutcome::NotParsed {
+                reason: NotParsed::Missing,
+            },
+            _,
+        ) => Ok(None),
+        (SyntaxOutcome::NotParsed { reason }, Some(warnings)) => {
+            warnings.push(format!(
+                "{}: the host's reader did not parse this test file ({}); {COLLECTOR} reads no test call from it",
+                file.path,
+                reason.name()
+            ));
+            Ok(None)
+        }
+        (SyntaxOutcome::NotParsed { reason }, None) => Err(format!(
             "{}: the host's reader did not parse it ({}); {COLLECTOR} reads every kept source file or none",
             file.path,
             reason.name()
@@ -230,9 +285,14 @@ fn answered(file: SyntaxFile) -> Result<Option<Parsed>, String> {
 
 /// The files of `request` that `keep` accepts, every one parsed whatever the answer's cap ([`parse_all`]): a glob's
 /// walk stopped short is the collector's error, as is a file whose matches alone pass the cap.
-fn all_parsed(request: SyntaxRequest, keep: impl Fn(&str) -> bool) -> Result<Vec<Parsed>, String> {
-    parse_all(COLLECTOR, request, keep)?
-        .into_iter()
-        .filter_map(|file| answered(file).transpose())
-        .collect()
+fn all_parsed(
+    request: SyntaxRequest,
+    keep: impl Fn(&str) -> bool,
+    mut warnings: Option<&mut Vec<String>>,
+) -> Result<Vec<Parsed>, String> {
+    let mut parsed = Vec::new();
+    for file in parse_all(COLLECTOR, request, keep)? {
+        parsed.extend(answered(file, warnings.as_deref_mut())?);
+    }
+    Ok(parsed)
 }

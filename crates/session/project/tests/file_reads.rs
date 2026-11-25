@@ -209,6 +209,68 @@ fn a_file_over_the_cap_has_facts_and_no_text() {
     assert!(f.get("text").is_none() && f["digest"].is_string(), "{f}");
 }
 
+/// A read that declares `text_max` is sent the text of a file past 64 KiB; a read of the same file without it is
+/// still `too_large`.
+#[test]
+fn a_read_with_text_max_is_served_a_file_past_64_kib() {
+    let project = gsd_facts_project().file("big.txt", "a".repeat(200_000));
+    let (_, _, input) = probed(
+        project,
+        json!([
+            {"name": "wide", "glob": "big.txt", "text": true, "text_max": 300_000},
+            {"name": "plain", "glob": "big.txt", "text": true},
+        ]),
+    );
+
+    let wide = fact(&input, "wide", "big.txt");
+    assert_eq!(wide["text"].as_str().map(str::len), Some(200_000));
+    assert!(wide.get("error").is_none(), "{wide}");
+    let plain = fact(&input, "plain", "big.txt");
+    assert!(plain.get("text").is_none(), "{plain}");
+    assert_eq!(plain["error"], "too_large");
+}
+
+/// A read's text budget is the larger of 1 MiB and four times its `text_max`, spent in path order.
+#[test]
+fn a_text_max_read_spends_four_times_its_cap() {
+    let mut project = gsd_facts_project();
+    for n in 0..5 {
+        project = project.file(&format!("wide/f{n}.txt"), "a".repeat(300_000));
+    }
+    let (_, _, input) = probed(
+        project,
+        json!([{"name": "wide", "glob": "wide/*.txt", "text": true, "text_max": 300_000}]),
+    );
+
+    let found = facts(&input, "wide");
+    let paths: Vec<&str> = found.iter().map(|f| f["path"].as_str().unwrap()).collect();
+    assert_eq!(
+        paths,
+        [
+            "wide/f0.txt",
+            "wide/f1.txt",
+            "wide/f2.txt",
+            "wide/f3.txt",
+            "wide/f4.txt"
+        ]
+    );
+    let served: Vec<(bool, Option<&str>)> = found
+        .iter()
+        .map(|f| (f["text"].is_string(), f["error"].as_str()))
+        .collect();
+    // 4 x 300,000 = 1,200,000 bytes fit the budget; the fifth file does not.
+    assert_eq!(
+        served,
+        [
+            (true, None),
+            (true, None),
+            (true, None),
+            (true, None),
+            (false, Some("budget"))
+        ]
+    );
+}
+
 #[test]
 fn a_non_utf8_file_has_facts_and_not_utf8() {
     let project = project_of(&plan_naming(&["bin.dat"])).file("bin.dat", [0xff_u8, 0xfe, 0x00]);
@@ -304,6 +366,63 @@ fn a_glob_skips_build_and_vcs_directories_unless_it_names_them() {
     assert_eq!(facts(&input, "named")[0]["path"], "target/out.rs");
 }
 
+/// `gsd import` reads `.planning/**` and `specforge.json` (ADR 0391 D2): a dot-directory is walked like any other,
+/// its nested files and a `.gitkeep` served with text, and a credential-looking name in it is withheld.
+#[test]
+fn a_glob_reads_a_dot_directory() {
+    let planning = [
+        (".planning/PROJECT.md", "# Project\n"),
+        (".planning/config.json", "{\"mode\": \"yolo\"}\n"),
+        (".planning/phases/01-core/01-01-PLAN.md", "# Plan\n"),
+        (".planning/phases/03-listing/.gitkeep", ""),
+        (
+            ".planning/quick/261105-tcl-totals/261105-tcl-PLAN.md",
+            "# Quick\n",
+        ),
+    ];
+    let mut project = gsd_facts_project().file(".planning/.env", "TOKEN=hunter2\n");
+    for (path, text) in planning {
+        project = project.file(path, text);
+    }
+    let manifest = fs::read_to_string(project.root().join("specforge.json")).unwrap();
+    let (_, _, input) = probed(
+        project,
+        json!([
+            {"name": "planning", "glob": ".planning/**", "text": true},
+            {"name": "manifest", "glob": "specforge.json", "text": true},
+        ]),
+    );
+
+    let served: Vec<(&str, &str)> = facts(&input, "planning")
+        .iter()
+        .filter(|f| f["path"] != ".planning/.env")
+        .map(|f| {
+            assert_eq!(f["exists"], true, "{f}");
+            assert!(f.get("error").is_none(), "{f}");
+            (f["path"].as_str().unwrap(), f["text"].as_str().unwrap())
+        })
+        .collect();
+    let mut expected = planning.to_vec();
+    expected.sort_unstable();
+    assert_eq!(served, expected);
+    assert!(input["files"]["planning"].get("truncated").is_none());
+    // The host names the credential-looking file and withholds its text, as any text read does.
+    let env = fact(&input, "planning", ".planning/.env");
+    assert_eq!(
+        (env["exists"].as_bool(), env["error"].as_str()),
+        (Some(true), Some("denied")),
+        "{env}"
+    );
+    assert!(
+        env.get("text").is_none() && env.get("digest").is_none(),
+        "{env}"
+    );
+
+    let read = facts(&input, "manifest");
+    assert_eq!(read.len(), 1, "{read:?}");
+    assert_eq!(read[0]["text"], manifest.as_str());
+}
+
 #[test]
 fn a_malformed_read_is_reported_and_served_empty() {
     let project = gsd_facts_project();
@@ -314,6 +433,9 @@ fn a_malformed_read_is_reported_and_served_empty() {
         {"name": "absolute", "glob": "/etc/*"},
         {"name": "deep", "glob": "**/**/**/**/**/x"},
         {"name": "ghost", "field": "plan.no_such_field"},
+        {"name": "zero", "glob": "src/*.rs", "text": true, "text_max": 0},
+        {"name": "huge", "glob": "src/*.rs", "text": true, "text_max": 5_000_000},
+        {"name": "textless", "glob": "src/*.rs", "text_max": 200_000},
         {"name": "fine", "glob": "src/*.rs"},
         {"name": "fine", "glob": "src/lib.rs"},
     ])));
@@ -335,7 +457,9 @@ fn a_malformed_read_is_reported_and_served_empty() {
         .filter(|d| d.code == "W021" && d.message.contains("read"))
         .map(|d| d.message.clone())
         .collect();
-    assert_eq!(messages.len(), 7, "{messages:#?}");
+    assert_eq!(messages.len(), 10, "{messages:#?}");
+    let text_max = messages.iter().filter(|m| m.contains("text_max"));
+    assert_eq!(text_max.count(), 3, "{messages:#?}");
     assert!(GSD_FACTS_SPEC.contains("plan"));
 }
 

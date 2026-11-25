@@ -1,0 +1,19 @@
+{
+  "protocol_version": "2.3.0",
+  "name": "@javascript/coverage",
+  "version": "1.0.0",
+  "peer_dependencies": [
+    {
+      "name": "@code/core",
+      "version": "^1.2",
+      "optional": false
+    },
+    {
+      "name": "@javascript/source",
+      "version": "^1.0",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null,
+  "description": "Runs c8 around npm test and records its LCOV coverage as coverage facts (@code/core)"
+}

@@ -20,6 +20,7 @@ fn findings(
             machine: false,
             reported_while: None,
             settled_later: false,
+            facts: Vec::new(),
         }],
     )
     .unwrap();

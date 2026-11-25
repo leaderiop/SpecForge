@@ -439,6 +439,13 @@ impl CodeBuilder {
         self.0.settled_later = true;
         self
     }
+    /// The collected fact kinds this code judges (the kinds whose facts its passes read to raise it), so a host can
+    /// say which codes cannot be judged when no collector answers them (`specforge doctor`, ADR 0389). Leave it out
+    /// for a code about authored entities.
+    pub fn facts(&mut self, kinds: &[&str]) -> &mut Self {
+        self.0.facts = kinds.iter().map(|kind| kind.to_string()).collect();
+        self
+    }
 }
 
 /// Builder for [`ValidationRuleDescriptor`], with a `custom` rule's
@@ -659,6 +666,7 @@ impl CollectorBuilder {
                 inputs: Vec::new(),
                 answers: Vec::new(),
                 install: None,
+                requires: Vec::new(),
             },
             collect: None,
             run: None,
@@ -745,9 +753,14 @@ impl CollectorBuilder {
         self.env = names.iter().map(|n| n.to_string()).collect();
         self
     }
-    /// What to run to install the command's program, said when it is not found on PATH (ADR 0348 D4).
+    /// What to run to install the command's programs, said when one is not found on PATH (ADR 0348 D4).
     pub fn install(&mut self, line: &str) -> &mut Self {
         self.descriptor.install = Some(line.to_string());
+        self
+    }
+    /// The other programs the command runs beside its first, which `specforge doctor` looks up (ADR 0389 D3).
+    pub fn requires(&mut self, programs: &[&str]) -> &mut Self {
+        self.descriptor.requires = programs.iter().map(ToString::to_string).collect();
         self
     }
     /// The `process` capability (one the extension declares with
@@ -757,9 +770,16 @@ impl CollectorBuilder {
         self.descriptor.capability = Some(name.to_string());
         self
     }
-    /// Report file or directory the runner writes, relative to the project
-    /// root. A directory is read as every `*.json` file directly inside it.
+    /// The report the runner writes, relative to the project root: a file, a directory (read as every `*.json` file
+    /// directly inside it), or a glob over project files the tool writes itself (`**/name.json`), every match read
+    /// fresh after each run by the walk `Input::files` globs take (ADR 0389). A glob's command is told no path: it
+    /// takes no `{report}` and no `capture_stdout()`. Its last segment is a literal file name: a wildcard there panics.
     pub fn report(&mut self, path: &str) -> &mut Self {
+        assert!(
+            specforge_protocol_types::is_report_name(path),
+            "collector '{}' declares the report '{path}': a report glob must end in a literal file name",
+            self.descriptor.name
+        );
         self.descriptor.report = Some(path.to_string());
         self
     }

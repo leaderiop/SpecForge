@@ -1,0 +1,31 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "demo",
+      "name": "demo",
+      "version": "0.1.0",
+      "purl": "pkg:cargo/demo@0.1.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "anyhow",
+      "name": "anyhow",
+      "version": "1.0.93",
+      "purl": "pkg:cargo/anyhow@1.0.93"
+    },
+    {
+      "type": "library",
+      "bom-ref": "vendored-zlib",
+      "name": "zlib",
+      "group": "madler",
+      "version": "1.3.1",
+      "scope": "excluded"
+    }
+  ]
+}

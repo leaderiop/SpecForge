@@ -53,6 +53,7 @@ fn extension() -> ContributionsBuilder {
                 unlinked: Vec::new(),
                 plan: None,
                 facts: Vec::new(),
+                warnings: Vec::new(),
             })
         });
     });
@@ -176,6 +177,16 @@ fn a_collector_without_its_handler_is_refused() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
     c.collector("k", |k| {
         k.report("r.json");
+    });
+}
+
+#[test]
+#[should_panic(expected = "collector 'k' declares the report '**/*.pem'")]
+fn a_report_glob_ending_in_a_wildcard_is_refused() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+    c.collector("k", |k| {
+        k.report("**/*.pem")
+            .collect(|_| Ok(CollectOutput::default()));
     });
 }
 

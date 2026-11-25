@@ -9,16 +9,28 @@ fn fed(paths: &[&str]) -> Vec<String> {
 }
 
 /// The blobs that record their inputs today: the builtins. The fixtures join at the round's re-vendor.
-const BUILTIN_CRATES: [&str; 14] = [
+const BUILTIN_CRATES: [&str; 26] = [
     "extensions/cargo-test",
     "extensions/checks",
     "extensions/code/core",
     "extensions/formal",
     "extensions/governance",
+    "extensions/javascript/api",
+    "extensions/javascript/coverage",
+    "extensions/javascript/deps",
+    "extensions/javascript/jest",
+    "extensions/javascript/lint",
     "extensions/javascript/node-test",
+    "extensions/javascript/playwright",
     "extensions/javascript/source",
+    "extensions/javascript/vitest",
     "extensions/product",
+    "extensions/rust/api",
     "extensions/rust/cargo",
+    "extensions/rust/coverage",
+    "extensions/rust/deps",
+    "extensions/rust/lint",
+    "extensions/rust/proof",
     "extensions/rust/source",
     "extensions/rust/test",
     "extensions/software",
@@ -26,12 +38,24 @@ const BUILTIN_CRATES: [&str; 14] = [
     "extensions/vitest",
 ];
 
-/// The builtins that link the `@code` extension libraries.
-const CODE_LINKERS: [&str; 6] = [
+/// The builtins that link code-facts. code-facts links code-junit, so these are junit's linkers too.
+const CODE_FACTS_LINKERS: [&str; 18] = [
     "extensions/code/core",
+    "extensions/javascript/api",
+    "extensions/javascript/coverage",
+    "extensions/javascript/deps",
+    "extensions/javascript/jest",
+    "extensions/javascript/lint",
     "extensions/javascript/node-test",
+    "extensions/javascript/playwright",
     "extensions/javascript/source",
+    "extensions/javascript/vitest",
+    "extensions/rust/api",
     "extensions/rust/cargo",
+    "extensions/rust/coverage",
+    "extensions/rust/deps",
+    "extensions/rust/lint",
+    "extensions/rust/proof",
     "extensions/rust/source",
     "extensions/rust/test",
 ];
@@ -50,12 +74,53 @@ fn a_record_round_trips_byte_for_byte() {
 
 #[test]
 fn a_change_to_the_junit_library_feeds_the_builtins_that_link_it() {
-    assert_eq!(fed(&["extensions/code/junit/src/lib.rs"]), CODE_LINKERS);
+    assert_eq!(
+        fed(&["extensions/code/junit/src/lib.rs"]),
+        CODE_FACTS_LINKERS
+    );
 }
 
 #[test]
 fn a_change_to_the_code_facts_library_feeds_the_builtins_that_link_it() {
-    assert_eq!(fed(&["extensions/code/facts/src/ids.rs"]), CODE_LINKERS);
+    assert_eq!(
+        fed(&["extensions/code/facts/src/ids.rs"]),
+        CODE_FACTS_LINKERS
+    );
+}
+
+/// A report reader is a library each report pack links, so editing one re-vendors exactly the packs that
+/// read its format (ADR 0389).
+#[test]
+fn a_change_to_a_report_reader_feeds_the_packs_that_link_it() {
+    let readers: [(&str, &[&str]); 5] = [
+        (
+            "lcov",
+            &["extensions/javascript/coverage", "extensions/rust/coverage"],
+        ),
+        ("api", &["extensions/javascript/api", "extensions/rust/api"]),
+        ("sarif", &["extensions/javascript/lint"]),
+        (
+            "cyclonedx",
+            &["extensions/javascript/deps", "extensions/rust/deps"],
+        ),
+        (
+            "osv",
+            &["extensions/javascript/deps", "extensions/rust/deps"],
+        ),
+    ];
+    for (reader, packs) in readers {
+        let lib = format!("extensions/code/{reader}/src/lib.rs");
+        assert_eq!(fed(&[lib.as_str()]), packs, "{lib}");
+    }
+}
+
+/// The Kani reader is linked by `@rust/proof` alone (ADR 0389).
+#[test]
+fn a_change_to_the_kani_reader_feeds_only_rust_proof() {
+    assert_eq!(
+        fed(&["extensions/code/kani/src/lib.rs"]),
+        ["extensions/rust/proof"]
+    );
 }
 
 #[test]
@@ -67,12 +132,15 @@ fn a_change_to_the_manifest_library_feeds_only_rust_cargo() {
 }
 
 #[test]
-fn a_change_to_the_workspace_library_feeds_both_javascript_builtins() {
+fn a_change_to_the_workspace_library_feeds_the_javascript_builtins_that_link_it() {
     assert_eq!(
         fed(&["extensions/javascript/workspace/src/lib.rs"]),
         [
+            "extensions/javascript/jest",
             "extensions/javascript/node-test",
-            "extensions/javascript/source"
+            "extensions/javascript/playwright",
+            "extensions/javascript/source",
+            "extensions/javascript/vitest",
         ]
     );
 }
@@ -128,7 +196,8 @@ fn blobs_lists_the_recorded_blobs() {
     assert!(listed.iter().all(|l| l.starts_with("extensions/")
         || l.starts_with("fixtures/")
         || l.starts_with("examples/")
-        || l == "gsd/core"));
+        || l == "gsd/core"
+        || l == "gsd/import"));
 }
 
 /// A crate of the gsd workspace builds as that workspace does: its lock, its cargo directory and its SDK patch; any

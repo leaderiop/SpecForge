@@ -25,6 +25,7 @@ mod determinism;
 mod diff;
 mod docs_relations;
 mod docs_truth;
+mod doctor_tools;
 mod edit;
 mod edit_obligations;
 mod examples;

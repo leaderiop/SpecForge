@@ -45,6 +45,7 @@ fn record(project: &specforge_project::testing::TestProject, basis: &Value) -> S
     .unwrap();
     let origin = Origin::Command {
         extension: GSD_JUDGED.to_string(),
+        imports: false,
     };
     match apply_plan_with(
         &view,

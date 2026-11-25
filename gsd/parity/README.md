@@ -58,6 +58,36 @@ The recipe needs node 24 or later (the tag's `engines.node`). The script refuses
 repository (so `validate health` does not report the machine's worktrees), runs the fixture's `npm test` (node's JUnit
 reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing.
 
+### Recorded tool reports
+
+`record-reports.sh` records the reports the fixtures' report packs read, into `goldens/<fixture>/reports/`: `cargo
+gate`'s dogfood check collects taskboard, ledger and vault with every pack each one detects from these files, with
+`--no-run --report`, and fails when a collect answers a Warning or an Error (ADR 0393 D9). Nothing runs the tools in
+the gate. Re-record by hand on a machine with Docker, then review the diff:
+
+```sh
+gsd/parity/record-reports.sh                  # or name fixtures: taskboard vault ledger
+git diff --exit-code gsd/parity/goldens
+```
+
+Each tool runs in a `--platform linux/amd64` container of the image below, pinned by digest, on a copy of the fixture's
+tracked files at `/project`, copied in and out by tar streams (no volume); the fixtures are never touched, and one
+holding an uncommitted or untracked file is refused. Each fixture's `reports/` is replaced as a whole. Only c8 itself
+is pinned: npm resolves its dependency tree at record time. A leading `SF:/project/` in an LCOV becomes `SF:`, and
+the SBOM's `serialNumber` and `metadata.timestamp` become `urn:uuid:00000000-0000-0000-0000-000000000000` and
+`1970-01-01T00:00:00Z`, so a re-run on the same tools gives the same bytes (the ledger's five reports were recorded
+twice and compared). `scenario`'s count skips `goldens/taskboard/reports/`.
+
+| Fixture | File | Tool | Image | Command |
+|---|---|---|---|---|
+| taskboard | `javascript-coverage.lcov` | c8 12.0.0, node v26.13.1 | `node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9` | `npx --no -- c8 --reporter=lcovonly --reports-dir=.specforge/reports/javascript-coverage npm test` |
+| vault | `javascript-coverage.lcov` | c8 12.0.0, node v26.13.1 | `node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9` | `npx --no -- c8 --reporter=lcovonly --reports-dir=.specforge/reports/javascript-coverage npm test` |
+| ledger | `rust-coverage.lcov` | cargo-llvm-cov 0.9.2, cargo-nextest 0.9.146, rustc 1.99.1 | `rust:1.99.1@sha256:8a4e90c7946b74626488b1446f712c0fe0ed1a596cbd3d871684bc9c5433ae07` | `cargo llvm-cov nextest --workspace --ignore-run-fail --lcov --output-path <file>` (the red-by-design test fails; coverage is still written) |
+| ledger | `rust-lint.jsonl` | clippy 0.1.99 (rustc 1.99.1) | `rust:1.99.1@sha256:8a4e90c7946b74626488b1446f712c0fe0ed1a596cbd3d871684bc9c5433ae07` | `cargo clippy --workspace --all-targets --message-format=json` (standard output) |
+| ledger | `rust-sbom.cdx.json` | cargo-cyclonedx 0.5.10 | `rust:1.99.1@sha256:8a4e90c7946b74626488b1446f712c0fe0ed1a596cbd3d871684bc9c5433ae07` | `cargo cyclonedx --format json --spec-version 1.5 --all-features --override-filename rust-sbom.cdx` (the pack's argv; the tool appends `.json`); `serialNumber` and `timestamp` fixed |
+| ledger | `rust-osv.json` | osv-scanner 2.7.1 | `ghcr.io/google/osv-scanner:v2.7.1@sha256:a70ffffc2bfd33482953e5d6b64c6fcdb30239717a07b0f0d3ab2859ce3e4cde` | `osv-scanner scan source --lockfile Cargo.lock --format json --output-file <file>` (sends `ledger 0.1.0` to osv.dev) |
+| ledger | `rust-api.txt` | cargo-public-api 0.52.0, nightly-2025-11-22 (rustc 1.93.0-nightly 27b076af7) | `rust:1.99.1@sha256:8a4e90c7946b74626488b1446f712c0fe0ed1a596cbd3d871684bc9c5433ae07` | `RUSTUP_TOOLCHAIN=nightly-2025-11-22 cargo public-api --color never -ss` (standard output) |
+
 ### To track a newer release
 
 As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):

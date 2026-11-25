@@ -114,3 +114,26 @@ fn a_settled_later_code_reaches_the_code_book_and_no_e030() {
     assert!(book.settled_later("@acme/plans", "E301"));
     assert!(!book.settled_later("@acme/plans", "E302"));
 }
+
+/// A code naming the collected kinds it judges (ADR 0389): the code book lists it by kind, qualified.
+#[spec(requirement = "FEATURE-028")]
+fn a_code_naming_the_kinds_it_judges_reaches_the_code_book() {
+    let reports = declare("@acme/reports", |c| {
+        c.code("W104", |d| {
+            d.title("Report entry on no item")
+                .explanation("Serve the item.")
+                .facts(&["coverage"]);
+        });
+        c.code("W105", |d| {
+            d.title("Plain").explanation("About authored entities.");
+        });
+    });
+    let build = build([reports]);
+    assert!(coded(&build, "E030").is_empty(), "{:?}", codes(&build));
+    let book = build.codes();
+    assert_eq!(
+        book.switched_off(&["coverage".into()], &[]),
+        ["acme.reports/W104"]
+    );
+    assert!(book.switched_off(&["api_item".into()], &[]).is_empty());
+}

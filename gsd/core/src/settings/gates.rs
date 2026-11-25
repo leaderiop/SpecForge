@@ -55,7 +55,21 @@ pub const SPECFORGE: &[(&str, &str, &str)] = &[
         "E521",
         "A task commit names its task by its Gsd-Task trailer.",
     ),
+    (
+        "specforge.interface_gate",
+        "E533",
+        "A milestone that changes, narrows or removes an API item bumps its major version over the last shipped one.",
+    ),
+    (
+        "specforge.release_gate",
+        "E535",
+        "A milestone's packages are at its version, its version is later than the last shipped one, and that one's tag resolves.",
+    ),
 ];
+
+/// `specforge.release_exempt`: the package names E535 does not judge (ADR 0390 D8).
+const RELEASE_EXEMPT: &str =
+    "The package names gsd/E535 does not judge: packages the milestone does not release.";
 
 /// The codes `setting` gates, if it is a GSD key that gates any.
 pub fn of(setting: &str) -> Option<&'static [&'static str]> {
@@ -76,4 +90,9 @@ pub fn declare(c: &mut ContributionsBuilder) {
             s.bool().default(false).describe(about).gates(&[code]);
         });
     }
+    c.setting("specforge.release_exempt", |s| {
+        s.string_list()
+            .default(Vec::<String>::new())
+            .describe(RELEASE_EXEMPT);
+    });
 }

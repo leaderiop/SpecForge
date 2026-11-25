@@ -4,19 +4,22 @@
 
 use serde_json::json;
 
-use super::harness::{judged, project, taskboard};
+use super::harness::{Project, judged, ledger, project, taskboard, vault};
+use super::interface_gate::{PROFILES, close, named};
 
 #[test]
 fn the_clean_twin_is_silent_for_the_unjudged_codes() {
-    /// The unjudged codes the taskboard twin must never report, under any of the three profiles. `W407` is the one the
-    /// twin reports under strict and plus (its tasks carry no commit), so `task_without_commit_is_w407_...` holds it.
-    const SILENT_ON_THE_TWIN: [&str; 61] = [
+    /// The unjudged codes the taskboard twin must never report, under any of the three profiles. `W407` is among them:
+    /// the twin records no commits, and its own `specforge.json` says so (`specforge.task_commits: false`, ADR 0390 D9).
+    /// E533 and E535 are not here: a guard answers only at a gate, never in `codes()`; the twins' close gate is
+    /// [`the_twins_are_clean_under_every_profile`].
+    const SILENT_ON_THE_TWIN: [&str; 62] = [
         "E101", "E102", "W103", "W104", "E105", "E106", "E107", "E108", "E201", "W204", "E206",
         "E301", "E302", "E303", "W304", "W305", "W306", "E307", "W308", "W309", "E310", "E312",
         "E314", "W317", "W318", "E319", "E320", "I321", "E322", "W323", "W324", "E507", "E401",
-        "E402", "W403", "W404", "E405", "W406", "W408", "W409", "E502", "E503", "W504", "E505",
-        "W506", "E509", "W510", "E511", "E512", "E513", "E515", "E516", "E517", "W520", "E521",
-        "W522", "E523", "W524", "W526", "I527", "W109",
+        "E402", "W403", "W404", "E405", "W406", "W407", "W408", "W409", "E502", "E503", "W504",
+        "E505", "W506", "E509", "W510", "E511", "E512", "E513", "E515", "E516", "E517", "W520",
+        "E521", "W522", "E523", "W524", "W526", "I527", "W109",
     ];
     for profile in ["gsd-compat", "gsd-strict", "gsd-plus"] {
         let p = taskboard();
@@ -29,6 +32,98 @@ fn the_clean_twin_is_silent_for_the_unjudged_codes() {
             );
         }
     }
+}
+
+/// What the vault twin carries by design under every profile (its README), sorted: `@gsd/security`'s undeclared peer
+/// `@specforge/checks` (W019), phase 02's one success criterion (gsd/W103), the duplicate threat ID the fixture exists
+/// to carry (gsd.security/E101, once per claim), and the security workflow's owed verdicts (gsd.security/W302 on each
+/// closed threat, W303 on the audit), which `@gsd/security`'s book judges and core's harness does not know.
+const VAULT_CARRIES: [&str; 10] = [
+    "W019",
+    "gsd.security/E101",
+    "gsd.security/E101",
+    "gsd.security/W302",
+    "gsd.security/W302",
+    "gsd.security/W302",
+    "gsd.security/W302",
+    "gsd.security/W302",
+    "gsd.security/W303",
+    "gsd/W103",
+];
+
+/// A twin's name, its constructor, the collector that reads its manifest into package facts, and what it reports by
+/// design.
+type Twin = (
+    &'static str,
+    fn() -> Project,
+    &'static str,
+    &'static [&'static str],
+);
+
+const TWINS: [Twin; 3] = [
+    ("taskboard", taskboard, "javascript-source", &[]),
+    ("ledger", ledger, "rust-cargo", &[]),
+    ("vault", secured_vault, "javascript-source", &VAULT_CARRIES),
+];
+
+/// The vault twin as its parity suite loads it: its `spec/` holds `@gsd/security`'s kinds.
+fn secured_vault() -> Project {
+    vault().with_extension("@gsd/security", "GSD_SECURITY_WASM")
+}
+
+/// Success criterion 5 of the release guards (ADR 0390 D9): taskboard and ledger report no code under each profile,
+/// and the vault only what it carries by design ([`VAULT_CARRIES`]); once each twin's package facts are collected,
+/// the close gate of its milestone v1.0 names none of gsd/W407, gsd/E533 and gsd/E535 (it may name other gate codes:
+/// the twins' milestones are not audited). E535 is judged over the package versions. E533 is silent for want of input:
+/// no twin loads an API pack, so v1.0's `api_breaks` is absent, which the test asserts.
+#[test]
+fn the_twins_are_clean_under_every_profile() {
+    for (name, twin, collector, carries) in TWINS {
+        for (profile, _) in PROFILES {
+            let p = twin();
+            p.settings(json!({ "profile": profile }));
+            let mut codes = p.codes();
+            codes.sort();
+            assert_eq!(codes, carries, "{name} {profile}");
+            let run = p.collect(&["--runner", collector]);
+            assert_eq!(run.code, 0, "{name} {profile}: {}", run.all());
+            let versions: Vec<_> = p
+                .nodes_of("package")
+                .into_iter()
+                .filter(|n| n["fields"]["version"].is_string())
+                .collect();
+            assert!(
+                !versions.is_empty(),
+                "{name}: no package fact with a version"
+            );
+            assert!(
+                p.fields_of("v1.0")["api_breaks"].is_null(),
+                "{name} {profile}: an API break was observed"
+            );
+            let closed: Vec<String> = close(&p, "v1.0").into_iter().map(|(c, _)| c).collect();
+            for code in ["gsd/W407", "gsd/E533", "gsd/E535"] {
+                assert!(
+                    !closed.contains(&code.to_string()),
+                    "{name} {profile}: {closed:?}"
+                );
+            }
+        }
+    }
+}
+
+/// The ledger's crate is `0.1.0` under milestone v1.0: its own `specforge.release_exempt` is what keeps gsd/E535 silent.
+#[test]
+fn e535_on_the_ledger_is_silenced_by_its_own_exemption() {
+    let p = ledger();
+    p.settings(json!({ "profile": "gsd-strict", "specforge.release_exempt": [] }));
+    let run = p.collect(&["--runner", "rust-cargo"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(
+        named(&p, "v1.0", "gsd/E535"),
+        ["package 'ledger' is at version '0.1.0', not at the version of milestone 'v1.0'"]
+    );
+    p.settings(json!({ "profile": "gsd-strict" }));
+    assert_eq!(named(&p, "v1.0", "gsd/E535"), Vec::<String>::new());
 }
 
 /// Whether the report has a judged diagnostic of `code` on `entity`.

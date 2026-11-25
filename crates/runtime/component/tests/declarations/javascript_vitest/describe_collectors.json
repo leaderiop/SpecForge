@@ -1,0 +1,34 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "test",
+        "test_run"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "vitest.config.*",
+          "vitest.workspace.*"
+        ]
+      },
+      "capability": "javascript-vitest",
+      "export": "collect__javascript_vitest",
+      "input_formats": [
+        "junit-xml"
+      ],
+      "inputs": [
+        {
+          "glob": "**/package.json",
+          "input": "files",
+          "name": "packages",
+          "text": true
+        }
+      ],
+      "install": "npm install --save-dev vitest",
+      "name": "javascript-vitest",
+      "report": ".specforge/reports/javascript-vitest.xml"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ pub mod crate_map;
 mod doc_links;
 mod dogfood;
 mod gsd;
+mod guests;
 pub mod judge;
 mod junit;
 pub mod layers;
@@ -22,6 +23,7 @@ mod root_layout;
 mod run;
 mod size_cap;
 mod steps;
+mod x2;
 
 pub use change_set::{ChangeSet, Pattern};
 pub use checks::{CHECKS, Check, Reach, Selection, Trigger, render_list};

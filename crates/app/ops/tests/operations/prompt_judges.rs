@@ -87,6 +87,7 @@ fn record(project: &TestProject, extension: &str, judge: &str) -> String {
     .unwrap();
     let origin = Origin::Command {
         extension: extension.to_string(),
+        imports: false,
     };
     match apply_plan_with(
         &view,

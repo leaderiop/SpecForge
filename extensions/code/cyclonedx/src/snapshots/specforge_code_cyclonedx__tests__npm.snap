@@ -1,0 +1,66 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "dependency",
+    "id": "dep:pkg:npm/%40demo/board/pkg%3Anpm%2F%2540babel%2Fruntime%407.26.0",
+    "fields": {
+      "direct": true,
+      "name": "@babel/runtime",
+      "package": "pkg:npm/%40demo/board",
+      "purl": "pkg:npm/%40babel/runtime@7.26.0",
+      "scope": "required",
+      "version": "7.26.0"
+    }
+  },
+  {
+    "kind": "dependency",
+    "id": "dep:pkg:npm/%40demo/board/pkg%3Anpm%2Ffsevents%402.3.3",
+    "fields": {
+      "direct": true,
+      "name": "fsevents",
+      "package": "pkg:npm/%40demo/board",
+      "purl": "pkg:npm/fsevents@2.3.3",
+      "scope": "optional",
+      "version": "2.3.3"
+    }
+  },
+  {
+    "kind": "dependency",
+    "id": "dep:pkg:npm/%40demo/board/pkg%3Anpm%2Fjs-tokens%404.0.0",
+    "fields": {
+      "direct": false,
+      "name": "js-tokens",
+      "package": "pkg:npm/%40demo/board",
+      "purl": "pkg:npm/js-tokens@4.0.0",
+      "scope": "required",
+      "version": "4.0.0"
+    }
+  },
+  {
+    "kind": "dependency",
+    "id": "dep:pkg:npm/%40demo/board/pkg%3Anpm%2Floose-envify%401.4.0",
+    "fields": {
+      "direct": false,
+      "name": "loose-envify",
+      "package": "pkg:npm/%40demo/board",
+      "purl": "pkg:npm/loose-envify@1.4.0",
+      "scope": "required",
+      "version": "1.4.0"
+    }
+  },
+  {
+    "kind": "dependency",
+    "id": "dep:pkg:npm/%40demo/board/pkg%3Anpm%2Freact%4018.3.1",
+    "fields": {
+      "direct": true,
+      "name": "react",
+      "package": "pkg:npm/%40demo/board",
+      "purl": "pkg:npm/react@18.3.1",
+      "scope": "required",
+      "version": "18.3.1"
+    }
+  }
+]

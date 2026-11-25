@@ -3,6 +3,7 @@
 //! that compile and merges its texts, and the edits after it are planned over a compile of the merged texts.
 
 use super::declared::Declared;
+use super::validate::Lands;
 use super::{Edit, EditField, EditPlan, EditReport, Planner, describe, validate};
 use crate::Refusal;
 use crate::authoring::format::{Configs, Forms};
@@ -75,14 +76,14 @@ pub(super) fn relocated(path: &str, moves: &[(String, String)]) -> String {
 /// through the view's disk (ADR 0169).
 pub fn plan(view: &ProjectView<'_>, edits: &[Edit]) -> Result<EditPlan, Refusal<EditField>> {
     let steps: Vec<Step> = edits.iter().cloned().map(Step::Edit).collect();
-    plan_steps(view, &steps, false)
+    plan_steps(view, &steps, Lands::Nothing)
 }
 
-/// [`plan`] over steps, renames among them. `host_only`: an extension's error is no error the plan adds (ADR 0303).
+/// [`plan`] over steps, renames among them. `lands`: the errors the plan may add (ADR 0303, ADR 0392).
 pub fn plan_steps(
     view: &ProjectView<'_>,
     steps: &[Step],
-    host_only: bool,
+    lands: Lands,
 ) -> Result<EditPlan, Refusal<EditField>> {
     crate::config::refuse_rewrite(view.env().config_problems())?;
     view.project_root()?;
@@ -115,7 +116,7 @@ pub fn plan_steps(
         })?;
         at = end;
     }
-    conclude(view, carry, host_only)
+    conclude(view, carry, lands)
 }
 
 /// A run of edits, planned over the project as the steps before left it; the refusal names the edit's place in the run.
@@ -230,7 +231,7 @@ fn rename_step(
 fn conclude(
     view: &ProjectView<'_>,
     carry: Carry,
-    host_only: bool,
+    lands: Lands,
 ) -> Result<EditPlan, Refusal<EditField>> {
     let project = view.project();
     let Carry {
@@ -275,7 +276,7 @@ fn conclude(
     let added = if change.is_empty() {
         Vec::new()
     } else {
-        validate::check(view, &change, &declared, host_only)?
+        validate::check(view, &change, &declared, lands)?
     };
     let report = EditReport {
         entities: change.entities(),

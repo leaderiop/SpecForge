@@ -1,0 +1,16 @@
+TN:
+SF:/project/src/lib.rs
+FN:3,_RNvCs4fqI2P2rA04_4demo3add
+FNDA:4,_RNvCs4fqI2P2rA04_4demo3add
+DA:3,4
+DA:4,4
+DA:5,4
+end_of_record
+SF:/elsewhere/a.rs
+FN:1,_RNvCsX_5other1f
+FNDA:1,_RNvCsX_5other1f
+DA:1,1
+end_of_record
+SF:../../etc/passwd
+DA:1,1
+end_of_record

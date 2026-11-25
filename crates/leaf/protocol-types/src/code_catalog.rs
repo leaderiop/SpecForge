@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 /// One diagnostic code an extension reports: its local code (`E101`, never
 /// qualified; the host adds the namespace), a title, what it means and how
 /// to fix it, an optional absolute `http(s)` documentation URL, whether this machine decides it (2.0.0), the owner
-/// state its findings wait for (2.2.0), and whether a later step of the authoring settles its findings (2.3.0).
+/// state its findings wait for (2.2.0), whether a later step of the authoring settles its findings, and the collected
+/// kinds it judges (both 2.3.0).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CodeDescriptor {
     pub code: String,
@@ -32,4 +33,9 @@ pub struct CodeDescriptor {
     /// `check`, `--strict` and every gate read it. Serialized only when set.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub settled_later: bool,
+    /// The collected fact kinds this code judges (the kinds whose facts its passes read to raise it), so a host can
+    /// say which codes cannot be judged when no collector answers those kinds (doctor, 2.3.0, ADR 0389). Empty for a
+    /// code about authored entities; serialized only when not.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub facts: Vec<String>,
 }

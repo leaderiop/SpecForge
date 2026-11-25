@@ -76,6 +76,8 @@ pub(crate) struct Module {
     pub krate: usize,
     pub path: Vec<String>,
     pub candidates: Vec<ModuleFile>,
+    /// The `cfg(…)` attributes its `mod` declarations put on it (none on a crate root).
+    pub cfgs: Vec<String>,
 }
 
 /// A candidate file of a module and the directory its child modules' files live in.
@@ -107,6 +109,7 @@ pub(crate) fn walk(crates: &[Crate]) -> Result<Vec<Definition>, String> {
                 krate,
                 path: Vec::new(),
                 candidates: vec![ModuleFile::mod_rs(joined("", &c.root)?)],
+                cfgs: Vec::new(),
             })
         })
         .collect();
@@ -135,7 +138,14 @@ pub(crate) fn walk(crates: &[Crate]) -> Result<Vec<Definition>, String> {
                 continue;
             }
             let krate = &crates[module.krate];
-            for child in items::read(krate, &module.path, candidate, matches, &mut definitions) {
+            for child in items::read(
+                krate,
+                &module.path,
+                candidate,
+                matches,
+                &module.cfgs,
+                &mut definitions,
+            ) {
                 next.extend(child_modules(module.krate, &module.path, candidate, child));
             }
         }
@@ -163,6 +173,7 @@ fn child_modules(krate: usize, path: &[String], file: &ModuleFile, child: Child)
         krate,
         path: module_path.clone(),
         candidates,
+        cfgs: child.cfgs.clone(),
     };
     if child.paths.is_empty() {
         let dir = join_dir(&inline_dir, &child.name);

@@ -24,6 +24,8 @@ pub struct ExtensionCode {
     pub reported_while: Option<String>,
     /// A later step of the authoring settles a finding of it (`CodeDescriptor.settled_later`, ADR 0385).
     pub settled_later: bool,
+    /// The collected fact kinds it judges (`CodeDescriptor.facts`, ADR 0389): empty for a code about authored entities.
+    pub facts: Vec<String>,
 }
 
 /// Two loaded extensions share one code namespace.
@@ -196,6 +198,27 @@ impl Codebook {
             .is_some_and(|entry| entry.settled_later)
     }
 
+    /// Whether `code` (as it prints, `gsd.security/E101`), which `extension` reported, is a rule of `extension`'s own
+    /// about authored entities (ADR 0392): `code` is in `extension`'s namespace, `extension`'s own catalog lists it,
+    /// and that entry judges no collected fact kind (`ExtensionCode.facts`, ADR 0389). An importing command's plan
+    /// writes such an error and refuses every other: a first-party code (bare), a code no catalog of `extension`'s
+    /// lists, and one that judges a record against the facts collected from the tree, such as `code/E101` (a
+    /// reference naming no collected fact).
+    pub fn authored_rule(&self, extension: &str, code: &str) -> bool {
+        let CodeRef {
+            namespace: Some(namespace),
+            local,
+        } = CodeRef::parse(code)
+        else {
+            return false;
+        };
+        code_namespace(extension).is_some_and(|own| own.eq_ignore_ascii_case(namespace))
+            && self
+                .owned_by(extension)
+                .and_then(|owned| owned.codes.get(&local.to_uppercase()))
+                .is_some_and(|entry| entry.facts.is_empty())
+    }
+
     /// Whether a finding of `code` that `extension` reports speaks on an entity whose owner is `pending` (ADR 0363):
     /// always, unless the extension's own catalog entry names the owner state its findings wait for, then only in
     /// that state. A first-party extension's code waits for none.
@@ -251,6 +274,30 @@ impl Codebook {
             .collect()
     }
 
+    /// The qualified codes (`code/W104`) of every namespace whose entry judges one of the collected kinds `lost` and
+    /// none of the kinds `answered` (`ExtensionCode.facts`, ADR 0389), sorted and unique: the codes no finding can speak
+    /// for when no collector answers `lost` and a collector still answers each of `answered`. A code that also judges a
+    /// kind still answered keeps judging it, so it is not one of them.
+    pub fn switched_off(&self, lost: &[String], answered: &[String]) -> Vec<String> {
+        let mut off: Vec<String> = self
+            .namespaces
+            .iter()
+            .flat_map(|(namespace, owned)| {
+                owned
+                    .codes
+                    .iter()
+                    .filter(|(_, entry)| {
+                        entry.facts.iter().any(|kind| lost.contains(kind))
+                            && !entry.facts.iter().any(|kind| answered.contains(kind))
+                    })
+                    .map(move |(local, _)| format!("{namespace}/{local}"))
+            })
+            .collect();
+        off.sort();
+        off.dedup();
+        off
+    }
+
     /// The level a diagnostic of `code` (as it prints: `gsd/W304`, `E001`)
     /// is reported at: a static entry's catalogued level (`None` for `A###`,
     /// whose pass sets it), a namespaced code's letter when its namespace's
@@ -304,6 +351,7 @@ mod tests {
                 machine: false,
                 reported_while: None,
                 settled_later: false,
+                facts: Vec::new(),
             })
             .collect();
         book.add(extension, entries).unwrap();
@@ -462,6 +510,7 @@ mod tests {
                 machine: true,
                 reported_while: None,
                 settled_later: false,
+                facts: Vec::new(),
             }],
         )
         .unwrap();
@@ -489,6 +538,7 @@ mod tests {
             machine: false,
             reported_while: Some(state.into()),
             settled_later: false,
+            facts: Vec::new(),
         };
         book.add(
             "@acme/links",
@@ -522,6 +572,7 @@ mod tests {
                 machine: false,
                 reported_while: None,
                 settled_later: true,
+                facts: Vec::new(),
             }],
         )
         .unwrap();
@@ -535,6 +586,97 @@ mod tests {
         assert!(
             !book.settled_later("@specforge/checks", "I206"),
             "a first-party extension declares none"
+        );
+    }
+
+    #[test]
+    fn an_authored_rule_is_the_reporters_own_catalogued_code_judging_no_fact() {
+        let mut book = book("@gsd/security", &["E101"]);
+        book.add(
+            "@code/core",
+            vec![ExtensionCode {
+                local: "E101".into(),
+                title: "t".into(),
+                explanation: "e".into(),
+                docs: None,
+                machine: false,
+                reported_while: None,
+                settled_later: false,
+                facts: vec!["test".into()],
+            }],
+        )
+        .unwrap();
+        assert!(book.authored_rule("@gsd/security", "gsd.security/E101"));
+        assert!(
+            !book.authored_rule("@code/core", "code/E101"),
+            "it judges collected facts"
+        );
+        assert!(
+            !book.authored_rule("@gsd/security", "gsd.security/E102"),
+            "not catalogued"
+        );
+        assert!(
+            !book.authored_rule("@gsd/security", "code/E101"),
+            "another namespace's code"
+        );
+        assert!(
+            !book.authored_rule("@gsd/security", "E101"),
+            "a bare code is first party"
+        );
+        assert!(
+            !book.authored_rule("@specforge/checks", "E016"),
+            "a first-party extension's code"
+        );
+    }
+
+    #[test]
+    fn switched_off_lists_the_qualified_codes_about_a_lost_kind_sorted_and_unique() {
+        let judging = |local: &str, facts: &[&str]| ExtensionCode {
+            local: local.into(),
+            title: "t".into(),
+            explanation: "e".into(),
+            docs: None,
+            machine: false,
+            reported_while: None,
+            settled_later: false,
+            facts: facts.iter().map(|kind| kind.to_string()).collect(),
+        };
+        let mut book = Codebook::default();
+        book.add(
+            "@code/core",
+            vec![
+                judging("W105", &["static_finding"]),
+                judging("W104", &["coverage", "api_item"]),
+                judging("E101", &[]),
+            ],
+        )
+        .unwrap();
+        book.add("@acme/cov", vec![judging("W900", &["coverage"])])
+            .unwrap();
+        let kinds =
+            |kinds: &[&str]| -> Vec<String> { kinds.iter().map(|k| k.to_string()).collect() };
+        assert_eq!(
+            book.switched_off(&kinds(&["coverage"]), &[]),
+            ["acme.cov/W900", "code/W104"]
+        );
+        assert_eq!(
+            book.switched_off(&kinds(&["coverage", "api_item"]), &[]),
+            ["acme.cov/W900", "code/W104"],
+            "a code judging two of the kinds comes once"
+        );
+        assert!(
+            book.switched_off(&kinds(&["vulnerability"]), &[])
+                .is_empty()
+        );
+        assert!(book.switched_off(&[], &[]).is_empty());
+        // W104 also judges api_item, which a collector still answers: it is still judged.
+        assert_eq!(
+            book.switched_off(&kinds(&["coverage"]), &kinds(&["api_item"])),
+            ["acme.cov/W900"]
+        );
+        assert!(
+            book.switched_off(&kinds(&["coverage"]), &kinds(&["coverage"]))
+                .is_empty()
         );
     }
 

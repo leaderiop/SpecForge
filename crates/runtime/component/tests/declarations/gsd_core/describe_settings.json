@@ -1657,6 +1657,33 @@
       "name": "specforge.task_trailers"
     },
     {
+      "default": false,
+      "description": "A milestone that changes, narrows or removes an API item bumps its major version over the last shipped one.",
+      "field_type": "bool",
+      "gates": [
+        "E533"
+      ],
+      "kind": "setting",
+      "name": "specforge.interface_gate"
+    },
+    {
+      "default": false,
+      "description": "A milestone's packages are at its version, its version is later than the last shipped one, and that one's tag resolves.",
+      "field_type": "bool",
+      "gates": [
+        "E535"
+      ],
+      "kind": "setting",
+      "name": "specforge.release_gate"
+    },
+    {
+      "default": [],
+      "description": "The package names gsd/E535 does not judge: packages the milestone does not release.",
+      "field_type": "string_list",
+      "kind": "setting",
+      "name": "specforge.release_exempt"
+    },
+    {
       "default": "gsd-compat",
       "description": "gsd-compat is GSD as it is; gsd-strict blocks where GSD warns and gates fresh verdicts, traced requirements and task trailers; gsd-plus adds cross-workstream conflicts.",
       "enum_values": [
@@ -1675,7 +1702,9 @@
         "gsd-compat": {
           "settings": {
             "specforge.cross_workstream_conflicts": false,
+            "specforge.interface_gate": false,
             "specforge.plan_paths_touched": false,
+            "specforge.release_gate": false,
             "specforge.task_commits": false,
             "specforge.task_trailers": false,
             "specforge.traceability_gate": false,
@@ -1686,7 +1715,9 @@
         "gsd-plus": {
           "settings": {
             "specforge.cross_workstream_conflicts": true,
+            "specforge.interface_gate": true,
             "specforge.plan_paths_touched": true,
+            "specforge.release_gate": true,
             "specforge.task_commits": true,
             "specforge.task_trailers": true,
             "specforge.traceability_gate": true,
@@ -1719,7 +1750,9 @@
         "gsd-strict": {
           "settings": {
             "specforge.cross_workstream_conflicts": false,
+            "specforge.interface_gate": true,
             "specforge.plan_paths_touched": true,
+            "specforge.release_gate": true,
             "specforge.task_commits": true,
             "specforge.task_trailers": true,
             "specforge.traceability_gate": true,

@@ -25,6 +25,7 @@ fn collector(report: &str) -> Collector {
         config: None,
         filter: Vec::new(),
         install: None,
+        requires: Vec::new(),
     }
 }
 
@@ -99,6 +100,7 @@ fn collected(entries: &[(&str, &str, TestStatus)]) -> CollectOutput {
         unlinked: Vec::new(),
         plan: None,
         facts: Vec::new(),
+        warnings: Vec::new(),
     }
 }
 

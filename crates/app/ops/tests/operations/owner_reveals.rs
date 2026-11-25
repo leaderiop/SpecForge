@@ -111,7 +111,7 @@ fn refused(project: &CompiledProject, field: &str) -> Option<String> {
 
 /// The added errors `steps` are refused with, planned over `project`: their codes, or `None` when it is not refused.
 fn refused_steps(project: &CompiledProject, steps: &[Step]) -> Option<Vec<String>> {
-    let refusal = edit::plan_steps(&ProjectView::of(project), steps, false).err()?;
+    let refusal = edit::plan_steps(&ProjectView::of(project), steps, edit::Lands::Nothing).err()?;
     assert_eq!(
         refusal.error.code.to_string(),
         "E080",

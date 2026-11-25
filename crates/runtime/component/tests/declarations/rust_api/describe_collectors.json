@@ -1,0 +1,41 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "api_item"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.toml"
+        ]
+      },
+      "capability": "rust-api",
+      "capture": "stdout",
+      "export": "collect__rust_api",
+      "input_formats": [
+        "public-api-text"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item",
+            "package"
+          ]
+        },
+        {
+          "glob": "**/public-api.txt",
+          "input": "files",
+          "name": "accepted",
+          "text": true,
+          "text_max": 4194304
+        }
+      ],
+      "install": "cargo install cargo-public-api --locked (and: rustup toolchain install nightly --profile minimal)",
+      "name": "rust-api",
+      "report": ".specforge/reports/rust-api"
+    }
+  ]
+}

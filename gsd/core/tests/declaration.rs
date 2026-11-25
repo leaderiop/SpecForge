@@ -162,7 +162,7 @@ fn the_code_book_matches_rules_md() {
         from_book, from_md,
         "the code book and rules.md list different codes"
     );
-    assert_eq!(book.len(), 73);
+    assert_eq!(book.len(), 75);
     for row in &rows {
         let code = book
             .iter()
@@ -263,10 +263,10 @@ fn the_kinds_golden() {
     );
 }
 
-/// ADR 0331 D8, ADR 0371 D7: the one route, `gsd/requirement-thread` once qualified by the short name, as `specforge trace` follows
-/// it from a requirement.
+/// ADR 0331 D8, ADR 0371 D7: `gsd/requirement-thread` once qualified by the short name, as `specforge trace` follows
+/// it from a requirement; ADR 0390 D10: `gsd/milestone-release`, a milestone's release evidence and its phases.
 #[test]
-fn the_requirement_route_is_declared() {
+fn the_routes_are_declared() {
     assert_eq!(
         describe("routes")["items"],
         serde_json::json!([{
@@ -287,6 +287,18 @@ fn the_requirement_route_is_declared() {
                     "annotations": [{"judgement": "E501"}]},
                 {"name": "deliverable", "via": "<deliverable.requirement", "from": "start",
                     "label": "deliverable", "annotations": [{"field": "checks.ref"}]},
+            ]
+        }, {
+            "name": "milestone-release",
+            "description": "A milestone's release evidence: its API breaks, its release (tag, commit, packages) and its recorded tag, and its phases",
+            "start": "milestone",
+            "annotations": [
+                {"field": "api_breaks"},
+                {"field": "release"},
+                {"field": "tag"},
+            ],
+            "steps": [
+                {"name": "phase", "via": "<phase.milestone", "label": "phase"},
             ]
         }])
     );

@@ -14,7 +14,7 @@ pub fn merge(reports: &[String]) -> Result<String, String> {
     if reports.is_empty() {
         return Err(
             "no JUnit report to merge: nextest writes one under its `gate` and `ci` profiles \
-             (run `cargo gate full --only tests` first)"
+             (run `cargo gate full --only tests,guests,gsd,dogfood`)"
                 .to_string(),
         );
     }

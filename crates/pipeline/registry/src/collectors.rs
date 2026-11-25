@@ -116,6 +116,7 @@ mod tests {
             },
             answers: answers.iter().map(ToString::to_string).collect(),
             install: None,
+            requires: Vec::new(),
         }
     }
 

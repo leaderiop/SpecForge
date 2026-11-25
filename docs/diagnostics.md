@@ -1134,7 +1134,13 @@ is written; an edit that creates neither, one that also sets, unsets, links,
 unlinks, deletes or moves at or under that entity, and a migration still count
 it (ADR 0385). A writing collector's plan is compared with the project as its
 collect left it, and is refused for host errors only: an extension's error
-refuses no collected fact (ADR 0303).
+refuses no collected fact (ADR 0303). The plan of a command that declares
+`imports` writes an extension's rule error about authored entities the imported
+records carry, and `check` reports it: a code in the extension's namespace that
+its own catalog lists and whose entry judges no collected fact. It is still
+refused for any other error: the host's or a `@specforge/*` builtin's (E016
+included), and one that judges the records against collected facts, such as
+`code/E101` (ADR 0392).
 
 Owner: core
 Level: error
@@ -3359,8 +3365,9 @@ second one of a kind served once (`tests`, `state`, `graph`, `slash_commands`,
 setting, and a `files` input whose name is no word or is repeated, that names
 neither or both of `field` and `glob`, a `field` that is not `kind.field` or
 that no loaded extension declares, a `root` on a glob or that is no root's name,
-and a glob that is empty, absolute, climbs with `..`, or has more than four `**`
-segments.
+a glob that is empty, absolute, climbs with `..`, or has more than four `**`
+segments, and a `text_max` that is zero, over 4 MiB or set without `text` (ADR
+0390).
 
 Owner: core
 Level: warning
@@ -4869,6 +4876,22 @@ the store's renames is served: its facts read as collected, and its places as
 the collect read them (a file the renames rewrote is not the text they are in,
 W198). A rename of a name the store holds is refused (`stale_conflict`). Run
 `specforge collect`: it replaces the store and drops its stale lines.
+
+Owner: core
+Level: warning
+```
+
+## W203
+
+```
+W203: A collector warned of what it skipped
+
+A collector's export read its report and answered facts, and also returned lines
+about entries it could not use (ADR 0389): a path outside the project, a record
+of no supported shape. Each line is one W203 naming the collector and its
+extension, escaped, at most 100 per collector and then one W203 counting the
+rest. The facts it did answer are kept. Read the lines and fix the report or the
+tool's configuration.
 
 Owner: core
 Level: warning

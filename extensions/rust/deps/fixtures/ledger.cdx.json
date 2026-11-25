@@ -1,0 +1,48 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "serialNumber": "urn:uuid:7d2e4f60-3a1b-4c8d-9e0f-2b3c4d5e6f70",
+  "metadata": {
+    "timestamp": "2026-11-23T12:00:00.000000000Z",
+    "tools": [{"vendor": "CycloneDX", "name": "cargo-cyclonedx", "version": "0.5.10"}],
+    "component": {
+      "type": "library",
+      "bom-ref": "path+file:///project/crates/ledger#ledger@0.1.0",
+      "name": "ledger",
+      "version": "0.1.0",
+      "scope": "required",
+      "purl": "pkg:cargo/ledger@0.1.0?download_url=file://.",
+      "components": [
+        {
+          "type": "library",
+          "bom-ref": "path+file:///project/crates/ledger#ledger@0.1.0 bin-target-0",
+          "name": "ledger",
+          "version": "0.1.0",
+          "purl": "pkg:cargo/ledger@0.1.0?download_url=file://.#src/lib.rs"
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#rust_decimal@1.36.0",
+      "name": "rust_decimal",
+      "version": "1.36.0",
+      "scope": "required",
+      "licenses": [{"expression": "MIT"}],
+      "purl": "pkg:cargo/rust_decimal@1.36.0"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "path+file:///project/crates/ledger#ledger@0.1.0",
+      "dependsOn": ["registry+https://github.com/rust-lang/crates.io-index#rust_decimal@1.36.0"]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#rust_decimal@1.36.0",
+      "dependsOn": []
+    }
+  ]
+}

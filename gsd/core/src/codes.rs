@@ -694,6 +694,22 @@ pub static CODES: &[Code] = &[
         Severity::Warning,
         Severity::Error,
     ),
+    code(
+        "E533",
+        "Breaking API change without a major version bump",
+        "A milestone whose API facts show a changed, narrowed or removed item is closed while its version is API-compatible with the last shipped milestone of its workstream scope (Cargo's rule: for 0.x the minor counts as major), or while its name is not a version, so no major bump can be shown",
+        "project-and-roadmap",
+        Severity::Error,
+        Severity::Error,
+    ),
+    code(
+        "E535",
+        "Release evidence does not match the milestone",
+        "A milestone named by its version is closed while a package fact's version is not its version, while its version is not later than the last shipped milestone of its workstream scope, or while the last shipped milestone's tag does not resolve to a commit",
+        "project-and-roadmap",
+        Severity::Error,
+        Severity::Error,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

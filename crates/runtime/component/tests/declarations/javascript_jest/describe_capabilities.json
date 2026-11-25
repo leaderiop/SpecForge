@@ -1,0 +1,32 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "node",
+        "--env-file={config}",
+        "node_modules/jest/bin/jest.js",
+        "--reporters=default",
+        "--reporters=jest-junit"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "config": {
+        "name": "jest-junit.env.toml",
+        "template": "JEST_JUNIT_OUTPUT_FILE = \"{report}\"\nJEST_JUNIT_ADD_FILE_ATTRIBUTE = \"true\"\nJEST_JUNIT_ANCESTOR_SEPARATOR = \" > \"\nJEST_JUNIT_SUITE_NAME = \"{filepath}\"\nJEST_JUNIT_CLASSNAME = \"{classname}\"\nJEST_JUNIT_TITLE = \"{title}\"\n"
+      },
+      "env": [
+        "NODE_*",
+        "CI"
+      ],
+      "filter": [
+        "-t",
+        "{filter}"
+      ],
+      "name": "javascript-jest",
+      "port": "process",
+      "why": "run the command whose report the collector 'javascript-jest' reads"
+    }
+  ]
+}

@@ -310,6 +310,21 @@ fn collect_output_with_facts_round_trips_and_omits_an_empty_list() {
 }
 
 #[test]
+fn collect_output_warnings_round_trip_and_an_empty_list_is_off_the_wire() {
+    use specforge_protocol_types::CollectOutput;
+
+    let answer = json!({"entity_results": [], "warnings": ["skipped 1 file outside the project: /elsewhere/a.rs"]});
+    let output: CollectOutput = round_trips(&answer);
+    assert_eq!(
+        output.warnings,
+        ["skipped 1 file outside the project: /elsewhere/a.rs"]
+    );
+
+    let empty = serde_json::to_value(CollectOutput::default()).unwrap();
+    assert!(empty.get("warnings").is_none(), "{empty}");
+}
+
+#[test]
 fn a_pass_entity_carries_pending_and_its_unheld_spans_and_omits_them_when_absent() {
     use specforge_protocol_types::PassEntity;
 

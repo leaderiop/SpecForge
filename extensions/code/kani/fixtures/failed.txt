@@ -1,0 +1,52 @@
+Kani Rust Verifier 0.68.0 (cargo plugin)
+   Compiling demo v0.1.0 (/project)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.40s
+Checking harness proofs::check_add...
+CBMC 6.8.0 (cbmc-6.8.0)
+
+RESULTS:
+Check 1: proofs::check_add.assertion.1
+	 - Status: SUCCESS
+	 - Description: "assertion failed: add(a, b) >= a"
+	 - Location: src/lib.rs:11:9 in function proofs::check_add
+
+Check 2: proofs::check_add.cover.1
+	 - Status: SATISFIED
+	 - Description: "cover condition: a > 0"
+	 - Location: src/lib.rs:12:9 in function proofs::check_add
+
+
+SUMMARY:
+ ** 0 of 5 failed
+
+ ** 1 of 1 cover properties satisfied
+
+VERIFICATION:- SUCCESSFUL
+Verification Time: 0.2s
+
+Checking harness proofs::check_bound...
+CBMC 6.8.0 (cbmc-6.8.0)
+
+RESULTS:
+Check 1: proofs::check_bound.assertion.1
+	 - Status: FAILURE
+	 - Description: "assertion failed: x < 3"
+	 - Location: src/lib.rs:20:9 in function proofs::check_bound
+
+Check 2: proofs::check_bound.unwind.0
+	 - Status: SUCCESS
+	 - Description: "unwinding assertion loop 0"
+	 - Location: src/lib.rs:18:5 in function proofs::check_bound
+
+
+SUMMARY:
+ ** 1 of 7 failed
+Failed Checks: assertion failed: x < 3
+ File: "src/lib.rs", line 20, in proofs::check_bound
+
+VERIFICATION:- FAILED
+Verification Time: 0.31s
+
+Manual Harness Summary:
+Verification failed for - proofs::check_bound
+Complete - 1 successfully verified harnesses, 1 failures, 2 total.

@@ -1,0 +1,42 @@
+---
+source: src/tests.rs
+expression: facts
+---
+[
+  {
+    "kind": "dependency",
+    "id": "dep:pkg:cargo/demo/pkg%3Acargo%2Fitoa%401.0.14",
+    "fields": {
+      "direct": false,
+      "name": "itoa",
+      "package": "pkg:cargo/demo",
+      "purl": "pkg:cargo/itoa@1.0.14",
+      "scope": "required",
+      "version": "1.0.14"
+    }
+  },
+  {
+    "kind": "dependency",
+    "id": "dep:pkg:cargo/demo/pkg%3Acargo%2Fserde%401.0.215",
+    "fields": {
+      "direct": true,
+      "name": "serde",
+      "package": "pkg:cargo/demo",
+      "purl": "pkg:cargo/serde@1.0.215",
+      "scope": "required",
+      "version": "1.0.215"
+    }
+  },
+  {
+    "kind": "dependency",
+    "id": "dep:pkg:cargo/demo/pkg%3Acargo%2Fserde_derive%401.0.215",
+    "fields": {
+      "direct": false,
+      "name": "serde_derive",
+      "package": "pkg:cargo/demo",
+      "purl": "pkg:cargo/serde_derive@1.0.215",
+      "scope": "required",
+      "version": "1.0.215"
+    }
+  }
+]

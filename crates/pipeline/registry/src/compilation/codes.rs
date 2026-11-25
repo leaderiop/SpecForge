@@ -53,6 +53,7 @@ pub fn extension_codes(declaration: &ExtensionDeclaration) -> Vec<ExtensionCode>
             machine: entry.machine,
             reported_while: entry.reported_while.clone(),
             settled_later: entry.settled_later,
+            facts: entry.facts.clone(),
         })
         .collect()
 }

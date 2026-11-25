@@ -523,7 +523,7 @@ mod tests {
 
     /// The step takes `@gsd/core`'s kinds, read from the tracked golden, beside the pinned builtins.
     /// It runs in every test run; the vocabulary drift test of `specforge-project` holds the step's
-    /// output over the fifteen pinned builtins, the vendored `@gsd/core` among them.
+    /// output over every pinned builtin, the vendored `@gsd/core` among them.
     #[test]
     fn the_vocabulary_step_takes_gsd_cores_kinds_golden_beside_the_builtins() {
         the_step_takes_gsd_core_beside_the_builtins(gsd_core_kinds_golden());

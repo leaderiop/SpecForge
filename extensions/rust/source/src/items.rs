@@ -3,6 +3,8 @@
 //! comments of the contiguous run of lines directly above it. A test function knows the id nextest gives it and the
 //! entity its spec-link attribute names (D7).
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use specforge_code_facts::{
     location, signature_spelling, Definition, ItemId, ItemKind, Names, Owner, Signature, Visibility,
 };
@@ -19,6 +21,8 @@ pub(crate) struct Child {
     pub inline: Vec<String>,
     pub dirs: Vec<String>,
     pub paths: Vec<String>,
+    /// The `cfg(…)` attributes its file inherits: those around and on its `mod` declaration ([`read`]).
+    pub cfgs: Vec<String>,
 }
 
 /// Where a definition sits inside its file: the inline modules around it (outermost first) and the `impl` or
@@ -29,14 +33,20 @@ struct Context {
 }
 
 /// The definitions of `file` (the module `module` of `krate`, parsed as `matches`) pushed onto `out`, and the file
-/// modules it declares.
+/// modules it declares. `inherited` holds the `cfg(…)` attributes the file's `mod` declarations put on it: a
+/// definition records those, the file's inner `#![cfg(…)]`, those of every definition around it (outer, and inner in
+/// its body) and its own, outermost first, as each compiles it out (ADR 0393 D5).
 pub(crate) fn read(
     krate: &Crate,
     module: &[String],
     file: &ModuleFile,
     matches: &[SyntaxMatch],
+    inherited: &[String],
     out: &mut Vec<Definition>,
 ) -> Vec<Child> {
+    let inner = inner_cfgs(matches);
+    let mut in_file = inherited.to_vec();
+    in_file.extend(inner.get(&None).into_iter().flatten().cloned());
     let mut children = Vec::new();
     for (at, found) in matches.iter().enumerate() {
         if found.role != SyntaxRole::Definition {
@@ -55,6 +65,11 @@ pub(crate) fn read(
         path.extend(context.inline.iter().cloned());
         let id = ItemId::rust(&krate.segment, &path, context.owner.as_ref(), name);
         let test = matches!(kind, ItemKind::Function | ItemKind::Method) && is_test(&above);
+        let mut cfgs = in_file.clone();
+        cfgs.extend(around_cfgs(matches, at, &inner));
+        cfgs.extend(cfg_texts(above.iter().copied()));
+        let mut seen = BTreeSet::new();
+        cfgs.retain(|cfg| seen.insert(cfg.clone()));
         out.push(Definition {
             test_id: if test {
                 id.test_id(krate.edition)
@@ -69,7 +84,7 @@ pub(crate) fn read(
             at: location(&file.file, found.span.start, found.span.end),
             signature: signature(found),
             doc: doc(&above),
-            attrs: attrs(&above, test),
+            attrs: attrs(&above, test, cfgs.clone()),
             names: names(&file.file, &above),
         });
         if kind == ItemKind::Module && capture(found, "body").is_none() {
@@ -78,6 +93,7 @@ pub(crate) fn read(
                 inline: context.inline,
                 dirs: inline_dirs(matches, at),
                 paths: captures(&above, "module_file", "file"),
+                cfgs,
             });
         }
     }
@@ -234,15 +250,58 @@ fn doc(above: &[&SyntaxMatch]) -> Option<String> {
     (!doc.is_empty()).then_some(doc)
 }
 
-/// The attributes an item fact records: `test` for a test, `ignore` for an ignored one, each `cfg(…)` with its
-/// whitespace collapsed.
-fn attrs(above: &[&SyntaxMatch], test: bool) -> Vec<String> {
-    let mut attrs: Vec<String> = above
-        .iter()
-        .filter(|found| found.kind == "attribute" && capture(found, "path") == Some("cfg"))
+/// The text of each `cfg(…)` attribute among `found`, outer or inner, its whitespace collapsed.
+fn cfg_texts<'m>(found: impl Iterator<Item = &'m SyntaxMatch>) -> Vec<String> {
+    found
+        .filter(|found| {
+            matches!(found.kind.as_str(), "attribute" | "inner_attribute")
+                && capture(found, "path") == Some("cfg")
+        })
         .filter_map(|found| capture(found, "attribute"))
         .map(|text| text.split_whitespace().collect::<Vec<_>>().join(" "))
-        .collect();
+        .collect()
+}
+
+/// The inner `#![cfg(…)]` attributes of a file's matches, by the definition whose body holds them (`None`: the file).
+fn inner_cfgs(matches: &[SyntaxMatch]) -> BTreeMap<Option<u32>, Vec<String>> {
+    let mut inner: BTreeMap<Option<u32>, Vec<String>> = BTreeMap::new();
+    for found in matches.iter().filter(|m| m.kind == "inner_attribute") {
+        inner
+            .entry(found.parent)
+            .or_default()
+            .extend(cfg_texts(std::iter::once(found)));
+    }
+    inner
+}
+
+/// The `cfg(…)` attributes of every definition around the definition `at`, outermost first: each one's outer
+/// attributes, then the inner ones in its body.
+fn around_cfgs(
+    matches: &[SyntaxMatch],
+    at: usize,
+    inner: &BTreeMap<Option<u32>, Vec<String>>,
+) -> Vec<String> {
+    let mut chain = Vec::new();
+    let mut parent = matches[at].parent;
+    while let Some(index) = parent.filter(|index| (*index as usize) < matches.len()) {
+        chain.push(index);
+        parent = matches[index as usize].parent;
+    }
+    chain
+        .into_iter()
+        .rev()
+        .flat_map(|index| {
+            let mut cfgs = cfg_texts(attached(matches, index as usize).into_iter());
+            cfgs.extend(inner.get(&Some(index)).into_iter().flatten().cloned());
+            cfgs
+        })
+        .collect()
+}
+
+/// The attributes an item fact records: each `cfg(…)` that compiles it out (`cfgs`), then `test` for a test and
+/// `ignore` for an ignored one.
+fn attrs(above: &[&SyntaxMatch], test: bool, cfgs: Vec<String>) -> Vec<String> {
+    let mut attrs = cfgs;
     if test {
         attrs.push("test".to_string());
         if attribute_paths(above).any(|path| path == "ignore") {
@@ -261,10 +320,38 @@ fn attribute_paths<'m>(above: &'m [&SyntaxMatch]) -> impl Iterator<Item = String
         .map(|path| path.split_whitespace().collect())
 }
 
-/// Whether an attribute above marks a test: its path is `test`, ends in `::test`, or is `specforge_test` or `spec`.
+/// The paths of the spec-link attributes, as the query's entity pattern and the macro name them.
+const SPEC_LINKS: [&str; 5] = [
+    "specforge_test",
+    "spec",
+    "specforge_test_macros::test",
+    "specforge_test::test",
+    "specforge::test",
+];
+
+/// Whether the attributes above register a test as `specforge_test_macros` does (ADR 0393 D6): a runner attribute
+/// (`test`, or a path ending in `::test` that is no spec-link one) registers it itself; else each spec-link attribute
+/// leaves registering to the next one below it, so the lowest registers it unless it names `__guard_only` (an
+/// identifier among its arguments, the query's `guard_only` match on the same attribute; never a string's text).
 fn is_test(above: &[&SyntaxMatch]) -> bool {
-    attribute_paths(above).any(|path| {
-        path == "test" || path.ends_with("::test") || path == "specforge_test" || path == "spec"
+    let mut lowest = None;
+    for found in above.iter().filter(|found| found.kind == "attribute") {
+        let path: String = capture(found, "path")
+            .unwrap_or_default()
+            .split_whitespace()
+            .collect();
+        let path = path.trim_start_matches("::");
+        if SPEC_LINKS.contains(&path) {
+            lowest = Some(found.span);
+        } else if path == "test" || path.ends_with("::test") {
+            return true;
+        }
+    }
+    lowest.is_some_and(|span| {
+        !above.iter().any(|found| {
+            found.kind == "guard_only"
+                && (found.span.start.byte, found.span.end.byte) == (span.start.byte, span.end.byte)
+        })
     })
 }
 

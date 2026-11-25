@@ -174,7 +174,7 @@ fn no_builtin_declares_a_writer_or_history_flag() {
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-028")]
-fn the_builtins_declare_no_settings() {
+fn only_checks_and_cargo_declare_settings() {
     // The old set only: @gsd/core scopes, sets and pins by design (ADR 0373 D7, ADR 0370).
     let declarations = old_set_declarations();
     for declaration in &declarations {
@@ -184,18 +184,23 @@ fn the_builtins_declare_no_settings() {
             declaration.name()
         );
         let text = serde_json::to_string(declaration).unwrap();
+        let names = || -> Vec<String> {
+            serde_json::from_str::<serde_json::Value>(&text).unwrap()["settings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|s| s["name"].as_str().unwrap_or_default().to_string())
+                .collect()
+        };
         if declaration.name() == "@specforge/checks" {
-            let names: Vec<String> =
-                serde_json::from_str::<serde_json::Value>(&text).unwrap()["settings"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|s| s["name"].as_str().unwrap_or_default().to_string())
-                    .collect();
+            let names = names();
             assert!(
                 !names.is_empty() && names.iter().all(|n| n.starts_with("families.")),
                 "{names:?}"
             );
+        } else if declaration.name() == "@rust/cargo" {
+            // The fixture and example directories a project leaves out of its packages (ADR 0393 D7).
+            assert_eq!(names(), ["exclude"]);
         } else {
             assert!(
                 !text.contains("\"settings\""),
