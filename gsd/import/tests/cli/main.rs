@@ -50,11 +50,8 @@ pub fn tree(project: &Project) -> BTreeMap<String, Vec<u8>> {
     files
 }
 
-/// `project` as a GSD project before its import, loading `@gsd/import`: from `GSD_IMPORT_WASM`, the component the
-/// gate builds from `gsd/` until its blob is vendored. Every test builds its project here, so the load changes in one
-/// place.
+/// `project` as a GSD project before its import, loading `@gsd/import` by name: the vendored builtin the binary
+/// embeds (ADR 0391 D12). Every test builds its project here.
 pub fn imported(project: Project) -> Project {
-    project
-        .without_spec()
-        .with_extension("@gsd/import", "GSD_IMPORT_WASM")
+    project.without_spec().with_builtins(&["@gsd/import"])
 }

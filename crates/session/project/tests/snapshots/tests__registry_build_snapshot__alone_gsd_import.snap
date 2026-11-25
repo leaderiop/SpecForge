@@ -1,0 +1,59 @@
+---
+source: crates/session/project/tests/registry_build_snapshot.rs
+expression: "digest(&load(&runtime, &[name]))"
+---
+{
+  "check_passes": [],
+  "commands": [
+    {
+      "export": "cmd__import",
+      "extension": "@gsd/import",
+      "route": "gsd import"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "E027",
+      "message": "extension '@gsd/import' requires peer dependency '@gsd/core' ^1.1.0 which is not installed"
+    }
+  ],
+  "edges": {},
+  "ext_short": {
+    "@gsd/import": "gsd"
+  },
+  "extension_info": [
+    [
+      "@gsd/import",
+      "1.0.0"
+    ]
+  ],
+  "fields": {},
+  "graph_inputs": {
+    "absent_targets": {},
+    "derived_references": [],
+    "field_forms": {},
+    "member_kinds": []
+  },
+  "kinds": {},
+  "manifest_surfaces": [
+    {
+      "extension": "@gsd/import",
+      "surfaces": {
+        "commands": [
+          {
+            "args": [],
+            "category": null,
+            "description": "Import a GSD project once: read the project root's .planning/ folder into one edit plan that writes spec/gsd/, and report every file, section and row it did not map, with the reason",
+            "export": "cmd__import",
+            "id": "import",
+            "title": ""
+          }
+        ],
+        "mcp_resources": [],
+        "mcp_tools": []
+      }
+    }
+  ],
+  "rules": [],
+  "shadowed": 0
+}

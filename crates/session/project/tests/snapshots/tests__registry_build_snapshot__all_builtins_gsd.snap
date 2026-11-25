@@ -352,6 +352,11 @@ expression: "digest(&load(&runtime, &gsd))"
       "export": "cmd__surface",
       "extension": "@gsd/core",
       "route": "gsd surface"
+    },
+    {
+      "export": "cmd__import",
+      "extension": "@gsd/import",
+      "route": "gsd import"
     }
   ],
   "diagnostics": [],
@@ -2790,6 +2795,7 @@ expression: "digest(&load(&runtime, &gsd))"
   "ext_short": {
     "@code/core": "core",
     "@gsd/core": "gsd",
+    "@gsd/import": "gsd",
     "@javascript/api": "api",
     "@javascript/coverage": "coverage",
     "@javascript/deps": "deps",
@@ -2889,6 +2895,10 @@ expression: "digest(&load(&runtime, &gsd))"
     [
       "@gsd/core",
       "1.1.0"
+    ],
+    [
+      "@gsd/import",
+      "1.0.0"
     ]
   ],
   "fields": {
@@ -15673,6 +15683,23 @@ expression: "digest(&load(&runtime, &gsd))"
             "description": "Show which skill clusters are shown, or print the lines that show or hide one; it changes no setting itself",
             "export": "cmd__surface",
             "id": "surface",
+            "title": ""
+          }
+        ],
+        "mcp_resources": [],
+        "mcp_tools": []
+      }
+    },
+    {
+      "extension": "@gsd/import",
+      "surfaces": {
+        "commands": [
+          {
+            "args": [],
+            "category": null,
+            "description": "Import a GSD project once: read the project root's .planning/ folder into one edit plan that writes spec/gsd/, and report every file, section and row it did not map, with the reason",
+            "export": "cmd__import",
+            "id": "import",
             "title": ""
           }
         ],
