@@ -29,6 +29,12 @@ use crate::run::Ctx;
 use crate::{checked_tree, judge, junit, steps, x2};
 
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
+    // Elsewhere every compiled-out `#[cfg(unix)]` test would read as a missing X2 id, a coverage hole it is not.
+    if cfg!(not(unix)) {
+        return Err(
+            "dogfood's X2 floor assumes a unix host (ADR 0393 D5): run it on Linux or macOS".into(),
+        );
+    }
     let dir = report_dir(&ctx.repo.root, ctx.mode.nextest_profile());
     let found = reports(&dir);
     report_sets(&dir, &found)?;
