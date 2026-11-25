@@ -71,16 +71,34 @@ fn workflow() -> String {
         .unwrap()
 }
 
-/// The CI upload step whose artifact is named `name` keeps `report` (from the repository root, under the `ci`
-/// profile's report dir) and fails when it is not there.
-fn assert_uploads_or_fails(name: &str, report: &Path) {
+/// The CI upload step whose artifact is named `name` runs under the condition `when` (the `if:` before its `with:`, so
+/// a wrong shard or event, which would leave dogfood without the report, fails here), keeps `report` (from the
+/// repository root, under the `ci` profile's report dir) and fails when it is not there.
+fn assert_uploads_or_fails(name: &str, report: &Path, when: &str) {
     let workflow = workflow();
-    let step: Vec<&str> = workflow
-        .lines()
-        .map(str::trim)
-        .skip_while(|line| *line != format!("name: {name}"))
-        .take_while(|line| !line.is_empty() && !line.starts_with("- "))
+    let lines: Vec<&str> = workflow.lines().map(str::trim).collect();
+    let at = lines
+        .iter()
+        .position(|line| *line == format!("name: {name}"))
+        .unwrap_or_else(|| panic!("ci.yml: no artifact named {name}"));
+    let start = lines[..at]
+        .iter()
+        .rposition(|line| line.starts_with("- "))
+        .unwrap();
+    let step: Vec<&str> = lines[start..at]
+        .iter()
+        .chain(
+            lines[at..]
+                .iter()
+                .take_while(|line| !line.is_empty() && !line.starts_with("- ")),
+        )
+        .copied()
         .collect();
+    let condition = format!("if: {when}");
+    assert!(
+        step.contains(&condition.as_str()),
+        "ci.yml: the {name} upload does not run under `{condition}`: {step:?}"
+    );
     let report = report_dir(Path::new(""), "ci").join(report);
     let report = report.to_string_lossy().replace('\\', "/");
     assert!(
@@ -98,19 +116,32 @@ fn assert_uploads_or_fails(name: &str, report: &Path) {
 /// partition would otherwise read as `no_test` on what only it proves and pass.
 #[test]
 fn ci_uploads_each_partitions_report_or_fails() {
-    assert_uploads_or_fails("junit-tests-${{ matrix.part }}", Path::new("junit.xml"));
+    assert_uploads_or_fails(
+        "junit-tests-${{ matrix.part }}",
+        Path::new("junit.xml"),
+        "github.event_name == 'push'",
+    );
 }
 
-/// The specs shard keeps the guests' reports under the artifact named as their directory (ADR 0393 D2).
+/// The specs shard, which runs `guests`, keeps the guests' reports under the artifact named as their directory (ADR
+/// 0393 D2).
 #[test]
 fn ci_uploads_the_guests_reports_or_fails() {
-    assert_uploads_or_fails(GUESTS, Path::new(GUESTS));
+    assert_uploads_or_fails(
+        GUESTS,
+        Path::new(GUESTS),
+        "github.event_name == 'push' && matrix.shard == 'specs'",
+    );
 }
 
 /// The gsd shard keeps the `@gsd` workspace's report under the artifact named as its directory (ADR 0393 D2).
 #[test]
 fn ci_uploads_the_gsd_report_or_fails() {
-    assert_uploads_or_fails(GSD, Path::new(GSD));
+    assert_uploads_or_fails(
+        GSD,
+        Path::new(GSD),
+        "github.event_name == 'push' && matrix.shard == 'gsd'",
+    );
 }
 
 /// The dogfood job downloads every `junit-*` artifact, not only the test partitions': a download limited to them
