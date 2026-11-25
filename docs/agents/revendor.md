@@ -55,12 +55,13 @@ ignored tests), and prints the `git add` line that stages exactly those paths.
 
 A new committed blob is listed in `crates/runtime/component/src/committed.rs` first; a new builtin is a row of
 `BUILTINS` (`crates/runtime/component/src/builtins.rs`), which `COMMITTED` lists first. A builtin's crate is
-`extensions/<dir>` (`@specforge/<dir>`) or, in a family, `extensions/<family>/<pack>` (`@<family>/<pack>`), with one
-exception: `@gsd/core`'s crate is `gsd/core`, a named row of `BUILTINS` (ADR 0366 D1). Its lock is the gsd workspace's
-`gsd/Cargo.lock`, shared with `gsd-kit` and `gsd-security` and hashed whole, so a dependency change that only touches
-`gsd-security` still re-vendors it; its SDK patch comes from `gsd/.cargo/config.toml`, which the stager replays
-re-rooted at the repository (ADR 0366 D2, `gate/src/blob_inputs.rs`). The printed `git add` line then holds
-`gsd/core/wasm` and `gsd/Cargo.lock`. A crate under `extensions/`
+`extensions/<dir>` (`@specforge/<dir>`) or, in a family, `extensions/<family>/<pack>` (`@<family>/<pack>`), with two
+exceptions, named rows of `BUILTINS` outside `extensions/`: `@gsd/core` at `gsd/core` (ADR 0366 D1) and `@gsd/import`
+at `gsd/import` (ADR 0391 D12). Both are in the gsd workspace, whose `gsd/Cargo.lock`, shared with `gsd-kit` and
+`gsd-security`, is hashed whole into both records, so a dependency change to either crate (or only to `gsd-security`)
+re-vendors both; their SDK patch comes from `gsd/.cargo/config.toml`, which the stager replays re-rooted at the
+repository (ADR 0366 D2, `gate/src/blob_inputs.rs`). The printed `git add` line then holds `gsd/core/wasm`,
+`gsd/import/wasm` and `gsd/Cargo.lock`. A crate under `extensions/`
 without `wasm/` is an extension library (`extensions/code/junit`, `extensions/code/facts`, `extensions/rust/manifest`,
 `extensions/javascript/workspace`),
 an rlib no blob of its own. A library is an input of every builtin that links it, directly or through another library,

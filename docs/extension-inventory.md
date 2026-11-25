@@ -62,7 +62,7 @@ must be in the declared version range.
 
 | Family | State |
 |--------|-------|
-| `@gsd/*` (the GSD spec framework modelled as extensions) | `@gsd/core` is a vendored builtin and `@gsd/security` is built from `gsd/`; the rest are not started ([gsd/README.md](../gsd/README.md)) |
+| `@gsd/*` (the GSD spec framework modelled as extensions) | `@gsd/core` and `@gsd/import` are vendored builtins and `@gsd/security` is built from `gsd/`; the rest are not started ([gsd/README.md](../gsd/README.md)) |
 | BMAD, OpenSpec, SpecKit | Not started |
 
 ## @specforge/product

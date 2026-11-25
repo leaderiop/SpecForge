@@ -95,8 +95,9 @@ Extensions load in peer order: an extension loads after the peers it declares.
 
 ## The builtins are examples
 
-SpecForge ships twenty-seven builtin extensions. Twenty-six are a starter set, aimed at software and product work,
-and `@gsd/core` is the GSD spec framework; all are written with the same SDK any extension uses:
+SpecForge ships twenty-eight builtin extensions. Twenty-six are a starter set, aimed at software and product work,
+`@gsd/core` is the GSD spec framework and `@gsd/import` moves a GSD `.planning/` folder into it; all are written with
+the same SDK any extension uses:
 
 | Builtin | Shows how to |
 |---------|--------------|
@@ -122,6 +123,7 @@ and `@gsd/core` is the GSD spec framework; all are written with the same SDK any
 | `@javascript/api` | Run api-extractor after approval on a config file the host writes, and record `api_item` facts; `specforge add` also enables `@javascript/source` |
 | `@javascript/vitest`, `@javascript/jest`, `@javascript/playwright` | Run a test runner after approval and record its JUnit as `test`/`test_run` facts (jest through an env file the host writes, Playwright's report captured); `specforge add` also enables `@javascript/source` |
 | `@gsd/core` | Ship a whole spec framework as one extension: scoped kinds, judged rules, settings, and the prompts, agents, skills, slash commands and hooks a coding agent's host installs |
+| `@gsd/import` | Declare no kind, only a command that imports history: its plan lands a third-party rule error and refuses a host one (`CommandBuilder::imports()`, ADR 0392) |
 
 The [extension inventory](extension-inventory.md) lists exactly what each declares; the
 [entity pages](entities/) document each builtin kind.
@@ -155,7 +157,8 @@ extension would declare, not extensions that ship:
 | Operations | `site`, `process`, `kpi`, `owner` | Every KPI has a target and an owner; no process without a site |
 | Software spec frameworks | the artefacts of GSD, BMAD, OpenSpec or SpecKit | Each framework's own rules, checked on every edit |
 
-A GSD extension family (`@gsd/*`) is being designed; nothing is built yet. BMAD,
+The GSD extension family (`@gsd/*`) has `@gsd/core` and `@gsd/import` built as builtins and `@gsd/security` built
+from `gsd/`; the rest are being designed ([gsd/README.md](../gsd/README.md)). BMAD,
 OpenSpec and SpecKit extensions are not started.
 
 ## Writing your own

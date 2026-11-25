@@ -557,7 +557,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_project::ExtensionLoad`: `NoRuntime`, or what was loaded `In` a runtime).
 - **Builtin**: a component this specforge embeds, a row of `BUILTINS`, loaded by name (`specforge add @code/core`),
   whatever its scope. Its crate is `extensions/<dir>` (named `@specforge/<dir>`), `extensions/<family>/<pack>`
-  (named `@<family>/<pack>`), or `gsd/core` for `@gsd/core`, the one builtin outside `extensions/` (ADR 0366), and
+  (named `@<family>/<pack>`), or `gsd/core` for `@gsd/core` and `gsd/import` for `@gsd/import`, the two builtins outside `extensions/`
+  (ADR 0366, ADR 0391), and
   holds a `wasm/` dir. Not the same as first party: a builtin outside `@specforge/`
   catalogues its codes and prints them namespaced, as a third party's do (`code/E101`, ADR 0328).
 - **First-party extension**: an extension of the `@specforge/` scope. Its codes are bare, in the static catalogue that
