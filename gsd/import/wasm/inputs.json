@@ -1,6 +1,6 @@
 {
   "artifact": "gsd_import.wasm",
-  "artifact_sha256": "fe4951df9b4562a745e007a118fe9521e035f60263f289d395d6ce81250007e2",
+  "artifact_sha256": "61330ffa53dc1e9da28cf5444a05d194022fdedd61a31e36897fd825b3d2a9e2",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -98,7 +98,7 @@
     "gsd/import/src/records.rs": "674fb6b496de9495ace5e8a6fc22729e43a50170f11d97f26dacd40ac3b47b31",
     "gsd/import/src/report.rs": "845f31f7f337a6a4bb6bc6aed79fcca2409077076beb6443c515c48b1f8eb8f0",
     "gsd/import/src/sections.rs": "4164d5de999cfe2272b08882ed9fa182983a6c5943c298631944b3ec1409a6db",
-    "gsd/import/src/settings.rs": "6b9c25cd74aecee6f5aeeb29f315e53ab3ee5a3fddc79dc2a9856ffacc74b4ac",
+    "gsd/import/src/settings.rs": "a9be335082f60e1841d7a35cfd046e587b1e160fba36989d4db19899052a0351",
     "gsd/import/src/table.rs": "53d9e0089ae288d678189854ad3a3df2df8618b93c77f963bb85283c0e5c296e",
     "gsd/import/src/table/sections.rs": "3b40e9677e84bd60d9cb9b206c09d7dd2594435c4596e65c986854287cc50a1b",
     "gsd/import/src/xmltags.rs": "5f1e4ec6ccc3f9bf1e48a02e5e9022d5ff31b46595e2937fd2ffd311700d26f3",

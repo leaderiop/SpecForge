@@ -9,11 +9,11 @@
 use specforge_component::builtins::BUILTINS;
 use specforge_component::committed::COMMITTED;
 
-// The twenty-eight builtins total 27,951,625 B, the sum of the `.wasm` files `revendor` commits (built with
+// The twenty-eight builtins total 27,951,943 B, the sum of the `.wasm` files `revendor` commits (built with
 // `--profile blob` on the pinned rustc): the twenty-six under `extensions/` 20,648,071 B, the largest of them
 // `@specforge/checks` at 2,454,208 B, `gsd/core/wasm/gsd_core.wasm` 5,759,902 B, the one blob over the gate's cap,
-// held to its own allowance (ADR 0366 D3), and `gsd/import/wasm/gsd_import.wasm` 1,543,652 B (ADR 0391 D12). The
-// budget is that total rounded up to the next 100,000 B, here 28,000,000 (48,375 B of headroom): a change that grows
+// held to its own allowance (ADR 0366 D3), and `gsd/import/wasm/gsd_import.wasm` 1,543,970 B (ADR 0391 D12). The
+// budget is that total rounded up to the next 100,000 B, here 28,000,000 (48,057 B of headroom): a change that grows
 // the blobs past it re-measures and takes the rule's next step in the same commit (ADR 0373 D3). A build without the
 // profile is far larger, so this catches a profile regression.
 const TOTAL_BUDGET: usize = 28_000_000;
