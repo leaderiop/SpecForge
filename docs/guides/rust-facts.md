@@ -64,10 +64,12 @@ order, each served the facts of the one before:
   `specforge collect --runner rust-test --no-run`.
 - **Fixture crates:** a `Cargo.toml` that is no package of the project (a
   test fixture, an example) is left out by `@rust/cargo`'s `exclude` setting
-  in `specforge.json`. Each entry is a directory relative to the project root
-  (one trailing `/` is trimmed); every manifest under it is skipped, so its
-  targets yield no items and no test ids. An empty, absolute or `..` entry
-  fails the collector with `exclude entry '<entry>' is not a project-relative directory`.
+  in `specforge.json`. Each entry is a directory relative to the project root,
+  written with `/` (`.` segments and extra `/` are dropped: `./examples/` is
+  `examples`); every manifest under it is skipped, so its targets yield no
+  items and no test ids. An empty or absolute entry, a `..` segment, a `\`,
+  or an entry naming the root itself (`.`) fails the collector with
+  `exclude entry '<entry>' is not a project-relative directory`.
 
   ```json
   "settings": {

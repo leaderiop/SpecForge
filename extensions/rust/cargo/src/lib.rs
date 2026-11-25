@@ -97,8 +97,9 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     packages_of(input, &exclude_list(Settings::current().get("exclude"))?)
 }
 
-/// The `exclude` setting's directories, each without one trailing `/`: the collector's error on an entry that is not
-/// a project-relative directory (empty, absolute, or with a `..` segment).
+/// The `exclude` setting's directories, normalized to their segments joined by one `/` (`./examples//shop/` is
+/// `examples/shop`): the collector's error on an entry that is not a project-relative directory below the root
+/// (absolute, a drive's, with a `\` or a `..` segment, or with no segment but `.`).
 fn exclude_list(value: Option<&Value>) -> Result<Vec<String>, String> {
     let refuse = |entry: &dyn std::fmt::Display| {
         format!("exclude entry '{entry}' is not a project-relative directory")
@@ -111,14 +112,21 @@ fn exclude_list(value: Option<&Value>) -> Result<Vec<String>, String> {
         .iter()
         .map(|entry| {
             let text = entry.as_str().ok_or_else(|| refuse(entry))?;
-            let dir = text.strip_suffix('/').unwrap_or(text);
             let drive =
-                dir.as_bytes().get(1) == Some(&b':') && dir.as_bytes()[0].is_ascii_alphabetic();
-            if dir.is_empty() || dir.starts_with('/') || drive || dir.split('/').any(|s| s == "..")
+                text.as_bytes().get(1) == Some(&b':') && text.as_bytes()[0].is_ascii_alphabetic();
+            let segments: Vec<&str> = text
+                .split('/')
+                .filter(|s| !s.is_empty() && *s != ".")
+                .collect();
+            if segments.is_empty()
+                || text.starts_with('/')
+                || text.contains('\\')
+                || drive
+                || segments.contains(&"..")
             {
                 return Err(refuse(&text));
             }
-            Ok(dir.to_string())
+            Ok(segments.join("/"))
         })
         .collect()
 }

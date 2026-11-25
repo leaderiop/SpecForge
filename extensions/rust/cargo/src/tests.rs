@@ -226,16 +226,33 @@ fn a_directory_excludes_itself_and_what_lies_under_it() {
 fn the_exclude_list_takes_project_relative_directories_only() {
     assert_eq!(exclude_list(None), Ok(Vec::new()));
     assert_eq!(
-        exclude_list(Some(&json!(["gsd/parity/fixtures/", "examples"]))),
-        Ok(vec![
-            "gsd/parity/fixtures".to_string(),
-            "examples".to_string()
-        ])
+        exclude_list(Some(&json!([
+            "gsd/parity/fixtures/",
+            "examples",
+            "./examples",
+            "examples/./shop",
+            "examples//shop",
+            "examples//"
+        ]))),
+        Ok([
+            "gsd/parity/fixtures",
+            "examples",
+            "examples",
+            "examples/shop",
+            "examples/shop",
+            "examples"
+        ]
+        .map(str::to_string)
+        .to_vec()),
+        "an entry is normalized to the segments a package path is written in"
     );
     for (entry, named) in [
         (json!("/abs"), "/abs"),
         (json!("C:/x"), "C:/x"),
         (json!(""), ""),
+        (json!("."), "."),
+        (json!("./"), "./"),
+        (json!("examples\\shop"), "examples\\shop"),
         (json!("a/../b"), "a/../b"),
         (json!(7), "7"),
     ] {
