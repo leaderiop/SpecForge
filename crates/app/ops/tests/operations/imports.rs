@@ -1,8 +1,10 @@
 //! A command that declares `imports` copies history recorded outside the spec, so its plan is judged for host errors
-//! only, as a collector's (ADR 0392, ADR 0303): an extension's rule error lands, and a host error still refuses the
-//! whole plan. A command that does not declare it is refused for both (E080). `@t/core`'s `import` declares it,
-//! `record` does not; the guard pass reports E087 while a phase's goal is [`GUARDED`], and E901, a code that judges
-//! collected facts, while another phase's goal is [`RACED`] too.
+//! only (ADR 0392): an extension's rule error about authored entities lands; a host error, a first-party
+//! (`@specforge/*`) extension's error and one that judges collected facts still refuse the whole plan. A collector's
+//! plan (ADR 0303) lands that first-party error too; an import's does not. A command that does not declare it is
+//! refused for every error (E080). `@t/core`'s `import` declares it, `record` does not; the guard pass reports E087
+//! while a phase's goal is [`GUARDED`], and E901, a code that judges collected facts, while another phase's goal is
+//! [`RACED`] too.
 
 use std::sync::Arc;
 
