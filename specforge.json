@@ -10,5 +10,18 @@
     "@rust/cargo",
     "@rust/source",
     "@rust/test"
-  ]
+  ],
+  "settings": {
+    "@rust/cargo": {
+      "exclude": [
+        "crates/app/ops/tests/fixtures",
+        "examples",
+        "extensions/rust/manifest/fixtures",
+        "fixtures",
+        "gsd/core/tests/projects",
+        "gsd/parity/fixtures",
+        "xtask/tests/fixtures"
+      ]
+    }
+  }
 }

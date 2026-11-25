@@ -570,3 +570,77 @@ fn the_source_guest_maps_the_fixture_within_its_fuel() {
     let outcome = collect_in(&compiled, None, &machine(None)).unwrap();
     assert_eq!(facts(&outcome, "rust-source").len(), ITEMS.len());
 }
+
+/// The fixture with `src/<module>.rs` holding `source`, declared by its lib.
+fn with_module(module: &str, source: &str) -> TestProject {
+    let lib = std::fs::read_to_string(format!("{FIXTURE}/src/lib.rs")).unwrap();
+    fixture()
+        .file("src/lib.rs", format!("{lib}\nmod {module};\n"))
+        .file(&format!("src/{module}.rs"), source)
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-004")]
+#[specforge_test_macros::test(requirement = "FEATURE-114")]
+fn a_test_compiled_out_on_the_host_is_skipped() {
+    let p = with_module(
+        "extra",
+        "#[cfg(windows)]\n#[test]\nfn only_on_windows() {}\n",
+    );
+    let outcome = collected(&p, None, &machine(None));
+    let id = "rust:adder#extra::only_on_windows";
+    assert_eq!(
+        fact(&outcome, "rust-test", id).fields["status"],
+        "skipped",
+        "the recorded report lacks it: a unix host compiles it out"
+    );
+    assert!(
+        !facts(&outcome, "rust-test")
+            .iter()
+            .any(|f| f.id == format!("run:{id}")),
+        "a test that never ran has no run"
+    );
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-113")]
+fn a_guard_only_helper_is_no_test() {
+    let p = with_module(
+        "guard",
+        "#[specforge_test_macros::test(behavior = \"x\", __guard_only)]\nfn helper() {}\n",
+    );
+    let outcome = collected(&p, None, &machine(None));
+    let helper = fact(&outcome, "rust-source", "rust:adder::guard::helper");
+    assert!(
+        !helper.fields.contains_key("test_id"),
+        "{:?}",
+        helper.fields
+    );
+}
+
+#[specforge_test_macros::test(requirement = "FEATURE-002")]
+#[specforge_test_macros::test(requirement = "FEATURE-108")]
+fn an_excluded_directory_holds_no_package() {
+    let manifest = "[package]\nname = \"subcrate\"\nversion = \"0.1.0\"\nedition = \"2021\"\n";
+    let with_sub = || {
+        fixture()
+            .file("sub/Cargo.toml", manifest)
+            .file("sub/src/lib.rs", "")
+    };
+    let packages = |p: &TestProject| -> Vec<String> {
+        facts(
+            &collected(p, Some("rust-cargo"), &machine(None)),
+            "rust-cargo",
+        )
+        .iter()
+        .map(|f| f.id.clone())
+        .collect()
+    };
+    assert_eq!(
+        packages(&with_sub()),
+        ["pkg:cargo/adder", "pkg:cargo/subcrate"]
+    );
+    let excluded = with_sub().config(|c| {
+        c["settings"] = serde_json::json!({"@rust/cargo": {"exclude": ["sub"]}});
+    });
+    assert_eq!(packages(&excluded), ["pkg:cargo/adder"]);
+}
