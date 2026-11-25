@@ -129,10 +129,9 @@ fn revealed(
 
 /// Which of the errors a plan adds are written rather than refused (E080): the plan records history, which an
 /// extension's rule cannot unmake.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lands {
     /// None: every error the plan adds refuses it (a typed edit; a command's or a hook's plan).
-    #[default]
     Nothing,
     /// Every extension's error, whatever its code: a collector's plan (ADR 0303).
     Extensions,
