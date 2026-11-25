@@ -8,7 +8,7 @@ use std::ops::Range;
 use gsd_kit::markdown::{self, InlineBlock};
 use serde_json::{Value, json};
 
-use super::{blocks_in, is_bullet, mapped, prose, row, slug};
+use super::{blocks_in, is_bullet, mapped, own, prose, row, slug};
 use crate::ids;
 use crate::paths;
 use crate::records::{Record, Records, Source};
@@ -46,14 +46,20 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
     let mut decisions: Vec<String> = Vec::new();
     // A section reported whole covers its sub-sections.
     let mut covered = 0..0;
-    for s in sections::sections(text) {
+    let all = sections::sections(text);
+    for s in all.iter().cloned() {
         if covered.contains(&s.line) {
             continue;
         }
+        // What the section holds itself: a sub-section is read under its own heading.
+        let mine = Section {
+            body: own(&s, &all),
+            ..s.clone()
+        };
         let to = |what: &str, report: &mut Report| report.push(mapped(&at(s.line), &s.title, what));
         let prose_of = |field: &str, fields: &mut BTreeMap<String, Value>, report: &mut Report| {
             to(&format!("project.{field}"), report);
-            if let Some(text) = prose(&blocks, &s.body) {
+            if let Some(text) = prose(&blocks, &mine.body) {
                 fields.insert(field.to_string(), json!(text));
             }
         };
@@ -72,21 +78,21 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             }
             (3, "Out of Scope") => {
                 to("project.out_of_scope", report);
-                let items = out_of_scope(&s, &blocks, &lines, &at, report);
+                let items = out_of_scope(&mine, &blocks, &lines, &at, report);
                 if !items.is_empty() {
                     fields.insert("out_of_scope".to_string(), json!(items));
                 }
             }
             (2, "Constraints") => {
                 to("project.constraints", report);
-                let items = constraints(&s, &blocks, &lines, &at, report);
+                let items = constraints(&mine, &blocks, &lines, &at, report);
                 if !items.is_empty() {
                     fields.insert("constraints".to_string(), json!(items));
                 }
             }
             (2, "Key Decisions") => {
                 to("each row a decision", report);
-                decisions = key_decisions(text, &s.body, &at, records, report);
+                decisions = key_decisions(text, &mine.body, &at, records, report);
             }
             (2, "Business Context" | "Current Milestone") => {
                 covered = s.body.clone();

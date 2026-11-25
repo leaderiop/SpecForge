@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 
 use super::{
     Context, PhaseFile, blocks_in, bullets_in, is_bold_only, is_date, is_footer, is_tag, mapped,
-    phase_file, prose,
+    own, phase_file, prose,
 };
 use crate::ids;
 use crate::records::Records;
@@ -139,16 +139,18 @@ pub fn read(
         }
         let to =
             |what: &str, report: &mut Report| report.push(mapped(&f.at(s.line), &s.title, what));
+        // What the section holds itself: a sub-section is read under its own heading.
+        let mine = own(s, &all);
         let list = |field: &str, fields: &mut BTreeMap<String, Value>, report: &mut Report| {
             to(&format!("context.{field}"), report);
-            let items: Vec<&str> = t.bullets(&s.body).into_iter().map(|(_, b)| b).collect();
+            let items: Vec<&str> = t.bullets(&mine).into_iter().map(|(_, b)| b).collect();
             if !items.is_empty() {
                 fields.insert(field.to_string(), json!(items));
             }
         };
         let prose_of = |field: &str, fields: &mut BTreeMap<String, Value>, report: &mut Report| {
             to(&format!("context.{field}"), report);
-            if let Some(text) = prose(&t.blocks, &s.body) {
+            if let Some(text) = prose(&t.blocks, &mine) {
                 fields.insert(field.to_string(), json!(text));
             }
         };
@@ -173,7 +175,11 @@ pub fn read(
             (3, DECISIONS, title) if discretion(title) => list("discretion", &mut fields, report),
             (3, DECISIONS, _) => {
                 to("each D-NN bullet a decision", report);
-                decisions(&f, &t, s, &mut decided, records, report)
+                let area = Section {
+                    body: mine.clone(),
+                    ..s.clone()
+                };
+                decisions(&f, &t, &area, &mut decided, records, report)
             }
             (3, INSIGHTS, "Reusable Assets") => list("reusable_assets", &mut fields, report),
             (3, INSIGHTS, "Established Patterns") => list("patterns", &mut fields, report),

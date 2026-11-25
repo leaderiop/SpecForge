@@ -12,7 +12,7 @@ use gsd_kit::markdown::{self, Table};
 use serde_json::{Value, json};
 
 use super::context::{Text, discretion};
-use super::{Context, PhaseFile, blocks_in, is_date, is_footer, labelled, phase_file, prose};
+use super::{Context, PhaseFile, blocks_in, is_date, is_footer, labelled, own, phase_file, prose};
 use crate::ids;
 use crate::records::{Record, Records};
 use crate::report::Report;
@@ -187,7 +187,12 @@ pub fn read(
             }
         } else if level == 2 && title_ == "Summary" {
             report.push(f.mapped(s.line, title_, "research.summary and its findings"));
-            summary(&mut items, &t, s, &mut fields, records, report);
+            // What the section holds itself: a sub-section is read under its own heading.
+            let mine = Section {
+                body: own(s, &all),
+                ..s.clone()
+            };
+            summary(&mut items, &t, &mine, &mut fields, records, report);
         } else if level == 3
             && in_parent(STACK)
             && let Some(tier) = tier_of(title_)

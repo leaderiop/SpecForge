@@ -214,6 +214,34 @@ fn a_context_reports_bad_decisions_and_deferred_ideas() {
 }
 
 #[test]
+fn a_sub_section_is_never_its_parents_field() {
+    let context =
+        "# C\n\n## Phase Boundary\n\nB.\n\n### Detail\n\nMore.\n\n## Specific Ideas\n\nS.\n";
+    let research = format!("{HEAD}### Detail\n\nMore.\n");
+    let out = run(vec![(CONTEXT, context), (RESEARCH, research.as_str())]);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let all = creates(&out);
+    assert_eq!(
+        find(&all, "context", "v1.0/02/02-CONTEXT").fields,
+        json!({"phase": "v1.0/02", "boundary": "B.", "specifics": "S."})
+    );
+    assert_eq!(
+        find(&all, "research", "v1.0/02/02-RESEARCH").fields["summary"],
+        "S."
+    );
+    for (file, line, says) in [
+        (CONTEXT, 7, "no row of the NN-CONTEXT.md table"),
+        (RESEARCH, 9, "no row of the NN-RESEARCH.md table"),
+    ] {
+        let reported = entries(&out, file);
+        assert!(
+            has(&reported, line, "unmapped", says),
+            "{line} {says}: {reported:#?}"
+        );
+    }
+}
+
+#[test]
 fn a_context_without_a_boundary_is_dropped_and_its_decisions_kept() {
     let text = "# C\n\n<decisions>\n## Implementation Decisions\n\n### A\n- **D-01:** kept\n</decisions>\n";
     let out = run(vec![(PHASE_CONTEXT, text)]);

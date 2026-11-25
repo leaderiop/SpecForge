@@ -521,6 +521,21 @@ fn a_project_reports_what_it_cannot_map() {
 }
 
 #[test]
+fn a_project_sub_section_is_never_its_parents_field() {
+    let text = "# Odd Project\n\n## What This Is\n\nA thing.\n\n### Details\n\nMore.\n\n## Constraints\n\n- **Budget**: none — free\n\n### Later\n\n- **Timeline**: soon\n\n## Core Value\n\nIt works.\n\n## Context\n\nNone.\n";
+    let out = import_one(".planning/PROJECT.md", text);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let (_, project) = create_of(&out, "project", "odd-project");
+    assert_eq!(project["what"], "A thing.");
+    assert_eq!(
+        project["constraints"],
+        json!([{"kind": "budget", "what": "none", "why": "free"}])
+    );
+    assert!(lines_of(&out, 7, "no row of the PROJECT.md table"));
+    assert!(lines_of(&out, 15, "no row of the PROJECT.md table"));
+}
+
+#[test]
 fn a_second_project_title_covers_nothing_after_it() {
     let text = "# Odd Project\n\n## What This Is\n\nA thing.\n\n# Appendix\n\n## Key Decisions\n\n| Decision | Rationale | Outcome |\n|---|---|---|\n| Use X | because | ✓ Good |\n";
     let out = import_one(".planning/PROJECT.md", text);

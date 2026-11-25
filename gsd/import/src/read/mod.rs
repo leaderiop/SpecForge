@@ -28,6 +28,7 @@ use crate::paths;
 use crate::preflight::Manifest;
 use crate::records::{Record, Records, Source};
 use crate::report::{Entry, Outcome, Report};
+use crate::sections::Section;
 use crate::settings;
 use crate::table::{self, Fate, Home, TIER_2};
 use plan::{Doc, Scope};
@@ -273,6 +274,16 @@ pub fn slug(text: &str) -> String {
         }
     }
     out.trim_end_matches('-').to_string()
+}
+
+/// The lines the section `s` holds itself: its body up to its first sub-section (`all` are the file's sections, in line
+/// order). A sub-section is read under its own heading, never into its parent's field.
+pub fn own(s: &Section, all: &[Section]) -> Range<usize> {
+    let end = all
+        .iter()
+        .find(|h| h.line > s.line)
+        .map_or(s.body.end, |h| h.line.min(s.body.end));
+    s.body.start..end
 }
 
 /// The leaf blocks whose first line lies in `lines`.
