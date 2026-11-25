@@ -38,6 +38,15 @@ fn a_short_walk_is_the_collectors_error_whatever_the_answers_cap() {
 }
 
 #[specforge_test(requirement = "FEATURE-056")]
+fn a_test_files_helpers_are_no_item_beside_its_test_calls() {
+    let facts = collected(&[(
+        "src/b.test.js",
+        "export const t = 1;\nfunction helper() {}\ntest(\"works\", () => helper());\n",
+    )]);
+    assert_eq!(items(&facts), ["js:app/src/b.test.js::works"]);
+}
+
+#[specforge_test(requirement = "FEATURE-056")]
 fn a_kept_file_the_fs_port_withholds_is_the_collectors_error() {
     let files = [
         APP,
