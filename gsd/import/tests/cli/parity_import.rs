@@ -5,7 +5,8 @@
 
 use serde_json::{Value, json};
 
-use crate::compare::{self, Excluded, ID_PAIRS};
+use crate::compare::Expect::{Absent, Is};
+use crate::compare::{self, Excluded, Expect, ID_PAIRS};
 use crate::harness::{Project, judged, ledger, taskboard, unjudged, vault};
 use crate::imported;
 
@@ -36,16 +37,18 @@ pub const VAULT_SECURITY_OWED: [(&str, &str); 3] = [
     ("gsd.security/W303", "v1.0/01/01-SECURITY"),
 ];
 
-/// `(fixture, kind, id, field, reason)`: each difference of an imported fixture from its twin that is not a guest
-/// defect, with where it comes from. `field` is a field name, `title`, [`compare::IMPORT_ONLY`] or
-/// [`compare::TWIN_ONLY`].
-pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
+/// `(fixture, kind, id, field, import, reason)`: each difference of an imported fixture from its twin that is not a
+/// guest defect, what the import's value is (folded as [`compare::differences`] folds it), and where it comes from.
+/// `field` is a field name, `title`, [`compare::IMPORT_ONLY`] or [`compare::TWIN_ONLY`]. A listed field is checked on
+/// both sides: the twin's value differs, and the import's is the one the reason describes.
+pub const DIFFERENCES: &[(&str, &str, &str, &str, Expect, &str)] = &[
     // taskboard
     (
         "taskboard",
         "deliverable",
         "v1.0/01/01-01/01-01-SUMMARY/D1",
         "title",
+        Is(r#""a task is added with the next integer id and keeps its title""#),
         "twin shortens: its title cuts the coverage description `01-01-SUMMARY.md:27` (spec/plans.spec:264), which the import keeps whole",
     ),
     (
@@ -53,6 +56,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "deliverable",
         "v1.0/01/01-02/01-02-SUMMARY/D1",
         "title",
+        Is(r#""a task is completed by its id, and an unknown id is refused by name""#),
         "twin shortens: its title cuts the coverage description `01-02-SUMMARY.md:30`, which the import keeps whole",
     ),
     (
@@ -60,6 +64,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "discussion",
         "v1.0/02/02-DISCUSSION-LOG",
         "entries",
+        Is(
+            r#"[{"area":"storage format","chosen":"one JSON file","mode":"interactive","notes":"the project ships as one script with no dependencies, so SQLite is out","options":["one JSON file","sQLite"]},{"area":"titles","chosen":"stored as typed","mode":"interactive","notes":"a title is the user's own words","options":["stored as typed","trimmed"]}]"#,
+        ),
         "twin gap (RESEARCH D9): the twin drops each entry's `**Notes:**` line (`02-DISCUSSION-LOG.md:20,32`), which the import maps to `notes`",
     ),
     (
@@ -67,6 +74,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "finding",
         "v1.0/02/02-RESEARCH/F1",
         "sources",
+        Absent,
         "no source (RESEARCH D7): the recommendation line `02-RESEARCH.md:85` names no source; the twin invents `[SRC1]`",
     ),
     (
@@ -74,6 +82,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "finding",
         "v1.0/02/02-RESEARCH/F1",
         "topic",
+        Absent,
         "no source (RESEARCH D7): the recommendation line `02-RESEARCH.md:85` names no topic; the twin invents `stack`",
     ),
     (
@@ -81,6 +90,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "plan",
         "v1.0/01/01-01",
         "context_refs",
+        Absent,
         "twin's own paths (RESEARCH D5): the twin names its spec files; the source's `.planning/*` refs name files the import does not write",
     ),
     (
@@ -88,6 +98,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "plan",
         "v1.0/01/01-02",
         "context_refs",
+        Absent,
         "twin's own paths (RESEARCH D5): the twin names its spec files; the source's `.planning/*` refs name files the import does not write",
     ),
     (
@@ -95,6 +106,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "plan",
         "v1.0/02/02-01",
         "context_refs",
+        Absent,
         "twin's own paths (RESEARCH D5): the twin names its spec files; the source's `.planning/*` refs name files the import does not write",
     ),
     (
@@ -102,6 +114,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "project",
         "taskboard",
         "context",
+        Is(
+            r#""built to prove the GSD model in SpecForge. Small enough that one person reads all of it""#,
+        ),
         "twin shortens (RESEARCH D2): the twin keeps the first sentence of `PROJECT.md:31`, the import the whole section",
     ),
     (
@@ -109,6 +124,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "project",
         "taskboard",
         "out_of_scope",
+        Is(
+            r#"[{"item":"sharing a board by link","why":"needs accounts, which v1 does not have"}]"#,
+        ),
         "twin gap (RESEARCH D3): `PROJECT.md:25-27` is mapped to `out_of_scope`; the twin carries it as requirement SHARE-01 instead",
     ),
     (
@@ -116,6 +134,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "project",
         "taskboard",
         "what",
+        Is(
+            r#""a small board for tracking tasks from the command line. A user adds a task with a title, marks it complete and lists what is left. It is a Node 20 script with no dependencies, built to prove the GSD model in SpecForge""#,
+        ),
         "twin shortens (RESEARCH D1): the twin keeps the first sentence of `PROJECT.md:5-6`, the import the whole section",
     ),
     (
@@ -123,6 +144,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "requirement",
         "SHARE-01",
         "text",
+        Is(r#""share a board by link""#),
         "twin invents (RESEARCH D4): an out-of-scope row has no requirement text; the import takes the Feature cell `REQUIREMENTS.md:39`",
     ),
     (
@@ -130,6 +152,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "research",
         "v1.0/02/02-RESEARCH",
         "summary",
+        Is(
+            r#""a board of a few hundred tasks fits in one JSON file. Node's own fs module reads and writes it, and a write to a temporary name followed by a rename keeps the file whole if the process dies mid-write""#,
+        ),
         "twin paraphrases (RESEARCH D8): the import keeps the paragraph `02-RESEARCH.md:34` as written",
     ),
     (
@@ -137,6 +162,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "summary",
         "v1.0/01/01-02/01-02-SUMMARY",
         "requires",
+        Is(r#"[{"phase":"01","provides":"createBoard and addTask"}]"#),
         "twin gap (RESEARCH D6): the block-form `requires` of `01-02-SUMMARY.md:7-9` is mapped; the twin has none",
     ),
     (
@@ -144,6 +170,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "uat_session",
         "v1.0/01/01-UAT",
         "source",
+        Is(r#"["01-01/01-01-SUMMARY","01-02/01-02-SUMMARY"]"#),
         "reference spelling: the import writes each summary scope-relative (`01-01/01-01-SUMMARY`), the twin the full path (spec/verify.spec:3); both resolve to the same entity",
     ),
     // ledger
@@ -152,6 +179,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "plan",
         "v1.0/01/01-01",
         "context_refs",
+        Absent,
         "twin's own paths (RESEARCH D5): the twin names its spec files; the source's `.planning/*` refs name files the import does not write",
     ),
     (
@@ -159,6 +187,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "plan",
         "v1.0/01/01-02",
         "context_refs",
+        Absent,
         "twin's own paths (RESEARCH D5): the twin names its spec files; the source's `.planning/*` refs name files the import does not write",
     ),
     (
@@ -166,6 +195,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "plan",
         "v1.0/02/02-01",
         "context_refs",
+        Absent,
         "twin's own paths (RESEARCH D5): the twin names its spec files; the source's `.planning/*` refs name files the import does not write",
     ),
     (
@@ -173,6 +203,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "project",
         "ledger",
         "out_of_scope",
+        Is(r#"[{"item":"currencies other than one","why":"a ledger is one currency"}]"#),
         "twin gap (RESEARCH D3): `PROJECT.md:25-27` is mapped to `out_of_scope`; the twin carries it as requirement CURR-01 instead",
     ),
     (
@@ -180,6 +211,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "project",
         "ledger",
         "what",
+        Is(
+            r#""a ledger of money on the command line: a user adds an entry in integer cents with a memo, and asks for the total. It is a Rust binary with no dependencies, built to give the GSD A/B a project whose CI is red""#,
+        ),
         "twin shortens (RESEARCH D1): the twin keeps the first sentence of `PROJECT.md:5-6`, the import the whole section",
     ),
     (
@@ -187,6 +221,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "requirement",
         "CURR-01",
         "text",
+        Is(r#""several currencies""#),
         "twin invents (RESEARCH D4): an out-of-scope row has no requirement text; the import takes the Feature cell `REQUIREMENTS.md:37`",
     ),
     (
@@ -194,6 +229,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "summary",
         "261105-tcl/261105-tcl-SUMMARY",
         "subsystem",
+        Is(r#""quick""#),
         "no source (RESEARCH D14): the quick summary has no `subsystem`; the import fills `quick` and reports it, the twin invents `entries`",
     ),
     (
@@ -201,6 +237,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "task",
         "v1.0/01/01-01/T1",
         "action",
+        Is(
+            r#""create the ledger package (no dependencies) and src/lib.rs with Entry { cents: i64, memo: String } and add(entries, cents, memo), which refuses a memo holding a tab or a line break; line and parse write and read the store's <cents>\\t<memo> lines""#,
+        ),
         "twin escape: the twin writes `\\t` inside a .spec string, which the parser reads as a tab (spec/plans.spec:18); the import keeps the two characters of `01-01-PLAN.md:42`",
     ),
     // vault
@@ -209,6 +248,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "accepted_risk",
         "v1.0/01/01-SECURITY/AR1",
         "threat",
+        Is(r#""01-02/T-01-03""#),
         "reference spelling: the import writes the threat scope-relative (`01-02/T-01-03`), the twin the full path (spec/security.spec:7); both resolve to the same entity",
     ),
     (
@@ -216,6 +256,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "audit_run",
         "v1.0/01/01-SECURITY/AU1",
         "at",
+        Is(r#""2026-10-29T00:00:00Z""#),
         "no source (RESEARCH D12): `01-SECURITY.md:52` gives a date only; the import fills `T00:00:00Z` and reports it, the twin invents 10:00",
     ),
     (
@@ -223,6 +264,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "audit_run",
         "v1.0/01/01-SECURITY/AU1",
         "run_by",
+        Absent,
         "no source (RESEARCH D12): the audit trail names no runner; the twin invents `gsd-security-auditor` (spec/security.spec:19)",
     ),
     (
@@ -230,6 +272,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "plan",
         "v1.0/01/01-01",
         "context_refs",
+        Absent,
         "twin's own paths (RESEARCH D5): the twin names its spec files; the source's `.planning/*` refs name files the import does not write",
     ),
     (
@@ -237,6 +280,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "plan",
         "v1.0/01/01-02",
         "context_refs",
+        Absent,
         "twin's own paths (RESEARCH D5): the twin names its spec files; the source's `.planning/*` refs name files the import does not write",
     ),
     (
@@ -244,6 +288,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "plan",
         "v1.0/02/02-01",
         "context_refs",
+        Absent,
         "twin's own paths (RESEARCH D5): the twin names its spec files; the source's `.planning/*` refs name files the import does not write",
     ),
     (
@@ -251,6 +296,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "project",
         "vault",
         "context",
+        Is(
+            r#""built to prove the GSD security capability in SpecForge. Small enough that one person reads all of it""#,
+        ),
         "twin shortens (RESEARCH D2): the twin keeps the first sentence of `PROJECT.md:21`, the import the whole section",
     ),
     (
@@ -258,6 +306,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "project",
         "vault",
         "what",
+        Is(
+            r#""a small encrypted store for secrets, driven from the command line. A user sets a named secret, reads it back and lists the names. It is a Node 20 script with no dependencies, built to prove the GSD security model in SpecForge""#,
+        ),
         "twin shortens (RESEARCH D1): the twin keeps the first sentence of `PROJECT.md:5-6`, the import the whole section",
     ),
     (
@@ -265,6 +316,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "security_audit",
         "v1.0/01/01-SECURITY",
         "asvs_level",
+        Is(r#"1"#),
         "twin gap (RESEARCH D12): the frontmatter `asvs_level` of `01-SECURITY.md:7` is mapped (harness, as a peer); the twin has none",
     ),
     (
@@ -272,6 +324,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "security_audit",
         "v1.0/01/01-SECURITY",
         "created",
+        Is(r#""2026-10-30T00:00:00Z""#),
         "twin gap (RESEARCH D12): the frontmatter `created` of `01-SECURITY.md:8` is mapped, filled to midnight; the twin has none",
     ),
     (
@@ -279,6 +332,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "summary",
         "v1.0/01/01-02/01-02-SUMMARY",
         "threat_flags",
+        Is(
+            r#"["threat_flag: information_disclosure | src/cli.js | the secret is an argv entry, visible in ps and in shell history"]"#,
+        ),
         "twin gap (RESEARCH D15): the `## Threat Flags` table of `01-02-SUMMARY.md:45-49` is mapped; the twin has none",
     ),
     (
@@ -286,6 +342,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "task",
         "v1.0/01/01-01/T1",
         "action",
+        Is(
+            r#""create package.json (ES modules, npm test runs node --test) and src/vault.js: seal(vault, key) encrypts the secrets with AES-256-GCM under a fresh 12-byte IV and returns IV, auth tag and data; open(blob, key) reverses it and throws when the tag does not verify""#,
+        ),
         "twin shortens (RESEARCH D10): the import keeps `01-01-PLAN.md:41` verbatim",
     ),
     (
@@ -293,6 +352,9 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "task",
         "v1.0/01/01-02/T1",
         "verify_text",
+        Is(
+            r#""vAULT_KEY=$(node -e \"console.log('07'.repeat(32))\") node src/cli.js set db hunter2 && VAULT_KEY=$(node -e \"console.log('07'.repeat(32))\") node src/cli.js get db""#,
+        ),
         "twin shortens (RESEARCH D10): the import keeps the `<verify>` of `01-02-PLAN.md:42` verbatim",
     ),
     (
@@ -300,6 +362,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-01/T-01-01",
         "evidence",
+        Absent,
         "no source (RESEARCH D11): `01-SECURITY.md` records no evidence; the twin holds what an audit would write",
     ),
     (
@@ -307,6 +370,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-01/T-01-01",
         "files",
+        Absent,
         "authored after import (RESEARCH D11): `files` is SpecForge-only, with no `.planning/` counterpart (vault README)",
     ),
     (
@@ -314,6 +378,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-01/T-01-02",
         "evidence",
+        Absent,
         "no source (RESEARCH D11): `01-SECURITY.md` records no evidence; the twin holds what an audit would write",
     ),
     (
@@ -321,6 +386,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-01/T-01-02",
         "files",
+        Absent,
         "authored after import (RESEARCH D11): `files` is SpecForge-only, with no `.planning/` counterpart (vault README)",
     ),
     (
@@ -328,6 +394,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-01/T-01-02",
         "status",
+        Absent,
         "no source (RESEARCH D11, D13): `01-SECURITY.md` has no row for plan 01-01's T-01-02 (its one T-01-02 row, line 31, names plan 01-02's component); the import invents no status",
     ),
     (
@@ -335,6 +402,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-01/T-01-SC",
         "evidence",
+        Absent,
         "no source (RESEARCH D11): `01-SECURITY.md` records no evidence; the twin holds what an audit would write",
     ),
     (
@@ -342,6 +410,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-01/T-01-SC",
         "files",
+        Absent,
         "authored after import (RESEARCH D11): `files` is SpecForge-only, with no `.planning/` counterpart (vault README)",
     ),
     (
@@ -349,6 +418,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-01/T-01-SC",
         "status",
+        Absent,
         "no source (RESEARCH D11, D13): `01-SECURITY.md` has no T-01-SC row; the import invents no status",
     ),
     (
@@ -356,6 +426,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-02/T-01-03",
         "files",
+        Absent,
         "authored after import (RESEARCH D11): `files` is SpecForge-only, with no `.planning/` counterpart (vault README)",
     ),
     (
@@ -363,6 +434,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-02/T-01-SC",
         "evidence",
+        Absent,
         "no source (RESEARCH D11): `01-SECURITY.md` records no evidence; the twin holds what an audit would write",
     ),
     (
@@ -370,6 +442,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-02/T-01-SC",
         "files",
+        Absent,
         "authored after import (RESEARCH D11): `files` is SpecForge-only, with no `.planning/` counterpart (vault README)",
     ),
     (
@@ -377,6 +450,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "threat",
         "v1.0/01/01-02/T-01-SC",
         "status",
+        Absent,
         "no source (RESEARCH D11, D13): `01-SECURITY.md` has no T-01-SC row; the import invents no status",
     ),
     (
@@ -384,6 +458,7 @@ pub const DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[
         "trust_boundary",
         "v1.0/01/01-02/TB1",
         "data_crossing",
+        Is(r#""secrets and the key, in the clear""#),
         "twin gap (RESEARCH D13): the Data Crossing cell of `01-SECURITY.md:22` is mapped; the twin has none",
     ),
 ];
@@ -441,10 +516,10 @@ fn imported_entities_equal_the_twins() {
             .filter(|(fixture, ..)| *fixture == name)
             .map(|(_, kind, from, to)| (*kind, *from, *to))
             .collect();
-        let listed: Vec<(&str, &str, &str)> = DIFFERENCES
+        let listed: Vec<(&str, &str, &str, Expect)> = DIFFERENCES
             .iter()
             .filter(|(fixture, ..)| *fixture == name)
-            .map(|(_, kind, id, field, _)| (*kind, *id, *field))
+            .map(|(_, kind, id, field, import, _)| (*kind, *id, *field, *import))
             .collect();
         if printing {
             for d in compare::differences(&import, &twin, &pairs, &excluded) {
@@ -460,13 +535,69 @@ fn imported_entities_equal_the_twins() {
     }
 }
 
+/// The classes a difference's reason opens with (13-RESEARCH "Per-Fixture Mapping").
+const CLASSES: [&str; 9] = [
+    "twin shortens",
+    "twin gap",
+    "twin invents",
+    "twin paraphrases",
+    "twin escape",
+    "twin's own paths",
+    "no source",
+    "authored after import",
+    "reference spelling",
+];
+
+/// The lines of the fixture file named `name` (`PROJECT.md`, `spec/plans.spec`) under `root`, if one is there.
+fn fixture_lines(root: &std::path::Path, name: &str) -> Option<Vec<String>> {
+    let base = name.rsplit('/').next().unwrap_or(name);
+    for entry in std::fs::read_dir(root).ok()? {
+        let path = entry.ok()?.path();
+        let found = if path.is_dir() {
+            fixture_lines(&path, name)
+        } else if path.file_name().is_some_and(|f| f == base) && path.ends_with(name) {
+            std::fs::read_to_string(&path)
+                .ok()
+                .map(|t| t.lines().map(str::to_string).collect())
+        } else {
+            None
+        };
+        if found.is_some() {
+            return found;
+        }
+    }
+    None
+}
+
+/// Each reason names its class and where the difference comes from: a 13-RESEARCH D-number, or a `file:line` that
+/// the fixture holds (its `.planning/` source or its twin's spec) at a line that is not blank.
 #[test]
-fn every_difference_has_a_reason() {
-    for (fixture, kind, id, field, reason) in DIFFERENCES {
+fn every_difference_names_its_class_and_a_live_citation() {
+    let cite = regex::Regex::new(r"([\w./-]+\.(?:md|spec)):(\d+)").expect("a pattern");
+    let research = regex::Regex::new(r"RESEARCH D\d+").expect("a pattern");
+    let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures");
+    for (fixture, kind, id, field, _, reason) in DIFFERENCES {
+        let at = format!("{fixture} {kind} {id} {field}");
         assert!(
-            !reason.trim().is_empty(),
-            "{fixture} {kind} {id} {field}: no reason"
+            CLASSES.iter().any(|c| reason.starts_with(c)),
+            "{at}: `{reason}` names none of {CLASSES:?}"
         );
+        let cited: Vec<(String, usize)> = cite
+            .captures_iter(reason)
+            .map(|c| (c[1].to_string(), c[2].parse().unwrap_or(0)))
+            .collect();
+        assert!(
+            !cited.is_empty() || research.is_match(reason),
+            "{at}: `{reason}` cites nothing"
+        );
+        for (file, line) in cited {
+            let lines = fixture_lines(&fixtures.join(fixture), &file)
+                .unwrap_or_else(|| panic!("{at}: {fixture} holds no {file}"));
+            assert!(
+                line >= 1 && lines.get(line - 1).is_some_and(|l| !l.trim().is_empty()),
+                "{at}: {file}:{line} is past the file or blank"
+            );
+        }
     }
 }
 

@@ -2,8 +2,8 @@
 //! nodes, keyed by (kind, id path), each value folded the way the twins shorten what `.planning/` says, and what no
 //! import can write left out: the computed and context fields (core's from its kinds golden,
 //! `gsd/core/tests/golden/kinds.json`; `@gsd/security`'s from `gsd_security::kinds::computed()`), every verdict, and
-//! every `context_pack`. What still differs is either listed, with its reason, or a failure; a listed difference that no
-//! longer occurs is a failure too.
+//! every `context_pack`. What still differs is either listed, with its reason and the import's value, or a failure; a
+//! listed difference that no longer occurs, or whose import value is not the listed one, is a failure too.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -38,6 +38,28 @@ pub const ID_PAIRS: [(&str, &str, &str, &str); 2] = [
     ("taskboard", "requirement", "OOS-01", "SHARE-01"),
     ("ledger", "requirement", "OOS-01", "CURR-01"),
 ];
+
+/// What a listed difference's import value is, folded as [`differences`] folds it: a listed field is checked on both
+/// sides, never exempt from a value check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Expect {
+    /// Exactly this JSON value.
+    Is(&'static str),
+    /// No value: the field is absent or empty in the import.
+    Absent,
+}
+
+impl Expect {
+    /// Whether the folded import value `import` is this one.
+    pub fn admits(self, import: &Value) -> bool {
+        match self {
+            Expect::Is(json) => {
+                serde_json::from_str::<Value>(json).is_ok_and(|expected| expected == *import)
+            }
+            Expect::Absent => import.is_null(),
+        }
+    }
+}
 
 /// One way the two sides differ: on the entity (twin's key once paired) and the field (`title`, a field name,
 /// [`IMPORT_ONLY`] or [`TWIN_ONLY`]), with each side's folded value (`null` when absent or empty).
@@ -222,43 +244,50 @@ pub fn differences(
     out
 }
 
-/// What [`compare`] found wrong: the differences no row lists, and the rows listing a difference that no longer
-/// occurs. Both empty is a pass.
+/// What [`compare`] found wrong: the differences no row lists, the rows listing a difference that no longer occurs, and
+/// the listed differences whose import value is not the row's. All empty is a pass.
 #[derive(Debug, Default, PartialEq)]
 pub struct Compared {
     pub unlisted: Vec<Difference>,
     pub gone: Vec<(String, String, String)>,
+    pub wrong: Vec<Difference>,
 }
 
 /// `import` against `twin` (graph nodes), with `pairs` (kind, import id, twin id) and `listed`, the (kind, id, field)
-/// of each known difference.
+/// of each known difference and its import value.
 pub fn compare(
     import: &[Value],
     twin: &[Value],
     pairs: &[(&str, &str, &str)],
-    listed: &[(&str, &str, &str)],
+    listed: &[(&str, &str, &str, Expect)],
     excluded: &Excluded,
 ) -> Compared {
     let found = differences(import, twin, pairs, excluded);
-    let unlisted = found
+    let row = |d: &Difference| {
+        listed
+            .iter()
+            .find(|(k, id, f, _)| d.kind == *k && d.id == *id && d.field == *f)
+    };
+    let unlisted = found.iter().filter(|d| row(d).is_none()).cloned().collect();
+    let wrong = found
         .iter()
-        .filter(|d| {
-            !listed
-                .iter()
-                .any(|(k, id, f)| d.kind == *k && d.id == *id && d.field == *f)
-        })
+        .filter(|d| row(d).is_some_and(|(.., expect)| !expect.admits(&d.import)))
         .cloned()
         .collect();
     let gone = listed
         .iter()
-        .filter(|(k, id, f)| {
+        .filter(|(k, id, f, _)| {
             !found
                 .iter()
                 .any(|d| d.kind == *k && d.id == *id && d.field == *f)
         })
-        .map(|(k, id, f)| (k.to_string(), id.to_string(), f.to_string()))
+        .map(|(k, id, f, _)| (k.to_string(), id.to_string(), f.to_string()))
         .collect();
-    Compared { unlisted, gone }
+    Compared {
+        unlisted,
+        gone,
+        wrong,
+    }
 }
 
 #[cfg(test)]
@@ -382,7 +411,8 @@ mod tests {
     #[test]
     fn a_listed_difference_that_is_gone_fails() {
         let same = [node("plan", "P", "P", json!({"goal": "g"}))];
-        let compared = compare(&same, &same, &[], &[("plan", "P", "goal")], &excluded());
+        let listed = [("plan", "P", "goal", Expect::Is(r#""g""#))];
+        let compared = compare(&same, &same, &[], &listed, &excluded());
         assert_eq!(compared.unlisted, []);
         assert_eq!(compared.gone, [("plan".into(), "P".into(), "goal".into())]);
     }
@@ -393,8 +423,40 @@ mod tests {
         let twin = [node("plan", "P", "P", json!({"goal": "two"}))];
         let unlisted = compare(&import, &twin, &[], &[], &excluded());
         assert_eq!(unlisted.unlisted.len(), 1);
-        let listed = compare(&import, &twin, &[], &[("plan", "P", "goal")], &excluded());
+        let row = [("plan", "P", "goal", Expect::Is(r#""one""#))];
+        let listed = compare(&import, &twin, &[], &row, &excluded());
         assert_eq!(listed, Compared::default());
+    }
+
+    /// A listed field is no exemption: an import value other than the row's fails, the twin's differing or not.
+    #[test]
+    fn a_listed_difference_with_another_import_value_fails() {
+        let import = [node("plan", "P", "P", json!({"goal": "", "name": "one"}))];
+        let twin = [node(
+            "plan",
+            "P",
+            "P",
+            json!({"goal": "two", "name": "two"}),
+        )];
+        let rows = [
+            ("plan", "P", "goal", Expect::Is(r#""one""#)),
+            ("plan", "P", "name", Expect::Absent),
+        ];
+        let compared = compare(&import, &twin, &[], &rows, &excluded());
+        let wrong: Vec<(&str, &Value)> = compared
+            .wrong
+            .iter()
+            .map(|d| (d.field.as_str(), &d.import))
+            .collect();
+        assert_eq!(wrong, [("goal", &Value::Null), ("name", &json!("one"))]);
+        let rows = [
+            ("plan", "P", "goal", Expect::Absent),
+            ("plan", "P", "name", Expect::Is(r#""one""#)),
+        ];
+        assert_eq!(
+            compare(&import, &twin, &[], &rows, &excluded()),
+            Compared::default()
+        );
     }
 
     #[test]
