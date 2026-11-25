@@ -221,6 +221,15 @@ impl Report {
         self.len() == 0
     }
 
+    /// The 1-based lines of `file` that an entry is about.
+    pub fn lines(&self, file: &str) -> std::collections::BTreeSet<usize> {
+        self.entries
+            .iter()
+            .filter(|e| e.file == file)
+            .filter_map(|e| e.line)
+            .collect()
+    }
+
     /// The entries, sorted by file, line, section, outcome and reason.
     pub fn entries(&self) -> Vec<&Entry> {
         sorted(&self.entries)

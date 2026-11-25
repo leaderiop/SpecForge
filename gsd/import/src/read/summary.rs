@@ -314,7 +314,8 @@ fn body_sections(
     let mut h1 = false;
     // Whether a `##` section, reported with its sub-sections, holds the lines here.
     let mut under = false;
-    for s in sections::sections(body) {
+    let all = sections::sections(body);
+    for s in all.iter().cloned() {
         let line = s.line + 1;
         if s.level <= 2 {
             under = s.level == 2;
@@ -323,15 +324,28 @@ fn body_sections(
             (1, _) if !h1 => {
                 h1 = true;
                 report.push(doc.row("# title", line, &s.title));
-                let bold = s
+                let first = s
                     .body
                     .clone()
-                    .filter(|&n| !fenced[n])
-                    .map(|n| lines[n].trim())
-                    .find(|l| !l.is_empty())
-                    .and_then(|l| l.strip_prefix("**")?.strip_suffix("**"))
+                    .find(|&n| !fenced[n] && !lines[n].trim().is_empty());
+                let bold = first
+                    .and_then(|n| lines[n].trim().strip_prefix("**")?.strip_suffix("**"))
                     .map(str::trim)
                     .filter(|l| !l.is_empty());
+                // The title's own text past its one-liner (a paragraph, a list) is no field's.
+                let mine = super::own(&s, &all);
+                for b in gsd_kit::markdown::inline_blocks(body) {
+                    let left = b.lines.iter().copied().find(|&n| {
+                        mine.contains(&n) && !(bold.is_some() && Some(n) == first)
+                    });
+                    if let Some(at) = left {
+                        report.push(doc.unmapped(
+                            at + 1,
+                            &s.title,
+                            "text under the title other than its bold one-liner: no field holds it".to_string(),
+                        ));
+                    }
+                }
                 match bold {
                     Some(one_liner) => {
                         fields.insert("one_liner".to_string(), json!(one_liner));

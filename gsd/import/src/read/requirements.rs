@@ -7,13 +7,15 @@ use std::collections::BTreeMap;
 use gsd_kit::markdown;
 use serde_json::{Value, json};
 
-use super::{is_date, mapped};
+use super::{Rest, is_date, is_footer, mapped, own, row};
 use crate::paths;
 use crate::records::{Record, Records, Source};
 use crate::report::{Entry, Outcome, Report};
 use crate::sections::{self, Section};
 
 const OUT_OF_SCOPE: &str = "Out of Scope";
+
+const RQ: &str = "REQUIREMENTS.md";
 
 /// What a section no row names becomes.
 const UNKNOWN: &str = "a section no row of the REQUIREMENTS.md table names: not imported";
@@ -23,10 +25,9 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
     let lines: Vec<&str> = text.split('\n').map(|l| l.trim_end_matches('\r')).collect();
     let fenced = sections::fenced(text);
     // The family's one Markdown reader: a `#` line in a fence or a comment is no heading, `##\t` and setext are.
-    let headings: BTreeMap<usize, Section> = sections::sections(text)
-        .into_iter()
-        .map(|s| (s.line, s))
-        .collect();
+    let all = sections::sections(text);
+    let headings: BTreeMap<usize, &Section> = all.iter().map(|s| (s.line, s)).collect();
+    let mut rest = Rest::default();
     let at = |line: usize| Source {
         file: path.to_string(),
         line: line + 1,
@@ -46,6 +47,10 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
         }
         if let Some(s) = headings.get(&n) {
             let title = s.title.trim();
+            // What a mapped heading holds itself is read below, and what no line takes is reported.
+            if s.level == 1 || s.level == 3 || tier_of(title).is_some() {
+                rest.section(own(s, &all), title);
+            }
             match s.level {
                 1 => report.push(Entry::at(
                     &at(n),
@@ -83,7 +88,14 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             }
             continue;
         }
-        if line.starts_with("**Core Value:**") {
+        if line.starts_with("**Defined:**") {
+            rest.take(n);
+        } else if let Some(key) = ["*Requirements defined:", "*Last updated:"]
+            .into_iter()
+            .find(|k| is_footer(line) && line.starts_with(k))
+        {
+            report.push(row(RQ, key, &at(n), &section));
+        } else if line.starts_with("**Core Value:**") {
             report.push(Entry::at(
                 &at(n),
                 "Core Value",
@@ -101,6 +113,7 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             let Some(item) = bullet(line) else {
                 continue;
             };
+            rest.take(n);
             // A bullet's text runs on over its indented lines.
             let mut words = vec![item.text.to_string()];
             while i < lines.len()
@@ -110,6 +123,7 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
                 && bullet(lines[i]).is_none()
             {
                 words.push(lines[i].trim().to_string());
+                rest.take(i);
                 i += 1;
             }
             let text = words.join(" ").trim().to_string();
@@ -165,7 +179,8 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             );
         }
     }
-    out_of_scope(text, defined, &at, records, report);
+    out_of_scope(text, defined, &at, &mut rest, records, report);
+    rest.report(path, text, RQ, report);
 }
 
 /// The `**Defined:**` date, if the file gives one; a value that is no date is reported.
@@ -245,6 +260,7 @@ fn out_of_scope(
     text: &str,
     defined: Option<&str>,
     at: &dyn Fn(usize) -> Source,
+    rest: &mut Rest,
     records: &mut Records,
     report: &mut Report,
 ) {
@@ -261,6 +277,8 @@ fn out_of_scope(
                 .unwrap_or(or)
         };
         let (feature, reason) = (column("Feature", 0), column("Reason", 1));
+        // The header, the delimiter row and every row: each row is a requirement or reported.
+        rest.take_table(&table);
         for (row_index, row) in table.rows.iter().enumerate() {
             // The header and the delimiter row come first.
             let source = at(table.line + 2 + row_index);

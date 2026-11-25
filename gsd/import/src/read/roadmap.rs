@@ -15,7 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 
-use super::{is_bullet, row, slug};
+use super::{Rest, is_bullet, own, row, slug};
 use crate::ids::{self, padded};
 use crate::paths;
 use crate::records::{Record, Records, Source};
@@ -83,12 +83,20 @@ pub fn read(
         line: line + 1,
     };
     let mut once = Once::default();
+    let mut rest = Rest::default();
     let mut roadmap = Roadmap::default();
     let grouped = all.iter().find(|s| s.level == 2 && s.title == "Milestones");
     let mut current: Option<String> = None;
     let mut milestone_goal: BTreeMap<String, (String, usize)> = BTreeMap::new();
     let mut found = match grouped {
-        Some(s) => milestones(s, &lines, &fenced, &at, &mut once, report),
+        Some(s) => {
+            rest.section(own(s, &all), &s.title);
+            let found = milestones(s, &lines, &fenced, &at, &mut once, report);
+            for m in &found {
+                rest.take(m.source.line - 1);
+            }
+            found
+        }
         None => {
             let line = all.iter().find(|s| s.level == 1).map_or(0, |s| s.line);
             report.push(row(RM, "(no milestone)", &at(line), "(no milestone)"));
@@ -115,7 +123,10 @@ pub fn read(
             let title = s.title.as_str();
             match (s.level, title) {
                 // Any title (`# Roadmap: X`, `# Project Roadmap`): its spelling is not load-bearing.
-                (1, _) => report.push(row(RM, "# Roadmap:", &at(n), title)),
+                (1, _) => {
+                    rest.section(own(s, &all), title);
+                    report.push(row(RM, "# Roadmap:", &at(n), title));
+                }
                 (2, "Overview") => report.push(row(RM, "## Overview", &at(n), title)),
                 (2, "Phases") => report.push(row(RM, "## Phases", &at(n), title)),
                 (2, "Phase Details") => report.push(row(RM, "## Phase Details", &at(n), title)),
@@ -125,7 +136,19 @@ pub fn read(
                 }
                 (2, "Milestones") if grouped.is_some() => {}
                 (3.., _) if title.starts_with("Phase") => {
-                    let draft = phase(s, &lines, &fenced, &at, &mut once, &mut roadmap, report);
+                    // The phase's own lines: a sub-section is read under its own heading.
+                    let mine = Section {
+                        body: own(s, &all),
+                        ..(*s).clone()
+                    };
+                    let mut cx = Lines {
+                        lines: &lines,
+                        fenced: &fenced,
+                        at: &at,
+                        once: &mut once,
+                        rest: &mut rest,
+                    };
+                    let draft = phase(&mine, &mut cx, &mut roadmap, report);
                     match (draft, &current) {
                         (Some(draft), Some(milestone)) => drafts.push(Draft {
                             milestone: milestone.clone(),
@@ -141,6 +164,7 @@ pub fn read(
                     }
                 }
                 (3.., _) if grouped.is_some() && version(title).is_some() => {
+                    rest.section(own(s, &all), title);
                     current = opens(title, &at(n), title, report);
                     if current.is_some() {
                         once.push("milestone status", &at(n), title, report);
@@ -160,6 +184,7 @@ pub fn read(
         }
         let line = raw.trim();
         if grouped.is_some() && line.contains("<summary>") {
+            rest.take(n);
             if version(line).is_some() {
                 current = opens(line, &at(n), "<details>", report);
                 if current.is_some() {
@@ -167,6 +192,7 @@ pub fn read(
                 }
             }
         } else if let Some(("Milestone Goal", goal)) = key_line(line) {
+            rest.take(n);
             match &current {
                 Some(m) if !goal.is_empty() => {
                     milestone_goal.insert(m.clone(), (goal.to_string(), n));
@@ -220,6 +246,8 @@ pub fn read(
             let deps = depends(value, *n, &roadmap, &at, &d.heading, report);
             links.extend(deps.iter().map(|id| ("depends_on", id.clone())));
             if !deps.is_empty() {
+                // The field holds paths, not the line's words: the line says where they come from.
+                report.push(row(RM, "**Depends on**", &at(*n), &d.heading));
                 d.fields.insert("depends_on".to_string(), json!(deps));
             }
         }
@@ -262,7 +290,17 @@ pub fn read(
             report,
         );
     }
+    rest.report(path, text, RM, report);
     roadmap
+}
+
+/// The roadmap's lines as a phase reads them, and what it reports once and leaves.
+struct Lines<'a, 'l> {
+    lines: &'a [&'l str],
+    fenced: &'a [bool],
+    at: &'a dyn Fn(usize) -> Source,
+    once: &'a mut Once,
+    rest: &'a mut Rest,
 }
 
 /// A milestone record, its goal added later.
@@ -348,17 +386,15 @@ fn key_line(line: &str) -> Option<(&str, &str)> {
     }
 }
 
-/// The phase of the heading `s`, read from its lines, with no milestone yet; none, reported, when the heading is in
-/// neither form.
+/// The phase of the heading `s` (its own lines), read from its lines, with no milestone yet; none, reported, when the
+/// heading is in neither form. Each line it takes is taken from `cx.rest`; a line it does not read is left there.
 fn phase(
     s: &Section,
-    lines: &[&str],
-    fenced: &[bool],
-    at: &dyn Fn(usize) -> Source,
-    once: &mut Once,
+    cx: &mut Lines<'_, '_>,
     roadmap: &mut Roadmap,
     report: &mut Report,
 ) -> Option<Draft> {
+    let (lines, at) = (cx.lines, cx.at);
     let refuse = |why: String, report: &mut Report| {
         report.push(Entry::at(
             &at(s.line),
@@ -387,10 +423,11 @@ fn phase(
         refuse(format!("`{number}` is not a phase number"), report);
         return None;
     };
+    cx.rest.section(s.body.clone(), &s.title);
     let mut title = name.trim();
     if let Some(cut) = title.strip_suffix("(INSERTED)") {
         title = cut.trim_end();
-        once.push("(INSERTED)", &at(s.line), &s.title, report);
+        cx.once.push("(INSERTED)", &at(s.line), &s.title, report);
     }
     let mut d = Draft {
         number: id,
@@ -407,11 +444,13 @@ fn phase(
         let line = lines[n];
         let here = n;
         n += 1;
-        if fenced[here] {
+        if cx.fenced[here] {
             continue;
         }
         if line.trim() == "Plans:" {
+            cx.rest.take(here);
             while n < s.body.end && (is_bullet(lines[n]) || lines[n].trim().is_empty()) {
+                cx.rest.take(n);
                 plan_title(lines[n], n, at, &s.title, roadmap, report);
                 n += 1;
             }
@@ -420,6 +459,7 @@ fn phase(
         let Some((key, value)) = key_line(line) else {
             continue;
         };
+        cx.rest.take(here);
         match key {
             "Goal" if !value.is_empty() => {
                 d.fields.insert("goal".to_string(), json!(value));
@@ -427,17 +467,29 @@ fn phase(
             "Depends on" => d.depends = Some((value.to_string(), here)),
             "Requirements" => d.requirements = Some((value.to_string(), here)),
             "Success Criteria" => {
+                // The list may stand a blank line below its key.
+                let first = (n..s.body.end)
+                    .find(|&m| !lines[m].trim().is_empty())
+                    .unwrap_or(s.body.end);
                 let mut criteria = Vec::new();
-                while let Some(item) = lines.get(n).and_then(|l| numbered(l)) {
+                let mut m = first;
+                while let Some(item) = (m < s.body.end).then(|| numbered(lines[m])).flatten() {
                     criteria.push(item.to_string());
-                    n += 1;
+                    cx.rest.take(m);
+                    m += 1;
                 }
                 if !criteria.is_empty() {
+                    n = m;
                     d.fields
                         .insert("success_criteria".to_string(), json!(criteria));
                 }
             }
-            "Plans" => once.push("**Plans**: N/M plans complete", &at(here), &s.title, report),
+            "Plans" => report.push(row(
+                RM,
+                "**Plans**: N/M plans complete",
+                &at(here),
+                &s.title,
+            )),
             "Mode" => report.push(row(RM, "**Mode**", &at(here), &s.title)),
             _ => report.push(Entry::at(
                 &at(here),

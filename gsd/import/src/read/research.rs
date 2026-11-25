@@ -12,7 +12,10 @@ use gsd_kit::markdown::{self, Table};
 use serde_json::{Value, json};
 
 use super::context::{Text, discretion};
-use super::{Context, PhaseFile, blocks_in, is_date, is_footer, labelled, own, phase_file, prose};
+use super::{
+    Context, PhaseFile, Rest, blocks_in, bullets_in, is_date, is_footer, labelled, own, phase_file,
+    prose,
+};
 use crate::ids;
 use crate::records::{Record, Records};
 use crate::report::Report;
@@ -37,6 +40,8 @@ struct Items<'f, 'a> {
     research: String,
     confidence: Option<String>,
     numbers: BTreeMap<&'static str, usize>,
+    /// What the research's sections leave: each item's lines are taken.
+    rest: Rest,
 }
 
 impl Items<'_, '_> {
@@ -95,6 +100,7 @@ pub fn read(
     let tables = markdown::tables(text);
     let mut fields: BTreeMap<String, Value> = BTreeMap::new();
     let mut links = Vec::new();
+    let mut rest = Rest::default();
     // The header: the lines before the first `##`.
     let first = all
         .iter()
@@ -102,6 +108,13 @@ pub fn read(
         .map_or(t.lines.len(), |s| s.line);
     for (n, line) in t.raw() {
         let value = |label: &str| line.strip_prefix(label).map(str::trim);
+        let header = n < first
+            && ["**Researched:**", "**Domain:**", "**Confidence:**"]
+                .iter()
+                .any(|l| line.starts_with(l));
+        if header {
+            rest.take(n);
+        }
         if n < first
             && let Some(v) = value("**Researched:**")
         {
@@ -143,6 +156,7 @@ pub fn read(
             .and_then(Value::as_str)
             .map(str::to_string),
         numbers: BTreeMap::new(),
+        rest,
     };
     let mut title = None;
     let mut parent = String::new();
@@ -156,8 +170,10 @@ pub fn read(
         }
         let in_parent = |name: &str| parent.starts_with(name);
         let (level, title_) = (s.level, s.title.as_str());
+        let mine = own(s, &all);
         if level == 1 {
             if title.is_none() {
+                items.rest.section(mine, title_);
                 title = Some(s.title.clone());
             } else {
                 report.push(f.unmapped(s.line, title_, UNKNOWN.to_string()));
@@ -167,9 +183,14 @@ pub fn read(
                 .iter()
                 .any(|c| title_.starts_with(c))
         {
+            items.rest.section(mine, title_);
             report.push(f.mapped(s.line, title_, "each ### section under it"));
         } else if level == 3 && in_parent(CONSTRAINTS) && title_ == "Locked Decisions" {
             report.push(f.mapped(s.line, title_, "research.user_constraints"));
+            items.rest.section(mine.clone(), title_);
+            for b in bullets_in(&t.blocks, &t.lines, &mine) {
+                items.rest.take_block(b);
+            }
             let named = locked(&f, &t, s, records, report);
             if !named.is_empty() {
                 links.extend(named.iter().map(|d| ("user_constraints", d.clone())));
@@ -181,6 +202,10 @@ pub fn read(
             report.push(f.row("<user_constraints> ### Deferred Ideas", s.line, title_));
         } else if level == 2 && title_ == "Architectural Responsibility Map" {
             report.push(f.mapped(s.line, title_, "research.responsibility_map"));
+            items.rest.section(mine, title_);
+            if let Some(table) = table_in(s, &tables) {
+                items.rest.take_table(table);
+            }
             let map = responsibility_map(&f, s, &tables, report);
             if !map.is_empty() {
                 fields.insert("responsibility_map".to_string(), json!(map));
@@ -189,7 +214,7 @@ pub fn read(
             report.push(f.mapped(s.line, title_, "research.summary and its findings"));
             // What the section holds itself: a sub-section is read under its own heading.
             let mine = Section {
-                body: own(s, &all),
+                body: mine,
                 ..s.clone()
             };
             summary(&mut items, &t, &mine, &mut fields, records, report);
@@ -198,21 +223,26 @@ pub fn read(
             && let Some(tier) = tier_of(title_)
         {
             report.push(f.mapped(s.line, title_, "each row a stack_choice"));
+            items.rest.section(mine, title_);
             stack(&mut items, s, tier, &tables, records, report);
         } else if level == 3 && in_parent(PATTERNS) && numbered(title_, "Pattern").is_some() {
             report.push(f.mapped(s.line, title_, "a pattern"));
+            items.rest.section(mine, title_);
             pattern(&mut items, &t, s, text, records, report);
         } else if level == 3 && in_parent(PATTERNS) && title_ == "Anti-Patterns to Avoid" {
             report.push(f.mapped(s.line, title_, "each bullet an anti-pattern"));
+            items.rest.section(mine, title_);
             anti_patterns(&mut items, &t, s, records, report);
         } else if level == 2 && matches!(title_, "Don't Hand-Roll" | "Don’t Hand-Roll") {
             report.push(f.mapped(s.line, title_, "each row a dont_hand_roll"));
+            items.rest.section(mine, title_);
             dont_hand_roll(&mut items, s, &tables, records, report);
         } else if level == 3
             && in_parent(PITFALLS)
             && let Some(name) = numbered(title_, "Pitfall")
         {
             report.push(f.mapped(s.line, title_, "a pitfall"));
+            items.rest.section(mine, title_);
             pitfall(&mut items, &t, s, name, records, report);
         } else if level == 2 && title_.starts_with("Open Questions") {
             covered = s.body.clone();
@@ -223,6 +253,7 @@ pub fn read(
             && let Some(tier) = source_tier(title_)
         {
             report.push(f.mapped(s.line, title_, "each bullet a source"));
+            items.rest.section(mine, title_);
             sources(&mut items, &t, s, tier, records, report);
         } else if level == 2 && title_.starts_with("Package Legitimacy") {
             covered = s.body.clone();
@@ -242,6 +273,7 @@ pub fn read(
     );
     record.links = links;
     records.add(record, report);
+    items.rest.report(path, text, RS, report);
 }
 
 /// `Pattern 1: Write then rename` as `Write then rename` (for `word` `Pattern`).
@@ -376,6 +408,9 @@ fn summary(
     records: &mut Records,
     report: &mut Report,
 ) {
+    for b in blocks_in(&t.blocks, &s.body) {
+        items.rest.take_block(b);
+    }
     let (recommended, rest): (Vec<_>, Vec<_>) = blocks_in(&t.blocks, &s.body)
         .partition(|b| b.text.trim_start().starts_with(RECOMMENDATION));
     let paragraphs: Vec<_> = rest.into_iter().cloned().collect();
@@ -404,6 +439,7 @@ fn stack(
     let Some(table) = table_in(s, tables) else {
         return;
     };
+    items.rest.take_table(table);
     let name = column(table, &["Library", "Could Use"]);
     let version = column(table, &["Version"]);
     let purpose = column(table, &["Purpose", "Tradeoff"]);
@@ -451,11 +487,13 @@ fn pattern(
     let mut fields = BTreeMap::from([("name".to_string(), json!(name))]);
     let label = |labels: &[&str]| labelled(&t.lines, &t.fenced, &s.body, labels);
     for (field, labels) in [("what", "**What:**"), ("when", "**When to use:**")] {
-        if let Some((_, v)) = label(&[labels]).filter(|(_, v)| !v.is_empty()) {
+        if let Some((line, v)) = label(&[labels]).filter(|(_, v)| !v.is_empty()) {
+            items.rest.take(line);
             fields.insert(field.to_string(), json!(v));
         }
     }
     if let Some((line, v)) = label(&["**Example:**"]) {
+        items.rest.take(line);
         let fence = markdown::fences(text)
             .into_iter()
             .find(|f| f.open > line && s.body.contains(&f.open));
@@ -478,6 +516,9 @@ fn anti_patterns(
     records: &mut Records,
     report: &mut Report,
 ) {
+    for b in bullets_in(&t.blocks, &t.lines, &s.body) {
+        items.rest.take_block(b);
+    }
     for (line, text) in t.bullets(&s.body) {
         let Some((name, what)) = text
             .split_once(':')
@@ -511,6 +552,7 @@ fn dont_hand_roll(
     let Some(table) = table_in(s, tables) else {
         return;
     };
+    items.rest.take_table(table);
     let problem = column(table, &["Problem"]);
     let instead = column(table, &["Use Instead"]);
     let why = column(table, &["Why"]);
@@ -549,9 +591,10 @@ fn pitfall(
         ("avoid", "**How to avoid:**"),
         ("warning_signs", "**Warning signs:**"),
     ] {
-        if let Some((_, v)) =
+        if let Some((line, v)) =
             labelled(&t.lines, &t.fenced, &s.body, &[label]).filter(|(_, v)| !v.is_empty())
         {
+            items.rest.take(line);
             fields.insert(field.to_string(), json!(v));
         }
     }
@@ -642,6 +685,9 @@ fn sources(
     records: &mut Records,
     report: &mut Report,
 ) {
+    for b in bullets_in(&t.blocks, &t.lines, &s.body) {
+        items.rest.take_block(b);
+    }
     for (line, text) in t.bullets(&s.body) {
         let (url, checked) = match text.split_once(" - ") {
             Some((url, checked)) => (url.trim(), Some(checked.trim())),

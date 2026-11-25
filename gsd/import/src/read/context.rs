@@ -10,8 +10,8 @@ use gsd_kit::markdown::{self, InlineBlock};
 use serde_json::{Value, json};
 
 use super::{
-    Context, PhaseFile, blocks_in, bullets_in, is_bold_only, is_date, is_footer, is_tag, mapped,
-    own, phase_file, prose,
+    Context, PhaseFile, Rest, blocks_in, bullets_in, is_bold_only, is_date, is_footer, is_tag,
+    mapped, own, phase_file, prose,
 };
 use crate::ids;
 use crate::records::Records;
@@ -106,8 +106,10 @@ pub fn read(
     };
     let t = Text::new(text);
     let mut fields: BTreeMap<String, Value> = BTreeMap::new();
+    let mut rest = Rest::default();
     for (n, line) in t.raw() {
         if let Some(v) = line.strip_prefix("**Gathered:**").map(str::trim) {
+            rest.take(n);
             if is_date(v) {
                 fields.insert("gathered".to_string(), json!(v));
             } else {
@@ -154,6 +156,25 @@ pub fn read(
                 fields.insert(field.to_string(), json!(text));
             }
         };
+        // A section read in part: its bullets are taken, and what else it holds is reported.
+        let in_part = match (s.level, parent.as_str(), s.title.as_str()) {
+            (1, ..) => title.is_none(),
+            (2, _, DECISIONS | INSIGHTS) => true,
+            (3, DECISIONS, _) => true,
+            (3, INSIGHTS, name) => {
+                matches!(
+                    name,
+                    "Reusable Assets" | "Established Patterns" | "Integration Points"
+                )
+            }
+            _ => false,
+        };
+        if in_part {
+            rest.section(mine.clone(), &s.title);
+            for b in bullets_in(&t.blocks, &t.lines, &mine) {
+                rest.take_block(b);
+            }
+        }
         match (s.level, parent.as_str(), s.title.as_str()) {
             (1, ..) if title.is_none() => title = Some(s.title.clone()),
             (2, _, "Phase Boundary") => prose_of("boundary", &mut fields, report),
@@ -203,6 +224,7 @@ pub fn read(
         ),
         report,
     );
+    rest.report(path, text, CX, report);
 }
 
 /// Each `- **D-NN:** text` bullet of the area `s` as `decision D-NN` of the phase, origin `context`; any other bullet,

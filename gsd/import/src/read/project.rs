@@ -8,7 +8,7 @@ use std::ops::Range;
 use gsd_kit::markdown::{self, InlineBlock};
 use serde_json::{Value, json};
 
-use super::{blocks_in, is_bullet, mapped, own, prose, row, slug};
+use super::{Rest, blocks_in, is_bullet, mapped, own, prose, row, slug};
 use crate::ids;
 use crate::paths;
 use crate::records::{Record, Records, Source};
@@ -46,6 +46,7 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
     let mut decisions: Vec<String> = Vec::new();
     // A section reported whole covers its sub-sections.
     let mut covered = 0..0;
+    let mut rest = Rest::default();
     let all = sections::sections(text);
     for s in all.iter().cloned() {
         if covered.contains(&s.line) {
@@ -64,7 +65,11 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             }
         };
         match (s.level, s.title.as_str()) {
-            (1, title) if name.is_none() => name = Some((title.to_string(), s.line)),
+            (1, title) if name.is_none() => {
+                // A tagline under the name is no field's.
+                rest.section(mine.body.clone(), title);
+                name = Some((title.to_string(), s.line));
+            }
             (2, "What This Is") => prose_of("what", &mut fields, report),
             (2, "Core Value") => prose_of("core_value", &mut fields, report),
             (2, "Context") => prose_of("context", &mut fields, report),
@@ -78,6 +83,10 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             }
             (3, "Out of Scope") => {
                 to("project.out_of_scope", report);
+                rest.section(mine.body.clone(), &s.title);
+                for (b, _) in bullets(&blocks, &lines, &mine.body) {
+                    rest.take_block(b);
+                }
                 let items = out_of_scope(&mine, &blocks, &lines, &at, report);
                 if !items.is_empty() {
                     fields.insert("out_of_scope".to_string(), json!(items));
@@ -85,6 +94,10 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             }
             (2, "Constraints") => {
                 to("project.constraints", report);
+                rest.section(mine.body.clone(), &s.title);
+                for (b, _) in bullets(&blocks, &lines, &mine.body) {
+                    rest.take_block(b);
+                }
                 let items = constraints(&mine, &blocks, &lines, &at, report);
                 if !items.is_empty() {
                     fields.insert("constraints".to_string(), json!(items));
@@ -92,6 +105,13 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             }
             (2, "Key Decisions") => {
                 to("each row a decision", report);
+                rest.section(mine.body.clone(), &s.title);
+                for t in markdown::tables(text)
+                    .iter()
+                    .filter(|t| mine.body.contains(&t.line))
+                {
+                    rest.take_table(t);
+                }
                 decisions = key_decisions(text, &mine.body, &at, records, report);
             }
             (2, "Business Context" | "Current Milestone") => {
@@ -118,6 +138,7 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
             report.push(row(P, "*Last updated:", &at(n), "*Last updated:"));
         }
     }
+    rest.report(path, text, P, report);
     let Some((name, line)) = name else {
         report.push(Entry::at(
             &at(0),

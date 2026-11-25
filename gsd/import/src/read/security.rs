@@ -441,6 +441,8 @@ fn audit_run(
         match row.get("Count").and_then(|c| c.parse::<u64>().ok()) {
             Some(count) => {
                 fields.insert(field.to_string(), json!(count));
+                // The row's words name a field, they are not its value: the entry says which.
+                report.push(f.mapped(row.line, &s.title, &format!("audit_run.{field}")));
             }
             None => report.push(f.unmapped(
                 row.line,

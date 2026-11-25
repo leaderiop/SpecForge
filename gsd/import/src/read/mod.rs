@@ -17,10 +17,10 @@ pub mod threats;
 pub mod uat;
 pub mod verification;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 
-use gsd_kit::markdown::InlineBlock;
+use gsd_kit::markdown::{self, InlineBlock};
 use serde_json::{Value, json};
 
 use crate::ids;
@@ -284,6 +284,76 @@ pub fn own(s: &Section, all: &[Section]) -> Range<usize> {
         .find(|h| h.line > s.line)
         .map_or(s.body.end, |h| h.line.min(s.body.end));
     s.body.start..end
+}
+
+/// What a reader leaves of the sections it maps (ADR 0391 D3: nothing is dropped silently). A section a reader maps in
+/// part (key lines, a list, a table) is named with its own lines, and each line the reader takes into a field or a
+/// record is taken; at the end, each run of lines of a leaf block in a named section that nothing took or reported is
+/// reported once, at its first line, so a line no row reads is never lost without a word.
+#[derive(Debug, Default)]
+pub struct Rest {
+    open: Vec<(Range<usize>, String)>,
+    taken: BTreeSet<usize>,
+}
+
+impl Rest {
+    /// The section `title`'s own 0-based `lines`, which the reader maps in part.
+    pub fn section(&mut self, lines: Range<usize>, title: &str) {
+        self.open.push((lines, title.to_string()));
+    }
+
+    /// The 0-based `line`, taken into a field or a record.
+    pub fn take(&mut self, line: usize) {
+        self.taken.insert(line);
+    }
+
+    /// Every line of the leaf block `b`, taken.
+    pub fn take_block(&mut self, b: &InlineBlock) {
+        self.taken.extend(b.lines.iter().copied());
+    }
+
+    /// The lines of `table`: its header, its delimiter row and its rows.
+    pub fn take_table(&mut self, table: &markdown::Table) {
+        self.taken
+            .extend(table.line..table.line + 2 + table.rows.len());
+    }
+
+    /// Reports what is left of the named sections of `text`, served at `path`; `format` names the table.
+    pub fn report(&self, path: &str, text: &str, format: &str, report: &mut Report) {
+        let lines: Vec<&str> = text.split('\n').collect();
+        let reported = report.lines(path);
+        let mut left = Vec::new();
+        for b in markdown::inline_blocks(text) {
+            let mut own = b.lines.clone();
+            own.dedup();
+            // Whether the line before, in this block, is in a run already reported.
+            let mut run = false;
+            for n in own {
+                let line = lines.get(n).copied().unwrap_or_default();
+                let section = self.open.iter().find(|(r, _)| r.contains(&n));
+                let free = section.is_some()
+                    && !self.taken.contains(&n)
+                    && !reported.contains(&(n + 1))
+                    && !line.trim().is_empty()
+                    && !is_tag(line);
+                if let Some((_, title)) = section.filter(|_| free && !run) {
+                    left.push(Entry::at(
+                        &Source {
+                            file: path.to_string(),
+                            line: n + 1,
+                        },
+                        title,
+                        Outcome::Unmapped,
+                        format!("text no row of the {format} table reads: no field holds it"),
+                    ));
+                }
+                run = free;
+            }
+        }
+        for entry in left {
+            report.push(entry);
+        }
+    }
 }
 
 /// The leaf blocks whose first line lies in `lines`.
