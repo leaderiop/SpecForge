@@ -658,6 +658,39 @@ fn a_summary_without_its_plan_is_not_imported() {
 }
 
 #[test]
+fn a_second_plan_of_one_id_keeps_its_tasks_to_itself() {
+    let task = |n: u32| {
+        format!(
+            "<task type=\"auto\">\n  <name>Task {n}: T</name>\n  <action>a</action>\n  <done>d</done>\n</task>\n"
+        )
+    };
+    let (old, one) = (
+        ".planning/phases/01-old/01-01-PLAN.md",
+        ".planning/phases/01-one/01-01-PLAN.md",
+    );
+    let first = plan_text("", &format!("<tasks>\n{}</tasks>\n", task(1)));
+    let second = plan_text("", &format!("<tasks>\n{}{}</tasks>\n", task(1), task(2)));
+    // Read in path order: `01-old` claims the plan id first.
+    let out = run(vec![(old, &first), (one, &second)]);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    assert_eq!(paths(&creates(&out), "task"), ["v1.0/01/01-01/T1"]);
+    let reported = entries(&out, one);
+    assert!(
+        has(&reported, 1, "unmapped", "is given twice"),
+        "{reported:#?}"
+    );
+    let orphans = reported
+        .iter()
+        .filter(|(_, _, _, r)| r.contains("parent not imported (v1.0/01/01-01, given twice)"))
+        .count();
+    assert_eq!(orphans, 2, "{reported:#?}");
+    assert!(
+        !reported.iter().any(|(_, _, o, _)| o == "mapped"),
+        "{reported:#?}"
+    );
+}
+
+#[test]
 fn a_summary_writes_no_harness_timestamp() {
     let path = ".planning/phases/01-one/01-01-SUMMARY.md";
     let out = run(vec![
