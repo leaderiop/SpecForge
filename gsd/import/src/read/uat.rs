@@ -279,6 +279,76 @@ fn gap_items<'l>(lines: &[&'l str], s: &Section) -> Vec<(usize, Vec<&'l str>)> {
     out
 }
 
+/// The items of a gap's list `key` (`missing`, `artifacts`), each read by `read`, which reports an item it does not
+/// take; a value that is neither a list nor empty is reported.
+fn gap_list(
+    f: &PhaseFile<'_>,
+    (key, v): (&str, &Located<Value>),
+    report: &mut Report,
+    read: impl Fn(&Located<Value>, &mut Report) -> Option<Json>,
+) -> Vec<Json> {
+    match &v.value {
+        Value::List(items) => items.iter().filter_map(|item| read(item, report)).collect(),
+        Value::Str(s) if s.trim().is_empty() => Vec::new(),
+        _ => {
+            report.push(f.doc.unmapped(
+                v.line,
+                key,
+                format!("`{key}` is not a list: not imported"),
+            ));
+            Vec::new()
+        }
+    }
+}
+
+/// One `artifacts` item: a path (`- src/a.js`), or GSD's diagnosed form `- path: ..` with `issue: ..`
+/// (gsd-core templates/UAT.md); any other member, or an item holding neither, is reported.
+fn artifact(f: &PhaseFile<'_>, item: &Located<Value>, report: &mut Report) -> Option<Json> {
+    let members = match &item.value {
+        Value::Str(path) if path.trim().is_empty() => return None,
+        Value::Str(path) => return Some(json!({ "path": path.trim() })),
+        Value::Map(members) => members,
+        Value::List(_) => {
+            report.push(f.doc.unmapped(
+                item.line,
+                "artifacts",
+                "an artifact that is a list: not imported".to_string(),
+            ));
+            return None;
+        }
+    };
+    let mut block = serde_json::Map::new();
+    for (member, v) in members {
+        match (member.as_str(), v.value.as_str().map(str::trim)) {
+            ("path" | "issue", Some(t)) if !t.is_empty() => {
+                block.insert(member.clone(), json!(t));
+            }
+            ("path" | "issue", Some(_)) => {}
+            ("path" | "issue", None) => report.push(f.doc.unmapped(
+                v.line,
+                "artifacts",
+                format!("an artifact's `{member}` is not one text: not imported"),
+            )),
+            _ => report.push(f.doc.unmapped(
+                v.line,
+                "artifacts",
+                format!(
+                    "an artifact member `{member}` no row of the ## Gaps table names: not imported"
+                ),
+            )),
+        }
+    }
+    if block.is_empty() {
+        report.push(f.doc.unmapped(
+            item.line,
+            "artifacts",
+            "an artifact with neither a path nor an issue: not imported".to_string(),
+        ));
+        return None;
+    }
+    Some(Json::Object(block))
+}
+
 /// The gap `G<n>` read from `item`, at the 0-based `at`: scoped by the test its `test:` names, which must be a test of
 /// the file (`tests`); else reported and dropped.
 fn read_gap(
@@ -297,7 +367,15 @@ fn read_gap(
     let mut test = None;
     for (key, v) in &keys {
         let text = v.value.as_str().map(str::trim).filter(|t| !t.is_empty());
+        let not_text = matches!(v.value, Value::List(_) | Value::Map(_));
         match key.as_str() {
+            "truth" | "reason" | "root_cause" | "severity" if not_text => {
+                report.push(f.doc.unmapped(
+                    v.line,
+                    key,
+                    format!("`{key}` is not one text: not imported"),
+                ))
+            }
             "truth" | "reason" | "root_cause" => {
                 if let Some(t) = text {
                     fields.insert(key.clone(), json!(t));
@@ -309,17 +387,25 @@ fn read_gap(
                 }
             }
             "missing" => {
-                let items: Vec<String> = list(&v.value).unwrap_or_default();
+                let items = gap_list(f, (key, v), report, |item, report| match &item.value {
+                    Value::Str(t) => (!t.trim().is_empty()).then(|| json!(t.trim())),
+                    _ => {
+                        report.push(f.doc.unmapped(
+                            item.line,
+                            key,
+                            "a `missing` item that is not one text: not imported".to_string(),
+                        ));
+                        None
+                    }
+                });
                 if !items.is_empty() {
                     fields.insert(key.clone(), json!(items));
                 }
             }
             "artifacts" => {
-                let items: Vec<Json> = list(&v.value)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|path| json!({ "path": path }))
-                    .collect();
+                let items = gap_list(f, (key, v), report, |item, report| {
+                    artifact(f, item, report)
+                });
                 if !items.is_empty() {
                     fields.insert(key.clone(), json!(items));
                 }

@@ -217,6 +217,55 @@ fn a_hostile_uat_reports_what_it_cannot_write() {
     }
 }
 
+/// GSD's diagnosed gap (gsd-core templates/UAT.md): `artifacts` as `path`/`issue` maps.
+#[test]
+fn a_diagnosed_gap_keeps_its_artifacts() {
+    let uat = "---\nphase: 01-core\nsource: [01-01-SUMMARY.md]\n---\n\n## Tests\n\n### 1. One\nexpected: e\n\n\
+        ## Gaps\n\n\
+        - truth: \"A gap\"\n  test: 1\n  artifacts:\n    - path: \"src/a.js\"\n      issue: \"never saves\"\n    \
+        - \"src/b.js\"\n    - path: \"src/c.js\"\n      note: \"n\"\n    - note: \"only\"\n  missing:\n    - \"add w\"\n    \
+        - [x]\n\
+        - truth: \"Another\"\n  test: 1\n  artifacts: src/x.js\n  missing: {a: b}\n  reason: [x]\n";
+    let out = with_uat(uat);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let all = creates(&out);
+    assert_eq!(
+        find(&all, "uat_gap", "v1.0/01/01-UAT/U1/G1").fields,
+        json!({
+            "test": "v1.0/01/01-UAT/U1",
+            "truth": "A gap",
+            "artifacts": [
+                {"path": "src/a.js", "issue": "never saves"},
+                {"path": "src/b.js"},
+                {"path": "src/c.js"}
+            ],
+            "missing": ["add w"]
+        })
+    );
+    assert_eq!(
+        find(&all, "uat_gap", "v1.0/01/01-UAT/U1/G2").fields,
+        json!({ "test": "v1.0/01/01-UAT/U1", "truth": "Another" })
+    );
+    let reported = entries(&out, UAT);
+    for (line, says) in [
+        (
+            20,
+            "an artifact member `note` no row of the ## Gaps table names",
+        ),
+        (21, "an artifact member `note` no row"),
+        (21, "an artifact with neither a path nor an issue"),
+        (24, "a `missing` item that is not one text"),
+        (27, "`artifacts` is not a list"),
+        (28, "`missing` is not a list"),
+        (29, "`reason` is not one text"),
+    ] {
+        assert!(
+            has(&reported, line, "unmapped", says),
+            "{line} {says}: {reported:#?}"
+        );
+    }
+}
+
 #[test]
 fn a_uat_testing_no_imported_summary_is_no_session() {
     let uat = "---\nphase: 01-core\nsource: [07-01-SUMMARY.md]\n---\n\n## Tests\n\n### 1. One\nexpected: e\n";
