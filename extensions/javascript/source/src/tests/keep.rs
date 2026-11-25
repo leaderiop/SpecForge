@@ -66,6 +66,31 @@ fn a_kept_file_the_fs_port_withholds_is_the_collectors_error() {
 }
 
 #[specforge_test(requirement = "FEATURE-056")]
+fn a_test_file_the_reader_could_not_parse_is_a_warning_and_no_item() {
+    let files = [
+        APP,
+        ("src/a.js", "export const a = 1;\n"),
+        ("test/held.test.js", "test(\"h\", () => {});\n"),
+        ("test/ok.test.js", "test(\"ok\", () => {});\n"),
+    ];
+    let withheld = Host {
+        denied: vec!["test/held.test.js"],
+        ..host(&files)
+    };
+    let input = input(&withheld, &[]);
+    let out = serve(Rc::new(withheld), || collect(&input)).expect("the collector answers");
+    assert_eq!(
+        items(&out.facts),
+        ["js:app/src/a.js::a", "js:app/test/ok.test.js::ok"]
+    );
+    assert_eq!(
+        out.warnings,
+        ["test/held.test.js: the host's reader did not parse this test file (denied); javascript-source reads no \
+          test call from it"]
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-056")]
 fn the_keep_rules_judge_a_path_inside_its_package_a_package_json_too() {
     // A named package under tests/ or build/ of the root package is no package the pack reads, nor are its files.
     let fixture = run(

@@ -84,7 +84,8 @@ patterns `**/*.test.*`, `**/*-test.*`, `**/*_test.*`, `**/test-*.*`, `**/test.*`
 .mjs .ts .mts .cts`), since node-test is the runner whose ids they carry, and only when the package the pack names a
 file after is the one node-test names it after (a test file of a fixture package under `test/` gives no item). A
 `.spec.*` file or one under `tests/`, `__tests__/` or `__mocks__/` stays no source item and gives no test item. A
-call whose callee is `test`, `it`, `describe` or `suite`, or one of those with `.skip`, `.todo` or `.only`, or a
+test file the host's reader could not parse gives no item and a warning (W203) naming it, never the collector's
+error: test directories hold odd fixtures, and a test call never minted is never missing. A call whose callee is `test`, `it`, `describe` or `suite`, or one of those with `.skip`, `.todo` or `.only`, or a
 subtest `<name>.test(...)` inside a test, whose first argument is a string or a template with no substitution and not
 empty, becomes a `function` item with the attribute `test`; its path is the enclosing suite and test names, then its
 own. A plain call needs a function argument.

@@ -189,10 +189,14 @@ pub(crate) struct Parsed {
 }
 
 /// Every file of the project's listings that `select` ([`kept`] or [`tested`]) accepts, parsed with `query`, by path.
+/// A file the reader could not parse (one the fs port withholds included) is the collector's error when `warnings` is
+/// `None` (a kept source file: the pack reads every one or none), else a warning naming it and no item (a test file:
+/// its test calls are best-effort, and a test call never minted is never missing).
 pub(crate) fn parsed(
     input: &CollectInput,
     select: &dyn Fn(&str) -> bool,
     query: &str,
+    mut warnings: Option<&mut Vec<String>>,
 ) -> Result<Vec<Parsed>, String> {
     let mut by_language: BTreeMap<&str, Vec<String>> = BTreeMap::new();
     let mut globbed = Vec::new();
@@ -218,6 +222,7 @@ pub(crate) fn parsed(
         parsed.extend(all_parsed(
             request(language, SyntaxFiles::Paths(paths), query),
             |_| true,
+            warnings.as_deref_mut(),
         )?);
     }
     // The host walks a truncated listing's glob itself; a file the rules drop is never the pack's error (a minified
@@ -226,6 +231,7 @@ pub(crate) fn parsed(
         parsed.extend(all_parsed(
             request(listing.language, SyntaxFiles::Glob(listing.glob()), query),
             select,
+            warnings.as_deref_mut(),
         )?);
     }
     parsed.sort_by(|a, b| a.path.cmp(&b.path));
@@ -244,18 +250,32 @@ fn request(language: &str, files: SyntaxFiles, query: &str) -> SyntaxRequest {
     }
 }
 
-/// `file`'s matches; `None` for a file deleted since the listing. A file the reader could not parse otherwise (one
-/// the fs port withholds included) is the collector's error, never an item dropped.
-fn answered(file: SyntaxFile) -> Result<Option<Parsed>, String> {
-    match file.outcome {
-        SyntaxOutcome::Parsed { matches, .. } => Ok(Some(Parsed {
+/// `file`'s matches; `None` for a file deleted since the listing. A file the reader could not parse otherwise is the
+/// collector's error, or with `warnings` a warning naming it ([`parsed`]).
+fn answered(
+    file: SyntaxFile,
+    warnings: Option<&mut Vec<String>>,
+) -> Result<Option<Parsed>, String> {
+    match (file.outcome, warnings) {
+        (SyntaxOutcome::Parsed { matches, .. }, _) => Ok(Some(Parsed {
             path: file.path,
             matches,
         })),
-        SyntaxOutcome::NotParsed {
-            reason: NotParsed::Missing,
-        } => Ok(None),
-        SyntaxOutcome::NotParsed { reason } => Err(format!(
+        (
+            SyntaxOutcome::NotParsed {
+                reason: NotParsed::Missing,
+            },
+            _,
+        ) => Ok(None),
+        (SyntaxOutcome::NotParsed { reason }, Some(warnings)) => {
+            warnings.push(format!(
+                "{}: the host's reader did not parse this test file ({}); {COLLECTOR} reads no test call from it",
+                file.path,
+                reason.name()
+            ));
+            Ok(None)
+        }
+        (SyntaxOutcome::NotParsed { reason }, None) => Err(format!(
             "{}: the host's reader did not parse it ({}); {COLLECTOR} reads every kept source file or none",
             file.path,
             reason.name()
@@ -265,9 +285,14 @@ fn answered(file: SyntaxFile) -> Result<Option<Parsed>, String> {
 
 /// The files of `request` that `keep` accepts, every one parsed whatever the answer's cap ([`parse_all`]): a glob's
 /// walk stopped short is the collector's error, as is a file whose matches alone pass the cap.
-fn all_parsed(request: SyntaxRequest, keep: impl Fn(&str) -> bool) -> Result<Vec<Parsed>, String> {
-    parse_all(COLLECTOR, request, keep)?
-        .into_iter()
-        .filter_map(|file| answered(file).transpose())
-        .collect()
+fn all_parsed(
+    request: SyntaxRequest,
+    keep: impl Fn(&str) -> bool,
+    mut warnings: Option<&mut Vec<String>>,
+) -> Result<Vec<Parsed>, String> {
+    let mut parsed = Vec::new();
+    for file in parse_all(COLLECTOR, request, keep)? {
+        parsed.extend(answered(file, warnings.as_deref_mut())?);
+    }
+    Ok(parsed)
 }

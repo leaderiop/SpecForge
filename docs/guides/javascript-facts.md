@@ -49,7 +49,10 @@ with the TypeScript grammar, and every `.tsx`, `.js`, `.jsx`, `.mjs` and
   `.mjs`, `.ts`, `.mts` or `.cts` (node 23.6 and later run TypeScript). A
   test file of a package this pack does not read (a fixture under `test/`)
   gives no item, as node-test names its tests after that package. A test
-  file's helpers are no API and no item.
+  file's helpers are no API and no item. A test file the reader could not
+  parse (too large, not UTF-8, withheld, past its deadline) gives no item and
+  a warning naming it; a source file the reader could not parse fails the
+  collector, which reads every kept source file or none.
 - **Generated output**: a `.min.js`, `.min.mjs` or `.min.cjs` file, and
   anything under `coverage`, `build`, `out`, `.nuxt`, `.svelte-kit`, `.turbo`,
   `.cache` or `storybook-static`. The host's walk never enters `dist`,

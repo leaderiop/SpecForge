@@ -61,18 +61,20 @@ impl Contributions for JavascriptSource {
     }
 }
 
-/// Every item of every kept source file, every test call of every test file, and every named package, as facts.
+/// Every item of every kept source file, every test call of every test file, and every named package, as facts; a
+/// test file the reader could not parse is a warning, a source file the collector's error ([`files::parsed`]).
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let all = Workspace::of(input);
     let workspace = files::read_packages(all.clone());
     let mut definitions = Vec::new();
-    for file in files::parsed(input, &|path| files::kept(&workspace, path), QUERY)? {
+    for file in files::parsed(input, &|path| files::kept(&workspace, path), QUERY, None)? {
         if let Some((package, under)) = workspace.owner(&file.path) {
             definitions.extend(items::read(package, &file.path, under, &file.matches));
         }
     }
     let tested = |path: &str| files::tested(&workspace, &all, path);
-    for file in files::parsed(input, &tested, TESTS)? {
+    let mut warnings = Vec::new();
+    for file in files::parsed(input, &tested, TESTS, Some(&mut warnings))? {
         if let Some((package, under)) = workspace.owner(&file.path) {
             definitions.extend(calls::read(package, &file.path, under, &file.matches));
         }
@@ -81,6 +83,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     facts.extend(packages::facts(&workspace));
     Ok(CollectOutput {
         facts,
+        warnings,
         ..CollectOutput::default()
     })
 }
