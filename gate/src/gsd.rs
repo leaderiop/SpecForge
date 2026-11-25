@@ -52,32 +52,29 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         "-D",
         "warnings",
     ]))?;
-    let security = build_wasm(ctx, "gsd-security")?;
+    let security = build_security_wasm(ctx)?;
     let specforge = ctx.specforge()?;
     ctx.sh(cargo(&["nextest", "run", "--locked", "--no-fail-fast"])
         .env("SPECFORGE_BIN", specforge)
         .env("GSD_SECURITY_WASM", security))
 }
 
-/// Build `package` for `wasm32-wasip2` in release, a component the suite reads by path rather than as a vendored
-/// builtin (ADR 0373 D5); answers its path, `<package with - as _>.wasm`.
-fn build_wasm(ctx: &Ctx, package: &str) -> Result<PathBuf, String> {
+/// Build `@gsd/security` for `wasm32-wasip2` in release (it is not vendored, ADR 0373 D5), the component the suite
+/// reads through `GSD_SECURITY_WASM`; answers its path.
+fn build_security_wasm(ctx: &Ctx) -> Result<PathBuf, String> {
     ctx.sh(&mut cargo(
         ctx,
         &[
             "build",
             "--locked",
             "-p",
-            package,
+            "gsd-security",
             "--release",
             "--target",
             "wasm32-wasip2",
         ],
     ))?;
-    Ok(target(ctx).join(format!(
-        "wasm32-wasip2/release/{}.wasm",
-        package.replace('-', "_")
-    )))
+    Ok(target(ctx).join("wasm32-wasip2/release/gsd_security.wasm"))
 }
 
 /// `<target_dir>/gsd`: the workspace's own target directory.
