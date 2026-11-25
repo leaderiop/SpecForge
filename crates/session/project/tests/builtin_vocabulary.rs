@@ -174,7 +174,7 @@ fn no_builtin_declares_a_writer_or_history_flag() {
 }
 
 #[specforge_test_macros::test(requirement = "FEATURE-028")]
-fn the_builtins_declare_no_settings() {
+fn only_checks_and_cargo_declare_settings() {
     // The old set only: @gsd/core scopes, sets and pins by design (ADR 0373 D7, ADR 0370).
     let declarations = old_set_declarations();
     for declaration in &declarations {
