@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_javascript_source.wasm",
-  "artifact_sha256": "0d18bcfd07549cb9d8da8161310a7463a352b26dd4970bedd4bbdb0fda07e1de",
+  "artifact_sha256": "f62e455bdd957d308290e1b2118e7141eccdde3205e683098326295fcb753c3c",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -87,11 +87,11 @@
     "extensions/javascript/source/Cargo.lock": "102756e7c41a24420712a8741966300bbc34c10c7b336cabae61351437273843",
     "extensions/javascript/source/Cargo.toml": "3d3ec2ee17e8fe3708cabaa13dd58f05444793daf31867738c0db660ea886b14",
     "extensions/javascript/source/queries/js-tags.scm": "93e7d113d7df671dff9ce49868abe3f7546b1b535c4a6dc906bfe4de4b0f2f05",
-    "extensions/javascript/source/queries/js-tests.scm": "f8c6403c639cafacc0495ab1d83757fa11057694f75313c31fa5b2667793ac6e",
-    "extensions/javascript/source/src/calls.rs": "4906e4809121cadf4bb303c576bd238bdc809422c66ce9803cc9743739851905",
-    "extensions/javascript/source/src/files.rs": "85e57a4d37b6425f3f51382d27a65ce18dfcea3974a6ab8f0827e10205c14463",
-    "extensions/javascript/source/src/items.rs": "7ac7ee6f7a80d9f91c6cf54a70c660dec6f7179be798a69cb3c5587d867f8091",
-    "extensions/javascript/source/src/lib.rs": "4ce43f09131b0a0df16deda2299bf9a49c0c254ea73b65029b326744a59921b3",
+    "extensions/javascript/source/queries/js-tests.scm": "a3d624e9f8edd622cff8b358360b40d99539b0b2c1a9edd2e51028232733a978",
+    "extensions/javascript/source/src/calls.rs": "e8ff042455713d744251b3e8d260f4ab9cf5493071932feeaade8059f0e93e9b",
+    "extensions/javascript/source/src/files.rs": "3d345ab471e20e2f598b6b4b58787829ecbb101111f07f05851a2dd3f3e81636",
+    "extensions/javascript/source/src/items.rs": "011aeeeaaa2a222ac753a8f062a4276535f6e938101e3a96d5b5efa7549c6275",
+    "extensions/javascript/source/src/lib.rs": "10e54ee5b00a451d412183b15c61c9d41d49845927b3d0fb6d6b8e26e1b2d6f8",
     "extensions/javascript/source/src/packages.rs": "e4ac7d0881f1b21a57f1cdb9a2e10a884c44908364e68a9ac9c69b42298cbfd2",
     "extensions/javascript/workspace/Cargo.toml": "6fe0f3ed1ffd7dc74f67755828ca813c06b3ef5f65e71046b20ce965be21c305",
     "extensions/javascript/workspace/src/lib.rs": "bfa9070faa64aed3f7109cfb2c82578e9b4197bfb6aa7a0baaf1de244d3b8560"

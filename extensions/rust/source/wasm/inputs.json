@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_rust_source.wasm",
-  "artifact_sha256": "1a4add3f16e9e0c2fe56945f75b78da7693cd1ad294617e4cf0c2e5ab2656e3d",
+  "artifact_sha256": "ab03de5f21e15c85418e6ef77066a8d0152eaeea093bc57e9a3c14bed0748edb",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -86,9 +86,9 @@
     "extensions/code/junit/src/xml.rs": "fa399f0b4782f298aaf8a2407f25c6112a9c40dbcf98951def06f8e06976dc20",
     "extensions/rust/source/Cargo.lock": "b7ece3e2a5107a0bd0c9e6da8f45f9934435ef62826855a93bc391ebd2794672",
     "extensions/rust/source/Cargo.toml": "f2db9fb8355198d290803723d1d4f426bbbfe7679fd6f2a2503c700348249f55",
-    "extensions/rust/source/queries/rust-tags.scm": "d5d75e5c96a368966dba7c5352e3384bb9b3d83601a9ac38e43a98b6a70d7be0",
-    "extensions/rust/source/src/items.rs": "ba6902976c24b7d7ad24e6d8dc45fdf3d76fef4e262c57a49e90c5c9c674823c",
+    "extensions/rust/source/queries/rust-tags.scm": "cffa28e36b1d06e4e786e834f760cdc29ca3f965b139bc51c50fa724667b4501",
+    "extensions/rust/source/src/items.rs": "b1a638c4e388ab5a7742fac917035e1634bf51ecdb373ff85e07f64ded189d98",
     "extensions/rust/source/src/lib.rs": "2ead74be86e99eee68a8ddad703e87c81c4dce1863c2b03d507731b2dc7673e1",
-    "extensions/rust/source/src/modules.rs": "7550a48b9c114bf1d0c839e9804eb8d7d9f27ba3513962d367eb732c538e6535"
+    "extensions/rust/source/src/modules.rs": "32fd15a396e81cd6b6ff5abb47ab4ae7467d527ffdff287509e9737176dfb9b6"
   }
 }
