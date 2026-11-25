@@ -136,7 +136,10 @@ The reason: those helpers exist to type-check a guard, never run, and are not te
 ## D7. `@rust/cargo` excludes directories by a setting
 
 `@rust/cargo` declares the setting `exclude`, a list of project-relative directories: a manifest in or under one is
-no package of the project. SpecForge's root `specforge.json` lists its fixture and example directories.
+no package of the project. `@rust/cargo` still reads it (workspace inheritance needs every manifest) and answers no
+package for it, so `@rust/source` reads no item there; the packs that run a tool (`@rust/test`, `@rust/coverage`,
+`@rust/lint`, `@rust/deps`) do not consult the setting and run over the cargo workspace as before. SpecForge's root
+`specforge.json` lists its fixture and example directories.
 
 The reason: every consumer computes the same number from the same facts (ADR 0388 D1), so the census leaves those
 crates out where the facts are made, not in a gate-side filter.

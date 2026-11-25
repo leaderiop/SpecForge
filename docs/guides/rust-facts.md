@@ -66,8 +66,11 @@ order, each served the facts of the one before:
   test fixture, an example) is left out by `@rust/cargo`'s `exclude` setting
   in `specforge.json`. Each entry is a directory relative to the project root,
   written with `/` (`.` segments and extra `/` are dropped: `./examples/` is
-  `examples`); every manifest under it is skipped, so its targets yield no
-  items and no test ids. An empty or absolute entry, a `..` segment, a `\`,
+  `examples`). `rust-cargo` still reads every manifest (a workspace inherits
+  from them) but answers no package for one under an entry, so `rust-source`
+  reads no item there and no test id is minted. The packs that run a tool
+  (`rust-test`, coverage, lint, deps) still run it over the whole cargo
+  workspace. An empty or absolute entry, a `..` segment, a `\`,
   or an entry naming the root itself (`.`) fails the collector with
   `exclude entry '<entry>' is not a project-relative directory`.
 

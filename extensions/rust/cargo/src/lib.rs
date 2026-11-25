@@ -49,8 +49,9 @@ impl Contributions for RustCargo {
         c.peer("@code/core", "^1.1");
         c.setting("exclude", |s| {
             s.string_list().default(Vec::<String>::new()).describe(
-                "Project-relative directories whose manifests are not packages of this project (a fixture's or an \
-                 example's crate): a manifest in or under one is read by no collector",
+                "Project-relative directories whose manifests are no packages of this project (a fixture's or an \
+                 example's crate): @rust/cargo answers no package for a manifest in or under one, so @rust/source \
+                 reads no item there; the tool-running packs still run over the whole cargo workspace",
             );
         });
         c.collector(COLLECTOR, |k| {
