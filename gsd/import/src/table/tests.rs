@@ -111,6 +111,9 @@ fn fate_of_classifies_a_path_under_planning() {
     assert_eq!(fate_of("notes.txt"), None);
     // GSD keeps config.json and state.json at the folder's root only.
     assert_eq!(fate_of("phases/01-core/config.json"), None);
-    assert!(maps("REQUIREMENTS.md"));
-    assert!(!maps("STATE.md"));
+    assert!(maps("REQUIREMENTS.md", false));
+    assert!(!maps("STATE.md", true));
+    // A SECURITY.md maps only when the project loads @gsd/security.
+    assert!(maps("phases/01-core/01-SECURITY.md", true));
+    assert!(!maps("phases/01-core/01-SECURITY.md", false));
 }

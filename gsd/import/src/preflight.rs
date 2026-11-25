@@ -100,8 +100,9 @@ pub fn refuse_reimport(graph: &CommandGraph) -> Result<(), String> {
 }
 
 /// Refuses a `.planning/` read the import cannot trust whole (D9): none at all, one that stopped early, or one that
-/// failed on a file that maps to entities. A failed read of any other file is the reader's to report.
-pub fn check_reads(planning: &[Served], truncated: bool) -> Result<(), String> {
+/// failed on a file that maps to entities (a `SECURITY.md` only when the project loads `@gsd/security`, `security`).
+/// A failed read of any other file is the reader's to report.
+pub fn check_reads(planning: &[Served], truncated: bool, security: bool) -> Result<(), String> {
     if truncated {
         return Err(format!(
             "truncated at {FILE_READ_MAX}: the host's read of .planning/ stopped early (more than {FILE_READ_MAX} files, or a walk past {GLOB_VISITS_MAX} entries); nothing is imported"
@@ -112,7 +113,7 @@ pub fn check_reads(planning: &[Served], truncated: bool) -> Result<(), String> {
     }
     for file in planning {
         let rel = file.path.strip_prefix(".planning/").unwrap_or(&file.path);
-        if let (Some(error), true) = (&file.error, table::maps(rel)) {
+        if let (Some(error), true) = (&file.error, table::maps(rel, security)) {
             return Err(format!(
                 "{} was not read ({error}): its entities would be missing, so nothing is imported",
                 crate::report::escape(&file.path)
@@ -157,6 +158,25 @@ mod tests {
         let manifest = read(text).expect("a manifest");
         assert!(manifest.security);
         assert_eq!(manifest.loaded, ["@gsd/core", "@gsd/security"]);
+    }
+
+    #[test]
+    fn a_security_read_error_refuses_only_when_security_is_loaded() {
+        let failed = |path: &str| Served {
+            path: path.to_string(),
+            text: None,
+            error: Some("too_large".to_string()),
+        };
+        let security = [failed(".planning/phases/01-core/01-SECURITY.md")];
+        assert!(check_reads(&security, false, false).is_ok());
+        let why = check_reads(&security, false, true).expect_err("refused");
+        assert!(
+            why.contains("01-SECURITY.md was not read (too_large)"),
+            "{why}"
+        );
+        // A plan maps whatever the manifest says.
+        let plan = [failed(".planning/phases/01-core/01-01-PLAN.md")];
+        assert!(check_reads(&plan, false, false).is_err());
     }
 
     #[test]

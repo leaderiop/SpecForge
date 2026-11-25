@@ -58,7 +58,7 @@ fn import(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     preflight::refuse_reimport(graph)?;
     let manifest = preflight::manifest(&served(call, MANIFEST).0)?;
     let (planning, truncated) = served(call, PLANNING);
-    preflight::check_reads(&planning, truncated)?;
+    preflight::check_reads(&planning, truncated, manifest.security)?;
     let imported = imported(planning, &manifest, graph, call.plan())?;
     Ok(answer(
         call,

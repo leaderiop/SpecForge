@@ -164,9 +164,15 @@ pub fn fate_of(rel: &str) -> Option<(&'static str, Fate)> {
     .copied()
 }
 
-/// Whether the file `rel` (under `.planning/`) maps to entities: a read error on one refuses the import (D9).
-pub fn maps(rel: &str) -> bool {
-    matches!(fate_of(rel), Some((_, Fate::Maps)))
+/// Whether the file `rel` (under `.planning/`) maps to entities in a project that loads `@gsd/security` when
+/// `security`: a read error on one refuses the import (D9). Without it a `SECURITY.md` maps to nothing, only reported
+/// `needs-extension`.
+pub fn maps(rel: &str, security: bool) -> bool {
+    match fate_of(rel) {
+        Some(("SECURITY.md", Fate::Maps)) => security,
+        Some((_, fate)) => fate == Fate::Maps,
+        None => false,
+    }
 }
 
 /// The kit's kinds column for the `PLANNING_FILES` row `name` (empty for an extra).
