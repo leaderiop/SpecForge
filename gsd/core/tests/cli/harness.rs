@@ -310,8 +310,10 @@ impl Project {
                 return;
             };
             for entry in entries {
-                let path = entry.expect("a directory entry").path();
-                if path.is_dir() {
+                let entry = entry.expect("a directory entry");
+                let path = entry.path();
+                // The entry's own type: a symlinked directory is not followed (a loop, or a tree outside the project).
+                if entry.file_type().expect("a file type").is_dir() {
                     remove_specs(&path);
                 } else if path.extension().is_some_and(|ext| ext == "spec") {
                     std::fs::remove_file(&path).expect("remove a .spec file");
@@ -322,6 +324,12 @@ impl Project {
             .as_str()
             .unwrap_or("spec")
             .to_string();
+        assert!(
+            Path::new(&spec_root)
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_))),
+            "spec_root {spec_root:?} leaves the project"
+        );
         remove_specs(&self.root.join(spec_root));
         let harness = self.root.join("specforge-harness");
         if harness.is_file() {
