@@ -120,7 +120,11 @@ pub fn lines(owed: &[Owed]) -> Vec<String> {
                 None if command == "/gsd-verify-work" => {
                     "quick plans (no phase): ask the verifier to judge each".to_string()
                 }
-                // A quick plan's checks and a milestone audit: the command names no phase.
+                // `/gsd-plan-phase` names a phase, and none plans a quick plan.
+                None if command == "/gsd-plan-phase" => {
+                    "quick plans (no phase): ask the plan checker to judge each".to_string()
+                }
+                // A milestone audit: its command names no phase.
                 None => command.to_string(),
             });
         }
@@ -355,5 +359,21 @@ mod tests {
                 "8 verdicts owed: `specforge check` exits 1 until these verdicts are recorded",
             ]
         );
+    }
+
+    #[test]
+    fn an_open_quick_plans_checks_name_no_bare_plan_phase() {
+        let records = [record(
+            "plan",
+            "261105-tcl",
+            "spec/gsd/quick.spec",
+            json!({}),
+        )];
+        let lines = lines(&owed(&records));
+        assert_eq!(
+            lines[0],
+            "quick plans (no phase): ask the plan checker to judge each"
+        );
+        assert!(!lines.iter().any(|l| l == "/gsd-plan-phase"), "{lines:#?}");
     }
 }
