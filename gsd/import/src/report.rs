@@ -55,8 +55,9 @@ impl Outcome {
 /// The most characters of one echoed value the report shows.
 pub const SHOWN_MAX: usize = 200;
 
-/// Whether `c` is written `\u{..}` when echoed: a C0 control (tab and line feed too), DEL, a C1 control, the line and
-/// paragraph separators, or a Unicode bidi or format control, which a terminal acts on or reorders.
+/// Whether `c` is a character no `.spec` file holds: a C0 control (tab and line feed too), DEL, a C1 control, the line
+/// and paragraph separators, or a Unicode bidi control, which a terminal acts on or reorders. Exactly the parser's
+/// `is_unprintable`, so a record holding one is dropped (`emit::unwritable`) as the host would refuse its file.
 pub fn hidden(c: char) -> bool {
     c.is_control()
         || matches!(
@@ -71,11 +72,42 @@ pub fn hidden(c: char) -> bool {
         )
 }
 
-/// `text` with every [`hidden`] character written `\u{<hex>}`; any other text unchanged.
+/// Whether `c` is written `\u{..}` when echoed (ADR 0391 D8): a [`hidden`] character or any other Unicode format
+/// control (General Category Cf): the soft hyphen, the zero-width characters, the word joiner and invisible
+/// operators, U+FEFF, the interlinear annotation marks, the tag characters (U+E0001, U+E0020-U+E007F) and the rest.
+/// A `.spec` file may hold these, so they are escaped, never dropped: text can carry no invisible content into the
+/// report, which an agent may read.
+pub fn invisible(c: char) -> bool {
+    hidden(c)
+        || matches!(
+            c,
+            '\u{00AD}'
+                | '\u{0600}'..='\u{0605}'
+                | '\u{06DD}'
+                | '\u{070F}'
+                | '\u{0890}'..='\u{0891}'
+                | '\u{08E2}'
+                | '\u{180E}'
+                | '\u{200B}'..='\u{200D}'
+                | '\u{2060}'..='\u{2064}'
+                | '\u{206A}'..='\u{206F}'
+                | '\u{FEFF}'
+                | '\u{FFF9}'..='\u{FFFB}'
+                | '\u{110BD}'
+                | '\u{110CD}'
+                | '\u{13430}'..='\u{1343F}'
+                | '\u{1BCA0}'..='\u{1BCA3}'
+                | '\u{1D173}'..='\u{1D17A}'
+                | '\u{E0001}'
+                | '\u{E0020}'..='\u{E007F}'
+        )
+}
+
+/// `text` with every [`invisible`] character written `\u{<hex>}`; any other text unchanged.
 pub fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
-        if hidden(c) {
+        if invisible(c) {
             out.push_str(&format!("\\u{{{:x}}}", c as u32));
         } else {
             out.push(c);

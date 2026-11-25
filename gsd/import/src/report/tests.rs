@@ -17,6 +17,36 @@ fn escape_writes_controls_as_code_points() {
 }
 
 #[test]
+fn escape_writes_format_controls_but_drops_only_what_the_parser_refuses() {
+    for c in [
+        '\u{00ad}',
+        '\u{180e}',
+        '\u{200b}',
+        '\u{200c}',
+        '\u{200d}',
+        '\u{2060}',
+        '\u{2064}',
+        '\u{feff}',
+        '\u{fff9}',
+        '\u{fffb}',
+        '\u{e0001}',
+        '\u{e0041}',
+        '\u{e007f}',
+    ] {
+        assert_eq!(
+            escape(&format!("a{c}b")),
+            format!("a\\u{{{:x}}}b", c as u32)
+        );
+        // A `.spec` file may hold it: the record holding it is written, only its echo is escaped.
+        assert!(!hidden(c), "{:x}", c as u32);
+    }
+    // The tag block's unassigned neighbours and ordinary joiners' lookalikes stay text.
+    for c in ['\u{e0000}', '\u{e0080}', '\u{2010}'] {
+        assert_eq!(escape(&c.to_string()), c.to_string());
+    }
+}
+
+#[test]
 fn escape_leaves_other_text_unchanged() {
     let text = "Tâche — « déjà » 日本語 `code` \\u{1b} 'quoted' $(id)";
     assert_eq!(escape(text), text);

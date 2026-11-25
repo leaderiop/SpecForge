@@ -72,6 +72,22 @@ fn settings_lines_refuse_a_control_character() {
 }
 
 #[test]
+fn settings_lines_refuse_an_invisible_format_character() {
+    for value in ["yo\u{200B}lo", "\u{FEFF}yolo", "yolo\u{E0041}"] {
+        let (lines, entries) = run(json!({ "mode": value }), &[]);
+        assert!(lines.is_empty(), "{value:?}: {lines:?}");
+        assert_eq!(
+            entries
+                .iter()
+                .map(|(_, _, r)| r.as_str())
+                .collect::<Vec<_>>(),
+            ["control character in the value of mode"],
+            "{value:?}"
+        );
+    }
+}
+
+#[test]
 fn settings_lines_never_print_a_secret() {
     let (lines, entries) = run(
         json!({"brave_search": "sk-SECRET-1", "jina": "jina-SECRET-2", "exa_search": false}),

@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use serde_json::{Map, Value};
 
 use crate::preflight::Manifest;
-use crate::report::{Entry, Outcome, hidden};
+use crate::report::{Entry, Outcome, invisible};
 
 /// The file the lines come from.
 pub const CONFIG: &str = ".planning/config.json";
@@ -259,7 +259,7 @@ impl Lines {
                 format!("{extension}'s setting, and the project does not load {extension}"),
             );
         }
-        if has_hidden(value) {
+        if has_invisible(value) {
             return report(
                 Outcome::Unmapped,
                 format!("control character in the value of {key}"),
@@ -370,14 +370,15 @@ fn block_depth(key: &str) -> Option<usize> {
     })
 }
 
-/// Whether any string of `value` (or any object key) holds a character the report would escape.
-fn has_hidden(value: &Value) -> bool {
+/// Whether any string of `value` (or any object key) holds a character the report would escape ([`invisible`]), so a
+/// printed settings line never holds an invisible character.
+fn has_invisible(value: &Value) -> bool {
     match value {
-        Value::String(s) => s.chars().any(hidden),
-        Value::Array(items) => items.iter().any(has_hidden),
+        Value::String(s) => s.chars().any(invisible),
+        Value::Array(items) => items.iter().any(has_invisible),
         Value::Object(map) => map
             .iter()
-            .any(|(k, v)| k.chars().any(hidden) || has_hidden(v)),
+            .any(|(k, v)| k.chars().any(invisible) || has_invisible(v)),
         _ => false,
     }
 }
