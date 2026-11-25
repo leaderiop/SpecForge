@@ -8,11 +8,13 @@
 #
 # Each tool runs in a `--platform linux/amd64` container of an image pinned by digest, on a copy of the fixture's
 # tracked files at /project: the copy goes in as a tar stream on standard input and the reports come out as a tar on
-# standard output, so no volume is created or mounted and the fixture itself is never touched. The tools are installed
-# in the container at the exact versions below and print their versions to standard error. The reports are replaced
-# only when every step of every named fixture succeeded; a step that fails fails the script. osv-scanner sends the
-# ledger lockfile's package names (`ledger 0.1.0`, it has no dependency) to osv.dev; nothing else leaves the machine
-# but the images' and tools' downloads.
+# standard output, so no volume is created or mounted and the fixture itself is never touched. A fixture holding an
+# uncommitted or untracked file is refused before anything runs: its reports would be ones the committed tree cannot
+# reproduce. The tools are installed in the container at the exact versions below and print their versions to standard
+# error; only c8 itself is pinned, npm resolves its dependency tree at record time. Each named fixture's reports
+# directory is replaced as a whole (a report no longer produced goes) only when every step of every named fixture
+# succeeded; a step that fails fails the script. osv-scanner sends the ledger lockfile's package names (`ledger 0.1.0`,
+# it has no dependency) to osv.dev; nothing else leaves the machine but the images' and tools' downloads.
 #
 # Recorded, each with the pack's own argv:
 #   taskboard, vault  javascript-coverage.lcov  c8 around the fixture's `npm test` (`@javascript/coverage`)
@@ -121,13 +123,21 @@ fixtures=("$@")
 [ ${#fixtures[@]} -gt 0 ] || fixtures=(taskboard vault ledger)
 for fixture in "${fixtures[@]}"; do
   case $fixture in
-    taskboard | vault | ledger) "$fixture" ;;
+    taskboard | vault | ledger) ;;
     *) echo "record-reports.sh: no fixture '$fixture' (taskboard, vault, ledger)" >&2; exit 1 ;;
   esac
+  if [ -n "$(quiet_git -C "$here/fixtures/$fixture" status --porcelain -- .)" ]; then
+    echo "record-reports.sh: fixtures/$fixture holds uncommitted or untracked files; commit or remove them" >&2
+    exit 1
+  fi
+done
+for fixture in "${fixtures[@]}"; do
+  "$fixture"
 done
 
 for fixture in "${fixtures[@]}"; do
   out="$here/goldens/$fixture/reports"
+  rm -rf "$out"
   mkdir -p "$out"
   cp "$staged/$fixture"/* "$out"/
   echo "recorded $(ls "$staged/$fixture" | wc -l | tr -d ' ') reports in $out"

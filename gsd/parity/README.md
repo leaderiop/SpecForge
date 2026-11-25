@@ -71,11 +71,12 @@ git diff --exit-code gsd/parity/goldens
 ```
 
 Each tool runs in a `--platform linux/amd64` container of the image below, pinned by digest, on a copy of the fixture's
-tracked files at `/project`, copied in and out by tar streams (no volume); the fixtures are never touched. A leading
-`SF:/project/` in an LCOV becomes `SF:`, and the SBOM's `serialNumber` and `metadata.timestamp` become
-`urn:uuid:00000000-0000-0000-0000-000000000000` and `1970-01-01T00:00:00Z`, so a re-run on the same tools gives the
-same bytes (the ledger's five reports were recorded twice and compared). `scenario`'s count skips
-`goldens/taskboard/reports/`.
+tracked files at `/project`, copied in and out by tar streams (no volume); the fixtures are never touched, and one
+holding an uncommitted or untracked file is refused. Each fixture's `reports/` is replaced as a whole. Only c8 itself
+is pinned: npm resolves its dependency tree at record time. A leading `SF:/project/` in an LCOV becomes `SF:`, and
+the SBOM's `serialNumber` and `metadata.timestamp` become `urn:uuid:00000000-0000-0000-0000-000000000000` and
+`1970-01-01T00:00:00Z`, so a re-run on the same tools gives the same bytes (the ledger's five reports were recorded
+twice and compared). `scenario`'s count skips `goldens/taskboard/reports/`.
 
 | Fixture | File | Tool | Image | Command |
 |---|---|---|---|---|
