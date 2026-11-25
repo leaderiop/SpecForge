@@ -10,19 +10,36 @@
 # tracked files at /project: the copy goes in as a tar stream on standard input and the reports come out as a tar on
 # standard output, so no volume is created or mounted and the fixture itself is never touched. The tools are installed
 # in the container at the exact versions below and print their versions to standard error. The reports are replaced
-# only when every step of every named fixture succeeded; a step that fails fails the script.
+# only when every step of every named fixture succeeded; a step that fails fails the script. osv-scanner sends the
+# ledger lockfile's package names (`ledger 0.1.0`, it has no dependency) to osv.dev; nothing else leaves the machine
+# but the images' and tools' downloads.
 #
-# Recorded, per fixture:
-#   taskboard, vault  javascript-coverage.lcov  c8 around the fixture's `npm test`, the `@javascript/coverage` argv
+# Recorded, each with the pack's own argv:
+#   taskboard, vault  javascript-coverage.lcov  c8 around the fixture's `npm test` (`@javascript/coverage`)
+#   ledger            rust-coverage.lcov        cargo llvm-cov over nextest (`@rust/coverage`; the ledger has a test
+#                                               that fails by design, which `--ignore-run-fail` lets through)
+#                     rust-lint.jsonl           cargo clippy's JSON messages (`@rust/lint`)
+#                     rust-sbom.cdx.json        cargo cyclonedx (`@rust/deps`, rust-sbom)
+#                     rust-osv.json             osv-scanner over Cargo.lock (`@rust/deps`, rust-osv)
+#                     rust-api.txt              cargo public-api on its pinned nightly (`@rust/api`)
 #
 # Normalised, so a re-run on the same tools gives the same bytes: a leading `SF:/project/` in an LCOV becomes `SF:`
-# (a path outside the project is W203 to the pack; c8 writes relative paths already).
+# (a path outside the project is W203 to the pack; c8 writes relative paths already), and the SBOM's `serialNumber`
+# and `timestamp` become `urn:uuid:00000000-0000-0000-0000-000000000000` and `1970-01-01T00:00:00Z`.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 
 NODE_IMAGE=node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9
 C8=12.0.0
+RUST_IMAGE=rust:1.99.1@sha256:8a4e90c7946b74626488b1446f712c0fe0ed1a596cbd3d871684bc9c5433ae07
+# The nightly cargo public-api 0.52 builds rustdoc JSON with (its README's compatibility matrix).
+NIGHTLY=nightly-2025-11-22
+LLVM_COV=0.9.2
+NEXTEST=0.9.146
+CYCLONEDX=0.5.10
+PUBLIC_API=0.52.0
+OSV_IMAGE=ghcr.io/google/osv-scanner:v2.7.1@sha256:a70ffffc2bfd33482953e5d6b64c6fcdb30239717a07b0f0d3ab2859ce3e4cde
 
 # Everything the script writes but the reports lives in one directory, removed on exit.
 root=$(mktemp -d)
@@ -45,7 +62,7 @@ container() {
   shift 3
   mkdir -p "$staged/$fixture"
   tracked "$fixture" |
-    docker run --rm -i --platform linux/amd64 --workdir /project "$image" sh -euc \
+    docker run --rm -i --platform linux/amd64 --workdir /project --entrypoint sh "$image" -euc \
       "tar -x --no-same-owner; $script" sh "$@" |
     tar -x -C "$staged/$fixture"
 }
@@ -66,12 +83,48 @@ javascript() {
 taskboard() { javascript taskboard; }
 vault() { javascript vault; }
 
+# ledger: the Rust tools in one container (installed with --locked; the pinned nightly is active for cargo public-api
+# only, every other tool runs on the image's stable), then osv-scanner in its own image.
+ledger() {
+  container "$RUST_IMAGE" '
+    rustup component add llvm-tools-preview clippy >&2
+    rustup toolchain install "$1" --profile minimal >&2
+    cargo install --locked "cargo-llvm-cov@$2" "cargo-nextest@$3" "cargo-cyclonedx@$4" "cargo-public-api@$5" >&2
+    for tool in "rustc --version" "rustc +$1 --version" "cargo clippy --version" "cargo llvm-cov --version" \
+      "cargo nextest --version" "cargo cyclonedx --version" "cargo public-api --version"; do
+      $tool >&2
+    done
+    mkdir /reports
+    cargo llvm-cov nextest --workspace --ignore-run-fail --lcov --output-path /reports/lcov.info >&2
+    sed "s|^SF:/project/|SF:|" /reports/lcov.info >/reports/rust-coverage.lcov
+    cargo clippy --workspace --all-targets --message-format=json >/reports/rust-lint.jsonl
+    # cargo-cyclonedx appends `.json` to --override-filename, so the pack'"'"'s argv writes rust-sbom.cdx.json.json; it
+    # is staged under the name the pack reads (its glob `**/rust-sbom.cdx.json`).
+    cargo cyclonedx --format json --spec-version 1.5 --all-features --override-filename rust-sbom.cdx.json >&2
+    sed -e "s|\"serialNumber\": *\"[^\"]*\"|\"serialNumber\": \"urn:uuid:00000000-0000-0000-0000-000000000000\"|" \
+      -e "s|\"timestamp\": *\"[^\"]*\"|\"timestamp\": \"1970-01-01T00:00:00Z\"|" rust-sbom.cdx.json.json \
+      >/reports/rust-sbom.cdx.json
+    # cargo public-api finds a toolchain named `nightly` by itself; a dated one must be the active toolchain.
+    RUSTUP_TOOLCHAIN="$1" cargo public-api --color never -ss >/reports/rust-api.txt
+    cd /reports
+    tar -c rust-coverage.lcov rust-lint.jsonl rust-sbom.cdx.json rust-api.txt
+  ' ledger "$NIGHTLY" "$LLVM_COV" "$NEXTEST" "$CYCLONEDX" "$PUBLIC_API"
+  # Exit 1 is "vulnerabilities found", a report like any other; every other non-zero is a failure.
+  container "$OSV_IMAGE" '
+    /osv-scanner --version >&2
+    status=0
+    /osv-scanner scan source --lockfile Cargo.lock --format json --output-file rust-osv.json >&2 || status=$?
+    [ "$status" -le 1 ] || { echo "record-reports.sh: osv-scanner exited $status" >&2; exit 1; }
+    tar -c rust-osv.json
+  ' ledger
+}
+
 fixtures=("$@")
-[ ${#fixtures[@]} -gt 0 ] || fixtures=(taskboard vault)
+[ ${#fixtures[@]} -gt 0 ] || fixtures=(taskboard vault ledger)
 for fixture in "${fixtures[@]}"; do
   case $fixture in
-    taskboard | vault) "$fixture" ;;
-    *) echo "record-reports.sh: no fixture '$fixture' (taskboard, vault)" >&2; exit 1 ;;
+    taskboard | vault | ledger) "$fixture" ;;
+    *) echo "record-reports.sh: no fixture '$fixture' (taskboard, vault, ledger)" >&2; exit 1 ;;
   esac
 done
 

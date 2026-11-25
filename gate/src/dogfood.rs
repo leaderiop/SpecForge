@@ -148,11 +148,35 @@ const FIXTURES: &[Fixture] = &[
             "@rust/cargo",
             "@rust/source",
             "@rust/test",
+            "@rust/coverage",
+            "@rust/lint",
+            "@rust/deps",
+            "@rust/api",
         ],
         collects: &[
             ("rust-cargo", None),
             ("rust-source", None),
             ("rust-test", Some("gsd/parity/goldens/ledger/rust-test.xml")),
+            (
+                "rust-coverage",
+                Some("gsd/parity/goldens/ledger/reports/rust-coverage.lcov"),
+            ),
+            (
+                "rust-lint",
+                Some("gsd/parity/goldens/ledger/reports/rust-lint.jsonl"),
+            ),
+            (
+                "rust-sbom",
+                Some("gsd/parity/goldens/ledger/reports/rust-sbom.cdx.json"),
+            ),
+            (
+                "rust-osv",
+                Some("gsd/parity/goldens/ledger/reports/rust-osv.json"),
+            ),
+            (
+                "rust-api",
+                Some("gsd/parity/goldens/ledger/reports/rust-api.txt"),
+            ),
         ],
     },
     Fixture {

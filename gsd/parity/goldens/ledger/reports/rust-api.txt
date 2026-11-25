@@ -1,0 +1,17 @@
+pub mod ledger
+pub struct ledger::Entry
+pub ledger::Entry::cents: i64
+pub ledger::Entry::memo: alloc::string::String
+impl core::clone::Clone for ledger::Entry
+pub fn ledger::Entry::clone(&self) -> ledger::Entry
+impl core::cmp::Eq for ledger::Entry
+impl core::cmp::PartialEq for ledger::Entry
+pub fn ledger::Entry::eq(&self, &ledger::Entry) -> bool
+impl core::fmt::Debug for ledger::Entry
+pub fn ledger::Entry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for ledger::Entry
+pub fn ledger::add(&mut alloc::vec::Vec<ledger::Entry>, i64, &str) -> core::result::Result<(), alloc::string::String>
+pub fn ledger::column(i64) -> alloc::string::String
+pub fn ledger::line(&ledger::Entry) -> alloc::string::String
+pub fn ledger::parse(&str) -> core::result::Result<alloc::vec::Vec<ledger::Entry>, alloc::string::String>
+pub fn ledger::total(&[ledger::Entry]) -> i64
