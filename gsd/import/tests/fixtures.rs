@@ -520,6 +520,17 @@ fn a_project_reports_what_it_cannot_map() {
     assert!(lines_of(&out, 1, "gives no id"));
 }
 
+#[test]
+fn a_second_project_title_covers_nothing_after_it() {
+    let text = "# Odd Project\n\n## What This Is\n\nA thing.\n\n# Appendix\n\n## Key Decisions\n\n| Decision | Rationale | Outcome |\n|---|---|---|\n| Use X | because | ✓ Good |\n";
+    let out = import_one(".planning/PROJECT.md", text);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let (_, d1) = create_of(&out, "decision", "D-01");
+    assert_eq!(d1["text"], "Use X");
+    assert!(lines_of(&out, 7, "no row of the PROJECT.md table"));
+    assert!(lines_of(&out, 9, "mapped: each row a decision"));
+}
+
 fn lines_of(out: &CommandOutput, line: u64, says: &str) -> bool {
     lines(out)
         .iter()

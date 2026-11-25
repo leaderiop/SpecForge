@@ -277,6 +277,47 @@ fn roadmap_hostile_headings_and_references_are_reported_at_their_lines() {
 }
 
 #[test]
+fn roadmap_any_title_and_an_unknown_section_keep_every_phase() {
+    let text = "# Project Roadmap
+
+### Phase 1: One
+**Goal**: g
+**Success Criteria**:
+  1. c
+
+## Roadmap Notes
+
+Some notes.
+
+### Phase 2: Two
+**Goal**: h
+**Success Criteria**:
+  1. d
+";
+    let out = run(vec![fact(".planning/ROADMAP.md", text)]);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let phases: Vec<String> = creates(&out)
+        .into_iter()
+        .filter(|(k, ..)| k == "phase")
+        .map(|(_, id, ..)| id)
+        .collect();
+    assert_eq!(phases, ["01", "02"]);
+    let entries = entries(&out);
+    assert!(
+        entries
+            .iter()
+            .any(|(l, _, o, r)| *l == 1 && o == "redundant" && r.contains("# Name")),
+        "{entries:#?}"
+    );
+    assert!(
+        entries
+            .iter()
+            .any(|(l, _, o, r)| *l == 8 && o == "unmapped" && r.contains("no row")),
+        "{entries:#?}"
+    );
+}
+
+#[test]
 fn roadmap_past_max_ops_is_truncated() {
     let mut text = "# Roadmap: Big\n\n".to_string();
     for n in 1..=9_000 {

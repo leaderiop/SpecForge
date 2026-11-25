@@ -94,7 +94,10 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
                 report.push(row(P, &key, &at(s.line), &s.title));
             }
             _ => {
-                covered = s.body.clone();
+                // A second `# ...` is reported, never a cover over the sections after it.
+                if s.level > 1 {
+                    covered = s.body.clone();
+                }
                 report.push(Entry::at(
                     &at(s.line),
                     &s.title,

@@ -101,15 +101,21 @@ pub fn read(
     let mut drafts: Vec<Draft> = Vec::new();
     let mut covered = 0..0;
     for (n, raw) in lines.iter().enumerate() {
-        if fenced[n] || covered.contains(&n) {
+        // A phase heading is read wherever it stands: a section reported whole never swallows the phases.
+        let phase_heading = headings
+            .get(&n)
+            .is_some_and(|s| s.level >= 3 && s.title.starts_with("Phase"));
+        if fenced[n] || (covered.contains(&n) && !phase_heading) {
             continue;
+        }
+        if phase_heading {
+            covered = 0..0;
         }
         if let Some(s) = headings.get(&n) {
             let title = s.title.as_str();
             match (s.level, title) {
-                (1, _) if title.starts_with("Roadmap") => {
-                    report.push(row(RM, "# Roadmap:", &at(n), title))
-                }
+                // Any title (`# Roadmap: X`, `# Project Roadmap`): its spelling is not load-bearing.
+                (1, _) => report.push(row(RM, "# Roadmap:", &at(n), title)),
                 (2, "Overview") => report.push(row(RM, "## Overview", &at(n), title)),
                 (2, "Phases") => report.push(row(RM, "## Phases", &at(n), title)),
                 (2, "Phase Details") => report.push(row(RM, "## Phase Details", &at(n), title)),
