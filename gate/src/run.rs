@@ -439,6 +439,30 @@ fn compile_turn(path: &Path) -> Option<File> {
     Some(file)
 }
 
+/// Whether this run empties the nextest report dir before its checks, so that `dogfood` judges the reports this run
+/// writes and no earlier run's (ADR 0374 D5, ADR 0393 D3): when `runs` (whether the run runs a check) holds `dogfood`
+/// and every check that writes a report ([`crate::dogfood::REPORTERS`]). Any other run that runs `dogfood` is refused,
+/// since it would judge reports of any age, perhaps another tree's; except in `ci`, whose `dogfood` job judges the
+/// reports its shards uploaded in the same workflow, fresh by construction.
+pub(crate) fn purges_reports(mode: Mode, runs: impl Fn(&str) -> bool) -> Result<bool, String> {
+    let reporters = crate::dogfood::REPORTERS;
+    if !runs("dogfood") {
+        return Ok(false);
+    }
+    let missing: Vec<&str> = reporters.into_iter().filter(|name| !runs(name)).collect();
+    if missing.is_empty() {
+        Ok(true)
+    } else if mode == Mode::Ci {
+        Ok(false)
+    } else {
+        Err(format!(
+            "dogfood judges the JUnit reports this run writes, and {} would not run: cargo gate full --only {},dogfood",
+            missing.join(", "),
+            reporters.join(",")
+        ))
+    }
+}
+
 /// Whether `--only`'s comma-separated list (every name when `None`) names `check`.
 pub(crate) fn named(only: Option<&str>, check: &str) -> bool {
     only.is_none_or(|list| list.split(',').any(|name| name == check))
@@ -501,8 +525,13 @@ pub fn run(
     }
     let log_dir = repo.target_dir.join("gate");
     std::fs::create_dir_all(&log_dir).map_err(|e| format!("{}: {e}", log_dir.display()))?;
-    // A full run's dogfood judges the JUnit reports this run's tests write, not an earlier run's (ADR 0374 D5).
-    if matches!(mode, Mode::Full | Mode::Ci) && only.is_none() {
+    let runs = |name: &str| {
+        CHECKS
+            .iter()
+            .zip(&selections)
+            .any(|(check, selection)| check.name == name && *selection != Selection::Skip)
+    };
+    if purges_reports(mode, runs)? {
         for report in crate::dogfood::reports(&crate::dogfood::report_dir(
             &repo.root,
             mode.nextest_profile(),

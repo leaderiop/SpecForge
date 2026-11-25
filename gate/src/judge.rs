@@ -161,7 +161,7 @@ pub fn requirement_verdict(export: &Value) -> (Vec<String>, bool) {
         failed = true;
     } else if count("proven") == 0 {
         lines.push(
-            "no requirement is proven: no passing test names one (run `cargo gate full --only tests,guests,gsd` first)"
+            "no requirement is proven: no passing test names one (run `cargo gate full --only tests,guests,gsd,dogfood`)"
                 .to_string(),
         );
         failed = true;

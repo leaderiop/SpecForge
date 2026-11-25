@@ -384,6 +384,10 @@ pub(crate) fn report_dir(root: &Path, profile: &str) -> PathBuf {
     root.join("target/nextest").join(profile)
 }
 
+/// The checks whose nextest reports this check judges, each run before it: the root tests, the guests and the `@gsd`
+/// workspace (ADR 0393 D3). A run that runs this check without all of them is refused ([`crate::run::purges_reports`]).
+pub(crate) const REPORTERS: [&str; 3] = ["tests", "guests", "gsd"];
+
 /// The guests' reports, one directory per guest under the report dir; the name of their CI artifact (ADR 0393 D2).
 pub(crate) const GUESTS: &str = "junit-guests";
 
@@ -440,7 +444,7 @@ fn report_sets(dir: &Path, found: &[PathBuf]) -> Result<(), String> {
     ] {
         if !present {
             return Err(format!(
-                "no {set} JUnit report under {}: run cargo gate full --only tests,guests,gsd first",
+                "no {set} JUnit report under {}: run cargo gate full --only tests,guests,gsd,dogfood",
                 dir.display()
             ));
         }

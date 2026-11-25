@@ -176,7 +176,7 @@ fn dogfood_refuses_without_each_report_set() {
             "{refused}"
         );
         assert!(
-            refused.contains("cargo gate full --only tests,guests,gsd"),
+            refused.contains("cargo gate full --only tests,guests,gsd,dogfood"),
             "{refused}"
         );
     }
@@ -307,7 +307,7 @@ fn ledger_reading(report: String) -> Fixture {
 #[ignore = "needs the built specforge in SPECFORGE_BIN; the dogfood check runs it (ADR 0393 D8)"]
 fn x2_floor_fails_a_ledger_copy_missing_one_case() {
     let bin = std::env::var_os("SPECFORGE_BIN").expect(
-        "SPECFORGE_BIN must name the built specforge: the dogfood check sets it (cargo gate full --only dogfood)",
+        "SPECFORGE_BIN must name the built specforge: the dogfood check sets it (cargo gate full --only tests,guests,gsd,dogfood)",
     );
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo {
