@@ -666,6 +666,30 @@ fn a_runner_attribute_ending_in_test_marks_a_test() {
 
 #[specforge_test(requirement = "FEATURE-004")]
 #[specforge_test(requirement = "FEATURE-113")]
+fn a_guard_only_helper_carries_no_test_id() {
+    let facts = collected(&[(
+        "src/lib.rs",
+        "#[specforge_test_macros::test(behavior = \"create_user\", __guard_only)]\nfn helper() {}\n\
+         #[specforge_test_macros::test(behavior = \"a\", __guard_only)]\n\
+         #[specforge_test_macros::test(invariant = \"b\", __guard_only)]\nfn multi() {}\n\
+         #[test]\n#[specforge_test_macros::test(behavior = \"c\", __guard_only)]\nfn real() {}\n\
+         #[spec(behavior = \"__guard_only\")]\nfn named() {}\n",
+    )]);
+    assert_eq!(marks(&facts, "rust:toy::helper"), (None, None));
+    assert_eq!(marks(&facts, "rust:toy::multi"), (None, None));
+    assert_eq!(
+        marks(&facts, "rust:toy::real").1,
+        Some(json!("rust:toy#real"))
+    );
+    assert_eq!(
+        marks(&facts, "rust:toy::named").1,
+        Some(json!("rust:toy#named")),
+        "the word inside a string is no argument"
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_test_in_an_inline_module_keeps_its_module_path() {
     let facts = collected(&[
         ("src/lib.rs", "mod x;\n"),

@@ -261,11 +261,47 @@ fn attribute_paths<'m>(above: &'m [&SyntaxMatch]) -> impl Iterator<Item = String
         .map(|path| path.split_whitespace().collect())
 }
 
-/// Whether an attribute above marks a test: its path is `test`, ends in `::test`, or is `specforge_test` or `spec`.
+/// Whether an attribute above marks a test: its path is `test`, ends in `::test`, or is `specforge_test` or `spec`,
+/// and it names no `__guard_only`: a helper the macro registers no test for is no test (ADR 0393 D6).
 fn is_test(above: &[&SyntaxMatch]) -> bool {
-    attribute_paths(above).any(|path| {
-        path == "test" || path.ends_with("::test") || path == "specforge_test" || path == "spec"
-    })
+    above
+        .iter()
+        .filter(|found| found.kind == "attribute")
+        .any(|found| {
+            let path: String = capture(found, "path")
+                .unwrap_or_default()
+                .split_whitespace()
+                .collect();
+            (path == "test"
+                || path.ends_with("::test")
+                || path == "specforge_test"
+                || path == "spec")
+                && !capture(found, "attribute").is_some_and(guard_only)
+        })
+}
+
+/// Whether `attribute` holds the identifier `__guard_only` outside its string literals.
+fn guard_only(attribute: &str) -> bool {
+    let mut code = String::with_capacity(attribute.len());
+    let mut chars = attribute.chars();
+    while let Some(c) = chars.next() {
+        if c != '"' {
+            code.push(c);
+            continue;
+        }
+        while let Some(c) = chars.next() {
+            match c {
+                '\\' => {
+                    chars.next();
+                }
+                '"' => break,
+                _ => {}
+            }
+        }
+        code.push(' ');
+    }
+    code.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .any(|word| word == "__guard_only")
 }
 
 /// The entity each spec-link attribute above names (its first `<kind> = "<id>"`), at the id's string.
