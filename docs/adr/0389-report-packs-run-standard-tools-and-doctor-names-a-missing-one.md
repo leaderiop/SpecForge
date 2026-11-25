@@ -112,7 +112,7 @@ report, as an empty `SF` does.
 |-----------|--------------------|--------|--------|--------------|
 | `rust-coverage` | `cargo-llvm-cov llvm-cov nextest --workspace --ignore-run-fail --lcov --output-path {report}` | `.specforge/reports/rust-coverage.lcov` | none | `cargo install cargo-llvm-cov --locked` |
 | `rust-lint` | `cargo-clippy clippy --workspace --all-targets --message-format=json` | captured stdout under `.specforge/reports/rust-lint` | none | `rustup component add clippy` |
-| `rust-sbom` | `cargo-cyclonedx cyclonedx --format json --override-filename rust-sbom.cdx.json …` | glob `**/rust-sbom.cdx.json` | none | `cargo install cargo-cyclonedx --locked` |
+| `rust-sbom` | `cargo-cyclonedx cyclonedx --format json --override-filename rust-sbom.cdx …` (the tool appends `.json`) | glob `**/rust-sbom.cdx.json` | none | `cargo install cargo-cyclonedx --locked` |
 | `rust-osv` | `osv-scanner scan source --lockfile Cargo.lock --format json --output {report}` | `.specforge/reports/rust-osv.json` | none | `brew install osv-scanner` (or the release binary) |
 | `rust-api` | `cargo-public-api --color never -ss` | captured stdout under `.specforge/reports/rust-api` | `--package {filter}` | `cargo install cargo-public-api --locked` |
 | `rust-proof` | `cargo-kani --workspace --output-format regular` | captured stdout under `.specforge/reports/rust-proof` | `--harness {filter}` | `cargo install --locked kani-verifier && cargo kani setup` |

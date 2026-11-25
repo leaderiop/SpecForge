@@ -3,9 +3,10 @@
 //! command, so the pack holds two.
 //!
 //! The collector `rust-sbom` is selected by a `Cargo.toml` at the project root. The host runs, with consent,
-//! `cargo-cyclonedx cyclonedx --format json --spec-version 1.5 --all-features --override-filename
-//! rust-sbom.cdx.json`. cargo-cyclonedx has no output path: it writes one BOM named `rust-sbom.cdx.json` beside each
-//! workspace member's `Cargo.toml`. So the report is the glob `**/rust-sbom.cdx.json`, read fresh after each run
+//! `cargo-cyclonedx cyclonedx --format json --spec-version 1.5 --all-features --override-filename rust-sbom.cdx`.
+//! cargo-cyclonedx has no output path and appends the format's extension `.json` to the name it is given: it writes
+//! one BOM named `rust-sbom.cdx.json` beside each workspace member's `Cargo.toml`. So the report is the glob
+//! `**/rust-sbom.cdx.json`, read fresh after each run
 //! (ADR 0389 D6), and a project may add `rust-sbom.cdx.json` to its `.gitignore`. cargo-cyclonedx calls `cargo
 //! metadata`, which may run build scripts (ADR 0389 D9). Every BOM the glob hands in is read by
 //! `specforge-code-cyclonedx` and minted by `specforge-code-facts` against `@rust/cargo`'s packages: one `dependency`
@@ -54,7 +55,7 @@ impl Contributions for RustDeps {
                     "1.5",
                     "--all-features",
                     "--override-filename",
-                    "rust-sbom.cdx.json",
+                    "rust-sbom.cdx",
                 ])
                 .env(&[
                     "CARGO_*",

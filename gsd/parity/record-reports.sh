@@ -98,11 +98,9 @@ ledger() {
     cargo llvm-cov nextest --workspace --ignore-run-fail --lcov --output-path /reports/lcov.info >&2
     sed "s|^SF:/project/|SF:|" /reports/lcov.info >/reports/rust-coverage.lcov
     cargo clippy --workspace --all-targets --message-format=json >/reports/rust-lint.jsonl
-    # cargo-cyclonedx appends `.json` to --override-filename, so the pack'"'"'s argv writes rust-sbom.cdx.json.json; it
-    # is staged under the name the pack reads (its glob `**/rust-sbom.cdx.json`).
-    cargo cyclonedx --format json --spec-version 1.5 --all-features --override-filename rust-sbom.cdx.json >&2
+    cargo cyclonedx --format json --spec-version 1.5 --all-features --override-filename rust-sbom.cdx >&2
     sed -e "s|\"serialNumber\": *\"[^\"]*\"|\"serialNumber\": \"urn:uuid:00000000-0000-0000-0000-000000000000\"|" \
-      -e "s|\"timestamp\": *\"[^\"]*\"|\"timestamp\": \"1970-01-01T00:00:00Z\"|" rust-sbom.cdx.json.json \
+      -e "s|\"timestamp\": *\"[^\"]*\"|\"timestamp\": \"1970-01-01T00:00:00Z\"|" rust-sbom.cdx.json \
       >/reports/rust-sbom.cdx.json
     # cargo public-api finds a toolchain named `nightly` by itself; a dated one must be the active toolchain.
     RUSTUP_TOOLCHAIN="$1" cargo public-api --color never -ss >/reports/rust-api.txt

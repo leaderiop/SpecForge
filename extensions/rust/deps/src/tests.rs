@@ -92,7 +92,7 @@ fn rust_deps_declares_cargo_cyclonedx_over_a_glob_and_osv_scanner_over_the_lockf
             "1.5",
             "--all-features",
             "--override-filename",
-            "rust-sbom.cdx.json"
+            "rust-sbom.cdx"
         ])
     );
     assert_eq!(
