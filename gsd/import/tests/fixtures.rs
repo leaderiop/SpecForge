@@ -520,6 +520,18 @@ fn a_project_reports_what_it_cannot_map() {
     assert!(lines_of(&out, 1, "gives no id"));
 }
 
+/// REQUIREMENTS.md's headings are the family's Markdown reader's: none in a comment, a tab after the marks counts.
+#[test]
+fn requirements_headings_are_the_markdown_readers() {
+    let text = "# Requirements: X\n\n## v1 Requirements\n\n<!--\n## Out of Scope\n-->\n\n### Core\n\n- **CORE-01**: one\n\n##\tv2 Requirements\n\n### Later\n\n- **LATER-01**: two\n";
+    let out = import_one(".planning/REQUIREMENTS.md", text);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let (_, core) = create_of(&out, "requirement", "CORE-01");
+    assert_eq!(core["tier"], "v1");
+    let (_, later) = create_of(&out, "requirement", "LATER-01");
+    assert_eq!(later["tier"], "v2");
+}
+
 #[test]
 fn a_project_sub_section_is_never_its_parents_field() {
     let text = "# Odd Project\n\n## What This Is\n\nA thing.\n\n### Details\n\nMore.\n\n## Constraints\n\n- **Budget**: none — free\n\n### Later\n\n- **Timeline**: soon\n\n## Core Value\n\nIt works.\n\n## Context\n\nNone.\n";

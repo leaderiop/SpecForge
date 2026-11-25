@@ -11,20 +11,22 @@ use super::{is_date, mapped};
 use crate::paths;
 use crate::records::{Record, Records, Source};
 use crate::report::{Entry, Outcome, Report};
+use crate::sections::{self, Section};
 
 const OUT_OF_SCOPE: &str = "Out of Scope";
+
+/// What a section no row names becomes.
+const UNKNOWN: &str = "a section no row of the REQUIREMENTS.md table names: not imported";
 
 /// Reads `text`, served at `path`.
 pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) {
     let lines: Vec<&str> = text.split('\n').map(|l| l.trim_end_matches('\r')).collect();
-    let fenced: Vec<bool> = {
-        let mut fenced = vec![false; lines.len()];
-        for fence in markdown::fences(text) {
-            let end = (fence.code.end + 1).min(lines.len());
-            fenced[fence.open.min(end)..end].fill(true);
-        }
-        fenced
-    };
+    let fenced = sections::fenced(text);
+    // The family's one Markdown reader: a `#` line in a fence or a comment is no heading, `##\t` and setext are.
+    let headings: BTreeMap<usize, Section> = sections::sections(text)
+        .into_iter()
+        .map(|s| (s.line, s))
+        .collect();
     let at = |line: usize| Source {
         file: path.to_string(),
         line: line + 1,
@@ -42,38 +44,46 @@ pub fn read(path: &str, text: &str, records: &mut Records, report: &mut Report) 
         if fenced[n] {
             continue;
         }
-        if let Some(heading) = line.strip_prefix("## ") {
-            section = heading.trim().to_string();
-            category = None;
-            tier = tier_of(&section);
-            let entry = match tier {
-                _ if section == "Traceability" => Entry::at(
+        if let Some(s) = headings.get(&n) {
+            let title = s.title.trim();
+            match s.level {
+                1 => report.push(Entry::at(
                     &at(n),
-                    &section,
+                    title,
                     Outcome::Redundant,
-                    "ROADMAP.md's **Requirements** lines give each phase's requirements"
-                        .to_string(),
-                ),
-                Some(tier) => mapped(&at(n), &section, &format!("requirement.tier {tier}")),
-                None => Entry::at(
+                    "PROJECT.md's title names the project".to_string(),
+                )),
+                2 => {
+                    section = title.to_string();
+                    category = None;
+                    tier = tier_of(&section);
+                    let entry = match tier {
+                        _ if section == "Traceability" => Entry::at(
+                            &at(n),
+                            &section,
+                            Outcome::Redundant,
+                            "ROADMAP.md's **Requirements** lines give each phase's requirements"
+                                .to_string(),
+                        ),
+                        Some(tier) => mapped(&at(n), &section, &format!("requirement.tier {tier}")),
+                        None => Entry::at(&at(n), &section, Outcome::Unmapped, UNKNOWN.to_string()),
+                    };
+                    report.push(entry);
+                }
+                3 => {
+                    category = Some(title.to_string());
+                    report.push(mapped(&at(n), title, "requirement.category"));
+                }
+                _ => report.push(Entry::at(
                     &at(n),
-                    &section,
+                    title,
                     Outcome::Unmapped,
-                    "a section no row of the REQUIREMENTS.md table names: not imported".to_string(),
-                ),
-            };
-            report.push(entry);
-        } else if let Some(heading) = line.strip_prefix("### ") {
-            category = Some(heading.trim().to_string());
-            report.push(mapped(&at(n), heading.trim(), "requirement.category"));
-        } else if let Some(title) = line.strip_prefix("# ") {
-            report.push(Entry::at(
-                &at(n),
-                title.trim(),
-                Outcome::Redundant,
-                "PROJECT.md's title names the project".to_string(),
-            ));
-        } else if line.starts_with("**Core Value:**") {
+                    UNKNOWN.to_string(),
+                )),
+            }
+            continue;
+        }
+        if line.starts_with("**Core Value:**") {
             report.push(Entry::at(
                 &at(n),
                 "Core Value",
