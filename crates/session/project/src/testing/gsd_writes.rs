@@ -62,19 +62,26 @@ fn guard_wire() -> Value {
 /// The goal [`GsdWrites::guarding_a_goal`]'s guard objects to.
 pub const GUARDED: &str = "GUARDED";
 
+/// The goal that, beside a [`GUARDED`] one, makes the guard also report E901, a code that judges collected facts.
+pub const RACED: &str = "RACED";
+
 fn marked_guard(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     if export != "__pass_phase_complete" {
         return None;
     }
-    let quoted = format!("\"{GUARDED}\"");
-    let held = input
-        .windows(quoted.len())
-        .any(|window| window == quoted.as_bytes());
-    let diagnostics = if held {
-        json!([{"code": specforge_common::codes::E087.to_string(), "severity": "Error", "message": "a phase is not complete", "entity": "v1.0/03"}])
-    } else {
-        json!([])
+    let held = |goal: &str| {
+        let quoted = format!("\"{goal}\"");
+        input
+            .windows(quoted.len())
+            .any(|window| window == quoted.as_bytes())
     };
+    let mut diagnostics = Vec::new();
+    if held(GUARDED) {
+        diagnostics.push(json!({"code": specforge_common::codes::E087.to_string(), "severity": "Error", "message": "a phase is not complete", "entity": "v1.0/03"}));
+        if held(RACED) {
+            diagnostics.push(json!({"code": "E901", "severity": "Error", "message": "a fact names nothing", "entity": "v1.0/03"}));
+        }
+    }
     let output = json!({"diagnostics": diagnostics, "summary": {}, "values": []});
     Some(Ok(output.to_string().into_bytes()))
 }
@@ -129,8 +136,9 @@ impl GsdWrites {
         )
     }
 
-    /// [`CORE`] declares the guard pass `phase_complete`, which reports E700 for as long as the project holds a
+    /// [`CORE`] declares the guard pass `phase_complete`, which reports E087 for as long as the project holds a
     /// phase whose `goal` is [`GUARDED`]: a rule about the state a write leaves, which a project can already violate.
+    /// While another phase's goal is [`RACED`] too, it also reports E901, a code that judges collected facts.
     pub fn guarding_a_goal(mut self) -> Self {
         self.guard = true;
         self.marked = true;
@@ -211,6 +219,12 @@ fn core(guard: bool) -> ContributionsBuilder {
     c.code(&specforge_common::codes::E087.to_string(), |d| {
         d.title("A phase is not complete")
             .explanation("A phase's goal is GUARDED.");
+    });
+    // A code that judges collected facts: an importing command's plan refuses it (ADR 0392).
+    c.code("E901", |d| {
+        d.title("A fact names nothing")
+            .explanation("A phase's goal is GUARDED while another's is RACED.")
+            .facts(&["commit"]);
     });
     c.raw_category(
         DeclaredCategory::Surfaces,

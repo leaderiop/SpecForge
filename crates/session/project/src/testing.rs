@@ -56,8 +56,8 @@ pub use gsd_facts::{
 pub use gsd_hosts::{GSD_HOSTS_EXTENSIONS, GsdHosts, gsd_hosts_sources};
 pub use gsd_prompts::{GSD_PROMPTS_EXTENSIONS, GsdPrompts, NO_CONTEXT, gsd_prompts_sources};
 pub use gsd_writes::{
-    CORE, GSD_WRITES_EXTENSIONS, GUARDED, GsdWrites, OTHER, UI, gsd_writes_answer, gsd_writes_wire,
-    revision_of,
+    CORE, GSD_WRITES_EXTENSIONS, GUARDED, GsdWrites, OTHER, RACED, UI, gsd_writes_answer,
+    gsd_writes_wire, revision_of,
 };
 pub use items::{
     CITES, ITEM_EXTENSIONS, ITEMS, WORKTREE, declare_cites, declare_items, item, item_declarations,
