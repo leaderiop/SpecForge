@@ -13,6 +13,7 @@ pub mod crate_map;
 mod doc_links;
 mod dogfood;
 mod gsd;
+mod guests;
 pub mod judge;
 mod junit;
 pub mod layers;

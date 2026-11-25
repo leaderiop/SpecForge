@@ -29,6 +29,16 @@ fn a_local_run_finds_its_one_report() {
     assert_eq!(reports(&at), [at.join("junit.xml")]);
 }
 
+#[test]
+fn clear_reports_removes_an_earlier_runs_reports_and_accepts_a_missing_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let at = report_dir(dir.path(), "gate").join(GUESTS);
+    write(&at, "x/junit.xml");
+    clear_reports(&at).unwrap();
+    assert!(!at.exists(), "{} is still there", at.display());
+    clear_reports(&at).unwrap();
+}
+
 /// CI downloads each test partition's report into its own directory: every one is found, in path order, and an XML
 /// file that is no nextest report is left out.
 #[test]

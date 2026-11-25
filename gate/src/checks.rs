@@ -245,7 +245,7 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "guests",
-        proves: "each guest's tests pass and it is clippy-clean for wasm and native, and each example's extension is clippy-clean for wasm",
+        proves: "each guest's tests pass under nextest, each run writing its JUnit report under target/nextest/<profile>/junit-guests/ (ADR 0393 D1), and it is clippy-clean for wasm and native, and each example's extension is clippy-clean for wasm",
         reach: Reach::Quick,
         trigger: Trigger::Paths(&[
             "extensions/**",
@@ -253,11 +253,12 @@ pub static CHECKS: &[Check] = &[
             "crates/**",
             "integrations/rust/**",
             "Cargo.toml",
+            ".config/nextest-guests.toml",
         ]),
         compiles: false,
         after: &[],
         fix: "read <target>/gate/guests.log",
-        run: steps::guests,
+        run: crate::guests::run,
     },
     Check {
         name: "gsd",

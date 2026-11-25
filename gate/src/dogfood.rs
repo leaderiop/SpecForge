@@ -236,6 +236,20 @@ pub(crate) fn report_dir(root: &Path, profile: &str) -> PathBuf {
     root.join("target/nextest").join(profile)
 }
 
+/// The guests' reports, one directory per guest under the report dir; the name of their CI artifact (ADR 0393 D2).
+pub(crate) const GUESTS: &str = "junit-guests";
+
+/// Empty a report directory before the run that writes it, so a report from an earlier run is never read as current:
+/// Ok when it is not there.
+pub(crate) fn clear_reports(dir: &Path) -> Result<(), String> {
+    match std::fs::remove_dir_all(dir) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+            Err(format!("clearing {}: {e}", dir.display()))
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Every file named `junit*.xml` under `dir`, at any depth, sorted by path; none when `dir` is not there.
 pub(crate) fn reports(dir: &Path) -> Vec<PathBuf> {
     let mut found = Vec::new();

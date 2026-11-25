@@ -11,13 +11,13 @@ use crate::checks::{self, Selection};
 use crate::doc_links;
 use crate::judge;
 use crate::layers;
-use crate::repo::{EXTENSION_CRATES, Repo, outside_workspace_patterns};
+use crate::repo::{Repo, outside_workspace_patterns};
 use crate::root_layout;
 use crate::run::{CARGO_AUDIT, Ctx, Mode, TREE_SITTER};
 use crate::size_cap;
 
 /// Ok when nothing failed; else every failure, one per line.
-fn finish(failures: Vec<String>) -> Result<(), String> {
+pub(crate) fn finish(failures: Vec<String>) -> Result<(), String> {
     if failures.is_empty() {
         Ok(())
     } else {
@@ -193,50 +193,6 @@ pub fn builtins(ctx: &Ctx, selection: &Selection) -> Result<(), String> {
         "--",
         "--check",
     ]))
-}
-
-pub fn guests(ctx: &Ctx, _: &Selection) -> Result<(), String> {
-    let target = ctx.ext_target();
-    // (what, cargo arguments before the manifest, after it)
-    let passes: [(&str, &[&str], &[&str]); 3] = [
-        ("tests", &["test", "-q"], &[]),
-        (
-            "wasm clippy",
-            &["clippy", "-q", "--target", "wasm32-wasip2"],
-            &["--", "-D", "warnings"],
-        ),
-        (
-            "native clippy",
-            &["clippy", "-q", "--all-targets"],
-            &["--", "-D", "warnings"],
-        ),
-    ];
-    let mut failures = Vec::new();
-    // An example project's extension gets the wasm clippy pass only: it has no tests and no native use.
-    let examples = crate::repo::expand(&ctx.repo.root, "examples/*/extension/Cargo.toml");
-    let runs = guests_of(ctx.repo)
-        .into_iter()
-        .map(|manifest| (manifest, &passes[..]))
-        .chain(
-            examples
-                .into_iter()
-                .map(|manifest| (manifest, &passes[1..2])),
-        );
-    for (manifest, passes) in runs {
-        for &(what, before, after) in passes {
-            let mut cmd = ctx.cmd("cargo");
-            // What `build-blobs` does: an incremental guest is another build than CI's.
-            cmd.env("CARGO_TARGET_DIR", &target)
-                .env_remove("CARGO_INCREMENTAL");
-            cmd.args(before)
-                .args(["--manifest-path", &manifest])
-                .args(after);
-            if let Err(e) = ctx.sh(&mut cmd) {
-                failures.push(format!("{manifest} {what}: {e}"));
-            }
-        }
-    }
-    finish(failures)
 }
 
 pub fn audit(ctx: &Ctx, _: &Selection) -> Result<(), String> {
@@ -560,14 +516,5 @@ pub(crate) fn outside_workspace(repo: &Repo) -> Vec<String> {
     outside_workspace_patterns()
         .iter()
         .flat_map(|pattern| crate::repo::expand(&repo.root, pattern))
-        .collect()
-}
-
-/// The guests' and the extension libraries' manifests: `extensions/<dir>/Cargo.toml` and
-/// `extensions/<family>/<pack>/Cargo.toml` (ADR 0328 D3).
-fn guests_of(repo: &Repo) -> Vec<String> {
-    EXTENSION_CRATES
-        .iter()
-        .flat_map(|dirs| crate::repo::expand(&repo.root, &format!("{dirs}/Cargo.toml")))
         .collect()
 }
