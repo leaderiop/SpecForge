@@ -277,6 +277,41 @@ fn roadmap_hostile_headings_and_references_are_reported_at_their_lines() {
 }
 
 #[test]
+fn roadmap_grouped_version_heading_naming_no_version_is_reported_at_its_line() {
+    let text = GROUPED
+        .replace("### 🚧 v1.1 Search", "### 🚧 v1.1.x Search")
+        .replace("<summary>✅ v1.0 MVP", "<summary>✅ v1.0a MVP");
+    let out = run(vec![fact(".planning/ROADMAP.md", &text)]);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let phases: Vec<String> = creates(&out)
+        .into_iter()
+        .filter(|(k, ..)| k == "phase")
+        .map(|(_, id, ..)| id)
+        .collect();
+    // Phases 1 to 3 stand in no milestone; phase 4 depends on phase 3, which the roadmap does not hold.
+    assert_eq!(phases, ["04"]);
+    let entries = entries(&out);
+    for (line, says) in [
+        (
+            12,
+            "`v1.0a` names no version vX.Y: the phases under it are not imported",
+        ),
+        (
+            32,
+            "`v1.1.x` names no version vX.Y: the phases under it are not imported",
+        ),
+        (36, "a phase outside any milestone's heading"),
+    ] {
+        assert!(
+            entries
+                .iter()
+                .any(|(l, _, o, r)| *l == line && o == "unmapped" && r.contains(says)),
+            "{line} {says}: {entries:#?}"
+        );
+    }
+}
+
+#[test]
 fn roadmap_any_title_and_an_unknown_section_keep_every_phase() {
     let text = "# Project Roadmap
 

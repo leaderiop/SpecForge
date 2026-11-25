@@ -141,8 +141,10 @@ pub fn read(
                     }
                 }
                 (3.., _) if grouped.is_some() && version(title).is_some() => {
-                    current = version(title).map(str::to_string);
-                    once.push("milestone status", &at(n), title, report);
+                    current = opens(title, &at(n), title, report);
+                    if current.is_some() {
+                        once.push("milestone status", &at(n), title, report);
+                    }
                 }
                 _ => {
                     covered = s.body.clone();
@@ -158,9 +160,11 @@ pub fn read(
         }
         let line = raw.trim();
         if grouped.is_some() && line.contains("<summary>") {
-            if let Some(v) = version(line) {
-                current = Some(v.to_string());
-                once.push("milestone status", &at(n), "<details>", report);
+            if version(line).is_some() {
+                current = opens(line, &at(n), "<details>", report);
+                if current.is_some() {
+                    once.push("milestone status", &at(n), "<details>", report);
+                }
             }
         } else if let Some(("Milestone Goal", goal)) = key_line(line) {
             match &current {
@@ -306,6 +310,22 @@ fn milestones(
         out.push(milestone(v, title, at(n)));
     }
     out
+}
+
+/// The milestone a version heading or `<summary>` line `text` opens: its version, when a milestone takes it as an id
+/// (as a `## Milestones` bullet's is checked); else reported, and the phases under it stand in no milestone.
+fn opens(text: &str, source: &Source, section: &str, report: &mut Report) -> Option<String> {
+    let v = version(text)?;
+    if ids::milestone(v) {
+        return Some(v.to_string());
+    }
+    report.push(Entry::at(
+        source,
+        section,
+        Outcome::Unmapped,
+        format!("`{v}` names no version vX.Y: the phases under it are not imported"),
+    ));
+    None
 }
 
 /// The first word of `text` that is a version `v<digit>...` (`v1.0`), without trailing punctuation.
