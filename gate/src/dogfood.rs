@@ -14,6 +14,10 @@
 //! graph --kinds item,test`, and X2 is a floor (ADR 0393 D8): every project is logged first, then the check fails any
 //! below 100% or at `0/0` ([`x2::floor`]). A failed collect or export of an X2 project is that project's error, and so
 //! is a fixture collect answering a Warning or an Error ([`no_warning_or_error`]; an Info passes).
+//!
+//! Before collecting, it runs the floor's end-to-end negative control ([`negative_control`]): a test, ignored in
+//! workspace runs, that runs this `specforge` over a ledger copy whose report lacks one case and sees the floor fail.
+//! It logs one line, `negative control passed: <test> (ADR 0393 D8)`; a failure is the check's error.
 
 use std::path::{Path, PathBuf};
 
@@ -37,6 +41,7 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         .map_err(|e| format!("{}: {e}", merged.display()))?;
 
     let specforge = ctx.specforge()?;
+    negative_control(ctx, specforge)?;
     let tree = ctx.repo.target_dir.join("gate/dogfood");
     let tracked = steps::tracked_paths(ctx)?;
     checked_tree::copy_tracked(&ctx.repo.root, &tracked, &tree)?;
@@ -92,6 +97,43 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         ctx.log(&line);
     }
     result
+}
+
+/// The end-to-end negative control of the X2 floor (ADR 0393 D8), `#[ignore]`d in workspace runs.
+const CONTROL: &str = "dogfood::tests::x2_floor_fails_a_ledger_copy_missing_one_case";
+
+/// How many lines of the control's output a failure carries.
+const CONTROL_TAIL: usize = 20;
+
+/// Run [`CONTROL`] with `SPECFORGE_BIN` set to `specforge`, under nextest's default profile (which writes no JUnit
+/// report). On success the log gets exactly one line, `negative control passed: <CONTROL> (ADR 0393 D8)`, and none of
+/// nextest's output; its own failing X2 lines go to the control's temp log, never this one (CONTEXT D-09). An error
+/// names the control and carries the tail of nextest's output.
+fn negative_control(ctx: &Ctx, specforge: &Path) -> Result<(), String> {
+    let filter = format!("test(={CONTROL})");
+    let output = ctx
+        .cmd("cargo")
+        .args(["nextest", "run", "-p", "gate", "--profile", "default"])
+        .args(["--run-ignored", "only", "--no-tests=fail", "-E", &filter])
+        .env("SPECFORGE_BIN", specforge)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .map_err(|e| format!("negative control {CONTROL}: running cargo nextest: {e}"))?;
+    if output.status.success() {
+        ctx.log(&format!("negative control passed: {CONTROL} (ADR 0393 D8)"));
+        return Ok(());
+    }
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let lines: Vec<&str> = said.lines().collect();
+    let tail = lines[lines.len().saturating_sub(CONTROL_TAIL)..].join("\n");
+    Err(format!(
+        "negative control {CONTROL} failed ({}):\n{tail}",
+        output.status
+    ))
 }
 
 /// The check's result and what to log first: the requirement verdict's first problem when it `failed` (its first line

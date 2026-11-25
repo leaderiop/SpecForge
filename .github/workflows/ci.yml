@@ -415,6 +415,10 @@ jobs:
           prefix-key: ${{ env.CACHE_PREFIX }}
           shared-key: specs
           save-if: false
+      # dogfood runs the X2 floor's negative control under nextest (ADR 0393 D8).
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
       - uses: actions/download-artifact@v4
         with:
           pattern: junit-*

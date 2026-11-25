@@ -3,7 +3,11 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+use std::sync::OnceLock;
+
 use super::*;
+use crate::change_set::ChangeSet;
+use crate::repo::Repo;
 
 fn write(root: &Path, file: &str) {
     let path = root.join(file);
@@ -225,4 +229,73 @@ fn no_warning_or_error_passes_info_and_names_each_warning_or_error() {
     );
     let refused = no_warning_or_error(&serde_json::json!({"facts": 3})).unwrap_err();
     assert!(refused.contains("no diagnostics array"), "{refused}");
+}
+
+/// The ledger fixture collected by `rust-cargo`, `rust-source` and `rust-test` over `report` (absolute, or from the
+/// repository root), with the real row's extensions; leaked for the table's `'static` type.
+fn ledger_reading(report: String) -> Fixture {
+    let ledger = FIXTURES.iter().find(|f| f.name == "ledger").unwrap();
+    let report: &'static str = Box::leak(report.into_boxed_str());
+    Fixture {
+        name: ledger.name,
+        dir: ledger.dir,
+        extensions: ledger.extensions,
+        collects: Box::leak(
+            vec![
+                ("rust-cargo", None),
+                ("rust-source", None),
+                ("rust-test", Some(report)),
+            ]
+            .into_boxed_slice(),
+        ),
+    }
+}
+
+/// The floor's end-to-end negative control (ADR 0393 D8, CONTEXT D-14): the real `specforge` over a ledger copy whose
+/// report lacks one case reads `5/6` and the floor fails naming it; over the golden report the floor passes. The
+/// dogfood check runs it first; its log is in a tempdir, so the failing line never reaches dogfood.log (D-09).
+#[test]
+#[ignore = "needs the built specforge in SPECFORGE_BIN; the dogfood check runs it (ADR 0393 D8)"]
+fn x2_floor_fails_a_ledger_copy_missing_one_case() {
+    let bin = std::env::var_os("SPECFORGE_BIN").expect(
+        "SPECFORGE_BIN must name the built specforge: the dogfood check sets it (cargo gate full --only dogfood)",
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo {
+        target_dir: dir.path().to_path_buf(),
+        ..crate::repo::this_repo()
+    };
+    let (specforge, changes) = (OnceLock::new(), ChangeSet::default());
+    specforge.set(Ok(PathBuf::from(bin))).unwrap();
+    let ctx = Ctx::for_tests(&repo, &changes, &specforge, &dir.path().join("dogfood.log"));
+    let specforge = ctx.specforge().unwrap();
+    let tracked = steps::tracked_paths(&ctx).unwrap();
+
+    let golden = "gsd/parity/goldens/ledger/rust-test.xml";
+    let dropped = "a_memo_with_a_tab_is_refused";
+    let text = std::fs::read_to_string(repo.root.join(golden)).unwrap();
+    let case = format!("<testcase name=\"{dropped}\"");
+    let kept: Vec<&str> = text.lines().filter(|line| !line.contains(&case)).collect();
+    assert_eq!(
+        kept.len() + 1,
+        text.lines().count(),
+        "{golden}: one self-closing line holds {case}"
+    );
+    let doctored = dir.path().join("rust-test.xml");
+    std::fs::write(&doctored, kept.join("\n")).unwrap();
+
+    let fixture = ledger_reading(doctored.to_string_lossy().into_owned());
+    let x2 = fixture_x2(&ctx, specforge, &fixture, &tracked).unwrap();
+    let failed = x2::floor("ledger", &x2).unwrap_err();
+    assert!(failed.contains("X2 ledger: 5/6"), "{failed}");
+    assert!(failed.contains(dropped), "{failed}");
+
+    let x2 = fixture_x2(
+        &ctx,
+        specforge,
+        &ledger_reading(golden.to_string()),
+        &tracked,
+    )
+    .unwrap();
+    assert_eq!(x2::floor("ledger", &x2), Ok(()));
 }

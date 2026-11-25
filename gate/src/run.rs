@@ -75,6 +75,26 @@ pub struct Ctx<'a> {
     specforge: &'a OnceLock<Result<PathBuf, String>>,
 }
 
+impl<'a> Ctx<'a> {
+    /// A quick-mode context for a test, its log a new file at `log`; a `specforge` already filled is what
+    /// [`Ctx::specforge`] returns, with no build.
+    #[cfg(test)]
+    pub(crate) fn for_tests(
+        repo: &'a Repo,
+        changes: &'a ChangeSet,
+        specforge: &'a OnceLock<Result<PathBuf, String>>,
+        log: &Path,
+    ) -> Ctx<'a> {
+        Ctx {
+            repo,
+            mode: Mode::Quick,
+            changes,
+            log: File::create(log).expect("a test's log file is creatable"),
+            specforge,
+        }
+    }
+}
+
 impl Ctx<'_> {
     /// A command that runs in the repository root.
     pub fn cmd(&self, program: impl AsRef<std::ffi::OsStr>) -> Command {
