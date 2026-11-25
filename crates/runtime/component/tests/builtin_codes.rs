@@ -82,6 +82,56 @@ fn builtin_rules_use_their_own_codes() {
     );
 }
 
+/// Every `@gsd/core` error code that an importing command's plan writes rather than refuses (ADR 0392): all of them,
+/// as none declares `facts`. `E533` and `E535` read API and package facts but judge a closed milestone's claim, which
+/// is history, so they land too (ADR 0392, Limits).
+const GSD_CORE_LANDS: &[&str] = &[
+    "E101", "E102", "E105", "E106", "E107", "E108", "E201", "E202", "E206", "E301", "E302", "E303",
+    "E307", "E310", "E312", "E314", "E319", "E320", "E322", "E401", "E402", "E405", "E501", "E502",
+    "E503", "E505", "E507", "E509", "E511", "E512", "E513", "E515", "E516", "E517", "E518", "E521",
+    "E523", "E533", "E535",
+];
+
+#[specforge_test_macros::test(requirement = "FEATURE-131")]
+fn the_gsd_core_errors_an_import_lands_are_pinned() {
+    let name = "@gsd/core";
+    let (_, bytes) = BUILTIN_EXTENSIONS
+        .iter()
+        .find(|(builtin, _)| *builtin == name)
+        .expect("@gsd/core is a builtin");
+    let runtime = ComponentRuntime::new();
+    runtime
+        .load(name, bytes, specforge_wasm::Provenance::third_party(bytes))
+        .expect("builtin loads");
+    let declaration = load_declaration(&runtime, name)
+        .expect("builtin declares itself")
+        .declaration;
+    // The vendored blob read as the registry build reads it, so the pin follows what the host judges.
+    let codes = specforge_registry::extension_codes(&declaration);
+    let errors: Vec<String> = codes
+        .iter()
+        .filter(|code| code.local.starts_with('E'))
+        .map(|code| code.local.clone())
+        .collect();
+    let mut book = Codebook::default();
+    book.add(name, codes).unwrap();
+    let (mut lands, mut refused): (Vec<&str>, Vec<&str>) = errors
+        .iter()
+        .map(String::as_str)
+        .partition(|local| book.authored_rule(name, &format!("gsd/{local}")));
+    lands.sort_unstable();
+    refused.sort_unstable();
+    assert!(
+        refused.is_empty(),
+        "these @gsd/core errors now refuse an import (their catalog entry declares `facts`, ADR 0392); \
+         if that is meant, amend ADR 0392's Limits and this pin: {refused:?}"
+    );
+    assert_eq!(
+        lands, GSD_CORE_LANDS,
+        "the @gsd/core errors an import lands changed: update GSD_CORE_LANDS (ADR 0392)"
+    );
+}
+
 #[specforge_test_macros::test(requirement = "FEATURE-007")]
 fn the_checks_switches_gate_codes_the_catalog_gives_checks() {
     let runtime = ComponentRuntime::new();
