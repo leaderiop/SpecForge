@@ -619,7 +619,8 @@ pub(crate) fn doctest_members(repo: &Repo) -> Vec<String> {
         .collect()
 }
 
-fn member_has_doctest(repo: &Repo, dir: &str) -> bool {
+/// Whether the crate at `dir` (from the repository root) holds a runnable doctest in its `src/`.
+pub(crate) fn member_has_doctest(repo: &Repo, dir: &str) -> bool {
     let mut sources = Vec::new();
     collect_rust_sources(&repo.root.join(dir).join("src"), &mut sources);
     judge::has_runnable_doctest(&sources.iter().map(String::as_str).collect::<Vec<_>>())

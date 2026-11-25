@@ -1,6 +1,7 @@
 //! The `guests` check (ADR 0393 D1): each extension guest's tests run under `cargo nextest run`, one run per guest
 //! manifest (each guest is its own workspace, ADR 0366 D2), and each run writes its JUnit report under the repository
-//! root's `target/nextest/<profile>/junit-guests/<slug>/`; then every guest is clippy-clean for wasm and native, and
+//! root's `target/nextest/<profile>/junit-guests/<slug>/`, and a guest whose sources hold a runnable doctest runs it
+//! under `cargo test --doc` (nextest runs none); then every guest is clippy-clean for wasm and native, and
 //! each example project's extension for wasm.
 
 use std::path::Path;
@@ -64,6 +65,13 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
         ];
         if let Err(e) = ctx.sh(&mut cargo(&tests, &manifest, &[])) {
             failures.push(format!("{manifest} tests: {e}"));
+        }
+        // nextest runs no doctest, and the `doctests` check covers root members only.
+        let dir = manifest.strip_suffix("/Cargo.toml").unwrap_or(&manifest);
+        if crate::checks::member_has_doctest(ctx.repo, dir)
+            && let Err(e) = ctx.sh(&mut cargo(&["test", "-q", "--doc"], &manifest, &[]))
+        {
+            failures.push(format!("{manifest} doctests: {e}"));
         }
         for &(what, before, after) in &clippy {
             if let Err(e) = ctx.sh(&mut cargo(before, &manifest, after)) {
