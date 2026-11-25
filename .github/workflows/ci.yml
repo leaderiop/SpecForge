@@ -111,6 +111,23 @@ jobs:
       # A PR runs the checks its diff reaches (quick's triggers); main runs the whole list.
       - name: Run the shard's checks
         run: cargo gate ci --only ${{ matrix.checks }} ${{ github.event_name == 'pull_request' && format('--since origin/{0}', github.base_ref) || '' }}
+      # The artifact's name is its directory, so the dogfood job's download lands where a local run writes (ADR 0393 D2).
+      - name: Keep the guests' JUnit reports for dogfood
+        if: github.event_name == 'push' && matrix.shard == 'specs'
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-guests
+          path: target/nextest/ci/junit-guests
+          if-no-files-found: error
+          retention-days: 1
+      - name: Keep the gsd JUnit report for dogfood
+        if: github.event_name == 'push' && matrix.shard == 'gsd'
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-gsd
+          path: target/nextest/ci/junit-gsd
+          if-no-files-found: error
+          retention-days: 1
       - name: Build-time budget
         shell: bash
         run: |
@@ -375,8 +392,9 @@ jobs:
           echo "$line"
 
   dogfood:
-    # Each tests partition's nextest JUnit report lands in its own directory under target/nextest/ci (no
-    # merge-multiple: every partition writes junit.xml); dogfood merges them and judges the requirements' proof.
+    # Each tests partition's nextest JUnit report, the guests' (junit-guests) and the gsd one (junit-gsd) land in their
+    # own directories under target/nextest/ci (no merge-multiple: every partition writes junit.xml); dogfood merges
+    # them and judges the requirements' proof.
     name: Check list (dogfood)
     needs: [ci, tests]
     if: github.event_name == 'push'
@@ -399,7 +417,7 @@ jobs:
           save-if: false
       - uses: actions/download-artifact@v4
         with:
-          pattern: junit-tests-*
+          pattern: junit-*
           path: target/nextest/ci
       - name: Run dogfood
         run: cargo gate ci --only dogfood
