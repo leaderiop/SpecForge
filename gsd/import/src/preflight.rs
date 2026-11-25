@@ -15,7 +15,7 @@ pub struct Manifest {
     pub spec_root: String,
     /// `extensions` lists `@gsd/security`.
     pub security: bool,
-    /// The extensions it lists, each by name (a `name=path` entry gives its name).
+    /// The extensions it lists, each by the name its text gives ([`entry_name`]).
     pub loaded: Vec<String>,
 }
 
@@ -55,12 +55,8 @@ pub fn manifest(served: &[Served]) -> Result<Manifest, String> {
         .map(|list| {
             list.iter()
                 .filter_map(Value::as_str)
-                .map(|entry| {
-                    entry
-                        .split_once('=')
-                        .map_or(entry, |(name, _)| name)
-                        .to_string()
-                })
+                .filter_map(entry_name)
+                .map(str::to_string)
                 .collect()
         })
         .unwrap_or_default();
@@ -69,6 +65,21 @@ pub fn manifest(served: &[Served]) -> Result<Manifest, String> {
         security: loaded.iter().any(|name| name == "@gsd/security"),
         loaded,
     })
+}
+
+/// The extension one `extensions` entry names by its text, read as the host's `ExtensionEntry::parse` reads it (the
+/// guest cannot depend on the host crate): trimmed; an entry ending `.wasm` is a file, named by the text before `=`
+/// (which the load holds equal to the component's name) and by nothing when bare; any other is `name` or the legacy
+/// `name@requirement` (`split_requirement`: the text before the last `@` but a leading one).
+fn entry_name(entry: &str) -> Option<&str> {
+    let entry = entry.trim();
+    if entry.ends_with(".wasm") {
+        return entry.split_once('=').map(|(name, _)| name.trim());
+    }
+    match entry.rfind('@') {
+        Some(at) if at > 0 => Some(&entry[..at]),
+        _ => Some(entry),
+    }
 }
 
 /// Refuses a graph that holds any `@gsd/core` entity (D10), naming the first by id: its kind, path and file.
@@ -109,4 +120,39 @@ pub fn check_reads(planning: &[Served], truncated: bool) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_entry_is_named_as_the_host_names_it() {
+        for (entry, name) in [
+            ("@gsd/security", Some("@gsd/security")),
+            ("@gsd/security@^1.0", Some("@gsd/security")),
+            ("@gsd/security@1.0.0", Some("@gsd/security")),
+            (" @gsd/security ", Some("@gsd/security")),
+            ("@gsd/security = ../s.wasm", Some("@gsd/security")),
+            ("../s.wasm", None),
+            // `=` splits a `.wasm` entry only: `x=y` names the extension `x=y`.
+            ("x=y", Some("x=y")),
+            ("plain", Some("plain")),
+        ] {
+            assert_eq!(entry_name(entry), name, "{entry:?}");
+        }
+    }
+
+    #[test]
+    fn a_legacy_or_padded_entry_loads_security() {
+        let text = r#"{"extensions": ["@gsd/core@^1.1", " @gsd/security@^1.0 "]}"#;
+        let served = [Served {
+            path: "specforge.json".to_string(),
+            text: Some(text.to_string()),
+            error: None,
+        }];
+        let manifest = manifest(&served).expect("a manifest");
+        assert!(manifest.security);
+        assert_eq!(manifest.loaded, ["@gsd/core", "@gsd/security"]);
+    }
 }
