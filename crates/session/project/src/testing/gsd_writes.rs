@@ -207,6 +207,11 @@ fn core(guard: bool) -> ContributionsBuilder {
         passes.as_array_mut().expect("an array").push(guard_wire());
     }
     c.raw_category(DeclaredCategory::Passes, passes);
+    // The guard's code, a rule about authored entities: an importing command's plan writes it (ADR 0392).
+    c.code(&specforge_common::codes::E087.to_string(), |d| {
+        d.title("A phase is not complete")
+            .explanation("A phase's goal is GUARDED.");
+    });
     c.raw_category(
         DeclaredCategory::Surfaces,
         json!([{"commands": [command("record", true), command("quiet", false), attest(), import()]}]),

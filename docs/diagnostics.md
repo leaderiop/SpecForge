@@ -1135,9 +1135,12 @@ unlinks, deletes or moves at or under that entity, and a migration still count
 it (ADR 0385). A writing collector's plan is compared with the project as its
 collect left it, and is refused for host errors only: an extension's error
 refuses no collected fact (ADR 0303). The plan of a command that declares
-`imports` is refused for a first-party code only (the host's or a `@specforge/*`
-builtin's, E016 included): a third-party extension's error the imported records
-carry is written, and `check` reports it (ADR 0392).
+`imports` writes an extension's rule error about authored entities the imported
+records carry, and `check` reports it: a code in the extension's namespace that
+its own catalog lists and whose entry judges no collected fact. It is still
+refused for any other error: the host's or a `@specforge/*` builtin's (E016
+included), and one that judges the records against collected facts, such as
+`code/E101` (ADR 0392).
 
 Owner: core
 Level: error

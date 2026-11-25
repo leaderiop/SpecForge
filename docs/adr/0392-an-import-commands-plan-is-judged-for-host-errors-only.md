@@ -29,19 +29,27 @@ protocol version change: one key added to the current minor, 2.3.0.
   also declares `writes`): it imports what was recorded outside the spec. A command that declares `imports` and not
   `writes` is W021 and dropped, as a `human` one is. `@gsd/import`'s `import` declares it.
 - **Its plan is judged for host errors only.** The host applies the plan with
-  `Origin::Command { extension, imports: true }`, and E080 writes, rather than refuses, an error that a third-party
-  extension reported in its own namespace (`gsd.security/E101`, `gsd/E312`), in the plan's check and in the
-  re-judgement under the write lock. `validate::Lands`, threaded through `plan_steps`, `validate::check` and
+  `Origin::Command { extension, imports: true }`, and E080 writes, rather than refuses, an extension's rule error
+  about authored entities (`gsd.security/E101`, `gsd/E312`), in the plan's check and in the re-judgement under the
+  write lock. What is a rule error is read from the code's meaning, not from which extension reported it
+  (`Codebook::authored_rule`): the code is in the reporting extension's namespace, that extension's own catalog lists
+  it, and the catalog entry judges no collected fact kind (`CodeDescriptor.facts`, ADR 0389, which the SDK says to
+  leave out "for a code about authored entities"). `validate::Lands`, threaded through `plan_steps`, `validate::check` and
   `refuse_new_errors` in place of ADR 0303's `host_only` flag, names the three cases: `Nothing` (a typed edit, a
   command's or a hook's plan), `Extensions` (a collector's plan, ADR 0303, unchanged: any extension's error, whatever
   its code) and `ThirdParty` (an importing command's plan).
 - **What still refuses.** Every error whose code is first party, the host's own or a `@specforge/*` builtin's, which
   the host's catalog describes (ADR 0286): a path field naming no file (E016, which `@specforge/checks` reports for a
   path value check, so its origin is an extension's), an unresolved reference (E003), an id the grammar refuses, two
-  entities with one id, a file the parser refuses. And everything checked before E080, unchanged: a malformed plan,
+  entities with one id, a file the parser refuses. An extension's error that judges the records against the facts
+  collected from the tree, whatever the extension: `@code/core`'s `code/E101` (a reference naming no collected fact)
+  is a reference to nothing, like E003, and a builtin outside `@specforge/` is namespaced like a third party
+  (ADR 0328 D1), so the namespace alone cannot tell it from a rule. An extension's error whose code its own catalog
+  does not list (W150's case). And everything checked before E080, unchanged: a malformed plan,
   the field flags (computed, context, human, a harness field of an extension that is not the command's or a peer's), a
   verdict from any extension but the rule's own (ADR 0391 D5), a stale revision, a collected entity.
-- **What lands.** A third-party extension's rule error the imported records carry is written. `specforge check`
+- **What lands.** An extension's rule error about authored entities the imported records carry is written, a builtin's
+  (`@gsd/core`, `@gsd/security`) as much as a third party's. `specforge check`
   reports it beside the owed verdicts and exits 1, and the user fixes it in `spec/gsd/` with SpecForge's own tools.
 - **Who may declare it.** Any extension. The declaration is in the extension's contributions, so its declaration
   golden shows it, and a review of the extension sees it once rather than per call.
@@ -49,7 +57,8 @@ protocol version change: one key added to the current minor, 2.3.0.
 ## Amends ADR 0391
 
 - **D9.** "What the guest cannot see is the host's" now reads: the host refuses a plan that adds any unjudged *host*
-  error, a first-party code (E016 included). A third-party extension's rule error lands (this ADR). The guest still
+  error, a first-party code (E016 included), or a reference to a collected fact that names nothing (`code/E101`). An
+  extension's rule error about authored entities lands (this ADR). The guest still
   mirrors the host's own refusals (D9 "Mirror the host") and the E016 paragraph stands: a path that no longer exists
   refuses the whole import.
 - **D13, Check.** `specforge check` on an imported fixture exits 1. Its codes are the owed judged codes (D5) and the
@@ -72,6 +81,11 @@ protocol version change: one key added to the current minor, 2.3.0.
   corrects that path in `.planning/`. A collector keeps ADR 0303's rule; its facts name files it just read.
 - **Every command judged host-only.** A command that authors (a new plan, a quick task) must stay held by the
   project's rules (ADR 0297).
+- **First party read from the code's namespace** (the first version of this ADR: any namespaced code landed).
+  `@code/core` reports `code/E101` namespaced, so an import that wrote a stale test or item reference landed it.
+- **Every builtin first party** (read from the host's builtin registry). It refuses `code/E101`, but also
+  `gsd.security/E101`, `gsd/E201` and `gsd/E312`, `@gsd/*` builtins' rule errors: the very errors this ADR exists to
+  land.
 
 ## Limits
 
@@ -79,6 +93,10 @@ protocol version change: one key added to the current minor, 2.3.0.
 - An agent may run an importing command. It can add no host error and pass no field flag; what it can add is an
   extension's rule error, which `check` reports.
 - A host that predates the key ignores it and refuses such a plan for an extension's error, as before.
+- The meaning is what the catalog declares. A code that reads facts without declaring them lands: `gsd/E533` and
+  `gsd/E535` read API and package facts, but judge a closed milestone's claim, which is history. A pinned test
+  (`validate.rs`, `an_import_lands_an_authored_rule_error_and_keeps_every_other`, and `Codebook`'s own) holds which
+  codes land.
 
 ## Consequences
 

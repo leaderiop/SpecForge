@@ -123,7 +123,7 @@ the same SDK any extension uses:
 | `@javascript/api` | Run api-extractor after approval on a config file the host writes, and record `api_item` facts; `specforge add` also enables `@javascript/source` |
 | `@javascript/vitest`, `@javascript/jest`, `@javascript/playwright` | Run a test runner after approval and record its JUnit as `test`/`test_run` facts (jest through an env file the host writes, Playwright's report captured); `specforge add` also enables `@javascript/source` |
 | `@gsd/core` | Ship a whole spec framework as one extension: scoped kinds, judged rules, settings, and the prompts, agents, skills, slash commands and hooks a coding agent's host installs |
-| `@gsd/import` | Declare no kind, only a command that imports history: its plan lands a third-party rule error and refuses a host one (`CommandBuilder::imports()`, ADR 0392) |
+| `@gsd/import` | Declare no kind, only a command that imports history: its plan lands an extension's rule error and refuses a host one or a fact reference naming nothing (`CommandBuilder::imports()`, ADR 0392) |
 
 The [extension inventory](extension-inventory.md) lists exactly what each declares; the
 [entity pages](entities/) document each builtin kind.

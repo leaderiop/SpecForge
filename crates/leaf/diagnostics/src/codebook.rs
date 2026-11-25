@@ -198,6 +198,27 @@ impl Codebook {
             .is_some_and(|entry| entry.settled_later)
     }
 
+    /// Whether `code` (as it prints, `gsd.security/E101`), which `extension` reported, is a rule of `extension`'s own
+    /// about authored entities (ADR 0392): `code` is in `extension`'s namespace, `extension`'s own catalog lists it,
+    /// and that entry judges no collected fact kind (`ExtensionCode.facts`, ADR 0389). An importing command's plan
+    /// writes such an error and refuses every other: a first-party code (bare), a code no catalog of `extension`'s
+    /// lists, and one that judges a record against the facts collected from the tree, such as `code/E101` (a
+    /// reference naming no collected fact).
+    pub fn authored_rule(&self, extension: &str, code: &str) -> bool {
+        let CodeRef {
+            namespace: Some(namespace),
+            local,
+        } = CodeRef::parse(code)
+        else {
+            return false;
+        };
+        code_namespace(extension).is_some_and(|own| own.eq_ignore_ascii_case(namespace))
+            && self
+                .owned_by(extension)
+                .and_then(|owned| owned.codes.get(&local.to_uppercase()))
+                .is_some_and(|entry| entry.facts.is_empty())
+    }
+
     /// Whether a finding of `code` that `extension` reports speaks on an entity whose owner is `pending` (ADR 0363):
     /// always, unless the extension's own catalog entry names the owner state its findings wait for, then only in
     /// that state. A first-party extension's code waits for none.
@@ -565,6 +586,46 @@ mod tests {
         assert!(
             !book.settled_later("@specforge/checks", "I206"),
             "a first-party extension declares none"
+        );
+    }
+
+    #[test]
+    fn an_authored_rule_is_the_reporters_own_catalogued_code_judging_no_fact() {
+        let mut book = book("@gsd/security", &["E101"]);
+        book.add(
+            "@code/core",
+            vec![ExtensionCode {
+                local: "E101".into(),
+                title: "t".into(),
+                explanation: "e".into(),
+                docs: None,
+                machine: false,
+                reported_while: None,
+                settled_later: false,
+                facts: vec!["test".into()],
+            }],
+        )
+        .unwrap();
+        assert!(book.authored_rule("@gsd/security", "gsd.security/E101"));
+        assert!(
+            !book.authored_rule("@code/core", "code/E101"),
+            "it judges collected facts"
+        );
+        assert!(
+            !book.authored_rule("@gsd/security", "gsd.security/E102"),
+            "not catalogued"
+        );
+        assert!(
+            !book.authored_rule("@gsd/security", "code/E101"),
+            "another namespace's code"
+        );
+        assert!(
+            !book.authored_rule("@gsd/security", "E101"),
+            "a bare code is first party"
+        );
+        assert!(
+            !book.authored_rule("@specforge/checks", "E016"),
+            "a first-party extension's code"
         );
     }
 

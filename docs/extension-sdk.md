@@ -517,7 +517,7 @@ A prompt is not a contract: the agent may ignore a step, and only a gate refuses
 
 ### Writing commands and collectors
 
-An extension never writes files. A command that records what a person says declares `cmd.human()` (it writes, and the host runs it only for a person at a terminal, ADR 0301). A command that imports history recorded outside the spec declares `cmd.imports()` (it writes, and its plan is judged for host errors only: a third-party extension's namespaced rule error lands and `check` reports it, a first-party one such as E016 refuses, ADR 0392; `@gsd/import` does). A command declares `cmd.writes()` and answers an edit plan the host checks, judges
+An extension never writes files. A command that records what a person says declares `cmd.human()` (it writes, and the host runs it only for a person at a terminal, ADR 0301). A command that imports history recorded outside the spec declares `cmd.imports()` (it writes, and its plan is judged for host errors only: an extension's rule error about authored entities lands and `check` reports it, a first-party one such as E016 or one judging collected facts such as `code/E101` refuses, ADR 0392; `@gsd/import` does). A command declares `cmd.writes()` and answers an edit plan the host checks, judges
 and applies all or nothing ([the wire](extension-protocol.md#writing), ADR 0289):
 
 ```rust

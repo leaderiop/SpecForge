@@ -15,7 +15,7 @@ use super::steps::relocated;
 use crate::authoring::planned::PlannedChange;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Refusal};
-use specforge_common::{Diagnostic, DiagnosticList, Severity, codes};
+use specforge_common::{Codebook, Diagnostic, DiagnosticList, Severity, codes};
 use specforge_diagnostics::CodeRef;
 use specforge_graph::{GraphDelta, compute_graph_delta_over};
 use specforge_project::CompiledProject;
@@ -136,34 +136,36 @@ pub enum Lands {
     Nothing,
     /// Every extension's error, whatever its code: a collector's plan (ADR 0303).
     Extensions,
-    /// A third-party extension's own error, its code namespaced (`gsd.security/E101`): an importing command's plan
-    /// (ADR 0392). A first-party code still refuses, the host's own or a `@specforge/*` builtin's, such as the E016 a
-    /// path's value check reports.
+    /// An extension's rule about authored entities, its own catalogued code (`gsd.security/E101`, `gsd/E312`): an
+    /// importing command's plan (ADR 0392, `Codebook::authored_rule`). Every other error still refuses: the host's
+    /// own, a `@specforge/*` builtin's (the E016 a path's value check reports), and one that judges the records
+    /// against the facts collected from the tree (`code/E101`, a reference naming no collected fact).
     ThirdParty,
 }
 
 impl Lands {
-    /// Whether `d`, an error the plan adds, is written rather than refused.
-    pub(crate) fn lands(self, d: &Diagnostic) -> bool {
+    /// Whether `d`, an error the plan adds, is written rather than refused; `codes` is the loaded extensions' catalog.
+    pub(crate) fn lands(self, d: &Diagnostic, codes: &Codebook) -> bool {
         match self {
             Lands::Nothing => false,
             Lands::Extensions => d.origin().is_some(),
-            Lands::ThirdParty => {
-                d.origin().is_some() && CodeRef::parse(&d.code).namespace.is_some()
-            }
+            Lands::ThirdParty => d
+                .origin()
+                .is_some_and(|origin| codes.authored_rule(origin, &d.code)),
         }
     }
 }
 
 /// The diagnostics of `after` that `before` does not have, one by one: (errors, warnings and infos). A diagnostic
 /// `judged` names is never an error here, whatever its severity. `moved` relocates the subjects of `before`. An error
-/// `lands` writes is not one either (ADR 0303, ADR 0392).
+/// `lands` writes, read against the catalog `codes`, is not one either (ADR 0303, ADR 0392).
 pub(crate) fn added(
     before: &[Diagnostic],
     after: Vec<Diagnostic>,
     judged: impl Fn(&Diagnostic) -> bool,
     moved: &Moves,
     lands: Lands,
+    codes: &Codebook,
 ) -> (Vec<Diagnostic>, Vec<Diagnostic>) {
     let mut had: HashMap<Key, usize> = HashMap::new();
     for d in before {
@@ -177,7 +179,9 @@ pub(crate) fn added(
         }
         match had.get_mut(&key(&d, &[])) {
             Some(n) if *n > 0 => *n -= 1,
-            _ if d.severity == Severity::Error && !judged(&d) && !lands.lands(&d) => errors.push(d),
+            _ if d.severity == Severity::Error && !judged(&d) && !lands.lands(&d, codes) => {
+                errors.push(d)
+            }
             _ => rest.push(d),
         }
     }
@@ -198,6 +202,7 @@ pub(crate) fn refuse_new_errors(
         not_added(before, after, Some(change)),
         change.moved(),
         lands,
+        registries.codes(),
     );
     if errors.is_empty() {
         Ok(())
@@ -229,6 +234,7 @@ pub fn check(
         not_added(view.project(), &post, Some(change)),
         change.moved(),
         lands,
+        view.registries().codes(),
     );
     if !errors.is_empty() {
         return Err(new_errors(errors, view.registries().codes()));
@@ -245,7 +251,7 @@ pub fn check(
     Err(undeclared(&beyond))
 }
 
-fn new_errors(errors: Vec<Diagnostic>, codes: &specforge_common::Codebook) -> Refusal<EditField> {
+fn new_errors(errors: Vec<Diagnostic>, codes: &Codebook) -> Refusal<EditField> {
     let mut message = format!(
         "the edit would leave the project with {} error{} it does not have; nothing was written",
         errors.len(),
@@ -331,7 +337,14 @@ mod tests {
         let mut pending = Diagnostic::new(codes::W167, "an interrupted write is pending rollback");
         // A preset that raises W167 makes it an error of the edited project.
         pending.severity = Severity::Error;
-        let (errors, rest) = added(&[], vec![pending], |_| false, &[], Lands::Nothing);
+        let (errors, rest) = added(
+            &[],
+            vec![pending],
+            |_| false,
+            &[],
+            Lands::Nothing,
+            &Codebook::default(),
+        );
         assert!(errors.is_empty() && rest.is_empty());
     }
 
@@ -350,6 +363,7 @@ mod tests {
             judged,
             &[],
             Lands::Nothing,
+            &Codebook::default(),
         );
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].code, "gsd/E999");
@@ -362,6 +376,7 @@ mod tests {
             judged,
             &[],
             Lands::Nothing,
+            &Codebook::default(),
         );
         assert!(errors.is_empty() && rest.is_empty());
     }
@@ -396,6 +411,7 @@ mod tests {
             |_| false,
             &[],
             Lands::Nothing,
+            &Codebook::default(),
         );
         assert_eq!(errors.len(), 1);
     }
@@ -407,14 +423,28 @@ mod tests {
         let moves = [("v1.0/01".to_string(), "v1.0/02".to_string())];
         let after = vec![finding("v1.0/02/01-01/TR1")];
         assert!(
-            added(&before, after.clone(), |_| false, &moves, Lands::Nothing)
-                .0
-                .is_empty()
+            added(
+                &before,
+                after.clone(),
+                |_| false,
+                &moves,
+                Lands::Nothing,
+                &Codebook::default()
+            )
+            .0
+            .is_empty()
         );
         assert_eq!(
-            added(&before, after, |_| false, &[], Lands::Nothing)
-                .0
-                .len(),
+            added(
+                &before,
+                after,
+                |_| false,
+                &[],
+                Lands::Nothing,
+                &Codebook::default()
+            )
+            .0
+            .len(),
             1
         );
     }
@@ -441,33 +471,62 @@ mod tests {
             |_| false,
             &[],
             Lands::Extensions,
+            &Codebook::default(),
         );
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].code, "E003");
         assert_eq!(
-            added(&[], vec![ext], |_| false, &[], Lands::Nothing)
-                .0
-                .len(),
+            added(
+                &[],
+                vec![ext],
+                |_| false,
+                &[],
+                Lands::Nothing,
+                &Codebook::default()
+            )
+            .0
+            .len(),
             1
         );
     }
 
     #[specforge_test(requirement = "FEATURE-131")]
-    fn an_import_lands_a_third_party_error_and_keeps_a_first_party_one() {
+    fn an_import_lands_an_authored_rule_error_and_keeps_every_other() {
+        let entry = |local: &str, facts: &[&str]| specforge_diagnostics::ExtensionCode {
+            local: local.into(),
+            title: "t".into(),
+            explanation: "e".into(),
+            docs: None,
+            machine: false,
+            reported_while: None,
+            settled_later: false,
+            facts: facts.iter().map(|kind| kind.to_string()).collect(),
+        };
+        let mut book = Codebook::default();
+        book.add("@gsd/core", vec![entry("E502", &[])]).unwrap();
+        book.add("@code/core", vec![entry("E101", &["test"])])
+            .unwrap();
         let host = Diagnostic::untyped("E003", Severity::Error, "unresolved");
         let path = Diagnostic::from_extension("@specforge/checks", "E016", Severity::Error, "gone");
-        let ext = finding("v1.0/01/01-01/TR1");
+        // A builtin outside `@specforge/` that judges collected facts: a reference naming no fact refuses (WR-A01).
+        let dangling =
+            Diagnostic::from_extension("@code/core", "code/E101", Severity::Error, "no fact");
+        let uncatalogued =
+            Diagnostic::from_extension("@gsd/core", "gsd/E999", Severity::Error, "not listed");
+        let rule = finding("v1.0/01/01-01/TR1");
         let (errors, _) = added(
             &[],
-            vec![host, path.clone(), ext.clone()],
+            vec![host, path.clone(), dangling, uncatalogued, rule.clone()],
             |_| false,
             &[],
             Lands::ThirdParty,
+            &book,
         );
         let codes: Vec<&str> = errors.iter().map(|d| d.code.as_str()).collect();
-        assert_eq!(codes, ["E003", "E016"]);
+        assert_eq!(codes, ["E003", "E016", "code/E101", "gsd/E999"]);
+        assert!(Lands::ThirdParty.lands(&rule, &book));
         // A collector's plan lands the first-party extension's error too (ADR 0303).
-        assert!(Lands::Extensions.lands(&path) && !Lands::ThirdParty.lands(&path));
+        assert!(Lands::Extensions.lands(&path, &book) && !Lands::ThirdParty.lands(&path, &book));
     }
 
     #[specforge_test(requirement = "FEATURE-131")]

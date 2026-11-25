@@ -376,6 +376,7 @@ pub fn judge(
         judged,
         &[],
         Lands::Nothing,
+        post.environment().registries().codes(),
     )
     .0
     .len();
