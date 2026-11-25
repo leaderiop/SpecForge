@@ -466,17 +466,27 @@ fn a_peer_creates_an_entity_holding_a_harness_value() {
     assert!(ran.wrote.is_empty(), "{:?}", ran.wrote);
 }
 
-/// The importer's operation cap (ADR 0391 D9): 2,000 creates apply in ~38 s; 5,000 took 218 s, 10,000 passed 60 s.
-const MAX_OPS: usize = 2_000;
+/// `@gsd/import`'s operation cap (ADR 0391 D9), `MAX_OPS` read from the guest's own source, so this test measures the
+/// cap the importer enforces, not a copy of it: 2,000 creates apply in ~38 s; 5,000 took 218 s, 10,000 passed 60 s.
+fn importer_max_ops() -> usize {
+    let path = specforge_repo_root::repo_root().join("gsd/import/src/limits.rs");
+    let source = std::fs::read_to_string(&path).unwrap();
+    source
+        .lines()
+        .find_map(|line| line.strip_prefix("pub const MAX_OPS: usize = "))
+        .and_then(|value| value.trim_end_matches(';').replace('_', "").parse().ok())
+        .unwrap_or_else(|| panic!("{} declares no `pub const MAX_OPS: usize`", path.display()))
+}
 
 #[specforge_test(requirement = "FEATURE-131")]
 fn one_plan_of_many_creates_applies() {
+    let max_ops = importer_max_ops();
     let p = TestProject::new()
         .config(|c| c["name"] = "p".into())
         .enabling(&GSD_WRITES_EXTENSIONS)
         .installing_enabled()
         .file("m.spec", MILESTONE);
-    let ops: Vec<Value> = (1..=MAX_OPS)
+    let ops: Vec<Value> = (1..=max_ops)
         .map(|n| {
             json!({"op": "create", "kind": "uat_test", "id": format!("U{n}"), "title": "U",
                    "file": format!("bulk/{}.spec", (n - 1) / 100), "revision": "absent",
@@ -488,7 +498,7 @@ fn one_plan_of_many_creates_applies() {
     assert_eq!(ran.refusal, None);
     let mut wrote = ran.wrote;
     wrote.sort_unstable();
-    let mut expected: Vec<String> = (0..MAX_OPS / 100)
+    let mut expected: Vec<String> = (0..max_ops.div_ceil(100))
         .map(|k| format!("bulk/{k}.spec"))
         .collect();
     expected.sort_unstable();

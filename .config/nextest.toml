@@ -38,8 +38,9 @@ path = "junit.xml"
 filter = "package(specforge-cli) & test(=extension_authoring::a_scaffolded_extension_builds_and_validates)"
 slow-timeout = { period = "60s", terminate-after = 10 }
 
-# Applies one edit plan of 2,000 creates, the `gsd import` operation cap (ADR
-# 0391 D9): ~38 s on an idle machine, past the default 60 s bound when loaded.
+# Applies one edit plan of as many creates as the `gsd import` operation cap
+# (`MAX_OPS` in gsd/import/src/limits.rs, ADR 0391 D9): ~38 s at 2,000 on an
+# idle machine, past the default 60 s bound when loaded.
 [[profile.default.overrides]]
 filter = "package(specforge-ops) & test(=plans::one_plan_of_many_creates_applies)"
 slow-timeout = { period = "60s", terminate-after = 3 }
