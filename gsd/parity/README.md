@@ -58,6 +58,28 @@ The recipe needs node 24 or later (the tag's `engines.node`). The script refuses
 repository (so `validate health` does not report the machine's worktrees), runs the fixture's `npm test` (node's JUnit
 reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings, so a second run changes nothing.
 
+### Recorded tool reports
+
+`record-reports.sh` records the reports the fixtures' report packs read, into `goldens/<fixture>/reports/`: `cargo
+gate`'s dogfood check collects taskboard, ledger and vault with every pack each one detects from these files, with
+`--no-run --report`, and fails when a collect answers a Warning or an Error (ADR 0393 D9). Nothing runs the tools in
+the gate. Re-record by hand on a machine with Docker, then review the diff:
+
+```sh
+gsd/parity/record-reports.sh                  # or name fixtures: taskboard vault ledger
+git diff --exit-code gsd/parity/goldens
+```
+
+Each tool runs in a `--platform linux/amd64` container of the image below, pinned by digest, on a copy of the fixture's
+tracked files at `/project`, copied in and out by tar streams (no volume); the fixtures are never touched. A leading
+`SF:/project/` in an LCOV becomes `SF:`, so a re-run on the same tools gives the same bytes. `scenario`'s count skips
+`goldens/taskboard/reports/`.
+
+| Fixture | File | Tool | Image | Command |
+|---|---|---|---|---|
+| taskboard | `javascript-coverage.lcov` | c8 12.0.0, node v26.13.1 | `node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9` | `npx --no -- c8 --reporter=lcovonly --reports-dir=.specforge/reports/javascript-coverage npm test` |
+| vault | `javascript-coverage.lcov` | c8 12.0.0, node v26.13.1 | `node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9` | `npx --no -- c8 --reporter=lcovonly --reports-dir=.specforge/reports/javascript-coverage npm test` |
+
 ### To track a newer release
 
 As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):
