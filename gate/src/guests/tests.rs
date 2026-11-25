@@ -93,6 +93,36 @@ fn the_repositorys_guests_have_distinct_slugs() {
     assert!(guests.len() > 1, "{guests:?}");
 }
 
+/// The body lines of `[profile.<name>]` in `text`: each one neither blank nor a comment, up to the next table.
+fn profile_body<'a>(text: &'a str, name: &str) -> Vec<&'a str> {
+    let header = format!("[profile.{name}]");
+    text.lines()
+        .map(str::trim)
+        .skip_while(|line| *line != header)
+        .skip(1)
+        .take_while(|line| !line.starts_with('['))
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect()
+}
+
+/// The guests' `default`, `ci` and `gate` profiles are the root's, line for line, so retries and slow-timeouts never
+/// drift apart (the root's JUnit and override tables stay out of both bodies).
+#[test]
+fn the_guests_profiles_are_the_roots() {
+    let root = specforge_repo_root::repo_root();
+    let read = |file: &str| std::fs::read_to_string(root.join(file)).unwrap();
+    let (guests, workspace) = (read(BASE), read(".config/nextest.toml"));
+    for name in ["default", "ci", "gate"] {
+        let body = profile_body(&guests, name);
+        assert!(!body.is_empty(), "{BASE}: no [profile.{name}]");
+        assert_eq!(
+            body,
+            profile_body(&workspace, name),
+            "{BASE}: [profile.{name}] differs from .config/nextest.toml's"
+        );
+    }
+}
+
 /// The committed base holds the gate and ci profiles and leaves the store, the JUnit path and the root's package
 /// overrides out: the gate adds the first two, and nextest refuses the overrides against a guest manifest.
 #[test]
