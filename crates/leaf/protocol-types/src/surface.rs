@@ -45,8 +45,9 @@ pub struct CommandDescriptor {
     /// Records what a person says: the host runs it only for a person at a terminal (protocol 1.12.0, ADR 0301).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub human: bool,
-    /// Imports what was recorded outside the spec: the host writes a third-party extension's error its plan adds, and
-    /// refuses a first-party one (protocol 2.3.0, ADR 0392).
+    /// Imports what was recorded outside the spec: the host writes an error its plan adds only when the code is in the
+    /// reporting extension's own namespace and own catalog and declares no `facts`, and refuses a host, `@specforge/*`,
+    /// fact-judging or uncatalogued code (protocol 2.3.0, ADR 0392).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub imports: bool,
     /// Local codes of the extension: the command is refused (`gate_failed`) while one fails in the `subject`'s scope
