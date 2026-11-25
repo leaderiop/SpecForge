@@ -218,6 +218,32 @@ fn a_hostile_uat_reports_what_it_cannot_write() {
 }
 
 #[test]
+fn a_uat_testing_no_imported_summary_is_no_session() {
+    let uat = "---\nphase: 01-core\nsource: [07-01-SUMMARY.md]\n---\n\n## Tests\n\n### 1. One\nexpected: e\n";
+    let out = with_uat(uat);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    let all = creates(&out);
+    assert!(paths(&all, "uat_session").is_empty());
+    assert!(paths(&all, "uat_test").is_empty());
+    let reported = entries(&out, UAT);
+    for (line, says) in [
+        (
+            1,
+            "uat_session v1.0/01/01-UAT: no item of its source is imported",
+        ),
+        (
+            8,
+            "uat_test v1.0/01/01-UAT/U1: parent not imported (v1.0/01/01-UAT)",
+        ),
+    ] {
+        assert!(
+            has(&reported, line, "unmapped", says),
+            "{line} {says}: {reported:#?}"
+        );
+    }
+}
+
+#[test]
 fn a_uat_of_two_hundred_tests_imports_each() {
     let tests: String = (1..=200)
         .map(|n| format!("### {n}. Test {n}\nexpected: e{n}\nresult: pass\n\n"))

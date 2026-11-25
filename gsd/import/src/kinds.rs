@@ -200,6 +200,19 @@ pub const REQUIRED_MEMBERS: &[(&str, &str, &[&str])] = &[
     ("milestone_audit", "debt_accepted", &["by", "at"]),
 ];
 
+/// Each `(kind, field)` reference list that must keep an item: a record none of whose `field` items is imported (it
+/// names none, or each one it names is dropped) is dropped and reported, and its children with it. A UAT session tests
+/// summaries: with none it is no session. A reader writes the list it read, empty or not; `emit` alone holds the rule.
+pub const NON_EMPTY: &[(&str, &str)] = &[("uat_session", "source")];
+
+/// The reference lists of `kind` that must keep an item ([`NON_EMPTY`]).
+pub fn non_empty(kind: &str) -> impl Iterator<Item = &'static str> + '_ {
+    NON_EMPTY
+        .iter()
+        .filter(move |(k, _)| *k == kind)
+        .map(|(_, field)| *field)
+}
+
 /// The required, author-written members of the block field `block` of `kind` ([`REQUIRED_MEMBERS`]).
 pub fn required_members(kind: &str, block: &str) -> &'static [&'static str] {
     REQUIRED_MEMBERS

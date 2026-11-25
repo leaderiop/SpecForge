@@ -85,9 +85,9 @@ pub fn read(
             )),
         }
     }
-    if !sources.is_empty() {
-        fields.insert("source".to_string(), json!(sources));
-    }
+    // Written as read, empty or not: a session none of whose summaries is imported is dropped by emit
+    // (`kinds::NON_EMPTY`), whether the summary was never named or dropped later.
+    fields.insert("source".to_string(), json!(sources));
     let body = frontmatter::body(text, start);
     let lines: Vec<&str> = body.split('\n').map(|l| l.trim_end_matches('\r')).collect();
     let all = sections::sections(&body);

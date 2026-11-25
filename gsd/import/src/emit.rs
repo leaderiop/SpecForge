@@ -4,8 +4,9 @@
 //! source (`kinds::REQUIRED`: a reader puts each `filled` value in the fields first), a field no table row writes for
 //! its kind or a block item without a required member (`kinds::REQUIRED_MEMBERS`), a title or field holding a
 //! character no `.spec` file holds; a record whose scope or required reference names a dropped one is reported "parent
-//! not imported", while a link (an item of a reference list, an optional reference) naming one is left out of its field
-//! and reported, the record kept. Past a cap the plan is refused "truncated at N".
+//! not imported", as is one whose reference list that must keep an item keeps none (`kinds::NON_EMPTY`), while a link
+//! (an item of a reference list, an optional reference) naming one is left out of its field and reported, the record
+//! kept. Past a cap the plan is refused "truncated at N".
 //!
 //! A record's id is its graph path (`v1.0/01`): records, references and collisions key by it, and the create takes its
 //! last segment.
@@ -15,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
-use crate::kinds::{rank, required, required_members};
+use crate::kinds::{non_empty, rank, required, required_members};
 use crate::limits::{MAX_ENTRIES, MAX_OPS};
 use crate::records::{Record, Records};
 use crate::report::{Entry, Outcome, Report, hidden};
@@ -110,17 +111,25 @@ pub fn emit<'r>(
         let alive: BTreeSet<&str> = kept.iter().map(|&r| r.id.as_str()).collect();
         let before = kept.len();
         kept.retain(|record| {
-            let missing = record
-                .refs
-                .iter()
-                .find(|id| !alive.contains(id.as_str()) && graph.node(id).is_none());
-            match missing {
-                None => true,
-                Some(id) if every.contains(id.as_str()) => {
+            let lives = |id: &String| alive.contains(id.as_str()) || graph.node(id).is_some();
+            let missing = record.refs.iter().find(|id| !lives(id));
+            let emptied = non_empty(record.kind)
+                .find(|field| !record.links.iter().any(|(f, id)| f == field && lives(id)));
+            match (missing, emptied) {
+                (None, None) => true,
+                (None, Some(field)) => {
+                    refuse(
+                        record,
+                        format!("no item of its {field} is imported"),
+                        report,
+                    );
+                    false
+                }
+                (Some(id), _) if every.contains(id.as_str()) => {
                     refuse(record, format!("parent not imported ({})", id), report);
                     false
                 }
-                Some(id) => {
+                (Some(id), _) => {
                     refuse(
                         record,
                         format!(
@@ -386,6 +395,56 @@ mod tests {
             !said.iter().any(|r| r.contains("parent not imported")),
             "{said:#?}"
         );
+    }
+
+    #[test]
+    fn a_session_with_no_imported_source_is_dropped_with_its_tests() {
+        let mut records = Records::default();
+        let mut report = Report::default();
+        records.add(record("milestone", "v1.0", &[], &[]), &mut report);
+        for phase in ["01", "02", "03"] {
+            let id = format!("v1.0/{phase}");
+            records.add(record("phase", &id, &["v1.0"], &[]), &mut report);
+        }
+        let (gone, kept) = ("v1.0/01/01-01/01-01-SUMMARY", "v1.0/01/01-02/01-02-SUMMARY");
+        for (plan, summary) in [("v1.0/01/01-01", gone), ("v1.0/01/01-02", kept)] {
+            records.add(record("plan", plan, &["v1.0/01"], &[]), &mut report);
+            let mut s = record("summary", summary, &[plan], &[]);
+            if summary == gone {
+                // U+202E, which the parser refuses: the summary is dropped.
+                s.title = "x\u{202E}".to_string();
+            }
+            records.add(s, &mut report);
+        }
+        let session = |id: &str, phase: &str, names: &[&'static str]| {
+            let links: Vec<(&'static str, &str)> = names.iter().map(|n| ("source", *n)).collect();
+            let mut r = record("uat_session", id, &[phase], &links);
+            r.fields.insert("source".to_string(), json!(names));
+            r
+        };
+        // Every summary it names is dropped; it names none; it keeps one of two.
+        records.add(session("v1.0/01/01-UAT", "v1.0/01", &[gone]), &mut report);
+        records.add(session("v1.0/02/02-UAT", "v1.0/02", &[]), &mut report);
+        records.add(
+            session("v1.0/03/03-UAT", "v1.0/03", &[gone, kept]),
+            &mut report,
+        );
+        records.add(
+            record("uat_test", "v1.0/01/01-UAT/U1", &["v1.0/01/01-UAT"], &[]),
+            &mut report,
+        );
+        let created = created(&records, &mut report);
+        assert!(!created.contains_key("01-UAT") && !created.contains_key("02-UAT"));
+        assert!(!created.contains_key("U1"), "{created:#?}");
+        assert_eq!(created["03-UAT"]["source"], json!([kept]));
+        let said = reasons(&report);
+        for says in [
+            "uat_session v1.0/01/01-UAT: no item of its source is imported: not imported",
+            "uat_session v1.0/02/02-UAT: no item of its source is imported: not imported",
+            "uat_test v1.0/01/01-UAT/U1: parent not imported (v1.0/01/01-UAT): not imported",
+        ] {
+            assert!(said.iter().any(|r| r == says), "{says}: {said:#?}");
+        }
     }
 
     #[test]
