@@ -1,7 +1,8 @@
 //! The records to one edit plan (ADR 0391 D9). The guest refuses what the host would, and reports it, before it
 //! answers: a host refusal of the plan (E080) would drop the JSON report. A record is dropped, never stubbed: an id the
 //! grammar refuses, an id given twice, a reference to nothing, a file outside `spec/gsd/`, a required field with no
-//! source (`kinds::REQUIRED`: a reader puts each `filled` value in the fields first), a title or field holding a
+//! source (`kinds::REQUIRED`: a reader puts each `filled` value in the fields first), a field no table row writes for
+//! its kind or a block item without a required member (`kinds::REQUIRED_MEMBERS`), a title or field holding a
 //! character no `.spec` file holds; a record whose scope or required reference names a dropped one is reported "parent
 //! not imported", while a link (an item of a reference list, an optional reference) naming one is left out of its field
 //! and reported, the record kept. Past a cap the plan is refused "truncated at N".
@@ -14,11 +15,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
-use crate::ids;
-use crate::kinds::{rank, required};
+use crate::kinds::{rank, required, required_members};
 use crate::limits::{MAX_ENTRIES, MAX_OPS};
 use crate::records::{Record, Records};
 use crate::report::{Entry, Outcome, Report, hidden};
+use crate::{ids, table};
 
 /// What [`emit`] answers: the plan, how many entities of each kind it creates, and the records it creates.
 pub type Emitted<'r> = (PlanBuilder, BTreeMap<&'static str, usize>, Vec<&'r Record>);
@@ -48,7 +49,8 @@ pub fn emit<'r>(
             format!("{} {}: {why}: not imported", record.kind, record.id),
         ));
     };
-    // The ids, files, required fields and collisions: what a record is alone.
+    // The ids, files, fields and collisions: what a record is alone.
+    let written = table::written();
     let mut kept: Vec<&Record> = Vec::new();
     let mut taken: BTreeMap<&str, &Record> = BTreeMap::new();
     for record in ordered {
@@ -73,6 +75,8 @@ pub fn emit<'r>(
             );
         } else if let Some(field) = missing {
             refuse(record, format!("required {field} has no source"), report);
+        } else if let Some(why) = outside(record, &written) {
+            refuse(record, why, report);
         } else if let Some(field) = unwritable(record) {
             refuse(
                 record,
@@ -186,6 +190,33 @@ pub fn emit<'r>(
         ));
     }
     Ok((plan, counts, kept))
+}
+
+/// Why the host would refuse what `record` writes, at runtime rather than only through the table's static check: a
+/// field no table row writes for its kind (a computed, context, human or verdict field, `table::written`), or a block
+/// item without a required member (`kinds::REQUIRED_MEMBERS`, E006).
+fn outside(record: &Record, written: &BTreeSet<(&str, &str)>) -> Option<String> {
+    for (field, value) in &record.fields {
+        if !written.contains(&(record.kind, field.as_str())) {
+            return Some(format!(
+                "its {field} is no field the import writes for a {}",
+                record.kind
+            ));
+        }
+        let items = match value {
+            Value::Array(items) => items.as_slice(),
+            one => std::slice::from_ref(one),
+        };
+        for member in required_members(record.kind, field) {
+            if items.iter().any(|item| item.get(member).is_none()) {
+                return Some(format!(
+                    "an item of its {field} has no {member}, which a {} requires",
+                    record.kind
+                ));
+            }
+        }
+    }
+    None
 }
 
 /// The title, or the first field, of `record` whose text holds a character no `.spec` file holds: a control or
@@ -404,6 +435,39 @@ mod tests {
             refused.starts_with(&format!("truncated at {MAX_ENTRIES}")),
             "{refused}"
         );
+    }
+
+    #[test]
+    fn a_field_outside_the_table_or_a_block_without_its_member_drops_the_record() {
+        let mut records = Records::default();
+        let mut report = Report::default();
+        records.add(record("milestone", "v1.0", &[], &[]), &mut report);
+        records.add(record("phase", "v1.0/01", &["v1.0"], &[]), &mut report);
+        // `status` is computed: no row writes it.
+        let mut computed = record("plan", "v1.0/01/01-01", &["v1.0/01"], &[]);
+        computed.fields.insert("status".to_string(), json!("done"));
+        records.add(computed, &mut report);
+        let mut plan = record("plan", "v1.0/01/01-02", &["v1.0/01"], &[]);
+        plan.fields.insert("phase".to_string(), json!("v1.0/01"));
+        records.add(plan, &mut report);
+        let mut task = record("task", "v1.0/01/01-02/T1", &["v1.0/01/01-02"], &[]);
+        task.fields.insert(
+            "verify".to_string(),
+            json!([{"automated": "npm test"}, {"fails_when": "x"}]),
+        );
+        records.add(task, &mut report);
+        let created = created(&records, &mut report);
+        assert_eq!(
+            created.keys().map(String::as_str).collect::<Vec<_>>(),
+            ["01", "01-02", "v1.0"]
+        );
+        let said = reasons(&report);
+        for says in [
+            "plan v1.0/01/01-01: its status is no field the import writes for a plan: not imported",
+            "task v1.0/01/01-02/T1: an item of its verify has no automated, which a task requires: not imported",
+        ] {
+            assert!(said.iter().any(|r| r == says), "{says}: {said:#?}");
+        }
     }
 
     #[test]

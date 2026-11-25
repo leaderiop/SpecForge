@@ -177,6 +177,37 @@ pub const REQUIRED: &[(&str, &[&str])] = &[
     ("audit_run", &["audit"]),
 ];
 
+/// Each `@gsd/core` and `@gsd/security` block field's required, author-written members, as `(kind, block, members)` in
+/// declaration order. A test holds it equal to both declarations. A record writing a block item without one is dropped
+/// before the plan is built: the host would refuse the whole plan for it (E006 on a member).
+#[rustfmt::skip]
+pub const REQUIRED_MEMBERS: &[(&str, &str, &[&str])] = &[
+    ("project", "out_of_scope", &["why"]),
+    ("milestone", "abandoned", &["reason", "ruled_by", "at"]),
+    ("plan", "coupling_justified", &["peer", "reason"]),
+    ("task", "reversibility", &["rating"]),
+    ("task", "verify", &["automated"]),
+    ("checkpoint", "options", &["name"]),
+    ("review", "reviewers", &["name", "model", "source"]),
+    ("review", "lanes", &["reviewer", "summary"]),
+    ("review", "coverage", &["reviewer"]),
+    ("review", "unchecked", &["symbol", "why"]),
+    ("user_setup", "env_vars", &["name"]),
+    ("summary", "requires", &["phase", "provides"]),
+    ("deliverable", "checks", &["kind", "ref"]),
+    ("verification", "deferred", &["truth", "addressed_in", "evidence"]),
+    ("milestone_audit", "tech_debt", &["item"]),
+    ("milestone_audit", "debt_accepted", &["by", "at"]),
+];
+
+/// The required, author-written members of the block field `block` of `kind` ([`REQUIRED_MEMBERS`]).
+pub fn required_members(kind: &str, block: &str) -> &'static [&'static str] {
+    REQUIRED_MEMBERS
+        .iter()
+        .find(|(k, b, _)| *k == kind && *b == block)
+        .map_or(&[], |(_, _, members)| members)
+}
+
 /// The required, author-written fields of `kind` ([`REQUIRED`]); none for a kind not listed.
 pub fn required(kind: &str) -> &'static [&'static str] {
     REQUIRED

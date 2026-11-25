@@ -5,6 +5,8 @@
 
 mod sections;
 
+use std::collections::BTreeSet;
+
 use gsd_kit::files::{PLANNING_FILES, planning_names};
 
 use crate::report::Outcome;
@@ -304,6 +306,23 @@ pub const SECTIONS: &[&[Row]] = &[
 /// Every row of [`SECTIONS`].
 pub fn rows() -> impl Iterator<Item = &'static Row> {
     SECTIONS.iter().flat_map(|rows| rows.iter())
+}
+
+/// Every `(kind, field)` a row writes ([`Home::To`], [`Home::Filled`]): a `block.member` home writes its block, and the
+/// id and title write no field. A record writing outside it is dropped (`emit`): the table is what is checked against
+/// the writers (`tests/measure.rs`).
+pub fn written() -> BTreeSet<(&'static str, &'static str)> {
+    rows()
+        .flat_map(|row| row.homes)
+        .filter_map(|home| match *home {
+            Home::To { kind, field, .. } | Home::Filled { kind, field, .. }
+                if field != ID && field != TITLE =>
+            {
+                Some((kind, field.split('.').next().unwrap_or(field)))
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 /// The row of the format `file` for the section or key `key`.

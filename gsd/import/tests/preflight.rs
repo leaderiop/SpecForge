@@ -9,7 +9,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::testing::MockHost;
 
 use common::{fact, feed, import, manifest, payload};
-use gsd_import::kinds::{CORE_KINDS, REQUIRED, required};
+use gsd_import::kinds::{CORE_KINDS, REQUIRED, REQUIRED_MEMBERS, required};
 use gsd_import::limits::{MAX_ENTRIES, MAX_OPS};
 use gsd_import::records::{Record, Records, Source};
 use gsd_import::report::Report;
@@ -478,6 +478,49 @@ fn required_fields_are_what_the_kinds_declare() {
     let listed: Vec<(String, Vec<String>)> = REQUIRED
         .iter()
         .map(|(k, f)| (k.to_string(), f.iter().map(|f| f.to_string()).collect()))
+        .collect();
+    assert_eq!(listed, declared);
+}
+
+#[test]
+fn required_members_are_what_the_kinds_declare() {
+    let author = |f: &Value| !matches!(f["writer"].as_str(), Some("computed" | "harness"));
+    let mut declared: Vec<(String, String, Vec<String>)> = Vec::new();
+    for build in [gsd_core::build(), gsd_security::build()] {
+        let entities: Value = serde_json::from_str(
+            &MockHost::new(build)
+                .describe_json("entities")
+                .expect("the entities"),
+        )
+        .expect("describe answers JSON");
+        for kind in entities["items"].as_array().expect("items") {
+            for field in kind["fields"].as_array().expect("fields") {
+                let members: Vec<String> = field["members"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter(|m| m["required"] == true && author(m))
+                    .map(|m| m["name"].as_str().expect("a name").to_string())
+                    .collect();
+                if author(field) && !members.is_empty() {
+                    declared.push((
+                        kind["name"].as_str().expect("a name").to_string(),
+                        field["name"].as_str().expect("a name").to_string(),
+                        members,
+                    ));
+                }
+            }
+        }
+    }
+    let listed: Vec<(String, String, Vec<String>)> = REQUIRED_MEMBERS
+        .iter()
+        .map(|(k, b, m)| {
+            (
+                k.to_string(),
+                b.to_string(),
+                m.iter().map(|m| m.to_string()).collect(),
+            )
+        })
         .collect();
     assert_eq!(listed, declared);
 }
