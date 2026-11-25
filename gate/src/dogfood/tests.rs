@@ -89,6 +89,24 @@ fn ci_uploads_each_partitions_report_or_fails() {
     );
 }
 
+/// The `@gsd` workspace's nextest store is the repository root's, and its `gate` and `ci` runs write their report in
+/// the directory `dogfood` reads: a store left in `gsd/target` would hide every `@gsd` test from it.
+#[test]
+fn the_gsd_workspace_writes_its_junit_under_the_root_report_dir() {
+    let path = specforge_repo_root::repo_root().join("gsd/.config/nextest.toml");
+    let config = std::fs::read_to_string(&path).unwrap();
+    let lines: Vec<&str> = config.lines().map(str::trim).collect();
+    let report = format!("path = \"{GSD}/junit.xml\"");
+    for line in [
+        "dir = \"../target/nextest\"",
+        "[profile.gate.junit]",
+        "[profile.ci.junit]",
+        report.as_str(),
+    ] {
+        assert!(lines.contains(&line), "{}: no `{line}`", path.display());
+    }
+}
+
 #[test]
 fn the_anchored_entities_are_the_guest_named_set() {
     let anchors = serde_json::json!({"entities": [

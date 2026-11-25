@@ -6,6 +6,9 @@
 //! into `gsd/core/wasm/` and `gsd/import/wasm/` (ADR 0391 D12), and nothing builds their wasm to load them; the suite
 //! loads them by name. `@gsd/security` is not vendored: this step builds its wasm from `gsd/` and the suite reads it
 //! through `GSD_SECURITY_WASM`.
+//!
+//! The suite's nextest run writes its JUnit report to `target/nextest/<profile>/junit-gsd/junit.xml` under the
+//! repository root (`gsd/.config/nextest.toml`), which the `dogfood` check reads (ADR 0393 D2).
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -30,8 +33,9 @@ pub const TRIGGER: &[&str] = &[
 /// Stops at the first failing step: clippy for native and wasm, the release build of `@gsd/security`'s wasm (the one
 /// `@gsd` wasm anything builds; `@gsd/core` and `@gsd/import` are builtins the CLI embeds), the `specforge` CLI build,
 /// then `cargo nextest run` (every test binary at once; `cargo test` runs them one after another) with `SPECFORGE_BIN`
-/// and `GSD_SECURITY_WASM` set to the two artifacts. Cargo runs in `gsd/`: it reads `.cargo/config.toml` (the SDK
-/// patch) from its working directory, not from `--manifest-path`.
+/// and `GSD_SECURITY_WASM` set to the two artifacts, under the run's nextest profile, after emptying its report
+/// directory: the run writes `target/nextest/<profile>/junit-gsd/junit.xml` (ADR 0393 D2). Cargo runs in `gsd/`: it
+/// reads `.cargo/config.toml` (the SDK patch) from its working directory, not from `--manifest-path`.
 pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let cargo = |args: &[&str]| cargo(ctx, args);
     ctx.sh(&mut cargo(&[
@@ -54,9 +58,20 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     ]))?;
     let security = build_security_wasm(ctx)?;
     let specforge = ctx.specforge()?;
-    ctx.sh(cargo(&["nextest", "run", "--locked", "--no-fail-fast"])
-        .env("SPECFORGE_BIN", specforge)
-        .env("GSD_SECURITY_WASM", security))
+    let profile = ctx.mode.nextest_profile();
+    crate::dogfood::clear_reports(
+        &crate::dogfood::report_dir(&ctx.repo.root, profile).join(crate::dogfood::GSD),
+    )?;
+    ctx.sh(cargo(&[
+        "nextest",
+        "run",
+        "--locked",
+        "--no-fail-fast",
+        "--profile",
+        profile,
+    ])
+    .env("SPECFORGE_BIN", specforge)
+    .env("GSD_SECURITY_WASM", security))
 }
 
 /// Build `@gsd/security` for `wasm32-wasip2` in release (it is not vendored, ADR 0373 D5), the component the suite

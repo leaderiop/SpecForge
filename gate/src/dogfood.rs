@@ -239,6 +239,9 @@ pub(crate) fn report_dir(root: &Path, profile: &str) -> PathBuf {
 /// The guests' reports, one directory per guest under the report dir; the name of their CI artifact (ADR 0393 D2).
 pub(crate) const GUESTS: &str = "junit-guests";
 
+/// The `@gsd` workspace's report directory under the report dir; the name of its CI artifact (ADR 0393 D2).
+pub(crate) const GSD: &str = "junit-gsd";
+
 /// Empty a report directory before the run that writes it, so a report from an earlier run is never read as current:
 /// Ok when it is not there.
 pub(crate) fn clear_reports(dir: &Path) -> Result<(), String> {

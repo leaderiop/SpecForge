@@ -6,3 +6,16 @@
 [[profile.default.overrides]]
 filter = "package(gsd-core) & test(=hooks_guards::a_gsd_hook_is_within_the_latency_budget)"
 threads-required = "num-test-threads"
+
+# The workspace's JUnit report, read by the gate's `dogfood` check (ADR 0393 D2): the store is the repository root's
+# `target/nextest` (relative to `gsd/`, the workspace root), so a plain `cargo nextest run` here stores under
+# `target/nextest/default` there, and the `gate` and `ci` profiles (which inherit `default` and its override) write
+# their report in `target/nextest/<profile>/junit-gsd/`.
+[store]
+dir = "../target/nextest"
+
+[profile.gate.junit]
+path = "junit-gsd/junit.xml"
+
+[profile.ci.junit]
+path = "junit-gsd/junit.xml"
