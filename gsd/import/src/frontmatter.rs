@@ -12,6 +12,8 @@
 //!
 //! Lines are 1-based over the whole file, frontmatter lines included.
 
+use std::collections::BTreeSet;
+
 /// The deepest nesting read: the frontmatter's own map is depth 1.
 pub const MAX_DEPTH: usize = 8;
 
@@ -196,6 +198,8 @@ impl<'a> Parser<'a> {
         let start = self.peek().map_or(0, |l| l.no);
         Self::deep(start, depth)?;
         let mut entries: Vec<(String, Located<Value>)> = Vec::new();
+        // The keys seen, so a key given twice is found in linear time over a frontmatter of any size.
+        let mut seen: BTreeSet<String> = BTreeSet::new();
         while let Some(line) = self.peek() {
             if line.indent < indent || (line.indent == indent && item(line.content).is_some()) {
                 break;
@@ -209,7 +213,7 @@ impl<'a> Parser<'a> {
             if key == "<<" {
                 return refused(line.no, "a merge key `<<`");
             }
-            if entries.iter().any(|(k, _)| *k == key) {
+            if !seen.insert(key.clone()) {
                 return refused(line.no, format!("the key `{key}` is given twice"));
             }
             self.at += 1;

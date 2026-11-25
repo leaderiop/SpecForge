@@ -236,6 +236,28 @@ fn nesting_stops_at_the_depth_cap() {
 }
 
 #[test]
+fn a_key_given_twice_is_found_in_linear_time() {
+    // 200,000 keys: a scan of the earlier keys per key is 2e10 comparisons; a set is well under a second.
+    let n = 200_000;
+    let mut text = "---\n".to_string();
+    for k in 0..n {
+        text.push_str(&format!("k{k}: x\n"));
+    }
+    text.push_str("k7: again\n---\n");
+    let started = std::time::Instant::now();
+    let (at, reason) = refused_at(&text);
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(10),
+        "{:?}",
+        started.elapsed()
+    );
+    assert_eq!(
+        (at, reason.as_str()),
+        (n + 2, "the key `k7` is given twice")
+    );
+}
+
+#[test]
 fn an_empty_frontmatter_is_an_empty_map() {
     let (front, start) = split("---\n---\nbody\n");
     let map = read(&front.expect("closed").expect("a frontmatter")).expect("read");
