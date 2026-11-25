@@ -108,10 +108,14 @@ as every other project; a new kind would re-vendor every code-facts linker and `
 
 ## D5. A test compiled out on this platform is reported skipped
 
-`@rust/test` reports a test item that the report lacks and whose `cfg(...)` attribute is false on a unix host as
-`skipped`, as it already does for `#[ignore]`. The predicate is three-valued: `windows`, `unix`, `target_family` and
-`target_os = "windows"` are decided; `feature`, `test` and anything else are unknown, so not excluded. Shortcut: it
-assumes a unix host, the only kind that runs the gate and the dogfood job.
+`@rust/test` reports a test item that the report lacks and whose `cfg(...)` attribute is false on the host as
+`skipped`, as it already does for `#[ignore]`. The guest reads the host's family from its input: the canonical
+project root the host passes as `cwd` is a unix path (`/…`) or a Windows one (`C:\…`, `\\?\C:\…`); with neither,
+nothing is decided. The predicate is three-valued: `unix`, `windows` and `target_family = "…"` (any value: a native
+host has one family) are decided, and so is `target_os = "…"` on a Windows host; on a unix host only
+`target_os = "windows"` is (false), since nothing in the input tells Linux from macOS, so a test gated on another
+unix's `target_os` stays missing there. `feature`, `test` and anything else are unknown, so not excluded. The gate's
+`dogfood` runs only on a unix host (Linux locally and in CI, macOS locally), whose X2 numbers these rules fix.
 
 The reason: a `#[cfg(windows)]` test is a real test that cannot run here; reading it as missing would make the floor
 unreachable, and an unknown predicate must never hide a test a forgotten feature compiled out.

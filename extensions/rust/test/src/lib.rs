@@ -19,7 +19,8 @@
 //! is `rust:<binary id>#<name>`. It is served `@rust/source`'s items; a test whose id an item's `test_id` holds takes
 //! the item's places, file and names. nextest omits an ignored test from its report, so every item marked `test` and
 //! `ignore` whose id the report lacks becomes a `skipped` test without a run: a cited ignored test is held. So does
-//! a test item a `cfg(…)` compiles out on the host (`cfg(windows)` on a unix host, ADR 0393 D5).
+//! a test item a `cfg(…)` compiles out on the host (`cfg(windows)` on a unix host, ADR 0393 D5), the host's family read
+//! from the project root it passes as `cwd`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
@@ -90,8 +91,8 @@ struct Item<'f> {
     excluded: bool,
 }
 
-/// The served items by the test id they hold.
-fn items(facts: &[Fact]) -> BTreeMap<&str, Item<'_>> {
+/// The served items by the test id they hold, judged for a host of `family`.
+fn items(facts: &[Fact], family: Option<cfg::Family>) -> BTreeMap<&str, Item<'_>> {
     facts
         .iter()
         .filter(|fact| fact.kind == "item")
@@ -107,7 +108,7 @@ fn items(facts: &[Fact]) -> BTreeMap<&str, Item<'_>> {
                 .collect();
             let test = attrs.contains(&"test");
             let ignored = test && attrs.contains(&"ignore");
-            let excluded = test && attrs.iter().any(|attr| cfg::excludes(attr));
+            let excluded = test && attrs.iter().any(|attr| cfg::excludes(attr, family));
             Some((
                 test_id,
                 Item {
@@ -130,7 +131,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         ));
     };
     let found = cases(&report.content).map_err(|why| format!("{}: {why}", report.path))?;
-    let items = items(&input.facts);
+    let items = items(&input.facts, cfg::Family::of(input.cwd.as_deref()));
     let mut reported = BTreeSet::new();
     let mut tests = Vec::new();
     for case in &found {

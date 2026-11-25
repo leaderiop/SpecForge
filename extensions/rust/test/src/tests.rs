@@ -6,13 +6,14 @@ use specforge_test::prelude::*;
 /// `tests::nested::deep`, the bins `extra` and `toy-crate` and the integration test `tests`, its ignored test absent.
 const TOY: &str = include_str!("../fixtures/toy.xml");
 
-/// The input the host sends for `report`, these item facts served.
+/// The input a unix host sends for `report`, these item facts served.
 fn input(report: &str, items: Vec<Fact>) -> CollectInput {
     CollectInput {
         reports: vec![CollectReportFile {
             path: REPORT.to_string(),
             content: report.to_string(),
         }],
+        cwd: Some("/work/toy-crate".to_string()),
         facts: items,
         ..CollectInput::default()
     }
@@ -364,12 +365,17 @@ fn a_feature_or_test_gated_test_the_report_omits_stays_missing() {
 #[specforge_test(requirement = "FEATURE-004")]
 #[specforge_test(requirement = "FEATURE-114")]
 fn only_a_platform_predicate_false_on_a_unix_host_excludes() {
+    let unix = Some(cfg::Family::Unix);
     for (attr, excluded) in [
         ("cfg(windows)", true),
         ("cfg(unix)", false),
         (r#"cfg(target_os = "windows")"#, true),
+        // Which unix the host is, nothing tells.
         (r#"cfg(target_os = "linux")"#, false),
+        (r#"cfg(not(target_os = "macos"))"#, false),
         (r#"cfg(target_family = "windows")"#, true),
+        (r#"cfg(target_family = "wasm")"#, true),
+        (r#"cfg(target_family = "unix")"#, false),
         ("cfg(not(unix))", true),
         ("cfg(not(windows))", false),
         (r#"cfg(all(windows, feature = "x"))"#, true),
@@ -383,6 +389,69 @@ fn only_a_platform_predicate_false_on_a_unix_host_excludes() {
         ("cfg(windows) x", false),
         ("cfg_attr(windows, ignore)", false),
     ] {
-        assert_eq!(cfg::excludes(attr), excluded, "{attr}");
+        assert_eq!(cfg::excludes(attr, unix), excluded, "{attr}");
     }
+}
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
+fn a_windows_host_decides_the_unix_predicates_and_every_target_os() {
+    let windows = Some(cfg::Family::Windows);
+    for (attr, excluded) in [
+        ("cfg(windows)", false),
+        ("cfg(unix)", true),
+        (r#"cfg(target_os = "windows")"#, false),
+        (r#"cfg(target_os = "linux")"#, true),
+        (r#"cfg(target_os = "macos")"#, true),
+        (r#"cfg(target_family = "unix")"#, true),
+        ("cfg(not(windows))", true),
+        (r#"cfg(feature = "x")"#, false),
+    ] {
+        assert_eq!(cfg::excludes(attr, windows), excluded, "{attr}");
+    }
+    // With no project root nothing is decided, so nothing is excluded.
+    assert!(!cfg::excludes("cfg(windows)", None));
+}
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
+fn the_host_family_is_the_form_of_its_project_root() {
+    use cfg::Family;
+    for (cwd, family) in [
+        (Some("/home/ci/project"), Some(Family::Unix)),
+        (Some(r"C:\work\project"), Some(Family::Windows)),
+        (Some(r"\\?\C:\work\project"), Some(Family::Windows)),
+        (Some("project"), None),
+        (None, None),
+    ] {
+        assert_eq!(Family::of(cwd), family, "{cwd:?}");
+    }
+    // On a Windows host a `cfg(unix)` test the report omits is skipped, and a `cfg(windows)` one stays missing.
+    let unix_only = item(
+        "rust:toy-crate/test/tests::unix_only",
+        "rust:toy-crate::tests#unix_only",
+        &["cfg(unix)", "test"],
+        "tests/tests.rs",
+        7,
+    );
+    let windows_only = item(
+        "rust:toy-crate/test/tests::windows_only",
+        "rust:toy-crate::tests#windows_only",
+        &["cfg(windows)", "test"],
+        "tests/tests.rs",
+        9,
+    );
+    let on_windows = CollectInput {
+        cwd: Some(r"C:\work\toy-crate".to_string()),
+        ..input(TOY, vec![unix_only, windows_only])
+    };
+    let out = collect(&on_windows).unwrap();
+    let only: Vec<(&str, &str, &str)> = summary(&out)
+        .into_iter()
+        .filter(|(_, id, _)| id.ends_with("_only"))
+        .collect();
+    assert_eq!(
+        only,
+        [("test", "rust:toy-crate::tests#unix_only", "skipped")]
+    );
 }
