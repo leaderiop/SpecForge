@@ -2,7 +2,10 @@ use super::*;
 
 fn front(text: &str) -> Result<Located<Value>, Refused> {
     let (front, _) = split(text);
-    read(&front.expect("closed").expect("a frontmatter"))
+    read(&front.expect("closed").expect("a frontmatter")).map(|m| Located {
+        line: m.line,
+        value: Value::Map(m.value),
+    })
 }
 
 fn s(line: usize, text: &str) -> Located<Value> {
@@ -297,5 +300,5 @@ fn a_key_given_twice_is_found_in_linear_time() {
 fn an_empty_frontmatter_is_an_empty_map() {
     let (front, start) = split("---\n---\nbody\n");
     let map = read(&front.expect("closed").expect("a frontmatter")).expect("read");
-    assert_eq!((map.value, start), (Value::Map(Vec::new()), 2));
+    assert_eq!((map.value, start), (Vec::new(), 2));
 }

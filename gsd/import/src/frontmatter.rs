@@ -107,8 +107,12 @@ pub fn body(text: &str, start: usize) -> String {
         .join("\n")
 }
 
-/// The frontmatter's map, or the first thing it refuses.
-pub fn read(front: &Front<'_>) -> Result<Located<Value>, Refused> {
+/// A map's entries, in the order written.
+pub type Entries = Vec<(String, Located<Value>)>;
+
+/// The frontmatter's entries, at the line of its first key, or the first thing it refuses: a frontmatter is a map, so
+/// a reader gets its keys and has no other shape to handle.
+pub fn read(front: &Front<'_>) -> Result<Located<Entries>, Refused> {
     let mut lines = Vec::with_capacity(front.lines.len());
     for (n, raw) in front.lines.iter().enumerate() {
         let no = front.line + n;
@@ -136,7 +140,7 @@ pub fn read(front: &Front<'_>) -> Result<Located<Value>, Refused> {
     let Some(first) = parser.peek() else {
         return Ok(Located {
             line: front.line,
-            value: Value::Map(Vec::new()),
+            value: Vec::new(),
         });
     };
     first.read()?;
@@ -145,7 +149,7 @@ pub fn read(front: &Front<'_>) -> Result<Located<Value>, Refused> {
     {
         return refused(first.no, "a frontmatter is a map, not a list");
     }
-    let map = parser.map(first.indent, 1)?;
+    let map = parser.entries(first.indent, 1)?;
     match parser.peek() {
         None => Ok(map),
         Some(rest) => {
@@ -214,6 +218,15 @@ impl<'a> Parser<'a> {
 
     /// The map whose keys stand at `indent`.
     fn map(&mut self, indent: usize, depth: usize) -> Result<Located<Value>, Refused> {
+        let entries = self.entries(indent, depth)?;
+        Ok(Located {
+            line: entries.line,
+            value: Value::Map(entries.value),
+        })
+    }
+
+    /// The entries of the map whose keys stand at `indent`, at the line of its first key.
+    fn entries(&mut self, indent: usize, depth: usize) -> Result<Located<Entries>, Refused> {
         let start = self.peek().map_or(0, |l| l.no);
         Self::deep(start, depth)?;
         let mut entries: Vec<(String, Located<Value>)> = Vec::new();
@@ -242,7 +255,7 @@ impl<'a> Parser<'a> {
         }
         Ok(Located {
             line: start,
-            value: Value::Map(entries),
+            value: entries,
         })
     }
 

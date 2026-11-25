@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use serde_json::{Map, Value as Json, json};
 
 use super::Context;
-use super::plan::{self, Doc, Scope, defined, entries, list};
+use super::plan::{self, Doc, Scope, defined, list};
 use crate::frontmatter::{self, Located, Value};
 use crate::ids;
 use crate::records::{Record, Records};
@@ -93,7 +93,7 @@ pub fn read(
     let mut links = Vec::new();
     let (front, start) = plan::front(doc, text, report);
     let mut coverage = None;
-    for (key, v) in entries(&front) {
+    for (key, v) in &front {
         let line = v.line;
         let text = v.value.as_str().map(str::trim).filter(|t| !t.is_empty());
         match (key.as_str(), scope) {

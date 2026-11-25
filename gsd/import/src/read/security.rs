@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 use gsd_kit::markdown::{self, Table};
 use serde_json::{Value as Json, json};
 
-use super::plan::{entries, front};
+use super::plan::front;
 use super::{Context, PhaseFile, is_date, is_footer, is_timestamp, phase_file};
 use crate::frontmatter;
 use crate::ids;
@@ -46,7 +46,7 @@ pub fn read(
     let audit = format!("{}/{}", f.phase, f.stem);
     let mut fields = BTreeMap::new();
     let (front, start) = front(&f.doc, text, report);
-    for (key, v) in entries(&front) {
+    for (key, v) in &front {
         let line = v.line;
         let text = v.value.as_str().map(str::trim).unwrap_or_default();
         match key.as_str() {

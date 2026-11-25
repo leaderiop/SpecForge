@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use super::plan::{entries, front};
+use super::plan::front;
 use super::{Context, is_footer, phase_file};
 use crate::records::Records;
 use crate::report::Report;
@@ -53,7 +53,7 @@ pub fn read(
         return;
     };
     let (front, start) = front(&f.doc, text, report);
-    for (key, v) in entries(&front) {
+    for (key, v) in &front {
         let line = v.line;
         match key.as_str() {
             k if KEYS.contains(&k) => report.push(f.doc.row(k, line, k)),

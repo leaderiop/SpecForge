@@ -8,9 +8,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value as Json, json};
 
-use super::plan::{entries, front, list};
+use super::plan::{front, list};
 use super::{Context, PhaseFile, is_timestamp, phase_file};
-use crate::frontmatter::{self, Front, Located, Value};
+use crate::frontmatter::{self, Entries, Front, Located, Value};
 use crate::ids;
 use crate::records::Records;
 use crate::report::{Entry, Outcome, Report};
@@ -49,7 +49,7 @@ pub fn read(
     let mut fields = BTreeMap::new();
     let mut sources = Vec::new();
     let (front, start) = front(&f.doc, text, report);
-    for (key, v) in entries(&front) {
+    for (key, v) in &front {
         let line = v.line;
         let text = v.value.as_str().map(str::trim).filter(|t| !t.is_empty());
         match key.as_str() {
@@ -165,18 +165,18 @@ fn summary(item: &str, cx: &Context<'_>) -> Option<String> {
     Some(format!("{phase}/{plan}/{plan}-SUMMARY"))
 }
 
-/// The map the frontmatter reader reads from `lines`, the first at the 0-based `first`; its refusal reported.
+/// The entries the frontmatter reader reads from `lines`, the first at the 0-based `first`; its refusal reported.
 fn block(
     f: &PhaseFile<'_>,
     lines: Vec<&str>,
     first: usize,
     report: &mut Report,
-) -> Option<Located<Value>> {
+) -> Option<Entries> {
     match frontmatter::read(&Front {
         lines,
         line: first + 1,
     }) {
-        Ok(map) => Some(map),
+        Ok(map) => Some(map.value),
         Err(refused) => {
             report.push(f.doc.unmapped(
                 refused.line,
@@ -231,11 +231,8 @@ fn test(
     };
     let mut fields = BTreeMap::new();
     let body: Vec<&str> = lines[s.body.clone()].to_vec();
-    if let Some(map) = block(f, body, s.body.start, report) {
-        let Value::Map(keys) = &map.value else {
-            return None;
-        };
-        for (key, v) in keys {
+    if let Some(keys) = block(f, body, s.body.start, report) {
+        for (key, v) in &keys {
             let text = v.value.as_str().map(str::trim).filter(|t| !t.is_empty());
             let value = match key.as_str() {
                 "expected" | "reported" | "reason" => text.map(|t| json!(t)),
@@ -293,15 +290,12 @@ fn read_gap(
     records: &mut Records,
     report: &mut Report,
 ) {
-    let Some(map) = block(f, item.to_vec(), at, report) else {
-        return;
-    };
-    let Value::Map(keys) = &map.value else {
+    let Some(keys) = block(f, item.to_vec(), at, report) else {
         return;
     };
     let mut fields = BTreeMap::new();
     let mut test = None;
-    for (key, v) in keys {
+    for (key, v) in &keys {
         let text = v.value.as_str().map(str::trim).filter(|t| !t.is_empty());
         match key.as_str() {
             "truth" | "reason" | "root_cause" => {

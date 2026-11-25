@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use serde_json::{Value as Json, json};
 
 use super::{Context, is_bullet, row, tasks, threats};
-use crate::frontmatter::{self, Located, Value};
+use crate::frontmatter::{self, Entries, Located, Value};
 use crate::ids;
 use crate::paths;
 use crate::records::{Record, Records, Source};
@@ -182,27 +182,20 @@ pub fn phase_scope(
     }
 }
 
-/// The frontmatter of `text`, its refusal reported; and the index of the body's first line.
-pub fn front(doc: &Doc<'_>, text: &str, report: &mut Report) -> (Option<Located<Value>>, usize) {
+/// The frontmatter entries of `text` in the order written (none when it has no frontmatter, or one refused and
+/// reported); and the index of the body's first line.
+pub fn front(doc: &Doc<'_>, text: &str, report: &mut Report) -> (Entries, usize) {
     let (front, start) = frontmatter::split(text);
     match front.and_then(|f| f.map(|f| frontmatter::read(&f)).transpose()) {
-        Ok(front) => (front, start),
+        Ok(front) => (front.map(|f| f.value).unwrap_or_default(), start),
         Err(refused) => {
             report.push(doc.unmapped(
                 refused.line,
                 "---",
                 format!("frontmatter not read: {}", refused.reason),
             ));
-            (None, start)
+            (Vec::new(), start)
         }
-    }
-}
-
-/// The entries of a frontmatter map, in the order written.
-pub fn entries(front: &Option<Located<Value>>) -> &[(String, Located<Value>)] {
-    match front.as_ref().map(|f| &f.value) {
-        Some(Value::Map(entries)) => entries,
-        _ => &[],
     }
 }
 
@@ -294,7 +287,7 @@ pub fn read(
     }
     let (front, start) = front(doc, text, report);
     let mut must_haves = None;
-    for (key, v) in entries(&front) {
+    for (key, v) in &front {
         let built = (&mut fields, &mut links);
         frontmatter_key(doc, (key, v), id, scope, cx, records, built, report);
         if key == "must_haves" {
