@@ -13,7 +13,8 @@
 //! It also logs X2 (ADR 0388) of SpecForge and each parity fixture, [`crate::x2`] over `specforge export --format
 //! graph --kinds item,test`, and X2 is a floor (ADR 0393 D8): every project is logged first, then the check fails any
 //! below 100% or at `0/0` ([`x2::floor`]). A failed collect or export of an X2 project is that project's error, and so
-//! is a fixture collect answering a Warning or an Error ([`no_warning_or_error`]; an Info passes).
+//! is a fixture collect answering a Warning or an Error ([`no_warning_or_error`]; an Info passes), and a fixture whose
+//! count of items with a test id is not the one its row pins ([`census`]).
 //!
 //! Before collecting, it runs the floor's end-to-end negative control ([`negative_control`]): a test, ignored in
 //! workspace runs, that runs this `specforge` over a ledger copy whose report lacks one case and sees the floor fail.
@@ -174,6 +175,9 @@ struct Fixture {
     /// Each collect in order: its runner and the recorded report it reads (`--no-run --report`, from the repository
     /// root), if any.
     collects: &'static [(&'static str, Option<&'static str>)],
+    /// How many of its items carry a test id. The fixture is a frozen A/B tree, so another count is an extractor that
+    /// stopped (or started) minting test ids, which the ratio alone would still read as 100% ([`census`]).
+    tests: usize,
 }
 
 /// Logged after SpecForge, in this order: taskboard, ledger and vault (CONTEXT D-01, D-10). Vault loads no
@@ -198,6 +202,7 @@ const FIXTURES: &[Fixture] = &[
                 Some("gsd/parity/goldens/taskboard/reports/javascript-coverage.lcov"),
             ),
         ],
+        tests: 3,
     },
     Fixture {
         name: "ledger",
@@ -239,6 +244,7 @@ const FIXTURES: &[Fixture] = &[
                 Some("gsd/parity/goldens/ledger/reports/rust-api.txt"),
             ),
         ],
+        tests: 6,
     },
     Fixture {
         name: "vault",
@@ -259,6 +265,7 @@ const FIXTURES: &[Fixture] = &[
                 Some("gsd/parity/goldens/vault/reports/javascript-coverage.lcov"),
             ),
         ],
+        tests: 3,
     },
 ];
 
@@ -300,7 +307,19 @@ fn fixture_x2(
             .and_then(|collect| no_warning_or_error(&collect))
             .map_err(|e| format!("X2 {name}: collecting with {runner}: {e}"))?;
     }
-    log_x2(ctx, specforge, name, &copy)
+    log_x2(ctx, specforge, name, &copy).and_then(|x2| census(name, x2, fixture.tests))
+}
+
+/// `x2` when exactly `tests` items carry a test id; else an error naming the project and both counts.
+fn census(name: &str, x2: x2::X2, tests: usize) -> Result<x2::X2, String> {
+    if x2.total == tests {
+        Ok(x2)
+    } else {
+        Err(format!(
+            "X2 {name}: {} items carry a test id, expected {tests}: an extractor stopped or started minting test ids",
+            x2.total
+        ))
+    }
 }
 
 /// Ok when a `collect --format json` answer's `diagnostics` hold no Warning and no Error (an Info passes, CONTEXT

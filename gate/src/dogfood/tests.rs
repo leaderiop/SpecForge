@@ -237,6 +237,21 @@ fn judge_x2_fails_when_any_project_fails_and_names_each_failure() {
     );
 }
 
+/// A fixture's count of items with a test id is pinned: fewer (a partial extractor collapse that still reads `n/n`) or
+/// more fails, naming the project and both counts.
+#[test]
+fn census_holds_a_fixture_to_its_pinned_count_of_items_with_a_test_id() {
+    assert_eq!(census("vault", x2_of(3, &[]).unwrap(), 3).unwrap().total, 3);
+    assert_eq!(
+        census("taskboard", x2_of(1, &[]).unwrap(), 3).err(),
+        Some(
+            "X2 taskboard: 1 items carry a test id, expected 3: an extractor stopped or started minting test ids"
+                .to_string()
+        )
+    );
+    assert!(census("ledger", x2_of(6, &["x"]).unwrap(), 6).is_err());
+}
+
 /// A fixture collect passes with Info only; a Warning or an Error fails it, named by code and message, and so does an
 /// answer whose shape lost its `diagnostics` array (CONTEXT D-10).
 #[test]
@@ -265,7 +280,7 @@ fn no_warning_or_error_passes_info_and_names_each_warning_or_error() {
 }
 
 /// The ledger fixture collected by `rust-cargo`, `rust-source` and `rust-test` over `report` (absolute, or from the
-/// repository root), with the real row's extensions; leaked for the table's `'static` type.
+/// repository root), with the real row's extensions and census; leaked for the table's `'static` type.
 fn ledger_reading(report: String) -> Fixture {
     let ledger = FIXTURES.iter().find(|f| f.name == "ledger").unwrap();
     let report: &'static str = Box::leak(report.into_boxed_str());
@@ -281,6 +296,7 @@ fn ledger_reading(report: String) -> Fixture {
             ]
             .into_boxed_slice(),
         ),
+        tests: ledger.tests,
     }
 }
 
