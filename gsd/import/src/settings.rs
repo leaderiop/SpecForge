@@ -232,7 +232,14 @@ impl Lines {
                     self.object(&key, inner)
                 }
                 _ => {
-                    self.values.insert(key, value.clone());
+                    // `*` and `all`, or `git.x` and `git: {x}`, flatten to one key: the later read is kept, reported.
+                    if self.values.insert(key.clone(), value.clone()).is_some() {
+                        self.entries.push(entry(
+                            &key,
+                            Outcome::Unmapped,
+                            format!("{key} is given twice in config.json: the last is kept"),
+                        ));
+                    }
                 }
             }
         }

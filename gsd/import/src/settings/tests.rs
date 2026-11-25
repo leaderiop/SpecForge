@@ -87,6 +87,32 @@ fn settings_lines_refuse_an_invisible_format_character() {
 }
 
 #[test]
+fn settings_keys_that_flatten_to_one_are_reported() {
+    let (lines, entries) = run(
+        json!({"agent_tools": {"*": ["Read"], "all": ["Bash"]}, "git": {"x": 1}, "git.x": 2}),
+        &[],
+    );
+    let twice: Vec<&str> = entries
+        .iter()
+        .filter(|(_, _, r)| r.contains("given twice"))
+        .map(|(k, o, _)| {
+            assert_eq!(*o, Outcome::Unmapped);
+            k.as_str()
+        })
+        .collect();
+    assert_eq!(twice, ["agent_tools.all", "git.x"], "{entries:#?}");
+    // One line per key: the last read.
+    assert!(
+        lines
+            .iter()
+            .filter(|l| l.contains(" agent_tools.all "))
+            .count()
+            <= 1,
+        "{lines:?}"
+    );
+}
+
+#[test]
 fn settings_lines_never_print_a_secret() {
     let (lines, entries) = run(
         json!({"brave_search": "sk-SECRET-1", "jina": "jina-SECRET-2", "exa_search": false}),
