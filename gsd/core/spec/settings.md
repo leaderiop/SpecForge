@@ -40,7 +40,7 @@ Typed as GSD types them (K6 takes K3's field types), with three shapes GSD's JSO
 
 | GSD key | Declared as |
 |---|---|
-| `brave_search`, `firecrawl`, `exa_search`, `tavily_search`, `ref_search`, `perplexity`, `jina` (`string \| boolean \| null`) | a bool setting that forces the source on or off, with no default under any of the seven (unset: detected from the key's presence, as GSD does at `config-new-project`; GSD also detects from `~/.gsd/<name>_api_key` files, which the environment-only secrets do not read), and a secret read from `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `REF_API_KEY`, `PERPLEXITY_API_KEY`, `JINA_API_KEY`, named `<flag>_key` (`brave_search_key`, `firecrawl_key`, `exa_search_key`, `tavily_search_key`, `ref_search_key`, `perplexity_key`, `jina_key`) because the kernel refuses a secret that shares a setting's name; `specforge gsd import` moves a string value out to the environment and reports it |
+| `brave_search`, `firecrawl`, `exa_search`, `tavily_search`, `ref_search`, `perplexity`, `jina` (`string \| boolean \| null`) | a bool setting that forces the source on or off, with no default under any of the seven (unset: detected from the key's presence, as GSD does at `config-new-project`; GSD also detects from `~/.gsd/<name>_api_key` files, which the environment-only secrets do not read), and a secret read from `BRAVE_API_KEY`, `FIRECRAWL_API_KEY`, `EXA_API_KEY`, `TAVILY_API_KEY`, `REF_API_KEY`, `PERPLEXITY_API_KEY`, `JINA_API_KEY`, named `<flag>_key` (`brave_search_key`, `firecrawl_key`, `exa_search_key`, `tavily_search_key`, `ref_search_key`, `perplexity_key`, `jina_key`) because the kernel refuses a secret that shares a setting's name; `specforge gsd import` prints the flag and reports the variable to export, never the value |
 | `model_profile_overrides.<runtime>.<tier>` (`string \| object`) | the block `{model str R, reasoning_effort enum}`; the import rewrites a bare string to `{model}` |
 | a key GSD leaves unset (`(none)`, `null`, _unset_, or a capability's empty string or `-1`) | no default; `null` is unset |
 | `resolve_model_ids` (`false \| true \| "omit"`) | an enum `aliases \| ids \| omit`, default `aliases`; the import maps `false`, `true` and `"omit"` |
@@ -56,7 +56,7 @@ partner could satisfy `critical < warning`; the pair itself is not checked, as G
 (the model leaves them unset; GSD treats any non-positive value as unset too, and only `-1` is accepted here).
 
 A `number` setting (ADR 0305) takes a whole or a decimal number within whole-number bounds: `hooks.context_warning_threshold` (1-100) and `hooks.context_critical_threshold` (0-99) are numbers. The other settings GSD's capabilities declare as `number` (`7.5`, `1.5` seconds) are whole numbers here; the bounds of a number are whole, so `99.5` is within the critical bound. `worktree.baseRef` is declared here, but GSD keeps it in `.claude/settings.local.json`, not `.planning/config.json`
-(`docs/CONFIGURATION.md`), so `specforge gsd import` reads it from there.
+(`docs/CONFIGURATION.md`), outside `.planning/`, so `specforge gsd import` reports it and does not read it.
 Where `docs/CONFIGURATION.md` and the defaults manifest disagree, the manifest wins (`workflow.inline_plan_threshold` is 2, the
 docs say 3). A host URL whose capability default is empty and whose documented default is a URL (`review.ollama_host`) takes the
 documented one.

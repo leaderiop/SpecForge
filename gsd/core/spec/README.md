@@ -193,6 +193,9 @@ then one `phase <id>` step for each of its phases (`<phase.milestone`; a route n
 
 ## Every GSD file maps to a kind
 
+`specforge gsd import` ([gsd/import](../../import/README.md)) reads this table: its fate table
+(`gsd/import/src/table.rs`) gives every file, section and row one outcome, mapped or reported.
+
 | GSD file | Kinds | Extension |
 |---|---|---|
 | `PROJECT.md` | project, requirement, decision | core |
