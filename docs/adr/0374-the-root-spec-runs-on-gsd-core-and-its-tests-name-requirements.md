@@ -19,6 +19,9 @@ decision.
 D5 amended by [ADR 0388](0388-x2-is-the-share-of-test-ids-a-standard-report-saw.md): the dogfood check also prints
 X2 for SpecForge, taskboard and ledger.
 
+D5 amended by [ADR 0393](0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md): guests and the @gsd
+workspace write JUnit the step merges, and the guests-only count retires.
+
 ## Context
 
 **What the swap moves.** This repository's own spec, `spec/` and `specforge.json`, was written in the old

@@ -4,6 +4,10 @@
 [ADR 0374](0374-the-root-spec-runs-on-gsd-core-and-its-tests-name-requirements.md) D5 (the dogfood check also prints
 X2).
 
+D2, D3 and the Consequences amended by
+[ADR 0393](0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md): X2 is a floor on SpecForge,
+taskboard, ledger and vault.
+
 ## Context
 
 - Build-plan R6 exits on "X2 = 100% on taskboard and on SpecForge", and owner decision D3 of the round says what X2
