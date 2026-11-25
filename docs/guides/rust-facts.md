@@ -111,8 +111,11 @@ report lacks whose `cfg(...)` is false on the host (`windows` on Linux or
 macOS, `unix` on Windows, `target_os = "windows"`, …; the host's family is
 read from the project root's path) was compiled out, and is recorded
 `skipped` the same way. On a unix host `target_os = "linux"` or `"macos"` is
-not decided, so such a test the report lacks stays missing. An attribute naming `__guard_only` marks no
-test: that function carries no `test_id`
+not decided, so such a test the report lacks stays missing. Every `cfg(...)`
+that compiles an item out is in its `attrs`: its own, those of the modules
+around it (`#[cfg(windows)] mod tests { … }`), its file's `#![cfg(...)]` and
+those on the `mod` declarations that reach its file. An attribute naming
+`__guard_only` marks no test: that function carries no `test_id`
 ([ADR 0393](../adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)).
 
 ## Things to know

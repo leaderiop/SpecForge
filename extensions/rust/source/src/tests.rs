@@ -527,7 +527,47 @@ fn attributes_belong_to_the_item_directly_below_them() {
     assert_eq!(attrs("rust:toy::b"), None, "a blank line ends the run");
     assert_eq!(attrs("rust:toy::c"), Some(json!(["cfg(test)"])));
     assert_eq!(attrs("rust:toy::m"), Some(json!(["cfg(all(unix, test))"])));
-    assert_eq!(attrs("rust:toy::m::d"), Some(json!(["cfg(x)"])));
+    assert_eq!(
+        attrs("rust:toy::m::d"),
+        Some(json!(["cfg(all(unix, test))", "cfg(x)"])),
+        "the module's cfg compiles it out with it"
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
+fn a_test_records_the_cfgs_of_its_module_its_file_and_its_mod_declaration() {
+    let facts = collected(&[
+        (
+            "src/lib.rs",
+            "#[cfg(windows)]\nmod w {\n    #[test]\n    fn a() {}\n}\nmod n {\n    #![cfg(windows)]\n    #[test]\n    \
+             fn b() {}\n}\n#[cfg(test)]\nmod plat;\n#[cfg(test)]\nmod plat_test {\n    #[cfg(test)]\n    #[test]\n    \
+             fn c() {}\n}\n",
+        ),
+        (
+            "src/plat.rs",
+            "#![cfg(unix)]\nmod inner {\n    #[test]\n    fn d() {}\n}\n",
+        ),
+    ]);
+    let attrs = |id: &str| item(&facts, id).fields.get("attrs").cloned();
+    assert_eq!(
+        attrs("rust:toy::w::a"),
+        Some(json!(["cfg(windows)", "test"]))
+    );
+    assert_eq!(
+        attrs("rust:toy::n::b"),
+        Some(json!(["cfg(windows)", "test"]))
+    );
+    assert_eq!(
+        attrs("rust:toy::plat::inner::d"),
+        Some(json!(["cfg(test)", "cfg(unix)", "test"])),
+        "the mod declaration's cfg, then the file's inner one"
+    );
+    assert_eq!(
+        attrs("rust:toy::plat_test::c"),
+        Some(json!(["cfg(test)", "test"])),
+        "a cfg written twice is recorded once"
+    );
 }
 
 /// `(attrs, test_id)` of the item `id`.
@@ -548,9 +588,16 @@ fn a_test_function_carries_the_id_nextest_gives_it() {
     )]);
     assert_eq!(
         marks(&facts, "rust:toy::tests::adds"),
-        (Some(json!(["test"])), Some(json!("rust:toy#tests::adds")))
+        (
+            Some(json!(["cfg(test)", "test"])),
+            Some(json!("rust:toy#tests::adds"))
+        )
     );
-    assert_eq!(marks(&facts, "rust:toy::tests::helper"), (None, None));
+    assert_eq!(
+        marks(&facts, "rust:toy::tests::helper"),
+        (Some(json!(["cfg(test)"])), None),
+        "no test, and compiled out with its module"
+    );
     assert_eq!(
         marks(&facts, "rust:toy::tests"),
         (Some(json!(["cfg(test)"])), None)

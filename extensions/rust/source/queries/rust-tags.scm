@@ -24,6 +24,8 @@
 
 ; An outer attribute: its path, and the whole attribute (`cfg(unix)`).
 (attribute_item (attribute . (_) @path) @attribute) @reference.attribute
+; An inner attribute (`#![cfg(unix)]`), of the file or of the body around it.
+(inner_attribute_item (attribute . (_) @path) @attribute) @reference.inner_attribute
 ; The file a module declaration names: `#[path = "…"]`, or each `path = "…"` of a `#[cfg_attr(…)]`.
 (attribute_item
   (attribute . (identifier) @_path (#eq? @_path "path") value: (string_literal (string_content) @file)))

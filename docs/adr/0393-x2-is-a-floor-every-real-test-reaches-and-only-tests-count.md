@@ -109,7 +109,10 @@ as every other project; a new kind would re-vendor every code-facts linker and `
 ## D5. A test compiled out on this platform is reported skipped
 
 `@rust/test` reports a test item that the report lacks and whose `cfg(...)` attribute is false on the host as
-`skipped`, as it already does for `#[ignore]`. The guest reads the host's family from its input: the canonical
+`skipped`, as it already does for `#[ignore]`. `@rust/source` records in an item's `attrs` every `cfg(...)` that
+compiles it out, outermost first: those on the `mod` declarations that reach its file, the file's inner `#![cfg]`,
+those of every module around it (outer, and inner in its body) and its own; the test is excluded when any of them is
+false. The guest reads the host's family from its input: the canonical
 project root the host passes as `cwd` is a unix path (`/…`) or a Windows one (`C:\…`, `\\?\C:\…`); with neither,
 nothing is decided. The predicate is three-valued: `unix`, `windows` and `target_family = "…"` (any value: a native
 host has one family) are decided, and so is `target_os = "…"` on a Windows host; on a unix host only
