@@ -135,10 +135,19 @@ for fixture in "${fixtures[@]}"; do
   "$fixture"
 done
 
+# A container's tar may hold a symlink (or a device, a FIFO, a directory) that a copy would follow out to a host file
+# or trip on halfway: the reports are regular files directly in staged/<fixture>, so anything else refuses every
+# fixture before a reports directory is touched.
+odd=$(find "$staged" -mindepth 2 ! -type f)
+if [ -n "$odd" ]; then
+  echo "record-reports.sh: a container wrote something other than a regular report file, nothing recorded:" >&2
+  echo "$odd" >&2
+  exit 1
+fi
 for fixture in "${fixtures[@]}"; do
   out="$here/goldens/$fixture/reports"
   rm -rf "$out"
   mkdir -p "$out"
-  cp "$staged/$fixture"/* "$out"/
+  cp -P "$staged/$fixture"/* "$out"/
   echo "recorded $(ls "$staged/$fixture" | wc -l | tr -d ' ') reports in $out"
 done
