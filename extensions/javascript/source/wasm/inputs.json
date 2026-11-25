@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_javascript_source.wasm",
-  "artifact_sha256": "2605a33c8103625ffd4b2961ab0ef95068761688aa619109c0992c03aa223378",
+  "artifact_sha256": "0d18bcfd07549cb9d8da8161310a7463a352b26dd4970bedd4bbdb0fda07e1de",
   "built_with": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "9e0489b27be2c7fd7820cd1d3b2e145c1a7793b4d2dca8320df80d1c29c0e984",
@@ -87,9 +87,11 @@
     "extensions/javascript/source/Cargo.lock": "102756e7c41a24420712a8741966300bbc34c10c7b336cabae61351437273843",
     "extensions/javascript/source/Cargo.toml": "3d3ec2ee17e8fe3708cabaa13dd58f05444793daf31867738c0db660ea886b14",
     "extensions/javascript/source/queries/js-tags.scm": "93e7d113d7df671dff9ce49868abe3f7546b1b535c4a6dc906bfe4de4b0f2f05",
-    "extensions/javascript/source/src/files.rs": "825284607376566e4574cb0904a042a62d25a6795cbaf034ae3775a38cacf4a6",
-    "extensions/javascript/source/src/items.rs": "dfafa60da925a296d1b5b5a07195ab7b434d7be5e4eff44915ccfc2361b4bf7d",
-    "extensions/javascript/source/src/lib.rs": "c4cc357ba5a17e133f2f565a91ed1f15c0aa6b58662ba341861e51e81285ff31",
+    "extensions/javascript/source/queries/js-tests.scm": "f8c6403c639cafacc0495ab1d83757fa11057694f75313c31fa5b2667793ac6e",
+    "extensions/javascript/source/src/calls.rs": "4906e4809121cadf4bb303c576bd238bdc809422c66ce9803cc9743739851905",
+    "extensions/javascript/source/src/files.rs": "85e57a4d37b6425f3f51382d27a65ce18dfcea3974a6ab8f0827e10205c14463",
+    "extensions/javascript/source/src/items.rs": "7ac7ee6f7a80d9f91c6cf54a70c660dec6f7179be798a69cb3c5587d867f8091",
+    "extensions/javascript/source/src/lib.rs": "4ce43f09131b0a0df16deda2299bf9a49c0c254ea73b65029b326744a59921b3",
     "extensions/javascript/source/src/packages.rs": "e4ac7d0881f1b21a57f1cdb9a2e10a884c44908364e68a9ac9c69b42298cbfd2",
     "extensions/javascript/workspace/Cargo.toml": "6fe0f3ed1ffd7dc74f67755828ca813c06b3ef5f65e71046b20ce965be21c305",
     "extensions/javascript/workspace/src/lib.rs": "bfa9070faa64aed3f7109cfb2c82578e9b4197bfb6aa7a0baaf1de244d3b8560"

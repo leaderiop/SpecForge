@@ -11,7 +11,7 @@
         "1.5",
         "--all-features",
         "--override-filename",
-        "rust-sbom.cdx.json"
+        "rust-sbom.cdx"
       ],
       "call_kinds": [
         "collect"

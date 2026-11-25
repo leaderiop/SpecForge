@@ -60,8 +60,26 @@ fn the_twins_sources_collect_as_item_facts() {
                 "public",
                 3
             ),
+            item(
+                "js:taskboard/test/tasks.test.js::a task is added with the next id",
+                "function",
+                "private",
+                6
+            ),
+            item(
+                "js:taskboard/test/tasks.test.js::a task is completed by its id",
+                "function",
+                "private",
+                13
+            ),
+            item(
+                "js:taskboard/test/tasks.test.js::completing an unknown id throws",
+                "function",
+                "private",
+                20
+            ),
         ],
-        "nothing from test/tasks.test.js"
+        "from test/tasks.test.js only its three test calls (ADR 0393 D4)"
     );
     let packages: Vec<String> = p
         .nodes_of("package")
