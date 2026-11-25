@@ -285,3 +285,104 @@ fn an_empty_report_has_no_test() {
         assert_eq!(out.facts, Vec::<Fact>::new(), "{report:?}");
     }
 }
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
+fn a_test_compiled_out_on_the_host_the_report_omits_is_a_skipped_test_without_a_run() {
+    let windows = item(
+        "rust:toy-crate/test/tests::windows_only",
+        "rust:toy-crate::tests#windows_only",
+        &["cfg(windows)", "test"],
+        "tests/tests.rs",
+        7,
+    );
+    let out = collect(&input(TOY, vec![windows])).unwrap();
+    let facts: Vec<(&str, &str, &str)> = summary(&out)
+        .into_iter()
+        .filter(|(_, id, _)| id.contains("windows_only"))
+        .collect();
+    assert_eq!(
+        facts,
+        [("test", "rust:toy-crate::tests#windows_only", "skipped")],
+        "no test_run"
+    );
+    let skipped = out
+        .facts
+        .iter()
+        .find(|f| f.id == "rust:toy-crate::tests#windows_only")
+        .unwrap();
+    assert_eq!(skipped.fields["file"], "tests/tests.rs");
+}
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
+fn a_cfg_excluded_test_the_report_holds_keeps_its_status() {
+    let deep = item(
+        "rust:toy-crate::tests::nested::deep",
+        "rust:toy-crate#tests::nested::deep",
+        &["cfg(windows)", "test"],
+        "src/lib.rs",
+        6,
+    );
+    let out = collect(&input(TOY, vec![deep])).unwrap();
+    let deep: Vec<(&str, &str, &str)> = summary(&out)
+        .into_iter()
+        .filter(|(_, id, _)| id.ends_with("#tests::nested::deep"))
+        .collect();
+    assert_eq!(
+        deep,
+        [
+            ("test", "rust:toy-crate#tests::nested::deep", "passed"),
+            (
+                "test_run",
+                "run:rust:toy-crate#tests::nested::deep",
+                "passed"
+            ),
+        ]
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
+fn a_feature_or_test_gated_test_the_report_omits_stays_missing() {
+    for cfg in [r#"cfg(feature = "tokio")"#, "cfg(test)"] {
+        let gated = item(
+            "rust:toy-crate/test/tests::gated",
+            "rust:toy-crate::tests#gated",
+            &[cfg, "test"],
+            "tests/tests.rs",
+            9,
+        );
+        let out = collect(&input(TOY, vec![gated])).unwrap();
+        assert!(
+            !out.facts.iter().any(|f| f.id.contains("gated")),
+            "{cfg}: an unknown predicate hides no missing test"
+        );
+    }
+}
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-114")]
+fn only_a_platform_predicate_false_on_a_unix_host_excludes() {
+    for (attr, excluded) in [
+        ("cfg(windows)", true),
+        ("cfg(unix)", false),
+        (r#"cfg(target_os = "windows")"#, true),
+        (r#"cfg(target_os = "linux")"#, false),
+        (r#"cfg(target_family = "windows")"#, true),
+        ("cfg(not(unix))", true),
+        ("cfg(not(windows))", false),
+        (r#"cfg(all(windows, feature = "x"))"#, true),
+        (r#"cfg(any(windows, feature = "x"))"#, false),
+        (r#"cfg(any(windows, target_os = "windows"))"#, true),
+        (r#"cfg(feature = "x")"#, false),
+        ("cfg(", false),
+        ("cfg(all(windows, test,))", true),
+        ("cfg(any())", true),
+        ("cfg(all())", false),
+        ("cfg(windows) x", false),
+        ("cfg_attr(windows, ignore)", false),
+    ] {
+        assert_eq!(cfg::excludes(attr), excluded, "{attr}");
+    }
+}
