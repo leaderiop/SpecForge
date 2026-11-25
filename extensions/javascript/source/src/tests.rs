@@ -17,6 +17,7 @@ use specforge_test::prelude::*;
 use super::*;
 use crate::files::LISTINGS;
 
+mod calls;
 mod keep;
 mod marks;
 mod names;
@@ -302,7 +303,7 @@ fn a_file_is_read_by_the_grammar_its_extension_names() {
 }
 
 #[specforge_test(requirement = "FEATURE-056")]
-fn a_test_file_is_never_parsed() {
+fn a_test_file_is_parsed_only_for_its_test_calls() {
     let files = [
         APP,
         ("src/a.js", "export const a = 1;\n"),
@@ -320,9 +321,24 @@ fn a_test_file_is_never_parsed() {
         ("src/__mocks__/i.cjs", "function helper() {}\n"),
     ];
     let (out, asked) = run(host(&files), &[]);
+    // The source files with the pack's query, then the test files with the test query: a helper is no item.
+    let tests = [
+        "src/__mocks__/i.cjs",
+        "src/__tests__/h.jsx",
+        "src/a.test.js",
+        "src/c-test.js",
+        "src/d_test.mjs",
+        "src/test-e.js",
+        "src/test.js",
+        "test/f.js",
+    ];
     assert_eq!(
         asked_paths(&asked),
-        [("tsx", vec!["attest/x.js", "src/a.js", "src/latest.js"])]
+        [
+            ("tsx", vec!["attest/x.js", "src/a.js", "src/latest.js"]),
+            ("tsx", tests.to_vec()),
+            ("typescript", vec!["src/b.spec.ts", "tests/g.ts"]),
+        ]
     );
     assert_eq!(
         items(&out.unwrap()),
@@ -386,10 +402,15 @@ fn a_truncated_listing_parses_its_glob_and_filters_the_answer() {
         ("src/c.ts", "export const c = 1;\n"),
         ("vendor.min.js", "var a=1;\n"),
     ];
+    // The glob is parsed twice: for the source files, then for the test files' test calls.
     let (out, asked) = run(host(&files), &["js"]);
     assert_eq!(
         asked_paths(&asked),
-        [("typescript", vec!["src/c.ts"]), ("tsx", vec!["**/*.js"])]
+        [
+            ("typescript", vec!["src/c.ts"]),
+            ("tsx", vec!["**/*.js"]),
+            ("tsx", vec!["**/*.js"])
+        ]
     );
     assert_eq!(
         items(&out.unwrap()),
@@ -410,7 +431,9 @@ fn a_truncated_listing_parses_its_glob_and_filters_the_answer() {
         [
             ("typescript", vec!["src/c.ts"]),
             ("tsx", vec!["**/*.js"]),
-            ("tsx", vec!["src/b.js"])
+            ("tsx", vec!["src/b.js"]),
+            ("tsx", vec!["**/*.js"]),
+            ("tsx", vec!["src/a.test.js"])
         ]
     );
     assert_eq!(items(&out.unwrap()).len(), 3);

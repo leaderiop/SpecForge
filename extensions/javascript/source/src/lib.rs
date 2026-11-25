@@ -11,7 +11,12 @@
 //! `js:<package>/<file>::<name>[.<member>]` ([`items`]), minted by `specforge-code-facts`; every named package becomes
 //! a `pkg:npm/<name>` package fact, the target of its items' `package` ([`packages`]). A second package of one name is
 //! `pkg:npm/<name>#<dir>`, its items `js:<name>@<dir>/…` (`specforge-javascript-workspace`).
+//!
+//! A test file is parsed with the test query (`queries/js-tests.scm`) for its test calls only (ADR 0393 D4): each
+//! statically named `test`, `it`, `describe` or `suite` call, and each subtest, is a `function` item with the
+//! attribute `test`, and a leaf test carries the test id node-test mints for it ([`calls`]). Its helpers are no item.
 
+mod calls;
 mod files;
 mod items;
 mod packages;
@@ -23,6 +28,8 @@ use specforge_javascript_workspace::{packages_input, Workspace};
 const COLLECTOR: &str = "javascript-source";
 /// The pack's query, compiled by the host's reader for either grammar.
 const QUERY: &str = include_str!("../queries/js-tags.scm");
+/// The test query, run on test files only.
+const TESTS: &str = include_str!("../queries/js-tests.scm");
 
 #[specforge_extension_sdk::extension(
     name = "@javascript/source",
@@ -53,14 +60,18 @@ impl Contributions for JavascriptSource {
     }
 }
 
-/// Every item of every kept source file, and every named package, as facts.
+/// Every item of every kept source file, every test call of every test file, and every named package, as facts.
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let workspace = files::read_packages(Workspace::of(input));
-    let parsed = files::parsed(input, &workspace)?;
     let mut definitions = Vec::new();
-    for file in &parsed {
+    for file in files::parsed(input, &workspace, files::kept, QUERY)? {
         if let Some((package, under)) = workspace.owner(&file.path) {
             definitions.extend(items::read(package, &file.path, under, &file.matches));
+        }
+    }
+    for file in files::parsed(input, &workspace, files::tested, TESTS)? {
+        if let Some((package, under)) = workspace.owner(&file.path) {
+            definitions.extend(calls::read(package, &file.path, under, &file.matches));
         }
     }
     let mut facts = item_facts(definitions);

@@ -162,7 +162,7 @@ impl<'m> Group<'m> {
 /// A string's value from its fragments and escape sequences, as the grammar splits it: each escape decoded
 /// (`\'` is `'`, `\u{41}` is `A`, a line continuation nothing), and a surrogate pair written as two `\u` escapes
 /// one character (`\uD83D\uDE00` is `😀`), as JavaScript reads it. A lone surrogate keeps its escaped text.
-fn decoded(parts: &[&SyntaxCapture]) -> String {
+pub(crate) fn decoded(parts: &[&SyntaxCapture]) -> String {
     let mut value = String::new();
     // A high surrogate's escape whose low half may follow: its code unit and its text.
     let mut high: Option<(u32, &str)> = None;

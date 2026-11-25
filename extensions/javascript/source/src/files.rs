@@ -3,11 +3,12 @@
 //! The host lists the project's files of each source extension (one `files` read per extension: a glob has no
 //! alternation). A listed file is read when a package the pack reads owns it ([`Workspace::owner`]: a file under none
 //! is outside the pack, as a `.rs` file no crate reaches is outside `@rust/source`) and its path inside that package is
-//! neither a test file (a runner pack holds the tests; their helpers are no API) nor generated output. A package is
-//! read unless its `package.json`, inside the package above it or the project, is a test's or generated output's
-//! ([`read_packages`]). The kept files of one grammar are
-//! parsed in one request, the files an answer's cap left unparsed asked again. A listing the host truncated is
-//! replaced, for its extension, by a parse of its glob whose answer the same rules filter.
+//! neither a test file (a runner pack holds the tests; their helpers are no API) nor generated output ([`kept`]). A
+//! test file that is not generated output is parsed too, with the test query, for its test calls only ([`tested`], ADR
+//! 0393 D4). A package is read unless its `package.json`, inside the package above it or the project, is a test's or
+//! generated output's ([`read_packages`]). The selected files of one grammar are parsed in one request, the files an
+//! answer's cap left unparsed asked again. A listing the host truncated is replaced, for its extension, by a parse of
+//! its glob whose answer the same selection filters.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -18,7 +19,7 @@ use specforge_extension_sdk::host::{
 use specforge_extension_sdk::prelude::*;
 use specforge_javascript_workspace::{Package, Workspace};
 
-use crate::{COLLECTOR, QUERY};
+use crate::COLLECTOR;
 
 /// The grammar of TypeScript (`.ts .mts .cts`, a `.d.ts` too): its `<T>x` cast parses only there.
 pub(crate) const TYPESCRIPT: &str = "typescript";
@@ -125,6 +126,14 @@ pub(crate) fn kept(workspace: &Workspace, path: &str) -> bool {
         .is_some_and(|(_, under)| readable(under))
 }
 
+/// Whether the pack reads the project-relative `path` for its test calls: a package it reads owns it, and the path
+/// inside that package is a test file and not generated output.
+pub(crate) fn tested(workspace: &Workspace, path: &str) -> bool {
+    workspace
+        .owner(path)
+        .is_some_and(|(_, under)| is_test(under) && !is_generated(under))
+}
+
 /// `workspace` without the packages the pack does not read: one whose `package.json`, inside the nearest package the
 /// pack reads above it (from the project root when there is none), is not readable (a fixture under `tests/`, a copy
 /// under `build/`), and so every package below it; their files are read by no package.
@@ -157,8 +166,13 @@ pub(crate) struct Parsed {
     pub matches: Vec<SyntaxMatch>,
 }
 
-/// Every kept file of the project's listings, parsed, by path.
-pub(crate) fn parsed(input: &CollectInput, workspace: &Workspace) -> Result<Vec<Parsed>, String> {
+/// Every file of the project's listings that `select` ([`kept`] or [`tested`]) accepts, parsed with `query`, by path.
+pub(crate) fn parsed(
+    input: &CollectInput,
+    workspace: &Workspace,
+    select: fn(&Workspace, &str) -> bool,
+    query: &str,
+) -> Result<Vec<Parsed>, String> {
     let mut by_language: BTreeMap<&str, Vec<String>> = BTreeMap::new();
     let mut globbed = Vec::new();
     for listing in &LISTINGS {
@@ -172,7 +186,7 @@ pub(crate) fn parsed(input: &CollectInput, workspace: &Workspace) -> Result<Vec<
         by_language.entry(listing.language).or_default().extend(
             read.facts
                 .iter()
-                .filter(|file| file.exists && kept(workspace, &file.path))
+                .filter(|file| file.exists && select(workspace, &file.path))
                 .map(|file| file.path.clone()),
         );
     }
@@ -181,7 +195,7 @@ pub(crate) fn parsed(input: &CollectInput, workspace: &Workspace) -> Result<Vec<
         paths.sort();
         paths.dedup();
         parsed.extend(all_parsed(
-            request(language, SyntaxFiles::Paths(paths)),
+            request(language, SyntaxFiles::Paths(paths), query),
             |_| true,
         )?);
     }
@@ -189,23 +203,23 @@ pub(crate) fn parsed(input: &CollectInput, workspace: &Workspace) -> Result<Vec<
     // bundle past the deadline).
     for listing in globbed {
         parsed.extend(all_parsed(
-            request(listing.language, SyntaxFiles::Glob(listing.glob())),
-            |path| kept(workspace, path),
+            request(listing.language, SyntaxFiles::Glob(listing.glob()), query),
+            |path| select(workspace, path),
         )?);
     }
     parsed.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(parsed)
 }
 
-/// `files` in `language`, read from the project root with the pack's query.
-fn request(language: &str, files: SyntaxFiles) -> SyntaxRequest {
+/// `files` in `language`, read from the project root with `query`.
+fn request(language: &str, files: SyntaxFiles, query: &str) -> SyntaxRequest {
     SyntaxRequest {
         source: SyntaxSource::Worktree {
             root: "project".to_string(),
         },
         files,
         language: language.to_string(),
-        query: QUERY.to_string(),
+        query: query.to_string(),
     }
 }
 
