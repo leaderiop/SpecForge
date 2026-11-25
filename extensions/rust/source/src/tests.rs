@@ -737,6 +737,40 @@ fn a_guard_only_helper_carries_no_test_id() {
 
 #[specforge_test(requirement = "FEATURE-004")]
 #[specforge_test(requirement = "FEATURE-113")]
+fn stacked_spec_link_attributes_register_as_the_macro_does() {
+    let facts = collected(&[(
+        "src/lib.rs",
+        "#[specforge_test(requirement = \"A\")]\n#[specforge_test(requirement = \"B\", __guard_only)]\nfn top() {}\n\
+         #[specforge_test(requirement = \"A\", __guard_only)]\n#[specforge_test(requirement = \"B\")]\nfn low() {}\n\
+         #[specforge_test(requirement = \"A\", __guard_only)]\n#[tokio::test]\nasync fn runner() {}\n\
+         #[spec(behavior = r#\"a\"b\"#, __guard_only)]\nfn raw() {}\n\
+         #[spec(behavior = 'x', note = '\"', __guard_only)]\nfn chars() {}\n",
+    )]);
+    // The top one leaves registering to the one below, which is a guard only: no test is registered.
+    assert_eq!(marks(&facts, "rust:toy::top").1, None);
+    assert_eq!(
+        marks(&facts, "rust:toy::low").1,
+        Some(json!("rust:toy#low"))
+    );
+    assert_eq!(
+        marks(&facts, "rust:toy::runner").1,
+        Some(json!("rust:toy#runner")),
+        "a runner attribute registers it itself"
+    );
+    assert_eq!(
+        marks(&facts, "rust:toy::raw").1,
+        None,
+        "a raw string hides no __guard_only after it"
+    );
+    assert_eq!(
+        marks(&facts, "rust:toy::chars").1,
+        None,
+        "nor does a char literal"
+    );
+}
+
+#[specforge_test(requirement = "FEATURE-004")]
+#[specforge_test(requirement = "FEATURE-113")]
 fn a_test_in_an_inline_module_keeps_its_module_path() {
     let facts = collected(&[
         ("src/lib.rs", "mod x;\n"),

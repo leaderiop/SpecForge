@@ -115,7 +115,9 @@ not decided, so such a test the report lacks stays missing. Every `cfg(...)`
 that compiles an item out is in its `attrs`: its own, those of the modules
 around it (`#[cfg(windows)] mod tests { … }`), its file's `#![cfg(...)]` and
 those on the `mod` declarations that reach its file. An attribute naming
-`__guard_only` marks no test: that function carries no `test_id`
+`__guard_only` marks no test; with several spec-link attributes stacked and
+no runner attribute, the lowest one decides, as the macro registers it. A
+function no test is registered for carries no `test_id`
 ([ADR 0393](../adr/0393-x2-is-a-floor-every-real-test-reaches-and-only-tests-count.md)).
 
 ## Things to know

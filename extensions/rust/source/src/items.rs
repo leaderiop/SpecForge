@@ -320,47 +320,39 @@ fn attribute_paths<'m>(above: &'m [&SyntaxMatch]) -> impl Iterator<Item = String
         .map(|path| path.split_whitespace().collect())
 }
 
-/// Whether an attribute above marks a test: its path is `test`, ends in `::test`, or is `specforge_test` or `spec`,
-/// and it names no `__guard_only`: a helper the macro registers no test for is no test (ADR 0393 D6).
-fn is_test(above: &[&SyntaxMatch]) -> bool {
-    above
-        .iter()
-        .filter(|found| found.kind == "attribute")
-        .any(|found| {
-            let path: String = capture(found, "path")
-                .unwrap_or_default()
-                .split_whitespace()
-                .collect();
-            (path == "test"
-                || path.ends_with("::test")
-                || path == "specforge_test"
-                || path == "spec")
-                && !capture(found, "attribute").is_some_and(guard_only)
-        })
-}
+/// The paths of the spec-link attributes, as the query's entity pattern and the macro name them.
+const SPEC_LINKS: [&str; 5] = [
+    "specforge_test",
+    "spec",
+    "specforge_test_macros::test",
+    "specforge_test::test",
+    "specforge::test",
+];
 
-/// Whether `attribute` holds the identifier `__guard_only` outside its string literals.
-fn guard_only(attribute: &str) -> bool {
-    let mut code = String::with_capacity(attribute.len());
-    let mut chars = attribute.chars();
-    while let Some(c) = chars.next() {
-        if c != '"' {
-            code.push(c);
-            continue;
+/// Whether the attributes above register a test as `specforge_test_macros` does (ADR 0393 D6): a runner attribute
+/// (`test`, or a path ending in `::test` that is no spec-link one) registers it itself; else each spec-link attribute
+/// leaves registering to the next one below it, so the lowest registers it unless it names `__guard_only` (an
+/// identifier among its arguments, the query's `guard_only` match on the same attribute; never a string's text).
+fn is_test(above: &[&SyntaxMatch]) -> bool {
+    let mut lowest = None;
+    for found in above.iter().filter(|found| found.kind == "attribute") {
+        let path: String = capture(found, "path")
+            .unwrap_or_default()
+            .split_whitespace()
+            .collect();
+        let path = path.trim_start_matches("::");
+        if SPEC_LINKS.contains(&path) {
+            lowest = Some(found.span);
+        } else if path == "test" || path.ends_with("::test") {
+            return true;
         }
-        while let Some(c) = chars.next() {
-            match c {
-                '\\' => {
-                    chars.next();
-                }
-                '"' => break,
-                _ => {}
-            }
-        }
-        code.push(' ');
     }
-    code.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
-        .any(|word| word == "__guard_only")
+    lowest.is_some_and(|span| {
+        !above.iter().any(|found| {
+            found.kind == "guard_only"
+                && (found.span.start.byte, found.span.end.byte) == (span.start.byte, span.end.byte)
+        })
+    })
 }
 
 /// The entity each spec-link attribute above names (its first `<kind> = "<id>"`), at the id's string.

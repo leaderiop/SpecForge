@@ -125,8 +125,11 @@ unreachable, and an unknown predicate must never hide a test a forgotten feature
 
 ## D6. `__guard_only` marks no test
 
-An attribute whose arguments name the identifier `__guard_only` marks no test, so the helper it decorates gets no
-`test_id`.
+An attribute whose arguments name the identifier `__guard_only` (an identifier token, never a string's text) marks no
+test. `@rust/source` follows the macro when attributes stack: a runner attribute (`#[test]`, `#[tokio::test]`)
+registers the test itself; otherwise each spec-link attribute leaves registering to the next one below it, so the
+function is a test exactly when the lowest spec-link attribute is not `__guard_only`. A helper no test is registered
+for gets no `test_id`.
 
 The reason: those helpers exist to type-check a guard, never run, and are not tests.
 
