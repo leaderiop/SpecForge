@@ -10,14 +10,30 @@ fn a_guests_config_is_the_store_the_base_and_its_junit_path() {
     let base = "[profile.gate]\nretries = 0\n";
     assert_eq!(
         config(base, Path::new("/r/target/nextest"), "gate", "rust-test").unwrap(),
-        "[store]\ndir = '/r/target/nextest'\n\n[profile.gate]\nretries = 0\n\
+        "[store]\ndir = \"/r/target/nextest\"\n\n[profile.gate]\nretries = 0\n\
          [profile.gate.junit]\npath = \"junit-guests/rust-test/junit.xml\"\n"
     );
 }
 
+/// The store is a TOML basic string: an apostrophe needs nothing, a backslash and a double quote are escaped.
 #[test]
-fn a_store_a_literal_string_cannot_hold_is_refused() {
-    for store in ["/r/it's", "/r/a\nb", "/r/a\rb"] {
+fn any_store_path_is_written_as_an_escaped_basic_string() {
+    for (store, written) in [
+        ("/Users/o'neil/r", "/Users/o'neil/r"),
+        (r"C:\r\target", r"C:\\r\\target"),
+        ("/r/a\"b", "/r/a\\\"b"),
+    ] {
+        let text = config("", Path::new(store), "gate", "checks").unwrap();
+        assert!(
+            text.starts_with(&format!("[store]\ndir = \"{written}\"\n")),
+            "{text}"
+        );
+    }
+}
+
+#[test]
+fn a_store_with_a_control_character_is_refused() {
+    for store in ["/r/a\nb", "/r/a\rb", "/r/a\tb"] {
         let err = config("", Path::new(store), "gate", "checks").unwrap_err();
         assert!(err.contains(&format!("{store:?}")), "{err}");
     }

@@ -82,9 +82,10 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     finish(failures)
 }
 
-/// One guest's nextest config: a `[store]` at `store` (a TOML literal string, so a Windows path's backslashes need no
-/// escape), the committed `base`, then the JUnit path `junit-guests/<slug>/junit.xml` of `profile`. Refuses a store
-/// a literal string cannot hold and a slug outside ASCII lowercase letters, digits and `-`.
+/// One guest's nextest config: a `[store]` at `store` (a TOML basic string, its `\` and `"` escaped, so any path
+/// holds, a Windows one or one with an apostrophe), the committed `base`, then the JUnit path
+/// `junit-guests/<slug>/junit.xml` of `profile`. Refuses a store holding a control character and a slug outside ASCII
+/// lowercase letters, digits and `-`.
 pub(crate) fn config(
     base: &str,
     store: &Path,
@@ -92,11 +93,12 @@ pub(crate) fn config(
     slug: &str,
 ) -> Result<String, String> {
     let store = store.to_string_lossy();
-    if store.contains(['\'', '\n', '\r']) {
+    if store.contains(char::is_control) {
         return Err(format!(
-            "the nextest store {store:?} holds a quote or a line break"
+            "the nextest store {store:?} holds a control character"
         ));
     }
+    let store = store.replace('\\', "\\\\").replace('"', "\\\"");
     if slug.is_empty()
         || !slug
             .chars()
@@ -108,7 +110,7 @@ pub(crate) fn config(
     }
     let end = if base.ends_with('\n') { "" } else { "\n" };
     Ok(format!(
-        "[store]\ndir = '{store}'\n\n{base}{end}[profile.{profile}.junit]\npath = \"{GUESTS}/{slug}/junit.xml\"\n"
+        "[store]\ndir = \"{store}\"\n\n{base}{end}[profile.{profile}.junit]\npath = \"{GUESTS}/{slug}/junit.xml\"\n"
     ))
 }
 
