@@ -7,8 +7,9 @@
 //! is reported at its line, never used. Element bodies are cut by their literal closing tag ([`crate::xmltags`]) and
 //! kept verbatim, trimmed at both ends.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
+use gsd_kit::markdown;
 use serde_json::{Value as Json, json};
 
 use super::{Context, is_bullet, row, tasks, threats};
@@ -336,6 +337,7 @@ pub fn read(
         }
     }
     unknown_elements(doc, &body, report);
+    outside_elements(doc, &body, report);
     let title = match (scope, cx.roadmap.plan_titles.get(id)) {
         (Scope::Phase { .. }, Some(t)) => t.clone(),
         (Scope::Phase { .. }, None) => {
@@ -599,20 +601,72 @@ fn context(doc: &Doc<'_>, c: &Tagged, report: &mut Report) -> Vec<String> {
     kept
 }
 
+/// The element name a raw line opens with (`<task type="auto">` is `task`), if any.
+fn element_name(raw: &str) -> Option<String> {
+    let rest = raw.trim_start().strip_prefix('<')?;
+    let name: String = rest
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+        .collect();
+    (!name.is_empty()).then_some(name)
+}
+
 /// Reports each element outside a fence whose name this reader neither reads nor reports.
 fn unknown_elements(doc: &Doc<'_>, body: &str, report: &mut Report) {
     let fenced = sections::fenced(body);
     for (n, raw) in body.split('\n').enumerate() {
-        let Some(rest) = raw.trim_start().strip_prefix('<') else {
+        let Some(name) = element_name(raw) else {
             continue;
         };
-        let name: String = rest
-            .chars()
-            .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
-            .collect();
-        if !fenced[n] && !name.is_empty() && !ELEMENTS.contains(&name.as_str()) {
+        if !fenced[n] && !ELEMENTS.contains(&name.as_str()) {
             let key = format!("<{name}>");
             report.push(doc.row(&key, n + 1, &key));
         }
+    }
+}
+
+/// Reports each Markdown block outside every element (a `## Notes` heading, the prose under it, a `# Plan 01-01`
+/// title): a plan's fields are its frontmatter and its elements, so no field holds it. An unclosed element, refused at
+/// its line, holds every line after it.
+fn outside_elements(doc: &Doc<'_>, body: &str, report: &mut Report) {
+    let fenced = sections::fenced(body);
+    let mut inside = vec![false; fenced.len()];
+    let names: BTreeSet<String> = body
+        .split('\n')
+        .enumerate()
+        .filter(|(n, _)| !fenced[*n])
+        .filter_map(|(_, raw)| element_name(raw))
+        .collect();
+    for name in names {
+        let (found, refused) = xmltags::tagged(body, &name);
+        for e in found {
+            let first = e.line - 1;
+            let last = (first + e.body.matches('\n').count()).min(inside.len() - 1);
+            inside[first..=last].fill(true);
+        }
+        for r in refused
+            .iter()
+            .filter(|r| r.reason.contains("is not closed"))
+        {
+            inside[r.line - 1..].fill(true);
+        }
+    }
+    let headings: BTreeMap<usize, String> = markdown::headings(body)
+        .into_iter()
+        .map(|h| (h.line, h.text))
+        .collect();
+    for b in markdown::inline_blocks(body) {
+        let first = b.lines[0];
+        if inside.get(first).copied().unwrap_or(true) {
+            continue;
+        }
+        let section = headings
+            .get(&first)
+            .map_or("outside every element", String::as_str);
+        report.push(doc.unmapped(
+            first + 1,
+            section,
+            "text outside every element of the plan: no field holds it".to_string(),
+        ));
     }
 }

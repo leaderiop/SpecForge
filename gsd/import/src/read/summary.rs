@@ -312,8 +312,13 @@ fn body_sections(
     let lines: Vec<&str> = body.split('\n').collect();
     let fenced = sections::fenced(body);
     let mut h1 = false;
+    // Whether a `##` section, reported with its sub-sections, holds the lines here.
+    let mut under = false;
     for s in sections::sections(body) {
         let line = s.line + 1;
+        if s.level <= 2 {
+            under = s.level == 2;
+        }
         match (s.level, s.title.as_str()) {
             (1, _) if !h1 => {
                 h1 = true;
@@ -356,13 +361,13 @@ fn body_sections(
             | "Next Phase Readiness" | "Deviations from Plan")) => {
                 report.push(doc.row(&format!("## {title}"), line, title));
             }
-            (2, title) | (1, title) => report.push(doc.unmapped(
+            // A sub-section of a `##` section is its section's; one under the title alone is no row's.
+            (3.., _) if under => {}
+            (_, title) => report.push(doc.unmapped(
                 line,
                 title,
                 format!("a section no row of the {} table names: no field holds it", doc.format),
             )),
-            // A sub-section is its section's.
-            _ => {}
         }
     }
 }

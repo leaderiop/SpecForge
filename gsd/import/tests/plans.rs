@@ -691,6 +691,39 @@ fn a_second_plan_of_one_id_keeps_its_tasks_to_itself() {
 }
 
 #[test]
+fn a_heading_outside_every_element_or_under_a_summary_title_is_reported() {
+    let plan = ".planning/phases/01-one/01-01-PLAN.md";
+    let summary = ".planning/phases/01-one/01-01-SUMMARY.md";
+    let body = "# Plan 01-01\n\nIntro prose.\n\n<tasks>\n<task type=\"auto\">\n  <name>Task 1: T</name>\n  \
+        <action>a</action>\n  <done>d</done>\n</task>\n</tasks>\n\n## Notes\n\nSome prose\nover two lines.\n";
+    let summary_body = format!(
+        "{}\n### Stray\n\nx\n\n## Accomplishments\n\n### Sub\n",
+        summary_text("")
+    );
+    let out = run(vec![(plan, &plan_text("", body)), (summary, &summary_body)]);
+    assert_eq!(out.exit_code, 0, "{}", out.stderr);
+    assert_eq!(paths(&creates(&out), "task"), ["v1.0/01/01-01/T1"]);
+    let reported = entries(&out, plan);
+    let outside: Vec<u64> = reported
+        .iter()
+        .filter(|(_, _, o, r)| o == "unmapped" && r.contains("outside every element"))
+        .map(|(l, ..)| *l)
+        .collect();
+    assert_eq!(outside, [10, 12, 22, 24], "{reported:#?}");
+    let reported = entries(&out, summary);
+    assert!(
+        has(
+            &reported,
+            13,
+            "unmapped",
+            "a section no row of the NN-MM-SUMMARY.md table"
+        ),
+        "{reported:#?}"
+    );
+    assert!(!reported.iter().any(|(l, ..)| *l == 19), "{reported:#?}");
+}
+
+#[test]
 fn a_deliverable_and_a_requires_report_each_member_they_do_not_read() {
     let path = ".planning/phases/01-one/01-01-SUMMARY.md";
     let front = "requires:\n  - phase: 01-one\n    provides: x\n    via: y\ncoverage:\n  - id: d1\n    \
