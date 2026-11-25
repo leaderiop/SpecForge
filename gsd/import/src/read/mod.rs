@@ -381,34 +381,38 @@ pub fn is_date(value: &str) -> bool {
     }
 }
 
-/// Whether `value` is an RFC 3339 timestamp: a [`is_date`] date, `T`, `HH:MM:SS`, an optional fraction, then `Z` or an
-/// offset `±HH:MM`.
+/// Whether `value` is a timestamp the gsd family's rule E107 accepts on an authored `ts` field: exactly
+/// `gsd_kit::dsl::RFC3339_UTC` (`YYYY-MM-DDTHH:MM:SS`, an optional fraction, `Z`; an uppercase `T`, no offset), which
+/// the unit test holds this equal to. The import never writes a value `check` turns into an Error.
 pub fn is_timestamp(value: &str) -> bool {
-    let two = |s: &str, max: u32| {
-        s.len() == 2
-            && s.bytes().all(|c| c.is_ascii_digit())
-            && s.parse::<u32>().is_ok_and(|v| v <= max)
-    };
-    let Some((date, time)) = value.split_once(['T', 't']) else {
+    let b = value.as_bytes();
+    let digits = |r: Range<usize>| b[r].iter().all(u8::is_ascii_digit);
+    let two = |at: usize| (b[at] - b'0') * 10 + (b[at + 1] - b'0');
+    let Some(rest) = value.strip_suffix('Z') else {
         return false;
     };
-    let (clock, zone) = match time.find(['Z', 'z', '+', '-']) {
-        Some(at) => time.split_at(at),
-        None => return false,
+    let fraction = match rest.get(19..) {
+        Some("") => true,
+        Some(f) => f.len() > 1 && f.starts_with('.') && f[1..].bytes().all(|c| c.is_ascii_digit()),
+        None => false,
     };
-    let (clock, fraction) = clock.split_once('.').unwrap_or((clock, "0"));
-    let hms: Vec<&str> = clock.split(':').collect();
-    let offset = match zone {
-        "Z" | "z" => true,
-        _ => zone[1..]
-            .split_once(':')
-            .is_some_and(|(h, m)| two(h, 23) && two(m, 59)),
-    };
-    is_date(date)
-        && matches!(hms.as_slice(), [h, m, s] if two(h, 23) && two(m, 59) && two(s, 60))
-        && !fraction.is_empty()
-        && fraction.bytes().all(|c| c.is_ascii_digit())
-        && offset
+    fraction
+        && digits(0..4)
+        && b[4] == b'-'
+        && digits(5..7)
+        && b[7] == b'-'
+        && digits(8..10)
+        && b[10] == b'T'
+        && digits(11..13)
+        && b[13] == b':'
+        && digits(14..16)
+        && b[16] == b':'
+        && digits(17..19)
+        && (1..=12).contains(&two(5))
+        && (1..=31).contains(&two(8))
+        && two(11) <= 23
+        && two(14) <= 59
+        && two(17) <= 60
 }
 
 /// A file of one phase, `phases/<dir>/<NN><suffix>` (`02-CONTEXT.md`): where its records go.
@@ -531,8 +535,8 @@ mod tests {
         }
         for ok in [
             "2026-03-03T10:30:00Z",
-            "2026-03-03T10:30:00.5+01:00",
-            "2026-03-03t23:59:60z",
+            "2026-03-03T23:59:60.123Z",
+            "2026-02-31T00:00:00Z",
         ] {
             assert!(is_timestamp(ok), "{ok}");
         }
@@ -542,8 +546,46 @@ mod tests {
             "2026-03-03T24:00:00Z",
             "2026-03-03T10:30Z",
             "2026-03-03T10:30:00",
+            "2026-03-03T10:30:00.5+01:00",
+            "2026-03-03t23:59:60z",
+            "2026-03-03T10:30:00z",
+            "2026-03-03T10:30:00.Z",
         ] {
             assert!(!is_timestamp(bad), "{bad}");
+        }
+    }
+
+    /// `is_timestamp` is E107's `RFC3339_UTC`, value for value: the import writes no `ts` that `check` refuses.
+    #[test]
+    fn a_timestamp_is_what_e107_accepts() {
+        let e107 = regex::Regex::new(gsd_kit::dsl::RFC3339_UTC).expect("a pattern");
+        let mut values = vec![
+            String::new(),
+            "Z".to_string(),
+            "2026-10-28 09:30:00Z".to_string(),
+            "\u{662}\u{660}\u{662}\u{666}-10-28T09:30:00Z".to_string(),
+            "2026-10-28T09:30:00Zx".to_string(),
+            "2026-10-28T09:30:00.1234567Z".to_string(),
+            "2026-10-28T09:30:00+00:00".to_string(),
+            "2026-10-28T09:30:0éZ".to_string(),
+        ];
+        for (month, day, hour, minute, second) in [
+            ("00", "10", "09", "30", "00"),
+            ("13", "10", "09", "30", "00"),
+            ("12", "00", "09", "30", "00"),
+            ("12", "31", "09", "30", "00"),
+            ("12", "32", "09", "30", "00"),
+            ("02", "30", "20", "59", "60"),
+            ("02", "30", "24", "00", "00"),
+            ("02", "30", "23", "60", "00"),
+            ("02", "30", "23", "59", "61"),
+            ("1a", "30", "23", "59", "59"),
+        ] {
+            let at = format!("2026-{month}-{day}T{hour}:{minute}:{second}");
+            values.extend([format!("{at}Z"), format!("{at}.5Z"), format!("{at}z")]);
+        }
+        for value in values {
+            assert_eq!(is_timestamp(&value), e107.is_match(&value), "{value:?}");
         }
     }
 }
