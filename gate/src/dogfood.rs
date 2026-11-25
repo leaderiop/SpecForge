@@ -75,23 +75,13 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     for line in &lines {
         ctx.log(line);
     }
-    // X2 is a floor (ADR 0393 D8): every project is collected and logged in turn before the floor judges, so a failing
-    // SpecForge does not hide the fixtures' lines; the errors are joined after the last. The full missing list goes to
-    // the log only.
-    let errors: Vec<String> =
-        std::iter::once(("SpecForge", log_x2(ctx, specforge, "SpecForge", &tree)))
-            .chain(
-                FIXTURES
-                    .iter()
-                    .map(|fixture| (fixture.name, fixture_x2(ctx, specforge, fixture, &tracked))),
-            )
-            .filter_map(|(name, x2)| x2.and_then(|x2| x2::floor(name, &x2)).err())
-            .collect();
-    let x2 = if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors.join("\n"))
-    };
+    let x2 = judge_x2(
+        std::iter::once(("SpecForge", log_x2(ctx, specforge, "SpecForge", &tree))).chain(
+            FIXTURES
+                .iter()
+                .map(|fixture| (fixture.name, fixture_x2(ctx, specforge, fixture, &tracked))),
+        ),
+    );
     let (logged, result) = outcome(failed, &lines, x2);
     if let Some(line) = logged {
         ctx.log(&line);
@@ -134,6 +124,24 @@ fn negative_control(ctx: &Ctx, specforge: &Path) -> Result<(), String> {
         "negative control {CONTROL} failed ({}):\n{tail}",
         output.status
     ))
+}
+
+/// X2 as a floor (ADR 0393 D8) over each project's X2, or the error of its collect or export: Ok when every project
+/// passes [`x2::floor`], else each failure, joined by line in project order. The iterator is lazy, so each project is
+/// collected and logged in turn and a failing SpecForge does not hide the fixtures' lines; the full missing list goes
+/// to the log only.
+fn judge_x2<'a>(
+    projects: impl IntoIterator<Item = (&'a str, Result<x2::X2, String>)>,
+) -> Result<(), String> {
+    let errors: Vec<String> = projects
+        .into_iter()
+        .filter_map(|(name, x2)| x2.and_then(|x2| x2::floor(name, &x2)).err())
+        .collect();
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("\n"))
+    }
 }
 
 /// The check's result and what to log first: the requirement verdict's first problem when it `failed` (its first line

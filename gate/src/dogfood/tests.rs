@@ -204,6 +204,39 @@ fn a_failed_requirement_verdict_still_logs_the_x2_error() {
     assert_eq!(outcome(false, &lines, Ok(())), (None, Ok(())));
 }
 
+fn x2_of(present: usize, missing: &[&str]) -> Result<x2::X2, String> {
+    Ok(x2::X2 {
+        present,
+        total: present + missing.len(),
+        missing: missing.iter().map(|id| id.to_string()).collect(),
+    })
+}
+
+/// The check's X2 verdict: every project at the floor passes; one below it, at `0/0` or whose collect failed fails the
+/// whole, each failure on its own line in project order.
+#[test]
+fn judge_x2_fails_when_any_project_fails_and_names_each_failure() {
+    assert_eq!(
+        judge_x2([("a", x2_of(3, &[])), ("b", x2_of(6, &[]))]),
+        Ok(())
+    );
+    assert_eq!(
+        judge_x2([
+            ("a", x2_of(3, &[])),
+            ("ledger", x2_of(5, &["i"])),
+            (
+                "c",
+                Err("X2 c: collecting with rust-test: boom".to_string())
+            ),
+            ("d", x2_of(0, &[])),
+        ]),
+        Err("X2 ledger: 5/6 (83.3%): missing i\n\
+             X2 c: collecting with rust-test: boom\n\
+             X2 d: no item has a test_id"
+            .to_string())
+    );
+}
+
 /// A fixture collect passes with Info only; a Warning or an Error fails it, named by code and message, and so does an
 /// answer whose shape lost its `diagnostics` array (CONTEXT D-10).
 #[test]
@@ -284,9 +317,11 @@ fn x2_floor_fails_a_ledger_copy_missing_one_case() {
     let doctored = dir.path().join("rust-test.xml");
     std::fs::write(&doctored, kept.join("\n")).unwrap();
 
+    // Judged as `run` judges: through `judge_x2` and `outcome`, so a check that only printed X2 fails here.
     let fixture = ledger_reading(doctored.to_string_lossy().into_owned());
-    let x2 = fixture_x2(&ctx, specforge, &fixture, &tracked).unwrap();
-    let failed = x2::floor("ledger", &x2).unwrap_err();
+    let x2 = fixture_x2(&ctx, specforge, &fixture, &tracked);
+    let (_, result) = outcome(false, &[], judge_x2([("ledger", x2)]));
+    let failed = result.unwrap_err();
     assert!(failed.contains("X2 ledger: 5/6"), "{failed}");
     assert!(failed.contains(dropped), "{failed}");
 
@@ -295,7 +330,9 @@ fn x2_floor_fails_a_ledger_copy_missing_one_case() {
         specforge,
         &ledger_reading(golden.to_string()),
         &tracked,
-    )
-    .unwrap();
-    assert_eq!(x2::floor("ledger", &x2), Ok(()));
+    );
+    assert_eq!(
+        outcome(false, &[], judge_x2([("ledger", x2)])),
+        (None, Ok(()))
+    );
 }
